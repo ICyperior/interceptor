@@ -11,14 +11,17 @@ import queue
 import pty
 import os
 import select
-from flask import Flask, render_template_string, jsonify, request, Response
+from flask import Flask, render_template_string, jsonify, request, Response, send_file
 
 app = Flask(__name__)
 
 # Global process management
 current_process = None
+sensor_process = None
 output_queue = queue.Queue()
+sensor_queue = queue.Queue()
 process_lock = threading.Lock()
+sensor_lock = threading.Lock()
 
 # Logging settings
 logging_enabled = False
@@ -32,6 +35,7 @@ HTML_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>INTERCEPT // Signal Intelligence</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@400;500;600;700&display=swap');
 
@@ -644,6 +648,92 @@ HTML_TEMPLATE = '''
             color: var(--accent-red);
         }
 
+        /* Mode tabs */
+        .mode-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .mode-tab {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--bg-primary);
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .mode-tab:not(:last-child) {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .mode-tab:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .mode-tab.active {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+
+        .mode-content {
+            display: none;
+        }
+
+        .mode-content.active {
+            display: block;
+        }
+
+        /* Sensor card styling */
+        .sensor-card {
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--accent-green);
+            background: var(--bg-secondary);
+        }
+
+        .sensor-card .device-name {
+            color: var(--accent-green);
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .sensor-card .sensor-data {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .sensor-card .data-item {
+            background: var(--bg-primary);
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .sensor-card .data-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sensor-card .data-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--accent-cyan);
+        }
+
         /* Scanline effect overlay */
         body::before {
             content: '';
@@ -682,12 +772,18 @@ HTML_TEMPLATE = '''
             </svg>
         </div>
         <h1>INTERCEPT</h1>
-        <p>Signal Intelligence // POCSAG & FLEX Decoder</p>
+        <p>Signal Intelligence // by smittix</p>
     </header>
 
     <div class="container">
         <div class="main-content">
             <div class="sidebar">
+                <!-- Mode Tabs -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" onclick="switchMode('pager')">Pager</button>
+                    <button class="mode-tab" onclick="switchMode('sensor')">433MHz</button>
+                </div>
+
                 <div class="section">
                     <h3>Device</h3>
                     <div class="form-group">
@@ -704,76 +800,130 @@ HTML_TEMPLATE = '''
                     <button class="preset-btn" onclick="refreshDevices()" style="width: 100%;">
                         Refresh Devices
                     </button>
-                    <div class="info-text">
-                        rtl_fm: <span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK' if tools.rtl_fm else 'Missing' }}</span>
-                        multimon-ng: <span class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon else 'Missing' }}</span>
+                    <div class="info-text" style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                        <span>rtl_fm:</span><span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK' if tools.rtl_fm else 'Missing' }}</span>
+                        <span>multimon-ng:</span><span class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon else 'Missing' }}</span>
+                        <span>rtl_433:</span><span class="tool-status {{ 'ok' if tools.rtl_433 else 'missing' }}">{{ 'OK' if tools.rtl_433 else 'Missing' }}</span>
                     </div>
                 </div>
 
-                <div class="section">
-                    <h3>Frequency</h3>
-                    <div class="form-group">
-                        <label>Frequency (MHz)</label>
-                        <input type="text" id="frequency" value="153.350" placeholder="e.g., 153.350">
+                <!-- PAGER MODE -->
+                <div id="pagerMode" class="mode-content active">
+                    <div class="section">
+                        <h3>Frequency</h3>
+                        <div class="form-group">
+                            <label>Frequency (MHz)</label>
+                            <input type="text" id="frequency" value="153.350" placeholder="e.g., 153.350">
+                        </div>
+                        <div class="preset-buttons" id="presetButtons">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                        <div style="margin-top: 8px; display: flex; gap: 5px;">
+                            <input type="text" id="newPresetFreq" placeholder="New freq (MHz)" style="flex: 1; padding: 6px; background: #0f3460; border: 1px solid #1a1a2e; color: #fff; border-radius: 4px; font-size: 12px;">
+                            <button class="preset-btn" onclick="addPreset()" style="background: #2ecc71;">Add</button>
+                        </div>
+                        <div style="margin-top: 5px;">
+                            <button class="preset-btn" onclick="resetPresets()" style="font-size: 11px;">Reset to Defaults</button>
+                        </div>
                     </div>
-                    <div class="preset-buttons" id="presetButtons">
-                        <!-- Populated by JavaScript -->
+
+                    <div class="section">
+                        <h3>Protocols</h3>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" id="proto_pocsag512" checked> POCSAG-512</label>
+                            <label><input type="checkbox" id="proto_pocsag1200" checked> POCSAG-1200</label>
+                            <label><input type="checkbox" id="proto_pocsag2400" checked> POCSAG-2400</label>
+                            <label><input type="checkbox" id="proto_flex" checked> FLEX</label>
+                        </div>
                     </div>
-                    <div style="margin-top: 8px; display: flex; gap: 5px;">
-                        <input type="text" id="newPresetFreq" placeholder="New freq (MHz)" style="flex: 1; padding: 6px; background: #0f3460; border: 1px solid #1a1a2e; color: #fff; border-radius: 4px; font-size: 12px;">
-                        <button class="preset-btn" onclick="addPreset()" style="background: #2ecc71;">Add</button>
+
+                    <div class="section">
+                        <h3>Settings</h3>
+                        <div class="form-group">
+                            <label>Gain (dB, 0 = auto)</label>
+                            <input type="text" id="gain" value="0" placeholder="0-49 or 0 for auto">
+                        </div>
+                        <div class="form-group">
+                            <label>Squelch Level</label>
+                            <input type="text" id="squelch" value="0" placeholder="0 = off">
+                        </div>
+                        <div class="form-group">
+                            <label>PPM Correction</label>
+                            <input type="text" id="ppm" value="0" placeholder="Frequency correction">
+                        </div>
                     </div>
-                    <div style="margin-top: 5px;">
-                        <button class="preset-btn" onclick="resetPresets()" style="font-size: 11px;">Reset to Defaults</button>
+
+                    <div class="section">
+                        <h3>Logging</h3>
+                        <div class="checkbox-group" style="margin-bottom: 15px;">
+                            <label>
+                                <input type="checkbox" id="loggingEnabled" onchange="toggleLogging()">
+                                Enable Logging
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Log file path</label>
+                            <input type="text" id="logFilePath" value="pager_messages.log" placeholder="pager_messages.log">
+                        </div>
                     </div>
+
+                    <button class="run-btn" id="startBtn" onclick="startDecoding()">
+                        Start Decoding
+                    </button>
+                    <button class="stop-btn" id="stopBtn" onclick="stopDecoding()" style="display: none;">
+                        Stop Decoding
+                    </button>
                 </div>
 
-                <div class="section">
-                    <h3>Protocols</h3>
-                    <div class="checkbox-group">
-                        <label><input type="checkbox" id="proto_pocsag512" checked> POCSAG-512</label>
-                        <label><input type="checkbox" id="proto_pocsag1200" checked> POCSAG-1200</label>
-                        <label><input type="checkbox" id="proto_pocsag2400" checked> POCSAG-2400</label>
-                        <label><input type="checkbox" id="proto_flex" checked> FLEX</label>
+                <!-- 433MHz SENSOR MODE -->
+                <div id="sensorMode" class="mode-content">
+                    <div class="section">
+                        <h3>Frequency</h3>
+                        <div class="form-group">
+                            <label>Frequency (MHz)</label>
+                            <input type="text" id="sensorFrequency" value="433.92" placeholder="e.g., 433.92">
+                        </div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" onclick="setSensorFreq('433.92')">433.92</button>
+                            <button class="preset-btn" onclick="setSensorFreq('315.00')">315.00</button>
+                            <button class="preset-btn" onclick="setSensorFreq('868.00')">868.00</button>
+                            <button class="preset-btn" onclick="setSensorFreq('915.00')">915.00</button>
+                        </div>
                     </div>
+
+                    <div class="section">
+                        <h3>Settings</h3>
+                        <div class="form-group">
+                            <label>Gain (dB, 0 = auto)</label>
+                            <input type="text" id="sensorGain" value="0" placeholder="0-49 or 0 for auto">
+                        </div>
+                        <div class="form-group">
+                            <label>PPM Correction</label>
+                            <input type="text" id="sensorPpm" value="0" placeholder="Frequency correction">
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Protocols</h3>
+                        <div class="info-text" style="margin-bottom: 10px;">
+                            rtl_433 auto-detects 200+ device protocols including weather stations, TPMS, doorbells, and more.
+                        </div>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="sensorLogging" onchange="toggleSensorLogging()">
+                                Enable Logging
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="run-btn" id="startSensorBtn" onclick="startSensorDecoding()">
+                        Start Listening
+                    </button>
+                    <button class="stop-btn" id="stopSensorBtn" onclick="stopSensorDecoding()" style="display: none;">
+                        Stop Listening
+                    </button>
                 </div>
 
-                <div class="section">
-                    <h3>Settings</h3>
-                    <div class="form-group">
-                        <label>Gain (dB, 0 = auto)</label>
-                        <input type="text" id="gain" value="0" placeholder="0-49 or 0 for auto">
-                    </div>
-                    <div class="form-group">
-                        <label>Squelch Level</label>
-                        <input type="text" id="squelch" value="0" placeholder="0 = off">
-                    </div>
-                    <div class="form-group">
-                        <label>PPM Correction</label>
-                        <input type="text" id="ppm" value="0" placeholder="Frequency correction">
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h3>Logging</h3>
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="loggingEnabled" onchange="toggleLogging()">
-                            Enable message logging
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label>Log file path</label>
-                        <input type="text" id="logFilePath" value="pager_messages.log" placeholder="pager_messages.log">
-                    </div>
-                </div>
-
-                <button class="run-btn" id="startBtn" onclick="startDecoding()">
-                    Start Decoding
-                </button>
-                <button class="stop-btn" id="stopBtn" onclick="stopDecoding()" style="display: none;">
-                    Stop Decoding
-                </button>
                 <button class="preset-btn" onclick="killAll()" style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
                     Kill All Processes
                 </button>
@@ -790,10 +940,14 @@ HTML_TEMPLATE = '''
                             <div class="signal-bar"></div>
                             <div class="signal-bar"></div>
                         </div>
-                        <div class="stats">
+                        <div class="stats" id="pagerStats">
                             <div>MSG: <span id="msgCount">0</span></div>
                             <div>POCSAG: <span id="pocsagCount">0</span></div>
                             <div>FLEX: <span id="flexCount">0</span></div>
+                        </div>
+                        <div class="stats" id="sensorStats" style="display: none;">
+                            <div>SENSORS: <span id="sensorCount">0</span></div>
+                            <div>DEVICES: <span id="deviceCount">0</span></div>
                         </div>
                     </div>
                 </div>
@@ -828,10 +982,184 @@ HTML_TEMPLATE = '''
     <script>
         let eventSource = null;
         let isRunning = false;
+        let isSensorRunning = false;
+        let currentMode = 'pager';
         let msgCount = 0;
         let pocsagCount = 0;
         let flexCount = 0;
+        let sensorCount = 0;
         let deviceList = {{ devices | tojson | safe }};
+
+        // Mode switching
+        function switchMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.textContent.toLowerCase().includes(mode === 'pager' ? 'pager' : '433'));
+            });
+            document.getElementById('pagerMode').classList.toggle('active', mode === 'pager');
+            document.getElementById('sensorMode').classList.toggle('active', mode === 'sensor');
+            document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
+            document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
+        }
+
+        // Track unique sensor devices
+        let uniqueDevices = new Set();
+
+        // Sensor frequency
+        function setSensorFreq(freq) {
+            document.getElementById('sensorFrequency').value = freq;
+            if (isSensorRunning) {
+                fetch('/stop_sensor', {method: 'POST'})
+                    .then(() => setTimeout(() => startSensorDecoding(), 500));
+            }
+        }
+
+        // Start sensor decoding
+        function startSensorDecoding() {
+            const freq = document.getElementById('sensorFrequency').value;
+            const gain = document.getElementById('sensorGain').value;
+            const ppm = document.getElementById('sensorPpm').value;
+            const device = getSelectedDevice();
+
+            const config = {
+                frequency: freq,
+                gain: gain,
+                ppm: ppm,
+                device: device
+            };
+
+            fetch('/start_sensor', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            }).then(r => r.json())
+              .then(data => {
+                  if (data.status === 'started') {
+                      setSensorRunning(true);
+                      startSensorStream();
+                  } else {
+                      alert('Error: ' + data.message);
+                  }
+              });
+        }
+
+        // Stop sensor decoding
+        function stopSensorDecoding() {
+            fetch('/stop_sensor', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    setSensorRunning(false);
+                    if (eventSource) {
+                        eventSource.close();
+                        eventSource = null;
+                    }
+                });
+        }
+
+        function setSensorRunning(running) {
+            isSensorRunning = running;
+            document.getElementById('statusDot').classList.toggle('running', running);
+            document.getElementById('statusText').textContent = running ? 'Listening...' : 'Idle';
+            document.getElementById('startSensorBtn').style.display = running ? 'none' : 'block';
+            document.getElementById('stopSensorBtn').style.display = running ? 'block' : 'none';
+        }
+
+        function startSensorStream() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/stream_sensor');
+
+            eventSource.onopen = function() {
+                showInfo('Sensor stream connected...');
+            };
+
+            eventSource.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.type === 'sensor') {
+                    addSensorReading(data);
+                } else if (data.type === 'status') {
+                    if (data.text === 'stopped') {
+                        setSensorRunning(false);
+                    }
+                } else if (data.type === 'info' || data.type === 'raw') {
+                    showInfo(data.text);
+                }
+            };
+
+            eventSource.onerror = function(e) {
+                console.error('Sensor stream error');
+            };
+        }
+
+        function addSensorReading(data) {
+            const output = document.getElementById('output');
+            const placeholder = output.querySelector('.placeholder');
+            if (placeholder) placeholder.remove();
+
+            // Store for export
+            allMessages.push(data);
+            playAlert();
+            pulseSignal();
+            addWaterfallPoint(Date.now(), 0.8);
+
+            sensorCount++;
+            document.getElementById('sensorCount').textContent = sensorCount;
+
+            // Track unique devices by model + id
+            const deviceKey = (data.model || 'Unknown') + '_' + (data.id || data.channel || '0');
+            if (!uniqueDevices.has(deviceKey)) {
+                uniqueDevices.add(deviceKey);
+                document.getElementById('deviceCount').textContent = uniqueDevices.size;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'sensor-card';
+
+            let dataItems = '';
+            const skipKeys = ['type', 'time', 'model', 'raw'];
+            for (const [key, value] of Object.entries(data)) {
+                if (!skipKeys.includes(key) && value !== null && value !== undefined) {
+                    const label = key.replace(/_/g, ' ');
+                    let displayValue = value;
+                    if (key === 'temperature_C') displayValue = value + ' °C';
+                    else if (key === 'temperature_F') displayValue = value + ' °F';
+                    else if (key === 'humidity') displayValue = value + ' %';
+                    else if (key === 'pressure_hPa') displayValue = value + ' hPa';
+                    else if (key === 'wind_avg_km_h') displayValue = value + ' km/h';
+                    else if (key === 'rain_mm') displayValue = value + ' mm';
+                    else if (key === 'battery_ok') displayValue = value ? 'OK' : 'Low';
+
+                    dataItems += '<div class="data-item"><div class="data-label">' + label + '</div><div class="data-value">' + displayValue + '</div></div>';
+                }
+            }
+
+            const relTime = data.time ? getRelativeTime(data.time.split(' ')[1] || data.time) : 'now';
+
+            card.innerHTML =
+                '<div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">' +
+                    '<span class="device-name">' + (data.model || 'Unknown Device') + '</span>' +
+                    '<span class="msg-time" data-timestamp="' + (data.time || '') + '" style="color: #444; font-size: 10px;">' + relTime + '</span>' +
+                '</div>' +
+                '<div class="sensor-data">' + dataItems + '</div>';
+
+            output.insertBefore(card, output.firstChild);
+
+            if (autoScroll) output.scrollTop = 0;
+            while (output.children.length > 100) {
+                output.removeChild(output.lastChild);
+            }
+        }
+
+        function toggleSensorLogging() {
+            const enabled = document.getElementById('sensorLogging').checked;
+            fetch('/logging', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: enabled, log_file: 'sensor_data.log'})
+            });
+        }
 
         // Audio alert settings
         let audioMuted = localStorage.getItem('audioMuted') === 'true';
@@ -892,7 +1220,7 @@ HTML_TEMPLATE = '''
                 ];
                 csv.push(row.join(','));
             });
-            downloadFile(csv.join('\n'), 'intercept_messages.csv', 'text/csv');
+            downloadFile(csv.join('\\n'), 'intercept_messages.csv', 'text/csv');
         }
 
         function exportJSON() {
@@ -980,7 +1308,7 @@ HTML_TEMPLATE = '''
         function renderWaterfall() {
             const canvas = document.getElementById('waterfallCanvas');
             if (!canvas) return;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             const width = canvas.width;
             const height = canvas.height;
 
@@ -1097,6 +1425,13 @@ HTML_TEMPLATE = '''
 
         function setFreq(freq) {
             document.getElementById('frequency').value = freq;
+            // Auto-restart decoder with new frequency if currently running
+            if (isRunning) {
+                fetch('/stop', {method: 'POST'})
+                    .then(() => {
+                        setTimeout(() => startDecoding(), 500);
+                    });
+            }
         }
 
         function refreshDevices() {
@@ -1351,15 +1686,19 @@ HTML_TEMPLATE = '''
         function clearMessages() {
             document.getElementById('output').innerHTML = `
                 <div class="placeholder" style="color: #888; text-align: center; padding: 50px;">
-                    Messages cleared. ${isRunning ? 'Waiting for new messages...' : 'Start decoding to receive messages.'}
+                    Messages cleared. ${isRunning || isSensorRunning ? 'Waiting for new messages...' : 'Start decoding to receive messages.'}
                 </div>
             `;
             msgCount = 0;
             pocsagCount = 0;
             flexCount = 0;
+            sensorCount = 0;
+            uniqueDevices.clear();
             document.getElementById('msgCount').textContent = '0';
             document.getElementById('pocsagCount').textContent = '0';
             document.getElementById('flexCount').textContent = '0';
+            document.getElementById('sensorCount').textContent = '0';
+            document.getElementById('deviceCount').textContent = '0';
         }
     </script>
 </body>
@@ -1544,10 +1883,16 @@ def stream_decoder(master_fd, process):
 def index():
     tools = {
         'rtl_fm': check_tool('rtl_fm'),
-        'multimon': check_tool('multimon-ng')
+        'multimon': check_tool('multimon-ng'),
+        'rtl_433': check_tool('rtl_433')
     }
     devices = detect_devices()
     return render_template_string(HTML_TEMPLATE, tools=tools, devices=devices)
+
+
+@app.route('/favicon.svg')
+def favicon():
+    return send_file('favicon.svg', mimetype='image/svg+xml')
 
 
 @app.route('/devices')
@@ -1747,8 +2092,8 @@ def log_message(msg):
 
 @app.route('/killall', methods=['POST'])
 def kill_all():
-    """Kill all rtl_fm and multimon-ng processes."""
-    global current_process
+    """Kill all rtl_fm, multimon-ng, and rtl_433 processes."""
+    global current_process, sensor_process
 
     killed = []
     try:
@@ -1765,8 +2110,18 @@ def kill_all():
     except:
         pass
 
+    try:
+        result = subprocess.run(['pkill', '-f', 'rtl_433'], capture_output=True)
+        if result.returncode == 0:
+            killed.append('rtl_433')
+    except:
+        pass
+
     with process_lock:
         current_process = None
+
+    with sensor_lock:
+        sensor_process = None
 
     return jsonify({'status': 'killed', 'processes': killed})
 
@@ -1789,10 +2144,162 @@ def stream():
     return response
 
 
+# ============== RTL_433 SENSOR ROUTES ==============
+
+def stream_sensor_output(process):
+    """Stream rtl_433 JSON output to queue."""
+    global sensor_process
+    import json as json_module
+
+    try:
+        sensor_queue.put({'type': 'status', 'text': 'started'})
+
+        for line in iter(process.stdout.readline, b''):
+            line = line.decode('utf-8', errors='replace').strip()
+            if not line:
+                continue
+
+            try:
+                # rtl_433 outputs JSON objects, one per line
+                data = json_module.loads(line)
+                data['type'] = 'sensor'
+                sensor_queue.put(data)
+
+                # Log if enabled
+                if logging_enabled:
+                    try:
+                        with open(log_file_path, 'a') as f:
+                            from datetime import datetime
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            f.write(f"{timestamp} | {data.get('model', 'Unknown')} | {json_module.dumps(data)}\n")
+                    except Exception:
+                        pass
+            except json_module.JSONDecodeError:
+                # Not JSON, send as raw
+                sensor_queue.put({'type': 'raw', 'text': line})
+
+    except Exception as e:
+        sensor_queue.put({'type': 'error', 'text': str(e)})
+    finally:
+        process.wait()
+        sensor_queue.put({'type': 'status', 'text': 'stopped'})
+        with sensor_lock:
+            sensor_process = None
+
+
+@app.route('/start_sensor', methods=['POST'])
+def start_sensor():
+    global sensor_process
+
+    with sensor_lock:
+        if sensor_process:
+            return jsonify({'status': 'error', 'message': 'Sensor already running'})
+
+        data = request.json
+        freq = data.get('frequency', '433.92')
+        gain = data.get('gain', '0')
+        ppm = data.get('ppm', '0')
+        device = data.get('device', '0')
+
+        # Clear queue
+        while not sensor_queue.empty():
+            try:
+                sensor_queue.get_nowait()
+            except:
+                break
+
+        # Build rtl_433 command
+        # rtl_433 -d <device> -f <freq>M -g <gain> -p <ppm> -F json
+        cmd = [
+            'rtl_433',
+            '-d', str(device),
+            '-f', f'{freq}M',
+            '-F', 'json'
+        ]
+
+        if gain and gain != '0':
+            cmd.extend(['-g', str(gain)])
+
+        if ppm and ppm != '0':
+            cmd.extend(['-p', str(ppm)])
+
+        full_cmd = ' '.join(cmd)
+        print(f"Running: {full_cmd}")
+
+        try:
+            sensor_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=1
+            )
+
+            # Start output thread
+            thread = threading.Thread(target=stream_sensor_output, args=(sensor_process,))
+            thread.daemon = True
+            thread.start()
+
+            # Monitor stderr
+            def monitor_stderr():
+                for line in sensor_process.stderr:
+                    err = line.decode('utf-8', errors='replace').strip()
+                    if err:
+                        print(f"[rtl_433] {err}")
+                        sensor_queue.put({'type': 'info', 'text': f'[rtl_433] {err}'})
+
+            stderr_thread = threading.Thread(target=monitor_stderr)
+            stderr_thread.daemon = True
+            stderr_thread.start()
+
+            sensor_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
+
+            return jsonify({'status': 'started', 'command': full_cmd})
+
+        except FileNotFoundError:
+            return jsonify({'status': 'error', 'message': 'rtl_433 not found. Install with: brew install rtl_433'})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)})
+
+
+@app.route('/stop_sensor', methods=['POST'])
+def stop_sensor():
+    global sensor_process
+
+    with sensor_lock:
+        if sensor_process:
+            sensor_process.terminate()
+            try:
+                sensor_process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                sensor_process.kill()
+            sensor_process = None
+            return jsonify({'status': 'stopped'})
+
+        return jsonify({'status': 'not_running'})
+
+
+@app.route('/stream_sensor')
+def stream_sensor():
+    def generate():
+        import json
+        while True:
+            try:
+                msg = sensor_queue.get(timeout=1)
+                yield f"data: {json.dumps(msg)}\n\n"
+            except queue.Empty:
+                yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
+
+    response = Response(generate(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
+
+
 def main():
     print("=" * 50)
     print("  INTERCEPT // Signal Intelligence")
-    print("  POCSAG / FLEX using RTL-SDR + multimon-ng")
+    print("  POCSAG / FLEX / 433MHz Sensors")
     print("=" * 50)
     print()
     print("Open http://localhost:5050 in your browser")
