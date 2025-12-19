@@ -7,13 +7,16 @@
 </p>
 
 <p align="center">
-  <strong>Signal Intelligence // POCSAG & FLEX Pager Decoder</strong>
+  <strong>Signal Intelligence</strong>
 </p>
 
 <p align="center">
   A sleek, modern web-based pager decoder using RTL-SDR and multimon-ng.<br>
   Decode POCSAG and FLEX pager signals with a futuristic SpaceX-inspired interface.
 </p>
+
+## Screenshot
+<img src="screenshot.png">
 
 ---
 
@@ -26,11 +29,7 @@
 - **Customizable frequency presets** stored in browser
 - **RTL-SDR device detection** and selection
 - **Configurable gain, squelch, and PPM correction**
-- **Modern dark UI** with SpaceX-inspired aesthetics
 
-## Screenshots
-
-The interface features a sleek dark theme with cyan accents, real-time message display, and intuitive controls.
 
 ## Requirements
 
@@ -170,3 +169,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Disclaimer
 
 This software is for educational and authorized use only. Ensure you comply with local laws regarding radio reception and privacy. Intercepting private communications without authorization may be illegal in your jurisdiction.
+
