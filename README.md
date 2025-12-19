@@ -12,8 +12,8 @@
 </p>
 
 <p align="center">
-  A sleek, modern web-based front-end for RTL-SDR signal decoding tools.<br>
-  Provides a unified interface for multimon-ng (POCSAG/FLEX) and rtl_433 (433MHz sensors).
+  A sleek, modern web-based front-end for signal intelligence tools.<br>
+  Unified interface for pager decoding, 433MHz sensors, WiFi reconnaissance, and Bluetooth scanning.
 </p>
 
 ## Screenshot
@@ -23,10 +23,12 @@
 
 ## What is INTERCEPT?
 
-INTERCEPT is a **web-based front-end** that provides a unified, modern interface for popular RTL-SDR signal decoding tools:
+INTERCEPT is a **web-based front-end** that provides a unified, modern interface for signal intelligence tools:
 
 - **rtl_fm + multimon-ng** - For decoding POCSAG and FLEX pager signals
 - **rtl_433** - For decoding 433MHz ISM band devices (weather stations, sensors, etc.)
+- **aircrack-ng / kismet** - For WiFi reconnaissance and network analysis
+- **hcitool / bluetoothctl / ubertooth** - For Bluetooth device scanning and tracking
 
 Instead of running command-line tools manually, INTERCEPT handles the process management, output parsing, and presents decoded data in a clean, real-time web interface.
 
@@ -46,6 +48,27 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 - **Doorbells, remotes, and IoT devices**
 - **Smart meters** and utility monitors
 
+### WiFi Reconnaissance
+- **Monitor mode** management via airmon-ng
+- **Network scanning** with airodump-ng or Kismet
+- **Channel hopping** or fixed channel monitoring
+- **Deauthentication attacks** for authorized testing
+- **Handshake capture** for WPA/WPA2 networks
+- **Channel utilization** visualization (2.4GHz)
+- **Security overview** chart (WPA3/WPA2/WEP/Open)
+- **Real-time radar** display of nearby networks
+
+### Bluetooth Scanning
+- **BLE and Classic** Bluetooth device scanning
+- **Multiple scan modes** - hcitool, bluetoothctl, Ubertooth, Bettercap
+- **Tracker detection** - AirTag, Tile, Samsung SmartTag, Chipolo
+- **Device classification** - phones, audio, wearables, computers
+- **Manufacturer lookup** via OUI database
+- **Service enumeration** via SDP
+- **L2CAP ping** for device reachability
+- **Proximity radar** visualization
+- **Device type breakdown** chart
+
 ### General
 - **Web-based interface** - no desktop app needed
 - **Live message streaming** via Server-Sent Events (SSE)
@@ -55,6 +78,9 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 - **Message logging** to file with timestamps
 - **RTL-SDR device detection** and selection
 - **Configurable gain and PPM correction**
+- **Device intelligence** dashboard with tracking
+- **Disclaimer acceptance** on first use
+- **Auto-stop** when switching between modes
 
 
 ## Requirements
@@ -68,6 +94,11 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 - rtl-sdr tools (`rtl_fm`)
 - multimon-ng (for pager decoding)
 - rtl_433 (for 433MHz sensor decoding)
+- aircrack-ng (for WiFi reconnaissance)
+- kismet (optional, alternative WiFi scanner)
+- BlueZ tools - hcitool, bluetoothctl, sdptool, l2ping (for Bluetooth)
+- Ubertooth tools (optional, for advanced BLE sniffing)
+- Bettercap (optional, alternative BLE scanner)
 
 ## Installation
 
@@ -132,13 +163,35 @@ make
 sudo make install
 ```
 
-### 4. Install Python dependencies
+### 4. Install aircrack-ng (optional, for WiFi)
+
+**macOS (Homebrew):**
+```bash
+brew install aircrack-ng
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install aircrack-ng
+```
+
+### 5. Install Bluetooth tools (optional)
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install bluez bluetooth
+```
+
+**macOS:**
+Bluetooth tools are built-in, though with limited functionality compared to Linux.
+
+### 6. Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Clone and run
+### 7. Clone and run
 
 ```bash
 git clone https://github.com/yourusername/intercept.git
@@ -184,6 +237,7 @@ You can customize pager presets in the web interface.
 
 ## API Endpoints
 
+### Pager & Sensor
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Main web interface |
@@ -197,6 +251,28 @@ You can customize pager presets in the web interface.
 | `/stream_sensor` | GET | SSE stream for sensor data |
 | `/logging` | POST | Toggle message logging |
 | `/killall` | POST | Kill all decoder processes |
+
+### WiFi
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/wifi/interfaces` | GET | List WiFi interfaces and tools |
+| `/wifi/monitor` | POST | Enable/disable monitor mode |
+| `/wifi/scan/start` | POST | Start WiFi scanning |
+| `/wifi/scan/stop` | POST | Stop WiFi scanning |
+| `/wifi/deauth` | POST | Send deauthentication packets |
+| `/wifi/networks` | GET | Get discovered networks |
+| `/wifi/stream` | GET | SSE stream for WiFi events |
+
+### Bluetooth
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/bt/interfaces` | GET | List Bluetooth interfaces and tools |
+| `/bt/scan/start` | POST | Start Bluetooth scanning |
+| `/bt/scan/stop` | POST | Stop Bluetooth scanning |
+| `/bt/enum` | POST | Enumerate device services |
+| `/bt/ping` | POST | L2CAP ping a device |
+| `/bt/devices` | GET | Get discovered devices |
+| `/bt/stream` | GET | SSE stream for Bluetooth events |
 
 ## Troubleshooting
 
@@ -230,7 +306,16 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 - [rtl_433](https://github.com/merbanan/rtl_433) - 433MHz sensor decoder
 - Inspired by the SpaceX mission control aesthetic
 
-## Disclaimer
+## ⚠️ Disclaimer
 
-This software is for educational and authorized use only. Ensure you comply with local laws regarding radio reception and privacy. Intercepting private communications without authorization may be illegal in your jurisdiction.
+**This software is for educational purposes only and intended for use by cybersecurity professionals in controlled environments.**
+
+By using INTERCEPT, you acknowledge that:
+- You will only use this tool with proper authorization
+- Intercepting communications without consent may be illegal in your jurisdiction
+- WiFi deauthentication and Bluetooth attacks should only be performed on networks/devices you own or have explicit permission to test
+- You are solely responsible for ensuring compliance with all applicable laws and regulations
+- The developers assume no liability for misuse of this software
+
+A disclaimer must be accepted when first launching the application.
 
