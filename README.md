@@ -304,6 +304,11 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 - [rtl-sdr](https://osmocom.org/projects/rtl-sdr/wiki) - RTL-SDR drivers
 - [multimon-ng](https://github.com/EliasOenal/multimon-ng) - Multi-protocol pager decoder
 - [rtl_433](https://github.com/merbanan/rtl_433) - 433MHz sensor decoder
+- [aircrack-ng](https://www.aircrack-ng.org/) - WiFi security auditing tools
+- [Kismet](https://www.kismetwireless.net/) - Wireless network detector and sniffer
+- [BlueZ](http://www.bluez.org/) - Official Linux Bluetooth protocol stack
+- [Ubertooth](https://greatscottgadgets.com/ubertoothone/) - Open source Bluetooth research tool
+- [Bettercap](https://www.bettercap.org/) - Network reconnaissance and MITM framework
 - Inspired by the SpaceX mission control aesthetic
 
 ## ⚠️ Disclaimer
