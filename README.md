@@ -319,3 +319,4 @@ By using INTERCEPT, you acknowledge that:
 
 A disclaimer must be accepted when first launching the application.
 
+
