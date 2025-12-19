@@ -561,6 +561,89 @@ HTML_TEMPLATE = '''
             letter-spacing: 1px;
         }
 
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .signal-meter {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 20px;
+            padding: 0 10px;
+        }
+
+        .signal-bar {
+            width: 4px;
+            background: var(--border-color);
+            transition: all 0.1s ease;
+        }
+
+        .signal-bar:nth-child(1) { height: 4px; }
+        .signal-bar:nth-child(2) { height: 8px; }
+        .signal-bar:nth-child(3) { height: 12px; }
+        .signal-bar:nth-child(4) { height: 16px; }
+        .signal-bar:nth-child(5) { height: 20px; }
+
+        .signal-bar.active {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        .waterfall-container {
+            padding: 0 15px;
+            margin-bottom: 10px;
+        }
+
+        #waterfallCanvas {
+            width: 100%;
+            height: 60px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            transition: box-shadow 0.3s ease;
+        }
+
+        #waterfallCanvas.active {
+            box-shadow: 0 0 15px var(--accent-cyan-dim);
+            border-color: var(--accent-cyan);
+        }
+
+        .status-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .control-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        .control-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .control-btn.active {
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        .control-btn.muted {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
         /* Scanline effect overlay */
         body::before {
             content: '';
@@ -699,11 +782,24 @@ HTML_TEMPLATE = '''
             <div class="output-panel">
                 <div class="output-header">
                     <h3>Decoded Messages</h3>
-                    <div class="stats">
-                        <div>Messages: <span id="msgCount">0</span></div>
-                        <div>POCSAG: <span id="pocsagCount">0</span></div>
-                        <div>FLEX: <span id="flexCount">0</span></div>
+                    <div class="header-controls">
+                        <div id="signalMeter" class="signal-meter" title="Signal Activity">
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                        </div>
+                        <div class="stats">
+                            <div>MSG: <span id="msgCount">0</span></div>
+                            <div>POCSAG: <span id="pocsagCount">0</span></div>
+                            <div>FLEX: <span id="flexCount">0</span></div>
+                        </div>
                     </div>
+                </div>
+
+                <div class="waterfall-container">
+                    <canvas id="waterfallCanvas" width="800" height="60"></canvas>
                 </div>
 
                 <div class="output-content" id="output">
@@ -717,7 +813,13 @@ HTML_TEMPLATE = '''
                         <div class="status-dot" id="statusDot"></div>
                         <span id="statusText">Idle</span>
                     </div>
-                    <button class="clear-btn" onclick="clearMessages()">Clear Messages</button>
+                    <div class="status-controls">
+                        <button id="muteBtn" class="control-btn" onclick="toggleMute()">🔊 MUTE</button>
+                        <button id="autoScrollBtn" class="control-btn" onclick="toggleAutoScroll()">⬇ AUTO-SCROLL ON</button>
+                        <button class="control-btn" onclick="exportCSV()">📄 CSV</button>
+                        <button class="control-btn" onclick="exportJSON()">📋 JSON</button>
+                        <button class="clear-btn" onclick="clearMessages()">Clear</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -730,6 +832,202 @@ HTML_TEMPLATE = '''
         let pocsagCount = 0;
         let flexCount = 0;
         let deviceList = {{ devices | tojson | safe }};
+
+        // Audio alert settings
+        let audioMuted = localStorage.getItem('audioMuted') === 'true';
+        let audioContext = null;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playAlert() {
+            if (audioMuted || !audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 880;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        }
+
+        function toggleMute() {
+            audioMuted = !audioMuted;
+            localStorage.setItem('audioMuted', audioMuted);
+            updateMuteButton();
+        }
+
+        function updateMuteButton() {
+            const btn = document.getElementById('muteBtn');
+            if (btn) {
+                btn.innerHTML = audioMuted ? '🔇 UNMUTE' : '🔊 MUTE';
+                btn.classList.toggle('muted', audioMuted);
+            }
+        }
+
+        // Message storage for export
+        let allMessages = [];
+
+        function exportCSV() {
+            if (allMessages.length === 0) {
+                alert('No messages to export');
+                return;
+            }
+            const headers = ['Timestamp', 'Protocol', 'Address', 'Function', 'Type', 'Message'];
+            const csv = [headers.join(',')];
+            allMessages.forEach(msg => {
+                const row = [
+                    msg.timestamp || '',
+                    msg.protocol || '',
+                    msg.address || '',
+                    msg.function || '',
+                    msg.msg_type || '',
+                    '"' + (msg.message || '').replace(/"/g, '""') + '"'
+                ];
+                csv.push(row.join(','));
+            });
+            downloadFile(csv.join('\n'), 'intercept_messages.csv', 'text/csv');
+        }
+
+        function exportJSON() {
+            if (allMessages.length === 0) {
+                alert('No messages to export');
+                return;
+            }
+            downloadFile(JSON.stringify(allMessages, null, 2), 'intercept_messages.json', 'application/json');
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Auto-scroll setting
+        let autoScroll = localStorage.getItem('autoScroll') !== 'false';
+
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            localStorage.setItem('autoScroll', autoScroll);
+            updateAutoScrollButton();
+        }
+
+        function updateAutoScrollButton() {
+            const btn = document.getElementById('autoScrollBtn');
+            if (btn) {
+                btn.innerHTML = autoScroll ? '⬇ AUTO-SCROLL ON' : '⬇ AUTO-SCROLL OFF';
+                btn.classList.toggle('active', autoScroll);
+            }
+        }
+
+        // Signal activity meter
+        let signalActivity = 0;
+        let lastMessageTime = 0;
+
+        function updateSignalMeter() {
+            const now = Date.now();
+            const timeSinceLastMsg = now - lastMessageTime;
+
+            // Decay signal activity over time
+            if (timeSinceLastMsg > 1000) {
+                signalActivity = Math.max(0, signalActivity - 0.05);
+            }
+
+            const meter = document.getElementById('signalMeter');
+            const bars = meter?.querySelectorAll('.signal-bar');
+            if (bars) {
+                const activeBars = Math.ceil(signalActivity * bars.length);
+                bars.forEach((bar, i) => {
+                    bar.classList.toggle('active', i < activeBars);
+                });
+            }
+        }
+
+        function pulseSignal() {
+            signalActivity = Math.min(1, signalActivity + 0.4);
+            lastMessageTime = Date.now();
+
+            // Flash waterfall canvas
+            const canvas = document.getElementById('waterfallCanvas');
+            if (canvas) {
+                canvas.classList.add('active');
+                setTimeout(() => canvas.classList.remove('active'), 500);
+            }
+        }
+
+        // Waterfall display
+        const waterfallData = [];
+        const maxWaterfallRows = 50;
+
+        function addWaterfallPoint(timestamp, intensity) {
+            waterfallData.push({ time: timestamp, intensity });
+            if (waterfallData.length > maxWaterfallRows * 100) {
+                waterfallData.shift();
+            }
+            renderWaterfall();
+        }
+
+        function renderWaterfall() {
+            const canvas = document.getElementById('waterfallCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Shift existing image down
+            const imageData = ctx.getImageData(0, 0, width, height - 2);
+            ctx.putImageData(imageData, 0, 2);
+
+            // Draw new row at top
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, 2);
+
+            // Add activity markers
+            const now = Date.now();
+            const recentData = waterfallData.filter(d => now - d.time < 100);
+            recentData.forEach(d => {
+                const x = Math.random() * width;
+                const hue = 180 + (d.intensity * 60); // cyan to green
+                ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${d.intensity})`;
+                ctx.fillRect(x - 2, 0, 4, 2);
+            });
+        }
+
+        // Relative timestamps
+        function getRelativeTime(timestamp) {
+            if (!timestamp) return '';
+            const now = new Date();
+            const parts = timestamp.split(':');
+            const msgTime = new Date();
+            msgTime.setHours(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
+
+            const diff = Math.floor((now - msgTime) / 1000);
+            if (diff < 5) return 'just now';
+            if (diff < 60) return diff + 's ago';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            return timestamp;
+        }
+
+        function updateRelativeTimes() {
+            document.querySelectorAll('.msg-time').forEach(el => {
+                const ts = el.dataset.timestamp;
+                if (ts) el.textContent = getRelativeTime(ts);
+            });
+        }
+
+        // Update timers
+        setInterval(updateSignalMeter, 100);
+        setInterval(updateRelativeTimes, 10000);
 
         // Default presets (UK frequencies)
         const defaultPresets = ['153.350', '153.025'];
@@ -786,6 +1084,16 @@ HTML_TEMPLATE = '''
 
         // Initialize presets on load
         renderPresets();
+
+        // Initialize button states on load
+        updateMuteButton();
+        updateAutoScrollButton();
+
+        // Initialize audio context on first user interaction (required by browsers)
+        document.addEventListener('click', function initAudioOnClick() {
+            initAudio();
+            document.removeEventListener('click', initAudioOnClick);
+        }, { once: true });
 
         function setFreq(freq) {
             document.getElementById('frequency').value = freq;
@@ -965,6 +1273,18 @@ HTML_TEMPLATE = '''
                 placeholder.remove();
             }
 
+            // Store message for export
+            allMessages.push(msg);
+
+            // Play audio alert
+            playAlert();
+
+            // Update signal meter
+            pulseSignal();
+
+            // Add to waterfall
+            addWaterfallPoint(Date.now(), 0.8);
+
             msgCount++;
             document.getElementById('msgCount').textContent = msgCount;
 
@@ -980,19 +1300,25 @@ HTML_TEMPLATE = '''
             }
 
             const isNumeric = /^[0-9\s\-\*\#U]+$/.test(msg.message);
+            const relativeTime = getRelativeTime(msg.timestamp);
 
             const msgEl = document.createElement('div');
             msgEl.className = 'message ' + protoClass;
             msgEl.innerHTML = `
                 <div class="header">
                     <span class="protocol">${msg.protocol}</span>
-                    <span>${msg.timestamp}</span>
+                    <span class="msg-time" data-timestamp="${msg.timestamp}" title="${msg.timestamp}">${relativeTime}</span>
                 </div>
                 <div class="address">Address: ${msg.address}${msg.function ? ' | Func: ' + msg.function : ''}</div>
                 <div class="content ${isNumeric ? 'numeric' : ''}">${escapeHtml(msg.message)}</div>
             `;
 
             output.insertBefore(msgEl, output.firstChild);
+
+            // Auto-scroll to top (newest messages)
+            if (autoScroll) {
+                output.scrollTop = 0;
+            }
 
             // Limit messages displayed
             while (output.children.length > 100) {
@@ -1465,7 +1791,7 @@ def stream():
 
 def main():
     print("=" * 50)
-    print("  Pager Decoder")
+    print("  INTERCEPT // Signal Intelligence")
     print("  POCSAG / FLEX using RTL-SDR + multimon-ng")
     print("=" * 50)
     print()
