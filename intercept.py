@@ -1218,9 +1218,146 @@ HTML_TEMPLATE = '''
             );
             z-index: 1000;
         }
+
+        /* Disclaimer Modal */
+        .disclaimer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .disclaimer-modal {
+            background: var(--bg-card);
+            border: 1px solid var(--accent-cyan);
+            max-width: 550px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.3);
+        }
+
+        .disclaimer-modal h2 {
+            color: var(--accent-red);
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            letter-spacing: 3px;
+        }
+
+        .disclaimer-modal .warning-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .disclaimer-modal p {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.8;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .disclaimer-modal ul {
+            text-align: left;
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+
+        .disclaimer-modal ul li {
+            margin-bottom: 8px;
+        }
+
+        .disclaimer-modal .accept-btn {
+            background: var(--accent-cyan);
+            color: #000;
+            border: none;
+            padding: 12px 40px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .disclaimer-modal .accept-btn:hover {
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .disclaimer-hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
+    <!-- Disclaimer Modal -->
+    <div class="disclaimer-overlay" id="disclaimerModal">
+        <div class="disclaimer-modal">
+            <div class="warning-icon">⚠️</div>
+            <h2>DISCLAIMER</h2>
+            <p>
+                <strong>INTERCEPT</strong> is a signal intelligence tool designed for <strong>educational purposes only</strong>.
+            </p>
+            <p>By using this software, you acknowledge and agree that:</p>
+            <ul>
+                <li>This tool is intended for use by <strong>cyber security professionals</strong> and researchers only</li>
+                <li>You will only use this software in a <strong>controlled environment</strong> with proper authorization</li>
+                <li>Intercepting communications without consent may be <strong>illegal</strong> in your jurisdiction</li>
+                <li>You are solely responsible for ensuring compliance with all applicable laws and regulations</li>
+                <li>The developers assume no liability for misuse of this software</li>
+            </ul>
+            <p style="color: var(--accent-red); font-weight: bold;">
+                Only proceed if you understand and accept these terms.
+            </p>
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+                <button class="accept-btn" onclick="acceptDisclaimer()">I UNDERSTAND & ACCEPT</button>
+                <button class="accept-btn" onclick="declineDisclaimer()" style="background: transparent; border: 1px solid var(--accent-red); color: var(--accent-red);">DECLINE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rejection Page -->
+    <div class="disclaimer-overlay disclaimer-hidden" id="rejectionPage">
+        <div class="disclaimer-modal" style="max-width: 600px;">
+            <pre style="color: var(--accent-red); font-size: 9px; line-height: 1.1; margin-bottom: 20px; text-align: center;">
+ █████╗  ██████╗ ██████╗███████╗███████╗███████╗
+██╔══██╗██╔════╝██╔════╝██╔════╝██╔════╝██╔════╝
+███████║██║     ██║     █████╗  ███████╗███████╗
+██╔══██║██║     ██║     ██╔══╝  ╚════██║╚════██║
+██║  ██║╚██████╗╚██████╗███████╗███████║███████║
+╚═╝  ╚═╝ ╚═════╝ ╚═════╝╚══════╝╚══════╝╚══════╝
+██████╗ ███████╗███╗   ██╗██╗███████╗██████╗
+██╔══██╗██╔════╝████╗  ██║██║██╔════╝██╔══██╗
+██║  ██║█████╗  ██╔██╗ ██║██║█████╗  ██║  ██║
+██║  ██║██╔══╝  ██║╚██╗██║██║██╔══╝  ██║  ██║
+██████╔╝███████╗██║ ╚████║██║███████╗██████╔╝
+╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝╚══════╝╚═════╝</pre>
+            <div style="margin: 25px 0; padding: 15px; background: #0a0a0a; border-left: 3px solid var(--accent-red);">
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-align: left; margin: 0;">
+                    <span style="color: var(--accent-red);">root@intercepted:</span><span style="color: var(--accent-cyan);">~#</span> sudo access --grant-permission<br>
+                    <span style="color: #666;">[sudo] password for user: ********</span><br>
+                    <span style="color: var(--accent-red);">Error:</span> User is not in the sudoers file.<br>
+                    <span style="color: var(--accent-orange);">This incident will be reported.</span>
+                </p>
+            </div>
+            <p style="color: #666; font-size: 11px; text-align: center;">
+                "In a world of locked doors, the man with the key is king.<br>
+                And you, my friend, just threw away the key."
+            </p>
+            <button class="accept-btn" onclick="location.reload()" style="margin-top: 20px; background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan);">
+                TRY AGAIN
+            </button>
+        </div>
+    </div>
     <header>
         <div class="logo">
             <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1737,6 +1874,27 @@ HTML_TEMPLATE = '''
     </div>
 
     <script>
+        // Disclaimer handling
+        function checkDisclaimer() {
+            const accepted = localStorage.getItem('disclaimerAccepted');
+            if (accepted === 'true') {
+                document.getElementById('disclaimerModal').classList.add('disclaimer-hidden');
+            }
+        }
+
+        function acceptDisclaimer() {
+            localStorage.setItem('disclaimerAccepted', 'true');
+            document.getElementById('disclaimerModal').classList.add('disclaimer-hidden');
+        }
+
+        function declineDisclaimer() {
+            document.getElementById('disclaimerModal').classList.add('disclaimer-hidden');
+            document.getElementById('rejectionPage').classList.remove('disclaimer-hidden');
+        }
+
+        // Check disclaimer on load
+        checkDisclaimer();
+
         let eventSource = null;
         let isRunning = false;
         let isSensorRunning = false;
@@ -1749,6 +1907,12 @@ HTML_TEMPLATE = '''
 
         // Mode switching
         function switchMode(mode) {
+            // Stop any running scans when switching modes
+            if (isRunning) stopDecoding();
+            if (isSensorRunning) stopSensorDecoding();
+            if (isWifiRunning) stopWifiScan();
+            if (isBtRunning) stopBtScan();
+
             currentMode = mode;
             document.querySelectorAll('.mode-tab').forEach(tab => {
                 const tabText = tab.textContent.toLowerCase();
