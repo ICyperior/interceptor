@@ -1389,8 +1389,8 @@ HTML_TEMPLATE = '''
                     <button class="mode-tab" onclick="switchMode('bluetooth')">BT</button>
                 </div>
 
-                <div class="section">
-                    <h3>Device</h3>
+                <div class="section" id="rtlDeviceSection">
+                    <h3>RTL-SDR Device</h3>
                     <div class="form-group">
                         <select id="deviceSelect">
                             {% if devices %}
@@ -1932,6 +1932,9 @@ HTML_TEMPLATE = '''
             document.getElementById('btStats').style.display = mode === 'bluetooth' ? 'flex' : 'none';
             document.getElementById('wifiVisuals').style.display = mode === 'wifi' ? 'grid' : 'none';
             document.getElementById('btVisuals').style.display = mode === 'bluetooth' ? 'grid' : 'none';
+
+            // Show RTL-SDR device section only for modes that use it (pager and sensor/433MHz)
+            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor') ? 'block' : 'none';
 
             // Load interfaces when switching modes
             if (mode === 'wifi') {
@@ -2624,6 +2627,22 @@ HTML_TEMPLATE = '''
             output.insertBefore(infoEl, output.firstChild);
         }
 
+        function showError(text) {
+            const output = document.getElementById('output');
+
+            // Clear placeholder only (has the 'placeholder' class)
+            const placeholder = output.querySelector('.placeholder');
+            if (placeholder) {
+                placeholder.remove();
+            }
+
+            const errorEl = document.createElement('div');
+            errorEl.className = 'error-msg';
+            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
+            errorEl.textContent = '⚠ ' + text;
+            output.insertBefore(errorEl, output.firstChild);
+        }
+
         function clearMessages() {
             document.getElementById('output').innerHTML = `
                 <div class="placeholder" style="color: #888; text-align: center; padding: 50px;">
@@ -3137,6 +3156,8 @@ HTML_TEMPLATE = '''
                     handleWifiClient(data);
                 } else if (data.type === 'info' || data.type === 'raw') {
                     showInfo(data.text);
+                } else if (data.type === 'error') {
+                    showError(data.text);
                 } else if (data.type === 'status') {
                     if (data.text === 'stopped') {
                         setWifiRunning(false);
@@ -3740,6 +3761,8 @@ HTML_TEMPLATE = '''
                     handleBtDevice(data);
                 } else if (data.type === 'info' || data.type === 'raw') {
                     showInfo(data.text);
+                } else if (data.type === 'error') {
+                    showError(data.text);
                 } else if (data.type === 'status') {
                     if (data.text === 'stopped') {
                         setBtRunning(false);
@@ -4859,7 +4882,7 @@ def toggle_monitor_mode():
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)})
         else:
-            return jsonify({'status': 'error', 'message': 'No monitor mode tools available (need airmon-ng or iw)'})
+            return jsonify({'status': 'error', 'message': 'No monitor mode tools available. Install aircrack-ng (brew install aircrack-ng) or iw.'})
 
     else:  # stop
         if check_tool('airmon-ng'):
@@ -4951,17 +4974,42 @@ def stream_airodump_output(process, csv_path):
     """Stream airodump-ng output to queue."""
     global wifi_process, wifi_networks, wifi_clients
     import time
+    import select
 
     try:
         wifi_queue.put({'type': 'status', 'text': 'started'})
         last_parse = 0
+        start_time = time.time()
+        csv_found = False
 
         while process.poll() is None:
+            # Check for stderr output (non-blocking)
+            try:
+                import fcntl
+                # Make stderr non-blocking
+                fd = process.stderr.fileno()
+                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+                stderr_data = process.stderr.read()
+                if stderr_data:
+                    stderr_text = stderr_data.decode('utf-8', errors='replace').strip()
+                    if stderr_text:
+                        # Filter out progress updates, report actual errors
+                        for line in stderr_text.split('\n'):
+                            line = line.strip()
+                            if line and not line.startswith('CH') and not line.startswith('Elapsed'):
+                                wifi_queue.put({'type': 'error', 'text': f'airodump-ng: {line}'})
+            except Exception:
+                pass
+
             # Parse CSV file periodically
             current_time = time.time()
             if current_time - last_parse >= 2:  # Parse every 2 seconds
-                if os.path.exists(csv_path + '-01.csv'):
-                    networks, clients = parse_airodump_csv(csv_path + '-01.csv')
+                csv_file = csv_path + '-01.csv'
+                if os.path.exists(csv_file):
+                    csv_found = True
+                    networks, clients = parse_airodump_csv(csv_file)
 
                     # Detect new networks
                     for bssid, net in networks.items():
@@ -4991,8 +5039,27 @@ def stream_airodump_output(process, csv_path):
                     wifi_networks = networks
                     wifi_clients = clients
                     last_parse = current_time
+                elif current_time - start_time > 5 and not csv_found:
+                    # No CSV after 5 seconds - likely a problem
+                    wifi_queue.put({'type': 'error', 'text': 'No scan data after 5 seconds. Check if monitor mode is properly enabled.'})
+                    start_time = current_time + 30  # Don't spam this message
 
             time.sleep(0.5)
+
+        # Process exited - capture any remaining stderr
+        try:
+            remaining_stderr = process.stderr.read()
+            if remaining_stderr:
+                stderr_text = remaining_stderr.decode('utf-8', errors='replace').strip()
+                if stderr_text:
+                    wifi_queue.put({'type': 'error', 'text': f'airodump-ng exited: {stderr_text}'})
+        except Exception:
+            pass
+
+        # Check exit code
+        exit_code = process.returncode
+        if exit_code != 0 and exit_code is not None:
+            wifi_queue.put({'type': 'error', 'text': f'airodump-ng exited with code {exit_code}'})
 
     except Exception as e:
         wifi_queue.put({'type': 'error', 'text': str(e)})
@@ -5062,6 +5129,29 @@ def start_wifi_scan():
                 stderr=subprocess.PIPE
             )
 
+            # Wait briefly to check if process fails immediately
+            import time
+            time.sleep(0.5)
+
+            if wifi_process.poll() is not None:
+                # Process already exited - capture error
+                stderr_output = wifi_process.stderr.read().decode('utf-8', errors='replace').strip()
+                stdout_output = wifi_process.stdout.read().decode('utf-8', errors='replace').strip()
+                exit_code = wifi_process.returncode
+                wifi_process = None
+
+                error_msg = stderr_output or stdout_output or f'Process exited with code {exit_code}'
+
+                # Common error explanations
+                if 'No such device' in error_msg or 'No such interface' in error_msg:
+                    error_msg = f'Interface "{interface}" not found. Make sure monitor mode is enabled.'
+                elif 'Operation not permitted' in error_msg:
+                    error_msg = 'Permission denied. Try running with sudo.'
+                elif 'monitor mode' in error_msg.lower():
+                    error_msg = f'Interface "{interface}" is not in monitor mode. Enable monitor mode first.'
+
+                return jsonify({'status': 'error', 'message': error_msg})
+
             # Start parsing thread
             thread = threading.Thread(target=stream_airodump_output, args=(wifi_process, csv_path))
             thread.daemon = True
@@ -5072,7 +5162,7 @@ def start_wifi_scan():
             return jsonify({'status': 'started', 'interface': interface})
 
         except FileNotFoundError:
-            return jsonify({'status': 'error', 'message': 'airodump-ng not found. Install aircrack-ng suite.'})
+            return jsonify({'status': 'error', 'message': 'airodump-ng not found. Install aircrack-ng suite (brew install aircrack-ng).'})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)})
 
@@ -5444,6 +5534,17 @@ def stream_bt_scan(process, scan_mode):
 
     try:
         bt_queue.put({'type': 'status', 'text': 'started'})
+        start_time = time.time()
+        device_found = False
+
+        # Set up non-blocking stderr reading
+        try:
+            import fcntl
+            fd = process.stderr.fileno()
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        except Exception:
+            pass
 
         if scan_mode == 'hcitool':
             # hcitool lescan output
@@ -5519,7 +5620,22 @@ def stream_bt_scan(process, scan_mode):
     except Exception as e:
         bt_queue.put({'type': 'error', 'text': str(e)})
     finally:
+        # Capture any remaining stderr
+        try:
+            remaining_stderr = process.stderr.read()
+            if remaining_stderr:
+                stderr_text = remaining_stderr.decode('utf-8', errors='replace').strip()
+                if stderr_text:
+                    bt_queue.put({'type': 'error', 'text': f'Bluetooth scan: {stderr_text}'})
+        except Exception:
+            pass
+
+        # Check exit code
         process.wait()
+        exit_code = process.returncode
+        if exit_code != 0 and exit_code is not None:
+            bt_queue.put({'type': 'error', 'text': f'Bluetooth scan exited with code {exit_code}'})
+
         bt_queue.put({'type': 'status', 'text': 'stopped'})
         with bt_lock:
             bt_process = None
@@ -5596,6 +5712,29 @@ def start_bt_scan():
             else:
                 return jsonify({'status': 'error', 'message': f'Unknown scan mode: {scan_mode}'})
 
+            # Wait briefly to check if process fails immediately
+            import time
+            time.sleep(0.5)
+
+            if bt_process.poll() is not None:
+                # Process already exited - capture error
+                stderr_output = bt_process.stderr.read().decode('utf-8', errors='replace').strip()
+                stdout_output = bt_process.stdout.read().decode('utf-8', errors='replace').strip()
+                exit_code = bt_process.returncode
+                bt_process = None
+
+                error_msg = stderr_output or stdout_output or f'Process exited with code {exit_code}'
+
+                # Common error explanations
+                if 'No such device' in error_msg or 'hci0' in error_msg.lower():
+                    error_msg = f'Bluetooth interface "{interface}" not found or not available.'
+                elif 'Operation not permitted' in error_msg or 'Permission denied' in error_msg:
+                    error_msg = 'Permission denied. Try running with sudo or add user to bluetooth group.'
+                elif 'busy' in error_msg.lower():
+                    error_msg = f'Bluetooth interface "{interface}" is busy. Stop other Bluetooth operations first.'
+
+                return jsonify({'status': 'error', 'message': error_msg})
+
             # Start streaming thread
             thread = threading.Thread(target=stream_bt_scan, args=(bt_process, scan_mode))
             thread.daemon = True
@@ -5605,7 +5744,8 @@ def start_bt_scan():
             return jsonify({'status': 'started', 'mode': scan_mode, 'interface': interface})
 
         except FileNotFoundError as e:
-            return jsonify({'status': 'error', 'message': f'Tool not found: {e.filename}'})
+            tool_name = e.filename or scan_mode
+            return jsonify({'status': 'error', 'message': f'Tool "{tool_name}" not found. Install required Bluetooth tools.'})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)})
 
