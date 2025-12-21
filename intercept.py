@@ -1692,6 +1692,9 @@ HTML_TEMPLATE = '''
                     <button class="stop-btn" id="stopBtBtn" onclick="stopBtScan()" style="display: none;">
                         Stop Scanning
                     </button>
+                    <button class="preset-btn" onclick="resetBtAdapter()" style="margin-top: 5px; width: 100%;">
+                        Reset Adapter
+                    </button>
                 </div>
 
                 <button class="preset-btn" onclick="killAll()" style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
@@ -2611,6 +2614,26 @@ HTML_TEMPLATE = '''
             return div.innerHTML;
         }
 
+        function escapeAttr(text) {
+            // Escape for use in HTML attributes (especially onclick handlers)
+            if (text === null || text === undefined) return '';
+            return String(text).replace(/[&'"<>\\]/g, c => ({
+                '&': '&amp;', "'": '&#39;', '"': '&quot;',
+                '<': '&lt;', '>': '&gt;', '\\': '\\\\'
+            })[c]);
+        }
+
+        function isValidMac(mac) {
+            // Validate MAC address format (XX:XX:XX:XX:XX:XX)
+            return /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac);
+        }
+
+        function isValidChannel(ch) {
+            // Validate WiFi channel (1-200 covers all bands)
+            const num = parseInt(ch, 10);
+            return !isNaN(num) && num >= 1 && num <= 200;
+        }
+
         function showInfo(text) {
             const output = document.getElementById('output');
 
@@ -3245,11 +3268,11 @@ HTML_TEMPLATE = '''
                 <div class="sensor-data">
                     <div class="data-item">
                         <div class="data-label">BSSID</div>
-                        <div class="data-value" style="font-size: 11px;">${net.bssid}</div>
+                        <div class="data-value" style="font-size: 11px;">${escapeHtml(net.bssid)}</div>
                     </div>
                     <div class="data-item">
                         <div class="data-label">Security</div>
-                        <div class="data-value" style="color: ${net.privacy.includes('WPA') ? 'var(--accent-orange)' : net.privacy === 'OPN' ? 'var(--accent-green)' : 'var(--accent-red)'}">${net.privacy}</div>
+                        <div class="data-value" style="color: ${(net.privacy || '').includes('WPA') ? 'var(--accent-orange)' : net.privacy === 'OPN' ? 'var(--accent-green)' : 'var(--accent-red)'}">${escapeHtml(net.privacy || '')}</div>
                     </div>
                     <div class="data-item">
                         <div class="data-label">Signal</div>
@@ -3261,8 +3284,8 @@ HTML_TEMPLATE = '''
                     </div>
                 </div>
                 <div style="margin-top: 8px; display: flex; gap: 5px;">
-                    <button class="preset-btn" onclick="targetNetwork('${net.bssid}', '${net.channel}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
-                    <button class="preset-btn" onclick="captureHandshake('${net.bssid}', '${net.channel}')" style="font-size: 10px; padding: 4px 8px; border-color: var(--accent-orange); color: var(--accent-orange);">Capture</button>
+                    <button class="preset-btn" onclick="targetNetwork('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
+                    <button class="preset-btn" onclick="captureHandshake('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px; border-color: var(--accent-orange); color: var(--accent-orange);">Capture</button>
                 </div>
             `;
 
@@ -3740,6 +3763,29 @@ HTML_TEMPLATE = '''
                 });
         }
 
+        function resetBtAdapter() {
+            const iface = document.getElementById('btInterfaceSelect')?.value || 'hci0';
+            fetch('/bt/reset', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({interface: iface})
+            }).then(r => r.json())
+              .then(data => {
+                  setBtRunning(false);
+                  if (btEventSource) {
+                      btEventSource.close();
+                      btEventSource = null;
+                  }
+                  if (data.status === 'success') {
+                      showInfo('Bluetooth adapter reset. Status: ' + (data.is_up ? 'UP' : 'DOWN'));
+                      // Refresh interface list
+                      if (typeof refreshBtInterfaces === 'function') refreshBtInterfaces();
+                  } else {
+                      showError('Reset failed: ' + data.message);
+                  }
+              });
+        }
+
         function setBtRunning(running) {
             isBtRunning = running;
             document.getElementById('statusDot').classList.toggle('running', running);
@@ -3838,26 +3884,26 @@ HTML_TEMPLATE = '''
             card.innerHTML = `
                 <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span class="device-name">${typeIcon} ${escapeHtml(device.name)}</span>
-                    <span style="color: #444; font-size: 10px;">${device.type.toUpperCase()}</span>
+                    <span style="color: #444; font-size: 10px;">${escapeHtml(device.type.toUpperCase())}</span>
                 </div>
                 <div class="sensor-data">
                     <div class="data-item">
                         <div class="data-label">MAC</div>
-                        <div class="data-value" style="font-size: 11px;">${device.mac}</div>
+                        <div class="data-value" style="font-size: 11px;">${escapeHtml(device.mac)}</div>
                     </div>
                     <div class="data-item">
                         <div class="data-label">Manufacturer</div>
-                        <div class="data-value">${device.manufacturer}</div>
+                        <div class="data-value">${escapeHtml(device.manufacturer)}</div>
                     </div>
                     ${device.tracker ? `
                     <div class="data-item">
                         <div class="data-label">Tracker</div>
-                        <div class="data-value" style="color: var(--accent-red);">${device.tracker.name}</div>
+                        <div class="data-value" style="color: var(--accent-red);">${escapeHtml(device.tracker.name)}</div>
                     </div>` : ''}
                 </div>
                 <div style="margin-top: 8px; display: flex; gap: 5px;">
-                    <button class="preset-btn" onclick="btTargetDevice('${device.mac}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
-                    <button class="preset-btn" onclick="btEnumServicesFor('${device.mac}')" style="font-size: 10px; padding: 4px 8px;">Services</button>
+                    <button class="preset-btn" onclick="btTargetDevice('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
+                    <button class="preset-btn" onclick="btEnumServicesFor('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Services</button>
                 </div>
             `;
 
@@ -3873,8 +3919,8 @@ HTML_TEMPLATE = '''
             const alert = document.createElement('div');
             alert.style.cssText = 'padding: 8px; margin-bottom: 5px; background: rgba(255,51,102,0.1); border-left: 2px solid var(--accent-red); font-family: JetBrains Mono, monospace;';
             alert.innerHTML = `
-                <div style="color: var(--accent-red); font-weight: bold;">⚠ ${device.tracker.name} Detected</div>
-                <div style="color: #888; font-size: 9px;">${device.mac}</div>
+                <div style="color: var(--accent-red); font-weight: bold;">⚠ ${escapeHtml(device.tracker.name)} Detected</div>
+                <div style="color: #888; font-size: 9px;">${escapeHtml(device.mac)}</div>
             `;
             list.insertBefore(alert, list.firstChild);
         }
@@ -4151,6 +4197,23 @@ HTML_TEMPLATE = '''
 def check_tool(name):
     """Check if a tool is installed."""
     return shutil.which(name) is not None
+
+
+def is_valid_mac(mac):
+    """Validate MAC address format."""
+    import re
+    if not mac:
+        return False
+    return bool(re.match(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$', mac))
+
+
+def is_valid_channel(channel):
+    """Validate WiFi channel number."""
+    try:
+        ch = int(channel)
+        return 1 <= ch <= 200
+    except (ValueError, TypeError):
+        return False
 
 
 def detect_devices():
@@ -4861,8 +4924,12 @@ def toggle_monitor_mode():
                 # Look for "on <interface>mon" pattern first (most reliable)
                 match = re.search(r'\bon\s+(\w+mon)\b', output, re.IGNORECASE)
                 if not match:
-                    # Fallback: look for interface name ending in 'mon'
-                    match = re.search(r'\b(\w+mon)\b', output)
+                    # Fallback: look for interface pattern like wlan0mon, wlp3s0mon (must have a digit)
+                    match = re.search(r'\b(\w*\d+\w*mon)\b', output)
+                if not match:
+                    # Second fallback: look for the original interface + mon in output
+                    iface_pattern = re.escape(interface) + r'mon'
+                    match = re.search(r'\b(' + iface_pattern + r')\b', output)
                 if match:
                     wifi_monitor_interface = match.group(1)
                 else:
@@ -4949,7 +5016,7 @@ def parse_airodump_csv(csv_path):
                                 'beacons': parts[9],
                                 'ivs': parts[10],
                                 'lan_ip': parts[11],
-                                'essid': parts[13] if len(parts) > 13 else 'Hidden'
+                                'essid': parts[13] or 'Hidden'
                             }
 
             elif 'Station MAC' in header:
@@ -5043,7 +5110,8 @@ def stream_airodump_output(process, csv_path):
                     wifi_networks = networks
                     wifi_clients = clients
                     last_parse = current_time
-                elif current_time - start_time > 5 and not csv_found:
+
+                if current_time - start_time > 5 and not csv_found:
                     # No CSV after 5 seconds - likely a problem
                     wifi_queue.put({'type': 'error', 'text': 'No scan data after 5 seconds. Check if monitor mode is properly enabled.'})
                     start_time = current_time + 30  # Don't spam this message
@@ -5200,6 +5268,21 @@ def send_deauth():
     if not target_bssid:
         return jsonify({'status': 'error', 'message': 'Target BSSID required'})
 
+    # Validate MAC addresses to prevent command injection
+    if not is_valid_mac(target_bssid):
+        return jsonify({'status': 'error', 'message': 'Invalid BSSID format'})
+
+    if not is_valid_mac(target_client):
+        return jsonify({'status': 'error', 'message': 'Invalid client MAC format'})
+
+    # Validate count to prevent abuse
+    try:
+        count = int(count)
+        if count < 1 or count > 100:
+            count = 5
+    except (ValueError, TypeError):
+        count = 5
+
     if not interface:
         return jsonify({'status': 'error', 'message': 'No monitor interface'})
 
@@ -5244,10 +5327,18 @@ def capture_handshake():
     if not target_bssid or not channel:
         return jsonify({'status': 'error', 'message': 'BSSID and channel required'})
 
+    # Validate inputs to prevent command injection
+    if not is_valid_mac(target_bssid):
+        return jsonify({'status': 'error', 'message': 'Invalid BSSID format'})
+
+    if not is_valid_channel(channel):
+        return jsonify({'status': 'error', 'message': 'Invalid channel'})
+
     with wifi_lock:
         if wifi_process:
             return jsonify({'status': 'error', 'message': 'Scan already running. Stop it first.'})
 
+        # Safe to use in path after validation
         capture_path = f'/tmp/intercept_handshake_{target_bssid.replace(":", "")}'
 
         cmd = [
@@ -5651,8 +5742,14 @@ def start_bt_scan():
     global bt_process, bt_devices, bt_interface
 
     with bt_lock:
+        # Check if process is actually still running (not just set)
         if bt_process:
-            return jsonify({'status': 'error', 'message': 'Scan already running'})
+            if bt_process.poll() is None:
+                # Process is actually running
+                return jsonify({'status': 'error', 'message': 'Scan already running'})
+            else:
+                # Process died, clear the state
+                bt_process = None
 
         data = request.json
         scan_mode = data.get('mode', 'hcitool')
@@ -5771,6 +5868,48 @@ def stop_bt_scan():
         return jsonify({'status': 'not_running'})
 
 
+@app.route('/bt/reset', methods=['POST'])
+def reset_bt_adapter():
+    """Reset Bluetooth adapter and clear scan state."""
+    global bt_process
+
+    data = request.json
+    interface = data.get('interface', 'hci0')
+
+    with bt_lock:
+        # Force clear the process state
+        if bt_process:
+            try:
+                bt_process.terminate()
+                bt_process.wait(timeout=2)
+            except:
+                try:
+                    bt_process.kill()
+                except:
+                    pass
+            bt_process = None
+
+    # Reset the adapter
+    try:
+        subprocess.run(['hciconfig', interface, 'down'], capture_output=True, timeout=5)
+        subprocess.run(['hciconfig', interface, 'up'], capture_output=True, timeout=5)
+
+        # Check if adapter is up
+        result = subprocess.run(['hciconfig', interface], capture_output=True, text=True, timeout=5)
+        is_up = 'UP RUNNING' in result.stdout
+
+        bt_queue.put({'type': 'info', 'text': f'Bluetooth adapter {interface} reset'})
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Adapter {interface} reset',
+            'is_up': is_up
+        })
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+
 @app.route('/bt/enum', methods=['POST'])
 def enum_bt_services():
     """Enumerate services on a Bluetooth device."""
@@ -5832,6 +5971,18 @@ def ping_bt_device():
     if not target_mac:
         return jsonify({'status': 'error', 'message': 'Target MAC required'})
 
+    # Validate MAC address
+    if not is_valid_mac(target_mac):
+        return jsonify({'status': 'error', 'message': 'Invalid MAC address format'})
+
+    # Validate count
+    try:
+        count = int(count)
+        if count < 1 or count > 50:
+            count = 5
+    except (ValueError, TypeError):
+        count = 5
+
     try:
         result = subprocess.run(
             ['l2ping', '-c', str(count), target_mac],
@@ -5862,6 +6013,25 @@ def dos_bt_device():
 
     if not target_mac:
         return jsonify({'status': 'error', 'message': 'Target MAC required'})
+
+    # Validate MAC address
+    if not is_valid_mac(target_mac):
+        return jsonify({'status': 'error', 'message': 'Invalid MAC address format'})
+
+    # Validate count and size to prevent abuse
+    try:
+        count = int(count)
+        if count < 1 or count > 1000:
+            count = 100
+    except (ValueError, TypeError):
+        count = 100
+
+    try:
+        size = int(size)
+        if size < 1 or size > 1500:
+            size = 600
+    except (ValueError, TypeError):
+        size = 600
 
     try:
         # l2ping flood with large packets
