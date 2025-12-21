@@ -5566,13 +5566,16 @@ def stream_wifi():
 def get_manufacturer(mac):
     """Look up manufacturer from MAC address OUI."""
     prefix = mac[:8].upper()
-    return OUI_DATABASE.get(prefix, 'Unknown')
+    result = OUI_DATABASE.get(prefix, 'Unknown')
+    print(f"[OUI] MAC: {mac}, prefix: {prefix}, result: {result}")
+    return result
 
 
 def classify_bt_device(name, device_class, services, manufacturer=None):
     """Classify Bluetooth device type based on available info."""
     name_lower = (name or '').lower()
     mfr_lower = (manufacturer or '').lower()
+    print(f"[CLASSIFY] name: {name}, manufacturer: {manufacturer}")
 
     # Audio devices - extensive patterns
     audio_patterns = [
