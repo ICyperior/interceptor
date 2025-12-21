@@ -701,6 +701,11 @@ HTML_TEMPLATE = '''
             }
         }
 
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
         .clear-btn {
             padding: 8px 16px;
             background: transparent;
@@ -1675,6 +1680,20 @@ HTML_TEMPLATE = '''
                     </div>
 
                     <div class="section">
+                        <h3>Proximity Alerts</h3>
+                        <div class="info-text" style="margin-bottom: 8px;">
+                            Alert when specific MAC addresses appear
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="watchMacInput" placeholder="AA:BB:CC:DD:EE:FF">
+                        </div>
+                        <button class="preset-btn" onclick="addWatchMac()" style="width: 100%; margin-bottom: 8px;">
+                            Add to Watch List
+                        </button>
+                        <div id="watchList" style="max-height: 80px; overflow-y: auto; font-size: 10px; color: var(--text-dim);"></div>
+                    </div>
+
+                    <div class="section">
                         <h3>Attack Options</h3>
                         <div class="info-text" style="color: var(--accent-red); margin-bottom: 10px;">
                             ⚠ Only use on authorized networks
@@ -1812,7 +1831,8 @@ HTML_TEMPLATE = '''
                         <div class="stats" id="wifiStats" style="display: none;">
                             <div>APs: <span id="apCount">0</span></div>
                             <div>CLIENTS: <span id="clientCount">0</span></div>
-                            <div>HANDSHAKES: <span id="handshakeCount">0</span></div>
+                            <div>HANDSHAKES: <span id="handshakeCount" style="color: var(--accent-green);">0</span></div>
+                            <div style="color: var(--accent-red);">ROGUE: <span id="rogueApCount">0</span></div>
                         </div>
                         <div class="stats" id="btStats" style="display: none;">
                             <div>DEVICES: <span id="btDeviceCount">0</span></div>
@@ -1845,6 +1865,25 @@ HTML_TEMPLATE = '''
                             <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">11</span></div>
                             <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">12</span></div>
                             <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">13</span></div>
+                        </div>
+                    </div>
+                    <div class="wifi-visual-panel">
+                        <h5>Channel Utilization (5 GHz)</h5>
+                        <div class="channel-graph" id="channelGraph5g" style="font-size: 7px;">
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">36</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">40</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">44</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">48</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">52</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">56</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">60</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">64</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">100</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">149</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">153</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">157</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">161</span></div>
+                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">165</span></div>
                         </div>
                     </div>
                     <div class="wifi-visual-panel">
@@ -2000,6 +2039,7 @@ HTML_TEMPLATE = '''
             if (mode === 'wifi') {
                 refreshWifiInterfaces();
                 initRadar();
+                initWatchList();
             } else if (mode === 'bluetooth') {
                 refreshBtInterfaces();
                 initBtRadar();
@@ -3092,6 +3132,137 @@ HTML_TEMPLATE = '''
         let apCount = 0;
         let clientCount = 0;
         let handshakeCount = 0;
+        let rogueApCount = 0;
+        let ssidToBssids = {};  // Track SSIDs to their BSSIDs for rogue AP detection
+        let watchMacs = JSON.parse(localStorage.getItem('watchMacs') || '[]');
+        let alertedMacs = new Set();  // Prevent duplicate alerts per session
+
+        // 5GHz channel mapping for the graph
+        const channels5g = ['36', '40', '44', '48', '52', '56', '60', '64', '100', '149', '153', '157', '161', '165'];
+
+        // Initialize watch list display
+        function initWatchList() {
+            updateWatchListDisplay();
+        }
+
+        // Add MAC to watch list
+        function addWatchMac() {
+            const input = document.getElementById('watchMacInput');
+            const mac = input.value.trim().toUpperCase();
+            if (!mac || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(mac)) {
+                alert('Please enter a valid MAC address (AA:BB:CC:DD:EE:FF)');
+                return;
+            }
+            if (!watchMacs.includes(mac)) {
+                watchMacs.push(mac);
+                localStorage.setItem('watchMacs', JSON.stringify(watchMacs));
+                updateWatchListDisplay();
+            }
+            input.value = '';
+        }
+
+        // Remove MAC from watch list
+        function removeWatchMac(mac) {
+            watchMacs = watchMacs.filter(m => m !== mac);
+            localStorage.setItem('watchMacs', JSON.stringify(watchMacs));
+            alertedMacs.delete(mac);
+            updateWatchListDisplay();
+        }
+
+        // Update watch list display
+        function updateWatchListDisplay() {
+            const container = document.getElementById('watchList');
+            if (!container) return;
+            if (watchMacs.length === 0) {
+                container.innerHTML = '<div style="color: #555;">No MACs in watch list</div>';
+            } else {
+                container.innerHTML = watchMacs.map(mac =>
+                    `<div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 0;">
+                        <span>${mac}</span>
+                        <button onclick="removeWatchMac('${mac}')" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 10px;">✕</button>
+                    </div>`
+                ).join('');
+            }
+        }
+
+        // Check if MAC is in watch list and alert
+        function checkWatchList(mac, type) {
+            const upperMac = mac.toUpperCase();
+            if (watchMacs.includes(upperMac) && !alertedMacs.has(upperMac)) {
+                alertedMacs.add(upperMac);
+                // Play alert sound multiple times for urgency
+                playAlert();
+                setTimeout(playAlert, 300);
+                setTimeout(playAlert, 600);
+                // Show prominent alert
+                showProximityAlert(mac, type);
+            }
+        }
+
+        // Show proximity alert popup
+        function showProximityAlert(mac, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'proximity-alert';
+            alertDiv.innerHTML = `
+                <div style="font-weight: bold; color: var(--accent-red);">⚠ PROXIMITY ALERT</div>
+                <div>Watched ${type} detected:</div>
+                <div style="font-family: monospace; font-size: 14px;">${mac}</div>
+                <button onclick="this.parentElement.remove()" style="margin-top: 8px; padding: 4px 12px; cursor: pointer;">Dismiss</button>
+            `;
+            alertDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a2e; border: 2px solid var(--accent-red); padding: 20px; border-radius: 8px; z-index: 10000; text-align: center; box-shadow: 0 0 30px rgba(255,0,0,0.5);';
+            document.body.appendChild(alertDiv);
+            // Auto-dismiss after 10 seconds
+            setTimeout(() => alertDiv.remove(), 10000);
+        }
+
+        // Check for rogue APs (same SSID, different BSSID)
+        function checkRogueAP(ssid, bssid) {
+            if (!ssid || ssid === 'Hidden' || ssid === '[Hidden]') return false;
+
+            if (!ssidToBssids[ssid]) {
+                ssidToBssids[ssid] = new Set();
+            }
+
+            const isNewBssid = !ssidToBssids[ssid].has(bssid);
+            ssidToBssids[ssid].add(bssid);
+
+            // If we have more than one BSSID for this SSID, it could be rogue (or just multiple APs)
+            if (ssidToBssids[ssid].size > 1 && isNewBssid) {
+                rogueApCount++;
+                document.getElementById('rogueApCount').textContent = rogueApCount;
+                playAlert();
+                showInfo(`⚠ Potential Rogue AP: "${ssid}" seen on multiple BSSIDs (${ssidToBssids[ssid].size} total)`);
+                return true;
+            }
+            return false;
+        }
+
+        // Update 5GHz channel graph
+        function updateChannel5gGraph() {
+            const bars = document.querySelectorAll('#channelGraph5g .channel-bar');
+            const labels = document.querySelectorAll('#channelGraph5g .channel-label');
+
+            // Count networks per 5GHz channel
+            const channelCounts = {};
+            channels5g.forEach(ch => channelCounts[ch] = 0);
+
+            Object.values(wifiNetworks).forEach(net => {
+                const ch = net.channel?.toString().trim();
+                if (channels5g.includes(ch)) {
+                    channelCounts[ch]++;
+                }
+            });
+
+            const maxCount = Math.max(1, ...Object.values(channelCounts));
+
+            bars.forEach((bar, i) => {
+                const ch = channels5g[i];
+                const count = channelCounts[ch] || 0;
+                const height = Math.max(2, (count / maxCount) * 50);
+                bar.style.height = height + 'px';
+                bar.className = 'channel-bar' + (count > 0 ? ' active' : '') + (count > 3 ? ' congested' : '') + (count > 5 ? ' very-congested' : '');
+            });
+        }
 
         // Refresh WiFi interfaces
         function refreshWifiInterfaces() {
@@ -3291,6 +3462,12 @@ HTML_TEMPLATE = '''
                 document.getElementById('apCount').textContent = apCount;
                 playAlert();
                 pulseSignal();
+
+                // Check for rogue AP (same SSID, different BSSID)
+                checkRogueAP(net.essid, net.bssid);
+
+                // Check proximity watch list
+                checkWatchList(net.bssid, 'AP');
             }
 
             // Update recon display
@@ -3305,6 +3482,10 @@ HTML_TEMPLATE = '''
 
             // Add to output
             addWifiNetworkCard(net, isNew);
+
+            // Update both channel graphs
+            updateChannelGraph();
+            updateChannel5gGraph();
         }
 
         // Handle discovered WiFi client
@@ -3315,14 +3496,19 @@ HTML_TEMPLATE = '''
             if (isNew) {
                 clientCount++;
                 document.getElementById('clientCount').textContent = clientCount;
+
+                // Check proximity watch list
+                checkWatchList(client.mac, 'Client');
             }
 
-            // Track in device intelligence
+            // Track in device intelligence with vendor info
+            const vendorInfo = client.vendor && client.vendor !== 'Unknown' ? ` [${client.vendor}]` : '';
             trackDevice({
                 protocol: 'WiFi-Client',
                 address: client.mac,
-                message: client.probes || '[No probes]',
-                bssid: client.bssid
+                message: (client.probes || '[No probes]') + vendorInfo,
+                bssid: client.bssid,
+                vendor: client.vendor
             });
         }
 
@@ -3400,8 +3586,12 @@ HTML_TEMPLATE = '''
             }).then(r => r.json())
               .then(data => {
                   if (data.status === 'started') {
-                      showInfo('Capturing handshakes for ' + bssid + '. File: ' + data.capture_file);
+                      showInfo('🎯 Capturing handshakes for ' + bssid + '. File: ' + data.capture_file);
                       setWifiRunning(true);
+                      // Update handshake indicator to show active capture
+                      const hsSpan = document.getElementById('handshakeCount');
+                      hsSpan.style.animation = 'pulse 1s infinite';
+                      hsSpan.title = 'Capturing: ' + bssid;
                   } else {
                       alert('Error: ' + data.message);
                   }
@@ -5113,6 +5303,8 @@ def parse_airodump_csv(csv_path):
                     if len(parts) >= 6:
                         station = parts[0]
                         if station and ':' in station:
+                            # Lookup vendor from OUI database
+                            vendor = get_manufacturer(station)
                             clients[station] = {
                                 'mac': station,
                                 'first_seen': parts[1],
@@ -5120,7 +5312,8 @@ def parse_airodump_csv(csv_path):
                                 'power': parts[3],
                                 'packets': parts[4],
                                 'bssid': parts[5],
-                                'probes': parts[6] if len(parts) > 6 else ''
+                                'probes': parts[6] if len(parts) > 6 else '',
+                                'vendor': vendor
                             }
     except Exception as e:
         print(f"[WiFi] Error parsing CSV: {e}")
