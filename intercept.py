@@ -3854,7 +3854,7 @@ HTML_TEMPLATE = '''
                 address: device.mac,
                 message: device.name,
                 model: device.manufacturer,
-                type: device.type
+                device_type: device.device_type || device.type || 'other'
             });
 
             // Update visualizations
@@ -3878,22 +3878,24 @@ HTML_TEMPLATE = '''
                 card = document.createElement('div');
                 card.id = 'bt_' + device.mac.replace(/:/g, '');
                 card.className = 'sensor-card';
+                const devType = device.device_type || device.type || 'other';
                 card.style.borderLeftColor = device.tracker ? 'var(--accent-red)' :
-                                             device.type === 'phone' ? 'var(--accent-cyan)' :
-                                             device.type === 'audio' ? 'var(--accent-green)' :
+                                             devType === 'phone' ? 'var(--accent-cyan)' :
+                                             devType === 'audio' ? 'var(--accent-green)' :
                                              'var(--accent-orange)';
                 output.insertBefore(card, output.firstChild);
             }
 
+            const devType = device.device_type || device.type || 'other';
             const typeIcon = {
                 'phone': '📱', 'audio': '🎧', 'wearable': '⌚', 'tracker': '📍',
                 'computer': '💻', 'input': '⌨️', 'other': '📶'
-            }[device.type] || '📶';
+            }[devType] || '📶';
 
             card.innerHTML = `
                 <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span class="device-name">${typeIcon} ${escapeHtml(device.name)}</span>
-                    <span style="color: #444; font-size: 10px;">${escapeHtml(device.type.toUpperCase())}</span>
+                    <span style="color: #444; font-size: 10px;">${escapeHtml(devType.toUpperCase())}</span>
                 </div>
                 <div class="sensor-data">
                     <div class="data-item">
@@ -5757,9 +5759,10 @@ def stream_bt_scan(process, scan_mode):
                                     bt_devices[mac] = device
 
                                     queue_data = {
-                                        'type': 'device',
+                                        **device,
+                                        'type': 'device',  # Must come after **device to not be overwritten
+                                        'device_type': device.get('type', 'other'),
                                         'action': 'new' if is_new else 'update',
-                                        **device
                                     }
                                     print(f"[BT] Queuing device: {mac} - {name}")
                                     bt_queue.put(queue_data)
