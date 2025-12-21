@@ -1636,8 +1636,8 @@ HTML_TEMPLATE = '''
                     <div class="section">
                         <h3>Scan Mode</h3>
                         <div class="checkbox-group" style="margin-bottom: 10px;">
-                            <label><input type="radio" name="btScanMode" value="hcitool" checked> hcitool (Classic)</label>
-                            <label><input type="radio" name="btScanMode" value="bluetoothctl"> bluetoothctl (BLE)</label>
+                            <label><input type="radio" name="btScanMode" value="bluetoothctl" checked> bluetoothctl (Recommended)</label>
+                            <label><input type="radio" name="btScanMode" value="hcitool"> hcitool (Legacy)</label>
                             <label><input type="radio" name="btScanMode" value="ubertooth"> Ubertooth</label>
                             <label><input type="radio" name="btScanMode" value="bettercap"> Bettercap</label>
                         </div>
@@ -5832,8 +5832,7 @@ def start_bt_scan():
                 )
 
             elif scan_mode == 'bluetoothctl':
-                # Use bluetoothctl for scanning with stdbuf to unbuffer output
-                # Or use script command to provide a pty
+                # Use bluetoothctl for BLE scanning with pty for proper output
                 import pty
                 import os
 
@@ -5850,7 +5849,12 @@ def start_bt_scan():
                 # Store master_fd for reading
                 bt_process._master_fd = master_fd
 
-                # Send scan on command
+                # Wait for bluetoothctl to initialize
+                time.sleep(0.5)
+
+                # Power on and start LE scan (compatible with Bluetooth 5.x)
+                os.write(master_fd, b'power on\n')
+                time.sleep(0.3)
                 os.write(master_fd, b'scan on\n')
 
             elif scan_mode == 'ubertooth':
