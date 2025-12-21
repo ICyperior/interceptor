@@ -2700,7 +2700,8 @@ HTML_TEMPLATE = '''
 
         // Device tracking database
         const deviceDatabase = new Map(); // key: deviceId, value: device profile
-        let reconEnabled = localStorage.getItem('reconEnabled') === 'true';
+        // Default to true if not set, so device intelligence works by default
+        let reconEnabled = localStorage.getItem('reconEnabled') !== 'false';
         let newDeviceAlerts = 0;
         let anomalyAlerts = 0;
 
@@ -2978,6 +2979,8 @@ HTML_TEMPLATE = '''
         if (reconEnabled) {
             document.getElementById('reconPanel').style.display = 'block';
             document.getElementById('reconBtn').classList.add('active');
+        } else {
+            document.getElementById('reconPanel').style.display = 'none';
         }
 
         // Hook into existing message handlers to track devices
