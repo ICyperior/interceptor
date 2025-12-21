@@ -1725,8 +1725,6 @@ HTML_TEMPLATE = '''
                         <div class="info-text" style="margin-top: 8px; display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;" id="btToolStatus">
                             <span>hcitool:</span><span class="tool-status missing">Checking...</span>
                             <span>bluetoothctl:</span><span class="tool-status missing">Checking...</span>
-                            <span>ubertooth:</span><span class="tool-status missing">Checking...</span>
-                            <span>bettercap:</span><span class="tool-status missing">Checking...</span>
                         </div>
                     </div>
 
@@ -1735,8 +1733,6 @@ HTML_TEMPLATE = '''
                         <div class="checkbox-group" style="margin-bottom: 10px;">
                             <label><input type="radio" name="btScanMode" value="bluetoothctl" checked> bluetoothctl (Recommended)</label>
                             <label><input type="radio" name="btScanMode" value="hcitool"> hcitool (Legacy)</label>
-                            <label><input type="radio" name="btScanMode" value="ubertooth"> Ubertooth</label>
-                            <label><input type="radio" name="btScanMode" value="bettercap"> Bettercap</label>
                         </div>
                         <div class="form-group">
                             <label>Scan Duration (sec)</label>
@@ -3793,8 +3789,6 @@ HTML_TEMPLATE = '''
                     statusDiv.innerHTML = `
                         <span>hcitool:</span><span class="tool-status ${data.tools.hcitool ? 'ok' : 'missing'}">${data.tools.hcitool ? 'OK' : 'Missing'}</span>
                         <span>bluetoothctl:</span><span class="tool-status ${data.tools.bluetoothctl ? 'ok' : 'missing'}">${data.tools.bluetoothctl ? 'OK' : 'Missing'}</span>
-                        <span>ubertooth:</span><span class="tool-status ${data.tools.ubertooth ? 'ok' : 'missing'}">${data.tools.ubertooth ? 'OK' : 'Missing'}</span>
-                        <span>bettercap:</span><span class="tool-status ${data.tools.bettercap ? 'ok' : 'missing'}">${data.tools.bettercap ? 'OK' : 'Missing'}</span>
                     `;
                 });
         }
@@ -5623,18 +5617,6 @@ def detect_bt_interfaces():
             'status': 'available'
         })
 
-    # Check for Ubertooth
-    try:
-        result = subprocess.run(['ubertooth-util', '-v'], capture_output=True, timeout=5)
-        if result.returncode == 0:
-            interfaces.append({
-                'name': 'ubertooth0',
-                'type': 'ubertooth',
-                'status': 'connected'
-            })
-    except:
-        pass
-
     return interfaces
 
 
@@ -5656,8 +5638,6 @@ def get_bt_interfaces():
     tools = {
         'hcitool': check_tool('hcitool'),
         'bluetoothctl': check_tool('bluetoothctl'),
-        'ubertooth': check_tool('ubertooth-scan'),
-        'bettercap': check_tool('bettercap'),
         'hciconfig': check_tool('hciconfig'),
         'l2ping': check_tool('l2ping'),
         'sdptool': check_tool('sdptool')
@@ -5914,22 +5894,6 @@ def start_bt_scan():
                 os.write(master_fd, b'power on\n')
                 time.sleep(0.3)
                 os.write(master_fd, b'scan on\n')
-
-            elif scan_mode == 'ubertooth':
-                cmd = ['ubertooth-scan', '-t', str(duration)]
-                bt_process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
-
-            elif scan_mode == 'bettercap':
-                cmd = ['bettercap', '-eval', 'ble.recon on', '-silent']
-                bt_process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
 
             else:
                 return jsonify({'status': 'error', 'message': f'Unknown scan mode: {scan_mode}'})
