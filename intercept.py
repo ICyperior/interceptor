@@ -2797,6 +2797,12 @@ HTML_TEMPLATE = '''
                 return 'PAGER_' + (data.address || 'UNK');
             } else if (data.protocol === 'FLEX') {
                 return 'FLEX_' + (data.address || 'UNK');
+            } else if (data.protocol === 'WiFi-AP') {
+                return 'WIFI_AP_' + (data.address || 'UNK').replace(/:/g, '');
+            } else if (data.protocol === 'WiFi-Client') {
+                return 'WIFI_CLIENT_' + (data.address || 'UNK').replace(/:/g, '');
+            } else if (data.protocol === 'Bluetooth' || data.protocol === 'BLE') {
+                return 'BT_' + (data.address || 'UNK').replace(/:/g, '');
             } else if (data.model) {
                 // 433MHz sensor
                 const id = data.id || data.channel || data.unit || '0';
