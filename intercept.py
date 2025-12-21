@@ -2617,10 +2617,13 @@ HTML_TEMPLATE = '''
         function escapeAttr(text) {
             // Escape for use in HTML attributes (especially onclick handlers)
             if (text === null || text === undefined) return '';
-            return String(text).replace(/[&'"<>\\]/g, c => ({
-                '&': '&amp;', "'": '&#39;', '"': '&quot;',
-                '<': '&lt;', '>': '&gt;', '\\': '\\\\'
-            })[c]);
+            var s = String(text);
+            s = s.replace(/&/g, '&amp;');
+            s = s.replace(/'/g, '&#39;');
+            s = s.replace(/"/g, '&quot;');
+            s = s.replace(/</g, '&lt;');
+            s = s.replace(/>/g, '&gt;');
+            return s;
         }
 
         function isValidMac(mac) {
