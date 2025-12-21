@@ -1827,7 +1827,6 @@ HTML_TEMPLATE = '''
                         <div class="stats" id="btStats" style="display: none;">
                             <div>DEVICES: <span id="btDeviceCount">0</span></div>
                             <div>BEACONS: <span id="btBeaconCount">0</span></div>
-                            <div>TRACKERS: <span id="btTrackerCount">0</span></div>
                         </div>
                     </div>
                 </div>
@@ -1894,35 +1893,6 @@ HTML_TEMPLATE = '''
                         <h5>Bluetooth Proximity Radar</h5>
                         <div class="radar-container">
                             <canvas id="btRadarCanvas" width="150" height="150"></canvas>
-                        </div>
-                    </div>
-                    <div class="wifi-visual-panel">
-                        <h5>Device Types</h5>
-                        <div class="security-container">
-                            <div class="security-donut">
-                                <canvas id="btTypeCanvas" width="80" height="80"></canvas>
-                            </div>
-                            <div class="security-legend">
-                                <div class="security-legend-item"><div class="security-legend-dot" style="background: #00d4ff;"></div>Phones: <span id="btPhoneCount">0</span></div>
-                                <div class="security-legend-item"><div class="security-legend-dot" style="background: #00ff88;"></div>Audio: <span id="btAudioCount">0</span></div>
-                                <div class="security-legend-item"><div class="security-legend-dot" style="background: #ff8800;"></div>Wearables: <span id="btWearableCount">0</span></div>
-                                <div class="security-legend-item"><div class="security-legend-dot" style="background: #ff3366;"></div>Trackers: <span id="btTrackerTypeCount">0</span></div>
-                                <div class="security-legend-item"><div class="security-legend-dot" style="background: #888;"></div>Other: <span id="btOtherCount">0</span></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="wifi-visual-panel">
-                        <h5>Manufacturer Breakdown</h5>
-                        <div id="btManufacturerList" style="font-size: 10px; font-family: 'JetBrains Mono', monospace;">
-                            <div style="color: #444;">Scanning for devices...</div>
-                        </div>
-                    </div>
-                    <div class="wifi-visual-panel">
-                        <h5>Tracker Detection</h5>
-                        <div id="btTrackerList" style="font-size: 10px; max-height: 120px; overflow-y: auto;">
-                            <div style="color: #444; padding: 10px; text-align: center;">
-                                Monitoring for AirTags, Tiles, and other trackers...
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -3799,7 +3769,6 @@ HTML_TEMPLATE = '''
         let btDevices = {};
         let btDeviceCount = 0;
         let btBeaconCount = 0;
-        let btTrackerCount = 0;
         let btRadarCtx = null;
         let btRadarAngle = 0;
         let btRadarAnimFrame = null;
@@ -3940,12 +3909,6 @@ HTML_TEMPLATE = '''
                 document.getElementById('btDeviceCount').textContent = btDeviceCount;
                 playAlert();
                 pulseSignal();
-
-                if (device.tracker) {
-                    btTrackerCount++;
-                    document.getElementById('btTrackerCount').textContent = btTrackerCount;
-                    addTrackerAlert(device);
-                }
             }
 
             // Track in device intelligence
@@ -3959,8 +3922,6 @@ HTML_TEMPLATE = '''
 
             // Update visualizations
             addBtDeviceToRadar(device);
-            updateBtTypeChart();
-            updateBtManufacturerList();
 
             // Add device card
             addBtDeviceCard(device, isNew);
@@ -4019,21 +3980,6 @@ HTML_TEMPLATE = '''
             `;
 
             if (autoScroll) output.scrollTop = 0;
-        }
-
-        // Add tracker alert to visualization
-        function addTrackerAlert(device) {
-            const list = document.getElementById('btTrackerList');
-            const placeholder = list.querySelector('div[style*="text-align: center"]');
-            if (placeholder) placeholder.remove();
-
-            const alert = document.createElement('div');
-            alert.style.cssText = 'padding: 8px; margin-bottom: 5px; background: rgba(255,51,102,0.1); border-left: 2px solid var(--accent-red); font-family: JetBrains Mono, monospace;';
-            alert.innerHTML = `
-                <div style="color: var(--accent-red); font-weight: bold;">⚠ ${escapeHtml(device.tracker.name)} Detected</div>
-                <div style="color: #888; font-size: 9px;">${escapeHtml(device.mac)}</div>
-            `;
-            list.insertBefore(alert, list.firstChild);
         }
 
         // Target a Bluetooth device
@@ -4212,93 +4158,6 @@ HTML_TEMPLATE = '''
             }
 
             if (btRadarDevices.length > 50) btRadarDevices.shift();
-        }
-
-        // Update device type chart
-        function updateBtTypeChart() {
-            const canvas = document.getElementById('btTypeCanvas');
-            if (!canvas) return;
-
-            let phones = 0, audio = 0, wearables = 0, trackers = 0, other = 0;
-
-            Object.values(btDevices).forEach(d => {
-                const devType = d.device_type || 'other';
-                if (d.tracker) trackers++;
-                else if (devType === 'phone') phones++;
-                else if (devType === 'audio') audio++;
-                else if (devType === 'wearable') wearables++;
-                else other++;
-            });
-
-            document.getElementById('btPhoneCount').textContent = phones;
-            document.getElementById('btAudioCount').textContent = audio;
-            document.getElementById('btWearableCount').textContent = wearables;
-            document.getElementById('btTrackerTypeCount').textContent = trackers;
-            document.getElementById('btOtherCount').textContent = other;
-
-            // Draw donut
-            const ctx = canvas.getContext('2d');
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const r = Math.min(cx, cy) - 2;
-            const inner = r * 0.6;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const total = phones + audio + wearables + trackers + other;
-            if (total === 0) return;
-
-            const data = [
-                { value: phones, color: '#00d4ff' },
-                { value: audio, color: '#00ff88' },
-                { value: wearables, color: '#ff8800' },
-                { value: trackers, color: '#ff3366' },
-                { value: other, color: '#888' }
-            ];
-
-            let start = -Math.PI / 2;
-            data.forEach(seg => {
-                if (seg.value === 0) return;
-                const angle = (seg.value / total) * Math.PI * 2;
-                ctx.fillStyle = seg.color;
-                ctx.beginPath();
-                ctx.moveTo(cx, cy);
-                ctx.arc(cx, cy, r, start, start + angle);
-                ctx.closePath();
-                ctx.fill();
-                start += angle;
-            });
-
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(cx, cy, inner, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 14px JetBrains Mono';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(total, cx, cy);
-        }
-
-        // Update manufacturer list
-        function updateBtManufacturerList() {
-            const manufacturers = {};
-            Object.values(btDevices).forEach(d => {
-                const m = d.manufacturer || 'Unknown';
-                manufacturers[m] = (manufacturers[m] || 0) + 1;
-            });
-
-            const sorted = Object.entries(manufacturers).sort((a, b) => b[1] - a[1]).slice(0, 6);
-
-            const list = document.getElementById('btManufacturerList');
-            if (sorted.length === 0) {
-                list.innerHTML = '<div style="color: #444;">Scanning for devices...</div>';
-            } else {
-                list.innerHTML = sorted.map(([name, count]) =>
-                    `<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #1a1a1a;"><span>${name}</span><span style="color: var(--accent-cyan);">${count}</span></div>`
-                ).join('');
-            }
         }
     </script>
 </body>
