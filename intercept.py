@@ -5835,6 +5835,7 @@ def start_bt_scan():
                 # Use bluetoothctl for BLE scanning with pty for proper output
                 import pty
                 import os
+                import time
 
                 master_fd, slave_fd = pty.openpty()
                 bt_process = subprocess.Popen(
