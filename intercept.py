@@ -5756,11 +5756,13 @@ def stream_bt_scan(process, scan_mode):
                                     is_new = mac not in bt_devices
                                     bt_devices[mac] = device
 
-                                    bt_queue.put({
+                                    queue_data = {
                                         'type': 'device',
                                         'action': 'new' if is_new else 'update',
                                         **device
-                                    })
+                                    }
+                                    print(f"[BT] Queuing device: {mac} - {name}")
+                                    bt_queue.put(queue_data)
                     except OSError:
                         break
 
@@ -6189,6 +6191,8 @@ def stream_bt():
         while True:
             try:
                 msg = bt_queue.get(timeout=1)
+                if msg.get('type') == 'device':
+                    print(f"[BT Stream] Sending device: {msg.get('mac')}")
                 yield f"data: {json.dumps(msg)}\n\n"
             except queue.Empty:
                 yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
