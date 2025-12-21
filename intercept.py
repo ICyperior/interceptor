@@ -3492,7 +3492,7 @@ HTML_TEMPLATE = '''
 
                 <!-- Bluetooth Visualizations -->
                 <div class="wifi-visuals" id="btVisuals" style="display: none;">
-                    <div class="wifi-visual-panel">
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
                         <h5>Bluetooth Proximity Radar</h5>
                         <div class="radar-container">
                             <canvas id="btRadarCanvas" width="150" height="150"></canvas>
