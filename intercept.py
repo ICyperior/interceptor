@@ -2911,7 +2911,6 @@ HTML_TEMPLATE = '''
 
         // Track a device transmission
         function trackDevice(data) {
-            console.log('[INTEL] trackDevice called:', data.protocol, data.address, 'reconEnabled:', reconEnabled);
             const now = Date.now();
             const deviceId = generateDeviceId(data);
             const protocol = data.protocol || data.model || 'Unknown';
@@ -2976,7 +2975,6 @@ HTML_TEMPLATE = '''
 
         // Update reconnaissance display
         function updateReconDisplay(deviceId, profile, isNewDevice, anomalies) {
-            console.log('[INTEL] updateReconDisplay:', deviceId, 'protocol:', profile.protocol);
             const content = document.getElementById('reconContent');
 
             // Remove placeholder if present
@@ -3934,7 +3932,6 @@ HTML_TEMPLATE = '''
 
         // Handle discovered Bluetooth device
         function handleBtDevice(device) {
-            console.log('[BT] handleBtDevice:', device.mac, 'device_type:', device.device_type, 'manufacturer:', device.manufacturer);
             const isNew = !btDevices[device.mac];
             btDevices[device.mac] = device;
 
@@ -4226,14 +4223,12 @@ HTML_TEMPLATE = '''
 
             Object.values(btDevices).forEach(d => {
                 const devType = d.device_type || 'other';
-                console.log('[CHART] Device:', d.mac, 'device_type:', d.device_type, 'resolved:', devType);
                 if (d.tracker) trackers++;
                 else if (devType === 'phone') phones++;
                 else if (devType === 'audio') audio++;
                 else if (devType === 'wearable') wearables++;
                 else other++;
             });
-            console.log('[CHART] Totals - phones:', phones, 'audio:', audio, 'wearables:', wearables, 'trackers:', trackers, 'other:', other);
 
             document.getElementById('btPhoneCount').textContent = phones;
             document.getElementById('btAudioCount').textContent = audio;
@@ -4291,12 +4286,10 @@ HTML_TEMPLATE = '''
             const manufacturers = {};
             Object.values(btDevices).forEach(d => {
                 const m = d.manufacturer || 'Unknown';
-                console.log('[MFR] Device:', d.mac, 'manufacturer:', d.manufacturer, 'resolved:', m);
                 manufacturers[m] = (manufacturers[m] || 0) + 1;
             });
 
             const sorted = Object.entries(manufacturers).sort((a, b) => b[1] - a[1]).slice(0, 6);
-            console.log('[MFR] Sorted manufacturers:', sorted);
 
             const list = document.getElementById('btManufacturerList');
             if (sorted.length === 0) {
@@ -5590,7 +5583,6 @@ def get_manufacturer(mac):
     """Look up manufacturer from MAC address OUI."""
     prefix = mac[:8].upper()
     result = OUI_DATABASE.get(prefix, 'Unknown')
-    print(f"[OUI] MAC: {mac}, prefix: {prefix}, result: {result}")
     return result
 
 
@@ -5598,7 +5590,6 @@ def classify_bt_device(name, device_class, services, manufacturer=None):
     """Classify Bluetooth device type based on available info."""
     name_lower = (name or '').lower()
     mfr_lower = (manufacturer or '').lower()
-    print(f"[CLASSIFY] name: {name}, manufacturer: {manufacturer}")
 
     # Audio devices - extensive patterns
     audio_patterns = [
