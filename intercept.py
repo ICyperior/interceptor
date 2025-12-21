@@ -5163,6 +5163,10 @@ def start_wifi_scan():
 
                 error_msg = stderr_output or stdout_output or f'Process exited with code {exit_code}'
 
+                # Strip ANSI escape codes
+                import re
+                error_msg = re.sub(r'\x1b\[[0-9;]*m', '', error_msg)
+
                 # Common error explanations
                 if 'No such device' in error_msg or 'No such interface' in error_msg:
                     error_msg = f'Interface "{interface}" not found. Make sure monitor mode is enabled.'
@@ -5170,6 +5174,8 @@ def start_wifi_scan():
                     error_msg = 'Permission denied. Try running with sudo.'
                 elif 'monitor mode' in error_msg.lower():
                     error_msg = f'Interface "{interface}" is not in monitor mode. Enable monitor mode first.'
+                elif 'Failed initialising' in error_msg:
+                    error_msg = f'Failed to initialize "{interface}". The adapter may have been disconnected or monitor mode is not active. Try disabling and re-enabling monitor mode.'
 
                 return jsonify({'status': 'error', 'message': error_msg})
 
