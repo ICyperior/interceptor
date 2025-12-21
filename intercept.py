@@ -5698,6 +5698,8 @@ def stream_bt_scan(process, scan_mode):
             # bluetoothctl scan output - read from pty
             import os
             import select
+            import time
+            import re
 
             master_fd = getattr(process, '_master_fd', None)
             if not master_fd:
@@ -5721,15 +5723,21 @@ def stream_bt_scan(process, scan_mode):
                             line = line.strip()
 
                             # Remove ANSI escape codes
-                            import re
                             line = re.sub(r'\x1b\[[0-9;]*m', '', line)
                             line = re.sub(r'\x1b\[\?.*?[a-zA-Z]', '', line)
+                            line = re.sub(r'\x1b\[K', '', line)  # Clear line escape
+                            line = re.sub(r'\r', '', line)  # Remove carriage returns
+
+                            # Debug: print what we're receiving
+                            if line and 'Device' in line:
+                                print(f"[BT] bluetoothctl: {line}")
 
                             # Parse [NEW] Device or [CHG] Device lines
-                            if 'Device' in line and ':' in line:
-                                match = re.search(r'([0-9A-Fa-f:]{17})\s*(.*)', line)
+                            # Format: [NEW] Device AA:BB:CC:DD:EE:FF DeviceName
+                            if 'Device' in line:
+                                match = re.search(r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})\s*(.*)', line)
                                 if match:
-                                    mac = match.group(1)
+                                    mac = match.group(1).upper()
                                     name = match.group(2).strip()
 
                                     device = {
