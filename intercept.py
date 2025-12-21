@@ -11,9 +11,24 @@ import queue
 import pty
 import os
 import select
+import json
 from flask import Flask, render_template_string, jsonify, request, Response, send_file
 
 app = Flask(__name__)
+
+
+def load_oui_database():
+    """Load OUI database from external JSON file, with fallback to built-in."""
+    oui_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'oui_database.json')
+    try:
+        if os.path.exists(oui_file):
+            with open(oui_file, 'r') as f:
+                data = json.load(f)
+                # Remove comment fields
+                return {k: v for k, v in data.items() if not k.startswith('_')}
+    except Exception as e:
+        print(f"[OUI] Error loading oui_database.json: {e}, using built-in database")
+    return None  # Will fall back to built-in
 
 # Global process management
 current_process = None
@@ -186,6 +201,14 @@ OUI_DATABASE = {
     '00:00:0A': 'Omron', '00:1A:7D': 'Cyber-Blue', '00:1E:3D': 'Alps Electric',
     '00:0B:57': 'Silicon Wave', '00:02:72': 'CC&C',
 }
+
+# Try to load from external file (easier to update)
+_external_oui = load_oui_database()
+if _external_oui:
+    OUI_DATABASE = _external_oui
+    print(f"[OUI] Loaded {len(OUI_DATABASE)} entries from oui_database.json")
+else:
+    print(f"[OUI] Using built-in database with {len(OUI_DATABASE)} entries")
 
 
 HTML_TEMPLATE = '''
@@ -5763,6 +5786,17 @@ def detect_bt_interfaces():
         pass
 
     return interfaces
+
+
+@app.route('/bt/reload-oui', methods=['POST'])
+def reload_oui_database():
+    """Reload OUI database from external file."""
+    global OUI_DATABASE
+    new_db = load_oui_database()
+    if new_db:
+        OUI_DATABASE = new_db
+        return jsonify({'status': 'success', 'entries': len(OUI_DATABASE)})
+    return jsonify({'status': 'error', 'message': 'Could not load oui_database.json'})
 
 
 @app.route('/bt/interfaces')
