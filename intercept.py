@@ -4856,9 +4856,13 @@ def toggle_monitor_mode():
 
                 # Parse output to find monitor interface name
                 output = result.stdout + result.stderr
-                # Common patterns: wlan0mon, wlan0, mon0
+                # Common patterns: wlan0mon, wlp3s0mon, etc.
                 import re
-                match = re.search(r'monitor mode.*?enabled.*?(\w+mon|\w+)', output, re.IGNORECASE)
+                # Look for "on <interface>mon" pattern first (most reliable)
+                match = re.search(r'\bon\s+(\w+mon)\b', output, re.IGNORECASE)
+                if not match:
+                    # Fallback: look for interface name ending in 'mon'
+                    match = re.search(r'\b(\w+mon)\b', output)
                 if match:
                     wifi_monitor_interface = match.group(1)
                 else:
