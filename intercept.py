@@ -34,7 +34,6 @@ def load_oui_database():
 current_process = None
 sensor_process = None
 wifi_process = None
-kismet_process = None
 bt_process = None
 output_queue = queue.Queue()
 sensor_queue = queue.Queue()
@@ -1641,7 +1640,6 @@ HTML_TEMPLATE = '''
                         <div class="info-text" style="margin-top: 8px; display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;" id="wifiToolStatus">
                             <span>airmon-ng:</span><span class="tool-status missing">Checking...</span>
                             <span>airodump-ng:</span><span class="tool-status missing">Checking...</span>
-                            <span>kismet:</span><span class="tool-status missing">Checking...</span>
                         </div>
                     </div>
 
@@ -1661,11 +1659,7 @@ HTML_TEMPLATE = '''
                     </div>
 
                     <div class="section">
-                        <h3>Scan Mode</h3>
-                        <div class="checkbox-group" style="margin-bottom: 10px;">
-                            <label><input type="radio" name="wifiScanMode" value="airodump" checked> Aircrack-ng</label>
-                            <label><input type="radio" name="wifiScanMode" value="kismet"> Kismet</label>
-                        </div>
+                        <h3>Scan Settings</h3>
                         <div class="form-group">
                             <label>Band</label>
                             <select id="wifiBand">
@@ -3118,7 +3112,6 @@ HTML_TEMPLATE = '''
                     statusDiv.innerHTML = `
                         <span>airmon-ng:</span><span class="tool-status ${data.tools.airmon ? 'ok' : 'missing'}">${data.tools.airmon ? 'OK' : 'Missing'}</span>
                         <span>airodump-ng:</span><span class="tool-status ${data.tools.airodump ? 'ok' : 'missing'}">${data.tools.airodump ? 'OK' : 'Missing'}</span>
-                        <span>kismet:</span><span class="tool-status ${data.tools.kismet ? 'ok' : 'missing'}">${data.tools.kismet ? 'OK' : 'Missing'}</span>
                     `;
 
                     // Update monitor status
@@ -3183,7 +3176,6 @@ HTML_TEMPLATE = '''
 
         // Start WiFi scan
         function startWifiScan() {
-            const scanMode = document.querySelector('input[name="wifiScanMode"]:checked').value;
             const band = document.getElementById('wifiBand').value;
             const channel = document.getElementById('wifiChannel').value;
 
@@ -3192,9 +3184,7 @@ HTML_TEMPLATE = '''
                 return;
             }
 
-            const endpoint = scanMode === 'kismet' ? '/wifi/kismet/start' : '/wifi/scan/start';
-
-            fetch(endpoint, {
+            fetch('/wifi/scan/start', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -3215,10 +3205,7 @@ HTML_TEMPLATE = '''
 
         // Stop WiFi scan
         function stopWifiScan() {
-            const scanMode = document.querySelector('input[name="wifiScanMode"]:checked').value;
-            const endpoint = scanMode === 'kismet' ? '/wifi/kismet/stop' : '/wifi/scan/stop';
-
-            fetch(endpoint, {method: 'POST'})
+            fetch('/wifi/scan/stop', {method: 'POST'})
                 .then(r => r.json())
                 .then(data => {
                     setWifiRunning(false);
@@ -4563,12 +4550,12 @@ def log_message(msg):
 @app.route('/killall', methods=['POST'])
 def kill_all():
     """Kill all decoder and WiFi processes."""
-    global current_process, sensor_process, wifi_process, kismet_process
+    global current_process, sensor_process, wifi_process
 
     killed = []
     processes_to_kill = [
         'rtl_fm', 'multimon-ng', 'rtl_433',
-        'airodump-ng', 'aireplay-ng', 'airmon-ng', 'kismet'
+        'airodump-ng', 'aireplay-ng', 'airmon-ng'
     ]
 
     for proc in processes_to_kill:
@@ -4587,7 +4574,6 @@ def kill_all():
 
     with wifi_lock:
         wifi_process = None
-        kismet_process = None
 
     return jsonify({'status': 'killed', 'processes': killed})
 
@@ -4853,7 +4839,6 @@ def get_wifi_interfaces():
         'airmon': check_tool('airmon-ng'),
         'airodump': check_tool('airodump-ng'),
         'aireplay': check_tool('aireplay-ng'),
-        'kismet': check_tool('kismet'),
         'iw': check_tool('iw')
     }
     return jsonify({'interfaces': interfaces, 'tools': tools, 'monitor_interface': wifi_monitor_interface})
@@ -5139,8 +5124,7 @@ def start_wifi_scan():
         csv_path = '/tmp/intercept_wifi'
 
         # Remove old files
-        for f in [f'/tmp/intercept_wifi-01.csv', f'/tmp/intercept_wifi-01.cap',
-                  f'/tmp/intercept_wifi-01.kismet.csv', f'/tmp/intercept_wifi-01.kismet.netxml']:
+        for f in [f'/tmp/intercept_wifi-01.csv', f'/tmp/intercept_wifi-01.cap']:
             try:
                 os.remove(f)
             except:
@@ -5321,83 +5305,6 @@ def capture_handshake():
             return jsonify({'status': 'started', 'capture_file': capture_path + '-01.cap'})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)})
-
-
-@app.route('/wifi/kismet/start', methods=['POST'])
-def start_kismet():
-    """Start Kismet for passive reconnaissance."""
-    global kismet_process
-
-    data = request.json
-    interface = data.get('interface') or wifi_monitor_interface
-
-    if not interface:
-        return jsonify({'status': 'error', 'message': 'No interface specified'})
-
-    if not check_tool('kismet'):
-        return jsonify({'status': 'error', 'message': 'Kismet not found. Install with: brew install kismet'})
-
-    with wifi_lock:
-        if kismet_process:
-            return jsonify({'status': 'error', 'message': 'Kismet already running'})
-
-        try:
-            # Start Kismet with REST API enabled
-            cmd = [
-                'kismet',
-                '-c', interface,
-                '--no-ncurses',
-                '--override', 'httpd_bind_address=127.0.0.1',
-                '--override', 'httpd_port=2501'
-            ]
-
-            kismet_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-
-            wifi_queue.put({'type': 'info', 'text': 'Kismet started. API available at http://127.0.0.1:2501'})
-            return jsonify({'status': 'started', 'api_url': 'http://127.0.0.1:2501'})
-
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)})
-
-
-@app.route('/wifi/kismet/stop', methods=['POST'])
-def stop_kismet():
-    """Stop Kismet."""
-    global kismet_process
-
-    with wifi_lock:
-        if kismet_process:
-            kismet_process.terminate()
-            try:
-                kismet_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                kismet_process.kill()
-            kismet_process = None
-            return jsonify({'status': 'stopped'})
-        return jsonify({'status': 'not_running'})
-
-
-@app.route('/wifi/kismet/devices')
-def get_kismet_devices():
-    """Get devices from Kismet REST API."""
-    import urllib.request
-    import json as json_module
-
-    try:
-        # Kismet REST API endpoint for devices
-        url = 'http://127.0.0.1:2501/devices/views/all/devices.json'
-        req = urllib.request.Request(url)
-        req.add_header('KISMET', 'admin:admin')  # Default credentials
-
-        with urllib.request.urlopen(req, timeout=5) as response:
-            data = json_module.loads(response.read().decode())
-            return jsonify({'devices': data})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
 
 
 @app.route('/wifi/networks')
