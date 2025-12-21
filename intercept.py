@@ -6186,11 +6186,14 @@ def get_bt_devices():
 @app.route('/bt/stream')
 def stream_bt():
     """SSE stream for Bluetooth events."""
+    print("[BT Stream] Client connected")
     def generate():
         import json
+        print("[BT Stream] Generator started, waiting for queue...")
         while True:
             try:
                 msg = bt_queue.get(timeout=1)
+                print(f"[BT Stream] Got from queue: {msg.get('type')}")
                 if msg.get('type') == 'device':
                     print(f"[BT Stream] Sending device: {msg.get('mac')}")
                 yield f"data: {json.dumps(msg)}\n\n"
