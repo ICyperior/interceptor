@@ -12011,27 +12011,15 @@ def start_adsb():
             return jsonify({'status': 'error', 'message': 'ADS-B already running (using service)'})
 
     data = request.json or {}
-    print(f"[ADS-B] Request data: {data}")
     gain = data.get('gain', '40')
     device = data.get('device', '0')
-    force_service = data.get('forceService', False)
-    print(f"[ADS-B] forceService = {force_service}")
 
-    # First check if dump1090 is already running as a service with SBS port
-    service_addr = check_dump1090_service()
-
-    # Allow forcing service mode even if check fails
-    if force_service and not service_addr:
-        print("[ADS-B] Force service mode enabled, using localhost:30003")
-        service_addr = 'localhost:30003'
-
-    if service_addr:
-        print(f"[ADS-B] Using existing dump1090 service SBS port at {service_addr}")
-        adsb_using_service = True
-        # Start thread to parse SBS data
-        thread = threading.Thread(target=parse_sbs_stream, args=(service_addr,), daemon=True)
-        thread.start()
-        return jsonify({'status': 'started', 'mode': 'service'})
+    # Always try SBS service first (dump1090-mutability on port 30003)
+    print("[ADS-B] Connecting to dump1090 SBS service on localhost:30003...")
+    adsb_using_service = True
+    thread = threading.Thread(target=parse_sbs_stream, args=('localhost:30003',), daemon=True)
+    thread.start()
+    return jsonify({'status': 'started', 'mode': 'service'})
 
     # No service running, start dump1090 ourselves
     dump1090_path = shutil.which('dump1090') or shutil.which('dump1090-mutability')
