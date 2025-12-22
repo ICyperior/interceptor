@@ -12078,6 +12078,7 @@ def parse_adsb_output(process):
             'http://localhost:8080/dump1090/data/aircraft.json'
         ]
         working_url = None
+        print("[ADS-B] JSON polling thread started")
 
         while process and process.poll() is None:
             try:
@@ -12087,6 +12088,8 @@ def parse_adsb_output(process):
                     try:
                         with urllib.request.urlopen(url, timeout=2) as response:
                             data = json_lib.loads(response.read().decode())
+                            if not working_url:
+                                print(f"[ADS-B] JSON: Connected to {url}")
                             working_url = url
 
                             aircraft_list = data.get('aircraft', [])
@@ -12117,10 +12120,10 @@ def parse_adsb_output(process):
                                     **aircraft
                                 })
                             break
-                    except:
-                        continue
+                    except Exception as url_err:
+                        continue  # Try next URL
             except Exception as e:
-                pass
+                print(f"[ADS-B] JSON error: {e}")
             time.sleep(1)
 
     # Start JSON polling thread
