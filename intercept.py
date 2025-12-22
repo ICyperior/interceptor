@@ -14,16 +14,13 @@ Requires RTL-SDR hardware for RF modes.
 """
 
 import sys
-print(f"[Debug] Python executable: {sys.executable}")
-print(f"[Debug] Python version: {sys.version}")
-print(f"[Debug] User site-packages: {'/home/radio/.local/lib/python3.10/site-packages' in sys.path}")
+import site
 
-# Quick skyfield check at startup
-try:
-    import skyfield
-    print(f"[Debug] Skyfield loaded: {skyfield.__file__}")
-except Exception as e:
-    print(f"[Debug] Skyfield import failed: {e}")
+# Ensure user site-packages is available (may be disabled when running as root/sudo)
+if not site.ENABLE_USER_SITE:
+    user_site = site.getusersitepackages()
+    if user_site and user_site not in sys.path:
+        sys.path.insert(0, user_site)
 
 import subprocess
 import shutil
