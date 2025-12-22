@@ -13627,13 +13627,9 @@ def satellite_dashboard():
         }
 
         async function updateRealTimePositions() {
-            if (!passes || passes.length === 0 || selectedPass === null) return;
-
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
-            const pass = passes[selectedPass];
-
-            if (!pass) return;
+            const satColor = satellites[selectedSatellite]?.color || '#00d4ff';
 
             try {
                 const response = await fetch('/satellite/position', {
@@ -13642,7 +13638,7 @@ def satellite_dashboard():
                     body: JSON.stringify({
                         latitude: lat,
                         longitude: lon,
-                        satellites: [pass.norad],
+                        satellites: [selectedSatellite],
                         includeTrack: true
                     })
                 });
@@ -13660,26 +13656,178 @@ def satellite_dashboard():
                     document.getElementById('telDist').textContent = pos.distance.toFixed(0) + ' km';
 
                     // Update visible count
-                    document.getElementById('statVisible').textContent = pos.visible ? '1' : '0';
+                    document.getElementById('statVisible').textContent = pos.elevation > 0 ? '1' : '0';
 
-                    // Update satellite marker
-                    if (satMarker) {
-                        satMarker.setLatLng([pos.lat, pos.lon]);
+                    // Update satellite marker on map
+                    if (groundMap) {
+                        if (satMarker) groundMap.removeLayer(satMarker);
+
+                        const satIcon = L.divIcon({
+                            className: 'sat-marker-live',
+                            html: `<div style="
+                                width: 20px; height: 20px;
+                                background: ${satColor};
+                                border-radius: 50%;
+                                border: 3px solid #fff;
+                                box-shadow: 0 0 20px ${satColor}, 0 0 40px ${satColor};
+                            "></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                        satMarker = L.marker([pos.lat, pos.lon], { icon: satIcon }).addTo(groundMap);
                     }
 
                     // Update orbit track
                     if (pos.track && groundMap) {
                         if (orbitTrack) groundMap.removeLayer(orbitTrack);
                         orbitTrack = L.polyline(pos.track.map(p => [p.lat, p.lon]), {
-                            color: '#a855f7',
+                            color: satColor,
                             weight: 2,
-                            opacity: 0.5,
+                            opacity: 0.6,
                             dashArray: '5, 5'
                         }).addTo(groundMap);
                     }
+
+                    // Update polar plot with current position
+                    drawPolarPlotWithPosition(pos.azimuth, pos.elevation, satColor);
                 }
             } catch (err) {
                 console.error('Position update error:', err);
+            }
+        }
+
+        function drawPolarPlotWithPosition(az, el, color) {
+            const canvas = document.getElementById('polarPlot');
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height - 20;
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = Math.min(cx, cy) - 40;
+
+            // Clear
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw elevation rings
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
+            ctx.lineWidth = 1;
+            for (let elRing = 30; elRing <= 90; elRing += 30) {
+                const r = radius * (1 - elRing / 90);
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(elRing + '°', cx + 5, cy - r + 12);
+            }
+
+            // Horizon
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Cardinal lines
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let azLine = 0; azLine < 360; azLine += 45) {
+                const angle = (azLine - 90) * Math.PI / 180;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+                ctx.stroke();
+            }
+
+            // Cardinal labels
+            ctx.font = 'bold 14px Orbitron';
+            const labels = [
+                { text: 'N', az: 0, color: '#ff4444' },
+                { text: 'E', az: 90, color: '#00d4ff' },
+                { text: 'S', az: 180, color: '#00d4ff' },
+                { text: 'W', az: 270, color: '#00d4ff' }
+            ];
+            labels.forEach(l => {
+                const angle = (l.az - 90) * Math.PI / 180;
+                const x = cx + (radius + 20) * Math.cos(angle);
+                const y = cy + (radius + 20) * Math.sin(angle);
+                ctx.fillStyle = l.color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(l.text, x, y);
+            });
+
+            // Draw pass trajectory if available
+            if (passes.length > 0 && selectedPass !== null && passes[selectedPass]?.trajectory) {
+                const pass = passes[selectedPass];
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 4]);
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+
+                pass.trajectory.forEach((pt, i) => {
+                    const r = radius * (1 - pt.el / 90);
+                    const angle = (pt.az - 90) * Math.PI / 180;
+                    const x = cx + r * Math.cos(angle);
+                    const y = cy + r * Math.sin(angle);
+
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+            }
+
+            // Draw current satellite position
+            if (el > -5) { // Show even slightly below horizon
+                const posEl = Math.max(0, el);
+                const r = radius * (1 - posEl / 90);
+                const angle = (az - 90) * Math.PI / 180;
+                const x = cx + r * Math.cos(angle);
+                const y = cy + r * Math.sin(angle);
+
+                // Glow effect
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, 25);
+                gradient.addColorStop(0, color);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.arc(x, y, 25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+
+                // Main marker
+                ctx.beginPath();
+                ctx.arc(x, y, 10, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Satellite label
+                ctx.font = 'bold 11px Orbitron';
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.fillText(satellites[selectedSatellite]?.name || 'SAT', x, y - 20);
+
+                // Elevation indicator
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillStyle = el > 0 ? '#00ff88' : '#ff4444';
+                ctx.fillText(el.toFixed(1) + '°', x, y + 25);
+            } else {
+                // Below horizon indicator
+                ctx.font = '12px Rajdhani';
+                ctx.fillStyle = '#ff4444';
+                ctx.textAlign = 'center';
+                ctx.fillText('BELOW HORIZON', cx, cy + radius + 35);
             }
         }
     </script>
@@ -13865,10 +14013,29 @@ def get_satellite_position():
         return jsonify({'status': 'error', 'message': 'skyfield not installed'})
 
     data = request.json
-    lat = data.get('lat', 51.5074)
-    lon = data.get('lon', -0.1278)
-    satellites = data.get('satellites', [])
+    lat = data.get('latitude', data.get('lat', 51.5074))
+    lon = data.get('longitude', data.get('lon', -0.1278))
+    sat_input = data.get('satellites', [])
     include_track = data.get('includeTrack', True)
+
+    # Map NORAD IDs to satellite names
+    norad_to_name = {
+        25544: 'ISS',
+        25338: 'NOAA-15',
+        28654: 'NOAA-18',
+        33591: 'NOAA-19',
+        43013: 'NOAA-20',
+        40069: 'METEOR-M2',
+        57166: 'METEOR-M2-3'
+    }
+
+    # Convert NORAD IDs to names if needed
+    satellites = []
+    for sat in sat_input:
+        if isinstance(sat, int) and sat in norad_to_name:
+            satellites.append(norad_to_name[sat])
+        else:
+            satellites.append(sat)
 
     ts = load.timescale()
     observer = wgs84.latlon(lat, lon)
@@ -13922,7 +14089,7 @@ def get_satellite_position():
                     except:
                         continue
 
-                pos_data['orbitTrack'] = orbit_track
+                pos_data['track'] = orbit_track
 
             positions.append(pos_data)
         except Exception:
