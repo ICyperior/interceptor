@@ -14541,7 +14541,7 @@ def adsb_dashboard():
                     });
                     const data = await response.json();
 
-                    if (data.status === 'success' || data.status === 'already_running') {
+                    if (data.status === 'success' || data.status === 'started' || data.status === 'already_running') {
                         startEventStream();
                         isTracking = true;
                         btn.textContent = 'STOP TRACKING';
@@ -14549,7 +14549,7 @@ def adsb_dashboard():
                         document.getElementById('trackingDot').classList.remove('inactive');
                         document.getElementById('trackingStatus').textContent = 'TRACKING';
                     } else {
-                        alert('Failed to start: ' + (data.message || 'Unknown error'));
+                        alert('Failed to start: ' + (data.message || data.status || 'Unknown error'));
                     }
                 } catch (err) {
                     console.error('Start error:', err);
