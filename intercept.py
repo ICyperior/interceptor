@@ -12476,11 +12476,12 @@ def satellite_dashboard():
             position: relative;
             z-index: 10;
             display: grid;
-            grid-template-columns: 1fr 1fr 420px;
-            grid-template-rows: auto 1fr;
+            grid-template-columns: 1fr 1fr 380px;
+            grid-template-rows: 1fr;
             gap: 20px;
             padding: 20px;
             height: calc(100vh - 80px);
+            min-height: 600px;
         }
 
         /* Panels */
@@ -12539,7 +12540,7 @@ def satellite_dashboard():
         /* Polar plot */
         .polar-container {
             grid-column: 1;
-            grid-row: 1 / 3;
+            grid-row: 1;
         }
 
         #polarPlot {
@@ -12551,7 +12552,7 @@ def satellite_dashboard():
         /* Ground track map */
         .map-container {
             grid-column: 2;
-            grid-row: 1 / 3;
+            grid-row: 1;
         }
 
         #groundMap {
@@ -12564,12 +12565,16 @@ def satellite_dashboard():
         /* Right sidebar */
         .sidebar {
             grid-column: 3;
-            grid-row: 1 / 3;
+            grid-row: 1;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
             overflow-y: auto;
             padding-right: 5px;
+        }
+
+        .sidebar .panel {
+            flex-shrink: 0;
         }
 
         /* Countdown panel */
@@ -12901,10 +12906,21 @@ def satellite_dashboard():
             border-radius: 3px;
         }
 
-        /* Responsive */
-        @media (max-width: 1600px) {
+        /* Responsive - only kick in on smaller screens */
+        @media (max-width: 1200px) {
             .dashboard {
                 grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr auto;
+                height: auto;
+                min-height: 100vh;
+            }
+            .polar-container {
+                grid-column: 1;
+                grid-row: 1;
+            }
+            .map-container {
+                grid-column: 2;
+                grid-row: 1;
             }
             .sidebar {
                 grid-column: 1 / 3;
@@ -12915,26 +12931,27 @@ def satellite_dashboard():
                 max-height: none;
             }
             .sidebar .panel {
-                flex: 1;
-                min-width: 300px;
-                max-height: 300px;
+                flex: 1 1 280px;
+                max-height: 280px;
             }
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 800px) {
             .dashboard {
                 grid-template-columns: 1fr;
-                height: auto;
+                grid-template-rows: auto;
             }
             .polar-container, .map-container {
                 grid-column: 1;
-                min-height: 350px;
+                min-height: 300px;
             }
             .sidebar {
                 grid-column: 1;
                 flex-direction: column;
             }
             .sidebar .panel {
+                flex: none;
+                max-height: none;
                 min-width: 100%;
             }
         }
