@@ -12011,9 +12011,11 @@ def start_adsb():
             return jsonify({'status': 'error', 'message': 'ADS-B already running (using service)'})
 
     data = request.json or {}
+    print(f"[ADS-B] Request data: {data}")
     gain = data.get('gain', '40')
     device = data.get('device', '0')
     force_service = data.get('forceService', False)
+    print(f"[ADS-B] forceService = {force_service}")
 
     # First check if dump1090 is already running as a service with SBS port
     service_addr = check_dump1090_service()
