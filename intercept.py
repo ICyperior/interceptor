@@ -296,6 +296,10 @@ HTML_TEMPLATE = '''
     <!-- Leaflet.js for aircraft map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <!-- Leaflet MarkerCluster for aircraft clustering -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@400;500;600;700&display=swap');
 
@@ -1655,10 +1659,11 @@ HTML_TEMPLATE = '''
         .pass-predictor {
             display: grid;
             grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
             gap: 15px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1100px) {
             .pass-predictor {
                 grid-template-columns: 1fr;
             }
@@ -1670,6 +1675,42 @@ HTML_TEMPLATE = '''
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 15px;
+            min-height: 320px;
+        }
+
+        .ground-track-cell {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            min-height: 320px;
+        }
+
+        .ground-track-cell #groundTrackMap {
+            height: 240px;
+        }
+
+        .countdown-cell {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .countdown-cell .satellite-countdown {
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: none;
+        }
+
+        .pass-list-cell {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 350px;
+            overflow-y: auto;
         }
 
         .polar-plot-header {
@@ -2692,6 +2733,210 @@ HTML_TEMPLATE = '''
         .disclaimer-hidden {
             display: none !important;
         }
+
+        /* Ground Track Map */
+        #groundTrackMap {
+            height: 240px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .ground-track-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .ground-track-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .sat-position-indicator {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #ff0;
+            border: 2px solid #000;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            animation: pulse-sat 1s infinite;
+        }
+
+        @keyframes pulse-sat {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 0, 0.7); }
+            50% { box-shadow: 0 0 0 8px rgba(255, 255, 0, 0); }
+        }
+
+        /* Beacon Flood Alert */
+        .beacon-flood-alert {
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.2), rgba(255, 100, 0, 0.2));
+            border: 1px solid #ff4444;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            animation: beacon-flash 0.5s infinite alternate;
+        }
+
+        @keyframes beacon-flash {
+            from { opacity: 0.8; }
+            to { opacity: 1; }
+        }
+
+        /* WPS Indicator */
+        .wps-enabled {
+            background: #ff6600;
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+
+        /* PMKID Capture */
+        .pmkid-btn {
+            background: linear-gradient(135deg, #9933ff, #6600cc);
+            color: #fff;
+        }
+
+        .pmkid-btn:hover {
+            background: linear-gradient(135deg, #aa44ff, #7700dd);
+        }
+
+        /* Find My Detection */
+        .findmy-device {
+            border-left: 3px solid #007aff;
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .findmy-badge {
+            background: linear-gradient(135deg, #007aff, #5856d6);
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* Tracker Following Alert */
+        .tracker-following-alert {
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.3), rgba(255, 50, 50, 0.2));
+            border: 2px solid #ff0000;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            animation: tracker-pulse 1s infinite;
+        }
+
+        @keyframes tracker-pulse {
+            0%, 100% { border-color: #ff0000; }
+            50% { border-color: #ff6666; }
+        }
+
+        .tracker-following-alert h4 {
+            color: #ff4444;
+            margin: 0 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Flight Path Trails */
+        .flight-trail {
+            stroke-dasharray: 5, 5;
+            fill: none;
+        }
+
+        /* Squawk Alerts */
+        .squawk-emergency {
+            background: #ff0000 !important;
+            animation: squawk-flash 0.3s infinite alternate;
+        }
+
+        .squawk-hijack {
+            background: #ff0000 !important;
+        }
+
+        .squawk-radio-fail {
+            background: #ff6600 !important;
+        }
+
+        .squawk-mayday {
+            background: #ff0000 !important;
+        }
+
+        @keyframes squawk-flash {
+            from { opacity: 0.7; }
+            to { opacity: 1; }
+        }
+
+        .squawk-alert-banner {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff0000;
+            color: #fff;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 9999;
+            animation: squawk-banner-flash 0.5s infinite alternate;
+        }
+
+        @keyframes squawk-banner-flash {
+            from { background: #ff0000; }
+            to { background: #cc0000; }
+        }
+
+        /* Military Aircraft */
+        .military-aircraft {
+            border-left: 3px solid #556b2f;
+            background: rgba(85, 107, 47, 0.2);
+        }
+
+        .military-badge {
+            background: #556b2f;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        /* Map Clustering */
+        .marker-cluster {
+            background: rgba(0, 212, 255, 0.6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #000;
+            border: 2px solid var(--accent-cyan);
+        }
+
+        .marker-cluster-small {
+            width: 30px;
+            height: 30px;
+            font-size: 12px;
+        }
+
+        .marker-cluster-medium {
+            width: 40px;
+            height: 40px;
+            font-size: 14px;
+        }
+
+        .marker-cluster-large {
+            width: 50px;
+            height: 50px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -2759,6 +3004,7 @@ HTML_TEMPLATE = '''
             <span class="icon-moon">🌙</span>
             <span class="icon-sun">☀️</span>
         </button>
+        <button class="help-btn" onclick="showDependencies()" title="Check Tool Dependencies" id="depsBtn" style="margin-right: 5px;">🔧</button>
         <button class="help-btn" onclick="showHelp()" title="Help & Documentation">?</button>
         <div class="logo">
             <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2818,10 +3064,16 @@ HTML_TEMPLATE = '''
                     <button class="preset-btn" onclick="refreshDevices()" style="width: 100%;">
                         Refresh Devices
                     </button>
-                    <div class="info-text" style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                    <div id="toolStatusPager" class="info-text tool-status-section" style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
                         <span>rtl_fm:</span><span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK' if tools.rtl_fm else 'Missing' }}</span>
                         <span>multimon-ng:</span><span class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon else 'Missing' }}</span>
+                    </div>
+                    <div id="toolStatusSensor" class="info-text tool-status-section" style="display: none; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
                         <span>rtl_433:</span><span class="tool-status {{ 'ok' if tools.rtl_433 else 'missing' }}">{{ 'OK' if tools.rtl_433 else 'Missing' }}</span>
+                    </div>
+                    <div id="toolStatusAircraft" class="info-text tool-status-section" style="display: none; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                        <span>dump1090:</span><span id="dump1090StatusSidebar" class="tool-status">Checking...</span>
+                        <span>rtl_adsb:</span><span id="rtlAdsbStatusSidebar" class="tool-status">Checking...</span>
                     </div>
                 </div>
 
@@ -3064,6 +3316,38 @@ HTML_TEMPLATE = '''
                         </div>
                     </div>
 
+                    <!-- PMKID Capture Panel -->
+                    <div class="section" id="pmkidPanel" style="display: none; border: 1px solid #9933ff; border-radius: 4px; padding: 10px; background: rgba(153, 51, 255, 0.1);">
+                        <h3 style="color: #9933ff; margin: 0 0 8px 0;">🔐 PMKID Capture</h3>
+                        <div style="font-size: 11px;">
+                            <div style="margin-bottom: 4px;">
+                                <span style="color: var(--text-dim);">Target:</span>
+                                <span id="pmkidTargetBssid" style="font-family: monospace;">--</span>
+                            </div>
+                            <div style="margin-bottom: 4px;">
+                                <span style="color: var(--text-dim);">Status:</span>
+                                <span id="pmkidStatus" style="font-weight: bold;">--</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="preset-btn" onclick="stopPmkidCapture()" style="flex: 1; font-size: 10px; padding: 4px; border-color: var(--accent-red); color: var(--accent-red);">
+                                    Stop
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Beacon Flood Alert Panel -->
+                    <div id="beaconFloodAlert" class="beacon-flood-alert" style="display: none;">
+                        <h4 style="color: #ff4444; margin: 0 0 8px 0;">⚠️ BEACON FLOOD DETECTED</h4>
+                        <div style="font-size: 11px;">
+                            <div id="beaconFloodDetails">Multiple beacon frames detected from same channel</div>
+                            <div style="margin-top: 8px;">
+                                <span style="color: var(--text-dim);">Networks/sec:</span>
+                                <span id="beaconFloodRate" style="font-weight: bold; color: #ff4444;">--</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <button class="run-btn" id="startWifiBtn" onclick="startWifiScan()">
                         Start Scanning
                     </button>
@@ -3127,6 +3411,11 @@ HTML_TEMPLATE = '''
                         </button>
                     </div>
 
+                    <!-- Tracker Following Alert -->
+                    <div id="trackerFollowingAlert" class="tracker-following-alert" style="display: none;">
+                        <!-- Populated by JavaScript -->
+                    </div>
+
                     <button class="run-btn" id="startBtBtn" onclick="startBtScan()">
                         Start Scanning
                     </button>
@@ -3182,6 +3471,10 @@ HTML_TEMPLATE = '''
                             <label>
                                 <input type="checkbox" id="adsbShowTrails">
                                 Show Flight Trails
+                            </label>
+                            <label>
+                                <input type="checkbox" id="adsbEnableClustering" onchange="toggleAircraftClustering()">
+                                Cluster Markers
                             </label>
                         </div>
                     </div>
@@ -3521,7 +3814,7 @@ HTML_TEMPLATE = '''
                 <!-- Satellite Visualizations -->
                 <div id="satelliteVisuals" style="display: none;">
                     <div class="pass-predictor">
-                        <!-- Polar Plot -->
+                        <!-- Cell 1: Polar Plot (Top Left) -->
                         <div class="polar-plot-container">
                             <div class="polar-plot-header">
                                 <span class="polar-plot-title">Sky View</span>
@@ -3537,14 +3830,30 @@ HTML_TEMPLATE = '''
                             </div>
                         </div>
 
-                        <!-- Pass List -->
-                        <div class="pass-list-container">
-                            <div class="pass-list-header">
-                                <span>Upcoming Passes</span>
-                                <span id="passListCount">0 passes</span>
+                        <!-- Cell 2: Ground Track Map (Top Right) -->
+                        <div class="ground-track-cell">
+                            <div class="ground-track-header">
+                                <span class="ground-track-title">🌍 Ground Track</span>
+                                <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
+                                    <input type="checkbox" id="showGroundTrack" checked onchange="toggleGroundTrack()">
+                                    Show Track
+                                </label>
                             </div>
-                            <!-- Countdown Block -->
-                            <div id="satelliteCountdown" class="satellite-countdown" style="display: none;">
+                            <div id="groundTrackMap"></div>
+                            <div style="text-align: center; margin-top: 8px; font-size: 10px; color: var(--text-secondary);">
+                                <span style="color: #666;">---</span> Past |
+                                <span style="color: #ffff00;">●</span> Current |
+                                <span style="color: #00ff00;">―</span> Future |
+                                <span style="color: #ff6600;">◉</span> Observer
+                            </div>
+                        </div>
+
+                        <!-- Cell 3: Countdown (Bottom Left) -->
+                        <div class="countdown-cell">
+                            <div class="pass-list-header">
+                                <span>Next Pass Countdown</span>
+                            </div>
+                            <div id="satelliteCountdown" class="satellite-countdown">
                                 <div class="countdown-satellite-name" id="countdownSatName">--</div>
                                 <div class="countdown-grid">
                                     <div class="countdown-block">
@@ -3563,7 +3872,15 @@ HTML_TEMPLATE = '''
                                         <div class="countdown-sublabel" id="countdownDirection">--</div>
                                     </div>
                                 </div>
-                                <div class="countdown-status" id="countdownStatus">Waiting for pass data...</div>
+                                <div class="countdown-status" id="countdownStatus">Calculate passes to see countdown</div>
+                            </div>
+                        </div>
+
+                        <!-- Cell 4: Pass List (Bottom Right) -->
+                        <div class="pass-list-cell">
+                            <div class="pass-list-header">
+                                <span>Upcoming Passes</span>
+                                <span id="passListCount">0 passes</span>
                             </div>
                             <div id="passList">
                                 <div style="color: #666; text-align: center; padding: 30px; font-size: 11px;">
@@ -3766,6 +4083,118 @@ HTML_TEMPLATE = '''
         let adsbAircraft = {};
         let adsbMsgCount = 0;
         let adsbEventSource = null;
+        let aircraftTrails = {};  // ICAO -> array of positions
+        let activeSquawkAlerts = {};  // Active emergency squawk alerts
+
+        // Emergency squawk codes
+        const SQUAWK_CODES = {
+            '7500': { type: 'hijack', name: 'HIJACK', color: '#ff0000', description: 'Aircraft being hijacked' },
+            '7600': { type: 'radio', name: 'RADIO FAILURE', color: '#ff6600', description: 'Radio communications failure' },
+            '7700': { type: 'mayday', name: 'EMERGENCY', color: '#ff0000', description: 'General emergency' }
+        };
+
+        // Military ICAO hex ranges (partial list - many countries)
+        const MILITARY_RANGES = [
+            { start: 0xADF7C0, end: 0xADFFFFF, country: 'US' },  // US Military
+            { start: 0xAE0000, end: 0xAEFFFF, country: 'US' },   // US Military
+            { start: 0x3F0000, end: 0x3FFFFF, country: 'FR' },   // France Military
+            { start: 0x400000, end: 0x43FFFF, country: 'UK' },   // UK Military
+            { start: 0x43C000, end: 0x43CFFF, country: 'UK' },   // UK Military
+            { start: 0x4B0000, end: 0x4B7FFF, country: 'DE' },   // Germany Military
+            { start: 0x501C00, end: 0x501FFF, country: 'NATO' }, // NATO
+        ];
+
+        // Military callsign prefixes
+        const MILITARY_PREFIXES = [
+            'REACH', 'JAKE', 'DOOM', 'IRON', 'HAWK', 'VIPER', 'COBRA', 'THUNDER',
+            'SHADOW', 'NIGHT', 'STEEL', 'GRIM', 'REAPER', 'BLADE', 'STRIKE',
+            'RCH', 'CNV', 'MCH', 'EVAC', 'TOPCAT', 'ASCOT', 'RRR', 'HRK',
+            'NAVY', 'ARMY', 'USAF', 'RAF', 'RCAF', 'RAAF', 'IAF', 'PAF'
+        ];
+
+        function isMilitaryAircraft(icao, callsign) {
+            // Check ICAO hex range
+            const icaoInt = parseInt(icao, 16);
+            for (const range of MILITARY_RANGES) {
+                if (icaoInt >= range.start && icaoInt <= range.end) {
+                    return { military: true, country: range.country };
+                }
+            }
+
+            // Check callsign prefix
+            if (callsign) {
+                const upper = callsign.toUpperCase();
+                for (const prefix of MILITARY_PREFIXES) {
+                    if (upper.startsWith(prefix)) {
+                        return { military: true, type: 'callsign' };
+                    }
+                }
+            }
+
+            return { military: false };
+        }
+
+        function checkSquawkCode(aircraft) {
+            if (!aircraft.squawk) return null;
+
+            const squawkInfo = SQUAWK_CODES[aircraft.squawk];
+            if (squawkInfo) {
+                // Show alert if not already shown
+                if (!activeSquawkAlerts[aircraft.icao]) {
+                    activeSquawkAlerts[aircraft.icao] = true;
+                    showSquawkAlert(aircraft, squawkInfo);
+                }
+                return squawkInfo;
+            }
+            return null;
+        }
+
+        function showSquawkAlert(aircraft, squawkInfo) {
+            // Create banner alert
+            const banner = document.createElement('div');
+            banner.className = 'squawk-alert-banner';
+            banner.id = 'squawkBanner_' + aircraft.icao;
+            banner.innerHTML = `
+                ⚠️ ${squawkInfo.name} - ${aircraft.callsign || aircraft.icao} (${aircraft.squawk})
+                <br><small>${squawkInfo.description}</small>
+                <button onclick="this.parentElement.remove()" style="margin-left: 20px; background: transparent; border: 1px solid white; color: white; padding: 2px 10px; cursor: pointer;">✕</button>
+            `;
+            document.body.appendChild(banner);
+
+            // Auto-remove after 30 seconds
+            setTimeout(() => {
+                const el = document.getElementById('squawkBanner_' + aircraft.icao);
+                if (el) el.remove();
+            }, 30000);
+
+            // Audio alert
+            if (!muted) {
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => playAlertSound(), i * 200);
+                }
+            }
+
+            showNotification(`⚠️ ${squawkInfo.name}`, `${aircraft.callsign || aircraft.icao} - Squawk ${aircraft.squawk}`);
+        }
+
+        function updateAircraftTrail(icao, lat, lon) {
+            if (!aircraftTrails[icao]) {
+                aircraftTrails[icao] = [];
+            }
+
+            const trail = aircraftTrails[icao];
+            const lastPos = trail[trail.length - 1];
+
+            // Only add if position changed significantly
+            if (!lastPos || Math.abs(lastPos.lat - lat) > 0.001 || Math.abs(lastPos.lon - lon) > 0.001) {
+                trail.push({ lat, lon, time: Date.now() });
+
+                // Keep only last 100 positions (about 10 minutes at 1 update/6 seconds)
+                if (trail.length > 100) {
+                    trail.shift();
+                }
+            }
+        }
 
         // Satellite state
         let satellitePasses = [];
@@ -3966,6 +4395,11 @@ HTML_TEMPLATE = '''
 
             // Show RTL-SDR device section for modes that use it
             document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'aircraft') ? 'block' : 'none';
+
+            // Toggle mode-specific tool status displays
+            document.getElementById('toolStatusPager').style.display = (mode === 'pager') ? 'grid' : 'none';
+            document.getElementById('toolStatusSensor').style.display = (mode === 'sensor') ? 'grid' : 'none';
+            document.getElementById('toolStatusAircraft').style.display = (mode === 'aircraft') ? 'grid' : 'none';
 
             // Hide waterfall and output console for satellite mode (uses its own visualizations)
             document.querySelector('.waterfall-container').style.display = (mode === 'satellite') ? 'none' : 'block';
@@ -6225,9 +6659,12 @@ HTML_TEMPLATE = '''
             const signalStrength = parseInt(net.power) || -100;
             const signalBars = Math.max(0, Math.min(5, Math.floor((signalStrength + 100) / 15)));
 
+            const wpsEnabled = net.wps === '1' || net.wps === 'Yes' || (net.privacy || '').includes('WPS');
+            const wpsHtml = wpsEnabled ? '<span class="wps-enabled">WPS</span>' : '';
+
             card.innerHTML = `
                 <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span class="device-name">${escapeHtml(net.essid || '[Hidden]')}</span>
+                    <span class="device-name">${escapeHtml(net.essid || '[Hidden]')}${wpsHtml}</span>
                     <span style="color: #444; font-size: 10px;">CH ${net.channel}</span>
                 </div>
                 <div class="sensor-data">
@@ -6248,9 +6685,10 @@ HTML_TEMPLATE = '''
                         <div class="data-value">${net.beacons}</div>
                     </div>
                 </div>
-                <div style="margin-top: 8px; display: flex; gap: 5px;">
+                <div style="margin-top: 8px; display: flex; gap: 5px; flex-wrap: wrap;">
                     <button class="preset-btn" onclick="targetNetwork('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
-                    <button class="preset-btn" onclick="captureHandshake('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px; border-color: var(--accent-orange); color: var(--accent-orange);">Capture</button>
+                    <button class="preset-btn" onclick="captureHandshake('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px; border-color: var(--accent-orange); color: var(--accent-orange);">4-Way</button>
+                    <button class="preset-btn pmkid-btn" onclick="capturePmkid('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px;">PMKID</button>
                     <button class="preset-btn" onclick="setTrackedDevice('${escapeAttr(net.bssid)}', '${escapeAttr(net.essid || net.bssid)}')" style="font-size: 10px; padding: 4px 8px; border-color: var(--accent-cyan); color: var(--accent-cyan);" title="Track signal strength">📈</button>
                 </div>
             `;
@@ -6378,6 +6816,112 @@ HTML_TEMPLATE = '''
             showInfo('Handshake capture stopped. Check ' + (activeCapture ? activeCapture.file : 'capture file'));
 
             activeCapture = null;
+        }
+
+        // PMKID Capture
+        let activePmkid = null;
+
+        function capturePmkid(bssid, channel) {
+            if (!confirm('Start PMKID capture for ' + bssid + '?\\n\\nThis uses hcxdumptool to capture PMKID without needing clients.\\n\\n⚠ Only use on networks you own or have authorization to test!')) {
+                return;
+            }
+
+            const iface = document.getElementById('wifiInterfaceSelect').value;
+
+            fetch('/wifi/pmkid/capture', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ interface: iface, bssid: bssid, channel: channel })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    activePmkid = { bssid: bssid, file: data.file, startTime: Date.now() };
+                    document.getElementById('pmkidPanel').style.display = 'block';
+                    document.getElementById('pmkidTargetBssid').textContent = bssid;
+                    document.getElementById('pmkidStatus').textContent = 'Capturing...';
+                    document.getElementById('pmkidStatus').style.color = '#9933ff';
+                    showInfo('PMKID capture started for ' + bssid);
+
+                    // Poll for PMKID
+                    activePmkid.pollInterval = setInterval(checkPmkidStatus, 3000);
+                } else {
+                    alert('Failed to start PMKID capture: ' + data.message);
+                }
+            });
+        }
+
+        function checkPmkidStatus() {
+            if (!activePmkid) return;
+
+            fetch('/wifi/pmkid/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file: activePmkid.file })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.pmkid_found) {
+                    document.getElementById('pmkidStatus').textContent = '✓ PMKID CAPTURED!';
+                    document.getElementById('pmkidStatus').style.color = 'var(--accent-green)';
+                    showInfo('🎉 PMKID captured! File: ' + data.file);
+                    showNotification('🔐 PMKID Captured!', `Target: ${activePmkid.bssid}`);
+                    clearInterval(activePmkid.pollInterval);
+                } else {
+                    const elapsed = Math.floor((Date.now() - activePmkid.startTime) / 1000);
+                    document.getElementById('pmkidStatus').textContent = 'Scanning... (' + elapsed + 's)';
+                }
+            });
+        }
+
+        function stopPmkidCapture() {
+            if (activePmkid && activePmkid.pollInterval) {
+                clearInterval(activePmkid.pollInterval);
+            }
+
+            fetch('/wifi/pmkid/stop', { method: 'POST' })
+            .then(() => {
+                document.getElementById('pmkidStatus').textContent = 'Stopped';
+                document.getElementById('pmkidStatus').style.color = 'var(--text-dim)';
+                showInfo('PMKID capture stopped');
+                activePmkid = null;
+            });
+        }
+
+        // Beacon Flood Detection
+        let beaconHistory = [];
+        let lastBeaconCheck = Date.now();
+
+        function checkBeaconFlood(networks) {
+            const now = Date.now();
+            const windowMs = 5000; // 5 second window
+
+            // Add current networks to history
+            beaconHistory.push({ time: now, count: Object.keys(networks).length });
+
+            // Remove old entries
+            beaconHistory = beaconHistory.filter(h => now - h.time < windowMs);
+
+            // Calculate rate of new networks
+            if (beaconHistory.length >= 2) {
+                const oldest = beaconHistory[0];
+                const newest = beaconHistory[beaconHistory.length - 1];
+                const timeDiff = (newest.time - oldest.time) / 1000;
+                const countDiff = newest.count - oldest.count;
+
+                if (timeDiff > 0) {
+                    const rate = countDiff / timeDiff;
+
+                    // Alert if more than 10 new networks per second
+                    if (rate > 10) {
+                        document.getElementById('beaconFloodAlert').style.display = 'block';
+                        document.getElementById('beaconFloodRate').textContent = rate.toFixed(1);
+                        if (!muted) playAlertSound();
+                    } else if (rate < 2) {
+                        document.getElementById('beaconFloodAlert').style.display = 'none';
+                    }
+                }
+            }
         }
 
         // Send deauth
@@ -6878,9 +7422,148 @@ HTML_TEMPLATE = '''
             };
         }
 
+        // Tracker following detection
+        let trackerHistory = {};  // MAC -> { firstSeen, lastSeen, seenCount, locations: [] }
+        const FOLLOWING_THRESHOLD_MINUTES = 30;
+        const FOLLOWING_MIN_DETECTIONS = 5;
+
+        // Find My network detection patterns
+        const FINDMY_PATTERNS = {
+            // Apple Find My / AirTag
+            apple: {
+                prefixes: ['4C:00'],
+                mfgData: [0x004C],  // Apple company ID
+                names: ['AirTag', 'Find My']
+            },
+            // Samsung SmartTag
+            samsung: {
+                prefixes: ['58:4D', 'A0:75', 'DC:0C', 'E4:5F'],
+                mfgData: [0x0075],  // Samsung company ID
+                names: ['SmartTag', 'Galaxy SmartTag']
+            },
+            // Tile
+            tile: {
+                prefixes: ['C4:E7', 'DC:54', 'E4:B0', 'F8:8A', 'D0:03'],
+                names: ['Tile', 'Tile Pro', 'Tile Mate', 'Tile Slim']
+            },
+            // Chipolo
+            chipolo: {
+                prefixes: ['00:0D'],
+                names: ['Chipolo', 'CHIPOLO']
+            }
+        };
+
+        function detectFindMyDevice(device) {
+            const mac = device.mac.toUpperCase();
+            const macPrefix = mac.substring(0, 5);
+            const name = (device.name || '').toLowerCase();
+
+            for (const [network, patterns] of Object.entries(FINDMY_PATTERNS)) {
+                // Check MAC prefix
+                if (patterns.prefixes && patterns.prefixes.some(p => mac.startsWith(p))) {
+                    return { network: network, type: 'Find My Network', icon: '📍' };
+                }
+                // Check name patterns
+                if (patterns.names && patterns.names.some(n => name.includes(n.toLowerCase()))) {
+                    return { network: network, type: 'Find My Network', icon: '📍' };
+                }
+            }
+
+            // Check manufacturer data for Apple continuity
+            if (device.manufacturer_data) {
+                const mfgData = device.manufacturer_data;
+                if (mfgData.includes('4c00') || mfgData.includes('004c')) {
+                    // Check for Find My payload (manufacturer specific data type 0x12)
+                    if (mfgData.includes('12') || mfgData.length > 40) {
+                        return { network: 'apple', type: 'Apple Find My', icon: '🍎' };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function checkTrackerFollowing(device) {
+            if (!device.tracker && !detectFindMyDevice(device)) return;
+
+            const mac = device.mac;
+            const now = Date.now();
+
+            if (!trackerHistory[mac]) {
+                trackerHistory[mac] = {
+                    firstSeen: now,
+                    lastSeen: now,
+                    seenCount: 1,
+                    name: device.name || device.mac
+                };
+            } else {
+                trackerHistory[mac].lastSeen = now;
+                trackerHistory[mac].seenCount++;
+            }
+
+            const tracker = trackerHistory[mac];
+            const durationMinutes = (now - tracker.firstSeen) / 60000;
+
+            // Alert if tracker has been following for a while
+            if (durationMinutes >= FOLLOWING_THRESHOLD_MINUTES && tracker.seenCount >= FOLLOWING_MIN_DETECTIONS) {
+                showTrackerFollowingAlert(mac, tracker);
+            }
+        }
+
+        function showTrackerFollowingAlert(mac, tracker) {
+            const alertDiv = document.getElementById('trackerFollowingAlert');
+            if (!alertDiv) return;
+
+            const durationMinutes = Math.floor((Date.now() - tracker.firstSeen) / 60000);
+
+            alertDiv.style.display = 'block';
+            alertDiv.innerHTML = `
+                <h4>⚠️ POSSIBLE TRACKING DETECTED</h4>
+                <div style="font-size: 12px;">
+                    <div><strong>Device:</strong> ${escapeHtml(tracker.name)}</div>
+                    <div><strong>MAC:</strong> ${escapeHtml(mac)}</div>
+                    <div><strong>Duration:</strong> ${durationMinutes} minutes</div>
+                    <div><strong>Detections:</strong> ${tracker.seenCount}</div>
+                    <div style="margin-top: 10px; color: #ff6666;">
+                        This tracker has been detected near you for an extended period.
+                        If you don't recognize this device, consider your safety.
+                    </div>
+                    <button onclick="dismissTrackerAlert('${mac}')" class="preset-btn" style="margin-top: 10px; border-color: #ff4444; color: #ff4444;">
+                        Dismiss
+                    </button>
+                </div>
+            `;
+
+            if (!muted) {
+                // Play warning sound
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => playAlertSound(), i * 300);
+                }
+            }
+
+            showNotification('⚠️ Tracking Alert', `${tracker.name} detected for ${durationMinutes} min`);
+        }
+
+        function dismissTrackerAlert(mac) {
+            document.getElementById('trackerFollowingAlert').style.display = 'none';
+            // Reset the tracker history for this device
+            if (trackerHistory[mac]) {
+                trackerHistory[mac].firstSeen = Date.now();
+                trackerHistory[mac].seenCount = 0;
+            }
+        }
+
         // Handle discovered Bluetooth device
         function handleBtDevice(device) {
             const isNew = !btDevices[device.mac];
+
+            // Check for Find My network
+            const findMyInfo = detectFindMyDevice(device);
+            if (findMyInfo) {
+                device.findmy = findMyInfo;
+                device.tracker = device.tracker || { name: findMyInfo.type };
+            }
+
             btDevices[device.mac] = device;
 
             if (isNew) {
@@ -6889,6 +7572,9 @@ HTML_TEMPLATE = '''
                 playAlert();
                 pulseSignal();
             }
+
+            // Check for tracker following
+            checkTrackerFollowing(device);
 
             // Track in device intelligence
             trackDevice({
@@ -6917,9 +7603,10 @@ HTML_TEMPLATE = '''
             if (!card) {
                 card = document.createElement('div');
                 card.id = 'bt_' + device.mac.replace(/:/g, '');
-                card.className = 'sensor-card';
+                card.className = 'sensor-card' + (device.findmy ? ' findmy-device' : '');
                 const devType = device.device_type || device.type || 'other';
-                card.style.borderLeftColor = device.tracker ? 'var(--accent-red)' :
+                card.style.borderLeftColor = device.findmy ? '#007aff' :
+                                             device.tracker ? 'var(--accent-red)' :
                                              devType === 'phone' ? 'var(--accent-cyan)' :
                                              devType === 'audio' ? 'var(--accent-green)' :
                                              'var(--accent-orange)';
@@ -6932,9 +7619,13 @@ HTML_TEMPLATE = '''
                 'computer': '💻', 'input': '⌨️', 'other': '📶'
             }[devType] || '📶';
 
+            const findMyBadge = device.findmy
+                ? `<span class="findmy-badge">${device.findmy.icon || '📍'} ${device.findmy.network.toUpperCase()}</span>`
+                : '';
+
             card.innerHTML = `
                 <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span class="device-name">${typeIcon} ${escapeHtml(device.name)}</span>
+                    <span class="device-name">${typeIcon} ${escapeHtml(device.name)} ${findMyBadge}</span>
                     <span style="color: #444; font-size: 10px;">${escapeHtml(devType.toUpperCase())}</span>
                 </div>
                 <div class="sensor-data">
@@ -6946,7 +7637,12 @@ HTML_TEMPLATE = '''
                         <div class="data-label">Manufacturer</div>
                         <div class="data-value">${escapeHtml(device.manufacturer)}</div>
                     </div>
-                    ${device.tracker ? `
+                    ${device.findmy ? `
+                    <div class="data-item">
+                        <div class="data-label">Find My</div>
+                        <div class="data-value" style="color: #007aff;">${escapeHtml(device.findmy.type)}</div>
+                    </div>` : ''}
+                    ${device.tracker && !device.findmy ? `
                     <div class="data-item">
                         <div class="data-label">Tracker</div>
                         <div class="data-value" style="color: var(--accent-red);">${escapeHtml(device.tracker.name)}</div>
@@ -7104,18 +7800,36 @@ HTML_TEMPLATE = '''
             fetch('/adsb/tools')
                 .then(r => r.json())
                 .then(data => {
+                    // Update aircraft mode panel status
                     const dump1090Status = document.getElementById('dump1090Status');
                     const rtlAdsbStatus = document.getElementById('rtlAdsbStatus');
-                    dump1090Status.textContent = data.dump1090 ? 'OK' : 'Missing';
-                    dump1090Status.className = 'tool-status ' + (data.dump1090 ? 'ok' : 'missing');
-                    rtlAdsbStatus.textContent = data.rtl_adsb ? 'OK' : 'Missing';
-                    rtlAdsbStatus.className = 'tool-status ' + (data.rtl_adsb ? 'ok' : 'missing');
+                    if (dump1090Status) {
+                        dump1090Status.textContent = data.dump1090 ? 'OK' : 'Missing';
+                        dump1090Status.className = 'tool-status ' + (data.dump1090 ? 'ok' : 'missing');
+                    }
+                    if (rtlAdsbStatus) {
+                        rtlAdsbStatus.textContent = data.rtl_adsb ? 'OK' : 'Missing';
+                        rtlAdsbStatus.className = 'tool-status ' + (data.rtl_adsb ? 'ok' : 'missing');
+                    }
+                    // Update sidebar status
+                    const dump1090Sidebar = document.getElementById('dump1090StatusSidebar');
+                    const rtlAdsbSidebar = document.getElementById('rtlAdsbStatusSidebar');
+                    if (dump1090Sidebar) {
+                        dump1090Sidebar.textContent = data.dump1090 ? 'OK' : 'Missing';
+                        dump1090Sidebar.className = 'tool-status ' + (data.dump1090 ? 'ok' : 'missing');
+                    }
+                    if (rtlAdsbSidebar) {
+                        rtlAdsbSidebar.textContent = data.rtl_adsb ? 'OK' : 'Missing';
+                        rtlAdsbSidebar.className = 'tool-status ' + (data.rtl_adsb ? 'ok' : 'missing');
+                    }
                 });
         }
 
         // Leaflet map for aircraft tracking
         let aircraftMap = null;
         let aircraftMarkers = {};
+        let aircraftClusterGroup = null;
+        let clusteringEnabled = false;
         let mapRefreshInterval = null;
 
         function initAircraftRadar() {
@@ -7136,6 +7850,25 @@ HTML_TEMPLATE = '''
                 maxZoom: 18
             }).addTo(aircraftMap);
 
+            // Initialize cluster group (but don't add to map yet)
+            aircraftClusterGroup = L.markerClusterGroup({
+                maxClusterRadius: 50,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 'small';
+                    if (count > 10) size = 'medium';
+                    if (count > 25) size = 'large';
+
+                    return L.divIcon({
+                        html: '<div class="marker-cluster marker-cluster-' + size + '">' + count + '</div>',
+                        className: '',
+                        iconSize: L.point(40, 40)
+                    });
+                }
+            });
+
             // Update time display
             updateRadarTime();
             setInterval(updateRadarTime, 1000);
@@ -7152,6 +7885,30 @@ HTML_TEMPLATE = '''
             updateAircraftMarkers();
         }
 
+        function toggleAircraftClustering() {
+            clusteringEnabled = document.getElementById('adsbEnableClustering').checked;
+
+            if (!aircraftMap || !aircraftClusterGroup) return;
+
+            if (clusteringEnabled) {
+                // Move all markers to cluster group
+                Object.values(aircraftMarkers).forEach(marker => {
+                    if (aircraftMap.hasLayer(marker)) {
+                        aircraftMap.removeLayer(marker);
+                    }
+                    aircraftClusterGroup.addLayer(marker);
+                });
+                aircraftMap.addLayer(aircraftClusterGroup);
+            } else {
+                // Move all markers back to map directly
+                aircraftClusterGroup.clearLayers();
+                aircraftMap.removeLayer(aircraftClusterGroup);
+                Object.values(aircraftMarkers).forEach(marker => {
+                    marker.addTo(aircraftMap);
+                });
+            }
+        }
+
         function updateRadarTime() {
             const now = new Date();
             const time = now.toTimeString().substring(0, 8);
@@ -7159,12 +7916,12 @@ HTML_TEMPLATE = '''
             if (el) el.textContent = time;
         }
 
-        function createAircraftIcon(heading, emergency) {
-            const color = emergency ? '#ff4444' : '#00d4ff';
+        function createAircraftIcon(heading, emergency, customColor) {
+            const color = customColor || (emergency ? '#ff4444' : '#00d4ff');
             const rotation = heading || 0;
 
             return L.divIcon({
-                className: 'aircraft-marker',
+                className: 'aircraft-marker' + (emergency ? ' squawk-emergency' : ''),
                 html: `<svg width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); color: ${color};">
                     <path fill="currentColor" d="M12 2L8 10H4v2l8 4 8-4v-2h-4L12 2zm0 14l-6 3v1h12v-1l-6-3z"/>
                 </svg>`,
@@ -7173,11 +7930,14 @@ HTML_TEMPLATE = '''
             });
         }
 
+        let aircraftTrailLines = {};  // ICAO -> Leaflet polyline
+
         function updateAircraftMarkers() {
             if (!aircraftMap) return;
 
             const showLabels = document.getElementById('adsbShowLabels')?.checked;
             const showAltitude = document.getElementById('adsbShowAltitude')?.checked;
+            const showTrails = document.getElementById('adsbShowTrails')?.checked ?? true;
             const currentIds = new Set();
 
             // Update or create markers for each aircraft
@@ -7185,7 +7945,24 @@ HTML_TEMPLATE = '''
                 if (aircraft.lat === undefined || aircraft.lon === undefined) return;
 
                 currentIds.add(icao);
-                const icon = createAircraftIcon(aircraft.heading, aircraft.emergency);
+
+                // Update trail history
+                updateAircraftTrail(icao, aircraft.lat, aircraft.lon);
+
+                // Check for emergency squawk codes
+                const squawkInfo = checkSquawkCode(aircraft);
+
+                // Check for military aircraft
+                const militaryInfo = isMilitaryAircraft(icao, aircraft.callsign);
+                aircraft.military = militaryInfo.military;
+
+                // Determine icon color
+                let iconColor = '#00d4ff';  // Default cyan
+                if (squawkInfo) iconColor = squawkInfo.color;
+                else if (militaryInfo.military) iconColor = '#556b2f';  // Olive drab
+                else if (aircraft.emergency) iconColor = '#ff4444';
+
+                const icon = createAircraftIcon(aircraft.heading, squawkInfo || aircraft.emergency, iconColor);
 
                 if (aircraftMarkers[icao]) {
                     // Update existing marker
@@ -7194,12 +7971,46 @@ HTML_TEMPLATE = '''
                 } else {
                     // Create new marker
                     const marker = L.marker([aircraft.lat, aircraft.lon], { icon: icon });
-                    marker.addTo(aircraftMap);
+                    if (clusteringEnabled && aircraftClusterGroup) {
+                        aircraftClusterGroup.addLayer(marker);
+                    } else {
+                        marker.addTo(aircraftMap);
+                    }
                     aircraftMarkers[icao] = marker;
+                }
+
+                // Draw flight trail
+                if (showTrails && aircraftTrails[icao] && aircraftTrails[icao].length > 1) {
+                    const trailCoords = aircraftTrails[icao].map(p => [p.lat, p.lon]);
+
+                    if (aircraftTrailLines[icao]) {
+                        aircraftTrailLines[icao].setLatLngs(trailCoords);
+                    } else {
+                        aircraftTrailLines[icao] = L.polyline(trailCoords, {
+                            color: militaryInfo.military ? '#556b2f' : '#00d4ff',
+                            weight: 2,
+                            opacity: 0.6,
+                            dashArray: '5, 5'
+                        }).addTo(aircraftMap);
+                    }
+                } else if (aircraftTrailLines[icao]) {
+                    aircraftMap.removeLayer(aircraftTrailLines[icao]);
+                    delete aircraftTrailLines[icao];
                 }
 
                 // Update popup content
                 let popupContent = '<div class="aircraft-popup">';
+
+                // Military badge
+                if (militaryInfo.military) {
+                    popupContent += `<div style="background: #556b2f; color: white; padding: 2px 8px; border-radius: 3px; font-size: 10px; margin-bottom: 5px;">🎖️ MILITARY${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}</div>`;
+                }
+
+                // Squawk alert
+                if (squawkInfo) {
+                    popupContent += `<div style="background: ${squawkInfo.color}; color: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; margin-bottom: 5px; font-weight: bold;">⚠️ ${squawkInfo.name}</div>`;
+                }
+
                 popupContent += `<div class="callsign">${aircraft.callsign || icao}</div>`;
 
                 if (aircraft.altitude) {
@@ -7212,7 +8023,8 @@ HTML_TEMPLATE = '''
                     popupContent += `<div class="data-row"><span class="label">Heading:</span><span class="value">${aircraft.heading}°</span></div>`;
                 }
                 if (aircraft.squawk) {
-                    popupContent += `<div class="data-row"><span class="label">Squawk:</span><span class="value">${aircraft.squawk}</span></div>`;
+                    const squawkStyle = squawkInfo ? `color: ${squawkInfo.color}; font-weight: bold;` : '';
+                    popupContent += `<div class="data-row"><span class="label">Squawk:</span><span class="value" style="${squawkStyle}">${aircraft.squawk}</span></div>`;
                 }
                 popupContent += '</div>';
 
@@ -7241,8 +8053,19 @@ HTML_TEMPLATE = '''
             // Remove markers for aircraft no longer tracked
             Object.keys(aircraftMarkers).forEach(icao => {
                 if (!currentIds.has(icao)) {
-                    aircraftMap.removeLayer(aircraftMarkers[icao]);
+                    if (clusteringEnabled && aircraftClusterGroup) {
+                        aircraftClusterGroup.removeLayer(aircraftMarkers[icao]);
+                    } else {
+                        aircraftMap.removeLayer(aircraftMarkers[icao]);
+                    }
+                    // Also remove trail
+                    if (aircraftTrailLines[icao]) {
+                        aircraftMap.removeLayer(aircraftTrailLines[icao]);
+                        delete aircraftTrailLines[icao];
+                    }
+                    delete aircraftTrails[icao];
                     delete aircraftMarkers[icao];
+                    delete activeSquawkAlerts[icao];
                 }
             });
 
@@ -7593,8 +8416,209 @@ HTML_TEMPLATE = '''
                 card.classList.toggle('active', i === index);
             });
             drawPolarPlot(selectedPass);
+            updateGroundTrack(selectedPass);
             // Update countdown to show selected pass
             updateSatelliteCountdown();
+        }
+
+        // Ground Track Map
+        let groundTrackMap = null;
+        let groundTrackLine = null;
+        let satMarker = null;
+        let observerMarker = null;
+        let satPositionInterval = null;
+
+        function initGroundTrackMap() {
+            const mapContainer = document.getElementById('groundTrackMap');
+            if (!mapContainer || groundTrackMap) return;
+
+            groundTrackMap = L.map('groundTrackMap', {
+                center: [20, 0],
+                zoom: 1,
+                zoomControl: true,
+                attributionControl: false
+            });
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(groundTrackMap);
+
+            // Add observer marker
+            const lat = parseFloat(document.getElementById('obsLat').value) || 51.5;
+            const lon = parseFloat(document.getElementById('obsLon').value) || -0.1;
+            observerMarker = L.circleMarker([lat, lon], {
+                radius: 8,
+                fillColor: '#ff6600',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 1
+            }).addTo(groundTrackMap).bindPopup('Observer Location');
+        }
+
+        function updateGroundTrack(pass) {
+            if (!groundTrackMap) initGroundTrackMap();
+            if (!pass || !pass.groundTrack) return;
+
+            // Remove old track and marker
+            if (groundTrackLine) groundTrackMap.removeLayer(groundTrackLine);
+            if (satMarker) groundTrackMap.removeLayer(satMarker);
+
+            // Draw ground track
+            const coords = pass.groundTrack.map(p => [p.lat, p.lon]);
+            groundTrackLine = L.polyline(coords, {
+                color: pass.color || '#00ff00',
+                weight: 2,
+                opacity: 0.8,
+                dashArray: '5, 5'
+            }).addTo(groundTrackMap);
+
+            // Add current position marker
+            if (pass.currentPosition) {
+                satMarker = L.marker([pass.currentPosition.lat, pass.currentPosition.lon], {
+                    icon: L.divIcon({
+                        className: 'sat-marker',
+                        html: '<div style="background:#ffff00;width:12px;height:12px;border-radius:50%;border:2px solid #000;box-shadow:0 0 10px #ffff00;"></div>',
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                    })
+                }).addTo(groundTrackMap).bindPopup(pass.satellite);
+            }
+
+            // Update observer marker position
+            const lat = parseFloat(document.getElementById('obsLat').value) || 51.5;
+            const lon = parseFloat(document.getElementById('obsLon').value) || -0.1;
+            if (observerMarker) {
+                observerMarker.setLatLng([lat, lon]);
+            }
+
+            // Fit bounds to show track
+            if (coords.length > 0) {
+                groundTrackMap.fitBounds(groundTrackLine.getBounds(), { padding: [20, 20] });
+            }
+        }
+
+        function toggleGroundTrack() {
+            const show = document.getElementById('showGroundTrack').checked;
+            document.getElementById('groundTrackMap').style.display = show ? 'block' : 'none';
+            if (show && groundTrackMap) {
+                groundTrackMap.invalidateSize();
+            }
+        }
+
+        function startSatellitePositionUpdates() {
+            if (satPositionInterval) clearInterval(satPositionInterval);
+            satPositionInterval = setInterval(() => {
+                if (selectedPass) {
+                    updateRealTimePosition();
+                }
+            }, 5000);
+        }
+
+        function updateRealTimePosition() {
+            const satellites = getSelectedSatellites();
+            if (satellites.length === 0) return;
+
+            const lat = parseFloat(document.getElementById('obsLat').value);
+            const lon = parseFloat(document.getElementById('obsLon').value);
+
+            fetch('/satellite/position', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat, lon, satellites })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success' && data.positions) {
+                    updateRealTimeIndicators(data.positions);
+                }
+            });
+        }
+
+        let orbitTrackLine = null;
+        let pastOrbitLine = null;
+
+        function updateRealTimeIndicators(positions) {
+            // Update ground track map markers
+            positions.forEach(pos => {
+                if (selectedPass && pos.satellite === selectedPass.satellite) {
+                    // Update satellite marker position
+                    if (satMarker) {
+                        satMarker.setLatLng([pos.lat, pos.lon]);
+                        satMarker.setPopupContent(pos.satellite + '<br>Alt: ' + pos.altitude.toFixed(0) + ' km<br>El: ' + pos.elevation.toFixed(1) + '°');
+                    } else if (groundTrackMap) {
+                        satMarker = L.marker([pos.lat, pos.lon], {
+                            icon: L.divIcon({
+                                className: 'sat-marker',
+                                html: '<div style="background:#ffff00;width:14px;height:14px;border-radius:50%;border:2px solid #000;box-shadow:0 0 15px #ffff00;animation:pulse-sat 1s infinite;"></div>',
+                                iconSize: [14, 14],
+                                iconAnchor: [7, 7]
+                            })
+                        }).addTo(groundTrackMap).bindPopup(pos.satellite + '<br>Alt: ' + pos.altitude.toFixed(0) + ' km');
+                    }
+
+                    // Draw full orbit track from position endpoint
+                    if (pos.orbitTrack && pos.orbitTrack.length > 0 && groundTrackMap) {
+                        // Split into past and future segments
+                        const pastCoords = pos.orbitTrack.filter(p => p.past).map(p => [p.lat, p.lon]);
+                        const futureCoords = pos.orbitTrack.filter(p => !p.past).map(p => [p.lat, p.lon]);
+
+                        // Remove old lines
+                        if (orbitTrackLine) groundTrackMap.removeLayer(orbitTrackLine);
+                        if (pastOrbitLine) groundTrackMap.removeLayer(pastOrbitLine);
+
+                        // Draw past track (dimmer)
+                        if (pastCoords.length > 1) {
+                            pastOrbitLine = L.polyline(pastCoords, {
+                                color: '#666666',
+                                weight: 2,
+                                opacity: 0.5,
+                                dashArray: '3, 6'
+                            }).addTo(groundTrackMap);
+                        }
+
+                        // Draw future track (brighter)
+                        if (futureCoords.length > 1) {
+                            orbitTrackLine = L.polyline(futureCoords, {
+                                color: selectedPass.color || '#00ff00',
+                                weight: 3,
+                                opacity: 0.8
+                            }).addTo(groundTrackMap);
+                        }
+                    }
+
+                    // Update polar plot with real-time position
+                    if (pos.elevation > 0) {
+                        drawRealTimePositionOnPolar(pos);
+                    }
+                }
+            });
+        }
+
+        function drawRealTimePositionOnPolar(pos) {
+            const canvas = document.getElementById('polarPlotCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            const cx = size / 2;
+            const cy = size / 2;
+            const radius = size / 2 - 30;
+
+            // Draw pulsing indicator for current position
+            const r = radius * (90 - pos.elevation) / 90;
+            const rad = pos.azimuth * Math.PI / 180;
+            const x = cx + Math.sin(rad) * r;
+            const y = cy - Math.cos(rad) * r;
+
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, 12, 0, Math.PI * 2);
+            ctx.stroke();
         }
 
         function updateTLE() {
@@ -8265,6 +9289,222 @@ HTML_TEMPLATE = '''
             </div>
         </div>
     </div>
+
+    <!-- Dependencies Modal -->
+    <div id="depsModal" class="help-modal" onclick="if(event.target === this) hideDependencies()">
+        <div class="help-content" style="max-width: 800px;">
+            <button class="help-close" onclick="hideDependencies()">×</button>
+            <h2>🔧 Tool Dependencies</h2>
+            <p style="color: var(--text-dim); margin-bottom: 15px;">Check which tools are installed for each mode. <span style="color: var(--accent-green);">●</span> = Installed, <span style="color: var(--accent-red);">●</span> = Missing</p>
+            <div id="depsContent" style="max-height: 60vh; overflow-y: auto;">
+                <div style="text-align: center; padding: 40px; color: var(--text-dim);">
+                    Loading dependencies...
+                </div>
+            </div>
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                <h3 style="margin-bottom: 10px;">Quick Install (Debian/Ubuntu)</h3>
+                <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; overflow-x: auto;">
+                    <div>sudo apt install rtl-sdr multimon-ng rtl-433 aircrack-ng bluez dump1090-mutability hcxtools</div>
+                    <div style="margin-top: 5px;">pip install skyfield flask</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showDependencies() {
+            document.getElementById('depsModal').classList.add('active');
+            loadDependencies();
+        }
+
+        function hideDependencies() {
+            document.getElementById('depsModal').classList.remove('active');
+        }
+
+        function loadDependencies() {
+            const content = document.getElementById('depsContent');
+            content.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-dim);">Loading dependencies...</div>';
+
+            fetch('/dependencies')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        content.innerHTML = '<div style="color: var(--accent-red);">Error loading dependencies</div>';
+                        return;
+                    }
+
+                    let html = '';
+                    let totalMissing = 0;
+
+                    for (const [modeKey, mode] of Object.entries(data.modes)) {
+                        const statusColor = mode.ready ? 'var(--accent-green)' : 'var(--accent-red)';
+                        const statusIcon = mode.ready ? '✓' : '✗';
+
+                        html += `
+                            <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 15px; margin-bottom: 15px; border-left: 3px solid ${statusColor};">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <h3 style="margin: 0; color: var(--accent-cyan);">${mode.name}</h3>
+                                    <span style="color: ${statusColor}; font-weight: bold;">${statusIcon} ${mode.ready ? 'Ready' : 'Missing Required'}</span>
+                                </div>
+                                <div style="display: grid; gap: 8px;">
+                        `;
+
+                        for (const [toolName, tool] of Object.entries(mode.tools)) {
+                            const installed = tool.installed;
+                            const dotColor = installed ? 'var(--accent-green)' : 'var(--accent-red)';
+                            const requiredBadge = tool.required ? '<span style="background: var(--accent-orange); color: #000; padding: 1px 5px; border-radius: 3px; font-size: 9px; margin-left: 5px;">REQUIRED</span>' : '';
+
+                            if (!installed) totalMissing++;
+
+                            // Get install command for current OS
+                            let installCmd = '';
+                            if (tool.install) {
+                                if (tool.install.pip) {
+                                    installCmd = tool.install.pip;
+                                } else if (data.pkg_manager && tool.install[data.pkg_manager]) {
+                                    installCmd = tool.install[data.pkg_manager];
+                                } else if (tool.install.manual) {
+                                    installCmd = tool.install.manual;
+                                }
+                            }
+
+                            html += `
+                                <div style="display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                    <span style="color: ${dotColor}; font-size: 16px;">●</span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: bold;">${toolName}${requiredBadge}</div>
+                                        <div style="font-size: 11px; color: var(--text-dim);">${tool.description}</div>
+                                    </div>
+                                    ${!installed && installCmd ? `
+                                        <code style="font-size: 10px; background: var(--bg-tertiary); padding: 4px 8px; border-radius: 3px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${installCmd}">${installCmd}</code>
+                                    ` : ''}
+                                    <span style="font-size: 11px; color: ${dotColor}; font-weight: bold;">${installed ? 'OK' : 'MISSING'}</span>
+                                </div>
+                            `;
+                        }
+
+                        html += '</div></div>';
+                    }
+
+                    // Summary at top
+                    const summaryHtml = `
+                        <div style="background: ${totalMissing > 0 ? 'rgba(255, 100, 0, 0.1)' : 'rgba(0, 255, 100, 0.1)'}; border: 1px solid ${totalMissing > 0 ? 'var(--accent-orange)' : 'var(--accent-green)'}; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                            <div style="font-size: 16px; font-weight: bold; color: ${totalMissing > 0 ? 'var(--accent-orange)' : 'var(--accent-green)'};">
+                                ${totalMissing > 0 ? '⚠️ ' + totalMissing + ' tool(s) not found' : '✓ All tools installed'}
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-dim); margin-top: 5px;">
+                                OS: ${data.os} | Package Manager: ${data.pkg_manager}
+                            </div>
+                        </div>
+                    `;
+
+                    content.innerHTML = summaryHtml + html;
+
+                    // Update button indicator
+                    const btn = document.getElementById('depsBtn');
+                    if (btn) {
+                        btn.style.color = totalMissing > 0 ? 'var(--accent-orange)' : 'var(--accent-green)';
+                    }
+                })
+                .catch(err => {
+                    content.innerHTML = '<div style="color: var(--accent-red);">Error loading dependencies: ' + err.message + '</div>';
+                });
+        }
+
+        // Check dependencies on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user dismissed the startup check
+            const dismissed = localStorage.getItem('depsCheckDismissed');
+
+            // Quick check for missing dependencies
+            fetch('/dependencies')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        let missingModes = 0;
+                        let missingTools = [];
+
+                        for (const [modeKey, mode] of Object.entries(data.modes)) {
+                            if (!mode.ready) {
+                                missingModes++;
+                                mode.missing_required.forEach(tool => {
+                                    if (!missingTools.includes(tool)) {
+                                        missingTools.push(tool);
+                                    }
+                                });
+                            }
+                        }
+
+                        const btn = document.getElementById('depsBtn');
+                        if (btn && missingModes > 0) {
+                            btn.style.color = 'var(--accent-orange)';
+                            btn.title = missingModes + ' mode(s) have missing tools - click to see details';
+                        }
+
+                        // Show startup prompt if tools are missing and not dismissed
+                        if (missingModes > 0 && !dismissed) {
+                            showStartupDepsPrompt(missingModes, missingTools.length);
+                        }
+                    }
+                });
+        });
+
+        function showStartupDepsPrompt(modeCount, toolCount) {
+            const notice = document.createElement('div');
+            notice.id = 'startupDepsModal';
+            notice.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 10000;
+                background: var(--bg-secondary);
+                border: 1px solid var(--accent-orange);
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 165, 0, 0.2);
+                max-width: 380px;
+                animation: slideIn 0.3s ease-out;
+            `;
+            notice.innerHTML = `
+                <style>
+                    @keyframes slideIn {
+                        from { transform: translateX(-100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                </style>
+                <div style="padding: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="margin: 0; color: var(--accent-orange); font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                            <span>🔧</span> Missing Dependencies
+                        </h3>
+                        <button onclick="closeStartupDeps()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 0; line-height: 1;">&times;</button>
+                    </div>
+                    <p style="color: var(--text-secondary); margin: 0 0 15px 0; font-size: 13px; line-height: 1.4;">
+                        <strong style="color: var(--accent-orange);">${modeCount} mode(s)</strong> require tools that aren't installed.
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="action-btn" onclick="closeStartupDeps(); showDependencies();" style="padding: 10px 16px; font-size: 12px;">
+                            View Details & Install
+                        </button>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); cursor: pointer;">
+                            <input type="checkbox" id="dontShowAgain" style="cursor: pointer;">
+                            Don't show again
+                        </label>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(notice);
+        }
+
+        function closeStartupDeps() {
+            const modal = document.getElementById('startupDepsModal');
+            if (modal) {
+                if (document.getElementById('dontShowAgain')?.checked) {
+                    localStorage.setItem('depsCheckDismissed', 'true');
+                }
+                modal.remove();
+            }
+        }
+    </script>
 </body>
 </html>
 '''
@@ -8273,6 +9513,263 @@ HTML_TEMPLATE = '''
 def check_tool(name):
     """Check if a tool is installed."""
     return shutil.which(name) is not None
+
+
+# Comprehensive tool dependency definitions
+TOOL_DEPENDENCIES = {
+    'pager': {
+        'name': 'Pager Decoding',
+        'tools': {
+            'rtl_fm': {
+                'required': True,
+                'description': 'RTL-SDR FM demodulator',
+                'install': {
+                    'apt': 'sudo apt install rtl-sdr',
+                    'brew': 'brew install librtlsdr',
+                    'manual': 'https://osmocom.org/projects/rtl-sdr/wiki'
+                }
+            },
+            'multimon-ng': {
+                'required': True,
+                'description': 'Digital transmission decoder',
+                'install': {
+                    'apt': 'sudo apt install multimon-ng',
+                    'brew': 'brew install multimon-ng',
+                    'manual': 'https://github.com/EliasOewornal/multimon-ng'
+                }
+            },
+            'rtl_test': {
+                'required': False,
+                'description': 'RTL-SDR device detection',
+                'install': {
+                    'apt': 'sudo apt install rtl-sdr',
+                    'brew': 'brew install librtlsdr',
+                    'manual': 'https://osmocom.org/projects/rtl-sdr/wiki'
+                }
+            }
+        }
+    },
+    'sensor': {
+        'name': '433MHz Sensors',
+        'tools': {
+            'rtl_433': {
+                'required': True,
+                'description': 'ISM band decoder for sensors, weather stations, TPMS',
+                'install': {
+                    'apt': 'sudo apt install rtl-433',
+                    'brew': 'brew install rtl_433',
+                    'manual': 'https://github.com/merbanan/rtl_433'
+                }
+            }
+        }
+    },
+    'wifi': {
+        'name': 'WiFi Reconnaissance',
+        'tools': {
+            'airmon-ng': {
+                'required': True,
+                'description': 'Monitor mode controller',
+                'install': {
+                    'apt': 'sudo apt install aircrack-ng',
+                    'brew': 'Not available on macOS',
+                    'manual': 'https://aircrack-ng.org'
+                }
+            },
+            'airodump-ng': {
+                'required': True,
+                'description': 'WiFi network scanner',
+                'install': {
+                    'apt': 'sudo apt install aircrack-ng',
+                    'brew': 'Not available on macOS',
+                    'manual': 'https://aircrack-ng.org'
+                }
+            },
+            'aireplay-ng': {
+                'required': False,
+                'description': 'Deauthentication / packet injection',
+                'install': {
+                    'apt': 'sudo apt install aircrack-ng',
+                    'brew': 'Not available on macOS',
+                    'manual': 'https://aircrack-ng.org'
+                }
+            },
+            'aircrack-ng': {
+                'required': False,
+                'description': 'Handshake verification',
+                'install': {
+                    'apt': 'sudo apt install aircrack-ng',
+                    'brew': 'brew install aircrack-ng',
+                    'manual': 'https://aircrack-ng.org'
+                }
+            },
+            'hcxdumptool': {
+                'required': False,
+                'description': 'PMKID capture tool',
+                'install': {
+                    'apt': 'sudo apt install hcxdumptool',
+                    'brew': 'brew install hcxtools',
+                    'manual': 'https://github.com/ZerBea/hcxdumptool'
+                }
+            },
+            'hcxpcapngtool': {
+                'required': False,
+                'description': 'PMKID hash extractor',
+                'install': {
+                    'apt': 'sudo apt install hcxtools',
+                    'brew': 'brew install hcxtools',
+                    'manual': 'https://github.com/ZerBea/hcxtools'
+                }
+            }
+        }
+    },
+    'bluetooth': {
+        'name': 'Bluetooth Scanning',
+        'tools': {
+            'hcitool': {
+                'required': False,
+                'description': 'Bluetooth HCI tool (legacy)',
+                'install': {
+                    'apt': 'sudo apt install bluez',
+                    'brew': 'Not available on macOS (use native)',
+                    'manual': 'http://www.bluez.org'
+                }
+            },
+            'bluetoothctl': {
+                'required': True,
+                'description': 'Modern Bluetooth controller',
+                'install': {
+                    'apt': 'sudo apt install bluez',
+                    'brew': 'Not available on macOS (use native)',
+                    'manual': 'http://www.bluez.org'
+                }
+            },
+            'hciconfig': {
+                'required': False,
+                'description': 'Bluetooth adapter configuration',
+                'install': {
+                    'apt': 'sudo apt install bluez',
+                    'brew': 'Not available on macOS',
+                    'manual': 'http://www.bluez.org'
+                }
+            }
+        }
+    },
+    'aircraft': {
+        'name': 'Aircraft Tracking (ADS-B)',
+        'tools': {
+            'dump1090': {
+                'required': False,
+                'description': 'Mode S / ADS-B decoder (preferred)',
+                'install': {
+                    'apt': 'sudo apt install dump1090-mutability',
+                    'brew': 'brew install dump1090-mutability',
+                    'manual': 'https://github.com/flightaware/dump1090'
+                },
+                'alternatives': ['dump1090-mutability', 'dump1090-fa']
+            },
+            'rtl_adsb': {
+                'required': False,
+                'description': 'Simple ADS-B decoder',
+                'install': {
+                    'apt': 'sudo apt install rtl-sdr',
+                    'brew': 'brew install librtlsdr',
+                    'manual': 'https://osmocom.org/projects/rtl-sdr/wiki'
+                }
+            }
+        }
+    },
+    'satellite': {
+        'name': 'Satellite Tracking',
+        'tools': {
+            'skyfield': {
+                'required': True,
+                'description': 'Python orbital mechanics library',
+                'install': {
+                    'pip': 'pip install skyfield',
+                    'manual': 'https://rhodesmill.org/skyfield/'
+                },
+                'python_module': True
+            }
+        }
+    },
+    'iridium': {
+        'name': 'Iridium Monitoring',
+        'tools': {
+            'iridium-extractor': {
+                'required': False,
+                'description': 'Iridium burst extractor',
+                'install': {
+                    'manual': 'https://github.com/muccc/gr-iridium'
+                }
+            }
+        }
+    }
+}
+
+
+def check_all_dependencies():
+    """Check all tool dependencies and return status."""
+    results = {}
+
+    for mode, config in TOOL_DEPENDENCIES.items():
+        mode_result = {
+            'name': config['name'],
+            'tools': {},
+            'ready': True,
+            'missing_required': []
+        }
+
+        for tool, tool_config in config['tools'].items():
+            # Check if it's a Python module
+            if tool_config.get('python_module'):
+                try:
+                    __import__(tool)
+                    installed = True
+                except ImportError:
+                    installed = False
+            else:
+                # Check for alternatives
+                alternatives = tool_config.get('alternatives', [])
+                installed = check_tool(tool) or any(check_tool(alt) for alt in alternatives)
+
+            mode_result['tools'][tool] = {
+                'installed': installed,
+                'required': tool_config['required'],
+                'description': tool_config['description'],
+                'install': tool_config['install']
+            }
+
+            if tool_config['required'] and not installed:
+                mode_result['ready'] = False
+                mode_result['missing_required'].append(tool)
+
+        results[mode] = mode_result
+
+    return results
+
+
+@app.route('/dependencies')
+def get_dependencies():
+    """Get status of all tool dependencies."""
+    import platform
+
+    results = check_all_dependencies()
+
+    # Determine OS for install instructions
+    system = platform.system().lower()
+    if system == 'darwin':
+        pkg_manager = 'brew'
+    elif system == 'linux':
+        pkg_manager = 'apt'
+    else:
+        pkg_manager = 'manual'
+
+    return jsonify({
+        'status': 'success',
+        'os': system,
+        'pkg_manager': pkg_manager,
+        'modes': results
+    })
 
 
 def is_valid_mac(mac):
@@ -9621,6 +11118,120 @@ def check_handshake_status():
     })
 
 
+# PMKID Capture using hcxdumptool
+pmkid_process = None
+pmkid_lock = threading.Lock()
+
+@app.route('/wifi/pmkid/capture', methods=['POST'])
+def capture_pmkid():
+    """Start PMKID capture using hcxdumptool."""
+    global pmkid_process
+
+    data = request.json
+    target_bssid = data.get('bssid')
+    channel = data.get('channel')
+    interface = data.get('interface') or wifi_monitor_interface
+
+    if not target_bssid:
+        return jsonify({'status': 'error', 'message': 'BSSID required'})
+
+    if not is_valid_mac(target_bssid):
+        return jsonify({'status': 'error', 'message': 'Invalid BSSID format'})
+
+    with pmkid_lock:
+        if pmkid_process and pmkid_process.poll() is None:
+            return jsonify({'status': 'error', 'message': 'PMKID capture already running'})
+
+        capture_path = f'/tmp/intercept_pmkid_{target_bssid.replace(":", "")}.pcapng'
+
+        # Create filter file for target BSSID
+        filter_file = f'/tmp/pmkid_filter_{target_bssid.replace(":", "")}'
+        with open(filter_file, 'w') as f:
+            f.write(target_bssid.replace(':', '').lower())
+
+        # hcxdumptool command
+        cmd = [
+            'hcxdumptool',
+            '-i', interface,
+            '-o', capture_path,
+            '--filterlist_ap', filter_file,
+            '--filtermode', '2',  # whitelist mode
+            '--enable_status', '1'
+        ]
+
+        if channel:
+            cmd.extend(['-c', str(channel)])
+
+        try:
+            pmkid_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return jsonify({'status': 'started', 'file': capture_path})
+        except FileNotFoundError:
+            return jsonify({'status': 'error', 'message': 'hcxdumptool not found. Install with: apt install hcxdumptool'})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)})
+
+
+@app.route('/wifi/pmkid/status', methods=['POST'])
+def check_pmkid_status():
+    """Check if PMKID has been captured."""
+    import os
+
+    data = request.json
+    capture_file = data.get('file', '')
+
+    if not capture_file.startswith('/tmp/intercept_pmkid_') or '..' in capture_file:
+        return jsonify({'status': 'error', 'message': 'Invalid capture file path'})
+
+    if not os.path.exists(capture_file):
+        return jsonify({'pmkid_found': False, 'file_exists': False})
+
+    file_size = os.path.getsize(capture_file)
+
+    # Use hcxpcapngtool to check for PMKID
+    pmkid_found = False
+    try:
+        hash_file = capture_file.replace('.pcapng', '.22000')
+        result = subprocess.run(
+            ['hcxpcapngtool', '-o', hash_file, capture_file],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        # Check if hash file was created and has content
+        if os.path.exists(hash_file) and os.path.getsize(hash_file) > 0:
+            pmkid_found = True
+    except FileNotFoundError:
+        # hcxpcapngtool not installed, check file size as fallback
+        pmkid_found = file_size > 1000  # Rough heuristic
+    except Exception:
+        pass
+
+    return jsonify({
+        'pmkid_found': pmkid_found,
+        'file_exists': True,
+        'file_size': file_size,
+        'file': capture_file
+    })
+
+
+@app.route('/wifi/pmkid/stop', methods=['POST'])
+def stop_pmkid():
+    """Stop PMKID capture."""
+    global pmkid_process
+
+    with pmkid_lock:
+        if pmkid_process:
+            pmkid_process.terminate()
+            try:
+                pmkid_process.wait(timeout=5)
+            except:
+                pmkid_process.kill()
+            pmkid_process = None
+
+    return jsonify({'status': 'stopped'})
+
+
 @app.route('/wifi/networks')
 def get_wifi_networks():
     """Get current list of discovered networks."""
@@ -10482,9 +12093,18 @@ def parse_adsb_output(process):
 
 @app.route('/satellite/predict', methods=['POST'])
 def predict_passes():
-    """Calculate satellite passes."""
-    import math
+    """Calculate satellite passes using skyfield for accurate orbital prediction."""
     from datetime import datetime, timedelta
+
+    try:
+        from skyfield.api import load, wgs84, EarthSatellite
+        from skyfield.almanac import find_discrete
+    except ImportError:
+        # Fallback if skyfield not installed
+        return jsonify({
+            'status': 'error',
+            'message': 'skyfield library not installed. Run: pip install skyfield'
+        })
 
     data = request.json
     lat = data.get('lat', 51.5074)
@@ -10496,42 +12116,118 @@ def predict_passes():
     passes = []
     colors = {'ISS': '#00ffff', 'NOAA-15': '#00ff00', 'NOAA-18': '#ff6600', 'NOAA-19': '#ff3366', 'METEOR-M2': '#9370DB'}
 
-    # Simplified pass prediction (for demo - real implementation would use skyfield or pyephem)
-    now = datetime.utcnow()
+    ts = load.timescale()
+    observer = wgs84.latlon(lat, lon)
+
+    t0 = ts.now()
+    t1 = ts.utc(t0.utc_datetime() + timedelta(hours=hours))
 
     for sat_name in satellites:
         if sat_name not in TLE_SATELLITES:
             continue
 
-        # Generate simulated passes for demo
-        num_passes = hours // 6  # Roughly one pass every 6 hours for LEO sats
+        tle_data = TLE_SATELLITES[sat_name]
+        try:
+            satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
+        except Exception:
+            continue
 
-        for i in range(num_passes):
-            pass_time = now + timedelta(hours=i * 6 + (hash(sat_name) % 3))
-            max_elevation = 20 + (hash(sat_name + str(i)) % 60)
+        # Find passes by checking when satellite is above minimum elevation
+        def above_horizon(t):
+            diff = satellite - observer
+            topocentric = diff.at(t)
+            alt, _, _ = topocentric.altaz()
+            return alt.degrees > 0
 
-            if max_elevation < min_el:
-                continue
+        above_horizon.step_days = 1/720  # Check every 2 minutes
 
-            # Generate trajectory points
-            trajectory = []
-            az_start = (hash(sat_name + str(i)) % 180)
-            az_end = (az_start + 90 + hash(sat_name) % 90) % 360
+        try:
+            times, events = find_discrete(t0, t1, above_horizon)
+        except Exception:
+            continue
 
-            for j in range(20):
-                t = j / 19
-                el = max_elevation * math.sin(t * math.pi)
-                az = az_start + (az_end - az_start) * t
-                trajectory.append({'elevation': el, 'azimuth': az})
+        # Process rise/set pairs
+        i = 0
+        while i < len(times):
+            # Find rise event (event = True)
+            if i < len(events) and events[i]:
+                rise_time = times[i]
 
-            passes.append({
-                'satellite': sat_name,
-                'startTime': pass_time.strftime('%Y-%m-%d %H:%M UTC'),
-                'maxEl': max_elevation,
-                'duration': 8 + (hash(sat_name + str(i)) % 7),
-                'trajectory': trajectory,
-                'color': colors.get(sat_name, '#00ff00')
-            })
+                # Find corresponding set event
+                set_time = None
+                for j in range(i + 1, len(times)):
+                    if not events[j]:
+                        set_time = times[j]
+                        i = j
+                        break
+
+                if set_time is None:
+                    i += 1
+                    continue
+
+                # Generate trajectory points between rise and set
+                trajectory = []
+                max_elevation = 0
+                num_points = 30
+
+                duration_seconds = (set_time.utc_datetime() - rise_time.utc_datetime()).total_seconds()
+
+                for k in range(num_points):
+                    frac = k / (num_points - 1)
+                    t_point = ts.utc(rise_time.utc_datetime() + timedelta(seconds=duration_seconds * frac))
+
+                    diff = satellite - observer
+                    topocentric = diff.at(t_point)
+                    alt, az, _ = topocentric.altaz()
+
+                    el = alt.degrees
+                    azimuth = az.degrees
+
+                    if el > max_elevation:
+                        max_elevation = el
+
+                    trajectory.append({'elevation': max(0, el), 'azimuth': azimuth})
+
+                # Only include pass if max elevation meets minimum requirement
+                if max_elevation >= min_el:
+                    duration_minutes = int(duration_seconds / 60)
+
+                    # Generate ground track (sub-satellite points)
+                    ground_track = []
+                    for k in range(60):  # 60 points for smoother track
+                        frac = k / 59
+                        t_point = ts.utc(rise_time.utc_datetime() + timedelta(seconds=duration_seconds * frac))
+                        geocentric = satellite.at(t_point)
+                        subpoint = wgs84.subpoint(geocentric)
+                        ground_track.append({
+                            'lat': subpoint.latitude.degrees,
+                            'lon': subpoint.longitude.degrees
+                        })
+
+                    # Get current position
+                    current_geo = satellite.at(ts.now())
+                    current_subpoint = wgs84.subpoint(current_geo)
+                    current_topo = (satellite - observer).at(ts.now())
+                    current_alt, current_az, _ = current_topo.altaz()
+
+                    passes.append({
+                        'satellite': sat_name,
+                        'startTime': rise_time.utc_datetime().strftime('%Y-%m-%d %H:%M UTC'),
+                        'maxEl': round(max_elevation, 1),
+                        'duration': duration_minutes,
+                        'trajectory': trajectory,
+                        'groundTrack': ground_track,
+                        'currentPosition': {
+                            'lat': current_subpoint.latitude.degrees,
+                            'lon': current_subpoint.longitude.degrees,
+                            'altitude': current_geo.distance().km - 6371,  # Approx altitude
+                            'elevation': current_alt.degrees,
+                            'azimuth': current_az.degrees
+                        },
+                        'color': colors.get(sat_name, '#00ff00')
+                    })
+
+            i += 1
 
     # Sort by time
     passes.sort(key=lambda p: p['startTime'])
@@ -10539,6 +12235,87 @@ def predict_passes():
     return jsonify({
         'status': 'success',
         'passes': passes
+    })
+
+
+@app.route('/satellite/position', methods=['POST'])
+def get_satellite_position():
+    """Get real-time positions of satellites with full orbit ground track."""
+    from datetime import datetime, timedelta
+
+    try:
+        from skyfield.api import load, wgs84, EarthSatellite
+    except ImportError:
+        return jsonify({'status': 'error', 'message': 'skyfield not installed'})
+
+    data = request.json
+    lat = data.get('lat', 51.5074)
+    lon = data.get('lon', -0.1278)
+    satellites = data.get('satellites', [])
+    include_track = data.get('includeTrack', True)
+
+    ts = load.timescale()
+    observer = wgs84.latlon(lat, lon)
+    now = ts.now()
+    now_dt = now.utc_datetime()
+
+    positions = []
+
+    for sat_name in satellites:
+        if sat_name not in TLE_SATELLITES:
+            continue
+
+        tle_data = TLE_SATELLITES[sat_name]
+        try:
+            satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
+
+            # Get current geocentric position
+            geocentric = satellite.at(now)
+            subpoint = wgs84.subpoint(geocentric)
+
+            # Get topocentric position (from observer)
+            diff = satellite - observer
+            topocentric = diff.at(now)
+            alt, az, distance = topocentric.altaz()
+
+            pos_data = {
+                'satellite': sat_name,
+                'lat': subpoint.latitude.degrees,
+                'lon': subpoint.longitude.degrees,
+                'altitude': geocentric.distance().km - 6371,
+                'elevation': alt.degrees,
+                'azimuth': az.degrees,
+                'distance': distance.km,
+                'visible': alt.degrees > 0
+            }
+
+            # Generate full orbit ground track (±45 minutes = ~1 orbit for LEO)
+            if include_track:
+                orbit_track = []
+                # Past 45 minutes to future 45 minutes in 1-minute intervals
+                for minutes_offset in range(-45, 46, 1):
+                    t_point = ts.utc(now_dt + timedelta(minutes=minutes_offset))
+                    try:
+                        geo = satellite.at(t_point)
+                        sp = wgs84.subpoint(geo)
+                        orbit_track.append({
+                            'lat': sp.latitude.degrees,
+                            'lon': sp.longitude.degrees,
+                            'past': minutes_offset < 0
+                        })
+                    except:
+                        continue
+
+                pos_data['orbitTrack'] = orbit_track
+
+            positions.append(pos_data)
+        except Exception:
+            continue
+
+    return jsonify({
+        'status': 'success',
+        'positions': positions,
+        'timestamp': datetime.utcnow().isoformat()
     })
 
 
@@ -10550,16 +12327,52 @@ def update_tle():
     try:
         import urllib.request
 
-        # URLs for TLE data
-        urls = {
-            'stations': 'https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle',
-            'weather': 'https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle'
+        # Map our satellite names to CelesTrak groups
+        groups_to_fetch = {
+            'stations': ['ISS'],
+            'weather': ['NOAA-15', 'NOAA-18', 'NOAA-19', 'METEOR-M2']
         }
 
-        # This is a simplified implementation - real version would parse and update TLE_SATELLITES
+        # Name mappings from CelesTrak to our internal names
+        name_mappings = {
+            'ISS (ZARYA)': 'ISS',
+            'NOAA 15': 'NOAA-15',
+            'NOAA 18': 'NOAA-18',
+            'NOAA 19': 'NOAA-19',
+            'METEOR-M 2': 'METEOR-M2',
+            'METEOR-M2 2': 'METEOR-M2'
+        }
+
+        updated = []
+
+        for group, sats in groups_to_fetch.items():
+            try:
+                url = f'https://celestrak.org/NORAD/elements/gp.php?GROUP={group}&FORMAT=tle'
+                req = urllib.request.Request(url, headers={'User-Agent': 'INTERCEPT/1.0'})
+
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    tle_data = response.read().decode('utf-8')
+
+                lines = [l.strip() for l in tle_data.strip().split('\n') if l.strip()]
+
+                for i in range(0, len(lines) - 2, 3):
+                    name = lines[i]
+                    line1 = lines[i + 1]
+                    line2 = lines[i + 2]
+
+                    if line1.startswith('1 ') and line2.startswith('2 '):
+                        # Check if this satellite is one we track
+                        internal_name = name_mappings.get(name)
+                        if internal_name and internal_name in sats:
+                            TLE_SATELLITES[internal_name] = (name, line1, line2)
+                            updated.append(internal_name)
+            except Exception:
+                continue
+
         return jsonify({
             'status': 'success',
-            'message': 'TLE data updated (simulated)'
+            'message': f'Updated TLE for: {", ".join(updated) if updated else "none"}',
+            'updated': updated
         })
     except Exception as e:
         return jsonify({
@@ -10571,6 +12384,7 @@ def update_tle():
 @app.route('/satellite/celestrak/<category>')
 def fetch_celestrak(category):
     """Fetch TLE data from CelesTrak for a specific category."""
+    global TLE_SATELLITES
     import urllib.request
 
     # Map category names to Celestrak groups
@@ -10613,6 +12427,8 @@ def fetch_celestrak(category):
                     'norad': norad,
                     'tle': [name, line1, line2]
                 })
+                # Also add to TLE_SATELLITES for prediction
+                TLE_SATELLITES[sat_id] = (name, line1, line2)
 
         # Limit to first 50 satellites to avoid overwhelming the UI
         return jsonify({
