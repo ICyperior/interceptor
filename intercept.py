@@ -12645,12 +12645,26 @@ def monitor_iridium(process):
         print(f"[Iridium] Monitor error: {e}")
 
 
+def cleanup_stale_processes():
+    """Kill any stale processes from previous runs."""
+    processes_to_kill = ['dump1090', 'rtl_adsb', 'rtl_433', 'multimon-ng', 'rtl_fm']
+    for proc_name in processes_to_kill:
+        try:
+            subprocess.run(['pkill', '-9', proc_name], capture_output=True)
+        except:
+            pass
+
+
 def main():
     print("=" * 50)
     print("  INTERCEPT // Signal Intelligence")
     print("  Pager / 433MHz / Aircraft / Satellite / WiFi / BT")
     print("=" * 50)
     print()
+
+    # Clean up any stale processes from previous runs
+    cleanup_stale_processes()
+
     print("Open http://localhost:5050 in your browser")
     print()
     print("Press Ctrl+C to stop")
