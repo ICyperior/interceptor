@@ -12013,9 +12013,16 @@ def start_adsb():
     data = request.json or {}
     gain = data.get('gain', '40')
     device = data.get('device', '0')
+    force_service = data.get('forceService', False)
 
     # First check if dump1090 is already running as a service with SBS port
     service_addr = check_dump1090_service()
+
+    # Allow forcing service mode even if check fails
+    if force_service and not service_addr:
+        print("[ADS-B] Force service mode enabled, using localhost:30003")
+        service_addr = 'localhost:30003'
+
     if service_addr:
         print(f"[ADS-B] Using existing dump1090 service SBS port at {service_addr}")
         adsb_using_service = True
