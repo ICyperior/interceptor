@@ -12803,8 +12803,9 @@ def monitor_iridium(process):
 
 
 def cleanup_stale_processes():
-    """Kill any stale processes from previous runs."""
-    processes_to_kill = ['dump1090', 'rtl_adsb', 'rtl_433', 'multimon-ng', 'rtl_fm']
+    """Kill any stale processes from previous runs (but not system services)."""
+    # Note: dump1090 is NOT included here as users may run it as a system service
+    processes_to_kill = ['rtl_adsb', 'rtl_433', 'multimon-ng', 'rtl_fm']
     for proc_name in processes_to_kill:
         try:
             subprocess.run(['pkill', '-9', proc_name], capture_output=True)
