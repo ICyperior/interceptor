@@ -13495,9 +13495,10 @@ def satellite_dashboard():
         function updateGroundTrack(pass) {
             if (!groundMap) return;
 
-            // Clear existing
+            // Clear all existing map layers
             if (trackLine) groundMap.removeLayer(trackLine);
             if (satMarker) groundMap.removeLayer(satMarker);
+            if (orbitTrack) groundMap.removeLayer(orbitTrack);
 
             if (pass && pass.groundTrack) {
                 const coords = pass.groundTrack.map(pt => [pt.lat, pt.lon]);
@@ -13695,9 +13696,12 @@ def satellite_dashboard():
                         satMarker = L.marker([pos.lat, pos.lon], { icon: satIcon }).addTo(groundMap);
                     }
 
-                    // Update orbit track
+                    // Update orbit track (clear old track first)
                     if (pos.track && groundMap) {
                         if (orbitTrack) groundMap.removeLayer(orbitTrack);
+                        if (trackLine) groundMap.removeLayer(trackLine);
+                        trackLine = null; // Clear pass track when showing live orbit
+
                         orbitTrack = L.polyline(pos.track.map(p => [p.lat, p.lon]), {
                             color: satColor,
                             weight: 2,
