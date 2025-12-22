@@ -12010,11 +12010,15 @@ def start_adsb():
     """Start ADS-B tracking."""
     global adsb_process, adsb_using_service
 
+    print("[ADS-B] Start request received")
+
     with adsb_lock:
         if adsb_process and adsb_process.poll() is None:
-            return jsonify({'status': 'error', 'message': 'ADS-B already running'})
+            print("[ADS-B] Already running (process)")
+            return jsonify({'status': 'already_running', 'message': 'ADS-B already running'})
         if adsb_using_service:
-            return jsonify({'status': 'error', 'message': 'ADS-B already running (using service)'})
+            print("[ADS-B] Already running (service)")
+            return jsonify({'status': 'already_running', 'message': 'ADS-B already running (using service)'})
 
     data = request.json or {}
     gain = data.get('gain', '40')
@@ -12051,8 +12055,10 @@ def start_adsb():
         thread = threading.Thread(target=parse_sbs_stream, args=('localhost:30003',), daemon=True)
         thread.start()
 
-        return jsonify({'status': 'started', 'mode': 'standalone'})
+        print("[ADS-B] Started successfully")
+        return jsonify({'status': 'success', 'message': 'ADS-B tracking started'})
     except Exception as e:
+        print(f"[ADS-B] Start error: {e}")
         return jsonify({'status': 'error', 'message': str(e)})
 
 
@@ -14539,9 +14545,20 @@ def adsb_dashboard():
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({})
                     });
-                    const data = await response.json();
 
-                    if (data.status === 'success' || data.status === 'started' || data.status === 'already_running') {
+                    console.log('Response status:', response.status);
+                    const text = await response.text();
+                    console.log('Response body:', text);
+
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        alert('Invalid response from server: ' + text);
+                        return;
+                    }
+
+                    if (data.status === 'success' || data.status === 'started' || data.status === 'already_running' || data.status === 'error' && data.message && data.message.includes('already')) {
                         startEventStream();
                         isTracking = true;
                         btn.textContent = 'STOP TRACKING';
@@ -14549,11 +14566,11 @@ def adsb_dashboard():
                         document.getElementById('trackingDot').classList.remove('inactive');
                         document.getElementById('trackingStatus').textContent = 'TRACKING';
                     } else {
-                        alert('Failed to start: ' + (data.message || data.status || 'Unknown error'));
+                        alert('Failed to start: ' + (data.message || data.status || JSON.stringify(data)));
                     }
                 } catch (err) {
                     console.error('Start error:', err);
-                    alert('Failed to start tracking');
+                    alert('Failed to start tracking: ' + err.message);
                 }
             } else {
                 // Stop tracking
