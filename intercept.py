@@ -12069,6 +12069,8 @@ def parse_sbs_stream(service_addr):
 
             buffer = ""
             msg_count = 0
+            last_update = time.time()
+            pending_updates = set()  # ICAOs with pending updates
             while adsb_using_service:
                 try:
                     data = sock.recv(4096).decode('utf-8', errors='ignore')
@@ -12102,7 +12104,6 @@ def parse_sbs_stream(service_addr):
 
                         # MSG,3: position (alt, lat, lon)
                         elif msg_type == '3':
-                            print(f"[ADS-B] MSG,3 received: parts={len(parts)}, lat={parts[14] if len(parts)>14 else 'N/A'}, lon={parts[15] if len(parts)>15 else 'N/A'}")
                             if len(parts) > 15:
                                 if parts[11]:
                                     try:
@@ -12150,14 +12151,22 @@ def parse_sbs_stream(service_addr):
                                 aircraft['squawk'] = parts[17]
 
                         adsb_aircraft[icao] = aircraft
-                        adsb_queue.put({
-                            'type': 'aircraft',
-                            **aircraft
-                        })
-
+                        pending_updates.add(icao)
                         msg_count += 1
-                        if msg_count % 100 == 0:
-                            print(f"[ADS-B] SBS: Processed {msg_count} messages, tracking {len(adsb_aircraft)} aircraft")
+
+                        # Throttle updates to frontend - send every 1 second
+                        now = time.time()
+                        if now - last_update >= 1.0:
+                            for update_icao in pending_updates:
+                                if update_icao in adsb_aircraft:
+                                    adsb_queue.put({
+                                        'type': 'aircraft',
+                                        **adsb_aircraft[update_icao]
+                                    })
+                            pending_updates.clear()
+                            last_update = now
+                            if msg_count % 500 == 0:
+                                print(f"[ADS-B] SBS: Processed {msg_count} messages, tracking {len(adsb_aircraft)} aircraft")
 
                 except socket.timeout:
                     continue
