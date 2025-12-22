@@ -11980,28 +11980,60 @@ def check_adsb_tools():
     })
 
 
+adsb_using_service = False  # Track if we're using an existing service
+
+
+def check_dump1090_service():
+    """Check if dump1090 JSON endpoint is already available."""
+    import urllib.request
+    json_urls = [
+        'http://localhost:30005/data/aircraft.json',
+        'http://localhost:8080/data/aircraft.json',
+    ]
+    for url in json_urls:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if response.status == 200:
+                    return url
+        except:
+            continue
+    return None
+
+
 @app.route('/adsb/start', methods=['POST'])
 def start_adsb():
     """Start ADS-B tracking."""
-    global adsb_process
+    global adsb_process, adsb_using_service
 
     with adsb_lock:
         if adsb_process and adsb_process.poll() is None:
             return jsonify({'status': 'error', 'message': 'ADS-B already running'})
+        if adsb_using_service:
+            return jsonify({'status': 'error', 'message': 'ADS-B already running (using service)'})
 
-    data = request.json
+    data = request.json or {}
     gain = data.get('gain', '40')
     device = data.get('device', '0')
 
-    # Try dump1090 first, fall back to rtl_adsb
+    # First check if dump1090 is already running as a service with JSON endpoint
+    service_url = check_dump1090_service()
+    if service_url:
+        print(f"[ADS-B] Using existing dump1090 service at {service_url}")
+        adsb_using_service = True
+        # Start thread to poll JSON endpoint only
+        thread = threading.Thread(target=poll_adsb_json_only, args=(service_url,), daemon=True)
+        thread.start()
+        return jsonify({'status': 'started', 'mode': 'service'})
+
+    # No service running, start dump1090 ourselves
     dump1090_path = shutil.which('dump1090') or shutil.which('dump1090-mutability')
 
     if dump1090_path:
-        cmd = [dump1090_path, '--raw', '--net', f'--gain', gain, f'--device-index', str(device)]
-        print(f"[ADS-B] Using dump1090: {dump1090_path}")
+        cmd = [dump1090_path, '--raw', '--net', '--gain', gain, '--device-index', str(device)]
+        print(f"[ADS-B] Starting dump1090: {dump1090_path}")
     elif shutil.which('rtl_adsb'):
         cmd = ['rtl_adsb', '-g', gain, '-d', str(device)]
-        print("[ADS-B] Using rtl_adsb (no JSON endpoint available)")
+        print("[ADS-B] Using rtl_adsb (raw output only)")
     else:
         return jsonify({'status': 'error', 'message': 'No ADS-B decoder found (install dump1090 or rtl_adsb)'})
 
@@ -12018,15 +12050,60 @@ def start_adsb():
         thread = threading.Thread(target=parse_adsb_output, args=(adsb_process,), daemon=True)
         thread.start()
 
-        return jsonify({'status': 'started'})
+        return jsonify({'status': 'started', 'mode': 'standalone'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
+
+def poll_adsb_json_only(service_url):
+    """Poll an existing dump1090 service for aircraft data."""
+    global adsb_aircraft, adsb_using_service
+    import urllib.request
+    import json as json_lib
+
+    print(f"[ADS-B] JSON-only polling started for {service_url}")
+
+    while adsb_using_service:
+        try:
+            with urllib.request.urlopen(service_url, timeout=2) as response:
+                data = json_lib.loads(response.read().decode())
+                aircraft_list = data.get('aircraft', [])
+                if aircraft_list:
+                    print(f"[ADS-B] JSON: Found {len(aircraft_list)} aircraft")
+                for ac in aircraft_list:
+                    icao = ac.get('hex', '').upper()
+                    if not icao:
+                        continue
+
+                    aircraft = adsb_aircraft.get(icao, {'icao': icao})
+                    aircraft.update({
+                        'icao': icao,
+                        'callsign': ac.get('flight', '').strip() or aircraft.get('callsign'),
+                        'altitude': ac.get('altitude') or ac.get('alt_baro') or aircraft.get('altitude'),
+                        'speed': ac.get('speed') or ac.get('gs') or aircraft.get('speed'),
+                        'heading': ac.get('track') or aircraft.get('heading'),
+                        'lat': ac.get('lat') or aircraft.get('lat'),
+                        'lon': ac.get('lon') or aircraft.get('lon'),
+                        'squawk': ac.get('squawk') or aircraft.get('squawk'),
+                        'rssi': ac.get('rssi') or aircraft.get('rssi')
+                    })
+
+                    adsb_aircraft[icao] = aircraft
+                    adsb_queue.put({
+                        'type': 'aircraft',
+                        **aircraft
+                    })
+        except Exception as e:
+            print(f"[ADS-B] JSON poll error: {e}")
+        time.sleep(1)
+
+    print("[ADS-B] JSON-only polling stopped")
 
 
 @app.route('/adsb/stop', methods=['POST'])
 def stop_adsb():
     """Stop ADS-B tracking."""
-    global adsb_process, adsb_aircraft
+    global adsb_process, adsb_aircraft, adsb_using_service
 
     with adsb_lock:
         if adsb_process:
@@ -12036,6 +12113,7 @@ def stop_adsb():
             except:
                 adsb_process.kill()
             adsb_process = None
+        adsb_using_service = False
 
     adsb_aircraft = {}
     return jsonify({'status': 'stopped'})
