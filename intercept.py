@@ -13810,27 +13810,34 @@ def satellite_dashboard():
                 ctx.fillText(l.text, x, y);
             });
 
-            // Draw pass trajectory if available
+            // Draw pass trajectory only if the pass is currently happening
             if (passes.length > 0 && selectedPass !== null && passes[selectedPass]?.trajectory) {
                 const pass = passes[selectedPass];
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([8, 4]);
-                ctx.globalAlpha = 0.5;
-                ctx.beginPath();
+                const passStart = new Date(pass.startTimeISO);
+                const passEnd = new Date(passStart.getTime() + (pass.duration || 10) * 60 * 1000);
+                const now = new Date();
 
-                pass.trajectory.forEach((pt, i) => {
-                    const r = radius * (1 - pt.el / 90);
-                    const angle = (pt.az - 90) * Math.PI / 180;
-                    const x = cx + r * Math.cos(angle);
-                    const y = cy + r * Math.sin(angle);
+                // Only show trajectory if pass is currently active
+                if (now >= passStart && now <= passEnd) {
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([8, 4]);
+                    ctx.globalAlpha = 0.5;
+                    ctx.beginPath();
 
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                });
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.globalAlpha = 1;
+                    pass.trajectory.forEach((pt, i) => {
+                        const r = radius * (1 - pt.el / 90);
+                        const angle = (pt.az - 90) * Math.PI / 180;
+                        const x = cx + r * Math.cos(angle);
+                        const y = cy + r * Math.sin(angle);
+
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    });
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.globalAlpha = 1;
+                }
             }
 
             // Draw current satellite position
