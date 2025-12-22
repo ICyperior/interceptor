@@ -12104,21 +12104,23 @@ def parse_sbs_stream(service_addr):
                                 aircraft['callsign'] = callsign
 
                         # MSG,3: position (alt, lat, lon)
-                        elif msg_type == '3' and len(parts) > 15:
-                            if parts[11]:
-                                try:
-                                    aircraft['altitude'] = int(float(parts[11]))
-                                except:
-                                    pass
-                            if parts[14] and parts[15]:
-                                try:
-                                    lat = float(parts[14])
-                                    lon = float(parts[15])
-                                    aircraft['lat'] = lat
-                                    aircraft['lon'] = lon
-                                    print(f"[ADS-B] Position: {icao} at {lat:.4f}, {lon:.4f}")
-                                except:
-                                    pass
+                        elif msg_type == '3':
+                            print(f"[ADS-B] MSG,3 received: parts={len(parts)}, lat={parts[14] if len(parts)>14 else 'N/A'}, lon={parts[15] if len(parts)>15 else 'N/A'}")
+                            if len(parts) > 15:
+                                if parts[11]:
+                                    try:
+                                        aircraft['altitude'] = int(float(parts[11]))
+                                    except:
+                                        pass
+                                if parts[14] and parts[15]:
+                                    try:
+                                        lat = float(parts[14])
+                                        lon = float(parts[15])
+                                        aircraft['lat'] = lat
+                                        aircraft['lon'] = lon
+                                        print(f"[ADS-B] Position SET: {icao} at {lat:.4f}, {lon:.4f}")
+                                    except Exception as e:
+                                        print(f"[ADS-B] Position parse error: {e}")
 
                         # MSG,4: velocity (speed, heading)
                         elif msg_type == '4' and len(parts) > 13:
