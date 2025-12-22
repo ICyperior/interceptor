@@ -12476,7 +12476,7 @@ def satellite_dashboard():
             position: relative;
             z-index: 10;
             display: grid;
-            grid-template-columns: 1fr 1fr 350px;
+            grid-template-columns: 1fr 1fr 420px;
             grid-template-rows: auto 1fr;
             gap: 20px;
             padding: 20px;
@@ -12533,6 +12533,7 @@ def satellite_dashboard():
         .panel-content {
             padding: 15px;
             height: calc(100% - 45px);
+            overflow-y: auto;
         }
 
         /* Polar plot */
@@ -12567,6 +12568,8 @@ def satellite_dashboard():
             display: flex;
             flex-direction: column;
             gap: 15px;
+            overflow-y: auto;
+            padding-right: 5px;
         }
 
         /* Countdown panel */
@@ -12682,7 +12685,7 @@ def satellite_dashboard():
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: 300px;
+            max-height: 250px;
             overflow-y: auto;
         }
 
@@ -12785,8 +12788,9 @@ def satellite_dashboard():
 
         .telemetry-value {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
+            font-size: 14px;
             color: var(--accent-cyan);
+            white-space: nowrap;
         }
 
         /* Observer location */
@@ -12898,7 +12902,7 @@ def satellite_dashboard():
         }
 
         /* Responsive */
-        @media (max-width: 1400px) {
+        @media (max-width: 1600px) {
             .dashboard {
                 grid-template-columns: 1fr 1fr;
             }
@@ -12907,10 +12911,31 @@ def satellite_dashboard():
                 grid-row: 2;
                 flex-direction: row;
                 flex-wrap: wrap;
+                overflow-y: visible;
+                max-height: none;
             }
             .sidebar .panel {
                 flex: 1;
-                min-width: 280px;
+                min-width: 300px;
+                max-height: 300px;
+            }
+        }
+
+        @media (max-width: 1000px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .polar-container, .map-container {
+                grid-column: 1;
+                min-height: 350px;
+            }
+            .sidebar {
+                grid-column: 1;
+                flex-direction: column;
+            }
+            .sidebar .panel {
+                min-width: 100%;
             }
         }
     </style>
@@ -13559,11 +13584,28 @@ def predict_passes():
         })
 
     data = request.json
-    lat = data.get('lat', 51.5074)
-    lon = data.get('lon', -0.1278)
+    lat = data.get('latitude', data.get('lat', 51.5074))
+    lon = data.get('longitude', data.get('lon', -0.1278))
     hours = data.get('hours', 24)
     min_el = data.get('minEl', 10)
-    satellites = data.get('satellites', ['ISS', 'NOAA-15', 'NOAA-18', 'NOAA-19'])
+
+    # Map NORAD IDs to satellite names
+    norad_to_name = {
+        25544: 'ISS',
+        25338: 'NOAA-15',
+        28654: 'NOAA-18',
+        33591: 'NOAA-19',
+        40069: 'METEOR-M2'
+    }
+
+    sat_input = data.get('satellites', ['ISS', 'NOAA-15', 'NOAA-18', 'NOAA-19'])
+    # Convert NORAD IDs to names if needed
+    satellites = []
+    for sat in sat_input:
+        if isinstance(sat, int) and sat in norad_to_name:
+            satellites.append(norad_to_name[sat])
+        else:
+            satellites.append(sat)
 
     passes = []
     colors = {'ISS': '#00ffff', 'NOAA-15': '#00ff00', 'NOAA-18': '#ff6600', 'NOAA-19': '#ff3366', 'METEOR-M2': '#9370DB'}
