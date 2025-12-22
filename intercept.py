@@ -13,6 +13,18 @@ A comprehensive signal intelligence tool featuring:
 Requires RTL-SDR hardware for RF modes.
 """
 
+import sys
+print(f"[Debug] Python executable: {sys.executable}")
+print(f"[Debug] Python version: {sys.version}")
+print(f"[Debug] User site-packages: {'/home/radio/.local/lib/python3.10/site-packages' in sys.path}")
+
+# Quick skyfield check at startup
+try:
+    import skyfield
+    print(f"[Debug] Skyfield loaded: {skyfield.__file__}")
+except Exception as e:
+    print(f"[Debug] Skyfield import failed: {e}")
+
 import subprocess
 import shutil
 import re
@@ -7942,7 +7954,7 @@ HTML_TEMPLATE = '''
 
             // Update or create markers for each aircraft
             Object.entries(adsbAircraft).forEach(([icao, aircraft]) => {
-                if (aircraft.lat === undefined || aircraft.lon === undefined) return;
+                if (aircraft.lat == null || aircraft.lon == null) return;
 
                 currentIds.add(icao);
 
@@ -8157,7 +8169,7 @@ HTML_TEMPLATE = '''
                     };
                     adsbMsgCount++;
                     updateAdsbStats();
-                    drawAircraftRadar();
+                    updateAircraftMarkers();
                     addAircraftToOutput(data);
                 }
             };
@@ -8170,7 +8182,7 @@ HTML_TEMPLATE = '''
                         delete adsbAircraft[icao];
                     }
                 });
-                drawAircraftRadar();
+                updateAircraftMarkers();
             }, 5000);
         }
 
@@ -9725,7 +9737,8 @@ def check_all_dependencies():
                 try:
                     __import__(tool)
                     installed = True
-                except ImportError:
+                except Exception as e:
+                    print(f"[Dependency] Failed to import {tool}: {type(e).__name__}: {e}")
                     installed = False
             else:
                 # Check for alternatives
@@ -12046,43 +12059,99 @@ def stream_adsb():
 
 
 def parse_adsb_output(process):
-    """Parse ADS-B output and add to queue."""
+    """Parse ADS-B output and poll dump1090 JSON for decoded data."""
     global adsb_aircraft
     import re
+    import urllib.request
+    import json as json_lib
 
     icao_pattern = re.compile(r'\*([0-9A-Fa-f]{6,14});')
 
+    # Start a thread to poll dump1090's JSON endpoint for decoded positions
+    def poll_dump1090_json():
+        """Poll dump1090's aircraft.json for decoded lat/lon data."""
+        json_urls = [
+            'http://localhost:8080/data/aircraft.json',
+            'http://localhost:30003/data/aircraft.json',
+            'http://localhost:8080/dump1090/data/aircraft.json'
+        ]
+        working_url = None
+
+        while adsb_process and adsb_process.poll() is None:
+            try:
+                # Find working URL on first success
+                urls_to_try = [working_url] if working_url else json_urls
+                for url in urls_to_try:
+                    try:
+                        with urllib.request.urlopen(url, timeout=2) as response:
+                            data = json_lib.loads(response.read().decode())
+                            working_url = url
+
+                            for ac in data.get('aircraft', []):
+                                icao = ac.get('hex', '').upper()
+                                if not icao:
+                                    continue
+
+                                # Update aircraft with decoded position data
+                                aircraft = adsb_aircraft.get(icao, {'icao': icao})
+                                aircraft.update({
+                                    'icao': icao,
+                                    'callsign': ac.get('flight', '').strip() or aircraft.get('callsign'),
+                                    'altitude': ac.get('altitude') or ac.get('alt_baro') or aircraft.get('altitude'),
+                                    'speed': ac.get('speed') or ac.get('gs') or aircraft.get('speed'),
+                                    'heading': ac.get('track') or aircraft.get('heading'),
+                                    'lat': ac.get('lat') or aircraft.get('lat'),
+                                    'lon': ac.get('lon') or aircraft.get('lon'),
+                                    'squawk': ac.get('squawk') or aircraft.get('squawk'),
+                                    'rssi': ac.get('rssi') or aircraft.get('rssi')
+                                })
+
+                                adsb_aircraft[icao] = aircraft
+                                adsb_queue.put({
+                                    'type': 'aircraft',
+                                    **aircraft
+                                })
+                            break
+                    except:
+                        continue
+            except Exception as e:
+                pass
+            time.sleep(1)
+
+    # Start JSON polling thread
+    json_thread = threading.Thread(target=poll_dump1090_json, daemon=True)
+    json_thread.start()
+
+    # Also parse raw output for immediate ICAO detection
     try:
         for line in process.stdout:
             line = line.strip()
             if not line:
                 continue
 
-            # Parse raw Mode S messages (simplified)
+            # Parse raw Mode S messages for quick ICAO detection
             match = icao_pattern.search(line)
             if match:
                 raw = match.group(1)
                 if len(raw) >= 6:
                     icao = raw[:6].upper()
 
-                    # Basic aircraft data (would need proper Mode S decoding for full data)
-                    aircraft = adsb_aircraft.get(icao, {
-                        'icao': icao,
-                        'callsign': None,
-                        'altitude': None,
-                        'speed': None,
-                        'heading': None,
-                        'lat': None,
-                        'lon': None,
-                        'distance': 50,  # Placeholder
-                        'bearing': hash(icao) % 360  # Placeholder for demo
-                    })
-
-                    adsb_aircraft[icao] = aircraft
-                    adsb_queue.put({
-                        'type': 'aircraft',
-                        **aircraft
-                    })
+                    # Create placeholder if not seen via JSON yet
+                    if icao not in adsb_aircraft:
+                        aircraft = {
+                            'icao': icao,
+                            'callsign': None,
+                            'altitude': None,
+                            'speed': None,
+                            'heading': None,
+                            'lat': None,
+                            'lon': None
+                        }
+                        adsb_aircraft[icao] = aircraft
+                        adsb_queue.put({
+                            'type': 'aircraft',
+                            **aircraft
+                        })
     except Exception as e:
         print(f"[ADS-B] Parse error: {e}")
 
