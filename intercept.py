@@ -12071,8 +12071,10 @@ def parse_adsb_output(process):
     def poll_dump1090_json():
         """Poll dump1090's aircraft.json for decoded lat/lon data."""
         json_urls = [
+            'http://localhost:30005/data/aircraft.json',
             'http://localhost:8080/data/aircraft.json',
             'http://localhost:30003/data/aircraft.json',
+            'http://localhost:16601/data/aircraft.json',
             'http://localhost:8080/dump1090/data/aircraft.json'
         ]
         working_url = None
