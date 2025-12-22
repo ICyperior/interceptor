@@ -12326,6 +12326,1223 @@ def parse_adsb_output(process):
 # SATELLITE ROUTES
 # ============================================
 
+@app.route('/satellite/dashboard')
+def satellite_dashboard():
+    """Popout hi-tech satellite tracking dashboard."""
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SATELLITE COMMAND // INTERCEPT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-panel: #0d1117;
+            --bg-card: #161b22;
+            --border-glow: #00d4ff;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-cyan: #00d4ff;
+            --accent-green: #00ff88;
+            --accent-orange: #ff9500;
+            --accent-red: #ff4444;
+            --accent-purple: #a855f7;
+            --grid-line: rgba(0, 212, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated grid background */
+        .grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* Scan line effect */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            animation: scan 3s linear infinite;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.5;
+        }
+
+        @keyframes scan {
+            0% { top: -4px; }
+            100% { top: 100vh; }
+        }
+
+        /* Header */
+        .header {
+            position: relative;
+            z-index: 10;
+            padding: 15px 30px;
+            background: linear-gradient(180deg, rgba(0,212,255,0.1) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(0,212,255,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 20px var(--accent-cyan), 0 0 40px var(--accent-cyan);
+        }
+
+        .logo span {
+            color: var(--text-secondary);
+            font-weight: 400;
+            font-size: 16px;
+            margin-left: 15px;
+            letter-spacing: 2px;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 30px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 10px var(--accent-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .datetime {
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            color: var(--accent-cyan);
+        }
+
+        /* Main dashboard grid */
+        .dashboard {
+            position: relative;
+            z-index: 10;
+            display: grid;
+            grid-template-columns: 1fr 1fr 350px;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 80px);
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+        }
+
+        .panel-header {
+            padding: 12px 20px;
+            background: rgba(0,212,255,0.05);
+            border-bottom: 1px solid rgba(0,212,255,0.1);
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-indicator {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .panel-content {
+            padding: 15px;
+            height: calc(100% - 45px);
+        }
+
+        /* Polar plot */
+        .polar-container {
+            grid-column: 1;
+            grid-row: 1 / 3;
+        }
+
+        #polarPlot {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        /* Ground track map */
+        .map-container {
+            grid-column: 2;
+            grid-row: 1 / 3;
+        }
+
+        #groundMap {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+            border-radius: 4px;
+        }
+
+        /* Right sidebar */
+        .sidebar {
+            grid-column: 3;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Countdown panel */
+        .countdown-panel {
+            background: linear-gradient(135deg, rgba(0,212,255,0.1) 0%, rgba(0,255,136,0.05) 100%);
+        }
+
+        .countdown-display {
+            text-align: center;
+            padding: 20px 10px;
+        }
+
+        .next-pass-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .satellite-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 15px var(--accent-cyan);
+            margin-bottom: 15px;
+        }
+
+        .countdown-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .countdown-block {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 6px;
+            padding: 10px 5px;
+            text-align: center;
+        }
+
+        .countdown-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 10px var(--accent-cyan);
+            line-height: 1;
+        }
+
+        .countdown-value.active {
+            color: var(--accent-green);
+            text-shadow: 0 0 15px var(--accent-green);
+            animation: countPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes countPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+
+        .countdown-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        /* Stats panel */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,212,255,0.15);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .stat-value.highlight {
+            color: var(--accent-green);
+        }
+
+        .stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Pass list */
+        .pass-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .pass-list-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .pass-item {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,212,255,0.15);
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pass-item:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0,212,255,0.05);
+        }
+
+        .pass-item.active {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(0,212,255,0.2);
+            background: rgba(0,212,255,0.1);
+        }
+
+        .pass-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .pass-sat-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .pass-quality {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .pass-quality.excellent {
+            background: rgba(0,255,136,0.2);
+            color: var(--accent-green);
+        }
+
+        .pass-quality.good {
+            background: rgba(0,212,255,0.2);
+            color: var(--accent-cyan);
+        }
+
+        .pass-quality.fair {
+            background: rgba(255,149,0,0.2);
+            color: var(--accent-orange);
+        }
+
+        .pass-item-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .pass-time {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Telemetry panel */
+        .telemetry-panel {
+            background: linear-gradient(135deg, rgba(168,85,247,0.1) 0%, rgba(0,212,255,0.05) 100%);
+        }
+
+        .telemetry-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+            border-left: 2px solid var(--accent-cyan);
+        }
+
+        .telemetry-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .telemetry-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--accent-cyan);
+        }
+
+        /* Observer location */
+        .observer-panel .panel-content {
+            padding: 10px 15px;
+        }
+
+        .observer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .observer-input {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .observer-input label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .observer-input input {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 4px;
+            padding: 8px 10px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        .observer-input input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0,212,255,0.2);
+        }
+
+        .observer-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--accent-cyan);
+            background: rgba(0,212,255,0.1);
+            color: var(--accent-cyan);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px rgba(0,212,255,0.3);
+        }
+
+        .btn.primary {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+        }
+
+        .btn.primary:hover {
+            box-shadow: 0 0 25px rgba(0,212,255,0.5);
+        }
+
+        /* Leaflet dark theme overrides */
+        .leaflet-container {
+            background: var(--bg-dark) !important;
+        }
+
+        .leaflet-control-zoom a {
+            background: var(--bg-panel) !important;
+            color: var(--accent-cyan) !important;
+            border-color: rgba(0,212,255,0.3) !important;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(0,0,0,0.7) !important;
+            color: var(--text-secondary) !important;
+            font-size: 9px !important;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-cyan);
+            border-radius: 3px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .dashboard {
+                grid-template-columns: 1fr 1fr;
+            }
+            .sidebar {
+                grid-column: 1 / 3;
+                grid-row: 2;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .sidebar .panel {
+                flex: 1;
+                min-width: 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    <div class="scanline"></div>
+
+    <header class="header">
+        <div class="logo">
+            SATELLITE COMMAND
+            <span>// INTERCEPT</span>
+        </div>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span>TRACKING ACTIVE</span>
+            </div>
+            <div class="status-item datetime" id="utcTime">--:--:-- UTC</div>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Polar Plot -->
+        <div class="panel polar-container">
+            <div class="panel-header">
+                <span>SKY VIEW // POLAR PLOT</span>
+                <div class="panel-indicator"></div>
+            </div>
+            <div class="panel-content">
+                <canvas id="polarPlot"></canvas>
+            </div>
+        </div>
+
+        <!-- Ground Track Map -->
+        <div class="panel map-container">
+            <div class="panel-header">
+                <span>GROUND TRACK // WORLD VIEW</span>
+                <div class="panel-indicator"></div>
+            </div>
+            <div class="panel-content">
+                <div id="groundMap"></div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Countdown -->
+            <div class="panel countdown-panel">
+                <div class="panel-header">
+                    <span>NEXT PASS</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="countdown-display">
+                    <div class="next-pass-label">Incoming Signal</div>
+                    <div class="satellite-name" id="countdownSat">AWAITING DATA</div>
+                    <div class="countdown-grid">
+                        <div class="countdown-block">
+                            <div class="countdown-value" id="countDays">--</div>
+                            <div class="countdown-label">Days</div>
+                        </div>
+                        <div class="countdown-block">
+                            <div class="countdown-value" id="countHours">--</div>
+                            <div class="countdown-label">Hours</div>
+                        </div>
+                        <div class="countdown-block">
+                            <div class="countdown-value" id="countMins">--</div>
+                            <div class="countdown-label">Mins</div>
+                        </div>
+                        <div class="countdown-block">
+                            <div class="countdown-value" id="countSecs">--</div>
+                            <div class="countdown-label">Secs</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>TRACKING STATS</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="panel-content">
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-value" id="statTracked">0</div>
+                            <div class="stat-label">Satellites</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value highlight" id="statVisible">0</div>
+                            <div class="stat-label">Visible Now</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="statPasses">0</div>
+                            <div class="stat-label">Passes Today</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="statMaxEl">0°</div>
+                            <div class="stat-label">Best Elevation</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pass List -->
+            <div class="panel pass-list">
+                <div class="panel-header">
+                    <span>UPCOMING PASSES</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="panel-content">
+                    <div class="pass-list-content" id="passList">
+                        <div style="text-align:center;color:var(--text-secondary);padding:20px;">
+                            Calculating passes...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telemetry -->
+            <div class="panel telemetry-panel">
+                <div class="panel-header">
+                    <span>LIVE TELEMETRY</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="panel-content">
+                    <div class="telemetry-rows">
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Latitude</span>
+                            <span class="telemetry-value" id="telLat">---.----°</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Longitude</span>
+                            <span class="telemetry-value" id="telLon">---.----°</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Altitude</span>
+                            <span class="telemetry-value" id="telAlt">--- km</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Elevation</span>
+                            <span class="telemetry-value" id="telEl">--.-°</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Azimuth</span>
+                            <span class="telemetry-value" id="telAz">---.-°</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Distance</span>
+                            <span class="telemetry-value" id="telDist">---- km</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Observer -->
+            <div class="panel observer-panel">
+                <div class="panel-header">
+                    <span>OBSERVER LOCATION</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="panel-content">
+                    <div class="observer-grid">
+                        <div class="observer-input">
+                            <label>Latitude</label>
+                            <input type="number" id="obsLat" value="51.5074" step="0.0001">
+                        </div>
+                        <div class="observer-input">
+                            <label>Longitude</label>
+                            <input type="number" id="obsLon" value="-0.1278" step="0.0001">
+                        </div>
+                    </div>
+                    <div class="observer-actions">
+                        <button class="btn" onclick="getLocation()">📍 GPS</button>
+                        <button class="btn primary" onclick="calculatePasses()">CALCULATE</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Dashboard state
+        let passes = [];
+        let selectedPass = null;
+        let groundMap = null;
+        let satMarker = null;
+        let trackLine = null;
+        let observerMarker = null;
+        let orbitTrack = null;
+
+        const satellites = [
+            { name: 'ISS (ZARYA)', norad: 25544 },
+            { name: 'NOAA 15', norad: 25338 },
+            { name: 'NOAA 18', norad: 28654 },
+            { name: 'NOAA 19', norad: 33591 },
+            { name: 'METEOR-M2', norad: 40069 }
+        ];
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            initGroundMap();
+            updateClock();
+            setInterval(updateClock, 1000);
+            setInterval(updateCountdown, 1000);
+            setInterval(updateRealTimePositions, 5000);
+
+            // Try to get location, then calculate
+            getLocation();
+        });
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('utcTime').textContent =
+                now.toISOString().substring(11, 19) + ' UTC';
+        }
+
+        function initGroundMap() {
+            groundMap = L.map('groundMap', {
+                center: [20, 0],
+                zoom: 2,
+                minZoom: 1,
+                maxZoom: 10,
+                worldCopyJump: true
+            });
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '©OpenStreetMap, ©CartoDB'
+            }).addTo(groundMap);
+        }
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    document.getElementById('obsLat').value = pos.coords.latitude.toFixed(4);
+                    document.getElementById('obsLon').value = pos.coords.longitude.toFixed(4);
+                    calculatePasses();
+                }, () => {
+                    calculatePasses();
+                });
+            } else {
+                calculatePasses();
+            }
+        }
+
+        async function calculatePasses() {
+            const lat = parseFloat(document.getElementById('obsLat').value);
+            const lon = parseFloat(document.getElementById('obsLon').value);
+
+            try {
+                const response = await fetch('/satellite/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude: lat,
+                        longitude: lon,
+                        hours: 24,
+                        minEl: 10,
+                        satellites: satellites.map(s => s.norad)
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    passes = data.passes;
+                    renderPassList();
+                    updateStats();
+                    if (passes.length > 0) selectPass(0);
+                    updateObserverMarker(lat, lon);
+                }
+            } catch (err) {
+                console.error('Pass calculation error:', err);
+            }
+        }
+
+        function renderPassList() {
+            const container = document.getElementById('passList');
+            if (passes.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">No passes found</div>';
+                return;
+            }
+
+            container.innerHTML = passes.slice(0, 10).map((pass, idx) => {
+                const quality = pass.maxEl >= 60 ? 'excellent' : pass.maxEl >= 30 ? 'good' : 'fair';
+                const qualityText = pass.maxEl >= 60 ? 'EXCELLENT' : pass.maxEl >= 30 ? 'GOOD' : 'FAIR';
+                const time = new Date(pass.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                return `
+                    <div class="pass-item ${selectedPass === idx ? 'active' : ''}" onclick="selectPass(${idx})">
+                        <div class="pass-item-header">
+                            <span class="pass-sat-name">${pass.name}</span>
+                            <span class="pass-quality ${quality}">${qualityText}</span>
+                        </div>
+                        <div class="pass-item-details">
+                            <span class="pass-time">${time}</span>
+                            <span>${pass.maxEl.toFixed(0)}° max · ${pass.duration.toFixed(0)} min</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectPass(idx) {
+            selectedPass = idx;
+            renderPassList();
+
+            const pass = passes[idx];
+            if (!pass) return;
+
+            drawPolarPlot(pass);
+            updateGroundTrack(pass);
+            updateTelemetry(pass);
+        }
+
+        function drawPolarPlot(pass) {
+            const canvas = document.getElementById('polarPlot');
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height - 20;
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = Math.min(cx, cy) - 40;
+
+            // Clear
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw elevation rings
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
+            ctx.lineWidth = 1;
+            for (let el = 30; el <= 90; el += 30) {
+                const r = radius * (1 - el / 90);
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(el + '°', cx + 5, cy - r + 12);
+            }
+
+            // Horizon
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Cardinal lines
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let az = 0; az < 360; az += 45) {
+                const angle = (az - 90) * Math.PI / 180;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+                ctx.stroke();
+            }
+
+            // Cardinal labels
+            ctx.font = 'bold 14px Orbitron';
+            const labels = [
+                { text: 'N', az: 0, color: '#ff4444' },
+                { text: 'E', az: 90, color: '#00d4ff' },
+                { text: 'S', az: 180, color: '#00d4ff' },
+                { text: 'W', az: 270, color: '#00d4ff' }
+            ];
+            labels.forEach(l => {
+                const angle = (l.az - 90) * Math.PI / 180;
+                const x = cx + (radius + 20) * Math.cos(angle);
+                const y = cy + (radius + 20) * Math.sin(angle);
+                ctx.fillStyle = l.color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(l.text, x, y);
+            });
+
+            // Draw pass trajectory
+            if (pass && pass.trajectory) {
+                ctx.strokeStyle = pass.color || '#00d4ff';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([8, 4]);
+                ctx.beginPath();
+
+                let maxElPoint = null;
+                let maxEl = 0;
+
+                pass.trajectory.forEach((pt, i) => {
+                    const r = radius * (1 - pt.el / 90);
+                    const angle = (pt.az - 90) * Math.PI / 180;
+                    const x = cx + r * Math.cos(angle);
+                    const y = cy + r * Math.sin(angle);
+
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+
+                    if (pt.el > maxEl) {
+                        maxEl = pt.el;
+                        maxElPoint = { x, y };
+                    }
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Max elevation marker
+                if (maxElPoint) {
+                    ctx.beginPath();
+                    ctx.arc(maxElPoint.x, maxElPoint.y, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = pass.color || '#00d4ff';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Glow effect
+                    ctx.beginPath();
+                    ctx.arc(maxElPoint.x, maxElPoint.y, 15, 0, Math.PI * 2);
+                    ctx.strokeStyle = pass.color || '#00d4ff';
+                    ctx.lineWidth = 1;
+                    ctx.globalAlpha = 0.3;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+            }
+        }
+
+        function updateGroundTrack(pass) {
+            if (!groundMap) return;
+
+            // Clear existing
+            if (trackLine) groundMap.removeLayer(trackLine);
+            if (satMarker) groundMap.removeLayer(satMarker);
+
+            if (pass && pass.groundTrack) {
+                const coords = pass.groundTrack.map(pt => [pt.lat, pt.lon]);
+
+                trackLine = L.polyline(coords, {
+                    color: pass.color || '#00d4ff',
+                    weight: 3,
+                    opacity: 0.8,
+                    dashArray: '10, 5'
+                }).addTo(groundMap);
+
+                // Current position marker
+                if (pass.currentPos) {
+                    const satIcon = L.divIcon({
+                        className: 'sat-marker',
+                        html: `<div style="
+                            width: 16px; height: 16px;
+                            background: ${pass.color || '#00d4ff'};
+                            border-radius: 50%;
+                            border: 2px solid #fff;
+                            box-shadow: 0 0 20px ${pass.color || '#00d4ff'};
+                        "></div>`,
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    });
+
+                    satMarker = L.marker([pass.currentPos.lat, pass.currentPos.lon], { icon: satIcon })
+                        .addTo(groundMap)
+                        .bindPopup(`<b>${pass.name}</b><br>Alt: ${pass.currentPos.alt?.toFixed(0)} km`);
+                }
+
+                groundMap.fitBounds(trackLine.getBounds(), { padding: [30, 30] });
+            }
+        }
+
+        function updateObserverMarker(lat, lon) {
+            if (!groundMap) return;
+
+            if (observerMarker) groundMap.removeLayer(observerMarker);
+
+            const obsIcon = L.divIcon({
+                className: 'obs-marker',
+                html: `<div style="
+                    width: 12px; height: 12px;
+                    background: #ff9500;
+                    border-radius: 50%;
+                    border: 2px solid #fff;
+                    box-shadow: 0 0 15px #ff9500;
+                "></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+
+            observerMarker = L.marker([lat, lon], { icon: obsIcon })
+                .addTo(groundMap)
+                .bindPopup('Observer Location');
+        }
+
+        function updateStats() {
+            document.getElementById('statTracked').textContent = satellites.length;
+            document.getElementById('statPasses').textContent = passes.length;
+
+            const maxEl = passes.reduce((max, p) => Math.max(max, p.maxEl || 0), 0);
+            document.getElementById('statMaxEl').textContent = maxEl.toFixed(0) + '°';
+
+            // Visible count would need real-time position data
+            document.getElementById('statVisible').textContent = '0';
+        }
+
+        function updateTelemetry(pass) {
+            if (!pass || !pass.currentPos) {
+                document.getElementById('telLat').textContent = '---.----°';
+                document.getElementById('telLon').textContent = '---.----°';
+                document.getElementById('telAlt').textContent = '--- km';
+                document.getElementById('telEl').textContent = '--.-°';
+                document.getElementById('telAz').textContent = '---.-°';
+                document.getElementById('telDist').textContent = '---- km';
+                return;
+            }
+
+            const pos = pass.currentPos;
+            document.getElementById('telLat').textContent = (pos.lat || 0).toFixed(4) + '°';
+            document.getElementById('telLon').textContent = (pos.lon || 0).toFixed(4) + '°';
+            document.getElementById('telAlt').textContent = (pos.alt || 0).toFixed(0) + ' km';
+            document.getElementById('telEl').textContent = (pos.el || 0).toFixed(1) + '°';
+            document.getElementById('telAz').textContent = (pos.az || 0).toFixed(1) + '°';
+            document.getElementById('telDist').textContent = (pos.dist || 0).toFixed(0) + ' km';
+        }
+
+        function updateCountdown() {
+            if (!passes || passes.length === 0) return;
+
+            const now = new Date();
+            let nextPass = null;
+
+            for (const pass of passes) {
+                const start = new Date(pass.start);
+                if (start > now) {
+                    nextPass = pass;
+                    break;
+                }
+            }
+
+            if (!nextPass) {
+                document.getElementById('countdownSat').textContent = 'NO UPCOMING';
+                document.getElementById('countDays').textContent = '--';
+                document.getElementById('countHours').textContent = '--';
+                document.getElementById('countMins').textContent = '--';
+                document.getElementById('countSecs').textContent = '--';
+                return;
+            }
+
+            document.getElementById('countdownSat').textContent = nextPass.name;
+
+            const diff = new Date(nextPass.start) - now;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('countDays').textContent = days.toString().padStart(2, '0');
+            document.getElementById('countHours').textContent = hours.toString().padStart(2, '0');
+            document.getElementById('countMins').textContent = mins.toString().padStart(2, '0');
+            document.getElementById('countSecs').textContent = secs.toString().padStart(2, '0');
+
+            // Animate if within 1 minute
+            const elements = ['countDays', 'countHours', 'countMins', 'countSecs'].map(id => document.getElementById(id));
+            if (diff < 60000) {
+                elements.forEach(el => el.classList.add('active'));
+            } else {
+                elements.forEach(el => el.classList.remove('active'));
+            }
+        }
+
+        async function updateRealTimePositions() {
+            if (!passes || passes.length === 0 || selectedPass === null) return;
+
+            const lat = parseFloat(document.getElementById('obsLat').value);
+            const lon = parseFloat(document.getElementById('obsLon').value);
+            const pass = passes[selectedPass];
+
+            if (!pass) return;
+
+            try {
+                const response = await fetch('/satellite/position', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude: lat,
+                        longitude: lon,
+                        satellites: [pass.norad],
+                        includeTrack: true
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success' && data.positions.length > 0) {
+                    const pos = data.positions[0];
+
+                    // Update telemetry
+                    document.getElementById('telLat').textContent = pos.lat.toFixed(4) + '°';
+                    document.getElementById('telLon').textContent = pos.lon.toFixed(4) + '°';
+                    document.getElementById('telAlt').textContent = pos.altitude.toFixed(0) + ' km';
+                    document.getElementById('telEl').textContent = pos.elevation.toFixed(1) + '°';
+                    document.getElementById('telAz').textContent = pos.azimuth.toFixed(1) + '°';
+                    document.getElementById('telDist').textContent = pos.distance.toFixed(0) + ' km';
+
+                    // Update visible count
+                    document.getElementById('statVisible').textContent = pos.visible ? '1' : '0';
+
+                    // Update satellite marker
+                    if (satMarker) {
+                        satMarker.setLatLng([pos.lat, pos.lon]);
+                    }
+
+                    // Update orbit track
+                    if (pos.track && groundMap) {
+                        if (orbitTrack) groundMap.removeLayer(orbitTrack);
+                        orbitTrack = L.polyline(pos.track.map(p => [p.lat, p.lon]), {
+                            color: '#a855f7',
+                            weight: 2,
+                            opacity: 0.5,
+                            dashArray: '5, 5'
+                        }).addTo(groundMap);
+                    }
+                }
+            } catch (err) {
+                console.error('Position update error:', err);
+            }
+        }
+    </script>
+</body>
+</html>
+''')
+
+
 @app.route('/satellite/predict', methods=['POST'])
 def predict_passes():
     """Calculate satellite passes using skyfield for accurate orbital prediction."""
