@@ -13702,12 +13702,39 @@ def satellite_dashboard():
                         if (trackLine) groundMap.removeLayer(trackLine);
                         trackLine = null; // Clear pass track when showing live orbit
 
-                        orbitTrack = L.polyline(pos.track.map(p => [p.lat, p.lon]), {
-                            color: satColor,
-                            weight: 2,
-                            opacity: 0.6,
-                            dashArray: '5, 5'
-                        }).addTo(groundMap);
+                        // Split track at antimeridian crossings to avoid lines across map
+                        const segments = [];
+                        let currentSegment = [];
+
+                        for (let i = 0; i < pos.track.length; i++) {
+                            const p = pos.track[i];
+                            if (currentSegment.length > 0) {
+                                const prevLon = currentSegment[currentSegment.length - 1][1];
+                                // If longitude jumps more than 180°, start new segment
+                                if (Math.abs(p.lon - prevLon) > 180) {
+                                    if (currentSegment.length > 1) {
+                                        segments.push(currentSegment);
+                                    }
+                                    currentSegment = [];
+                                }
+                            }
+                            currentSegment.push([p.lat, p.lon]);
+                        }
+                        if (currentSegment.length > 1) {
+                            segments.push(currentSegment);
+                        }
+
+                        // Draw each segment as separate polyline
+                        orbitTrack = L.layerGroup();
+                        segments.forEach(seg => {
+                            L.polyline(seg, {
+                                color: satColor,
+                                weight: 2,
+                                opacity: 0.6,
+                                dashArray: '5, 5'
+                            }).addTo(orbitTrack);
+                        });
+                        orbitTrack.addTo(groundMap);
                     }
 
                     // Update polar plot with current position
