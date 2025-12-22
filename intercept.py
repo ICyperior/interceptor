@@ -13971,7 +13971,7 @@ def predict_passes():
                     if el > max_elevation:
                         max_elevation = el
 
-                    trajectory.append({'el': max(0, el), 'az': azimuth})
+                    trajectory.append({'el': float(max(0, el)), 'az': float(azimuth)})
 
                 # Only include pass if max elevation meets minimum requirement
                 if max_elevation >= min_el:
@@ -13985,8 +13985,8 @@ def predict_passes():
                         geocentric = satellite.at(t_point)
                         subpoint = wgs84.subpoint(geocentric)
                         ground_track.append({
-                            'lat': subpoint.latitude.degrees,
-                            'lon': subpoint.longitude.degrees
+                            'lat': float(subpoint.latitude.degrees),
+                            'lon': float(subpoint.longitude.degrees)
                         })
 
                     # Get current position
@@ -14000,13 +14000,13 @@ def predict_passes():
                         'norad': name_to_norad.get(sat_name, 0),
                         'startTime': rise_time.utc_datetime().strftime('%Y-%m-%d %H:%M UTC'),
                         'startTimeISO': rise_time.utc_datetime().isoformat(),
-                        'maxEl': round(max_elevation, 1),
-                        'duration': duration_minutes,
+                        'maxEl': float(round(max_elevation, 1)),
+                        'duration': int(duration_minutes),
                         'trajectory': trajectory,
                         'groundTrack': ground_track,
                         'currentPos': {
-                            'lat': current_subpoint.latitude.degrees,
-                            'lon': current_subpoint.longitude.degrees
+                            'lat': float(current_subpoint.latitude.degrees),
+                            'lon': float(current_subpoint.longitude.degrees)
                         },
                         'color': colors.get(sat_name, '#00ff00')
                     })
@@ -14083,13 +14083,13 @@ def get_satellite_position():
 
             pos_data = {
                 'satellite': sat_name,
-                'lat': subpoint.latitude.degrees,
-                'lon': subpoint.longitude.degrees,
-                'altitude': geocentric.distance().km - 6371,
-                'elevation': alt.degrees,
-                'azimuth': az.degrees,
-                'distance': distance.km,
-                'visible': alt.degrees > 0
+                'lat': float(subpoint.latitude.degrees),
+                'lon': float(subpoint.longitude.degrees),
+                'altitude': float(geocentric.distance().km - 6371),
+                'elevation': float(alt.degrees),
+                'azimuth': float(az.degrees),
+                'distance': float(distance.km),
+                'visible': bool(alt.degrees > 0)
             }
 
             # Generate full orbit ground track (±45 minutes = ~1 orbit for LEO)
@@ -14102,8 +14102,8 @@ def get_satellite_position():
                         geo = satellite.at(t_point)
                         sp = wgs84.subpoint(geo)
                         orbit_track.append({
-                            'lat': sp.latitude.degrees,
-                            'lon': sp.longitude.degrees,
+                            'lat': float(sp.latitude.degrees),
+                            'lon': float(sp.longitude.degrees),
                             'past': minutes_offset < 0
                         })
                     except:
