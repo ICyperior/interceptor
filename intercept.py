@@ -12103,29 +12103,50 @@ def parse_sbs_stream(service_addr):
                             if callsign:
                                 aircraft['callsign'] = callsign
 
-                        # MSG,3: position (alt, speed, heading, lat, lon)
+                        # MSG,3: position (alt, lat, lon)
                         elif msg_type == '3' and len(parts) > 15:
                             if parts[11]:
-                                aircraft['altitude'] = int(float(parts[11]))
-                            if parts[12]:
-                                aircraft['speed'] = int(float(parts[12]))
-                            if parts[13]:
-                                aircraft['heading'] = int(float(parts[13]))
+                                try:
+                                    aircraft['altitude'] = int(float(parts[11]))
+                                except:
+                                    pass
                             if parts[14] and parts[15]:
-                                aircraft['lat'] = float(parts[14])
-                                aircraft['lon'] = float(parts[15])
+                                try:
+                                    lat = float(parts[14])
+                                    lon = float(parts[15])
+                                    aircraft['lat'] = lat
+                                    aircraft['lon'] = lon
+                                    print(f"[ADS-B] Position: {icao} at {lat:.4f}, {lon:.4f}")
+                                except:
+                                    pass
 
                         # MSG,4: velocity (speed, heading)
                         elif msg_type == '4' and len(parts) > 13:
                             if parts[12]:
-                                aircraft['speed'] = int(float(parts[12]))
+                                try:
+                                    aircraft['speed'] = int(float(parts[12]))
+                                except:
+                                    pass
                             if parts[13]:
-                                aircraft['heading'] = int(float(parts[13]))
+                                try:
+                                    aircraft['heading'] = int(float(parts[13]))
+                                except:
+                                    pass
 
-                        # MSG,5/6: altitude and squawk
-                        elif msg_type in ('5', '6') and len(parts) > 17:
+                        # MSG,5: callsign and altitude
+                        elif msg_type == '5' and len(parts) > 11:
+                            if parts[10]:
+                                callsign = parts[10].strip()
+                                if callsign:
+                                    aircraft['callsign'] = callsign
                             if parts[11]:
-                                aircraft['altitude'] = int(float(parts[11]))
+                                try:
+                                    aircraft['altitude'] = int(float(parts[11]))
+                                except:
+                                    pass
+
+                        # MSG,6: squawk
+                        elif msg_type == '6' and len(parts) > 17:
                             if parts[17]:
                                 aircraft['squawk'] = parts[17]
 
