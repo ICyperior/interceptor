@@ -12119,7 +12119,7 @@ def parse_sbs_stream(service_addr):
                             if len(parts) > 15:
                                 if parts[11]:
                                     try:
-                                        aircraft['altitude'] = int(float(parts[11]))
+                                        aircraft['alt'] = int(float(parts[11]))
                                     except:
                                         pass
                                 if parts[14] and parts[15]:
@@ -12153,7 +12153,7 @@ def parse_sbs_stream(service_addr):
                                     aircraft['callsign'] = callsign
                             if parts[11]:
                                 try:
-                                    aircraft['altitude'] = int(float(parts[11]))
+                                    aircraft['alt'] = int(float(parts[11]))
                                 except:
                                     pass
 
