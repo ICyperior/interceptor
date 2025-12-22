@@ -17,7 +17,7 @@
 </p>
 
 ## Screenshot
-<img src="screenshot.png">
+<img src="screenshot2.png">
 
 ---
 
@@ -500,6 +500,7 @@ By using INTERCEPT, you acknowledge that:
 - The developers assume no liability for misuse of this software
 
 A disclaimer must be accepted when first launching the application.
+
 
 
 
