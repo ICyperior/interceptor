@@ -12014,36 +12014,35 @@ def start_adsb():
     gain = data.get('gain', '40')
     device = data.get('device', '0')
 
-    # Always try SBS service first (dump1090-mutability on port 30003)
-    print("[ADS-B] Connecting to dump1090 SBS service on localhost:30003...")
-    adsb_using_service = True
-    thread = threading.Thread(target=parse_sbs_stream, args=('localhost:30003',), daemon=True)
-    thread.start()
-    return jsonify({'status': 'started', 'mode': 'service'})
-
-    # No service running, start dump1090 ourselves
+    # Find dump1090
     dump1090_path = shutil.which('dump1090') or shutil.which('dump1090-mutability')
 
-    if dump1090_path:
-        cmd = [dump1090_path, '--raw', '--net', '--gain', gain, '--device-index', str(device)]
-        print(f"[ADS-B] Starting dump1090: {dump1090_path}")
-    elif shutil.which('rtl_adsb'):
-        cmd = ['rtl_adsb', '-g', gain, '-d', str(device)]
-        print("[ADS-B] Using rtl_adsb (raw output only)")
-    else:
-        return jsonify({'status': 'error', 'message': 'No ADS-B decoder found (install dump1090 or rtl_adsb)'})
+    if not dump1090_path:
+        return jsonify({'status': 'error', 'message': 'dump1090 not found. Install dump1090-mutability.'})
+
+    # Start dump1090 with --net to enable SBS output on port 30003
+    cmd = [dump1090_path, '--net', '--gain', gain, '--device-index', str(device), '--quiet']
+    print(f"[ADS-B] Starting dump1090 with network mode: {' '.join(cmd)}")
 
     try:
         adsb_process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=1,
-            universal_newlines=True
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
         )
 
-        # Start parsing thread
-        thread = threading.Thread(target=parse_adsb_output, args=(adsb_process,), daemon=True)
+        # Wait for dump1090 to start and open ports
+        print("[ADS-B] Waiting for dump1090 to initialize...")
+        time.sleep(3)
+
+        # Check if process is still running
+        if adsb_process.poll() is not None:
+            return jsonify({'status': 'error', 'message': 'dump1090 failed to start. Check if RTL-SDR is connected.'})
+
+        # Connect to SBS port for data
+        print("[ADS-B] Connecting to SBS stream on localhost:30003...")
+        adsb_using_service = True
+        thread = threading.Thread(target=parse_sbs_stream, args=('localhost:30003',), daemon=True)
         thread.start()
 
         return jsonify({'status': 'started', 'mode': 'standalone'})
