@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
 import shutil
 import socket
@@ -20,6 +21,30 @@ adsb_bp = Blueprint('adsb', __name__, url_prefix='/adsb')
 
 # Track if using service
 adsb_using_service = False
+
+# Common installation paths for dump1090 (when not in PATH)
+DUMP1090_PATHS = [
+    '/usr/local/bin/dump1090',
+    '/usr/local/bin/dump1090-fa',
+    '/usr/local/bin/dump1090-mutability',
+    '/usr/bin/dump1090',
+    '/usr/bin/dump1090-fa',
+    '/usr/bin/dump1090-mutability',
+]
+
+
+def find_dump1090():
+    """Find dump1090 binary, checking PATH and common locations."""
+    # First try PATH
+    for name in ['dump1090', 'dump1090-mutability', 'dump1090-fa']:
+        path = shutil.which(name)
+        if path:
+            return path
+    # Check common installation paths directly
+    for path in DUMP1090_PATHS:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
 
 
 def check_dump1090_service():
@@ -154,7 +179,7 @@ def parse_sbs_stream(service_addr):
 def check_adsb_tools():
     """Check for ADS-B decoding tools."""
     return jsonify({
-        'dump1090': shutil.which('dump1090') is not None or shutil.which('dump1090-mutability') is not None or shutil.which('dump1090-fa') is not None,
+        'dump1090': find_dump1090() is not None,
         'rtl_adsb': shutil.which('rtl_adsb') is not None
     })
 
@@ -174,10 +199,10 @@ def start_adsb():
     gain = data.get('gain', '40')
     device = data.get('device', '0')
 
-    dump1090_path = shutil.which('dump1090') or shutil.which('dump1090-mutability') or shutil.which('dump1090-fa')
+    dump1090_path = find_dump1090()
 
     if not dump1090_path:
-        return jsonify({'status': 'error', 'message': 'dump1090 not found.'})
+        return jsonify({'status': 'error', 'message': 'dump1090 not found. Install dump1090/dump1090-fa or ensure it is in /usr/local/bin/'})
 
     cmd = [dump1090_path, '--net', '--gain', gain, '--device-index', str(device), '--quiet']
 
