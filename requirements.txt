@@ -1,2 +1,12 @@
+# Core dependencies
 flask>=2.0.0
+
+# Satellite tracking (optional - only needed for satellite features)
 skyfield>=1.45
+
+# Development dependencies (install with: pip install -r requirements-dev.txt)
+# pytest>=7.0.0
+# pytest-cov>=4.0.0
+# ruff>=0.1.0
+# black>=23.0.0
+# mypy>=1.0.0
