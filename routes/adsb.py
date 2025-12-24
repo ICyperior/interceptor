@@ -21,6 +21,9 @@ adsb_bp = Blueprint('adsb', __name__, url_prefix='/adsb')
 
 # Track if using service
 adsb_using_service = False
+adsb_connected = False
+adsb_messages_received = 0
+adsb_last_message_time = None
 
 # Common installation paths for dump1090 (when not in PATH)
 DUMP1090_PATHS = [
@@ -63,18 +66,21 @@ def check_dump1090_service():
 
 def parse_sbs_stream(service_addr):
     """Parse SBS format data from dump1090 port 30003."""
-    global adsb_using_service
+    global adsb_using_service, adsb_connected, adsb_messages_received, adsb_last_message_time
 
     host, port = service_addr.split(':')
     port = int(port)
 
     logger.info(f"SBS stream parser started, connecting to {host}:{port}")
+    adsb_connected = False
+    adsb_messages_received = 0
 
     while adsb_using_service:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5)
             sock.connect((host, port))
+            adsb_connected = True
             logger.info("Connected to SBS stream")
 
             buffer = ""
@@ -152,6 +158,8 @@ def parse_sbs_stream(service_addr):
 
                         app_module.adsb_aircraft[icao] = aircraft
                         pending_updates.add(icao)
+                        adsb_messages_received += 1
+                        adsb_last_message_time = time.time()
 
                         now = time.time()
                         if now - last_update >= 1.0:
@@ -168,10 +176,13 @@ def parse_sbs_stream(service_addr):
                     continue
 
             sock.close()
+            adsb_connected = False
         except Exception as e:
+            adsb_connected = False
             logger.warning(f"SBS connection error: {e}, reconnecting...")
             time.sleep(2)
 
+    adsb_connected = False
     logger.info("SBS stream parser stopped")
 
 
@@ -181,6 +192,22 @@ def check_adsb_tools():
     return jsonify({
         'dump1090': find_dump1090() is not None,
         'rtl_adsb': shutil.which('rtl_adsb') is not None
+    })
+
+
+@adsb_bp.route('/status')
+def adsb_status():
+    """Get ADS-B tracking status for debugging."""
+    return jsonify({
+        'tracking_active': adsb_using_service,
+        'connected_to_sbs': adsb_connected,
+        'messages_received': adsb_messages_received,
+        'last_message_time': adsb_last_message_time,
+        'aircraft_count': len(app_module.adsb_aircraft),
+        'aircraft': list(app_module.adsb_aircraft.keys()),
+        'queue_size': app_module.adsb_queue.qsize(),
+        'dump1090_path': find_dump1090(),
+        'port_30003_open': check_dump1090_service() is not None
     })
 
 
