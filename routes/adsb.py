@@ -204,7 +204,7 @@ def adsb_status():
         'messages_received': adsb_messages_received,
         'last_message_time': adsb_last_message_time,
         'aircraft_count': len(app_module.adsb_aircraft),
-        'aircraft': list(app_module.adsb_aircraft.keys()),
+        'aircraft': dict(app_module.adsb_aircraft),  # Full aircraft data
         'queue_size': app_module.adsb_queue.qsize(),
         'dump1090_path': find_dump1090(),
         'port_30003_open': check_dump1090_service() is not None
