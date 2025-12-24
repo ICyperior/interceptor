@@ -204,7 +204,7 @@ def start_adsb():
         adsb_using_service = True
         thread = threading.Thread(target=parse_sbs_stream, args=(existing_service,), daemon=True)
         thread.start()
-        return jsonify({'status': 'success', 'message': 'Connected to existing dump1090 service'})
+        return jsonify({'status': 'started', 'message': 'Connected to existing dump1090 service'})
 
     # No existing service, need to start dump1090 ourselves
     dump1090_path = find_dump1090()
@@ -239,7 +239,7 @@ def start_adsb():
         thread = threading.Thread(target=parse_sbs_stream, args=('localhost:30003',), daemon=True)
         thread.start()
 
-        return jsonify({'status': 'success', 'message': 'ADS-B tracking started'})
+        return jsonify({'status': 'started', 'message': 'ADS-B tracking started'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
