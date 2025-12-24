@@ -119,7 +119,7 @@ def parse_sbs_stream(service_addr):
                         elif msg_type == '3' and len(parts) > 15:
                             if parts[11]:
                                 try:
-                                    aircraft['alt'] = int(float(parts[11]))
+                                    aircraft['altitude'] = int(float(parts[11]))
                                 except (ValueError, TypeError):
                                     pass
                             if parts[14] and parts[15]:
@@ -148,7 +148,7 @@ def parse_sbs_stream(service_addr):
                                     aircraft['callsign'] = callsign
                             if parts[11]:
                                 try:
-                                    aircraft['alt'] = int(float(parts[11]))
+                                    aircraft['altitude'] = int(float(parts[11]))
                                 except (ValueError, TypeError):
                                     pass
 

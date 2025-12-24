@@ -790,7 +790,7 @@
             if (!ac || !ac.lat || !ac.lon) return;
 
             const rotation = ac.heading || 0;
-            const color = getAltitudeColor(ac.alt);
+            const color = getAltitudeColor(ac.altitude);
 
             const icon = L.divIcon({
                 className: 'aircraft-marker',
@@ -816,7 +816,7 @@
 
             // Add tooltip
             const callsign = ac.callsign || icao;
-            const alt = ac.alt ? ac.alt + ' ft' : 'N/A';
+            const alt = ac.altitude ? ac.altitude + ' ft' : 'N/A';
             markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
                 permanent: false,
                 direction: 'top',
@@ -835,7 +835,7 @@
         function updateStats() {
             const total = Object.keys(aircraft).length;
             const withPos = Object.values(aircraft).filter(a => a.lat && a.lon).length;
-            const altitudes = Object.values(aircraft).map(a => a.alt || 0).filter(a => a > 0);
+            const altitudes = Object.values(aircraft).map(a => a.altitude || 0).filter(a => a > 0);
             const maxAlt = altitudes.length ? Math.max(...altitudes) : 0;
             const avgAlt = altitudes.length ? Math.round(altitudes.reduce((a, b) => a + b, 0) / altitudes.length) : 0;
 
@@ -849,7 +849,7 @@
         function renderAircraftList() {
             const container = document.getElementById('aircraftList');
             const sortedAircraft = Object.values(aircraft)
-                .sort((a, b) => (b.alt || 0) - (a.alt || 0));
+                .sort((a, b) => (b.altitude || 0) - (a.altitude || 0));
 
             if (sortedAircraft.length === 0) {
                 container.innerHTML = `
@@ -863,7 +863,7 @@
 
             container.innerHTML = sortedAircraft.map(ac => {
                 const callsign = ac.callsign || '------';
-                const alt = ac.alt ? ac.alt.toLocaleString() : '---';
+                const alt = ac.altitude ? ac.altitude.toLocaleString() : '---';
                 const speed = ac.speed || '---';
                 const heading = ac.heading ? ac.heading + '°' : '---';
 
@@ -922,7 +922,7 @@
             const callsign = ac.callsign || ac.icao;
             const lat = ac.lat ? ac.lat.toFixed(4) + '°' : 'N/A';
             const lon = ac.lon ? ac.lon.toFixed(4) + '°' : 'N/A';
-            const alt = ac.alt ? ac.alt.toLocaleString() + ' ft' : 'N/A';
+            const alt = ac.altitude ? ac.altitude.toLocaleString() + ' ft' : 'N/A';
             const speed = ac.speed ? ac.speed + ' kts' : 'N/A';
             const heading = ac.heading ? ac.heading + '°' : 'N/A';
             const squawk = ac.squawk || 'N/A';
