@@ -190,19 +190,36 @@ def start_adsb():
     global adsb_using_service
 
     with app_module.adsb_lock:
-        if app_module.adsb_process and app_module.adsb_process.poll() is None:
-            return jsonify({'status': 'already_running', 'message': 'ADS-B already running'})
         if adsb_using_service:
-            return jsonify({'status': 'already_running', 'message': 'ADS-B already running (using service)'})
+            return jsonify({'status': 'already_running', 'message': 'ADS-B tracking already active'})
 
     data = request.json or {}
     gain = data.get('gain', '40')
     device = data.get('device', '0')
 
+    # Check if dump1090 is already running externally (e.g., user started it manually)
+    existing_service = check_dump1090_service()
+    if existing_service:
+        logger.info(f"Found existing dump1090 service at {existing_service}")
+        adsb_using_service = True
+        thread = threading.Thread(target=parse_sbs_stream, args=(existing_service,), daemon=True)
+        thread.start()
+        return jsonify({'status': 'success', 'message': 'Connected to existing dump1090 service'})
+
+    # No existing service, need to start dump1090 ourselves
     dump1090_path = find_dump1090()
 
     if not dump1090_path:
         return jsonify({'status': 'error', 'message': 'dump1090 not found. Install dump1090/dump1090-fa or ensure it is in /usr/local/bin/'})
+
+    # Kill any stale app-started process
+    if app_module.adsb_process:
+        try:
+            app_module.adsb_process.terminate()
+            app_module.adsb_process.wait(timeout=2)
+        except Exception:
+            pass
+        app_module.adsb_process = None
 
     cmd = [dump1090_path, '--net', '--gain', gain, '--device-index', str(device), '--quiet']
 
@@ -216,7 +233,7 @@ def start_adsb():
         time.sleep(3)
 
         if app_module.adsb_process.poll() is not None:
-            return jsonify({'status': 'error', 'message': 'dump1090 failed to start.'})
+            return jsonify({'status': 'error', 'message': 'dump1090 failed to start. Check RTL-SDR device permissions or if another process is using it.'})
 
         adsb_using_service = True
         thread = threading.Thread(target=parse_sbs_stream, args=('localhost:30003',), daemon=True)
