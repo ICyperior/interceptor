@@ -7897,8 +7897,16 @@
             const placeholder = output.querySelector('.placeholder');
             if (placeholder) placeholder.remove();
 
-            const card = document.createElement('div');
-            card.className = 'aircraft-card';
+            // Check if card for this ICAO already exists
+            let card = output.querySelector(`[data-icao="${aircraft.icao}"]`);
+            const isNew = !card;
+
+            if (isNew) {
+                card = document.createElement('div');
+                card.className = 'aircraft-card';
+                card.setAttribute('data-icao', aircraft.icao);
+            }
+
             card.innerHTML = `
                 <div class="aircraft-icon" style="--heading: ${aircraft.heading || 0}deg;">✈️</div>
                 <div class="aircraft-info">
@@ -7909,11 +7917,13 @@
                     <div class="aircraft-data">Heading: <span>${aircraft.heading ? aircraft.heading + '°' : 'N/A'}</span></div>
                 </div>
             `;
-            output.insertBefore(card, output.firstChild);
 
-            // Limit cards
-            while (output.children.length > 50) {
-                output.removeChild(output.lastChild);
+            if (isNew) {
+                output.insertBefore(card, output.firstChild);
+                // Limit cards
+                while (output.children.length > 50) {
+                    output.removeChild(output.lastChild);
+                }
             }
         }
 
