@@ -759,6 +759,32 @@
             }
         }
 
+        // Throttle expensive UI operations to prevent browser freeze
+        let pendingUIUpdate = false;
+        let pendingMarkerUpdates = new Set();
+
+        function scheduleUIUpdate() {
+            if (pendingUIUpdate) return;
+            pendingUIUpdate = true;
+            requestAnimationFrame(() => {
+                updateStats();
+                renderAircraftList();
+
+                // Batch marker updates
+                for (const icao of pendingMarkerUpdates) {
+                    updateMarkerImmediate(icao);
+                }
+                pendingMarkerUpdates.clear();
+
+                // Update selected aircraft panel
+                if (selectedIcao && aircraft[selectedIcao]) {
+                    showAircraftDetails(selectedIcao);
+                }
+
+                pendingUIUpdate = false;
+            });
+        }
+
         function updateAircraft(data) {
             const icao = data.icao;
             if (!icao) return;
@@ -770,22 +796,16 @@
                 lastSeen: Date.now()
             };
 
-            // Update marker on map
+            // Queue marker update
             if (data.lat && data.lon) {
-                updateMarker(icao);
+                pendingMarkerUpdates.add(icao);
             }
 
-            // Update UI
-            updateStats();
-            renderAircraftList();
-
-            // Update selected aircraft panel
-            if (selectedIcao === icao) {
-                showAircraftDetails(icao);
-            }
+            // Schedule batched UI update
+            scheduleUIUpdate();
         }
 
-        function updateMarker(icao) {
+        function updateMarkerImmediate(icao) {
             const ac = aircraft[icao];
             if (!ac || !ac.lat || !ac.lon) return;
 
