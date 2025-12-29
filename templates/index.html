@@ -3786,6 +3786,8 @@
         let isSensorRunning = false;
         let isAdsbRunning = false;
         let isIridiumRunning = false;
+        let isWifiRunning = false;
+        let isBtRunning = false;
         let currentMode = 'pager';
         let msgCount = 0;
         let pocsagCount = 0;
@@ -5217,7 +5219,6 @@
         // ============== WIFI RECONNAISSANCE ==============
 
         let wifiEventSource = null;
-        let isWifiRunning = false;
         let monitorInterface = null;
         let wifiNetworks = {};
         let wifiClients = {};
@@ -7008,16 +7009,13 @@
             });
         }
 
-        // Hook into handleWifiNetwork to update visualizations
-        const originalHandleWifiNetwork = handleWifiNetwork;
-        handleWifiNetwork = function(net) {
-            originalHandleWifiNetwork(net);
+        // Hook into handleWifiNetworkImmediate to update visualizations
+        const originalHandleWifiNetworkImmediate = handleWifiNetworkImmediate;
+        handleWifiNetworkImmediate = function(net) {
+            originalHandleWifiNetworkImmediate(net);
 
             // Update radar
             addNetworkToRadar(net);
-
-            // Update channel graph
-            updateChannelGraph();
 
             // Update security donut
             updateSecurityDonut();
@@ -7026,6 +7024,7 @@
             if (targetBssidForSignal === net.bssid) {
                 updateSignalMeter(net);
             }
+            // Note: Channel graphs are updated in the batched scheduleWifiUIUpdate
         };
 
         // Update targetNetwork to also set signal meter
@@ -7042,7 +7041,6 @@
         // ============== BLUETOOTH RECONNAISSANCE ==============
 
         let btEventSource = null;
-        let isBtRunning = false;
         let btDevices = {};
         let btDeviceCount = 0;
         let btBeaconCount = 0;
