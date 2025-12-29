@@ -173,6 +173,51 @@ def kill_all() -> Response:
 
 def main() -> None:
     """Main entry point."""
+    import argparse
+    import config
+
+    parser = argparse.ArgumentParser(
+        description='INTERCEPT - Signal Intelligence Platform',
+        epilog='Environment variables: INTERCEPT_HOST, INTERCEPT_PORT, INTERCEPT_DEBUG, INTERCEPT_LOG_LEVEL'
+    )
+    parser.add_argument(
+        '-p', '--port',
+        type=int,
+        default=config.PORT,
+        help=f'Port to run server on (default: {config.PORT})'
+    )
+    parser.add_argument(
+        '-H', '--host',
+        default=config.HOST,
+        help=f'Host to bind to (default: {config.HOST})'
+    )
+    parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        default=config.DEBUG,
+        help='Enable debug mode'
+    )
+    parser.add_argument(
+        '--check-deps',
+        action='store_true',
+        help='Check dependencies and exit'
+    )
+    args = parser.parse_args()
+
+    # Check dependencies only
+    if args.check_deps:
+        results = check_all_dependencies()
+        print("Dependency Status:")
+        print("-" * 40)
+        for mode, info in results.items():
+            status = "✓" if info['ready'] else "✗"
+            print(f"\n{status} {info['name']}:")
+            for tool, tool_info in info['tools'].items():
+                tool_status = "✓" if tool_info['installed'] else "✗"
+                req = " (required)" if tool_info['required'] else ""
+                print(f"    {tool_status} {tool}{req}")
+        sys.exit(0)
+
     print("=" * 50)
     print("  INTERCEPT // Signal Intelligence")
     print("  Pager / 433MHz / Aircraft / Satellite / WiFi / BT")
@@ -186,9 +231,9 @@ def main() -> None:
     from routes import register_blueprints
     register_blueprints(app)
 
-    print("Open http://localhost:5050 in your browser")
+    print(f"Open http://localhost:{args.port} in your browser")
     print()
     print("Press Ctrl+C to stop")
     print()
 
-    app.run(host='0.0.0.0', port=5050, debug=False, threaded=True)
+    app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)

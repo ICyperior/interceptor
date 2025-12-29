@@ -21,6 +21,22 @@
 
 ---
 
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/smittix/intercept.git
+cd intercept
+pip install -r requirements.txt
+
+# Run (sudo recommended for full functionality)
+sudo python3 intercept.py
+```
+
+Open `http://localhost:5050` in your browser. See [Installation](#installation) for external tool setup.
+
+---
+
 ## What is INTERCEPT?
 
 INTERCEPT is a **web-based front-end** that provides a unified, modern interface for signal intelligence tools:
@@ -69,59 +85,20 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 
 ### 📶 WiFi Reconnaissance
 - **Monitor mode** management via airmon-ng
-- **Network scanning** with airodump-ng
-- **Channel hopping** or fixed channel monitoring
-- **Deauthentication attacks** for authorized testing
+- **Network scanning** with airodump-ng and channel hopping
 - **Handshake capture** with real-time status and auto-detection
+- **Deauthentication attacks** for authorized testing
 - **Channel utilization** visualization (2.4GHz and 5GHz)
-- **Security overview** chart (WPA3/WPA2/WEP/Open)
-- **Real-time radar** display of nearby networks
+- **Security overview** chart and real-time radar display
 - **Client vendor lookup** via OUI database
-- **Proximity alerts** - watch list for specific MAC addresses
-
-#### 🚁 Drone Detection
-- **Automatic detection** of drones via SSID patterns and manufacturer OUI
-- **Supported brands**: DJI, Parrot, Autel, Skydio, Holy Stone, and many more
-- **Distance estimation** from signal strength
-- **Visual alerts** with triple audio notification
-- **Clickable drone counter** - view all detected drones with details
-
-#### ⚠️ Rogue AP Detection
-- **Automatic detection** of same SSID on multiple BSSIDs
-- **Clickable counter** - view which SSIDs triggered alerts
-- **Detailed popup** showing all BSSIDs, channels, and signal strength
-
-#### 📈 Signal History Graph
-- **Real-time line chart** showing signal strength over time
-- **Track any device** - click the 📈 button on any network
-- **Visual movement detection** - see devices approaching or departing
-
-#### 🕸️ Network Topology Graph
-- **Visual map** of all access points and connected clients
-- **Color-coded nodes** - cyan for APs, green for clients, orange for drones
-- **Auto-updating** as new devices are discovered
-
-#### 💡 Channel Recommendation
-- **Automatic analysis** of channel congestion
-- **Recommends optimal channels** for both 2.4GHz and 5GHz
-- **Considers channel overlap** for accurate 2.4GHz recommendations
-
-#### 👁️ Hidden SSID Revealer
-- **Captures hidden SSIDs** from probe requests
-- **Displays revealed networks** with BSSID mapping
-- **Desktop notifications** when new hidden SSIDs are revealed
-
-#### 🔗 Device Correlation
-- **Matches WiFi and Bluetooth devices** with same manufacturer
-- **OUI-based correlation** to identify multi-radio devices
-- **Useful for tracking** devices across protocols
-
-#### 📡 Client Probe Analysis
-- **Track client probe requests** - see what networks devices are looking for
-- **Privacy leak detection** - highlights sensitive network names (home, office, hotel, airport)
-- **Vendor identification** - shows device manufacturer
-- **Sorted by exposure** - most revealing clients shown first
-- **Unique SSID counter** - total unique networks being probed
+- **Drone detection** - automatic detection via SSID patterns and OUI (DJI, Parrot, Autel, etc.)
+- **Rogue AP detection** - alerts for same SSID on multiple BSSIDs
+- **Signal history graph** - track signal strength over time for any device
+- **Network topology** - visual map of APs and connected clients
+- **Channel recommendation** - optimal channel suggestions based on congestion
+- **Hidden SSID revealer** - captures hidden networks from probe requests
+- **Client probe analysis** - privacy leak detection from probe requests
+- **Device correlation** - matches WiFi and Bluetooth devices by manufacturer
 
 ### 🔵 Bluetooth Scanning
 - **BLE and Classic** Bluetooth device scanning
@@ -173,27 +150,6 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 
 ---
 
-## Stats Bar Icons
-
-| Icon | Meaning |
-|------|---------|
-| 📟 | POCSAG messages decoded |
-| 📠 | FLEX messages decoded |
-| 📨 | Total messages received |
-| 🌡️ | Unique sensors detected |
-| 📊 | Device types found |
-| ✈️ | Aircraft being tracked |
-| 🛰️ | Satellites being monitored |
-| 📡 | WiFi Access Points |
-| 👤 | Connected WiFi clients |
-| 🤝 | Captured handshakes |
-| 🚁 | Detected drones (click for details) |
-| ⚠️ | Rogue APs (click for details) |
-| 🔵 | Bluetooth devices |
-| 📍 | BLE beacons detected |
-
----
-
 ## Requirements
 
 ### Hardware
@@ -203,8 +159,7 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 
 ### Software
 - Python 3.7+
-- Flask
-- requests (for Celestrak API)
+- Flask, skyfield (installed via `requirements.txt`)
 - rtl-sdr tools (`rtl_fm`)
 - multimon-ng (for pager decoding)
 - rtl_433 (for 433MHz sensor decoding)
@@ -214,126 +169,42 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 
 ## Installation
 
-### 1. Install RTL-SDR tools
+### Install external tools
 
-**macOS (Homebrew):**
-```bash
-brew install rtl-sdr
-```
+Install the tools for the features you need:
 
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install rtl-sdr
-```
+| Tool | macOS | Ubuntu/Debian | Purpose |
+|------|-------|---------------|---------|
+| rtl-sdr | `brew install rtl-sdr` | `sudo apt install rtl-sdr` | Required for all SDR features |
+| multimon-ng | `brew install multimon-ng` | `sudo apt install multimon-ng` | Pager decoding |
+| rtl_433 | `brew install rtl_433` | `sudo apt install rtl-433` | 433MHz sensors |
+| dump1090 | `brew install dump1090-mutability` | `sudo apt install dump1090-mutability` | ADS-B aircraft |
+| aircrack-ng | `brew install aircrack-ng` | `sudo apt install aircrack-ng` | WiFi reconnaissance |
+| bluez | Built-in (limited) | `sudo apt install bluez bluetooth` | Bluetooth scanning |
 
-**Arch Linux:**
-```bash
-sudo pacman -S rtl-sdr
-```
-
-### 2. Install multimon-ng
-
-**macOS (Homebrew):**
-```bash
-brew install multimon-ng
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install multimon-ng
-```
-
-**From source:**
-```bash
-git clone https://github.com/EliasOenal/multimon-ng.git
-cd multimon-ng
-mkdir build && cd build
-cmake ..
-make
-sudo make install
-```
-
-### 3. Install rtl_433 (optional, for 433MHz sensors)
-
-**macOS (Homebrew):**
-```bash
-brew install rtl_433
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install rtl-433
-```
-
-**From source:**
-```bash
-git clone https://github.com/merbanan/rtl_433.git
-cd rtl_433
-mkdir build && cd build
-cmake ..
-make
-sudo make install
-```
-
-### 4. Install aircrack-ng (optional, for WiFi)
-
-**macOS (Homebrew):**
-```bash
-brew install aircrack-ng
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install aircrack-ng
-```
-
-### 5. Install dump1090 (optional, for ADS-B aircraft tracking)
-
-**macOS (Homebrew):**
-```bash
-brew install dump1090-mutability
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install dump1090-mutability
-```
-
-**From source:**
-```bash
-git clone https://github.com/flightaware/dump1090.git
-cd dump1090
-make
-sudo cp dump1090 /usr/local/bin/
-```
-
-### 6. Install Bluetooth tools (optional)
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install bluez bluetooth
-```
-
-**macOS:**
-Bluetooth tools are built-in, though with limited functionality compared to Linux.
-
-### 7. Install Python dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 8. Clone and run
+### Install and run
 
 ```bash
 git clone https://github.com/smittix/intercept.git
 cd intercept
+pip install -r requirements.txt
 sudo python3 intercept.py
 ```
 
-Open your browser to `http://localhost:5050`
+Open `http://localhost:5050` in your browser.
 
 > **Note:** Running as root/sudo is recommended for full functionality (monitor mode, raw sockets, etc.)
+
+### Command-line options
+
+```
+python3 intercept.py --help
+
+  -p, --port PORT    Port to run server on (default: 5050)
+  -H, --host HOST    Host to bind to (default: 0.0.0.0)
+  -d, --debug        Enable debug mode
+  --check-deps       Check dependencies and exit
+```
 
 ---
 
@@ -383,64 +254,6 @@ Open your browser to `http://localhost:5050`
 
 ---
 
-## API Endpoints
-
-### Pager & Sensor
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Main web interface |
-| `/devices` | GET | List RTL-SDR devices |
-| `/start` | POST | Start pager decoding |
-| `/stop` | POST | Stop pager decoding |
-| `/start_sensor` | POST | Start 433MHz sensor listening |
-| `/stop_sensor` | POST | Stop 433MHz sensor listening |
-| `/status` | GET | Get decoder status |
-| `/stream` | GET | SSE stream for pager messages |
-| `/stream_sensor` | GET | SSE stream for sensor data |
-
-### WiFi
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/wifi/interfaces` | GET | List WiFi interfaces and tools |
-| `/wifi/monitor` | POST | Enable/disable monitor mode |
-| `/wifi/scan/start` | POST | Start WiFi scanning |
-| `/wifi/scan/stop` | POST | Stop WiFi scanning |
-| `/wifi/deauth` | POST | Send deauthentication packets |
-| `/wifi/handshake/capture` | POST | Start handshake capture |
-| `/wifi/handshake/status` | POST | Check handshake capture status |
-| `/wifi/networks` | GET | Get discovered networks |
-| `/wifi/stream` | GET | SSE stream for WiFi events |
-
-### Bluetooth
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/bt/interfaces` | GET | List Bluetooth interfaces and tools |
-| `/bt/scan/start` | POST | Start Bluetooth scanning |
-| `/bt/scan/stop` | POST | Stop Bluetooth scanning |
-| `/bt/enum` | POST | Enumerate device services |
-| `/bt/devices` | GET | Get discovered devices |
-| `/bt/stream` | GET | SSE stream for Bluetooth events |
-
-### Aircraft (ADS-B)
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/adsb/start` | POST | Start ADS-B tracking |
-| `/adsb/stop` | POST | Stop ADS-B tracking |
-| `/adsb/aircraft` | GET | Get tracked aircraft |
-| `/adsb/stream` | GET | SSE stream for aircraft data |
-| `/adsb/tools` | GET | Check ADS-B tool availability |
-
-### Satellite
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/satellite/add` | POST | Add satellite with TLE data |
-| `/satellite/remove` | POST | Remove satellite from tracking |
-| `/satellite/list` | GET | Get tracked satellites |
-| `/satellite/passes` | GET | Get pass predictions |
-| `/satellite/celestrak/<category>` | GET | Fetch satellites from Celestrak |
-
----
-
 ## Troubleshooting
 
 ### No devices found
@@ -462,6 +275,22 @@ Open your browser to `http://localhost:5050`
 ### Device busy error
 - Click "Kill All Processes" to stop any stale processes
 - Unplug and replug the RTL-SDR device
+
+---
+
+## Configuration
+
+INTERCEPT can be configured via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INTERCEPT_HOST` | `0.0.0.0` | Server bind address |
+| `INTERCEPT_PORT` | `5050` | Server port |
+| `INTERCEPT_DEBUG` | `false` | Enable debug mode |
+| `INTERCEPT_LOG_LEVEL` | `WARNING` | Log level (DEBUG, INFO, WARNING, ERROR) |
+| `INTERCEPT_DEFAULT_GAIN` | `40` | Default RTL-SDR gain |
+
+Example: `INTERCEPT_PORT=8080 sudo python3 intercept.py`
 
 ---
 
@@ -500,7 +329,3 @@ By using INTERCEPT, you acknowledge that:
 - The developers assume no liability for misuse of this software
 
 A disclaimer must be accepted when first launching the application.
-
-
-
-
