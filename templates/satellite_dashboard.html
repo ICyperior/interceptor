@@ -411,7 +411,8 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: 250px;
+            min-height: 200px;
+            max-height: 400px;
             overflow-y: auto;
         }
 
@@ -419,7 +420,7 @@
             background: rgba(0,0,0,0.3);
             border: 1px solid rgba(0,212,255,0.15);
             border-radius: 6px;
-            padding: 12px;
+            padding: 10px;
             cursor: pointer;
             transition: all 0.2s ease;
         }
@@ -795,7 +796,7 @@
             <!-- Pass List -->
             <div class="panel pass-list">
                 <div class="panel-header">
-                    <span>UPCOMING PASSES</span>
+                    <span>UPCOMING PASSES <span id="passCount" style="color: var(--accent-cyan);"></span></span>
                     <div class="panel-indicator"></div>
                 </div>
                 <div class="panel-content">
@@ -997,10 +998,16 @@
 
         function renderPassList() {
             const container = document.getElementById('passList');
+            const countEl = document.getElementById('passCount');
+
             if (passes.length === 0) {
                 container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">No passes found</div>';
+                if (countEl) countEl.textContent = '';
                 return;
             }
+
+            // Show count in header
+            if (countEl) countEl.textContent = `(${passes.length})`;
 
             container.innerHTML = passes.slice(0, 10).map((pass, idx) => {
                 const quality = pass.maxEl >= 60 ? 'excellent' : pass.maxEl >= 30 ? 'good' : 'fair';
@@ -1353,11 +1360,12 @@
                         satMarker = L.marker([pos.lat, pos.lon], { icon: satIcon }).addTo(groundMap);
                     }
 
-                    // Update orbit track (clear old track first)
-                    if (pos.track && groundMap) {
+                    // Only update orbit track if no pass is selected
+                    // When a pass is selected, keep showing that pass's ground track
+                    if (selectedPass === null && pos.track && groundMap) {
                         if (orbitTrack) groundMap.removeLayer(orbitTrack);
                         if (trackLine) groundMap.removeLayer(trackLine);
-                        trackLine = null; // Clear pass track when showing live orbit
+                        trackLine = null;
 
                         // Split track at antimeridian crossings to avoid lines across map
                         const segments = [];
@@ -1394,8 +1402,14 @@
                         orbitTrack.addTo(groundMap);
                     }
 
-                    // Update polar plot with current position
-                    drawPolarPlotWithPosition(pos.azimuth, pos.elevation, satColor);
+                    // Update polar plot - preserve pass trajectory if selected
+                    if (selectedPass !== null && passes[selectedPass]) {
+                        drawPolarPlot(passes[selectedPass]);
+                        // Draw current position on top of pass trajectory
+                        drawCurrentPositionOnPolar(pos.azimuth, pos.elevation, satColor);
+                    } else {
+                        drawPolarPlotWithPosition(pos.azimuth, pos.elevation, satColor);
+                    }
                 }
             } catch (err) {
                 console.error('Position update error:', err);
@@ -1541,6 +1555,56 @@
                 ctx.fillStyle = '#ff4444';
                 ctx.textAlign = 'center';
                 ctx.fillText('BELOW HORIZON', cx, cy + radius + 35);
+            }
+        }
+
+        // Draw just the current position marker on the polar plot (without clearing)
+        function drawCurrentPositionOnPolar(az, el, color) {
+            const canvas = document.getElementById('polarPlot');
+            const ctx = canvas.getContext('2d');
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = Math.min(cx, cy) - 40;
+
+            // Draw current satellite position
+            if (el > -5) {
+                const posEl = Math.max(0, el);
+                const r = radius * (1 - posEl / 90);
+                const angle = (az - 90) * Math.PI / 180;
+                const x = cx + r * Math.cos(angle);
+                const y = cy + r * Math.sin(angle);
+
+                // Glow effect
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, 25);
+                gradient.addColorStop(0, color);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.arc(x, y, 25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+
+                // Main marker
+                ctx.beginPath();
+                ctx.arc(x, y, 10, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Satellite label
+                ctx.font = 'bold 11px Orbitron';
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.fillText(satellites[selectedSatellite]?.name || 'SAT', x, y - 20);
+
+                // Elevation indicator
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillStyle = el > 0 ? '#00ff88' : '#ff4444';
+                ctx.fillText(el.toFixed(1) + '°', x, y + 25);
             }
         }
     </script>
