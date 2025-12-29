@@ -1367,17 +1367,18 @@
             display: block;
         }
 
-        /* Satellite Pass Predictor - Cool UI */
+        /* Satellite Pass Predictor - Improved Layout */
         .pass-predictor {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto;
+            grid-template-rows: minmax(350px, 1fr) auto;
             gap: 15px;
         }
 
         @media (max-width: 1100px) {
             .pass-predictor {
                 grid-template-columns: 1fr;
+                grid-template-rows: auto;
             }
         }
 
@@ -1387,7 +1388,7 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 15px;
-            min-height: 320px;
+            min-height: 350px;
         }
 
         .ground-track-cell {
@@ -1395,34 +1396,78 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 15px;
-            min-height: 320px;
+            min-height: 350px;
         }
 
         .ground-track-cell #groundTrackMap {
-            height: 240px;
+            height: 280px;
         }
 
-        .countdown-cell {
+        .pass-info-cell {
+            grid-column: 1 / -1;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 15px;
         }
 
-        .countdown-cell .satellite-countdown {
-            margin: 0;
-            padding: 0;
-            border: none;
-            background: none;
+        .pass-info-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .pass-info-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .countdown-compact {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .countdown-compact .countdown-satellite-name {
+            font-size: 14px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .countdown-compact .countdown-grid {
+            display: flex;
+            gap: 15px;
+        }
+
+        .countdown-compact .countdown-block {
+            text-align: center;
+        }
+
+        .countdown-compact .countdown-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        .countdown-compact .countdown-label {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .pass-list-section {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Legacy support - hide old cells */
+        .countdown-cell {
+            display: none;
         }
 
         .pass-list-cell {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 15px;
-            max-height: 350px;
-            overflow-y: auto;
+            display: none;
         }
 
         .polar-plot-header {
@@ -3562,43 +3607,35 @@
                             </div>
                         </div>
 
-                        <!-- Cell 3: Countdown (Bottom Left) -->
-                        <div class="countdown-cell">
-                            <div class="pass-list-header">
-                                <span>Next Pass Countdown</span>
-                            </div>
-                            <div id="satelliteCountdown" class="satellite-countdown">
-                                <div class="countdown-satellite-name" id="countdownSatName">--</div>
-                                <div class="countdown-grid">
-                                    <div class="countdown-block">
-                                        <div class="countdown-label">Next Pass In</div>
-                                        <div class="countdown-value" id="countdownToPass">--:--:--</div>
-                                        <div class="countdown-sublabel" id="countdownPassTime">--</div>
-                                    </div>
-                                    <div class="countdown-block">
-                                        <div class="countdown-label">Visibility</div>
-                                        <div class="countdown-value" id="countdownVisibility">--:--</div>
-                                        <div class="countdown-sublabel" id="countdownVisLabel">Duration</div>
-                                    </div>
-                                    <div class="countdown-block">
-                                        <div class="countdown-label">Max Elevation</div>
-                                        <div class="countdown-value" id="countdownMaxEl">--°</div>
-                                        <div class="countdown-sublabel" id="countdownDirection">--</div>
-                                    </div>
-                                </div>
-                                <div class="countdown-status" id="countdownStatus">Calculate passes to see countdown</div>
-                            </div>
-                        </div>
-
-                        <!-- Cell 4: Pass List (Bottom Right) -->
-                        <div class="pass-list-cell">
-                            <div class="pass-list-header">
+                        <!-- Cell 3: Combined Pass Info (Full Width Bottom) -->
+                        <div class="pass-info-cell">
+                            <div class="pass-list-header" style="margin-bottom: 15px;">
                                 <span>Upcoming Passes</span>
                                 <span id="passListCount">0 passes</span>
                             </div>
-                            <div id="passList">
-                                <div style="color: #666; text-align: center; padding: 30px; font-size: 11px;">
-                                    Click "Calculate Passes" to predict satellite passes for your location.
+                            <div class="pass-info-layout">
+                                <div class="countdown-compact" id="satelliteCountdown">
+                                    <div class="countdown-satellite-name" id="countdownSatName">Next Pass</div>
+                                    <div class="countdown-grid">
+                                        <div class="countdown-block">
+                                            <div class="countdown-value" id="countdownToPass">--:--:--</div>
+                                            <div class="countdown-label">Time to Pass</div>
+                                        </div>
+                                        <div class="countdown-block">
+                                            <div class="countdown-value" id="countdownVisibility">--:--</div>
+                                            <div class="countdown-label">Duration</div>
+                                        </div>
+                                        <div class="countdown-block">
+                                            <div class="countdown-value" id="countdownMaxEl">--°</div>
+                                            <div class="countdown-label">Max El</div>
+                                        </div>
+                                    </div>
+                                    <div class="countdown-status" id="countdownStatus" style="font-size: 11px; color: var(--text-secondary);">Calculate passes to see countdown</div>
+                                </div>
+                                <div class="pass-list-section" id="passList">
+                                    <div style="color: #666; text-align: center; padding: 20px; font-size: 11px;">
+                                        Click "Calculate Passes" to predict satellite passes for your location.
+                                    </div>
                                 </div>
                             </div>
                         </div>
