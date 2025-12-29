@@ -553,6 +553,7 @@
                 <span id="aircraftCount">0</span> AIRCRAFT
             </div>
             <div class="status-item datetime" id="utcTime">--:--:-- UTC</div>
+            <a href="/?mode=aircraft" style="color: var(--accent-green); text-decoration: none; font-size: 12px; padding: 4px 12px; border: 1px solid var(--accent-green); border-radius: 4px; margin-left: 10px;">← Main Dashboard</a>
         </div>
     </header>
 
@@ -762,6 +763,7 @@
         // Throttle expensive UI operations to prevent browser freeze
         let pendingUIUpdate = false;
         let pendingMarkerUpdates = new Set();
+        const MAX_MARKER_UPDATES_PER_FRAME = 20;
 
         function scheduleUIUpdate() {
             if (pendingUIUpdate) return;
@@ -770,11 +772,25 @@
                 updateStats();
                 renderAircraftList();
 
-                // Batch marker updates
+                // Limit marker updates per frame to prevent jank
+                let updateCount = 0;
+                const toProcess = [];
                 for (const icao of pendingMarkerUpdates) {
-                    updateMarkerImmediate(icao);
+                    if (updateCount < MAX_MARKER_UPDATES_PER_FRAME) {
+                        updateMarkerImmediate(icao);
+                        toProcess.push(icao);
+                        updateCount++;
+                    }
                 }
-                pendingMarkerUpdates.clear();
+                // Remove processed markers from pending set
+                toProcess.forEach(icao => pendingMarkerUpdates.delete(icao));
+
+                // If more markers pending, schedule another frame
+                if (pendingMarkerUpdates.size > 0) {
+                    pendingUIUpdate = false;
+                    scheduleUIUpdate();
+                    return;
+                }
 
                 // Update selected aircraft panel
                 if (selectedIcao && aircraft[selectedIcao]) {
@@ -805,14 +821,59 @@
             scheduleUIUpdate();
         }
 
+        // Track marker state to avoid unnecessary updates
+        const markerState = {};
+
         function updateMarkerImmediate(icao) {
             const ac = aircraft[icao];
             if (!ac || !ac.lat || !ac.lon) return;
 
-            const rotation = ac.heading || 0;
+            const rotation = Math.round((ac.heading || 0) / 5) * 5;  // Round to 5 degrees
             const color = getAltitudeColor(ac.altitude);
+            const callsign = ac.callsign || icao;
+            const alt = ac.altitude ? ac.altitude + ' ft' : 'N/A';
 
-            const icon = L.divIcon({
+            const prevState = markerState[icao] || {};
+            const iconChanged = prevState.rotation !== rotation || prevState.color !== color;
+            const tooltipChanged = prevState.callsign !== callsign || prevState.alt !== alt;
+
+            if (markers[icao]) {
+                // Only update position (cheap operation)
+                markers[icao].setLatLng([ac.lat, ac.lon]);
+
+                // Only update icon if heading/color actually changed
+                if (iconChanged) {
+                    const icon = createMarkerIcon(rotation, color);
+                    markers[icao].setIcon(icon);
+                }
+
+                // Only update tooltip if content changed
+                if (tooltipChanged) {
+                    markers[icao].unbindTooltip();
+                    markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
+                        permanent: false,
+                        direction: 'top',
+                        className: 'aircraft-tooltip'
+                    });
+                }
+            } else {
+                const icon = createMarkerIcon(rotation, color);
+                markers[icao] = L.marker([ac.lat, ac.lon], { icon })
+                    .addTo(radarMap)
+                    .on('click', () => selectAircraft(icao));
+                markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
+                    permanent: false,
+                    direction: 'top',
+                    className: 'aircraft-tooltip'
+                });
+            }
+
+            // Update state cache
+            markerState[icao] = { rotation, color, callsign, alt };
+        }
+
+        function createMarkerIcon(rotation, color) {
+            return L.divIcon({
                 className: 'aircraft-marker',
                 html: `<div style="
                     transform: rotate(${rotation}deg);
@@ -823,24 +884,6 @@
                 ">✈</div>`,
                 iconSize: [24, 24],
                 iconAnchor: [12, 12]
-            });
-
-            if (markers[icao]) {
-                markers[icao].setLatLng([ac.lat, ac.lon]);
-                markers[icao].setIcon(icon);
-            } else {
-                markers[icao] = L.marker([ac.lat, ac.lon], { icon })
-                    .addTo(radarMap)
-                    .on('click', () => selectAircraft(icao));
-            }
-
-            // Add tooltip
-            const callsign = ac.callsign || icao;
-            const alt = ac.altitude ? ac.altitude + ' ft' : 'N/A';
-            markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
-                permanent: false,
-                direction: 'top',
-                className: 'aircraft-tooltip'
             });
         }
 
@@ -866,51 +909,101 @@
             document.getElementById('aircraftCount').textContent = total;
         }
 
+        // Track rendered aircraft for incremental updates
+        let renderedAircraftOrder = [];
+        let lastFullRebuild = 0;
+        const MAX_AIRCRAFT_DISPLAY = 50;
+        const MIN_REBUILD_INTERVAL = 2000;  // Only allow full rebuild every 2 seconds
+
         function renderAircraftList() {
             const container = document.getElementById('aircraftList');
             const sortedAircraft = Object.values(aircraft)
-                .sort((a, b) => (b.altitude || 0) - (a.altitude || 0));
+                .sort((a, b) => (b.altitude || 0) - (a.altitude || 0))
+                .slice(0, MAX_AIRCRAFT_DISPLAY);  // Limit to prevent DOM explosion
 
             if (sortedAircraft.length === 0) {
+                if (container.querySelector('.no-aircraft')) return; // Already showing empty state
                 container.innerHTML = `
                     <div class="no-aircraft">
                         <div>No aircraft detected</div>
                         <div style="font-size: 11px; margin-top: 5px;">Waiting for data...</div>
                     </div>
                 `;
+                renderedAircraftOrder = [];
                 return;
             }
 
-            container.innerHTML = sortedAircraft.map(ac => {
-                const callsign = ac.callsign || '------';
-                const alt = ac.altitude ? ac.altitude.toLocaleString() : '---';
-                const speed = ac.speed || '---';
-                const heading = ac.heading ? ac.heading + '°' : '---';
+            const newOrder = sortedAircraft.map(ac => ac.icao);
+            const orderChanged = newOrder.length !== renderedAircraftOrder.length ||
+                newOrder.some((icao, i) => icao !== renderedAircraftOrder[i]);
 
-                return `
-                    <div class="aircraft-item ${selectedIcao === ac.icao ? 'selected' : ''}"
-                         onclick="selectAircraft('${ac.icao}')">
-                        <div class="aircraft-header">
-                            <span class="aircraft-callsign">${callsign}</span>
-                            <span class="aircraft-icao">${ac.icao}</span>
-                        </div>
-                        <div class="aircraft-details">
-                            <div class="aircraft-detail">
-                                <div class="aircraft-detail-value">${alt}</div>
-                                <div class="aircraft-detail-label">ALT ft</div>
-                            </div>
-                            <div class="aircraft-detail">
-                                <div class="aircraft-detail-value">${speed}</div>
-                                <div class="aircraft-detail-label">SPD kts</div>
-                            </div>
-                            <div class="aircraft-detail">
-                                <div class="aircraft-detail-value">${heading}</div>
-                                <div class="aircraft-detail-label">HDG</div>
-                            </div>
-                        </div>
+            const now = Date.now();
+            const canRebuild = now - lastFullRebuild > MIN_REBUILD_INTERVAL;
+
+            // Only do full rebuild if order changed AND enough time has passed
+            if (orderChanged && canRebuild) {
+                lastFullRebuild = now;
+                // Use DocumentFragment for efficient batch insert
+                const fragment = document.createDocumentFragment();
+
+                sortedAircraft.forEach(ac => {
+                    const div = document.createElement('div');
+                    div.className = `aircraft-item ${selectedIcao === ac.icao ? 'selected' : ''}`;
+                    div.setAttribute('data-icao', ac.icao);
+                    div.onclick = () => selectAircraft(ac.icao);
+                    div.innerHTML = buildAircraftItemHTML(ac);
+                    fragment.appendChild(div);
+                });
+
+                container.innerHTML = '';
+                container.appendChild(fragment);
+                renderedAircraftOrder = newOrder;
+            } else {
+                // Incremental update - only update existing items in place
+                // Build a map of existing items to avoid repeated querySelector calls
+                const existingItems = {};
+                container.querySelectorAll('[data-icao]').forEach(el => {
+                    existingItems[el.getAttribute('data-icao')] = el;
+                });
+
+                sortedAircraft.forEach(ac => {
+                    const existingItem = existingItems[ac.icao];
+                    if (existingItem) {
+                        // Update selection state
+                        existingItem.className = `aircraft-item ${selectedIcao === ac.icao ? 'selected' : ''}`;
+                        // Update inner content
+                        existingItem.innerHTML = buildAircraftItemHTML(ac);
+                    }
+                });
+            }
+        }
+
+        function buildAircraftItemHTML(ac) {
+            const callsign = ac.callsign || '------';
+            const alt = ac.altitude ? ac.altitude.toLocaleString() : '---';
+            const speed = ac.speed || '---';
+            const heading = ac.heading ? ac.heading + '°' : '---';
+
+            return `
+                <div class="aircraft-header">
+                    <span class="aircraft-callsign">${callsign}</span>
+                    <span class="aircraft-icao">${ac.icao}</span>
+                </div>
+                <div class="aircraft-details">
+                    <div class="aircraft-detail">
+                        <div class="aircraft-detail-value">${alt}</div>
+                        <div class="aircraft-detail-label">ALT ft</div>
                     </div>
-                `;
-            }).join('');
+                    <div class="aircraft-detail">
+                        <div class="aircraft-detail-value">${speed}</div>
+                        <div class="aircraft-detail-label">SPD kts</div>
+                    </div>
+                    <div class="aircraft-detail">
+                        <div class="aircraft-detail-value">${heading}</div>
+                        <div class="aircraft-detail-label">HDG</div>
+                    </div>
+                </div>
+            `;
         }
 
         function selectAircraft(icao) {
@@ -990,6 +1083,7 @@
         function cleanupOldAircraft() {
             const now = Date.now();
             const timeout = 60000; // 60 seconds
+            let needsUpdate = false;
 
             Object.keys(aircraft).forEach(icao => {
                 if (now - aircraft[icao].lastSeen > timeout) {
@@ -1000,6 +1094,7 @@
                     }
                     // Remove aircraft
                     delete aircraft[icao];
+                    needsUpdate = true;
 
                     // Clear selection if this was selected
                     if (selectedIcao === icao) {
@@ -1009,8 +1104,10 @@
                 }
             });
 
-            updateStats();
-            renderAircraftList();
+            // Use batched update instead of direct calls
+            if (needsUpdate) {
+                scheduleUIUpdate();
+            }
         }
     </script>
 </body>

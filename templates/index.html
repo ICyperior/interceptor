@@ -3142,6 +3142,7 @@
                 <!-- AIRCRAFT MODE (ADS-B) -->
                 <div id="aircraftMode" class="mode-content">
                     <div class="section">
+                        <a href="/adsb/dashboard" target="_blank" class="run-btn" style="display: block; text-align: center; text-decoration: none; margin-bottom: 15px;">Full Screen Dashboard</a>
                         <h3>ADS-B Receiver</h3>
                         <div class="form-group">
                             <label>Frequency</label>
@@ -3206,6 +3207,7 @@
 
                 <!-- SATELLITE MODE -->
                 <div id="satelliteMode" class="mode-content">
+                    <a href="/satellite/dashboard" target="_blank" class="run-btn" style="display: block; text-align: center; text-decoration: none; margin-bottom: 15px;">Full Screen Dashboard</a>
                     <div class="satellite-tabs">
                         <button class="satellite-tab active" onclick="switchSatelliteTab('predictor')">🛰️ Pass Predictor</button>
                         <button class="satellite-tab" onclick="switchSatelliteTab('iridium')">📡 Iridium</button>
@@ -6150,6 +6152,37 @@
             document.getElementById('stopWifiBtn').style.display = running ? 'block' : 'none';
         }
 
+        // Batching state for WiFi updates
+        let pendingWifiUpdate = false;
+        let pendingWifiNetworks = [];
+        let pendingWifiClients = [];
+
+        function scheduleWifiUIUpdate() {
+            if (pendingWifiUpdate) return;
+            pendingWifiUpdate = true;
+            requestAnimationFrame(() => {
+                // Process networks
+                pendingWifiNetworks.forEach(data => handleWifiNetworkImmediate(data));
+                pendingWifiNetworks = [];
+
+                // Process clients (limit to last 5 per frame)
+                const clientsToProcess = pendingWifiClients.slice(-5);
+                pendingWifiClients = [];
+                clientsToProcess.forEach(data => handleWifiClientImmediate(data));
+
+                // Update graphs once per frame instead of per-network
+                updateChannelGraph();
+                updateChannel5gGraph();
+
+                // Update probe analysis (throttled)
+                if (clientsToProcess.length > 0) {
+                    scheduleProbeAnalysisUpdate();
+                }
+
+                pendingWifiUpdate = false;
+            });
+        }
+
         // Start WiFi event stream
         function startWifiStream() {
             if (wifiEventSource) {
@@ -6162,9 +6195,11 @@
                 const data = JSON.parse(e.data);
 
                 if (data.type === 'network') {
-                    handleWifiNetwork(data);
+                    pendingWifiNetworks.push(data);
+                    scheduleWifiUIUpdate();
                 } else if (data.type === 'client') {
-                    handleWifiClient(data);
+                    pendingWifiClients.push(data);
+                    scheduleWifiUIUpdate();
                 } else if (data.type === 'info' || data.type === 'raw') {
                     showInfo(data.text);
                 } else if (data.type === 'error') {
@@ -6181,8 +6216,8 @@
             };
         }
 
-        // Handle discovered WiFi network
-        function handleWifiNetwork(net) {
+        // Handle discovered WiFi network (called from batched update)
+        function handleWifiNetworkImmediate(net) {
             const isNew = !wifiNetworks[net.bssid];
             wifiNetworks[net.bssid] = net;
 
@@ -6229,14 +6264,11 @@
 
             // Add to output
             addWifiNetworkCard(net, isNew);
-
-            // Update both channel graphs
-            updateChannelGraph();
-            updateChannel5gGraph();
+            // Note: Channel graphs are updated in the batched scheduleWifiUIUpdate
         }
 
-        // Handle discovered WiFi client
-        function handleWifiClient(client) {
+        // Handle discovered WiFi client (called from batched update)
+        function handleWifiClientImmediate(client) {
             const isNew = !wifiClients[client.mac];
             wifiClients[client.mac] = client;
 
@@ -6260,9 +6292,17 @@
                 bssid: client.bssid,
                 vendor: client.vendor
             });
+            // Note: Probe analysis updated separately if needed
+        }
 
-            // Update probe analysis
-            updateProbeAnalysis();
+        // Throttled probe analysis (called less frequently)
+        let lastProbeAnalysisUpdate = 0;
+        function scheduleProbeAnalysisUpdate() {
+            const now = Date.now();
+            if (now - lastProbeAnalysisUpdate > 2000) {
+                lastProbeAnalysisUpdate = now;
+                updateProbeAnalysis();
+            }
         }
 
         // Update client probe analysis panel
@@ -7107,6 +7147,31 @@
             document.getElementById('stopBtBtn').style.display = running ? 'block' : 'none';
         }
 
+        // Batching state for Bluetooth updates
+        let pendingBtUpdate = false;
+        let pendingBtDevices = [];
+
+        function scheduleBtUIUpdate() {
+            if (pendingBtUpdate) return;
+            pendingBtUpdate = true;
+            requestAnimationFrame(() => {
+                // Process devices (limit to 10 per frame)
+                const devicesToProcess = pendingBtDevices.slice(0, 10);
+                pendingBtDevices = pendingBtDevices.slice(10);
+
+                devicesToProcess.forEach(data => handleBtDeviceImmediate(data));
+
+                // If more pending, schedule another frame
+                if (pendingBtDevices.length > 0) {
+                    pendingBtUpdate = false;
+                    scheduleBtUIUpdate();
+                    return;
+                }
+
+                pendingBtUpdate = false;
+            });
+        }
+
         // Start Bluetooth event stream
         function startBtStream() {
             if (btEventSource) btEventSource.close();
@@ -7117,7 +7182,8 @@
                 const data = JSON.parse(e.data);
 
                 if (data.type === 'device') {
-                    handleBtDevice(data);
+                    pendingBtDevices.push(data);
+                    scheduleBtUIUpdate();
                 } else if (data.type === 'info' || data.type === 'raw') {
                     showInfo(data.text);
                 } else if (data.type === 'error') {
@@ -7265,8 +7331,8 @@
             }
         }
 
-        // Handle discovered Bluetooth device
-        function handleBtDevice(device) {
+        // Handle discovered Bluetooth device (called from batched update)
+        function handleBtDeviceImmediate(device) {
             const isNew = !btDevices[device.mac];
 
             // Check for Find My network
@@ -7643,6 +7709,51 @@
         }
 
         let aircraftTrailLines = {};  // ICAO -> Leaflet polyline
+        let aircraftMarkerState = {};  // Cache marker state to avoid unnecessary updates
+        const MAX_AIRCRAFT_MARKERS = 150;  // Limit markers to prevent browser freeze
+
+        function buildTooltipText(aircraft, showLabels, showAltitude) {
+            if (!showLabels && !showAltitude) return '';
+            let text = '';
+            if (showLabels && aircraft.callsign) text = aircraft.callsign;
+            if (showAltitude && aircraft.altitude) {
+                if (text) text += ' ';
+                text += 'FL' + Math.round(aircraft.altitude / 100).toString().padStart(3, '0');
+            }
+            return text;
+        }
+
+        function buildPopupContent(icao) {
+            const aircraft = adsbAircraft[icao];
+            if (!aircraft) return '';
+
+            const squawkInfo = checkSquawkCode(aircraft);
+            const militaryInfo = isMilitaryAircraft(icao, aircraft.callsign);
+
+            let content = '<div class="aircraft-popup">';
+            if (militaryInfo.military) {
+                content += `<div style="background: #556b2f; color: white; padding: 2px 8px; border-radius: 3px; font-size: 10px; margin-bottom: 5px;">🎖️ MILITARY${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}</div>`;
+            }
+            if (squawkInfo) {
+                content += `<div style="background: ${squawkInfo.color}; color: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; margin-bottom: 5px; font-weight: bold;">⚠️ ${squawkInfo.name}</div>`;
+            }
+            content += `<div class="callsign">${aircraft.callsign || icao}</div>`;
+            if (aircraft.altitude) {
+                content += `<div class="data-row"><span class="label">Altitude:</span><span class="value">${aircraft.altitude.toLocaleString()} ft</span></div>`;
+            }
+            if (aircraft.speed) {
+                content += `<div class="data-row"><span class="label">Speed:</span><span class="value">${aircraft.speed} kts</span></div>`;
+            }
+            if (aircraft.heading !== undefined) {
+                content += `<div class="data-row"><span class="label">Heading:</span><span class="value">${aircraft.heading}°</span></div>`;
+            }
+            if (aircraft.squawk) {
+                const squawkStyle = squawkInfo ? `color: ${squawkInfo.color}; font-weight: bold;` : '';
+                content += `<div class="data-row"><span class="label">Squawk:</span><span class="value" style="${squawkStyle}">${aircraft.squawk}</span></div>`;
+            }
+            content += '</div>';
+            return content;
+        }
 
         function updateAircraftMarkers() {
             if (!aircraftMap) return;
@@ -7652,10 +7763,14 @@
             const showTrails = document.getElementById('adsbShowTrails')?.checked ?? true;
             const currentIds = new Set();
 
-            // Update or create markers for each aircraft
-            Object.entries(adsbAircraft).forEach(([icao, aircraft]) => {
-                if (aircraft.lat == null || aircraft.lon == null) return;
+            // Sort aircraft by altitude and limit to prevent DOM explosion
+            const sortedAircraft = Object.entries(adsbAircraft)
+                .filter(([_, a]) => a.lat != null && a.lon != null)
+                .sort((a, b) => (b[1].altitude || 0) - (a[1].altitude || 0))
+                .slice(0, MAX_AIRCRAFT_MARKERS);
 
+            // Update or create markers for each aircraft
+            sortedAircraft.forEach(([icao, aircraft]) => {
                 currentIds.add(icao);
 
                 // Update trail history
@@ -7674,13 +7789,27 @@
                 else if (militaryInfo.military) iconColor = '#556b2f';  // Olive drab
                 else if (aircraft.emergency) iconColor = '#ff4444';
 
-                const icon = createAircraftIcon(aircraft.heading, squawkInfo || aircraft.emergency, iconColor);
+                // Round heading to reduce icon recreations
+                const roundedHeading = Math.round((aircraft.heading || 0) / 5) * 5;
+
+                // Check if icon state actually changed
+                const prevState = aircraftMarkerState[icao] || {};
+                const iconChanged = prevState.heading !== roundedHeading ||
+                                   prevState.color !== iconColor ||
+                                   prevState.emergency !== (squawkInfo || aircraft.emergency);
 
                 if (aircraftMarkers[icao]) {
-                    // Update existing marker
+                    // Update existing marker - position is cheap
                     aircraftMarkers[icao].setLatLng([aircraft.lat, aircraft.lon]);
-                    aircraftMarkers[icao].setIcon(icon);
+                    // Only update icon if it actually changed
+                    if (iconChanged) {
+                        const icon = createAircraftIcon(roundedHeading, squawkInfo || aircraft.emergency, iconColor);
+                        aircraftMarkers[icao].setIcon(icon);
+                        aircraftMarkerState[icao] = { heading: roundedHeading, color: iconColor, emergency: squawkInfo || aircraft.emergency };
+                    }
                 } else {
+                    const icon = createAircraftIcon(roundedHeading, squawkInfo || aircraft.emergency, iconColor);
+                    aircraftMarkerState[icao] = { heading: roundedHeading, color: iconColor, emergency: squawkInfo || aircraft.emergency };
                     // Create new marker
                     const marker = L.marker([aircraft.lat, aircraft.lon], { icon: icon });
                     if (clusteringEnabled && aircraftClusterGroup) {
@@ -7710,46 +7839,14 @@
                     delete aircraftTrailLines[icao];
                 }
 
-                // Update popup content
-                let popupContent = '<div class="aircraft-popup">';
+                // Only update popup/tooltip if data changed (expensive operations)
+                const tooltipText = buildTooltipText(aircraft, showLabels, showAltitude);
+                const prevTooltip = prevState.tooltipText;
 
-                // Military badge
-                if (militaryInfo.military) {
-                    popupContent += `<div style="background: #556b2f; color: white; padding: 2px 8px; border-radius: 3px; font-size: 10px; margin-bottom: 5px;">🎖️ MILITARY${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}</div>`;
-                }
-
-                // Squawk alert
-                if (squawkInfo) {
-                    popupContent += `<div style="background: ${squawkInfo.color}; color: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; margin-bottom: 5px; font-weight: bold;">⚠️ ${squawkInfo.name}</div>`;
-                }
-
-                popupContent += `<div class="callsign">${aircraft.callsign || icao}</div>`;
-
-                if (aircraft.altitude) {
-                    popupContent += `<div class="data-row"><span class="label">Altitude:</span><span class="value">${aircraft.altitude.toLocaleString()} ft</span></div>`;
-                }
-                if (aircraft.speed) {
-                    popupContent += `<div class="data-row"><span class="label">Speed:</span><span class="value">${aircraft.speed} kts</span></div>`;
-                }
-                if (aircraft.heading !== undefined) {
-                    popupContent += `<div class="data-row"><span class="label">Heading:</span><span class="value">${aircraft.heading}°</span></div>`;
-                }
-                if (aircraft.squawk) {
-                    const squawkStyle = squawkInfo ? `color: ${squawkInfo.color}; font-weight: bold;` : '';
-                    popupContent += `<div class="data-row"><span class="label">Squawk:</span><span class="value" style="${squawkStyle}">${aircraft.squawk}</span></div>`;
-                }
-                popupContent += '</div>';
-
-                aircraftMarkers[icao].bindPopup(popupContent);
-
-                // Add tooltip if labels enabled
-                if (showLabels || showAltitude) {
-                    let tooltipText = '';
-                    if (showLabels && aircraft.callsign) tooltipText = aircraft.callsign;
-                    if (showAltitude && aircraft.altitude) {
-                        if (tooltipText) tooltipText += ' ';
-                        tooltipText += 'FL' + Math.round(aircraft.altitude / 100).toString().padStart(3, '0');
-                    }
+                // Only rebind tooltip if content changed
+                if (tooltipText !== prevTooltip) {
+                    aircraftMarkerState[icao].tooltipText = tooltipText;
+                    aircraftMarkers[icao].unbindTooltip();
                     if (tooltipText) {
                         aircraftMarkers[icao].bindTooltip(tooltipText, {
                             permanent: true,
@@ -7757,8 +7854,12 @@
                             className: 'aircraft-tooltip'
                         });
                     }
-                } else {
-                    aircraftMarkers[icao].unbindTooltip();
+                }
+
+                // Bind popup lazily - content is built on open, not every update
+                if (!aircraftMarkers[icao]._hasPopupBound) {
+                    aircraftMarkers[icao].bindPopup(() => buildPopupContent(icao));
+                    aircraftMarkers[icao]._hasPopupBound = true;
                 }
             });
 
@@ -7777,6 +7878,7 @@
                     }
                     delete aircraftTrails[icao];
                     delete aircraftMarkers[icao];
+                    delete aircraftMarkerState[icao];
                     delete activeSquawkAlerts[icao];
                 }
             });
@@ -7792,8 +7894,10 @@
             document.getElementById('mapCenter').textContent =
                 `${center.lat.toFixed(2)}, ${center.lng.toFixed(2)}`;
 
-            // Auto-fit bounds if we have aircraft
-            if (aircraftCount > 0 && !aircraftMap._userInteracted) {
+            // Auto-fit bounds if we have aircraft (throttled to avoid performance issues)
+            const now = Date.now();
+            if (aircraftCount > 0 && !aircraftMap._userInteracted &&
+                (!aircraftMap._lastFitBounds || now - aircraftMap._lastFitBounds > 5000)) {
                 const bounds = [];
                 Object.values(adsbAircraft).forEach(a => {
                     if (a.lat !== undefined && a.lon !== undefined) {
@@ -7802,6 +7906,7 @@
                 });
                 if (bounds.length > 0) {
                     aircraftMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
+                    aircraftMap._lastFitBounds = now;
                 }
             }
         }
@@ -7855,6 +7960,24 @@
                 });
         }
 
+        // Batching state for aircraft updates to prevent browser freeze
+        let pendingAircraftUpdate = false;
+        let pendingAircraftData = [];
+
+        function scheduleAircraftUIUpdate() {
+            if (pendingAircraftUpdate) return;
+            pendingAircraftUpdate = true;
+            requestAnimationFrame(() => {
+                updateAdsbStats();
+                updateAircraftMarkers();
+                // Batch output updates - only show last 10 to prevent DOM explosion
+                const toOutput = pendingAircraftData.slice(-10);
+                pendingAircraftData = [];
+                toOutput.forEach(data => addAircraftToOutput(data));
+                pendingAircraftUpdate = false;
+            });
+        }
+
         function startAdsbStream() {
             if (adsbEventSource) adsbEventSource.close();
             adsbEventSource = new EventSource('/adsb/stream');
@@ -7868,21 +7991,25 @@
                         lastSeen: Date.now()
                     };
                     adsbMsgCount++;
-                    updateAdsbStats();
-                    updateAircraftMarkers();
-                    addAircraftToOutput(data);
+                    pendingAircraftData.push(data);
+                    // Use batched update instead of immediate
+                    scheduleAircraftUIUpdate();
                 }
             };
 
             // Periodic cleanup of stale aircraft
             setInterval(() => {
                 const now = Date.now();
+                let needsUpdate = false;
                 Object.keys(adsbAircraft).forEach(icao => {
                     if (now - adsbAircraft[icao].lastSeen > 60000) {
                         delete adsbAircraft[icao];
+                        needsUpdate = true;
                     }
                 });
-                updateAircraftMarkers();
+                if (needsUpdate) {
+                    scheduleAircraftUIUpdate();
+                }
             }, 5000);
         }
 
