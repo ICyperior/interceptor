@@ -1165,14 +1165,39 @@
             if (orbitTrack) groundMap.removeLayer(orbitTrack);
 
             if (pass && pass.groundTrack) {
-                const coords = pass.groundTrack.map(pt => [pt.lat, pt.lon]);
+                // Split track at antimeridian crossings to avoid lines across map
+                const segments = [];
+                let currentSegment = [];
 
-                trackLine = L.polyline(coords, {
-                    color: pass.color || '#00d4ff',
-                    weight: 3,
-                    opacity: 0.8,
-                    dashArray: '10, 5'
-                }).addTo(groundMap);
+                for (let i = 0; i < pass.groundTrack.length; i++) {
+                    const p = pass.groundTrack[i];
+                    if (currentSegment.length > 0) {
+                        const prevLon = currentSegment[currentSegment.length - 1][1];
+                        // If longitude jumps more than 180°, start new segment
+                        if (Math.abs(p.lon - prevLon) > 180) {
+                            if (currentSegment.length > 1) {
+                                segments.push(currentSegment);
+                            }
+                            currentSegment = [];
+                        }
+                    }
+                    currentSegment.push([p.lat, p.lon]);
+                }
+                if (currentSegment.length > 1) {
+                    segments.push(currentSegment);
+                }
+
+                // Draw each segment as separate polyline
+                trackLine = L.layerGroup();
+                segments.forEach(seg => {
+                    L.polyline(seg, {
+                        color: pass.color || '#00d4ff',
+                        weight: 3,
+                        opacity: 0.8,
+                        dashArray: '10, 5'
+                    }).addTo(trackLine);
+                });
+                trackLine.addTo(groundMap);
 
                 // Current position marker
                 if (pass.currentPos) {
