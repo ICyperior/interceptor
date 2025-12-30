@@ -8384,6 +8384,7 @@
 
             // Draw ground track segments
             groundTrackLine = L.layerGroup();
+            const allCoords = [];
             segments.forEach(seg => {
                 L.polyline(seg, {
                     color: pass.color || '#00ff00',
@@ -8391,6 +8392,7 @@
                     opacity: 0.8,
                     dashArray: '5, 5'
                 }).addTo(groundTrackLine);
+                allCoords.push(...seg);
             });
             groundTrackLine.addTo(groundTrackMap);
 
@@ -8414,8 +8416,8 @@
             }
 
             // Fit bounds to show track
-            if (segments.length > 0) {
-                groundTrackMap.fitBounds(groundTrackLine.getBounds(), { padding: [20, 20] });
+            if (allCoords.length > 0) {
+                groundTrackMap.fitBounds(L.latLngBounds(allCoords), { padding: [20, 20] });
             }
         }
 
