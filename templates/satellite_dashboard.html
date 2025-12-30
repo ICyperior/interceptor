@@ -1189,6 +1189,7 @@
 
                 // Draw each segment as separate polyline
                 trackLine = L.layerGroup();
+                const allCoords = [];
                 segments.forEach(seg => {
                     L.polyline(seg, {
                         color: pass.color || '#00d4ff',
@@ -1196,6 +1197,7 @@
                         opacity: 0.8,
                         dashArray: '10, 5'
                     }).addTo(trackLine);
+                    allCoords.push(...seg);
                 });
                 trackLine.addTo(groundMap);
 
@@ -1219,7 +1221,10 @@
                         .bindPopup(`<b>${pass.name}</b><br>Alt: ${pass.currentPos.alt?.toFixed(0)} km`);
                 }
 
-                groundMap.fitBounds(trackLine.getBounds(), { padding: [30, 30] });
+                // Fit bounds using collected coordinates
+                if (allCoords.length > 0) {
+                    groundMap.fitBounds(L.latLngBounds(allCoords), { padding: [30, 30] });
+                }
             }
         }
 
