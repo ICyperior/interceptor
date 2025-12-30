@@ -143,12 +143,16 @@ def get_dependencies() -> Response:
 @app.route('/killall', methods=['POST'])
 def kill_all() -> Response:
     """Kill all decoder and WiFi processes."""
-    global current_process, sensor_process, wifi_process
+    global current_process, sensor_process, wifi_process, adsb_process
+
+    # Import adsb module to reset its state
+    from routes import adsb as adsb_module
 
     killed = []
     processes_to_kill = [
         'rtl_fm', 'multimon-ng', 'rtl_433',
-        'airodump-ng', 'aireplay-ng', 'airmon-ng'
+        'airodump-ng', 'aireplay-ng', 'airmon-ng',
+        'dump1090'
     ]
 
     for proc in processes_to_kill:
@@ -167,6 +171,11 @@ def kill_all() -> Response:
 
     with wifi_lock:
         wifi_process = None
+
+    # Reset ADS-B state
+    with adsb_lock:
+        adsb_process = None
+        adsb_module.adsb_using_service = False
 
     return jsonify({'status': 'killed', 'processes': killed})
 
