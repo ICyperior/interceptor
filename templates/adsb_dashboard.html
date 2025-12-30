@@ -621,10 +621,14 @@
                         <input type="checkbox" id="showRangeRings" onchange="drawRangeRings()" style="accent-color: var(--accent-green);">
                         Show Range Rings
                     </label>
-                    <button id="geolocateBtn" onclick="getGeolocation()" style="width: 100%; padding: 8px; background: rgba(0,255,136,0.2); border: 1px solid rgba(0,255,136,0.3); border-radius: 4px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer; margin-bottom: 5px;">
-                        📍 My Location
+                    <label style="font-size: 10px; color: var(--text-secondary); display: block; margin-bottom: 3px;">Observer Location</label>
+                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                        <input type="text" id="obsLat" value="51.5074" placeholder="Lat" onchange="updateObserverLoc()" style="flex: 1; padding: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); border-radius: 3px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                        <input type="text" id="obsLon" value="-0.1278" placeholder="Lon" onchange="updateObserverLoc()" style="flex: 1; padding: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); border-radius: 3px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                    </div>
+                    <button id="geolocateBtn" onclick="getGeolocation()" style="width: 100%; padding: 6px; background: rgba(0,255,136,0.2); border: 1px solid rgba(0,255,136,0.3); border-radius: 4px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 10px; cursor: pointer;">
+                        📍 Use GPS
                     </button>
-                    <div style="text-align: center; font-size: 10px; color: var(--text-secondary);" id="observerLoc">51.5074, -0.1278</div>
                 </div>
                 <div style="padding: 0 15px 10px;">
                     <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); display: block; margin-bottom: 5px;">Aircraft Filter</label>
@@ -929,10 +933,38 @@
             rangeRingsLayer.addTo(radarMap);
         }
 
-        // Get user geolocation
+        // Update observer location from input fields
+        function updateObserverLoc() {
+            const latInput = document.getElementById('obsLat');
+            const lonInput = document.getElementById('obsLon');
+
+            if (latInput && lonInput) {
+                const lat = parseFloat(latInput.value);
+                const lon = parseFloat(lonInput.value);
+
+                if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                    observerLocation.lat = lat;
+                    observerLocation.lon = lon;
+
+                    if (radarMap) {
+                        radarMap.setView([observerLocation.lat, observerLocation.lon], 8);
+                    }
+
+                    drawRangeRings();
+                }
+            }
+        }
+
+        // Get user geolocation (only works on HTTPS or localhost)
         function getGeolocation() {
             if (!navigator.geolocation) {
                 alert('Geolocation not supported');
+                return;
+            }
+
+            // Check if we're on a secure context
+            if (!window.isSecureContext) {
+                alert('GPS location requires HTTPS. Please enter your coordinates manually in the lat/lon fields above.');
                 return;
             }
 
@@ -944,19 +976,22 @@
                     observerLocation.lat = position.coords.latitude;
                     observerLocation.lon = position.coords.longitude;
 
-                    const locEl = document.getElementById('observerLoc');
-                    if (locEl) locEl.textContent = `${observerLocation.lat.toFixed(4)}, ${observerLocation.lon.toFixed(4)}`;
+                    // Update input fields
+                    const latInput = document.getElementById('obsLat');
+                    const lonInput = document.getElementById('obsLon');
+                    if (latInput) latInput.value = observerLocation.lat.toFixed(4);
+                    if (lonInput) lonInput.value = observerLocation.lon.toFixed(4);
 
                     if (radarMap) {
                         radarMap.setView([observerLocation.lat, observerLocation.lon], 8);
                     }
 
                     drawRangeRings();
-                    if (btn) btn.textContent = '📍 My Location';
+                    if (btn) btn.textContent = '📍 Use GPS';
                 },
                 (error) => {
-                    alert('Location error: ' + error.message);
-                    if (btn) btn.textContent = '📍 My Location';
+                    alert('Unable to get location. Please enter coordinates manually.\n\nError: ' + error.message);
+                    if (btn) btn.textContent = '📍 Use GPS';
                 },
                 { enableHighAccuracy: true, timeout: 10000 }
             );

@@ -3207,11 +3207,15 @@
                                 Show Range Rings
                             </label>
                         </div>
-                        <button class="preset-btn" id="adsbGeolocateBtn" onclick="getAdsbGeolocation()" style="width: 100%; margin-top: 10px;">
-                            📍 My Location
-                        </button>
-                        <div class="info-text" style="margin-top: 5px; text-align: center;">
-                            <span id="adsbObserverLoc">51.5074, -0.1278</span>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label>Observer Location</label>
+                            <div style="display: flex; gap: 5px;">
+                                <input type="text" id="adsbObsLat" value="51.5074" placeholder="Latitude" style="flex: 1;" onchange="updateObserverLocation()">
+                                <input type="text" id="adsbObsLon" value="-0.1278" placeholder="Longitude" style="flex: 1;" onchange="updateObserverLocation()">
+                            </div>
+                            <button class="preset-btn" id="adsbGeolocateBtn" onclick="getAdsbGeolocation()" style="width: 100%; margin-top: 5px;">
+                                📍 Use GPS Location
+                            </button>
                         </div>
                         <div class="form-group" style="margin-top: 10px;">
                             <label>Aircraft Filter</label>
@@ -8257,10 +8261,41 @@
             rangeRingsLayer.addTo(aircraftMap);
         }
 
-        // Get user's geolocation
+        // Update observer location from input fields
+        function updateObserverLocation() {
+            const latInput = document.getElementById('adsbObsLat');
+            const lonInput = document.getElementById('adsbObsLon');
+
+            if (latInput && lonInput) {
+                const lat = parseFloat(latInput.value);
+                const lon = parseFloat(lonInput.value);
+
+                if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                    observerLocation.lat = lat;
+                    observerLocation.lon = lon;
+
+                    // Center map on location
+                    if (aircraftMap) {
+                        aircraftMap.setView([observerLocation.lat, observerLocation.lon], 8);
+                        aircraftMap._userInteracted = true;
+                    }
+
+                    // Redraw range rings
+                    drawRangeRings();
+                }
+            }
+        }
+
+        // Get user's geolocation (only works on HTTPS or localhost)
         function getAdsbGeolocation() {
             if (!navigator.geolocation) {
                 alert('Geolocation is not supported by your browser');
+                return;
+            }
+
+            // Check if we're on a secure context
+            if (!window.isSecureContext) {
+                alert('GPS location requires HTTPS. Please enter your coordinates manually in the lat/lon fields above.');
                 return;
             }
 
@@ -8272,27 +8307,27 @@
                     observerLocation.lat = position.coords.latitude;
                     observerLocation.lon = position.coords.longitude;
 
-                    // Update display
-                    const locDisplay = document.getElementById('adsbObserverLoc');
-                    if (locDisplay) {
-                        locDisplay.textContent = `${observerLocation.lat.toFixed(4)}, ${observerLocation.lon.toFixed(4)}`;
-                    }
+                    // Update input fields
+                    const latInput = document.getElementById('adsbObsLat');
+                    const lonInput = document.getElementById('adsbObsLon');
+                    if (latInput) latInput.value = observerLocation.lat.toFixed(4);
+                    if (lonInput) lonInput.value = observerLocation.lon.toFixed(4);
 
                     // Center map on location
                     if (aircraftMap) {
                         aircraftMap.setView([observerLocation.lat, observerLocation.lon], 8);
-                        aircraftMap._userInteracted = true;  // Prevent auto-fit
+                        aircraftMap._userInteracted = true;
                     }
 
                     // Redraw range rings
                     drawRangeRings();
 
-                    if (btn) btn.textContent = '📍 My Location';
+                    if (btn) btn.textContent = '📍 Use GPS Location';
                     showInfo(`Location set: ${observerLocation.lat.toFixed(4)}, ${observerLocation.lon.toFixed(4)}`);
                 },
                 (error) => {
-                    if (btn) btn.textContent = '📍 My Location';
-                    alert('Unable to get your location: ' + error.message);
+                    if (btn) btn.textContent = '📍 Use GPS Location';
+                    alert('Unable to get location. Please enter coordinates manually.\n\nError: ' + error.message);
                 },
                 { enableHighAccuracy: true, timeout: 10000 }
             );
