@@ -1385,9 +1385,8 @@
                         satMarker = L.marker([pos.lat, pos.lon], { icon: satIcon }).addTo(groundMap);
                     }
 
-                    // Only update orbit track if no pass is selected
-                    // When a pass is selected, keep showing that pass's ground track
-                    if (selectedPass === null && pos.track && groundMap) {
+                    // Always show full orbit track from position data
+                    if (pos.track && groundMap) {
                         if (orbitTrack) groundMap.removeLayer(orbitTrack);
                         if (trackLine) groundMap.removeLayer(trackLine);
                         trackLine = null;

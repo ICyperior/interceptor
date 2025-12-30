@@ -8318,6 +8318,10 @@
             updateGroundTrack(selectedPass);
             // Update countdown to show selected pass
             updateSatelliteCountdown();
+            // Start real-time position updates for full orbit track
+            startSatellitePositionUpdates();
+            // Fetch position immediately
+            updateRealTimePosition();
         }
 
         // Ground Track Map
@@ -8475,10 +8479,12 @@
                     }
 
                     // Draw full orbit track from position endpoint
-                    if (pos.orbitTrack && pos.orbitTrack.length > 0 && groundTrackMap) {
+                    // Backend returns 'track' property
+                    const orbitData = pos.track || pos.orbitTrack;
+                    if (orbitData && orbitData.length > 0 && groundTrackMap) {
                         // Split into past and future, handling antimeridian crossings
-                        const pastPoints = pos.orbitTrack.filter(p => p.past);
-                        const futurePoints = pos.orbitTrack.filter(p => !p.past);
+                        const pastPoints = orbitData.filter(p => p.past);
+                        const futurePoints = orbitData.filter(p => !p.past);
 
                         // Helper to split coords at antimeridian crossings
                         function splitAtAntimeridian(points) {
