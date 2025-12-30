@@ -8200,8 +8200,11 @@
                 ctx.beginPath();
 
                 pass.trajectory.forEach((point, i) => {
-                    const r = radius * (90 - point.elevation) / 90;
-                    const rad = point.azimuth * Math.PI / 180;
+                    // Backend returns 'el' and 'az' properties
+                    const el = point.el !== undefined ? point.el : point.elevation;
+                    const az = point.az !== undefined ? point.az : point.azimuth;
+                    const r = radius * (90 - el) / 90;
+                    const rad = az * Math.PI / 180;
                     const x = cx + Math.sin(rad) * r;
                     const y = cy - Math.cos(rad) * r;
 
@@ -8212,9 +8215,15 @@
                 ctx.setLineDash([]);
 
                 // Draw max elevation point
-                const maxPoint = pass.trajectory.reduce((max, p) => p.elevation > max.elevation ? p : max, { elevation: 0 });
-                const maxR = radius * (90 - maxPoint.elevation) / 90;
-                const maxRad = maxPoint.azimuth * Math.PI / 180;
+                const maxPoint = pass.trajectory.reduce((max, p) => {
+                    const pEl = p.el !== undefined ? p.el : p.elevation;
+                    const maxEl = max.el !== undefined ? max.el : max.elevation;
+                    return pEl > maxEl ? p : max;
+                }, { el: 0, elevation: 0 });
+                const maxEl = maxPoint.el !== undefined ? maxPoint.el : maxPoint.elevation;
+                const maxAz = maxPoint.az !== undefined ? maxPoint.az : maxPoint.azimuth;
+                const maxR = radius * (90 - maxEl) / 90;
+                const maxRad = maxAz * Math.PI / 180;
                 const maxX = cx + Math.sin(maxRad) * maxR;
                 const maxY = cy - Math.cos(maxRad) * maxR;
 
@@ -8353,14 +8362,33 @@
             if (groundTrackLine) groundTrackMap.removeLayer(groundTrackLine);
             if (satMarker) groundTrackMap.removeLayer(satMarker);
 
-            // Draw ground track
-            const coords = pass.groundTrack.map(p => [p.lat, p.lon]);
-            groundTrackLine = L.polyline(coords, {
-                color: pass.color || '#00ff00',
-                weight: 2,
-                opacity: 0.8,
-                dashArray: '5, 5'
-            }).addTo(groundTrackMap);
+            // Split ground track at antimeridian crossings
+            const segments = [];
+            let currentSegment = [];
+            for (let i = 0; i < pass.groundTrack.length; i++) {
+                const p = pass.groundTrack[i];
+                if (currentSegment.length > 0) {
+                    const prevLon = currentSegment[currentSegment.length - 1][1];
+                    if (Math.abs(p.lon - prevLon) > 180) {
+                        if (currentSegment.length > 1) segments.push(currentSegment);
+                        currentSegment = [];
+                    }
+                }
+                currentSegment.push([p.lat, p.lon]);
+            }
+            if (currentSegment.length > 1) segments.push(currentSegment);
+
+            // Draw ground track segments
+            groundTrackLine = L.layerGroup();
+            segments.forEach(seg => {
+                L.polyline(seg, {
+                    color: pass.color || '#00ff00',
+                    weight: 2,
+                    opacity: 0.8,
+                    dashArray: '5, 5'
+                }).addTo(groundTrackLine);
+            });
+            groundTrackLine.addTo(groundTrackMap);
 
             // Add current position marker
             if (pass.currentPosition) {
@@ -8382,7 +8410,7 @@
             }
 
             // Fit bounds to show track
-            if (coords.length > 0) {
+            if (segments.length > 0) {
                 groundTrackMap.fitBounds(groundTrackLine.getBounds(), { padding: [20, 20] });
             }
         }
@@ -8448,31 +8476,61 @@
 
                     // Draw full orbit track from position endpoint
                     if (pos.orbitTrack && pos.orbitTrack.length > 0 && groundTrackMap) {
-                        // Split into past and future segments
-                        const pastCoords = pos.orbitTrack.filter(p => p.past).map(p => [p.lat, p.lon]);
-                        const futureCoords = pos.orbitTrack.filter(p => !p.past).map(p => [p.lat, p.lon]);
+                        // Split into past and future, handling antimeridian crossings
+                        const pastPoints = pos.orbitTrack.filter(p => p.past);
+                        const futurePoints = pos.orbitTrack.filter(p => !p.past);
+
+                        // Helper to split coords at antimeridian crossings
+                        function splitAtAntimeridian(points) {
+                            const segments = [];
+                            let currentSegment = [];
+                            for (let i = 0; i < points.length; i++) {
+                                const p = points[i];
+                                if (currentSegment.length > 0) {
+                                    const prevLon = currentSegment[currentSegment.length - 1][1];
+                                    // If longitude jumps more than 180°, start new segment
+                                    if (Math.abs(p.lon - prevLon) > 180) {
+                                        if (currentSegment.length > 1) segments.push(currentSegment);
+                                        currentSegment = [];
+                                    }
+                                }
+                                currentSegment.push([p.lat, p.lon]);
+                            }
+                            if (currentSegment.length > 1) segments.push(currentSegment);
+                            return segments;
+                        }
 
                         // Remove old lines
                         if (orbitTrackLine) groundTrackMap.removeLayer(orbitTrackLine);
                         if (pastOrbitLine) groundTrackMap.removeLayer(pastOrbitLine);
 
-                        // Draw past track (dimmer)
-                        if (pastCoords.length > 1) {
-                            pastOrbitLine = L.polyline(pastCoords, {
-                                color: '#666666',
-                                weight: 2,
-                                opacity: 0.5,
-                                dashArray: '3, 6'
-                            }).addTo(groundTrackMap);
+                        // Draw past track segments (dimmer)
+                        const pastSegments = splitAtAntimeridian(pastPoints);
+                        if (pastSegments.length > 0) {
+                            pastOrbitLine = L.layerGroup();
+                            pastSegments.forEach(seg => {
+                                L.polyline(seg, {
+                                    color: '#666666',
+                                    weight: 2,
+                                    opacity: 0.5,
+                                    dashArray: '3, 6'
+                                }).addTo(pastOrbitLine);
+                            });
+                            pastOrbitLine.addTo(groundTrackMap);
                         }
 
-                        // Draw future track (brighter)
-                        if (futureCoords.length > 1) {
-                            orbitTrackLine = L.polyline(futureCoords, {
-                                color: selectedPass.color || '#00ff00',
-                                weight: 3,
-                                opacity: 0.8
-                            }).addTo(groundTrackMap);
+                        // Draw future track segments (brighter)
+                        const futureSegments = splitAtAntimeridian(futurePoints);
+                        if (futureSegments.length > 0) {
+                            orbitTrackLine = L.layerGroup();
+                            futureSegments.forEach(seg => {
+                                L.polyline(seg, {
+                                    color: selectedPass.color || '#00ff00',
+                                    weight: 3,
+                                    opacity: 0.8
+                                }).addTo(orbitTrackLine);
+                            });
+                            orbitTrackLine.addTo(groundTrackMap);
                         }
                     }
 
@@ -8813,8 +8871,11 @@
                 ctx.setLineDash([8, 4]);
                 ctx.beginPath();
                 pass.trajectory.forEach((point, i) => {
-                    const r = radius * (90 - point.elevation) / 90;
-                    const rad = point.azimuth * Math.PI / 180;
+                    // Backend returns 'el' and 'az' properties
+                    const el = point.el !== undefined ? point.el : point.elevation;
+                    const az = point.az !== undefined ? point.az : point.azimuth;
+                    const r = radius * (90 - el) / 90;
+                    const rad = az * Math.PI / 180;
                     const x = cx + Math.sin(rad) * r;
                     const y = cy - Math.cos(rad) * r;
                     if (i === 0) ctx.moveTo(x, y);
@@ -8823,9 +8884,15 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
 
-                const maxPoint = pass.trajectory.reduce((max, p) => p.elevation > max.elevation ? p : max, { elevation: 0 });
-                const maxR = radius * (90 - maxPoint.elevation) / 90;
-                const maxRad = maxPoint.azimuth * Math.PI / 180;
+                const maxPoint = pass.trajectory.reduce((max, p) => {
+                    const pEl = p.el !== undefined ? p.el : p.elevation;
+                    const maxEl = max.el !== undefined ? max.el : max.elevation;
+                    return pEl > maxEl ? p : max;
+                }, { el: 0, elevation: 0 });
+                const maxEl = maxPoint.el !== undefined ? maxPoint.el : maxPoint.elevation;
+                const maxAz = maxPoint.az !== undefined ? maxPoint.az : maxPoint.azimuth;
+                const maxR = radius * (90 - maxEl) / 90;
+                const maxRad = maxAz * Math.PI / 180;
                 ctx.fillStyle = pass.color || '#00ff00';
                 ctx.beginPath();
                 ctx.arc(cx + Math.sin(maxRad) * maxR, cy - Math.cos(maxRad) * maxR, 8, 0, Math.PI * 2);
