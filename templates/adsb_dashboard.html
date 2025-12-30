@@ -27,6 +27,8 @@
             --accent-red: #ff4444;
             --accent-yellow: #ffcc00;
             --grid-line: rgba(0, 255, 136, 0.1);
+            --radar-cyan: #00ffff;
+            --radar-bg: #1a1a2e;
         }
 
         body {
@@ -75,7 +77,7 @@
         .header {
             position: relative;
             z-index: 10;
-            padding: 15px 30px;
+            padding: 12px 20px;
             background: linear-gradient(180deg, rgba(0,255,136,0.1) 0%, transparent 100%);
             border-bottom: 1px solid rgba(0,255,136,0.3);
             display: flex;
@@ -85,7 +87,7 @@
 
         .logo {
             font-family: 'Orbitron', monospace;
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 900;
             letter-spacing: 4px;
             color: var(--accent-green);
@@ -95,22 +97,23 @@
         .logo span {
             color: var(--text-secondary);
             font-weight: 400;
-            font-size: 16px;
+            font-size: 14px;
             margin-left: 15px;
             letter-spacing: 2px;
         }
 
         .status-bar {
             display: flex;
-            gap: 30px;
+            gap: 20px;
+            align-items: center;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .status-item {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .status-dot {
@@ -132,10 +135,44 @@
             50% { opacity: 0.5; }
         }
 
+        /* Stats badges in header */
+        .stats-badges {
+            display: flex;
+            gap: 12px;
+        }
+
+        .stat-badge {
+            background: rgba(0,255,136,0.1);
+            border: 1px solid rgba(0,255,136,0.3);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        .stat-badge .value {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .stat-badge .label {
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+
         .datetime {
             font-family: 'Orbitron', monospace;
-            font-size: 14px;
+            font-size: 12px;
             color: var(--accent-green);
+        }
+
+        .back-link {
+            color: var(--accent-green);
+            text-decoration: none;
+            font-size: 11px;
+            padding: 4px 10px;
+            border: 1px solid var(--accent-green);
+            border-radius: 4px;
         }
 
         /* Main dashboard grid */
@@ -143,19 +180,17 @@
             position: relative;
             z-index: 10;
             display: grid;
-            grid-template-columns: 1fr 380px;
-            grid-template-rows: 1fr;
-            gap: 20px;
-            padding: 20px;
-            height: calc(100vh - 80px);
-            min-height: 600px;
+            grid-template-columns: 1fr 340px;
+            grid-template-rows: 1fr auto;
+            gap: 0;
+            height: calc(100vh - 60px);
+            min-height: 500px;
         }
 
         /* Panels */
         .panel {
             background: var(--bg-panel);
             border: 1px solid rgba(0,255,136,0.2);
-            border-radius: 8px;
             overflow: hidden;
             position: relative;
         }
@@ -171,11 +206,11 @@
         }
 
         .panel-header {
-            padding: 12px 20px;
+            padding: 10px 15px;
             background: rgba(0,255,136,0.05);
             border-bottom: 1px solid rgba(0,255,136,0.1);
             font-family: 'Orbitron', monospace;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             letter-spacing: 2px;
             text-transform: uppercase;
@@ -203,22 +238,44 @@
             to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
 
-        .panel-content {
-            padding: 0;
-            height: calc(100% - 45px);
-            overflow: hidden;
-        }
-
-        /* Map container */
-        .map-container {
+        /* Main display container (map + radar scope) */
+        .main-display {
             grid-column: 1;
             grid-row: 1;
+            position: relative;
+        }
+
+        .display-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
         }
 
         #radarMap {
             width: 100%;
             height: 100%;
-            border-radius: 0 0 8px 8px;
+            display: block;
+        }
+
+        #radarScope {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: var(--radar-bg);
+        }
+
+        #radarScope.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #radarCanvas {
+            max-width: 100%;
+            max-height: 100%;
         }
 
         /* Right sidebar */
@@ -227,63 +284,114 @@
             grid-row: 1;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            overflow-y: auto;
+            border-left: 1px solid rgba(0,255,136,0.2);
+            overflow: hidden;
         }
 
-        .sidebar .panel {
-            flex-shrink: 0;
+        /* View toggle */
+        .view-toggle {
+            display: flex;
+            padding: 10px;
+            gap: 8px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid rgba(0,255,136,0.2);
         }
 
-        /* Stats panel */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            padding: 15px;
-        }
-
-        .stat-box {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(0,255,136,0.15);
-            border-radius: 6px;
-            padding: 12px;
-            text-align: center;
-        }
-
-        .stat-value {
+        .view-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid rgba(0,255,136,0.3);
+            background: transparent;
+            color: var(--text-secondary);
             font-family: 'Orbitron', monospace;
-            font-size: 24px;
+            font-size: 11px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-btn:hover {
+            border-color: var(--accent-green);
             color: var(--accent-green);
         }
 
-        .stat-label {
-            font-size: 10px;
+        .view-btn.active {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+            color: var(--bg-dark);
+        }
+
+        /* Selected aircraft panel */
+        .selected-aircraft {
+            flex-shrink: 0;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .selected-info {
+            padding: 12px;
+        }
+
+        .selected-callsign {
+            font-family: 'Orbitron', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-green);
+            text-shadow: 0 0 15px var(--accent-green);
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+
+        .telemetry-item {
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            padding: 8px;
+            border-left: 2px solid var(--accent-green);
+        }
+
+        .telemetry-label {
+            font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-secondary);
-            margin-top: 4px;
+            margin-bottom: 2px;
+        }
+
+        .telemetry-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-cyan);
         }
 
         /* Aircraft list */
         .aircraft-list {
             flex: 1;
-            min-height: 200px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         .aircraft-list-content {
-            max-height: 350px;
+            flex: 1;
             overflow-y: auto;
-            padding: 10px;
+            padding: 8px;
         }
 
         .aircraft-item {
             background: rgba(0,0,0,0.3);
             border: 1px solid rgba(0,255,136,0.15);
-            border-radius: 6px;
-            padding: 10px 12px;
-            margin-bottom: 8px;
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
             cursor: pointer;
             transition: all 0.2s ease;
         }
@@ -303,30 +411,30 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .aircraft-callsign {
             font-family: 'Orbitron', monospace;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
             color: var(--accent-green);
         }
 
         .aircraft-icao {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
+            font-size: 9px;
             color: var(--text-secondary);
             background: rgba(0,255,136,0.1);
-            padding: 2px 6px;
+            padding: 2px 5px;
             border-radius: 3px;
         }
 
         .aircraft-details {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            font-size: 11px;
+            gap: 6px;
+            font-size: 10px;
         }
 
         .aircraft-detail {
@@ -336,109 +444,117 @@
         .aircraft-detail-value {
             font-family: 'JetBrains Mono', monospace;
             color: var(--accent-cyan);
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .aircraft-detail-label {
             color: var(--text-secondary);
-            font-size: 9px;
+            font-size: 8px;
             text-transform: uppercase;
         }
 
-        /* Selected aircraft panel */
-        .selected-aircraft {
-            background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,212,255,0.05) 100%);
+        /* Bottom controls bar */
+        .controls-bar {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 10px 20px;
+            background: var(--bg-panel);
+            border-top: 1px solid rgba(0,255,136,0.3);
         }
 
-        .selected-info {
-            padding: 15px;
-        }
-
-        .selected-callsign {
-            font-family: 'Orbitron', monospace;
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--accent-green);
-            text-shadow: 0 0 15px var(--accent-green);
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .telemetry-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
+        .control-group {
+            display: flex;
+            align-items: center;
             gap: 8px;
         }
 
-        .telemetry-item {
-            background: rgba(0,0,0,0.3);
-            border-radius: 4px;
-            padding: 10px;
-            border-left: 2px solid var(--accent-green);
+        .control-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            color: var(--text-primary);
         }
 
-        .telemetry-label {
+        .control-group input[type="checkbox"] {
+            accent-color: var(--accent-green);
+        }
+
+        .control-group select {
+            padding: 6px 10px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,255,136,0.3);
+            border-radius: 4px;
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        .control-group input[type="text"] {
+            width: 80px;
+            padding: 6px 8px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,255,136,0.3);
+            border-radius: 4px;
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        .control-label {
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-secondary);
-            margin-bottom: 4px;
         }
 
-        .telemetry-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            color: var(--accent-cyan);
+        /* Start/stop button */
+        .start-btn {
+            padding: 8px 20px;
+            border: 1px solid var(--accent-green);
+            background: rgba(0,255,136,0.1);
+            color: var(--accent-green);
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: auto;
         }
 
-        /* Altitude indicator */
-        .altitude-indicator {
-            padding: 15px;
+        .start-btn:hover {
+            background: var(--accent-green);
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px rgba(0,255,136,0.3);
         }
 
-        .altitude-bar {
-            height: 200px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 6px;
-            position: relative;
-            overflow: hidden;
+        .start-btn.active {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+            color: #fff;
         }
 
-        .altitude-fill {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to top, var(--accent-green), var(--accent-cyan));
-            transition: height 0.5s ease;
-            border-radius: 0 0 6px 6px;
+        .start-btn.active:hover {
+            box-shadow: 0 0 20px rgba(255,68,68,0.3);
         }
 
-        .altitude-markers {
-            position: absolute;
-            top: 0;
-            right: 10px;
-            bottom: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 10px 0;
-        }
-
-        .altitude-marker {
+        /* GPS button */
+        .gps-btn {
+            padding: 6px 10px;
+            background: rgba(0,255,136,0.2);
+            border: 1px solid rgba(0,255,136,0.3);
+            border-radius: 4px;
+            color: var(--accent-green);
             font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
-            color: var(--text-secondary);
-        }
-
-        .altitude-current {
-            position: absolute;
-            left: 10px;
-            font-family: 'Orbitron', monospace;
-            font-size: 18px;
-            color: var(--accent-green);
-            text-shadow: 0 0 10px var(--accent-green);
-            transition: bottom 0.5s ease;
+            cursor: pointer;
         }
 
         /* Leaflet overrides */
@@ -475,67 +591,35 @@
         /* No aircraft message */
         .no-aircraft {
             text-align: center;
-            padding: 40px 20px;
+            padding: 30px 15px;
             color: var(--text-secondary);
         }
 
         .no-aircraft-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
+            font-size: 36px;
+            margin-bottom: 10px;
             opacity: 0.5;
         }
 
-        /* Start tracking button */
-        .start-btn {
-            display: block;
-            width: calc(100% - 30px);
-            margin: 15px;
-            padding: 12px;
-            border: 1px solid var(--accent-green);
-            background: rgba(0,255,136,0.1);
-            color: var(--accent-green);
-            font-family: 'Orbitron', monospace;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .start-btn:hover {
-            background: var(--accent-green);
-            color: var(--bg-dark);
-            box-shadow: 0 0 20px rgba(0,255,136,0.3);
-        }
-
-        .start-btn.active {
-            background: var(--accent-red);
-            border-color: var(--accent-red);
-            color: #fff;
-        }
-
-        .start-btn.active:hover {
-            box-shadow: 0 0 20px rgba(255,68,68,0.3);
-        }
-
         /* Responsive */
-        @media (max-width: 1200px) {
+        @media (max-width: 1000px) {
             .dashboard {
                 grid-template-columns: 1fr;
-                grid-template-rows: 1fr auto;
-                height: auto;
+                grid-template-rows: 1fr auto auto;
             }
-            .map-container {
+            .main-display {
                 min-height: 400px;
             }
             .sidebar {
-                flex-direction: row;
-                flex-wrap: wrap;
+                grid-column: 1;
+                grid-row: 2;
+                border-left: none;
+                border-top: 1px solid rgba(0,255,136,0.2);
+                max-height: 300px;
             }
-            .sidebar .panel {
-                flex: 1 1 300px;
+            .controls-bar {
+                grid-row: 3;
+                flex-wrap: wrap;
             }
         }
     </style>
@@ -549,105 +633,47 @@
             AIRCRAFT RADAR
             <span>// INTERCEPT</span>
         </div>
+        <div class="stats-badges">
+            <div class="stat-badge">
+                <span class="value" id="statTotal">0</span>
+                <span class="label">aircraft</span>
+            </div>
+            <div class="stat-badge">
+                <span class="value" id="statMaxRange">0</span>
+                <span class="label">nm max</span>
+            </div>
+            <div class="stat-badge">
+                <span class="value" id="statMsgRate">0</span>
+                <span class="label">msg/s</span>
+            </div>
+        </div>
         <div class="status-bar">
             <div class="status-item">
-                <div class="status-dot" id="trackingDot"></div>
+                <div class="status-dot inactive" id="trackingDot"></div>
                 <span id="trackingStatus">STANDBY</span>
             </div>
-            <div class="status-item">
-                <span id="aircraftCount">0</span> AIRCRAFT
-            </div>
-            <div class="status-item datetime" id="utcTime">--:--:-- UTC</div>
-            <a href="/?mode=aircraft" style="color: var(--accent-green); text-decoration: none; font-size: 12px; padding: 4px 12px; border: 1px solid var(--accent-green); border-radius: 4px; margin-left: 10px;">← Main Dashboard</a>
+            <div class="datetime" id="utcTime">--:--:-- UTC</div>
+            <a href="/?mode=aircraft" class="back-link">Main Dashboard</a>
         </div>
     </header>
 
     <main class="dashboard">
-        <!-- Radar Map -->
-        <div class="panel map-container">
-            <div class="panel-header">
-                <span>RADAR DISPLAY // LIVE TRACKING</span>
-                <div class="panel-indicator"></div>
-            </div>
-            <div class="panel-content">
+        <!-- Main Display (Map or Radar Scope) -->
+        <div class="main-display">
+            <div class="display-container">
                 <div id="radarMap"></div>
+                <div id="radarScope">
+                    <canvas id="radarCanvas"></canvas>
+                </div>
             </div>
         </div>
 
         <!-- Sidebar -->
         <div class="sidebar">
-            <!-- Stats -->
-            <div class="panel">
-                <div class="panel-header">
-                    <span>STATISTICS</span>
-                    <div class="panel-indicator"></div>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-box">
-                        <div class="stat-value" id="statTotal">0</div>
-                        <div class="stat-label">Total Aircraft</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-value" id="statWithPos">0</div>
-                        <div class="stat-label">With Position</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-value" id="statMaxAlt">0</div>
-                        <div class="stat-label">Max Alt (ft)</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-value" id="statAvgAlt">0</div>
-                        <div class="stat-label">Avg Alt (ft)</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-value"><span id="statMaxRange">0.0</span> nm</div>
-                        <div class="stat-label">Max Range</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-value" id="statTotalSeen">0</div>
-                        <div class="stat-label">Total Seen</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-value"><span id="statMsgRate">0.0</span>/s</div>
-                        <div class="stat-label">Msg Rate</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-value" id="statBusiestHour">--</div>
-                        <div class="stat-label">Busiest Hour</div>
-                    </div>
-                </div>
-                <div style="padding: 0 15px 10px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary); margin-bottom: 8px;">
-                        <input type="checkbox" id="showRangeRings" onchange="drawRangeRings()" style="accent-color: var(--accent-green);">
-                        Show Range Rings
-                    </label>
-                    <label style="font-size: 10px; color: var(--text-secondary); display: block; margin-bottom: 3px;">Observer Location</label>
-                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                        <input type="text" id="obsLat" value="51.5074" placeholder="Lat" onchange="updateObserverLoc()" style="flex: 1; padding: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); border-radius: 3px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 10px;">
-                        <input type="text" id="obsLon" value="-0.1278" placeholder="Lon" onchange="updateObserverLoc()" style="flex: 1; padding: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); border-radius: 3px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 10px;">
-                    </div>
-                    <button id="geolocateBtn" onclick="getGeolocation()" style="width: 100%; padding: 6px; background: rgba(0,255,136,0.2); border: 1px solid rgba(0,255,136,0.3); border-radius: 4px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 10px; cursor: pointer;">
-                        📍 Use GPS
-                    </button>
-                </div>
-                <div style="padding: 0 15px 10px;">
-                    <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); display: block; margin-bottom: 5px;">Aircraft Filter</label>
-                    <select id="aircraftFilter" onchange="applyFilter()" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); border-radius: 4px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
-                        <option value="all">All Aircraft</option>
-                        <option value="military">Military Only</option>
-                        <option value="civil">Civil Only</option>
-                        <option value="emergency">Emergency Only</option>
-                    </select>
-                </div>
-                <div style="padding: 0 15px 15px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary);">
-                        <input type="checkbox" id="alertToggle" checked onchange="toggleAlerts()" style="accent-color: var(--accent-green);">
-                        🔔 Audio Alerts (Military/Emergency)
-                    </label>
-                </div>
-                <button class="start-btn" id="startBtn" onclick="toggleTracking()">
-                    START TRACKING
-                </button>
+            <!-- View Toggle -->
+            <div class="view-toggle">
+                <button class="view-btn active" id="mapViewBtn" onclick="setView('map')">MAP</button>
+                <button class="view-btn" id="radarViewBtn" onclick="setView('radar')">RADAR</button>
             </div>
 
             <!-- Selected Aircraft -->
@@ -658,8 +684,8 @@
                 </div>
                 <div class="selected-info" id="selectedInfo">
                     <div class="no-aircraft">
-                        <div class="no-aircraft-icon">✈</div>
-                        <div>Select an aircraft to view details</div>
+                        <div class="no-aircraft-icon">&#9992;</div>
+                        <div>Select an aircraft</div>
                     </div>
                 </div>
             </div>
@@ -670,20 +696,72 @@
                     <span>TRACKED AIRCRAFT</span>
                     <div class="panel-indicator"></div>
                 </div>
-                <div class="panel-content">
-                    <div class="aircraft-list-content" id="aircraftList">
-                        <div class="no-aircraft">
-                            <div>No aircraft detected</div>
-                            <div style="font-size: 11px; margin-top: 5px;">Start tracking to detect aircraft</div>
-                        </div>
+                <div class="aircraft-list-content" id="aircraftList">
+                    <div class="no-aircraft">
+                        <div>No aircraft detected</div>
+                        <div style="font-size: 10px; margin-top: 5px;">Start tracking to begin</div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="showTrails" onchange="toggleTrails()">
+                    Trails
+                </label>
+            </div>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="showRangeRings" onchange="drawRangeRings()">
+                    Range Rings
+                </label>
+            </div>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="alertToggle" checked onchange="toggleAlerts()">
+                    Alerts
+                </label>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Filter:</span>
+                <select id="aircraftFilter" onchange="applyFilter()">
+                    <option value="all">All</option>
+                    <option value="military">Military</option>
+                    <option value="civil">Civil</option>
+                    <option value="emergency">Emergency</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Range:</span>
+                <select id="rangeSelect" onchange="updateRange()">
+                    <option value="50">50 nm</option>
+                    <option value="100">100 nm</option>
+                    <option value="200" selected>200 nm</option>
+                    <option value="300">300 nm</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Lat:</span>
+                <input type="text" id="obsLat" value="51.5074" onchange="updateObserverLoc()">
+            </div>
+            <div class="control-group">
+                <span class="control-label">Lon:</span>
+                <input type="text" id="obsLon" value="-0.1278" onchange="updateObserverLoc()">
+            </div>
+            <div class="control-group">
+                <button class="gps-btn" id="geolocateBtn" onclick="getGeolocation()">GPS</button>
+            </div>
+            <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
+        </div>
     </main>
 
     <script>
-        // State
+        // ============================================
+        // STATE
+        // ============================================
         let radarMap = null;
         let aircraft = {};
         let markers = {};
@@ -691,18 +769,27 @@
         let eventSource = null;
         let isTracking = false;
         let currentFilter = 'all';
-        let alertedAircraft = {};  // Track aircraft that have already triggered alerts
-        let alertsEnabled = true;  // Toggle for audio alerts
+        let alertedAircraft = {};
+        let alertsEnabled = true;
+        let currentView = 'map';  // 'map' or 'radar'
 
-        // Statistics tracking
+        // Aircraft trails
+        let aircraftTrails = {};  // ICAO -> [{lat, lon, alt, time}, ...]
+        let trailLines = {};      // ICAO -> L.polyline (array of segments)
+        let showTrails = false;
+        const MAX_TRAIL_POINTS = 100;
+
+        // Radar scope
+        let radarScope = null;
+        let radarAnimationId = null;
+        let maxRange = 200;  // nautical miles
+
+        // Statistics
         let stats = {
             totalAircraftSeen: new Set(),
             maxRange: 0,
-            maxRangeAircraft: null,
-            hourlyCount: {},
             messagesPerSecond: 0,
-            messageTimestamps: [],
-            sessionStart: null
+            messageTimestamps: []
         };
 
         // Observer location and range rings
@@ -710,7 +797,9 @@
         let rangeRingsLayer = null;
         let observerMarker = null;
 
-        // Audio alert system using Web Audio API
+        // ============================================
+        // AUDIO ALERTS
+        // ============================================
         let audioContext = null;
         function getAudioContext() {
             if (!audioContext) {
@@ -725,12 +814,10 @@
                 const ctx = getAudioContext();
                 const oscillator = ctx.createOscillator();
                 const gainNode = ctx.createGain();
-
                 oscillator.connect(gainNode);
                 gainNode.connect(ctx.destination);
 
                 if (type === 'emergency') {
-                    // Urgent two-tone alert for emergencies
                     oscillator.frequency.setValueAtTime(880, ctx.currentTime);
                     oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
                     oscillator.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
@@ -739,7 +826,6 @@
                     oscillator.start(ctx.currentTime);
                     oscillator.stop(ctx.currentTime + 0.5);
                 } else if (type === 'military') {
-                    // Single tone for military
                     oscillator.frequency.setValueAtTime(523, ctx.currentTime);
                     gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
                     gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
@@ -752,44 +838,31 @@
         }
 
         function checkAndAlertAircraft(icao, ac) {
-            // Skip if already alerted for this aircraft
             if (alertedAircraft[icao]) return;
-
             const militaryInfo = isMilitaryAircraft(icao, ac.callsign);
             const squawkInfo = checkSquawkCode(ac);
 
             if (squawkInfo) {
                 alertedAircraft[icao] = 'emergency';
                 playAlertSound('emergency');
-                showAlertBanner(`⚠️ EMERGENCY: ${squawkInfo.name} - ${ac.callsign || icao}`, '#ff0000');
+                showAlertBanner(`EMERGENCY: ${squawkInfo.name} - ${ac.callsign || icao}`, '#ff0000');
             } else if (militaryInfo.military) {
                 alertedAircraft[icao] = 'military';
                 playAlertSound('military');
-                showAlertBanner(`🎖️ MILITARY: ${ac.callsign || icao}${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}`, '#556b2f');
+                showAlertBanner(`MILITARY: ${ac.callsign || icao}${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}`, '#556b2f');
             }
         }
 
         function showAlertBanner(message, color) {
             const banner = document.createElement('div');
             banner.style.cssText = `
-                position: fixed;
-                top: 80px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: ${color};
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 14px;
-                z-index: 10000;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                animation: slideDown 0.3s ease-out;
+                position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+                background: ${color}; color: white; padding: 10px 20px; border-radius: 6px;
+                font-weight: bold; font-size: 13px; z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5); animation: slideDown 0.3s ease-out;
             `;
             banner.textContent = message;
             document.body.appendChild(banner);
-
-            // Auto-remove after 5 seconds
             setTimeout(() => {
                 banner.style.opacity = '0';
                 banner.style.transition = 'opacity 0.3s';
@@ -801,210 +874,16 @@
             alertsEnabled = document.getElementById('alertToggle').checked;
         }
 
-        // Calculate distance between two points in nautical miles
-        function calculateDistanceNm(lat1, lon1, lat2, lon2) {
-            const R = 3440.065;  // Earth radius in nautical miles
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        // Update statistics
-        function updateStatistics(icao, ac) {
-            if (!ac.lat || !ac.lon) return;
-
-            stats.totalAircraftSeen.add(icao);
-
-            const distance = calculateDistanceNm(
-                observerLocation.lat, observerLocation.lon,
-                ac.lat, ac.lon
-            );
-
-            if (distance > stats.maxRange) {
-                stats.maxRange = distance;
-                stats.maxRangeAircraft = ac.callsign || icao;
-            }
-
-            const hour = new Date().getHours();
-            if (!stats.hourlyCount[hour]) {
-                stats.hourlyCount[hour] = new Set();
-            }
-            stats.hourlyCount[hour].add(icao);
-
-            const now = Date.now();
-            stats.messageTimestamps.push(now);
-            stats.messageTimestamps = stats.messageTimestamps.filter(t => now - t < 5000);
-            stats.messagesPerSecond = stats.messageTimestamps.length / 5;
-
-            updateStatsDisplay();
-        }
-
-        function updateStatsDisplay() {
-            const maxRangeEl = document.getElementById('statMaxRange');
-            const totalSeenEl = document.getElementById('statTotalSeen');
-            const msgRateEl = document.getElementById('statMsgRate');
-            const busiestEl = document.getElementById('statBusiestHour');
-
-            if (maxRangeEl) maxRangeEl.textContent = stats.maxRange.toFixed(1);
-            if (totalSeenEl) totalSeenEl.textContent = stats.totalAircraftSeen.size;
-            if (msgRateEl) msgRateEl.textContent = stats.messagesPerSecond.toFixed(1);
-            if (busiestEl) {
-                let busiestHour = '--';
-                let maxCount = 0;
-                Object.entries(stats.hourlyCount).forEach(([hour, set]) => {
-                    if (set.size > maxCount) {
-                        maxCount = set.size;
-                        busiestHour = `${hour}:00`;
-                    }
-                });
-                busiestEl.textContent = busiestHour;
-            }
-        }
-
-        function resetStats() {
-            stats = {
-                totalAircraftSeen: new Set(),
-                maxRange: 0,
-                maxRangeAircraft: null,
-                hourlyCount: {},
-                messagesPerSecond: 0,
-                messageTimestamps: [],
-                sessionStart: Date.now()
-            };
-            updateStatsDisplay();
-        }
-
-        // Draw range rings on the map
-        function drawRangeRings() {
-            if (!radarMap) return;
-
-            if (rangeRingsLayer) {
-                radarMap.removeLayer(rangeRingsLayer);
-                rangeRingsLayer = null;
-            }
-
-            const showRings = document.getElementById('showRangeRings')?.checked;
-            if (!showRings) return;
-
-            rangeRingsLayer = L.layerGroup();
-
-            const distances = [25, 50, 100, 150, 200];
-            distances.forEach(nm => {
-                const meters = nm * 1852;
-                const circle = L.circle([observerLocation.lat, observerLocation.lon], {
-                    radius: meters,
-                    color: '#00ff88',
-                    fillColor: 'transparent',
-                    fillOpacity: 0,
-                    weight: 1,
-                    opacity: 0.4,
-                    dashArray: '5, 5'
-                });
-
-                const labelLat = observerLocation.lat + (nm * 0.0166);
-                const label = L.marker([labelLat, observerLocation.lon], {
-                    icon: L.divIcon({
-                        className: 'range-label',
-                        html: `<span style="color: #00ff88; font-size: 10px; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 2px;">${nm} nm</span>`,
-                        iconSize: [40, 12],
-                        iconAnchor: [20, 6]
-                    })
-                });
-
-                rangeRingsLayer.addLayer(circle);
-                rangeRingsLayer.addLayer(label);
-            });
-
-            // Observer marker
-            if (observerMarker) radarMap.removeLayer(observerMarker);
-            observerMarker = L.marker([observerLocation.lat, observerLocation.lon], {
-                icon: L.divIcon({
-                    className: 'observer-marker',
-                    html: '<div style="width: 12px; height: 12px; background: #ff0; border: 2px solid #000; border-radius: 50%; box-shadow: 0 0 10px #ff0;"></div>',
-                    iconSize: [12, 12],
-                    iconAnchor: [6, 6]
-                })
-            }).bindPopup('Your Location').addTo(radarMap);
-
-            rangeRingsLayer.addTo(radarMap);
-        }
-
-        // Update observer location from input fields
-        function updateObserverLoc() {
-            const latInput = document.getElementById('obsLat');
-            const lonInput = document.getElementById('obsLon');
-
-            if (latInput && lonInput) {
-                const lat = parseFloat(latInput.value);
-                const lon = parseFloat(lonInput.value);
-
-                if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-                    observerLocation.lat = lat;
-                    observerLocation.lon = lon;
-
-                    if (radarMap) {
-                        radarMap.setView([observerLocation.lat, observerLocation.lon], 8);
-                    }
-
-                    drawRangeRings();
-                }
-            }
-        }
-
-        // Get user geolocation (only works on HTTPS or localhost)
-        function getGeolocation() {
-            if (!navigator.geolocation) {
-                alert('Geolocation not supported');
-                return;
-            }
-
-            // Check if we're on a secure context
-            if (!window.isSecureContext) {
-                alert('GPS location requires HTTPS. Please enter your coordinates manually in the lat/lon fields above.');
-                return;
-            }
-
-            const btn = document.getElementById('geolocateBtn');
-            if (btn) btn.textContent = '📍 Locating...';
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    observerLocation.lat = position.coords.latitude;
-                    observerLocation.lon = position.coords.longitude;
-
-                    // Update input fields
-                    const latInput = document.getElementById('obsLat');
-                    const lonInput = document.getElementById('obsLon');
-                    if (latInput) latInput.value = observerLocation.lat.toFixed(4);
-                    if (lonInput) lonInput.value = observerLocation.lon.toFixed(4);
-
-                    if (radarMap) {
-                        radarMap.setView([observerLocation.lat, observerLocation.lon], 8);
-                    }
-
-                    drawRangeRings();
-                    if (btn) btn.textContent = '📍 Use GPS';
-                },
-                (error) => {
-                    alert('Unable to get location. Please enter coordinates manually.\n\nError: ' + error.message);
-                    if (btn) btn.textContent = '📍 Use GPS';
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        }
-
-        // Military aircraft detection (specific military-only sub-ranges)
+        // ============================================
+        // MILITARY/EMERGENCY DETECTION
+        // ============================================
         const MILITARY_RANGES = [
-            { start: 0xADF7C0, end: 0xADFFFF, country: 'US' },   // US Military
-            { start: 0xAE0000, end: 0xAEFFFF, country: 'US' },   // US Military
-            { start: 0x3F4000, end: 0x3F7FFF, country: 'FR' },   // France Military (Armee de l'Air)
-            { start: 0x43C000, end: 0x43CFFF, country: 'UK' },   // UK Military (RAF)
-            { start: 0x3D0000, end: 0x3DFFFF, country: 'DE' },   // Germany Military (Luftwaffe)
-            { start: 0x501C00, end: 0x501FFF, country: 'NATO' }, // NATO
+            { start: 0xADF7C0, end: 0xADFFFF, country: 'US' },
+            { start: 0xAE0000, end: 0xAEFFFF, country: 'US' },
+            { start: 0x3F4000, end: 0x3F7FFF, country: 'FR' },
+            { start: 0x43C000, end: 0x43CFFF, country: 'UK' },
+            { start: 0x3D0000, end: 0x3DFFFF, country: 'DE' },
+            { start: 0x501C00, end: 0x501FFF, country: 'NATO' },
         ];
 
         const MILITARY_PREFIXES = [
@@ -1045,6 +924,538 @@
             return null;
         }
 
+        // ============================================
+        // DISTANCE/BEARING CALCULATIONS
+        // ============================================
+        function calculateDistanceNm(lat1, lon1, lat2, lon2) {
+            const R = 3440.065;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+                      Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            let bearing = Math.atan2(y, x) * 180 / Math.PI;
+            return (bearing + 360) % 360;
+        }
+
+        // ============================================
+        // STATISTICS
+        // ============================================
+        function updateStatistics(icao, ac) {
+            if (!ac.lat || !ac.lon) return;
+            stats.totalAircraftSeen.add(icao);
+
+            const distance = calculateDistanceNm(
+                observerLocation.lat, observerLocation.lon,
+                ac.lat, ac.lon
+            );
+
+            if (distance > stats.maxRange) {
+                stats.maxRange = distance;
+            }
+
+            const now = Date.now();
+            stats.messageTimestamps.push(now);
+            stats.messageTimestamps = stats.messageTimestamps.filter(t => now - t < 5000);
+            stats.messagesPerSecond = stats.messageTimestamps.length / 5;
+
+            updateStatsDisplay();
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('statMaxRange').textContent = stats.maxRange.toFixed(0);
+            document.getElementById('statMsgRate').textContent = stats.messagesPerSecond.toFixed(1);
+            document.getElementById('statTotal').textContent = Object.keys(aircraft).length;
+        }
+
+        // ============================================
+        // AIRCRAFT TRAILS
+        // ============================================
+        function toggleTrails() {
+            showTrails = document.getElementById('showTrails').checked;
+            if (!showTrails) {
+                // Remove all trail lines from map
+                Object.keys(trailLines).forEach(icao => {
+                    if (trailLines[icao]) {
+                        trailLines[icao].forEach(line => radarMap.removeLayer(line));
+                        delete trailLines[icao];
+                    }
+                });
+            } else {
+                // Draw existing trails
+                Object.keys(aircraftTrails).forEach(icao => {
+                    updateTrailLine(icao);
+                });
+            }
+        }
+
+        function recordTrailPoint(icao, lat, lon, alt) {
+            if (!aircraftTrails[icao]) aircraftTrails[icao] = [];
+            const trail = aircraftTrails[icao];
+
+            // Only add if moved significantly
+            if (trail.length === 0 ||
+                Math.abs(trail[trail.length-1].lat - lat) > 0.0005 ||
+                Math.abs(trail[trail.length-1].lon - lon) > 0.0005) {
+                trail.push({ lat, lon, alt: alt || 0, time: Date.now() });
+                if (trail.length > MAX_TRAIL_POINTS) trail.shift();
+            }
+        }
+
+        function getAltitudeColor(alt) {
+            if (!alt || alt <= 0) return '#888888';
+            if (alt < 10000) return '#00ff88';   // Green - low
+            if (alt < 25000) return '#00d4ff';   // Cyan - medium
+            if (alt < 35000) return '#ffcc00';   // Yellow - high
+            return '#ff9500';                    // Orange - very high
+        }
+
+        function updateTrailLine(icao) {
+            if (!showTrails || !radarMap) return;
+
+            const trail = aircraftTrails[icao];
+            if (!trail || trail.length < 2) return;
+
+            // Remove old trail lines
+            if (trailLines[icao]) {
+                trailLines[icao].forEach(line => radarMap.removeLayer(line));
+            }
+            trailLines[icao] = [];
+
+            // Create gradient segments
+            const now = Date.now();
+            for (let i = 1; i < trail.length; i++) {
+                const p1 = trail[i-1];
+                const p2 = trail[i];
+                const age = (now - p2.time) / 1000;  // seconds
+                const opacity = Math.max(0.2, 1 - (age / 120));  // Fade over 2 minutes
+
+                const color = getAltitudeColor(p2.alt);
+                const line = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+                    color: color,
+                    weight: 2,
+                    opacity: opacity
+                }).addTo(radarMap);
+                trailLines[icao].push(line);
+            }
+        }
+
+        function cleanupTrail(icao) {
+            if (trailLines[icao]) {
+                trailLines[icao].forEach(line => radarMap.removeLayer(line));
+                delete trailLines[icao];
+            }
+            delete aircraftTrails[icao];
+        }
+
+        // ============================================
+        // RADAR SCOPE (PPI)
+        // ============================================
+        class RadarScope {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.sweepAngle = 0;
+                this.blips = [];  // Aircraft blips with afterglow
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                const container = this.canvas.parentElement;
+                const size = Math.min(container.clientWidth, container.clientHeight) - 40;
+                this.canvas.width = size;
+                this.canvas.height = size;
+                this.centerX = size / 2;
+                this.centerY = size / 2;
+                this.radius = (size / 2) - 30;
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+
+                // Clear
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(0, 0, w, h);
+
+                // Draw range rings
+                this.drawRangeRings();
+
+                // Draw compass rose
+                this.drawCompassRose();
+
+                // Draw aircraft blips
+                this.drawBlips();
+
+                // Draw sweep line
+                this.drawSweep();
+
+                // Draw center point (observer)
+                ctx.beginPath();
+                ctx.arc(this.centerX, this.centerY, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffff00';
+                ctx.fill();
+            }
+
+            drawRangeRings() {
+                const ctx = this.ctx;
+                const rings = [0.25, 0.5, 0.75, 1.0];
+
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+
+                rings.forEach((ratio, i) => {
+                    const r = this.radius * ratio;
+                    ctx.beginPath();
+                    ctx.arc(this.centerX, this.centerY, r, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Range label
+                    const rangeNm = Math.round(maxRange * ratio);
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+                    ctx.font = '10px JetBrains Mono';
+                    ctx.fillText(`${rangeNm}`, this.centerX + r + 5, this.centerY + 4);
+                });
+            }
+
+            drawCompassRose() {
+                const ctx = this.ctx;
+                const directions = [
+                    { angle: 0, label: 'N' },
+                    { angle: 90, label: 'E' },
+                    { angle: 180, label: 'S' },
+                    { angle: 270, label: 'W' }
+                ];
+
+                ctx.fillStyle = '#00ffff';
+                ctx.font = 'bold 12px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                directions.forEach(d => {
+                    const rad = (d.angle - 90) * Math.PI / 180;
+                    const x = this.centerX + (this.radius + 15) * Math.cos(rad);
+                    const y = this.centerY + (this.radius + 15) * Math.sin(rad);
+                    ctx.fillText(d.label, x, y);
+                });
+
+                // Draw tick marks every 30 degrees
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                for (let angle = 0; angle < 360; angle += 30) {
+                    const rad = (angle - 90) * Math.PI / 180;
+                    const inner = this.radius - 5;
+                    const outer = this.radius + 2;
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        this.centerX + inner * Math.cos(rad),
+                        this.centerY + inner * Math.sin(rad)
+                    );
+                    ctx.lineTo(
+                        this.centerX + outer * Math.cos(rad),
+                        this.centerY + outer * Math.sin(rad)
+                    );
+                    ctx.stroke();
+                }
+            }
+
+            drawSweep() {
+                const ctx = this.ctx;
+                const rad = (this.sweepAngle - 90) * Math.PI / 180;
+
+                // Sweep line with gradient
+                const gradient = ctx.createLinearGradient(
+                    this.centerX, this.centerY,
+                    this.centerX + this.radius * Math.cos(rad),
+                    this.centerY + this.radius * Math.sin(rad)
+                );
+                gradient.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
+                gradient.addColorStop(1, 'rgba(0, 255, 255, 0.1)');
+
+                ctx.beginPath();
+                ctx.moveTo(this.centerX, this.centerY);
+                ctx.lineTo(
+                    this.centerX + this.radius * Math.cos(rad),
+                    this.centerY + this.radius * Math.sin(rad)
+                );
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Sweep arc (afterglow)
+                const startAngle = (this.sweepAngle - 90 - 30) * Math.PI / 180;
+                const endAngle = (this.sweepAngle - 90) * Math.PI / 180;
+                const arcGradient = ctx.createConicGradient(startAngle, this.centerX, this.centerY);
+                arcGradient.addColorStop(0, 'rgba(0, 255, 255, 0)');
+                arcGradient.addColorStop(1, 'rgba(0, 255, 255, 0.15)');
+
+                ctx.beginPath();
+                ctx.moveTo(this.centerX, this.centerY);
+                ctx.arc(this.centerX, this.centerY, this.radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = arcGradient;
+                ctx.fill();
+
+                // Update sweep angle
+                this.sweepAngle = (this.sweepAngle + 2) % 360;
+            }
+
+            drawBlips() {
+                const ctx = this.ctx;
+                const now = Date.now();
+
+                // Update blips from aircraft data
+                this.blips = [];
+                Object.entries(aircraft).forEach(([icao, ac]) => {
+                    if (!ac.lat || !ac.lon) return;
+                    if (!passesFilter(icao, ac)) return;
+
+                    const distance = calculateDistanceNm(
+                        observerLocation.lat, observerLocation.lon,
+                        ac.lat, ac.lon
+                    );
+
+                    if (distance > maxRange) return;
+
+                    const bearing = calculateBearing(
+                        observerLocation.lat, observerLocation.lon,
+                        ac.lat, ac.lon
+                    );
+
+                    const ratio = distance / maxRange;
+                    const rad = (bearing - 90) * Math.PI / 180;
+                    const x = this.centerX + (this.radius * ratio) * Math.cos(rad);
+                    const y = this.centerY + (this.radius * ratio) * Math.sin(rad);
+
+                    this.blips.push({
+                        x, y,
+                        icao,
+                        callsign: ac.callsign,
+                        altitude: ac.altitude,
+                        selected: icao === selectedIcao
+                    });
+                });
+
+                // Draw blips
+                this.blips.forEach(blip => {
+                    // Blip glow
+                    const gradient = ctx.createRadialGradient(blip.x, blip.y, 0, blip.x, blip.y, 12);
+                    gradient.addColorStop(0, blip.selected ? 'rgba(255, 255, 0, 0.8)' : 'rgba(0, 255, 255, 0.8)');
+                    gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(blip.x - 12, blip.y - 12, 24, 24);
+
+                    // Blip dot
+                    ctx.beginPath();
+                    ctx.arc(blip.x, blip.y, blip.selected ? 5 : 3, 0, Math.PI * 2);
+                    ctx.fillStyle = blip.selected ? '#ffff00' : '#00ffff';
+                    ctx.fill();
+
+                    // Label
+                    if (blip.callsign || blip.selected) {
+                        ctx.fillStyle = '#00ffff';
+                        ctx.font = '9px JetBrains Mono';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(blip.callsign || blip.icao, blip.x + 8, blip.y - 5);
+                        if (blip.altitude) {
+                            ctx.fillText(`${Math.round(blip.altitude/100)}`, blip.x + 8, blip.y + 7);
+                        }
+                    }
+                });
+            }
+
+            handleClick(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                // Find clicked blip
+                for (const blip of this.blips) {
+                    const dx = x - blip.x;
+                    const dy = y - blip.y;
+                    if (dx * dx + dy * dy < 100) {  // 10px radius
+                        selectAircraft(blip.icao);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function startRadarAnimation() {
+            if (radarAnimationId) return;
+            function animate() {
+                if (currentView === 'radar' && radarScope) {
+                    radarScope.draw();
+                }
+                radarAnimationId = requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        function stopRadarAnimation() {
+            if (radarAnimationId) {
+                cancelAnimationFrame(radarAnimationId);
+                radarAnimationId = null;
+            }
+        }
+
+        // ============================================
+        // VIEW TOGGLE
+        // ============================================
+        function setView(view) {
+            currentView = view;
+            const mapEl = document.getElementById('radarMap');
+            const scopeEl = document.getElementById('radarScope');
+            const mapBtn = document.getElementById('mapViewBtn');
+            const radarBtn = document.getElementById('radarViewBtn');
+
+            if (view === 'map') {
+                mapEl.style.display = 'block';
+                scopeEl.classList.remove('active');
+                mapBtn.classList.add('active');
+                radarBtn.classList.remove('active');
+                stopRadarAnimation();
+                // Invalidate map size after showing
+                setTimeout(() => radarMap && radarMap.invalidateSize(), 100);
+            } else {
+                mapEl.style.display = 'none';
+                scopeEl.classList.add('active');
+                mapBtn.classList.remove('active');
+                radarBtn.classList.add('active');
+                if (!radarScope) {
+                    radarScope = new RadarScope('radarCanvas');
+                    document.getElementById('radarCanvas').addEventListener('click', (e) => radarScope.handleClick(e));
+                }
+                radarScope.resize();
+                startRadarAnimation();
+            }
+        }
+
+        function updateRange() {
+            maxRange = parseInt(document.getElementById('rangeSelect').value);
+            drawRangeRings();
+        }
+
+        // ============================================
+        // RANGE RINGS (MAP)
+        // ============================================
+        function drawRangeRings() {
+            if (!radarMap) return;
+
+            if (rangeRingsLayer) {
+                radarMap.removeLayer(rangeRingsLayer);
+                rangeRingsLayer = null;
+            }
+
+            const showRings = document.getElementById('showRangeRings')?.checked;
+            if (!showRings) return;
+
+            rangeRingsLayer = L.layerGroup();
+
+            const distances = [maxRange * 0.25, maxRange * 0.5, maxRange * 0.75, maxRange];
+            distances.forEach(nm => {
+                const meters = nm * 1852;
+                const circle = L.circle([observerLocation.lat, observerLocation.lon], {
+                    radius: meters,
+                    color: '#00ff88',
+                    fillColor: 'transparent',
+                    fillOpacity: 0,
+                    weight: 1,
+                    opacity: 0.4,
+                    dashArray: '5, 5'
+                });
+
+                const labelLat = observerLocation.lat + (nm * 0.0166);
+                const label = L.marker([labelLat, observerLocation.lon], {
+                    icon: L.divIcon({
+                        className: 'range-label',
+                        html: `<span style="color: #00ff88; font-size: 10px; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 2px;">${Math.round(nm)} nm</span>`,
+                        iconSize: [40, 12],
+                        iconAnchor: [20, 6]
+                    })
+                });
+
+                rangeRingsLayer.addLayer(circle);
+                rangeRingsLayer.addLayer(label);
+            });
+
+            // Observer marker
+            if (observerMarker) radarMap.removeLayer(observerMarker);
+            observerMarker = L.marker([observerLocation.lat, observerLocation.lon], {
+                icon: L.divIcon({
+                    className: 'observer-marker',
+                    html: '<div style="width: 12px; height: 12px; background: #ff0; border: 2px solid #000; border-radius: 50%; box-shadow: 0 0 10px #ff0;"></div>',
+                    iconSize: [12, 12],
+                    iconAnchor: [6, 6]
+                })
+            }).bindPopup('Your Location').addTo(radarMap);
+
+            rangeRingsLayer.addTo(radarMap);
+        }
+
+        function updateObserverLoc() {
+            const lat = parseFloat(document.getElementById('obsLat').value);
+            const lon = parseFloat(document.getElementById('obsLon').value);
+
+            if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                observerLocation.lat = lat;
+                observerLocation.lon = lon;
+                if (radarMap) {
+                    radarMap.setView([lat, lon], radarMap.getZoom());
+                }
+                drawRangeRings();
+            }
+        }
+
+        function getGeolocation() {
+            if (!navigator.geolocation) {
+                alert('Geolocation not supported');
+                return;
+            }
+            if (!window.isSecureContext) {
+                alert('GPS requires HTTPS. Enter coordinates manually.');
+                return;
+            }
+
+            const btn = document.getElementById('geolocateBtn');
+            btn.textContent = '...';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    observerLocation.lat = position.coords.latitude;
+                    observerLocation.lon = position.coords.longitude;
+                    document.getElementById('obsLat').value = observerLocation.lat.toFixed(4);
+                    document.getElementById('obsLon').value = observerLocation.lon.toFixed(4);
+                    if (radarMap) {
+                        radarMap.setView([observerLocation.lat, observerLocation.lon], 8);
+                    }
+                    drawRangeRings();
+                    btn.textContent = 'GPS';
+                },
+                (error) => {
+                    alert('Location error: ' + error.message);
+                    btn.textContent = 'GPS';
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        // ============================================
+        // FILTERING
+        // ============================================
         function applyFilter() {
             currentFilter = document.getElementById('aircraftFilter').value;
             // Clear markers and redraw
@@ -1053,7 +1464,6 @@
                 delete markers[icao];
             });
             Object.keys(markerState).forEach(icao => delete markerState[icao]);
-            // Trigger full UI update
             pendingMarkerUpdates.clear();
             Object.keys(aircraft).forEach(icao => {
                 if (aircraft[icao].lat && aircraft[icao].lon) {
@@ -1073,7 +1483,9 @@
             return true;
         }
 
-        // Initialize
+        // ============================================
+        // INITIALIZATION
+        // ============================================
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
             updateClock();
@@ -1099,19 +1511,24 @@
                 attribution: '©OpenStreetMap, ©CartoDB'
             }).addTo(radarMap);
 
-            // Try to get user location
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(pos => {
                     radarMap.setView([pos.coords.latitude, pos.coords.longitude], 8);
-                });
+                    observerLocation.lat = pos.coords.latitude;
+                    observerLocation.lon = pos.coords.longitude;
+                    document.getElementById('obsLat').value = observerLocation.lat.toFixed(4);
+                    document.getElementById('obsLon').value = observerLocation.lon.toFixed(4);
+                }, () => {}, { timeout: 5000 });
             }
         }
 
+        // ============================================
+        // TRACKING CONTROL
+        // ============================================
         async function toggleTracking() {
             const btn = document.getElementById('startBtn');
 
             if (!isTracking) {
-                // Start tracking
                 try {
                     const response = await fetch('/adsb/start', {
                         method: 'POST',
@@ -1119,45 +1536,37 @@
                         body: JSON.stringify({})
                     });
 
-                    console.log('Response status:', response.status);
                     const text = await response.text();
-                    console.log('Response body:', text);
-
                     let data;
                     try {
                         data = JSON.parse(text);
                     } catch (e) {
-                        alert('Invalid response from server: ' + text);
+                        alert('Invalid response: ' + text);
                         return;
                     }
 
-                    if (data.status === 'success' || data.status === 'started' || data.status === 'already_running' || data.status === 'error' && data.message && data.message.includes('already')) {
-                        resetStats();  // Reset statistics for new session
+                    if (data.status === 'success' || data.status === 'started' || data.status === 'already_running') {
                         startEventStream();
-                        drawRangeRings();  // Draw range rings if enabled
+                        drawRangeRings();
                         isTracking = true;
-                        btn.textContent = 'STOP TRACKING';
+                        btn.textContent = 'STOP';
                         btn.classList.add('active');
                         document.getElementById('trackingDot').classList.remove('inactive');
                         document.getElementById('trackingStatus').textContent = 'TRACKING';
                     } else {
-                        alert('Failed to start: ' + (data.message || data.status || JSON.stringify(data)));
+                        alert('Failed to start: ' + (data.message || JSON.stringify(data)));
                     }
                 } catch (err) {
-                    console.error('Start error:', err);
-                    alert('Failed to start tracking: ' + err.message);
+                    alert('Error: ' + err.message);
                 }
             } else {
-                // Stop tracking
                 try {
                     await fetch('/adsb/stop', { method: 'POST' });
-                } catch (err) {
-                    console.error('Stop error:', err);
-                }
+                } catch (err) {}
 
                 stopEventStream();
                 isTracking = false;
-                btn.textContent = 'START TRACKING';
+                btn.textContent = 'START';
                 btn.classList.remove('active');
                 document.getElementById('trackingDot').classList.add('inactive');
                 document.getElementById('trackingStatus').textContent = 'STANDBY';
@@ -1165,26 +1574,18 @@
         }
 
         function startEventStream() {
-            if (eventSource) {
-                eventSource.close();
-            }
+            if (eventSource) eventSource.close();
 
             eventSource = new EventSource('/adsb/stream');
-
             eventSource.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'aircraft') {
                         updateAircraft(data);
                     }
-                } catch (err) {
-                    console.error('Parse error:', err);
-                }
+                } catch (err) {}
             };
-
-            eventSource.onerror = () => {
-                console.error('EventSource error');
-            };
+            eventSource.onerror = () => {};
         }
 
         function stopEventStream() {
@@ -1194,7 +1595,9 @@
             }
         }
 
-        // Throttle expensive UI operations to prevent browser freeze
+        // ============================================
+        // AIRCRAFT UPDATES
+        // ============================================
         let pendingUIUpdate = false;
         let pendingMarkerUpdates = new Set();
         const MAX_MARKER_UPDATES_PER_FRAME = 20;
@@ -1203,10 +1606,9 @@
             if (pendingUIUpdate) return;
             pendingUIUpdate = true;
             requestAnimationFrame(() => {
-                updateStats();
+                updateStatsDisplay();
                 renderAircraftList();
 
-                // Limit marker updates per frame to prevent jank
                 let updateCount = 0;
                 const toProcess = [];
                 for (const icao of pendingMarkerUpdates) {
@@ -1216,17 +1618,14 @@
                         updateCount++;
                     }
                 }
-                // Remove processed markers from pending set
                 toProcess.forEach(icao => pendingMarkerUpdates.delete(icao));
 
-                // If more markers pending, schedule another frame
                 if (pendingMarkerUpdates.size > 0) {
                     pendingUIUpdate = false;
                     scheduleUIUpdate();
                     return;
                 }
 
-                // Update selected aircraft panel
                 if (selectedIcao && aircraft[selectedIcao]) {
                     showAircraftDetails(selectedIcao);
                 }
@@ -1239,36 +1638,33 @@
             const icao = data.icao;
             if (!icao) return;
 
-            // Update aircraft data
             aircraft[icao] = {
                 ...aircraft[icao],
                 ...data,
                 lastSeen: Date.now()
             };
 
-            // Check for military/emergency aircraft and alert
             checkAndAlertAircraft(icao, aircraft[icao]);
-
-            // Update statistics
             updateStatistics(icao, aircraft[icao]);
 
-            // Queue marker update
+            // Record trail point
             if (data.lat && data.lon) {
+                recordTrailPoint(icao, data.lat, data.lon, data.altitude);
+                if (showTrails) {
+                    updateTrailLine(icao);
+                }
                 pendingMarkerUpdates.add(icao);
             }
 
-            // Schedule batched UI update
             scheduleUIUpdate();
         }
 
-        // Track marker state to avoid unnecessary updates
         const markerState = {};
 
         function updateMarkerImmediate(icao) {
             const ac = aircraft[icao];
             if (!ac || !ac.lat || !ac.lon) return;
 
-            // Check filter - remove marker if it doesn't pass
             if (!passesFilter(icao, ac)) {
                 if (markers[icao]) {
                     radarMap.removeLayer(markers[icao]);
@@ -1279,7 +1675,7 @@
             }
 
             const militaryInfo = isMilitaryAircraft(icao, ac.callsign);
-            const rotation = Math.round((ac.heading || 0) / 5) * 5;  // Round to 5 degrees
+            const rotation = Math.round((ac.heading || 0) / 5) * 5;
             const color = militaryInfo.military ? '#556b2f' : getAltitudeColor(ac.altitude);
             const callsign = ac.callsign || icao;
             const alt = ac.altitude ? ac.altitude + ' ft' : 'N/A';
@@ -1289,37 +1685,25 @@
             const tooltipChanged = prevState.callsign !== callsign || prevState.alt !== alt;
 
             if (markers[icao]) {
-                // Only update position (cheap operation)
                 markers[icao].setLatLng([ac.lat, ac.lon]);
-
-                // Only update icon if heading/color actually changed
                 if (iconChanged) {
-                    const icon = createMarkerIcon(rotation, color);
-                    markers[icao].setIcon(icon);
+                    markers[icao].setIcon(createMarkerIcon(rotation, color));
                 }
-
-                // Only update tooltip if content changed
                 if (tooltipChanged) {
                     markers[icao].unbindTooltip();
                     markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
-                        permanent: false,
-                        direction: 'top',
-                        className: 'aircraft-tooltip'
+                        permanent: false, direction: 'top', className: 'aircraft-tooltip'
                     });
                 }
             } else {
-                const icon = createMarkerIcon(rotation, color);
-                markers[icao] = L.marker([ac.lat, ac.lon], { icon })
+                markers[icao] = L.marker([ac.lat, ac.lon], { icon: createMarkerIcon(rotation, color) })
                     .addTo(radarMap)
                     .on('click', () => selectAircraft(icao));
                 markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
-                    permanent: false,
-                    direction: 'top',
-                    className: 'aircraft-tooltip'
+                    permanent: false, direction: 'top', className: 'aircraft-tooltip'
                 });
             }
 
-            // Update state cache
             markerState[icao] = { rotation, color, callsign, alt };
         }
 
@@ -1334,33 +1718,13 @@
             });
         }
 
-        function getAltitudeColor(alt) {
-            if (!alt) return '#888888';
-            if (alt < 10000) return '#00ff88';
-            if (alt < 25000) return '#00d4ff';
-            if (alt < 35000) return '#ffcc00';
-            return '#ff9500';
-        }
-
-        function updateStats() {
-            const total = Object.keys(aircraft).length;
-            const withPos = Object.values(aircraft).filter(a => a.lat && a.lon).length;
-            const altitudes = Object.values(aircraft).map(a => a.altitude || 0).filter(a => a > 0);
-            const maxAlt = altitudes.length ? Math.max(...altitudes) : 0;
-            const avgAlt = altitudes.length ? Math.round(altitudes.reduce((a, b) => a + b, 0) / altitudes.length) : 0;
-
-            document.getElementById('statTotal').textContent = total;
-            document.getElementById('statWithPos').textContent = withPos;
-            document.getElementById('statMaxAlt').textContent = maxAlt.toLocaleString();
-            document.getElementById('statAvgAlt').textContent = avgAlt.toLocaleString();
-            document.getElementById('aircraftCount').textContent = total;
-        }
-
-        // Track rendered aircraft for incremental updates
+        // ============================================
+        // AIRCRAFT LIST
+        // ============================================
         let renderedAircraftOrder = [];
         let lastFullRebuild = 0;
         const MAX_AIRCRAFT_DISPLAY = 50;
-        const MIN_REBUILD_INTERVAL = 2000;  // Only allow full rebuild every 2 seconds
+        const MIN_REBUILD_INTERVAL = 2000;
 
         function renderAircraftList() {
             const container = document.getElementById('aircraftList');
@@ -1368,16 +1732,11 @@
                 .filter(([icao, ac]) => passesFilter(icao, ac))
                 .map(([icao, ac]) => ({ ...ac, icao }))
                 .sort((a, b) => (b.altitude || 0) - (a.altitude || 0))
-                .slice(0, MAX_AIRCRAFT_DISPLAY);  // Limit to prevent DOM explosion
+                .slice(0, MAX_AIRCRAFT_DISPLAY);
 
             if (sortedAircraft.length === 0) {
-                if (container.querySelector('.no-aircraft')) return; // Already showing empty state
-                container.innerHTML = `
-                    <div class="no-aircraft">
-                        <div>No aircraft detected</div>
-                        <div style="font-size: 11px; margin-top: 5px;">Waiting for data...</div>
-                    </div>
-                `;
+                if (container.querySelector('.no-aircraft')) return;
+                container.innerHTML = `<div class="no-aircraft"><div>No aircraft detected</div></div>`;
                 renderedAircraftOrder = [];
                 return;
             }
@@ -1389,10 +1748,8 @@
             const now = Date.now();
             const canRebuild = now - lastFullRebuild > MIN_REBUILD_INTERVAL;
 
-            // Only do full rebuild if order changed AND enough time has passed
             if (orderChanged && canRebuild) {
                 lastFullRebuild = now;
-                // Use DocumentFragment for efficient batch insert
                 const fragment = document.createDocumentFragment();
 
                 sortedAircraft.forEach(ac => {
@@ -1408,8 +1765,6 @@
                 container.appendChild(fragment);
                 renderedAircraftOrder = newOrder;
             } else {
-                // Incremental update - only update existing items in place
-                // Build a map of existing items to avoid repeated querySelector calls
                 const existingItems = {};
                 container.querySelectorAll('[data-icao]').forEach(el => {
                     existingItems[el.getAttribute('data-icao')] = el;
@@ -1418,9 +1773,7 @@
                 sortedAircraft.forEach(ac => {
                     const existingItem = existingItems[ac.icao];
                     if (existingItem) {
-                        // Update selection state
                         existingItem.className = `aircraft-item ${selectedIcao === ac.icao ? 'selected' : ''}`;
-                        // Update inner content
                         existingItem.innerHTML = buildAircraftItemHTML(ac);
                     }
                 });
@@ -1433,22 +1786,22 @@
             const speed = ac.speed || '---';
             const heading = ac.heading ? ac.heading + '°' : '---';
             const militaryInfo = isMilitaryAircraft(ac.icao, ac.callsign);
-            const militaryBadge = militaryInfo.military ?
-                `<span style="background: #556b2f; color: #fff; padding: 1px 5px; border-radius: 3px; font-size: 9px; margin-left: 5px;">MIL</span>` : '';
+            const badge = militaryInfo.military ?
+                `<span style="background:#556b2f;color:#fff;padding:1px 4px;border-radius:2px;font-size:8px;margin-left:4px;">MIL</span>` : '';
 
             return `
                 <div class="aircraft-header">
-                    <span class="aircraft-callsign">${callsign}${militaryBadge}</span>
+                    <span class="aircraft-callsign">${callsign}${badge}</span>
                     <span class="aircraft-icao">${ac.icao}</span>
                 </div>
                 <div class="aircraft-details">
                     <div class="aircraft-detail">
                         <div class="aircraft-detail-value">${alt}</div>
-                        <div class="aircraft-detail-label">ALT ft</div>
+                        <div class="aircraft-detail-label">ALT</div>
                     </div>
                     <div class="aircraft-detail">
                         <div class="aircraft-detail-value">${speed}</div>
-                        <div class="aircraft-detail-label">SPD kts</div>
+                        <div class="aircraft-detail-label">SPD</div>
                     </div>
                     <div class="aircraft-detail">
                         <div class="aircraft-detail-value">${heading}</div>
@@ -1463,9 +1816,8 @@
             renderAircraftList();
             showAircraftDetails(icao);
 
-            // Center map on aircraft
             const ac = aircraft[icao];
-            if (ac && ac.lat && ac.lon) {
+            if (ac && ac.lat && ac.lon && currentView === 'map') {
                 radarMap.setView([ac.lat, ac.lon], 10);
             }
         }
@@ -1477,10 +1829,9 @@
             if (!ac) {
                 container.innerHTML = `
                     <div class="no-aircraft">
-                        <div class="no-aircraft-icon">✈</div>
-                        <div>Select an aircraft to view details</div>
-                    </div>
-                `;
+                        <div class="no-aircraft-icon">&#9992;</div>
+                        <div>Select an aircraft</div>
+                    </div>`;
                 return;
             }
 
@@ -1491,14 +1842,13 @@
             const speed = ac.speed ? ac.speed + ' kts' : 'N/A';
             const heading = ac.heading ? ac.heading + '°' : 'N/A';
             const squawk = ac.squawk || 'N/A';
-            const vRate = ac.vRate ? (ac.vRate > 0 ? '+' : '') + ac.vRate + ' ft/min' : 'N/A';
             const militaryInfo = isMilitaryAircraft(ac.icao, ac.callsign);
-            const militaryBadge = militaryInfo.military ?
-                `<div style="background: #556b2f; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; text-align: center; margin-bottom: 10px;">MILITARY AIRCRAFT${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}</div>` : '';
+            const badge = militaryInfo.military ?
+                `<div style="background:#556b2f;color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;text-align:center;margin-bottom:8px;">MILITARY${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}</div>` : '';
 
             container.innerHTML = `
                 <div class="selected-callsign">${callsign}</div>
-                ${militaryBadge}
+                ${badge}
                 <div class="telemetry-grid">
                     <div class="telemetry-item">
                         <div class="telemetry-label">ICAO</div>
@@ -1509,11 +1859,11 @@
                         <div class="telemetry-value">${squawk}</div>
                     </div>
                     <div class="telemetry-item">
-                        <div class="telemetry-label">Latitude</div>
+                        <div class="telemetry-label">Lat</div>
                         <div class="telemetry-value">${lat}</div>
                     </div>
                     <div class="telemetry-item">
-                        <div class="telemetry-label">Longitude</div>
+                        <div class="telemetry-label">Lon</div>
                         <div class="telemetry-value">${lon}</div>
                     </div>
                     <div class="telemetry-item">
@@ -1529,30 +1879,28 @@
                         <div class="telemetry-value">${heading}</div>
                     </div>
                     <div class="telemetry-item">
-                        <div class="telemetry-label">Vert Rate</div>
-                        <div class="telemetry-value">${vRate}</div>
+                        <div class="telemetry-label">Range</div>
+                        <div class="telemetry-value">${ac.lat ? calculateDistanceNm(observerLocation.lat, observerLocation.lon, ac.lat, ac.lon).toFixed(1) + ' nm' : 'N/A'}</div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
         function cleanupOldAircraft() {
             const now = Date.now();
-            const timeout = 60000; // 60 seconds
+            const timeout = 60000;
             let needsUpdate = false;
 
             Object.keys(aircraft).forEach(icao => {
                 if (now - aircraft[icao].lastSeen > timeout) {
-                    // Remove marker
                     if (markers[icao]) {
                         radarMap.removeLayer(markers[icao]);
                         delete markers[icao];
                     }
-                    // Remove aircraft
+                    cleanupTrail(icao);
                     delete aircraft[icao];
+                    delete alertedAircraft[icao];
                     needsUpdate = true;
 
-                    // Clear selection if this was selected
                     if (selectedIcao === icao) {
                         selectedIcao = null;
                         showAircraftDetails(null);
@@ -1560,7 +1908,6 @@
                 }
             });
 
-            // Use batched update instead of direct calls
             if (needsUpdate) {
                 scheduleUIUpdate();
             }
