@@ -3832,19 +3832,18 @@
         let alertedAircraft = {};  // Track aircraft that have already triggered alerts
         let adsbAlertsEnabled = true;  // Toggle for audio alerts
 
-        // Audio alert system using Web Audio API
-        let audioContext = null;
-        function getAudioContext() {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Audio alert system using Web Audio API (uses shared audioContext declared later)
+        function getAdsbAudioContext() {
+            if (!window.adsbAudioCtx) {
+                window.adsbAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            return audioContext;
+            return window.adsbAudioCtx;
         }
 
         function playAlertSound(type) {
             if (!adsbAlertsEnabled) return;
             try {
-                const ctx = getAudioContext();
+                const ctx = getAdsbAudioContext();
                 const oscillator = ctx.createOscillator();
                 const gainNode = ctx.createGain();
 
