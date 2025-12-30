@@ -8437,7 +8437,15 @@
         }
 
         function updateRealTimePosition() {
-            const satellites = getSelectedSatellites();
+            let satellites = getSelectedSatellites();
+
+            // Ensure selected pass's satellite is included in the request
+            if (selectedPass && selectedPass.satellite) {
+                if (!satellites.includes(selectedPass.satellite)) {
+                    satellites = [selectedPass.satellite, ...satellites];
+                }
+            }
+
             if (satellites.length === 0) return;
 
             const lat = parseFloat(document.getElementById('obsLat').value);
@@ -8446,7 +8454,7 @@
             fetch('/satellite/position', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat, lon, satellites })
+                body: JSON.stringify({ lat, lon, satellites, includeTrack: true })
             })
             .then(r => r.json())
             .then(data => {

@@ -1344,7 +1344,17 @@
         async function updateRealTimePositions() {
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
-            const satColor = satellites[selectedSatellite]?.color || '#00d4ff';
+
+            // Use satellite from selected pass, or fall back to dropdown selection
+            let targetSatellite = selectedSatellite;
+            let satColor = satellites[selectedSatellite]?.color || '#00d4ff';
+
+            if (selectedPass !== null && passes[selectedPass]) {
+                const pass = passes[selectedPass];
+                // Use the satellite name from the pass (backend accepts names or NORAD IDs)
+                targetSatellite = pass.satellite;
+                satColor = pass.color || satColor;
+            }
 
             try {
                 const response = await fetch('/satellite/position', {
@@ -1353,7 +1363,7 @@
                     body: JSON.stringify({
                         latitude: lat,
                         longitude: lon,
-                        satellites: [selectedSatellite],
+                        satellites: [targetSatellite],
                         includeTrack: true
                     })
                 });
