@@ -3202,6 +3202,16 @@
                                 <input type="checkbox" id="adsbEnableClustering" onchange="toggleAircraftClustering()">
                                 Cluster Markers
                             </label>
+                            <label>
+                                <input type="checkbox" id="adsbShowRangeRings" onchange="drawRangeRings()">
+                                Show Range Rings
+                            </label>
+                        </div>
+                        <button class="preset-btn" id="adsbGeolocateBtn" onclick="getAdsbGeolocation()" style="width: 100%; margin-top: 10px;">
+                            📍 My Location
+                        </button>
+                        <div class="info-text" style="margin-top: 5px; text-align: center;">
+                            <span id="adsbObserverLoc">51.5074, -0.1278</span>
                         </div>
                         <div class="form-group" style="margin-top: 10px;">
                             <label>Aircraft Filter</label>
@@ -3217,6 +3227,28 @@
                                 <input type="checkbox" id="adsbAlertToggle" checked onchange="adsbAlertsEnabled = this.checked">
                                 🔔 Audio Alerts (Military/Emergency)
                             </label>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Reception Statistics</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
+                            <div style="background: rgba(0,212,255,0.1); padding: 8px; border-radius: 4px; text-align: center;">
+                                <div style="color: var(--text-secondary); font-size: 9px; text-transform: uppercase;">Max Range</div>
+                                <div id="adsbMaxRange" style="color: var(--accent-cyan); font-size: 14px; font-weight: bold;">0.0 nm</div>
+                            </div>
+                            <div style="background: rgba(0,212,255,0.1); padding: 8px; border-radius: 4px; text-align: center;">
+                                <div style="color: var(--text-secondary); font-size: 9px; text-transform: uppercase;">Total Seen</div>
+                                <div id="adsbTotalSeen" style="color: var(--accent-cyan); font-size: 14px; font-weight: bold;">0</div>
+                            </div>
+                            <div style="background: rgba(0,212,255,0.1); padding: 8px; border-radius: 4px; text-align: center;">
+                                <div style="color: var(--text-secondary); font-size: 9px; text-transform: uppercase;">Msg Rate</div>
+                                <div id="adsbMsgRate" style="color: var(--accent-cyan); font-size: 14px; font-weight: bold;">0.0/s</div>
+                            </div>
+                            <div style="background: rgba(0,212,255,0.1); padding: 8px; border-radius: 4px; text-align: center;">
+                                <div style="color: var(--text-secondary); font-size: 9px; text-transform: uppercase;">Busiest Hour</div>
+                                <div id="adsbBusiestHour" style="color: var(--accent-cyan); font-size: 14px; font-weight: bold;">--</div>
+                            </div>
                         </div>
                     </div>
 
@@ -3831,6 +3863,22 @@
         let activeSquawkAlerts = {};  // Active emergency squawk alerts
         let alertedAircraft = {};  // Track aircraft that have already triggered alerts
         let adsbAlertsEnabled = true;  // Toggle for audio alerts
+
+        // ADS-B Statistics tracking
+        let adsbStats = {
+            totalAircraftSeen: new Set(),  // Unique ICAO codes seen
+            maxRange: 0,                    // Max distance in nm
+            maxRangeAircraft: null,         // Aircraft that achieved max range
+            hourlyCount: {},                // Hour -> count of aircraft
+            messagesPerSecond: 0,           // Current msg/sec rate
+            messageTimestamps: [],          // Recent message timestamps for rate calc
+            sessionStart: null              // When tracking started
+        };
+
+        // Observer location for distance calculations
+        let observerLocation = { lat: 51.5074, lon: -0.1278 };  // Default London
+        let rangeRingsLayer = null;
+        let observerMarkerAdsb = null;
 
         // Audio alert system using Web Audio API (uses shared audioContext declared later)
         function getAdsbAudioContext() {
@@ -8063,6 +8111,207 @@
             }
         }
 
+        // Calculate distance between two points in nautical miles
+        function calculateDistanceNm(lat1, lon1, lat2, lon2) {
+            const R = 3440.065;  // Earth radius in nautical miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Update ADS-B statistics
+        function updateAdsbStatistics(icao, aircraft) {
+            if (!aircraft.lat || !aircraft.lon) return;
+
+            // Track unique aircraft
+            adsbStats.totalAircraftSeen.add(icao);
+
+            // Calculate distance from observer
+            const distance = calculateDistanceNm(
+                observerLocation.lat, observerLocation.lon,
+                aircraft.lat, aircraft.lon
+            );
+
+            // Update max range if this is further
+            if (distance > adsbStats.maxRange) {
+                adsbStats.maxRange = distance;
+                adsbStats.maxRangeAircraft = aircraft.callsign || icao;
+            }
+
+            // Track hourly aircraft count
+            const hour = new Date().getHours();
+            if (!adsbStats.hourlyCount[hour]) {
+                adsbStats.hourlyCount[hour] = new Set();
+            }
+            adsbStats.hourlyCount[hour].add(icao);
+
+            // Update messages per second calculation
+            const now = Date.now();
+            adsbStats.messageTimestamps.push(now);
+            // Keep only last 5 seconds of timestamps
+            adsbStats.messageTimestamps = adsbStats.messageTimestamps.filter(t => now - t < 5000);
+            adsbStats.messagesPerSecond = adsbStats.messageTimestamps.length / 5;
+
+            // Update stats display
+            updateStatsDisplay();
+        }
+
+        // Update the statistics display
+        function updateStatsDisplay() {
+            const maxRangeEl = document.getElementById('adsbMaxRange');
+            const totalSeenEl = document.getElementById('adsbTotalSeen');
+            const msgRateEl = document.getElementById('adsbMsgRate');
+            const busiestHourEl = document.getElementById('adsbBusiestHour');
+
+            if (maxRangeEl) {
+                maxRangeEl.textContent = `${adsbStats.maxRange.toFixed(1)} nm`;
+                if (adsbStats.maxRangeAircraft) {
+                    maxRangeEl.title = `Aircraft: ${adsbStats.maxRangeAircraft}`;
+                }
+            }
+            if (totalSeenEl) {
+                totalSeenEl.textContent = adsbStats.totalAircraftSeen.size;
+            }
+            if (msgRateEl) {
+                msgRateEl.textContent = `${adsbStats.messagesPerSecond.toFixed(1)}/s`;
+            }
+            if (busiestHourEl) {
+                let busiestHour = 0;
+                let maxCount = 0;
+                Object.entries(adsbStats.hourlyCount).forEach(([hour, aircraftSet]) => {
+                    if (aircraftSet.size > maxCount) {
+                        maxCount = aircraftSet.size;
+                        busiestHour = hour;
+                    }
+                });
+                busiestHourEl.textContent = maxCount > 0 ? `${busiestHour}:00 (${maxCount})` : '--';
+            }
+        }
+
+        // Draw range rings on the map
+        function drawRangeRings() {
+            if (!aircraftMap) return;
+
+            // Remove existing rings
+            if (rangeRingsLayer) {
+                aircraftMap.removeLayer(rangeRingsLayer);
+            }
+
+            const showRings = document.getElementById('adsbShowRangeRings')?.checked;
+            if (!showRings) return;
+
+            rangeRingsLayer = L.layerGroup();
+
+            // Range ring distances in nautical miles
+            const distances = [25, 50, 100, 150, 200];
+
+            distances.forEach(nm => {
+                // Convert nm to meters for Leaflet circle
+                const meters = nm * 1852;
+                const circle = L.circle([observerLocation.lat, observerLocation.lon], {
+                    radius: meters,
+                    color: '#00d4ff',
+                    fillColor: 'transparent',
+                    fillOpacity: 0,
+                    weight: 1,
+                    opacity: 0.4,
+                    dashArray: '5, 5'
+                });
+
+                // Add label
+                const labelLatLng = L.latLng(
+                    observerLocation.lat + (nm * 0.0166),  // Approx degrees per nm
+                    observerLocation.lon
+                );
+
+                const label = L.marker(labelLatLng, {
+                    icon: L.divIcon({
+                        className: 'range-ring-label',
+                        html: `<span style="color: #00d4ff; font-size: 10px; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 2px;">${nm} nm</span>`,
+                        iconSize: [40, 12],
+                        iconAnchor: [20, 6]
+                    })
+                });
+
+                rangeRingsLayer.addLayer(circle);
+                rangeRingsLayer.addLayer(label);
+            });
+
+            // Add observer marker
+            if (observerMarkerAdsb) {
+                aircraftMap.removeLayer(observerMarkerAdsb);
+            }
+            observerMarkerAdsb = L.marker([observerLocation.lat, observerLocation.lon], {
+                icon: L.divIcon({
+                    className: 'observer-marker',
+                    html: '<div style="width: 12px; height: 12px; background: #ff0; border: 2px solid #000; border-radius: 50%; box-shadow: 0 0 10px #ff0;"></div>',
+                    iconSize: [12, 12],
+                    iconAnchor: [6, 6]
+                })
+            }).bindPopup('Your Location').addTo(aircraftMap);
+
+            rangeRingsLayer.addTo(aircraftMap);
+        }
+
+        // Get user's geolocation
+        function getAdsbGeolocation() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser');
+                return;
+            }
+
+            const btn = document.getElementById('adsbGeolocateBtn');
+            if (btn) btn.textContent = '📍 Locating...';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    observerLocation.lat = position.coords.latitude;
+                    observerLocation.lon = position.coords.longitude;
+
+                    // Update display
+                    const locDisplay = document.getElementById('adsbObserverLoc');
+                    if (locDisplay) {
+                        locDisplay.textContent = `${observerLocation.lat.toFixed(4)}, ${observerLocation.lon.toFixed(4)}`;
+                    }
+
+                    // Center map on location
+                    if (aircraftMap) {
+                        aircraftMap.setView([observerLocation.lat, observerLocation.lon], 8);
+                        aircraftMap._userInteracted = true;  // Prevent auto-fit
+                    }
+
+                    // Redraw range rings
+                    drawRangeRings();
+
+                    if (btn) btn.textContent = '📍 My Location';
+                    showInfo(`Location set: ${observerLocation.lat.toFixed(4)}, ${observerLocation.lon.toFixed(4)}`);
+                },
+                (error) => {
+                    if (btn) btn.textContent = '📍 My Location';
+                    alert('Unable to get your location: ' + error.message);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        // Reset ADS-B statistics
+        function resetAdsbStats() {
+            adsbStats = {
+                totalAircraftSeen: new Set(),
+                maxRange: 0,
+                maxRangeAircraft: null,
+                hourlyCount: {},
+                messagesPerSecond: 0,
+                messageTimestamps: [],
+                sessionStart: Date.now()
+            };
+            updateStatsDisplay();
+        }
+
         function startAdsbScan() {
             const gain = document.getElementById('adsbGain').value;
             const device = getSelectedDevice();
@@ -8080,7 +8329,10 @@
                     document.getElementById('stopAdsbBtn').style.display = 'block';
                     document.getElementById('statusDot').className = 'status-dot active';
                     document.getElementById('statusText').textContent = 'ADS-B Tracking';
+                    resetAdsbStats();  // Reset statistics for new session
+                    adsbStats.sessionStart = Date.now();
                     startAdsbStream();
+                    drawRangeRings();  // Draw range rings if enabled
                 } else {
                     alert('Error: ' + data.message);
                 }
@@ -8137,6 +8389,8 @@
                     pendingAircraftData.push(data);
                     // Check for military/emergency aircraft and alert
                     checkAndAlertAircraft(data.icao, adsbAircraft[data.icao]);
+                    // Update statistics
+                    updateAdsbStatistics(data.icao, adsbAircraft[data.icao]);
                     // Use batched update instead of immediate
                     scheduleAircraftUIUpdate();
                 }
