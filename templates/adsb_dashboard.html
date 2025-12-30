@@ -755,15 +755,14 @@
             alertsEnabled = document.getElementById('alertToggle').checked;
         }
 
-        // Military aircraft detection
+        // Military aircraft detection (specific military-only sub-ranges)
         const MILITARY_RANGES = [
-            { start: 0xADF7C0, end: 0xADFFFF, country: 'US' },
-            { start: 0xAE0000, end: 0xAEFFFF, country: 'US' },
-            { start: 0x3F0000, end: 0x3FFFFF, country: 'FR' },
-            { start: 0x400000, end: 0x43FFFF, country: 'UK' },
-            { start: 0x43C000, end: 0x43CFFF, country: 'UK' },
-            { start: 0x4B0000, end: 0x4B7FFF, country: 'DE' },
-            { start: 0x501C00, end: 0x501FFF, country: 'NATO' },
+            { start: 0xADF7C0, end: 0xADFFFF, country: 'US' },   // US Military
+            { start: 0xAE0000, end: 0xAEFFFF, country: 'US' },   // US Military
+            { start: 0x3F4000, end: 0x3F7FFF, country: 'FR' },   // France Military (Armee de l'Air)
+            { start: 0x43C000, end: 0x43CFFF, country: 'UK' },   // UK Military (RAF)
+            { start: 0x3D0000, end: 0x3DFFFF, country: 'DE' },   // Germany Military (Luftwaffe)
+            { start: 0x501C00, end: 0x501FFF, country: 'NATO' }, // NATO
         ];
 
         const MILITARY_PREFIXES = [
