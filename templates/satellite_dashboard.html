@@ -1426,13 +1426,21 @@
                             iconAnchor: [10, 10]
                         });
                         satMarker = L.marker([pos.lat, pos.lon], { icon: satIcon }).addTo(groundMap);
+                        console.log('Satellite marker added at', pos.lat, pos.lon);
                     }
 
                     // Always show full orbit track from position data
+                    console.log('Drawing orbit track, pos.track exists:', !!pos.track, 'groundMap exists:', !!groundMap);
                     if (pos.track && groundMap) {
-                        if (orbitTrack) groundMap.removeLayer(orbitTrack);
-                        if (trackLine) groundMap.removeLayer(trackLine);
-                        trackLine = null;
+                        if (orbitTrack) {
+                            console.log('Removing old orbitTrack');
+                            groundMap.removeLayer(orbitTrack);
+                        }
+                        if (trackLine) {
+                            console.log('Removing old trackLine');
+                            groundMap.removeLayer(trackLine);
+                            trackLine = null;
+                        }
 
                         // Split track at antimeridian crossings to avoid lines across map
                         const segments = [];
@@ -1457,8 +1465,10 @@
                         }
 
                         // Draw each segment as separate polyline
+                        console.log('Created', segments.length, 'segments, total points:', segments.reduce((sum, s) => sum + s.length, 0));
                         orbitTrack = L.layerGroup();
-                        segments.forEach(seg => {
+                        segments.forEach((seg, i) => {
+                            console.log('Adding segment', i, 'with', seg.length, 'points');
                             L.polyline(seg, {
                                 color: satColor,
                                 weight: 2,
@@ -1467,6 +1477,7 @@
                             }).addTo(orbitTrack);
                         });
                         orbitTrack.addTo(groundMap);
+                        console.log('Orbit track added to map');
                     }
 
                     // Update polar plot - preserve pass trajectory if selected
