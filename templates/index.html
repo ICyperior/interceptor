@@ -3499,7 +3499,7 @@
                         </div>
                         <div class="checkbox-group">
                             <label>
-                                <input type="checkbox" id="adsbEnableMap" checked>
+                                <input type="checkbox" id="adsbEnableMap" checked onchange="toggleAircraftRadar()">
                                 Show Radar Display
                             </label>
                         </div>
@@ -4648,7 +4648,9 @@
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiVisuals').style.display = mode === 'wifi' ? 'grid' : 'none';
             document.getElementById('btVisuals').style.display = mode === 'bluetooth' ? 'grid' : 'none';
-            document.getElementById('aircraftVisuals').style.display = mode === 'aircraft' ? 'grid' : 'none';
+            // Respect the "Show Radar Display" checkbox for aircraft mode
+            const showRadar = document.getElementById('adsbEnableMap').checked;
+            document.getElementById('aircraftVisuals').style.display = (mode === 'aircraft' && showRadar) ? 'grid' : 'none';
             document.getElementById('satelliteVisuals').style.display = mode === 'satellite' ? 'block' : 'none';
 
             // Update output panel title based on mode
@@ -8247,6 +8249,14 @@
                 Object.values(aircraftMarkers).forEach(marker => {
                     marker.addTo(aircraftMap);
                 });
+            }
+        }
+
+        function toggleAircraftRadar() {
+            const enabled = document.getElementById('adsbEnableMap').checked;
+            const visuals = document.getElementById('aircraftVisuals');
+            if (visuals && currentMode === 'aircraft') {
+                visuals.style.display = enabled ? 'grid' : 'none';
             }
         }
 
