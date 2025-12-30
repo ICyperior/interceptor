@@ -1048,8 +1048,8 @@
             drawPolarPlot(pass);
             updateGroundTrack(pass);
             updateTelemetry(pass);
-            // Immediately fetch full orbit track
-            updateRealTimePositions();
+            // Immediately fetch full orbit track and fit bounds
+            updateRealTimePositions(true);
         }
 
         function drawPolarPlot(pass) {
@@ -1207,15 +1207,14 @@
                     segments.push(currentSegment);
                 }
 
-                // Draw each segment as separate polyline
+                // Draw each segment as separate polyline - solid line for visible pass
                 trackLine = L.layerGroup();
                 const allCoords = [];
                 segments.forEach(seg => {
                     L.polyline(seg, {
                         color: pass.color || '#00d4ff',
-                        weight: 3,
-                        opacity: 0.8,
-                        dashArray: '10, 5'
+                        weight: 4,
+                        opacity: 1.0
                     }).addTo(trackLine);
                     allCoords.push(...seg);
                 });
@@ -1359,7 +1358,7 @@
             }
         }
 
-        async function updateRealTimePositions() {
+        async function updateRealTimePositions(fitBoundsToOrbit = false) {
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
 
@@ -1422,12 +1421,9 @@
 
                     // Always show full orbit track from position data
                     if (pos.track && groundMap) {
+                        // Only remove orbit track, keep trackLine (visible pass) intact
                         if (orbitTrack) {
                             groundMap.removeLayer(orbitTrack);
-                        }
-                        if (trackLine) {
-                            groundMap.removeLayer(trackLine);
-                            trackLine = null;
                         }
 
                         // Split track at antimeridian crossings to avoid lines across map
@@ -1440,7 +1436,7 @@
                                 const prevLon = currentSegment[currentSegment.length - 1][1];
                                 // If longitude jumps more than 180°, start new segment
                                 if (Math.abs(p.lon - prevLon) > 180) {
-                                    if (currentSegment.length > 1) {
+                                    if (currentSegment.length >= 2) {
                                         segments.push(currentSegment);
                                     }
                                     currentSegment = [];
@@ -1448,7 +1444,7 @@
                             }
                             currentSegment.push([p.lat, p.lon]);
                         }
-                        if (currentSegment.length > 1) {
+                        if (currentSegment.length >= 2) {
                             segments.push(currentSegment);
                         }
 
@@ -1466,8 +1462,8 @@
                         });
                         orbitTrack.addTo(groundMap);
 
-                        // Fit map to show the full orbit track
-                        if (allOrbitCoords.length > 0) {
+                        // Fit map to show the full orbit track (only on initial load)
+                        if (fitBoundsToOrbit && allOrbitCoords.length > 0) {
                             // Add observer location to bounds
                             allOrbitCoords.push([lat, lon]);
                             groundMap.fitBounds(L.latLngBounds(allOrbitCoords), { padding: [30, 30] });
