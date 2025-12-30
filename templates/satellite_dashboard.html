@@ -901,11 +901,20 @@
             document.getElementById('trackingStatus').textContent = 'ACQUIRING ' + satName;
             document.getElementById('trackingDot').style.background = 'var(--accent-orange)';
 
-            // Recalculate passes for new satellite
-            calculatePasses();
+            // Clear current pass selection while loading new data
+            selectedPass = null;
+            passes = [];
 
-            // Update real-time position immediately
-            updateRealTimePositions();
+            // Clear map layers from previous satellite
+            if (groundMap) {
+                if (trackLine) { groundMap.removeLayer(trackLine); trackLine = null; }
+                if (satMarker) { groundMap.removeLayer(satMarker); satMarker = null; }
+                if (orbitTrack) { groundMap.removeLayer(orbitTrack); orbitTrack = null; }
+            }
+
+            // Recalculate passes for new satellite
+            // calculatePasses() will call selectPass(0) which calls updateRealTimePositions()
+            calculatePasses();
         }
 
         // Initialize dashboard
