@@ -1039,6 +1039,8 @@
             drawPolarPlot(pass);
             updateGroundTrack(pass);
             updateTelemetry(pass);
+            // Immediately fetch full orbit track
+            updateRealTimePositions();
         }
 
         function drawPolarPlot(pass) {
