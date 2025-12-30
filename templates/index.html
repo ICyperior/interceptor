@@ -2608,6 +2608,16 @@
             to { background: #cc0000; }
         }
 
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
         /* Military Aircraft */
         .military-aircraft {
             border-left: 3px solid #556b2f;
@@ -3201,6 +3211,12 @@
                                 <option value="civil">Civil Only</option>
                                 <option value="emergency">Emergency Only</option>
                             </select>
+                        </div>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="adsbAlertToggle" checked onchange="adsbAlertsEnabled = this.checked">
+                                🔔 Audio Alerts (Military/Emergency)
+                            </label>
                         </div>
                     </div>
 
@@ -3813,6 +3829,94 @@
         let adsbEventSource = null;
         let aircraftTrails = {};  // ICAO -> array of positions
         let activeSquawkAlerts = {};  // Active emergency squawk alerts
+        let alertedAircraft = {};  // Track aircraft that have already triggered alerts
+        let adsbAlertsEnabled = true;  // Toggle for audio alerts
+
+        // Audio alert system using Web Audio API
+        let audioContext = null;
+        function getAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioContext;
+        }
+
+        function playAlertSound(type) {
+            if (!adsbAlertsEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const oscillator = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(ctx.destination);
+
+                if (type === 'emergency') {
+                    // Urgent two-tone alert for emergencies
+                    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+                    oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+                    oscillator.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+                    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                    oscillator.start(ctx.currentTime);
+                    oscillator.stop(ctx.currentTime + 0.5);
+                } else if (type === 'military') {
+                    // Single tone for military
+                    oscillator.frequency.setValueAtTime(523, ctx.currentTime);
+                    gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                    oscillator.start(ctx.currentTime);
+                    oscillator.stop(ctx.currentTime + 0.3);
+                }
+            } catch (e) {
+                console.warn('Audio alert failed:', e);
+            }
+        }
+
+        function checkAndAlertAircraft(icao, aircraft) {
+            // Skip if already alerted for this aircraft
+            if (alertedAircraft[icao]) return;
+
+            const militaryInfo = isMilitaryAircraft(icao, aircraft.callsign);
+            const squawkInfo = checkSquawkCode(aircraft);
+
+            if (squawkInfo) {
+                alertedAircraft[icao] = 'emergency';
+                playAlertSound('emergency');
+                showAlertBanner(`⚠️ EMERGENCY: ${squawkInfo.name} - ${aircraft.callsign || icao}`, squawkInfo.color);
+            } else if (militaryInfo.military) {
+                alertedAircraft[icao] = 'military';
+                playAlertSound('military');
+                showAlertBanner(`🎖️ MILITARY: ${aircraft.callsign || icao}${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}`, '#556b2f');
+            }
+        }
+
+        function showAlertBanner(message, color) {
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${color};
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 14px;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                animation: slideDown 0.3s ease-out;
+            `;
+            banner.textContent = message;
+            document.body.appendChild(banner);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                banner.style.animation = 'fadeOut 0.3s ease-out forwards';
+                setTimeout(() => banner.remove(), 300);
+            }, 5000);
+        }
 
         // Emergency squawk codes
         const SQUAWK_CODES = {
@@ -8033,6 +8137,8 @@
                     };
                     adsbMsgCount++;
                     pendingAircraftData.push(data);
+                    // Check for military/emergency aircraft and alert
+                    checkAndAlertAircraft(data.icao, adsbAircraft[data.icao]);
                     // Use batched update instead of immediate
                     scheduleAircraftUIUpdate();
                 }
