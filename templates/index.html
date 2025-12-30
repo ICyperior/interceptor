@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap');
 
         * {
             box-sizing: border-box;
@@ -116,6 +116,125 @@
             font-size: 14px;
             letter-spacing: 3px;
             text-transform: uppercase;
+        }
+
+        /* New header stat badges */
+        .header-stats {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .stat-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 0, 0, 0.3));
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.2s ease;
+        }
+
+        .stat-badge:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-cyan-dim);
+        }
+
+        .stat-badge .badge-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 10px var(--accent-cyan-dim);
+        }
+
+        .stat-badge .badge-value.highlight {
+            color: var(--accent-green);
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+        }
+
+        .stat-badge .badge-value.warning {
+            color: var(--accent-orange);
+            text-shadow: 0 0 10px rgba(255, 136, 0, 0.4);
+        }
+
+        .stat-badge .badge-value.alert {
+            color: var(--accent-red);
+            text-shadow: 0 0 10px rgba(255, 51, 102, 0.4);
+        }
+
+        .stat-badge .badge-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-badge .badge-icon {
+            font-size: 16px;
+        }
+
+        .header-stats-group {
+            display: none;
+        }
+
+        .header-stats-group.active {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* UTC Clock in header */
+        .header-clock {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-clock .utc-time {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .header-clock .utc-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Active mode indicator */
+        .active-mode-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-left: 10px;
+        }
+
+        .active-mode-indicator .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 50%;
+            animation: pulse-glow 2s infinite;
         }
 
         .help-btn {
@@ -384,10 +503,11 @@
         }
 
         .sidebar {
-            background: var(--bg-card);
+            background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%);
             border: 1px solid var(--border-color);
             padding: 20px;
             position: relative;
+            border-radius: 8px;
         }
 
         .sidebar::before {
@@ -398,10 +518,16 @@
             right: 0;
             height: 2px;
             background: linear-gradient(90deg, var(--accent-cyan), transparent);
+            border-radius: 8px 8px 0 0;
         }
 
         .section {
             margin-bottom: 20px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.03), rgba(0, 0, 0, 0.2));
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            position: relative;
         }
 
         .section h3 {
@@ -415,19 +541,32 @@
             letter-spacing: 2px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             cursor: pointer;
             user-select: none;
+            font-family: 'Orbitron', 'Rajdhani', sans-serif;
         }
 
         .section h3::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-cyan);
+            flex-shrink: 0;
+        }
+
+        .section h3::after {
             content: '▼';
             font-size: 8px;
             color: var(--text-dim);
             transition: transform 0.2s ease;
+            margin-left: auto;
+            font-family: sans-serif;
         }
 
-        .section.collapsed h3::before {
+        .section.collapsed h3::after {
             transform: rotate(-90deg);
         }
 
@@ -440,7 +579,8 @@
         }
 
         .section h3:hover::before {
-            color: var(--accent-cyan);
+            background: var(--accent-green);
+            box-shadow: 0 0 12px var(--accent-green);
         }
 
         .form-group {
@@ -594,11 +734,13 @@
         }
 
         .output-panel {
-            background: var(--bg-card);
+            background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%);
             border: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             position: relative;
+            border-radius: 8px;
+            overflow: hidden;
         }
 
         .output-panel::before {
@@ -609,11 +751,12 @@
             right: 0;
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            border-radius: 8px 8px 0 0;
         }
 
         .output-header {
-            padding: 18px 25px;
-            background: var(--bg-secondary);
+            padding: 15px 20px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.05), rgba(0, 0, 0, 0.3));
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -626,6 +769,19 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 3px;
+            font-family: 'Orbitron', 'Rajdhani', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .output-header h3::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-cyan);
         }
 
         .stats {
@@ -752,13 +908,15 @@
         }
 
         .status-bar {
-            padding: 15px 25px;
-            background: var(--bg-secondary);
+            padding: 12px 20px;
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
             border-top: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 11px;
+            gap: 15px;
+            flex-wrap: wrap;
         }
 
         .status-indicator {
@@ -767,6 +925,35 @@
             gap: 10px;
             text-transform: uppercase;
             letter-spacing: 2px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .control-group-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-right: 4px;
         }
 
         .status-dot {
@@ -2725,6 +2912,11 @@
         </div>
     </div>
     <header>
+        <!-- UTC Clock -->
+        <div class="header-clock">
+            <span class="utc-label">UTC</span>
+            <span class="utc-time" id="headerUtcTime">--:--:--</span>
+        </div>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
             <span class="icon-moon">🌙</span>
             <span class="icon-sun">☀️</span>
@@ -2747,7 +2939,146 @@
             </svg>
         </div>
         <h1>INTERCEPT</h1>
-        <p>Signal Intelligence // by smittix</p>
+        <p>Signal Intelligence // by smittix <span class="active-mode-indicator" id="activeModeIndicator"><span class="pulse-dot"></span>PAGER</span></p>
+
+        <!-- Header Stats (mode-specific) -->
+        <div class="header-stats">
+            <!-- Pager Stats -->
+            <div class="header-stats-group active" id="headerPagerStats">
+                <div class="stat-badge">
+                    <span class="badge-icon">📨</span>
+                    <div>
+                        <span class="badge-value" id="headerMsgCount">0</span>
+                        <span class="badge-label">messages</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">📟</span>
+                    <div>
+                        <span class="badge-value" id="headerPocsagCount">0</span>
+                        <span class="badge-label">POCSAG</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">📠</span>
+                    <div>
+                        <span class="badge-value" id="headerFlexCount">0</span>
+                        <span class="badge-label">FLEX</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 433MHz Sensor Stats -->
+            <div class="header-stats-group" id="headerSensorStats">
+                <div class="stat-badge">
+                    <span class="badge-icon">🌡️</span>
+                    <div>
+                        <span class="badge-value" id="headerSensorCount">0</span>
+                        <span class="badge-label">sensors</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">📊</span>
+                    <div>
+                        <span class="badge-value" id="headerDeviceTypeCount">0</span>
+                        <span class="badge-label">types</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WiFi Stats -->
+            <div class="header-stats-group" id="headerWifiStats">
+                <div class="stat-badge">
+                    <span class="badge-icon">📡</span>
+                    <div>
+                        <span class="badge-value" id="headerApCount">0</span>
+                        <span class="badge-label">networks</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">👤</span>
+                    <div>
+                        <span class="badge-value" id="headerClientCount">0</span>
+                        <span class="badge-label">clients</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">🤝</span>
+                    <div>
+                        <span class="badge-value highlight" id="headerHandshakeCount">0</span>
+                        <span class="badge-label">handshakes</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">🚁</span>
+                    <div>
+                        <span class="badge-value warning" id="headerDroneCount">0</span>
+                        <span class="badge-label">drones</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bluetooth Stats -->
+            <div class="header-stats-group" id="headerBtStats">
+                <div class="stat-badge">
+                    <span class="badge-icon">🔵</span>
+                    <div>
+                        <span class="badge-value" id="headerBtDeviceCount">0</span>
+                        <span class="badge-label">devices</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">📍</span>
+                    <div>
+                        <span class="badge-value" id="headerBtBeaconCount">0</span>
+                        <span class="badge-label">beacons</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aircraft Stats -->
+            <div class="header-stats-group" id="headerAircraftStats">
+                <div class="stat-badge">
+                    <span class="badge-icon">✈️</span>
+                    <div>
+                        <span class="badge-value" id="headerAircraftCount">0</span>
+                        <span class="badge-label">aircraft</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">📨</span>
+                    <div>
+                        <span class="badge-value" id="headerAdsbMsgCount">0</span>
+                        <span class="badge-label">messages</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">🔢</span>
+                    <div>
+                        <span class="badge-value" id="headerIcaoCount">0</span>
+                        <span class="badge-label">ICAO</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Satellite Stats -->
+            <div class="header-stats-group" id="headerSatelliteStats">
+                <div class="stat-badge">
+                    <span class="badge-icon">🛰️</span>
+                    <div>
+                        <span class="badge-value" id="headerPassCount">0</span>
+                        <span class="badge-label">passes</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">📡</span>
+                    <div>
+                        <span class="badge-value" id="headerBurstCount">0</span>
+                        <span class="badge-label">bursts</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </header>
 
     <div class="container">
@@ -3810,12 +4141,18 @@
                         <span id="statusText">Idle</span>
                     </div>
                     <div class="status-controls">
-                        <button id="reconBtn" class="recon-toggle" onclick="toggleRecon()">RECON</button>
-                        <button id="muteBtn" class="control-btn" onclick="toggleMute()">🔊 MUTE</button>
-                        <button id="autoScrollBtn" class="control-btn" onclick="toggleAutoScroll()">⬇ AUTO-SCROLL ON</button>
-                        <button class="control-btn" onclick="exportCSV()">📄 CSV</button>
-                        <button class="control-btn" onclick="exportJSON()">📋 JSON</button>
-                        <button class="control-btn" onclick="exportDeviceDB()" title="Export Device Intelligence">🔍 INTEL</button>
+                        <div class="control-group">
+                            <span class="control-group-label">Mode</span>
+                            <button id="reconBtn" class="recon-toggle" onclick="toggleRecon()">RECON</button>
+                            <button id="muteBtn" class="control-btn" onclick="toggleMute()">🔊</button>
+                            <button id="autoScrollBtn" class="control-btn active" onclick="toggleAutoScroll()">⬇ AUTO</button>
+                        </div>
+                        <div class="control-group">
+                            <span class="control-group-label">Export</span>
+                            <button class="control-btn" onclick="exportCSV()">CSV</button>
+                            <button class="control-btn" onclick="exportJSON()">JSON</button>
+                            <button class="control-btn" onclick="exportDeviceDB()" title="Export Device Intelligence">INTEL</button>
+                        </div>
                         <button class="clear-btn" onclick="clearMessages()">Clear</button>
                     </div>
                 </div>
@@ -3867,6 +4204,49 @@
         let activeSquawkAlerts = {};  // Active emergency squawk alerts
         let alertedAircraft = {};  // Track aircraft that have already triggered alerts
         let adsbAlertsEnabled = true;  // Toggle for audio alerts
+
+        // UTC Clock Update
+        function updateHeaderClock() {
+            const now = new Date();
+            const utc = now.toISOString().substring(11, 19);
+            document.getElementById('headerUtcTime').textContent = utc;
+        }
+        // Update clock every second
+        setInterval(updateHeaderClock, 1000);
+        updateHeaderClock();  // Initial call
+
+        // Sync header stats with output panel stats
+        function syncHeaderStats() {
+            // Pager stats
+            document.getElementById('headerMsgCount').textContent = msgCount;
+            document.getElementById('headerPocsagCount').textContent = pocsagCount;
+            document.getElementById('headerFlexCount').textContent = flexCount;
+
+            // Sensor stats
+            document.getElementById('headerSensorCount').textContent = document.getElementById('sensorCount')?.textContent || '0';
+            document.getElementById('headerDeviceTypeCount').textContent = document.getElementById('deviceCount')?.textContent || '0';
+
+            // WiFi stats
+            document.getElementById('headerApCount').textContent = document.getElementById('apCount')?.textContent || '0';
+            document.getElementById('headerClientCount').textContent = document.getElementById('clientCount')?.textContent || '0';
+            document.getElementById('headerHandshakeCount').textContent = document.getElementById('handshakeCount')?.textContent || '0';
+            document.getElementById('headerDroneCount').textContent = document.getElementById('droneCount')?.textContent || '0';
+
+            // Bluetooth stats
+            document.getElementById('headerBtDeviceCount').textContent = document.getElementById('btDeviceCount')?.textContent || '0';
+            document.getElementById('headerBtBeaconCount').textContent = document.getElementById('btBeaconCount')?.textContent || '0';
+
+            // Aircraft stats
+            document.getElementById('headerAircraftCount').textContent = document.getElementById('aircraftCount')?.textContent || '0';
+            document.getElementById('headerAdsbMsgCount').textContent = document.getElementById('adsbMsgCount')?.textContent || '0';
+            document.getElementById('headerIcaoCount').textContent = document.getElementById('icaoCount')?.textContent || '0';
+
+            // Satellite stats
+            document.getElementById('headerPassCount').textContent = document.getElementById('passCount')?.textContent || '0';
+            document.getElementById('headerBurstCount').textContent = document.getElementById('burstCount')?.textContent || '0';
+        }
+        // Sync stats periodically
+        setInterval(syncHeaderStats, 500);
 
         // ADS-B Statistics tracking
         let adsbStats = {
@@ -4247,6 +4627,25 @@
             document.getElementById('satelliteStats').style.display = mode === 'satellite' ? 'flex' : 'none';
             document.getElementById('wifiStats').style.display = mode === 'wifi' ? 'flex' : 'none';
             document.getElementById('btStats').style.display = mode === 'bluetooth' ? 'flex' : 'none';
+
+            // Update header stats groups
+            document.getElementById('headerPagerStats').classList.toggle('active', mode === 'pager');
+            document.getElementById('headerSensorStats').classList.toggle('active', mode === 'sensor');
+            document.getElementById('headerAircraftStats').classList.toggle('active', mode === 'aircraft');
+            document.getElementById('headerSatelliteStats').classList.toggle('active', mode === 'satellite');
+            document.getElementById('headerWifiStats').classList.toggle('active', mode === 'wifi');
+            document.getElementById('headerBtStats').classList.toggle('active', mode === 'bluetooth');
+
+            // Update active mode indicator
+            const modeNames = {
+                'pager': 'PAGER',
+                'sensor': '433MHZ',
+                'aircraft': 'AIRCRAFT',
+                'satellite': 'SATELLITE',
+                'wifi': 'WIFI',
+                'bluetooth': 'BLUETOOTH'
+            };
+            document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiVisuals').style.display = mode === 'wifi' ? 'grid' : 'none';
             document.getElementById('btVisuals').style.display = mode === 'bluetooth' ? 'grid' : 'none';
             document.getElementById('aircraftVisuals').style.display = mode === 'aircraft' ? 'grid' : 'none';
