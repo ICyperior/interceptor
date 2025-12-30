@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import re
 import pty
 import queue
 import select
 import subprocess
 import threading
+import time
 from datetime import datetime
 from typing import Any, Generator
 
@@ -16,6 +18,9 @@ from flask import Blueprint, jsonify, request, Response
 
 import app as app_module
 from utils.logging import pager_logger as logger
+from utils.validation import validate_frequency, validate_device_index, validate_gain, validate_ppm
+from utils.sse import format_sse
+from utils.process import safe_terminate, register_process
 
 pager_bp = Blueprint('pager', __name__)
 
@@ -147,15 +152,35 @@ def stream_decoder(master_fd: int, process: subprocess.Popen[bytes]) -> None:
 def start_decoding() -> Response:
     with app_module.process_lock:
         if app_module.current_process:
-            return jsonify({'status': 'error', 'message': 'Already running'})
+            return jsonify({'status': 'error', 'message': 'Already running'}), 409
 
-        data = request.json
-        freq = data.get('frequency', '929.6125')
-        gain = data.get('gain', '0')
+        data = request.json or {}
+
+        # Validate inputs
+        try:
+            freq = validate_frequency(data.get('frequency', '929.6125'))
+            gain = validate_gain(data.get('gain', '0'))
+            ppm = validate_ppm(data.get('ppm', '0'))
+            device = validate_device_index(data.get('device', '0'))
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+
         squelch = data.get('squelch', '0')
-        ppm = data.get('ppm', '0')
-        device = data.get('device', '0')
-        protocols = data.get('protocols', ['POCSAG512', 'POCSAG1200', 'POCSAG2400', 'FLEX'])
+        try:
+            squelch = int(squelch)
+            if not 0 <= squelch <= 1000:
+                raise ValueError("Squelch must be between 0 and 1000")
+        except (ValueError, TypeError):
+            return jsonify({'status': 'error', 'message': 'Invalid squelch value'}), 400
+
+        # Validate protocols
+        valid_protocols = ['POCSAG512', 'POCSAG1200', 'POCSAG2400', 'FLEX']
+        protocols = data.get('protocols', valid_protocols)
+        if not isinstance(protocols, list):
+            return jsonify({'status': 'error', 'message': 'Protocols must be a list'}), 400
+        protocols = [p for p in protocols if p in valid_protocols]
+        if not protocols:
+            protocols = valid_protocols
 
         # Clear queue
         while not app_module.output_queue.empty():
@@ -301,11 +326,34 @@ def get_status() -> Response:
 @pager_bp.route('/logging', methods=['POST'])
 def toggle_logging() -> Response:
     """Toggle message logging."""
-    data = request.json
+    data = request.json or {}
     if 'enabled' in data:
-        app_module.logging_enabled = data['enabled']
+        app_module.logging_enabled = bool(data['enabled'])
+
     if 'log_file' in data and data['log_file']:
-        app_module.log_file_path = data['log_file']
+        # Validate path to prevent directory traversal
+        try:
+            requested_path = pathlib.Path(data['log_file']).resolve()
+            # Only allow files in the current directory or logs subdirectory
+            cwd = pathlib.Path('.').resolve()
+            logs_dir = (cwd / 'logs').resolve()
+
+            # Check if path is within allowed directories
+            is_in_cwd = str(requested_path).startswith(str(cwd))
+            is_in_logs = str(requested_path).startswith(str(logs_dir))
+
+            if not (is_in_cwd or is_in_logs):
+                return jsonify({'status': 'error', 'message': 'Invalid log file path'}), 400
+
+            # Ensure it's not a directory
+            if requested_path.is_dir():
+                return jsonify({'status': 'error', 'message': 'Log file path must be a file, not a directory'}), 400
+
+            app_module.log_file_path = str(requested_path)
+        except (ValueError, OSError) as e:
+            logger.warning(f"Invalid log file path: {e}")
+            return jsonify({'status': 'error', 'message': 'Invalid log file path'}), 400
+
     return jsonify({'logging': app_module.logging_enabled, 'log_file': app_module.log_file_path})
 
 
@@ -314,12 +362,19 @@ def stream() -> Response:
     import json
 
     def generate() -> Generator[str, None, None]:
+        last_keepalive = time.time()
+        keepalive_interval = 30.0  # Send keepalive every 30 seconds instead of 1 second
+
         while True:
             try:
                 msg = app_module.output_queue.get(timeout=1)
-                yield f"data: {json.dumps(msg)}\n\n"
+                last_keepalive = time.time()
+                yield format_sse(msg)
             except queue.Empty:
-                yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
+                now = time.time()
+                if now - last_keepalive >= keepalive_interval:
+                    yield format_sse({'type': 'keepalive'})
+                    last_keepalive = now
 
     response = Response(generate(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'

@@ -23,7 +23,7 @@ import subprocess
 
 from typing import Any
 
-from flask import Flask, render_template, jsonify, send_file, Response
+from flask import Flask, render_template, jsonify, send_file, Response, request
 
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
 from utils.process import detect_devices, cleanup_stale_processes
@@ -138,6 +138,110 @@ def get_dependencies() -> Response:
         'install_method': install_method,
         'modes': results
     })
+
+
+@app.route('/export/aircraft', methods=['GET'])
+def export_aircraft() -> Response:
+    """Export aircraft data as JSON or CSV."""
+    import csv
+    import io
+
+    format_type = request.args.get('format', 'json').lower()
+
+    if format_type == 'csv':
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['icao', 'callsign', 'altitude', 'speed', 'heading', 'lat', 'lon', 'squawk', 'last_seen'])
+
+        for icao, ac in adsb_aircraft.items():
+            writer.writerow([
+                icao,
+                ac.get('callsign', ''),
+                ac.get('altitude', ''),
+                ac.get('speed', ''),
+                ac.get('heading', ''),
+                ac.get('lat', ''),
+                ac.get('lon', ''),
+                ac.get('squawk', ''),
+                ac.get('lastSeen', '')
+            ])
+
+        response = Response(output.getvalue(), mimetype='text/csv')
+        response.headers['Content-Disposition'] = 'attachment; filename=aircraft.csv'
+        return response
+    else:
+        return jsonify({
+            'timestamp': __import__('datetime').datetime.utcnow().isoformat(),
+            'aircraft': list(adsb_aircraft.values())
+        })
+
+
+@app.route('/export/wifi', methods=['GET'])
+def export_wifi() -> Response:
+    """Export WiFi networks as JSON or CSV."""
+    import csv
+    import io
+
+    format_type = request.args.get('format', 'json').lower()
+
+    if format_type == 'csv':
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['bssid', 'ssid', 'channel', 'signal', 'encryption', 'clients'])
+
+        for bssid, net in wifi_networks.items():
+            writer.writerow([
+                bssid,
+                net.get('ssid', ''),
+                net.get('channel', ''),
+                net.get('signal', ''),
+                net.get('encryption', ''),
+                net.get('clients', 0)
+            ])
+
+        response = Response(output.getvalue(), mimetype='text/csv')
+        response.headers['Content-Disposition'] = 'attachment; filename=wifi_networks.csv'
+        return response
+    else:
+        return jsonify({
+            'timestamp': __import__('datetime').datetime.utcnow().isoformat(),
+            'networks': list(wifi_networks.values()),
+            'clients': list(wifi_clients.values())
+        })
+
+
+@app.route('/export/bluetooth', methods=['GET'])
+def export_bluetooth() -> Response:
+    """Export Bluetooth devices as JSON or CSV."""
+    import csv
+    import io
+
+    format_type = request.args.get('format', 'json').lower()
+
+    if format_type == 'csv':
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['mac', 'name', 'rssi', 'type', 'manufacturer', 'last_seen'])
+
+        for mac, dev in bt_devices.items():
+            writer.writerow([
+                mac,
+                dev.get('name', ''),
+                dev.get('rssi', ''),
+                dev.get('type', ''),
+                dev.get('manufacturer', ''),
+                dev.get('lastSeen', '')
+            ])
+
+        response = Response(output.getvalue(), mimetype='text/csv')
+        response.headers['Content-Disposition'] = 'attachment; filename=bluetooth_devices.csv'
+        return response
+    else:
+        return jsonify({
+            'timestamp': __import__('datetime').datetime.utcnow().isoformat(),
+            'devices': list(bt_devices.values()),
+            'beacons': list(bt_beacons.values())
+        })
 
 
 @app.route('/killall', methods=['POST'])

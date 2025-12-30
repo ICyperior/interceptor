@@ -16,6 +16,8 @@ from flask import Blueprint, jsonify, request, Response, render_template
 
 import app as app_module
 from utils.logging import adsb_logger as logger
+from utils.validation import validate_device_index, validate_gain
+from utils.sse import format_sse
 
 adsb_bp = Blueprint('adsb', __name__, url_prefix='/adsb')
 
@@ -218,11 +220,16 @@ def start_adsb():
 
     with app_module.adsb_lock:
         if adsb_using_service:
-            return jsonify({'status': 'already_running', 'message': 'ADS-B tracking already active'})
+            return jsonify({'status': 'already_running', 'message': 'ADS-B tracking already active'}), 409
 
     data = request.json or {}
-    gain = data.get('gain', '40')
-    device = data.get('device', '0')
+
+    # Validate inputs
+    try:
+        gain = int(validate_gain(data.get('gain', '40')))
+        device = validate_device_index(data.get('device', '0'))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
     # Check if dump1090 is already running externally (e.g., user started it manually)
     existing_service = check_dump1090_service()
@@ -294,12 +301,19 @@ def stop_adsb():
 def stream_adsb():
     """SSE stream for ADS-B aircraft."""
     def generate():
+        last_keepalive = time.time()
+        keepalive_interval = 30.0
+
         while True:
             try:
                 msg = app_module.adsb_queue.get(timeout=1)
-                yield f"data: {json.dumps(msg)}\n\n"
+                last_keepalive = time.time()
+                yield format_sse(msg)
             except queue.Empty:
-                yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
+                now = time.time()
+                if now - last_keepalive >= keepalive_interval:
+                    yield format_sse({'type': 'keepalive'})
+                    last_keepalive = now
 
     response = Response(generate(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'

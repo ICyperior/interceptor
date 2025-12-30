@@ -19,6 +19,8 @@ import app as app_module
 from utils.dependencies import check_tool
 from utils.logging import wifi_logger as logger
 from utils.process import is_valid_mac, is_valid_channel
+from utils.validation import validate_wifi_channel, validate_mac_address
+from utils.sse import format_sse
 from data.oui import get_manufacturer
 
 wifi_bp = Blueprint('wifi', __name__, url_prefix='/wifi')
@@ -758,12 +760,19 @@ def get_wifi_networks():
 def stream_wifi():
     """SSE stream for WiFi events."""
     def generate():
+        last_keepalive = time.time()
+        keepalive_interval = 30.0
+
         while True:
             try:
                 msg = app_module.wifi_queue.get(timeout=1)
-                yield f"data: {json.dumps(msg)}\n\n"
+                last_keepalive = time.time()
+                yield format_sse(msg)
             except queue.Empty:
-                yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
+                now = time.time()
+                if now - last_keepalive >= keepalive_interval:
+                    yield format_sse({'type': 'keepalive'})
+                    last_keepalive = now
 
     response = Response(generate(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'

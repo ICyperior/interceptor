@@ -6,13 +6,21 @@ import json
 import urllib.request
 from datetime import datetime, timedelta
 from typing import Any
+from urllib.parse import urlparse
 
 from flask import Blueprint, jsonify, request, render_template, Response
 
 from data.satellites import TLE_SATELLITES
 from utils.logging import satellite_logger as logger
+from utils.validation import validate_latitude, validate_longitude, validate_hours, validate_elevation
 
 satellite_bp = Blueprint('satellite', __name__, url_prefix='/satellite')
+
+# Maximum response size for external requests (1MB)
+MAX_RESPONSE_SIZE = 1024 * 1024
+
+# Allowed hosts for TLE fetching
+ALLOWED_TLE_HOSTS = ['celestrak.org', 'celestrak.com', 'www.celestrak.org', 'www.celestrak.com']
 
 # Local TLE cache (can be updated via API)
 _tle_cache = dict(TLE_SATELLITES)
@@ -34,13 +42,18 @@ def predict_passes():
         return jsonify({
             'status': 'error',
             'message': 'skyfield library not installed. Run: pip install skyfield'
-        })
+        }), 503
 
-    data = request.json
-    lat = data.get('latitude', data.get('lat', 51.5074))
-    lon = data.get('longitude', data.get('lon', -0.1278))
-    hours = data.get('hours', 24)
-    min_el = data.get('minEl', 10)
+    data = request.json or {}
+
+    # Validate inputs
+    try:
+        lat = validate_latitude(data.get('latitude', data.get('lat', 51.5074)))
+        lon = validate_longitude(data.get('longitude', data.get('lon', -0.1278)))
+        hours = validate_hours(data.get('hours', 24))
+        min_el = validate_elevation(data.get('minEl', 10))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
     norad_to_name = {
         25544: 'ISS',
@@ -187,13 +200,19 @@ def get_satellite_position():
     try:
         from skyfield.api import load, wgs84, EarthSatellite
     except ImportError:
-        return jsonify({'status': 'error', 'message': 'skyfield not installed'})
+        return jsonify({'status': 'error', 'message': 'skyfield not installed'}), 503
 
-    data = request.json
-    lat = data.get('latitude', data.get('lat', 51.5074))
-    lon = data.get('longitude', data.get('lon', -0.1278))
+    data = request.json or {}
+
+    # Validate inputs
+    try:
+        lat = validate_latitude(data.get('latitude', data.get('lat', 51.5074)))
+        lon = validate_longitude(data.get('longitude', data.get('lon', -0.1278)))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
     sat_input = data.get('satellites', [])
-    include_track = data.get('includeTrack', True)
+    include_track = bool(data.get('includeTrack', True))
 
     norad_to_name = {
         25544: 'ISS',

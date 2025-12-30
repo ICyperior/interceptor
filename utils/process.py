@@ -1,10 +1,102 @@
 from __future__ import annotations
 
+import atexit
+import logging
+import signal
 import subprocess
 import re
-from typing import Any
+import threading
+import time
+from typing import Any, Callable
 
 from .dependencies import check_tool
+
+logger = logging.getLogger('intercept.process')
+
+# Track all spawned processes for cleanup
+_spawned_processes: list[subprocess.Popen] = []
+_process_lock = threading.Lock()
+
+
+def register_process(process: subprocess.Popen) -> None:
+    """Register a spawned process for cleanup on exit."""
+    with _process_lock:
+        _spawned_processes.append(process)
+
+
+def unregister_process(process: subprocess.Popen) -> None:
+    """Unregister a process from cleanup list."""
+    with _process_lock:
+        if process in _spawned_processes:
+            _spawned_processes.remove(process)
+
+
+def cleanup_all_processes() -> None:
+    """Clean up all registered processes on exit."""
+    logger.info("Cleaning up all spawned processes...")
+    with _process_lock:
+        for process in _spawned_processes:
+            if process and process.poll() is None:
+                try:
+                    process.terminate()
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                except Exception as e:
+                    logger.warning(f"Error cleaning up process: {e}")
+        _spawned_processes.clear()
+
+
+def safe_terminate(process: subprocess.Popen | None, timeout: float = 2.0) -> bool:
+    """
+    Safely terminate a process.
+
+    Args:
+        process: Process to terminate
+        timeout: Seconds to wait before killing
+
+    Returns:
+        True if process was terminated, False if already dead or None
+    """
+    if not process:
+        return False
+
+    if process.poll() is not None:
+        # Already dead
+        unregister_process(process)
+        return False
+
+    try:
+        process.terminate()
+        process.wait(timeout=timeout)
+        unregister_process(process)
+        return True
+    except subprocess.TimeoutExpired:
+        process.kill()
+        unregister_process(process)
+        return True
+    except Exception as e:
+        logger.warning(f"Error terminating process: {e}")
+        return False
+
+
+# Register cleanup handlers
+atexit.register(cleanup_all_processes)
+
+# Handle signals for graceful shutdown
+def _signal_handler(signum, frame):
+    """Handle termination signals."""
+    logger.info(f"Received signal {signum}, cleaning up...")
+    cleanup_all_processes()
+
+
+# Only register signal handlers if we're not in a thread
+try:
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
+except ValueError:
+    # Can't set signal handlers from a thread
+    pass
 
 
 def cleanup_stale_processes() -> None:

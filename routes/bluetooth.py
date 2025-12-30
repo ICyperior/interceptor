@@ -19,6 +19,8 @@ from flask import Blueprint, jsonify, request, Response
 
 import app as app_module
 from utils.dependencies import check_tool
+from utils.logging import bluetooth_logger as logger
+from utils.sse import format_sse
 from data.oui import OUI_DATABASE, load_oui_database, get_manufacturer
 from data.patterns import AIRTAG_PREFIXES, TILE_PREFIXES, SAMSUNG_TRACKER
 
@@ -469,12 +471,19 @@ def get_bt_devices():
 def stream_bt():
     """SSE stream for Bluetooth events."""
     def generate():
+        last_keepalive = time.time()
+        keepalive_interval = 30.0
+
         while True:
             try:
                 msg = app_module.bt_queue.get(timeout=1)
-                yield f"data: {json.dumps(msg)}\n\n"
+                last_keepalive = time.time()
+                yield format_sse(msg)
             except queue.Empty:
-                yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
+                now = time.time()
+                if now - last_keepalive >= keepalive_interval:
+                    yield format_sse({'type': 'keepalive'})
+                    last_keepalive = now
 
     response = Response(generate(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'

@@ -6,6 +6,7 @@ import json
 import queue
 import subprocess
 import threading
+import time
 from datetime import datetime
 from typing import Generator
 
@@ -13,6 +14,9 @@ from flask import Blueprint, jsonify, request, Response
 
 import app as app_module
 from utils.logging import sensor_logger as logger
+from utils.validation import validate_frequency, validate_device_index, validate_gain, validate_ppm
+from utils.sse import format_sse
+from utils.process import safe_terminate, register_process
 
 sensor_bp = Blueprint('sensor', __name__)
 
@@ -58,13 +62,18 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
 def start_sensor() -> Response:
     with app_module.sensor_lock:
         if app_module.sensor_process:
-            return jsonify({'status': 'error', 'message': 'Sensor already running'})
+            return jsonify({'status': 'error', 'message': 'Sensor already running'}), 409
 
-        data = request.json
-        freq = data.get('frequency', '433.92')
-        gain = data.get('gain', '0')
-        ppm = data.get('ppm', '0')
-        device = data.get('device', '0')
+        data = request.json or {}
+
+        # Validate inputs
+        try:
+            freq = validate_frequency(data.get('frequency', '433.92'))
+            gain = validate_gain(data.get('gain', '0'))
+            ppm = validate_ppm(data.get('ppm', '0'))
+            device = validate_device_index(data.get('device', '0'))
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
 
         # Clear queue
         while not app_module.sensor_queue.empty():
@@ -81,10 +90,10 @@ def start_sensor() -> Response:
             '-F', 'json'
         ]
 
-        if gain and gain != '0':
-            cmd.extend(['-g', str(gain)])
+        if gain and gain != 0:
+            cmd.extend(['-g', str(int(gain))])
 
-        if ppm and ppm != '0':
+        if ppm and ppm != 0:
             cmd.extend(['-p', str(ppm)])
 
         full_cmd = ' '.join(cmd)
@@ -143,12 +152,19 @@ def stop_sensor() -> Response:
 @sensor_bp.route('/stream_sensor')
 def stream_sensor() -> Response:
     def generate() -> Generator[str, None, None]:
+        last_keepalive = time.time()
+        keepalive_interval = 30.0
+
         while True:
             try:
                 msg = app_module.sensor_queue.get(timeout=1)
-                yield f"data: {json.dumps(msg)}\n\n"
+                last_keepalive = time.time()
+                yield format_sse(msg)
             except queue.Empty:
-                yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
+                now = time.time()
+                if now - last_keepalive >= keepalive_interval:
+                    yield format_sse({'type': 'keepalive'})
+                    last_keepalive = now
 
     response = Response(generate(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
