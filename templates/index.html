@@ -8548,9 +8548,13 @@
                         }
                     }
 
-                    // Update polar plot with real-time position
-                    if (pos.elevation > 0) {
-                        drawRealTimePositionOnPolar(pos);
+                    // Update polar plot with pass trajectory and real-time position
+                    if (selectedPass) {
+                        drawPolarPlot(selectedPass);
+                        // Draw current position on top if satellite is visible
+                        if (pos.elevation > 0) {
+                            drawRealTimePositionOnPolar(pos);
+                        }
                     }
                 }
             });
