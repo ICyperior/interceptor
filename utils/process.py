@@ -86,8 +86,13 @@ atexit.register(cleanup_all_processes)
 # Handle signals for graceful shutdown
 def _signal_handler(signum, frame):
     """Handle termination signals."""
+    import sys
     logger.info(f"Received signal {signum}, cleaning up...")
     cleanup_all_processes()
+    # Re-raise KeyboardInterrupt for SIGINT so Flask can handle shutdown
+    if signum == signal.SIGINT:
+        raise KeyboardInterrupt()
+    sys.exit(0)
 
 
 # Only register signal handlers if we're not in a thread
