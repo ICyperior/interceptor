@@ -8363,8 +8363,22 @@
             if (!pass || !pass.groundTrack) return;
 
             // Remove old track and marker
-            if (groundTrackLine) groundTrackMap.removeLayer(groundTrackLine);
-            if (satMarker) groundTrackMap.removeLayer(satMarker);
+            if (groundTrackLine) {
+                groundTrackMap.removeLayer(groundTrackLine);
+                groundTrackLine = null;
+            }
+            if (satMarker) {
+                groundTrackMap.removeLayer(satMarker);
+                satMarker = null;
+            }
+            if (orbitTrackLine) {
+                groundTrackMap.removeLayer(orbitTrackLine);
+                orbitTrackLine = null;
+            }
+            if (pastOrbitLine) {
+                groundTrackMap.removeLayer(pastOrbitLine);
+                pastOrbitLine = null;
+            }
 
             // Split ground track at antimeridian crossings
             const segments = [];

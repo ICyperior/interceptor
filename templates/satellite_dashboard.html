@@ -1161,10 +1161,19 @@
         function updateGroundTrack(pass) {
             if (!groundMap) return;
 
-            // Clear all existing map layers
-            if (trackLine) groundMap.removeLayer(trackLine);
-            if (satMarker) groundMap.removeLayer(satMarker);
-            if (orbitTrack) groundMap.removeLayer(orbitTrack);
+            // Clear all existing map layers and reset references
+            if (trackLine) {
+                groundMap.removeLayer(trackLine);
+                trackLine = null;
+            }
+            if (satMarker) {
+                groundMap.removeLayer(satMarker);
+                satMarker = null;
+            }
+            if (orbitTrack) {
+                groundMap.removeLayer(orbitTrack);
+                orbitTrack = null;
+            }
 
             if (pass && pass.groundTrack) {
                 // Split track at antimeridian crossings to avoid lines across map
