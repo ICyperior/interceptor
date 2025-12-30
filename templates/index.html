@@ -3193,6 +3193,15 @@
                                 Cluster Markers
                             </label>
                         </div>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label>Aircraft Filter</label>
+                            <select id="adsbAircraftFilter" onchange="applyAircraftFilter()">
+                                <option value="all">All Aircraft</option>
+                                <option value="military">Military Only</option>
+                                <option value="civil">Civil Only</option>
+                                <option value="emergency">Emergency Only</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="info-text" style="margin-top: 8px; display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;" id="adsbToolStatus">
@@ -7688,6 +7697,27 @@
             }
         }
 
+        function applyAircraftFilter() {
+            // Clear all markers and redraw with new filter
+            Object.keys(aircraftMarkers).forEach(icao => {
+                if (clusteringEnabled && aircraftClusterGroup) {
+                    aircraftClusterGroup.removeLayer(aircraftMarkers[icao]);
+                } else if (aircraftMap) {
+                    aircraftMap.removeLayer(aircraftMarkers[icao]);
+                }
+                delete aircraftMarkers[icao];
+                delete aircraftMarkerState[icao];
+            });
+            // Trail lines should also be cleared for filtered-out aircraft
+            Object.keys(aircraftTrailLines).forEach(icao => {
+                if (aircraftMap) {
+                    aircraftMap.removeLayer(aircraftTrailLines[icao]);
+                }
+                delete aircraftTrailLines[icao];
+            });
+            updateAircraftMarkers();
+        }
+
         function updateRadarTime() {
             const now = new Date();
             const time = now.toTimeString().substring(0, 8);
@@ -7762,11 +7792,21 @@
             const showLabels = document.getElementById('adsbShowLabels')?.checked;
             const showAltitude = document.getElementById('adsbShowAltitude')?.checked;
             const showTrails = document.getElementById('adsbShowTrails')?.checked ?? true;
+            const aircraftFilter = document.getElementById('adsbAircraftFilter')?.value || 'all';
             const currentIds = new Set();
 
             // Sort aircraft by altitude and limit to prevent DOM explosion
             const sortedAircraft = Object.entries(adsbAircraft)
                 .filter(([_, a]) => a.lat != null && a.lon != null)
+                .filter(([icao, a]) => {
+                    if (aircraftFilter === 'all') return true;
+                    const militaryInfo = isMilitaryAircraft(icao, a.callsign);
+                    const squawkInfo = checkSquawkCode(a);
+                    if (aircraftFilter === 'military') return militaryInfo.military;
+                    if (aircraftFilter === 'civil') return !militaryInfo.military;
+                    if (aircraftFilter === 'emergency') return !!squawkInfo;
+                    return true;
+                })
                 .sort((a, b) => (b[1].altitude || 0) - (a[1].altitude || 0))
                 .slice(0, MAX_AIRCRAFT_MARKERS);
 

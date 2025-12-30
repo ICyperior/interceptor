@@ -595,6 +595,15 @@
                         <div class="stat-label">Avg Alt (ft)</div>
                     </div>
                 </div>
+                <div style="padding: 0 15px 10px;">
+                    <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); display: block; margin-bottom: 5px;">Aircraft Filter</label>
+                    <select id="aircraftFilter" onchange="applyFilter()" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); border-radius: 4px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+                        <option value="all">All Aircraft</option>
+                        <option value="military">Military Only</option>
+                        <option value="civil">Civil Only</option>
+                        <option value="emergency">Emergency Only</option>
+                    </select>
+                </div>
                 <button class="start-btn" id="startBtn" onclick="toggleTracking()">
                     START TRACKING
                 </button>
@@ -640,6 +649,84 @@
         let selectedIcao = null;
         let eventSource = null;
         let isTracking = false;
+        let currentFilter = 'all';
+
+        // Military aircraft detection
+        const MILITARY_RANGES = [
+            { start: 0xADF7C0, end: 0xADFFFF, country: 'US' },
+            { start: 0xAE0000, end: 0xAEFFFF, country: 'US' },
+            { start: 0x3F0000, end: 0x3FFFFF, country: 'FR' },
+            { start: 0x400000, end: 0x43FFFF, country: 'UK' },
+            { start: 0x43C000, end: 0x43CFFF, country: 'UK' },
+            { start: 0x4B0000, end: 0x4B7FFF, country: 'DE' },
+            { start: 0x501C00, end: 0x501FFF, country: 'NATO' },
+        ];
+
+        const MILITARY_PREFIXES = [
+            'REACH', 'JAKE', 'DOOM', 'IRON', 'HAWK', 'VIPER', 'COBRA', 'THUNDER',
+            'SHADOW', 'NIGHT', 'STEEL', 'GRIM', 'REAPER', 'BLADE', 'STRIKE',
+            'RCH', 'CNV', 'MCH', 'EVAC', 'TOPCAT', 'ASCOT', 'RRR', 'HRK',
+            'NAVY', 'ARMY', 'USAF', 'RAF', 'RCAF', 'RAAF', 'IAF', 'PAF'
+        ];
+
+        const SQUAWK_CODES = {
+            '7500': { type: 'hijack', name: 'HIJACK' },
+            '7600': { type: 'radio', name: 'RADIO FAILURE' },
+            '7700': { type: 'mayday', name: 'EMERGENCY' }
+        };
+
+        function isMilitaryAircraft(icao, callsign) {
+            const icaoNum = parseInt(icao, 16);
+            for (const range of MILITARY_RANGES) {
+                if (icaoNum >= range.start && icaoNum <= range.end) {
+                    return { military: true, country: range.country };
+                }
+            }
+            if (callsign) {
+                const upper = callsign.toUpperCase();
+                for (const prefix of MILITARY_PREFIXES) {
+                    if (upper.startsWith(prefix)) {
+                        return { military: true, type: 'callsign' };
+                    }
+                }
+            }
+            return { military: false };
+        }
+
+        function checkSquawkCode(aircraft) {
+            if (aircraft.squawk && SQUAWK_CODES[aircraft.squawk]) {
+                return SQUAWK_CODES[aircraft.squawk];
+            }
+            return null;
+        }
+
+        function applyFilter() {
+            currentFilter = document.getElementById('aircraftFilter').value;
+            // Clear markers and redraw
+            Object.keys(markers).forEach(icao => {
+                radarMap.removeLayer(markers[icao]);
+                delete markers[icao];
+            });
+            Object.keys(markerState).forEach(icao => delete markerState[icao]);
+            // Trigger full UI update
+            pendingMarkerUpdates.clear();
+            Object.keys(aircraft).forEach(icao => {
+                if (aircraft[icao].lat && aircraft[icao].lon) {
+                    pendingMarkerUpdates.add(icao);
+                }
+            });
+            scheduleUIUpdate();
+        }
+
+        function passesFilter(icao, ac) {
+            if (currentFilter === 'all') return true;
+            const militaryInfo = isMilitaryAircraft(icao, ac.callsign);
+            const squawkInfo = checkSquawkCode(ac);
+            if (currentFilter === 'military') return militaryInfo.military;
+            if (currentFilter === 'civil') return !militaryInfo.military;
+            if (currentFilter === 'emergency') return !!squawkInfo;
+            return true;
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -828,8 +915,19 @@
             const ac = aircraft[icao];
             if (!ac || !ac.lat || !ac.lon) return;
 
+            // Check filter - remove marker if it doesn't pass
+            if (!passesFilter(icao, ac)) {
+                if (markers[icao]) {
+                    radarMap.removeLayer(markers[icao]);
+                    delete markers[icao];
+                    delete markerState[icao];
+                }
+                return;
+            }
+
+            const militaryInfo = isMilitaryAircraft(icao, ac.callsign);
             const rotation = Math.round((ac.heading || 0) / 5) * 5;  // Round to 5 degrees
-            const color = getAltitudeColor(ac.altitude);
+            const color = militaryInfo.military ? '#556b2f' : getAltitudeColor(ac.altitude);
             const callsign = ac.callsign || icao;
             const alt = ac.altitude ? ac.altitude + ' ft' : 'N/A';
 
@@ -875,13 +973,9 @@
         function createMarkerIcon(rotation, color) {
             return L.divIcon({
                 className: 'aircraft-marker',
-                html: `<div style="
-                    transform: rotate(${rotation}deg);
-                    color: ${color};
-                    font-size: 20px;
-                    text-shadow: 0 0 10px ${color};
-                    filter: drop-shadow(0 0 5px ${color});
-                ">✈</div>`,
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); color: ${color}; filter: drop-shadow(0 0 5px ${color});">
+                    <path fill="currentColor" d="M12 2L8 10H4v2l8 4 8-4v-2h-4L12 2zm0 14l-6 3v1h12v-1l-6-3z"/>
+                </svg>`,
                 iconSize: [24, 24],
                 iconAnchor: [12, 12]
             });
@@ -917,7 +1011,9 @@
 
         function renderAircraftList() {
             const container = document.getElementById('aircraftList');
-            const sortedAircraft = Object.values(aircraft)
+            const sortedAircraft = Object.entries(aircraft)
+                .filter(([icao, ac]) => passesFilter(icao, ac))
+                .map(([icao, ac]) => ({ ...ac, icao }))
                 .sort((a, b) => (b.altitude || 0) - (a.altitude || 0))
                 .slice(0, MAX_AIRCRAFT_DISPLAY);  // Limit to prevent DOM explosion
 
@@ -983,10 +1079,13 @@
             const alt = ac.altitude ? ac.altitude.toLocaleString() : '---';
             const speed = ac.speed || '---';
             const heading = ac.heading ? ac.heading + '°' : '---';
+            const militaryInfo = isMilitaryAircraft(ac.icao, ac.callsign);
+            const militaryBadge = militaryInfo.military ?
+                `<span style="background: #556b2f; color: #fff; padding: 1px 5px; border-radius: 3px; font-size: 9px; margin-left: 5px;">MIL</span>` : '';
 
             return `
                 <div class="aircraft-header">
-                    <span class="aircraft-callsign">${callsign}</span>
+                    <span class="aircraft-callsign">${callsign}${militaryBadge}</span>
                     <span class="aircraft-icao">${ac.icao}</span>
                 </div>
                 <div class="aircraft-details">
@@ -1040,9 +1139,13 @@
             const heading = ac.heading ? ac.heading + '°' : 'N/A';
             const squawk = ac.squawk || 'N/A';
             const vRate = ac.vRate ? (ac.vRate > 0 ? '+' : '') + ac.vRate + ' ft/min' : 'N/A';
+            const militaryInfo = isMilitaryAircraft(ac.icao, ac.callsign);
+            const militaryBadge = militaryInfo.military ?
+                `<div style="background: #556b2f; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; text-align: center; margin-bottom: 10px;">MILITARY AIRCRAFT${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}</div>` : '';
 
             container.innerHTML = `
                 <div class="selected-callsign">${callsign}</div>
+                ${militaryBadge}
                 <div class="telemetry-grid">
                     <div class="telemetry-item">
                         <div class="telemetry-label">ICAO</div>
