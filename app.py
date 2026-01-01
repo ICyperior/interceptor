@@ -349,4 +349,11 @@ def main() -> None:
     print("Press Ctrl+C to stop")
     print()
 
-    app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
+# Avoid loading a global ~/.env when running the script directly.
+    app.run(
+        host=args.host,
+        port=args.port,
+        debug=args.debug,
+        threaded=True,
+        load_dotenv=False,
+    )
