@@ -213,7 +213,7 @@ Install the tools for the features you need:
 | Tool | macOS | Ubuntu/Debian | Purpose |
 |------|-------|---------------|---------|
 | rtl-sdr | `brew install librtlsdr` | `sudo apt install rtl-sdr` | RTL-SDR support |
-| multimon-ng | `sudo port install multimon-ng` | `sudo apt install multimon-ng` | Pager decoding |
+| multimon-ng | `brew install multimon-ng` | `sudo apt install multimon-ng` | Pager decoding |
 | rtl_433 | `brew install rtl_433` | `sudo apt install rtl-433` | 433MHz sensors |
 | dump1090 | `brew install dump1090-mutability` | `sudo apt install dump1090-mutability` | ADS-B aircraft |
 | aircrack-ng | `brew install aircrack-ng` | `sudo apt install aircrack-ng` | WiFi reconnaissance |
@@ -471,4 +471,5 @@ By using INTERCEPT, you acknowledge that:
 - The developers assume no liability for misuse of this software
 
 A disclaimer must be accepted when first launching the application.
+
 
