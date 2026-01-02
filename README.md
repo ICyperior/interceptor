@@ -37,6 +37,24 @@ Open `http://localhost:5050` in your browser. See [Installation](#installation) 
 
 ---
 
+## Quick Start WITH UV
+
+```bash
+# Clone and install
+git clone https://github.com/smittix/intercept.git
+cd intercept
+uv venv --python 3.11.12 # Or your Python version
+.venv\Scripts\activate
+uv sync
+
+# Run (sudo recommended for full functionality)
+sudo python3 intercept.py
+```
+
+Open `http://localhost:5050` in your browser. See [Installation](#installation) for external tool setup.
+
+---
+
 ## What is INTERCEPT?
 
 INTERCEPT is a **web-based front-end** that provides a unified, modern interface for signal intelligence tools:
