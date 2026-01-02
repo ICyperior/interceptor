@@ -393,16 +393,17 @@ class GPSReader:
         sentence_count = 0
         bytes_read = 0
 
-        logger.info(f"GPS read loop started on {self.device_path} at {self.baudrate} baud")
+        print(f"[GPS] Read loop started on {self.device_path} at {self.baudrate} baud", flush=True)
 
         while self._running and self._serial:
             try:
                 # Read available data
-                if self._serial.in_waiting:
-                    data = self._serial.read(self._serial.in_waiting)
+                waiting = self._serial.in_waiting
+                if waiting:
+                    data = self._serial.read(waiting)
                     bytes_read += len(data)
-                    if bytes_read <= 100 or bytes_read % 1000 == 0:
-                        logger.info(f"GPS: Read {len(data)} bytes (total: {bytes_read})")
+                    if bytes_read <= 500 or bytes_read % 1000 == 0:
+                        print(f"[GPS] Read {len(data)} bytes (total: {bytes_read})", flush=True)
                     buffer += data.decode('ascii', errors='ignore')
 
                     # Process complete lines
@@ -413,12 +414,12 @@ class GPSReader:
                         if line.startswith('$'):
                             sentence_count += 1
                             # Log first few sentences and periodically after that
-                            if sentence_count <= 5 or sentence_count % 100 == 0:
-                                logger.debug(f"GPS NMEA [{sentence_count}]: {line[:60]}...")
+                            if sentence_count <= 10 or sentence_count % 50 == 0:
+                                print(f"[GPS] NMEA [{sentence_count}]: {line[:70]}", flush=True)
 
                             position = parse_nmea_sentence(line)
                             if position:
-                                logger.info(f"GPS fix: {position.latitude:.6f}, {position.longitude:.6f} (sats: {position.satellites}, quality: {position.fix_quality})")
+                                print(f"[GPS] FIX: {position.latitude:.6f}, {position.longitude:.6f} (sats: {position.satellites}, quality: {position.fix_quality})", flush=True)
                                 position.device = self.device_path
                                 self._update_position(position)
                 else:
