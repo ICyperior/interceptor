@@ -765,6 +765,12 @@
                 <select class="gps-device-select" id="gpsDeviceSelect" style="font-size: 10px; max-width: 120px;">
                     <option value="">GPS Device...</option>
                 </select>
+                <select id="gpsBaudrateSelect" style="font-size: 10px; width: 65px;">
+                    <option value="4800">4800</option>
+                    <option value="9600" selected>9600</option>
+                    <option value="38400">38400</option>
+                    <option value="115200">115200</option>
+                </select>
                 <button class="gps-btn gps-connect-btn" onclick="startGpsDongle()">Connect</button>
                 <button class="gps-btn gps-disconnect-btn" onclick="stopGpsDongle()" style="display: none; background: rgba(255,0,0,0.2); border-color: #ff4444;">Stop</button>
             </div>
@@ -1516,6 +1522,7 @@
 
         async function startGpsDongle() {
             const devicePath = document.getElementById('gpsDeviceSelect').value;
+            const baudrate = parseInt(document.getElementById('gpsBaudrateSelect').value) || 9600;
             if (!devicePath) {
                 alert('Please select a GPS device');
                 return;
@@ -1525,7 +1532,7 @@
                 const response = await fetch('/gps/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device: devicePath, baudrate: 9600 })
+                    body: JSON.stringify({ device: devicePath, baudrate: baudrate })
                 });
                 const data = await response.json();
 
