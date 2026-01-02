@@ -189,8 +189,32 @@ def get_position():
         else:
             return jsonify({
                 'status': 'waiting',
-                'message': 'Waiting for GPS fix'
+                'message': 'Waiting for GPS fix - ensure GPS has clear view of sky'
             })
+
+
+@gps_bp.route('/debug')
+def debug_gps():
+    """Debug endpoint showing GPS reader state."""
+    reader = get_gps_reader()
+
+    if not reader:
+        return jsonify({
+            'reader': None,
+            'message': 'No GPS reader initialized'
+        })
+
+    position = reader.position
+    return jsonify({
+        'running': reader.is_running,
+        'device': reader.device_path,
+        'baudrate': reader.baudrate,
+        'has_position': position is not None,
+        'position': position.to_dict() if position else None,
+        'last_update': reader.last_update.isoformat() if reader.last_update else None,
+        'error': reader.error,
+        'callbacks_registered': len(reader._callbacks),
+    })
 
 
 @gps_bp.route('/stream')
