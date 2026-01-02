@@ -21,6 +21,8 @@ Example usage:
     cmd = builder.build_fm_demod_command(device, frequency_mhz=153.35)
 """
 
+from __future__ import annotations
+
 from typing import Optional
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType

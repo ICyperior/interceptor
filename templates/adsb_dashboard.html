@@ -752,7 +752,21 @@
                 <input type="text" id="obsLon" value="-0.1278" onchange="updateObserverLoc()">
             </div>
             <div class="control-group">
-                <button class="gps-btn" id="geolocateBtn" onclick="getGeolocation()">GPS</button>
+                <select id="gpsSource" onchange="toggleGpsDongleControls()" style="font-size: 10px;">
+                    <option value="manual">Manual</option>
+                    <option value="browser">Browser</option>
+                    <option value="dongle">USB GPS</option>
+                </select>
+            </div>
+            <div class="control-group" id="browserGpsGroup">
+                <button class="gps-btn" id="geolocateBtn" onclick="getGeolocation()">Locate</button>
+            </div>
+            <div class="control-group gps-dongle-controls" style="display: none;">
+                <select class="gps-device-select" id="gpsDeviceSelect" style="font-size: 10px; max-width: 120px;">
+                    <option value="">GPS Device...</option>
+                </select>
+                <button class="gps-btn gps-connect-btn" onclick="startGpsDongle()">Connect</button>
+                <button class="gps-btn gps-disconnect-btn" onclick="stopGpsDongle()" style="display: none; background: rgba(255,0,0,0.2); border-color: #ff4444;">Stop</button>
             </div>
             <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
         </div>
@@ -796,6 +810,11 @@
         let observerLocation = { lat: 51.5074, lon: -0.1278 };
         let rangeRingsLayer = null;
         let observerMarker = null;
+
+        // GPS Dongle state
+        let gpsDevices = [];
+        let gpsConnected = false;
+        let gpsEventSource = null;
 
         // ============================================
         // AUDIO ALERTS
@@ -1443,14 +1462,132 @@
                         radarMap.setView([observerLocation.lat, observerLocation.lon], 8);
                     }
                     drawRangeRings();
-                    btn.textContent = 'GPS';
+                    btn.textContent = 'Locate';
                 },
                 (error) => {
                     alert('Location error: ' + error.message);
-                    btn.textContent = 'GPS';
+                    btn.textContent = 'Locate';
                 },
                 { enableHighAccuracy: true, timeout: 10000 }
             );
+        }
+
+        // ============================================
+        // GPS DONGLE FUNCTIONS
+        // ============================================
+        function toggleGpsDongleControls() {
+            const source = document.getElementById('gpsSource').value;
+            const browserGroup = document.getElementById('browserGpsGroup');
+            const dongleControls = document.querySelector('.gps-dongle-controls');
+
+            if (source === 'dongle') {
+                browserGroup.style.display = 'none';
+                dongleControls.style.display = 'flex';
+                refreshGpsDevices();
+            } else if (source === 'browser') {
+                browserGroup.style.display = 'flex';
+                dongleControls.style.display = 'none';
+            } else {
+                browserGroup.style.display = 'none';
+                dongleControls.style.display = 'none';
+            }
+        }
+
+        async function refreshGpsDevices() {
+            try {
+                const response = await fetch('/gps/devices');
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    gpsDevices = data.devices;
+                    const select = document.getElementById('gpsDeviceSelect');
+                    select.innerHTML = '<option value="">GPS Device...</option>';
+                    gpsDevices.forEach(device => {
+                        const option = document.createElement('option');
+                        option.value = device.path;
+                        option.textContent = device.name;
+                        option.disabled = !device.accessible;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to get GPS devices:', e);
+            }
+        }
+
+        async function startGpsDongle() {
+            const devicePath = document.getElementById('gpsDeviceSelect').value;
+            if (!devicePath) {
+                alert('Please select a GPS device');
+                return;
+            }
+
+            try {
+                const response = await fetch('/gps/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device: devicePath, baudrate: 9600 })
+                });
+                const data = await response.json();
+
+                if (data.status === 'started') {
+                    gpsConnected = true;
+                    startGpsStream();
+                    document.querySelector('.gps-connect-btn').style.display = 'none';
+                    document.querySelector('.gps-disconnect-btn').style.display = 'block';
+                } else {
+                    alert('Failed to start GPS: ' + data.message);
+                }
+            } catch (e) {
+                alert('GPS connection error: ' + e.message);
+            }
+        }
+
+        async function stopGpsDongle() {
+            try {
+                if (gpsEventSource) {
+                    gpsEventSource.close();
+                    gpsEventSource = null;
+                }
+                await fetch('/gps/stop', { method: 'POST' });
+                gpsConnected = false;
+                document.querySelector('.gps-connect-btn').style.display = 'block';
+                document.querySelector('.gps-disconnect-btn').style.display = 'none';
+            } catch (e) {
+                console.warn('GPS stop error:', e);
+            }
+        }
+
+        function startGpsStream() {
+            if (gpsEventSource) {
+                gpsEventSource.close();
+            }
+
+            gpsEventSource = new EventSource('/gps/stream');
+            gpsEventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('GPS data received:', data);
+                    if (data.type === 'position' && data.latitude && data.longitude) {
+                        observerLocation.lat = data.latitude;
+                        observerLocation.lon = data.longitude;
+                        document.getElementById('obsLat').value = data.latitude.toFixed(4);
+                        document.getElementById('obsLon').value = data.longitude.toFixed(4);
+                        if (radarMap) {
+                            console.log('GPS: Updating map to', data.latitude, data.longitude);
+                            radarMap.setView([data.latitude, data.longitude], radarMap.getZoom());
+                        }
+                        drawRangeRings();
+                    }
+                } catch (e) {
+                    console.error('GPS parse error:', e);
+                }
+            };
+            gpsEventSource.onerror = (e) => {
+                console.warn('GPS stream error:', e);
+                gpsConnected = false;
+                document.querySelector('.gps-connect-btn').style.display = 'block';
+                document.querySelector('.gps-disconnect-btn').style.display = 'none';
+            };
         }
 
         // ============================================

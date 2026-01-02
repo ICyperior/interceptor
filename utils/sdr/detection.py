@@ -4,6 +4,8 @@ Multi-hardware SDR device detection.
 Detects RTL-SDR devices via rtl_test and other SDR hardware via SoapySDR.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import shutil

@@ -5,6 +5,8 @@ Uses SoapySDR-based tools for FM demodulation and signal capture.
 HackRF supports 1 MHz to 6 GHz frequency range.
 """
 
+from __future__ import annotations
+
 from typing import Optional
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType

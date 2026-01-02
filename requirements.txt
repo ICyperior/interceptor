@@ -4,6 +4,9 @@ flask>=2.0.0
 # Satellite tracking (optional - only needed for satellite features)
 skyfield>=1.45
 
+# GPS dongle support (optional - only needed for USB GPS receivers)
+pyserial>=3.5
+
 # Development dependencies (install with: pip install -r requirements-dev.txt)
 # pytest>=7.0.0
 # pytest-cov>=4.0.0

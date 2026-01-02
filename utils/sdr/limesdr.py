@@ -5,6 +5,8 @@ Uses SoapySDR-based tools for FM demodulation and signal capture.
 LimeSDR supports 100 kHz to 3.8 GHz frequency range.
 """
 
+from __future__ import annotations
+
 from typing import Optional
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType

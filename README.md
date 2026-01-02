@@ -188,6 +188,7 @@ AI is no different from using a power tool instead of a hand screwdriver: it hel
 - **Hardware-specific validation** - frequency/gain ranges per device type
 - **Configurable gain and PPM correction**
 - **Device intelligence** dashboard with tracking
+- **GPS dongle support** - USB GPS receivers for precise observer location
 - **Disclaimer acceptance** on first use
 - **Auto-stop** when switching between modes
 
@@ -204,8 +205,8 @@ AI is no different from using a power tool instead of a hand screwdriver: it hel
 - Bluetooth adapter (for Bluetooth features)
 
 ### Software
-- Python 3.7+
-- Flask, skyfield (installed via `requirements.txt`)
+- Python 3.9+ recommended (3.7+ may work but is not fully tested)
+- Flask, skyfield, pyserial (installed via `requirements.txt`)
 - rtl-sdr tools (`rtl_fm`)
 - multimon-ng (for pager decoding)
 - rtl_433 (for 433MHz sensor decoding)
@@ -325,7 +326,10 @@ python3 intercept.py --help
 ### Aircraft Mode
 1. **Select Hardware** - Choose your SDR type (RTL-SDR uses dump1090, others use readsb)
 2. **Check Tools** - Ensure dump1090 or readsb is installed
-3. **Set Location** - Enter observer coordinates or click "Use GPS Location"
+3. **Set Location** - Choose location source:
+   - **Manual Entry** - Type coordinates directly
+   - **Browser GPS** - Use browser's built-in geolocation (requires HTTPS)
+   - **USB GPS Dongle** - Connect a USB GPS receiver for continuous updates
 4. **Start Tracking** - Click "Start Tracking" to begin ADS-B reception
 5. **View Map** - Aircraft appear on the interactive Leaflet map
 6. **Click Aircraft** - Click markers for detailed information
@@ -334,7 +338,10 @@ python3 intercept.py --help
 9. **Full Dashboard** - Click "Full Screen Dashboard" for dedicated radar view
 
 ### Satellite Mode
-1. **Set Location** - Enter observer coordinates or click "Use My Location"
+1. **Set Location** - Choose location source:
+   - **Manual Entry** - Type coordinates directly
+   - **Browser GPS** - Use browser's built-in geolocation
+   - **USB GPS Dongle** - Connect a USB GPS receiver for continuous updates
 2. **Add Satellites** - Click "Add Satellite" to enter TLE data or fetch from Celestrak
 3. **Calculate Passes** - Click "Calculate Passes" to predict upcoming passes
 4. **View Sky Plot** - Polar plot shows satellite positions in real-time
@@ -354,6 +361,28 @@ python3 intercept.py --help
 ## Troubleshooting
 
 ### Python/pip installation issues
+
+**"ModuleNotFoundError: No module named 'flask'":**
+```bash
+# You need to install Python dependencies first
+pip install -r requirements.txt
+
+# Or with python3 explicitly
+python3 -m pip install -r requirements.txt
+```
+
+**"TypeError: 'type' object is not subscriptable":**
+This error occurs on Python 3.7 or 3.8. Please upgrade to Python 3.9 or later:
+```bash
+# Check your Python version
+python3 --version
+
+# Ubuntu/Debian - install newer Python
+sudo apt update
+sudo apt install python3.10
+
+# Or use pyenv to manage Python versions
+```
 
 **"externally-managed-environment" error (Ubuntu 23.04+, Debian 12+):**
 ```bash
@@ -414,6 +443,16 @@ pip install --user -r requirements.txt
 - Ensure SoapySDR is installed: `SoapySDRUtil --info`
 - Check the driver module is loaded: `SoapySDRUtil --find`
 - Verify permissions (may need udev rules or run as root)
+
+### GPS dongle not detected
+- Ensure pyserial is installed: `pip install pyserial`
+- Check the device is connected: `ls /dev/ttyUSB* /dev/ttyACM*` (Linux) or `ls /dev/tty.usb*` (macOS)
+- Verify permissions: you may need to add your user to the `dialout` group (Linux):
+  ```bash
+  sudo usermod -a -G dialout $USER
+  ```
+- Most GPS dongles use 9600 baud rate (default in INTERCEPT)
+- The GPS needs a clear view of the sky to get a fix
 
 ---
 

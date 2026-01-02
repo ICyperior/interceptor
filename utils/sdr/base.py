@@ -5,6 +5,8 @@ This module provides the core abstractions for supporting multiple SDR hardware
 types (RTL-SDR, LimeSDR, HackRF, etc.) through a unified interface.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum

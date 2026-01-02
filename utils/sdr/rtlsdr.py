@@ -5,6 +5,8 @@ Uses native rtl_* tools (rtl_fm, rtl_433) and dump1090 for maximum compatibility
 with existing RTL-SDR installations. No SoapySDR dependency required.
 """
 
+from __future__ import annotations
+
 from typing import Optional
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
