@@ -70,6 +70,15 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 
 ---
 
+## AI Use
+
+This project was built with the help of AI — as a tool, not a shortcut.  
+I spent significant time reviewing, fixing, testing, and validating the code to ensure it works as intended.
+
+This started as a personal project and was released to help more people get into **Software Defined Radio** by lowering the barrier to entry.
+
+AI is no different from using a power tool instead of a hand screwdriver: it helps you work faster, not care less. What matters is that the software works, solves a real problem, and is open for others to learn from and improve.
+
 ## Features
 
 ### 📟 Pager Decoding
@@ -471,5 +480,6 @@ By using INTERCEPT, you acknowledge that:
 - The developers assume no liability for misuse of this software
 
 A disclaimer must be accepted when first launching the application.
+
 
 
