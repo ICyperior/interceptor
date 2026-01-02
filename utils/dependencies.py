@@ -200,6 +200,72 @@ TOOL_DEPENDENCIES = {
                 }
             }
         }
+    },
+    'sdr_hardware': {
+        'name': 'SDR Hardware Support',
+        'tools': {
+            'SoapySDRUtil': {
+                'required': False,
+                'description': 'Universal SDR abstraction (required for LimeSDR, HackRF)',
+                'install': {
+                    'apt': 'sudo apt install soapysdr-tools',
+                    'brew': 'brew install soapysdr',
+                    'manual': 'https://github.com/pothosware/SoapySDR'
+                }
+            },
+            'rx_fm': {
+                'required': False,
+                'description': 'SoapySDR FM receiver (for non-RTL hardware)',
+                'install': {
+                    'manual': 'Part of SoapySDR utilities or build from source'
+                }
+            },
+            'LimeUtil': {
+                'required': False,
+                'description': 'LimeSDR native utilities',
+                'install': {
+                    'apt': 'sudo apt install limesuite',
+                    'brew': 'brew install limesuite',
+                    'manual': 'https://github.com/myriadrf/LimeSuite'
+                }
+            },
+            'SoapyLMS7': {
+                'required': False,
+                'description': 'SoapySDR plugin for LimeSDR',
+                'install': {
+                    'apt': 'sudo apt install soapysdr-module-lms7',
+                    'brew': 'brew install soapylms7',
+                    'manual': 'https://github.com/myriadrf/LimeSuite'
+                }
+            },
+            'hackrf_info': {
+                'required': False,
+                'description': 'HackRF native utilities',
+                'install': {
+                    'apt': 'sudo apt install hackrf',
+                    'brew': 'brew install hackrf',
+                    'manual': 'https://github.com/greatscottgadgets/hackrf'
+                }
+            },
+            'SoapyHackRF': {
+                'required': False,
+                'description': 'SoapySDR plugin for HackRF',
+                'install': {
+                    'apt': 'sudo apt install soapysdr-module-hackrf',
+                    'brew': 'brew install soapyhackrf',
+                    'manual': 'https://github.com/pothosware/SoapyHackRF'
+                }
+            },
+            'readsb': {
+                'required': False,
+                'description': 'ADS-B decoder with SoapySDR support',
+                'install': {
+                    'apt': 'Build from source with SoapySDR support',
+                    'brew': 'Build from source with SoapySDR support',
+                    'manual': 'https://github.com/wiedehopf/readsb'
+                }
+            }
+        }
     }
 }
 

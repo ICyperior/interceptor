@@ -26,7 +26,8 @@ from typing import Any
 from flask import Flask, render_template, jsonify, send_file, Response, request
 
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
-from utils.process import detect_devices, cleanup_stale_processes
+from utils.process import cleanup_stale_processes
+from utils.sdr import SDRFactory
 
 
 # Create Flask app
@@ -105,7 +106,7 @@ def index() -> str:
         'multimon': check_tool('multimon-ng'),
         'rtl_433': check_tool('rtl_433')
     }
-    devices = detect_devices()
+    devices = [d.to_dict() for d in SDRFactory.detect_devices()]
     return render_template('index.html', tools=tools, devices=devices)
 
 
@@ -116,7 +117,9 @@ def favicon() -> Response:
 
 @app.route('/devices')
 def get_devices() -> Response:
-    return jsonify(detect_devices())
+    """Get all detected SDR devices with hardware type info."""
+    devices = SDRFactory.detect_devices()
+    return jsonify([d.to_dict() for d in devices])
 
 
 @app.route('/dependencies')

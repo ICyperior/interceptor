@@ -1,0 +1,149 @@
+"""
+Base classes and types for SDR hardware abstraction.
+
+This module provides the core abstractions for supporting multiple SDR hardware
+types (RTL-SDR, LimeSDR, HackRF, etc.) through a unified interface.
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Optional
+
+
+class SDRType(Enum):
+    """Supported SDR hardware types."""
+    RTL_SDR = "rtlsdr"
+    LIME_SDR = "limesdr"
+    HACKRF = "hackrf"
+    # Future support
+    # USRP = "usrp"
+    # BLADE_RF = "bladerf"
+
+
+@dataclass
+class SDRCapabilities:
+    """Hardware capabilities for an SDR device."""
+    sdr_type: SDRType
+    freq_min_mhz: float          # Minimum frequency in MHz
+    freq_max_mhz: float          # Maximum frequency in MHz
+    gain_min: float              # Minimum gain in dB
+    gain_max: float              # Maximum gain in dB
+    sample_rates: list[int] = field(default_factory=list)  # Supported sample rates
+    supports_bias_t: bool = False    # Bias-T support
+    supports_ppm: bool = True        # PPM correction support
+    tx_capable: bool = False         # Can transmit
+
+
+@dataclass
+class SDRDevice:
+    """Detected SDR device."""
+    sdr_type: SDRType
+    index: int
+    name: str
+    serial: str
+    driver: str                  # e.g., "rtlsdr", "lime", "hackrf"
+    capabilities: SDRCapabilities
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'index': self.index,
+            'name': self.name,
+            'serial': self.serial,
+            'sdr_type': self.sdr_type.value,
+            'driver': self.driver,
+            'capabilities': {
+                'freq_min_mhz': self.capabilities.freq_min_mhz,
+                'freq_max_mhz': self.capabilities.freq_max_mhz,
+                'gain_min': self.capabilities.gain_min,
+                'gain_max': self.capabilities.gain_max,
+                'sample_rates': self.capabilities.sample_rates,
+                'supports_bias_t': self.capabilities.supports_bias_t,
+                'supports_ppm': self.capabilities.supports_ppm,
+                'tx_capable': self.capabilities.tx_capable,
+            }
+        }
+
+
+class CommandBuilder(ABC):
+    """Abstract base class for building SDR commands."""
+
+    @abstractmethod
+    def build_fm_demod_command(
+        self,
+        device: SDRDevice,
+        frequency_mhz: float,
+        sample_rate: int = 22050,
+        gain: Optional[float] = None,
+        ppm: Optional[int] = None,
+        modulation: str = "fm",
+        squelch: Optional[int] = None
+    ) -> list[str]:
+        """
+        Build FM demodulation command (for pager, iridium).
+
+        Args:
+            device: The SDR device to use
+            frequency_mhz: Center frequency in MHz
+            sample_rate: Audio sample rate (default 22050 for pager)
+            gain: Gain in dB (None for auto)
+            ppm: PPM frequency correction
+            modulation: Modulation type (fm, am, etc.)
+            squelch: Squelch level
+
+        Returns:
+            Command as list of strings for subprocess
+        """
+        pass
+
+    @abstractmethod
+    def build_adsb_command(
+        self,
+        device: SDRDevice,
+        gain: Optional[float] = None
+    ) -> list[str]:
+        """
+        Build ADS-B decoder command.
+
+        Args:
+            device: The SDR device to use
+            gain: Gain in dB (None for auto)
+
+        Returns:
+            Command as list of strings for subprocess
+        """
+        pass
+
+    @abstractmethod
+    def build_ism_command(
+        self,
+        device: SDRDevice,
+        frequency_mhz: float = 433.92,
+        gain: Optional[float] = None,
+        ppm: Optional[int] = None
+    ) -> list[str]:
+        """
+        Build ISM band decoder command (433MHz sensors).
+
+        Args:
+            device: The SDR device to use
+            frequency_mhz: Center frequency in MHz (default 433.92)
+            gain: Gain in dB (None for auto)
+            ppm: PPM frequency correction
+
+        Returns:
+            Command as list of strings for subprocess
+        """
+        pass
+
+    @abstractmethod
+    def get_capabilities(self) -> SDRCapabilities:
+        """Return hardware capabilities for this SDR type."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_sdr_type(cls) -> SDRType:
+        """Return the SDR type this builder handles."""
+        pass

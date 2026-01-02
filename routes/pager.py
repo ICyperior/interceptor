@@ -21,6 +21,7 @@ from utils.logging import pager_logger as logger
 from utils.validation import validate_frequency, validate_device_index, validate_gain, validate_ppm
 from utils.sse import format_sse
 from utils.process import safe_terminate, register_process
+from utils.sdr import SDRFactory, SDRType, SDRValidationError
 
 pager_bp = Blueprint('pager', __name__)
 
@@ -201,25 +202,27 @@ def start_decoding() -> Response:
             elif proto == 'FLEX':
                 decoders.extend(['-a', 'FLEX'])
 
-        # Build rtl_fm command
-        rtl_cmd = [
-            'rtl_fm',
-            '-d', str(device),
-            '-f', f'{freq}M',
-            '-M', 'fm',
-            '-s', '22050',
-        ]
+        # Get SDR type and build command via abstraction layer
+        sdr_type_str = data.get('sdr_type', 'rtlsdr')
+        try:
+            sdr_type = SDRType(sdr_type_str)
+        except ValueError:
+            sdr_type = SDRType.RTL_SDR
 
-        if gain and gain != '0':
-            rtl_cmd.extend(['-g', str(gain)])
+        # Create device object and get command builder
+        sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+        builder = SDRFactory.get_builder(sdr_type)
 
-        if ppm and ppm != '0':
-            rtl_cmd.extend(['-p', str(ppm)])
-
-        if squelch and squelch != '0':
-            rtl_cmd.extend(['-l', str(squelch)])
-
-        rtl_cmd.append('-')
+        # Build FM demodulation command
+        rtl_cmd = builder.build_fm_demod_command(
+            device=sdr_device,
+            frequency_mhz=freq,
+            sample_rate=22050,
+            gain=float(gain) if gain and gain != '0' else None,
+            ppm=int(ppm) if ppm and ppm != '0' else None,
+            modulation='fm',
+            squelch=squelch if squelch and squelch != 0 else None
+        )
 
         multimon_cmd = ['multimon-ng', '-t', 'raw'] + decoders + ['-f', 'alpha', '-']
 

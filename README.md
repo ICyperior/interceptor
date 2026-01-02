@@ -172,7 +172,9 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 - **Message export** to CSV/JSON
 - **Signal activity meter** and waterfall display
 - **Message logging** to file with timestamps
-- **RTL-SDR device detection** and selection
+- **Multi-SDR hardware support** - RTL-SDR, LimeSDR, HackRF
+- **Automatic device detection** across all supported hardware
+- **Hardware-specific validation** - frequency/gain ranges per device type
 - **Configurable gain and PPM correction**
 - **Device intelligence** dashboard with tracking
 - **Disclaimer acceptance** on first use
@@ -183,7 +185,10 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 ## Requirements
 
 ### Hardware
-- RTL-SDR compatible dongle (RTL2832U based)
+- **SDR Device** (one of the following):
+  - RTL-SDR compatible dongle (RTL2832U based) - most common, budget-friendly
+  - LimeSDR / LimeSDR Mini - wider frequency range (100 kHz - 3.8 GHz)
+  - HackRF One - ultra-wide frequency range (1 MHz - 6 GHz)
 - WiFi adapter capable of monitor mode (for WiFi features)
 - Bluetooth adapter (for Bluetooth features)
 
@@ -203,17 +208,41 @@ Instead of running command-line tools manually, INTERCEPT handles the process ma
 
 Install the tools for the features you need:
 
+#### Core SDR Tools
+
 | Tool | macOS | Ubuntu/Debian | Purpose |
 |------|-------|---------------|---------|
-| rtl-sdr | `brew install rtl-sdr` | `sudo apt install rtl-sdr` | Required for all SDR features |
-| multimon-ng | `Use MacPorts for now sudo ports install multimon-ng` | `sudo apt install multimon-ng` | Pager decoding |
+| rtl-sdr | `brew install librtlsdr` | `sudo apt install rtl-sdr` | RTL-SDR support |
+| multimon-ng | `sudo port install multimon-ng` | `sudo apt install multimon-ng` | Pager decoding |
 | rtl_433 | `brew install rtl_433` | `sudo apt install rtl-433` | 433MHz sensors |
 | dump1090 | `brew install dump1090-mutability` | `sudo apt install dump1090-mutability` | ADS-B aircraft |
 | aircrack-ng | `brew install aircrack-ng` | `sudo apt install aircrack-ng` | WiFi reconnaissance |
 | bluez | Built-in (limited) | `sudo apt install bluez bluetooth` | Bluetooth scanning |
 
+#### Additional SDR Hardware (Optional)
+
+For LimeSDR or HackRF support, install SoapySDR and the appropriate driver:
+
+| Tool | macOS | Ubuntu/Debian | Purpose |
+|------|-------|---------------|---------|
+| SoapySDR | `brew install soapysdr` | `sudo apt install soapysdr-tools` | Universal SDR abstraction |
+| LimeSDR | `brew install limesuite soapylms7` | `sudo apt install limesuite soapysdr-module-lms7` | LimeSDR support |
+| HackRF | `brew install hackrf soapyhackrf` | `sudo apt install hackrf soapysdr-module-hackrf` | HackRF support |
+| readsb | Build from source | Build from source | ADS-B with SoapySDR |
+
+> **Note:** RTL-SDR works out of the box. LimeSDR and HackRF require SoapySDR plus the hardware-specific driver.
+
 ### Install and run
 
+**Option 1: Automated setup (recommended)**
+```bash
+git clone https://github.com/smittix/intercept.git
+cd intercept
+./setup.sh           # Installs Python deps and checks for external tools
+sudo python3 intercept.py
+```
+
+**Option 2: Manual setup**
 ```bash
 git clone https://github.com/smittix/intercept.git
 cd intercept
@@ -221,9 +250,29 @@ pip install -r requirements.txt
 sudo python3 intercept.py
 ```
 
+**Option 3: Using a virtual environment**
+```bash
+git clone https://github.com/smittix/intercept.git
+cd intercept
+python3 -m venv venv
+source venv/bin/activate        # On Linux/macOS
+pip install -r requirements.txt
+sudo venv/bin/python intercept.py
+```
+
 Open `http://localhost:5050` in your browser.
 
 > **Note:** Running as root/sudo is recommended for full functionality (monitor mode, raw sockets, etc.)
+
+### Check dependencies
+
+Run the built-in dependency checker to see what's installed and what's missing:
+
+```bash
+python3 intercept.py --check-deps
+```
+
+This will show the status of all required tools and provide installation instructions for your platform.
 
 ### Command-line options
 
@@ -241,11 +290,12 @@ python3 intercept.py --help
 ## Usage
 
 ### Pager Mode
-1. **Select Device** - Choose your RTL-SDR device from the dropdown
-2. **Set Frequency** - Enter a frequency in MHz or use a preset
-3. **Choose Protocols** - Select which protocols to decode (POCSAG/FLEX)
-4. **Adjust Settings** - Set gain, squelch, and PPM correction as needed
-5. **Start Decoding** - Click the green "Start Decoding" button
+1. **Select Hardware** - Choose your SDR type (RTL-SDR, LimeSDR, or HackRF)
+2. **Select Device** - Choose your SDR device from the dropdown
+3. **Set Frequency** - Enter a frequency in MHz or use a preset
+4. **Choose Protocols** - Select which protocols to decode (POCSAG/FLEX)
+5. **Adjust Settings** - Set gain, squelch, and PPM correction as needed
+6. **Start Decoding** - Click the green "Start Decoding" button
 
 ### WiFi Mode
 1. **Select Interface** - Choose a WiFi adapter capable of monitor mode
@@ -262,14 +312,15 @@ python3 intercept.py --help
 4. **View Devices** - Devices appear with name, address, and classification
 
 ### Aircraft Mode
-1. **Check Tools** - Ensure dump1090 or rtl_adsb is installed
-2. **Set Location** - Enter observer coordinates or click "Use GPS Location"
-3. **Start Tracking** - Click "Start Tracking" to begin ADS-B reception
-4. **View Map** - Aircraft appear on the interactive Leaflet map
-5. **Click Aircraft** - Click markers for detailed information
-6. **Display Options** - Toggle callsigns, altitude, trails, range rings, clustering
-7. **Filter Aircraft** - Use dropdown to show all, military, civil, or emergency only
-8. **Full Dashboard** - Click "Full Screen Dashboard" for dedicated radar view
+1. **Select Hardware** - Choose your SDR type (RTL-SDR uses dump1090, others use readsb)
+2. **Check Tools** - Ensure dump1090 or readsb is installed
+3. **Set Location** - Enter observer coordinates or click "Use GPS Location"
+4. **Start Tracking** - Click "Start Tracking" to begin ADS-B reception
+5. **View Map** - Aircraft appear on the interactive Leaflet map
+6. **Click Aircraft** - Click markers for detailed information
+7. **Display Options** - Toggle callsigns, altitude, trails, range rings, clustering
+8. **Filter Aircraft** - Use dropdown to show all, military, civil, or emergency only
+9. **Full Dashboard** - Click "Full Screen Dashboard" for dedicated radar view
 
 ### Satellite Mode
 1. **Set Location** - Enter observer coordinates or click "Use My Location"
@@ -291,10 +342,46 @@ python3 intercept.py --help
 
 ## Troubleshooting
 
-### No devices found
-- Ensure your RTL-SDR is plugged in
-- Check `rtl_test` works from command line
-- On Linux, you may need to blacklist the DVB-T driver
+### Python/pip installation issues
+
+**"externally-managed-environment" error (Ubuntu 23.04+, Debian 12+):**
+```bash
+# Option 1: Use a virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Option 2: Use pipx for isolated install
+pipx install flask skyfield
+
+# Option 3: Override the restriction (not recommended)
+pip install -r requirements.txt --break-system-packages
+```
+
+**"pip: command not found":**
+```bash
+# Ubuntu/Debian
+sudo apt install python3-pip
+
+# macOS
+python3 -m ensurepip --upgrade
+```
+
+**Permission denied errors:**
+```bash
+# Install to user directory instead
+pip install --user -r requirements.txt
+```
+
+### No SDR devices found
+- Ensure your SDR device is plugged in
+- Check `rtl_test` (RTL-SDR) or `SoapySDRUtil --find` (LimeSDR/HackRF)
+- On Linux, you may need udev rules (see setup.sh output)
+- On Linux, blacklist the DVB-T driver:
+  ```bash
+  echo "blacklist dvb_usb_rtl28xxu" | sudo tee /etc/modprobe.d/blacklist-rtl.conf
+  sudo modprobe -r dvb_usb_rtl28xxu
+  ```
 
 ### No messages appearing
 - Verify the frequency is correct for your area
@@ -309,7 +396,13 @@ python3 intercept.py --help
 
 ### Device busy error
 - Click "Kill All Processes" to stop any stale processes
-- Unplug and replug the RTL-SDR device
+- Unplug and replug the SDR device
+- Check if another application is using the device: `lsof | grep rtl`
+
+### LimeSDR/HackRF not detected
+- Ensure SoapySDR is installed: `SoapySDRUtil --info`
+- Check the driver module is loaded: `SoapySDRUtil --find`
+- Verify permissions (may need udev rules or run as root)
 
 ---
 
@@ -337,12 +430,26 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 Created by **smittix** - [GitHub](https://github.com/smittix)
 
+## Supported SDR Hardware
+
+| Hardware | Frequency Range | Gain Range | TX | Notes |
+|----------|-----------------|------------|-----|-------|
+| **RTL-SDR** | 24 - 1766 MHz | 0 - 50 dB | No | Most common, budget-friendly (~$25) |
+| **LimeSDR** | 0.1 - 3800 MHz | 0 - 73 dB | Yes | Wide range, requires SoapySDR |
+| **HackRF** | 1 - 6000 MHz | 0 - 62 dB | Yes | Ultra-wide range, requires SoapySDR |
+
+The application automatically detects connected devices and shows hardware-specific capabilities (frequency limits, gain ranges) in the UI.
+
+---
+
 ## Acknowledgments
 
 - [rtl-sdr](https://osmocom.org/projects/rtl-sdr/wiki) - RTL-SDR drivers
 - [multimon-ng](https://github.com/EliasOenal/multimon-ng) - Multi-protocol pager decoder
 - [rtl_433](https://github.com/merbanan/rtl_433) - 433MHz sensor decoder
 - [dump1090](https://github.com/flightaware/dump1090) - ADS-B decoder for aircraft tracking
+- [SoapySDR](https://github.com/pothosware/SoapySDR) - Universal SDR abstraction layer
+- [LimeSuite](https://github.com/myriadrf/LimeSuite) - LimeSDR driver and tools
 - [aircrack-ng](https://www.aircrack-ng.org/) - WiFi security auditing tools
 - [BlueZ](http://www.bluez.org/) - Official Linux Bluetooth protocol stack
 - [Leaflet.js](https://leafletjs.com/) - Interactive maps for aircraft tracking

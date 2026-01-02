@@ -17,6 +17,7 @@ from utils.logging import sensor_logger as logger
 from utils.validation import validate_frequency, validate_device_index, validate_gain, validate_ppm
 from utils.sse import format_sse
 from utils.process import safe_terminate, register_process
+from utils.sdr import SDRFactory, SDRType
 
 sensor_bp = Blueprint('sensor', __name__)
 
@@ -82,19 +83,24 @@ def start_sensor() -> Response:
             except queue.Empty:
                 break
 
-        # Build rtl_433 command
-        cmd = [
-            'rtl_433',
-            '-d', str(device),
-            '-f', f'{freq}M',
-            '-F', 'json'
-        ]
+        # Get SDR type and build command via abstraction layer
+        sdr_type_str = data.get('sdr_type', 'rtlsdr')
+        try:
+            sdr_type = SDRType(sdr_type_str)
+        except ValueError:
+            sdr_type = SDRType.RTL_SDR
 
-        if gain and gain != 0:
-            cmd.extend(['-g', str(int(gain))])
+        # Create device object and get command builder
+        sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+        builder = SDRFactory.get_builder(sdr_type)
 
-        if ppm and ppm != 0:
-            cmd.extend(['-p', str(ppm)])
+        # Build ISM band decoder command
+        cmd = builder.build_ism_command(
+            device=sdr_device,
+            frequency_mhz=freq,
+            gain=float(gain) if gain and gain != 0 else None,
+            ppm=int(ppm) if ppm and ppm != 0 else None
+        )
 
         full_cmd = ' '.join(cmd)
         logger.info(f"Running: {full_cmd}")

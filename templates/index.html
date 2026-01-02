@@ -3105,17 +3105,32 @@
                 </div>
 
                 <div class="section" id="rtlDeviceSection">
-                    <h3>RTL-SDR Device</h3>
+                    <h3>SDR Device</h3>
                     <div class="form-group">
+                        <label style="font-size: 11px; color: #888; margin-bottom: 4px;">Hardware Type</label>
+                        <select id="sdrTypeSelect" onchange="onSDRTypeChanged()">
+                            <option value="rtlsdr">RTL-SDR</option>
+                            <option value="limesdr">LimeSDR</option>
+                            <option value="hackrf">HackRF</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 11px; color: #888; margin-bottom: 4px;">Device</label>
                         <select id="deviceSelect">
                             {% if devices %}
                                 {% for device in devices %}
-                                <option value="{{ device.index }}">{{ device.index }}: {{ device.name }}</option>
+                                <option value="{{ device.index }}" data-sdr-type="{{ device.sdr_type | default('rtlsdr') }}">{{ device.index }}: {{ device.name }}</option>
                                 {% endfor %}
                             {% else %}
                                 <option value="0">No devices found</option>
                             {% endif %}
                         </select>
+                    </div>
+                    <div id="deviceCapabilities" class="info-text" style="font-size: 11px; margin-bottom: 8px; padding: 6px; background: #0a0a1a; border-radius: 4px;">
+                        <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px;">
+                            <span style="color: #888;">Freq:</span><span id="capFreqRange">24-1766 MHz</span>
+                            <span style="color: #888;">Gain:</span><span id="capGainRange">0-50 dB</span>
+                        </div>
                     </div>
                     <button class="preset-btn" onclick="refreshDevices()" style="width: 100%;">
                         Refresh Devices
@@ -4730,7 +4745,8 @@
                 frequency: freq,
                 gain: gain,
                 ppm: ppm,
-                device: device
+                device: device,
+                sdr_type: getSelectedSDRType()
             };
 
             fetch('/start_sensor', {
@@ -5139,24 +5155,75 @@
             }
         }
 
+        // SDR hardware capabilities
+        const sdrCapabilities = {
+            'rtlsdr': { name: 'RTL-SDR', freq_min: 24, freq_max: 1766, gain_min: 0, gain_max: 50 },
+            'limesdr': { name: 'LimeSDR', freq_min: 0.1, freq_max: 3800, gain_min: 0, gain_max: 73 },
+            'hackrf': { name: 'HackRF', freq_min: 1, freq_max: 6000, gain_min: 0, gain_max: 62 }
+        };
+
+        // Current device list with SDR type info
+        let currentDeviceList = [];
+
+        function onSDRTypeChanged() {
+            const sdrType = document.getElementById('sdrTypeSelect').value;
+            const select = document.getElementById('deviceSelect');
+
+            // Filter devices by selected SDR type
+            const filteredDevices = currentDeviceList.filter(d =>
+                (d.sdr_type || 'rtlsdr') === sdrType
+            );
+
+            if (filteredDevices.length === 0) {
+                select.innerHTML = `<option value="0">No ${sdrCapabilities[sdrType]?.name || sdrType} devices found</option>`;
+            } else {
+                select.innerHTML = filteredDevices.map(d =>
+                    `<option value="${d.index}" data-sdr-type="${d.sdr_type || 'rtlsdr'}">${d.index}: ${d.name}</option>`
+                ).join('');
+            }
+
+            // Update capabilities display
+            updateCapabilitiesDisplay(sdrType);
+        }
+
+        function updateCapabilitiesDisplay(sdrType) {
+            const caps = sdrCapabilities[sdrType];
+            if (caps) {
+                document.getElementById('capFreqRange').textContent = `${caps.freq_min}-${caps.freq_max} MHz`;
+                document.getElementById('capGainRange').textContent = `${caps.gain_min}-${caps.gain_max} dB`;
+            }
+        }
+
         function refreshDevices() {
             fetch('/devices')
                 .then(r => r.json())
                 .then(devices => {
+                    // Store full device list with SDR type info
+                    currentDeviceList = devices;
                     deviceList = devices;
-                    const select = document.getElementById('deviceSelect');
-                    if (devices.length === 0) {
-                        select.innerHTML = '<option value="0">No devices found</option>';
-                    } else {
-                        select.innerHTML = devices.map(d =>
-                            `<option value="${d.index}">${d.index}: ${d.name}</option>`
-                        ).join('');
+
+                    // Auto-select SDR type if devices found
+                    if (devices.length > 0) {
+                        const firstType = devices[0].sdr_type || 'rtlsdr';
+                        document.getElementById('sdrTypeSelect').value = firstType;
                     }
+
+                    // Trigger filter update
+                    onSDRTypeChanged();
+                })
+                .catch(err => {
+                    console.error('Failed to refresh devices:', err);
+                    const select = document.getElementById('deviceSelect');
+                    select.innerHTML = '<option value="0">Error loading devices</option>';
                 });
         }
 
         function getSelectedDevice() {
             return document.getElementById('deviceSelect').value;
+        }
+
+        function getSelectedSDRType() {
+            return document.getElementById('sdrTypeSelect').value;
         }
 
         function getSelectedProtocols() {
@@ -5187,6 +5254,7 @@
                 squelch: squelch,
                 ppm: ppm,
                 device: device,
+                sdr_type: getSelectedSDRType(),
                 protocols: protocols
             };
 
@@ -8759,11 +8827,12 @@
         function startAdsbScan() {
             const gain = document.getElementById('adsbGain').value;
             const device = getSelectedDevice();
+            const sdr_type = getSelectedSDRType();
 
             fetch('/adsb/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gain, device })
+                body: JSON.stringify({ gain, device, sdr_type })
             })
             .then(r => r.json())
             .then(data => {
@@ -9759,11 +9828,12 @@
             const gain = document.getElementById('iridiumGain').value;
             const sampleRate = document.getElementById('iridiumSampleRate').value;
             const device = getSelectedDevice();
+            const sdr_type = getSelectedSDRType();
 
             fetch('/iridium/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ freq, gain, sampleRate, device })
+                body: JSON.stringify({ freq, gain, sampleRate, device, sdr_type })
             })
             .then(r => r.json())
             .then(data => {

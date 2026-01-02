@@ -18,6 +18,7 @@ import app as app_module
 from utils.logging import adsb_logger as logger
 from utils.validation import validate_device_index, validate_gain
 from utils.sse import format_sse
+from utils.sdr import SDRFactory, SDRType
 
 adsb_bp = Blueprint('adsb', __name__, url_prefix='/adsb')
 
@@ -29,9 +30,15 @@ adsb_last_message_time = None
 
 # Common installation paths for dump1090 (when not in PATH)
 DUMP1090_PATHS = [
+    # Homebrew on Apple Silicon (M1/M2/M3)
+    '/opt/homebrew/bin/dump1090',
+    '/opt/homebrew/bin/dump1090-fa',
+    '/opt/homebrew/bin/dump1090-mutability',
+    # Homebrew on Intel Mac
     '/usr/local/bin/dump1090',
     '/usr/local/bin/dump1090-fa',
     '/usr/local/bin/dump1090-mutability',
+    # Linux system paths
     '/usr/bin/dump1090',
     '/usr/bin/dump1090-fa',
     '/usr/bin/dump1090-mutability',
@@ -240,11 +247,23 @@ def start_adsb():
         thread.start()
         return jsonify({'status': 'started', 'message': 'Connected to existing dump1090 service'})
 
-    # No existing service, need to start dump1090 ourselves
-    dump1090_path = find_dump1090()
+    # Get SDR type from request
+    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
 
-    if not dump1090_path:
-        return jsonify({'status': 'error', 'message': 'dump1090 not found. Install dump1090/dump1090-fa or ensure it is in /usr/local/bin/'})
+    # For RTL-SDR, use dump1090. For other hardware, need readsb with SoapySDR
+    if sdr_type == SDRType.RTL_SDR:
+        dump1090_path = find_dump1090()
+        if not dump1090_path:
+            return jsonify({'status': 'error', 'message': 'dump1090 not found. Install dump1090/dump1090-fa or ensure it is in /usr/local/bin/'})
+    else:
+        # For LimeSDR/HackRF, check for readsb (dump1090 with SoapySDR support)
+        dump1090_path = shutil.which('readsb') or find_dump1090()
+        if not dump1090_path:
+            return jsonify({'status': 'error', 'message': f'readsb or dump1090 not found for {sdr_type.value}. Install readsb with SoapySDR support.'})
 
     # Kill any stale app-started process
     if app_module.adsb_process:
@@ -255,7 +274,19 @@ def start_adsb():
             pass
         app_module.adsb_process = None
 
-    cmd = [dump1090_path, '--net', '--gain', str(gain), '--device-index', str(device), '--quiet']
+    # Create device object and build command via abstraction layer
+    sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+    builder = SDRFactory.get_builder(sdr_type)
+
+    # Build ADS-B decoder command
+    cmd = builder.build_adsb_command(
+        device=sdr_device,
+        gain=float(gain)
+    )
+
+    # For RTL-SDR, ensure we use the found dump1090 path
+    if sdr_type == SDRType.RTL_SDR:
+        cmd[0] = dump1090_path
 
     try:
         app_module.adsb_process = subprocess.Popen(

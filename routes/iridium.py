@@ -23,6 +23,7 @@ import app as app_module
 from utils.logging import iridium_logger as logger
 from utils.validation import validate_frequency, validate_device_index, validate_gain
 from utils.sse import format_sse
+from utils.sdr import SDRFactory, SDRType
 
 iridium_bp = Blueprint('iridium', __name__, url_prefix='/iridium')
 
@@ -103,21 +104,45 @@ def start_iridium():
     except (ValueError, AttributeError):
         return jsonify({'status': 'error', 'message': 'Invalid sample rate format'}), 400
 
-    if not shutil.which('iridium-extractor') and not shutil.which('rtl_fm'):
-        return jsonify({
-            'status': 'error',
-            'message': 'Iridium tools not found. Requires rtl_fm or iridium-extractor.'
-        }), 503
+    # Get SDR type from request
+    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
+
+    # Check for required tools based on SDR type
+    if sdr_type == SDRType.RTL_SDR:
+        if not shutil.which('iridium-extractor') and not shutil.which('rtl_fm'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Iridium tools not found. Requires rtl_fm or iridium-extractor.'
+            }), 503
+    else:
+        if not shutil.which('rx_fm'):
+            return jsonify({
+                'status': 'error',
+                'message': f'rx_fm not found for {sdr_type.value}. Install SoapySDR tools.'
+            }), 503
 
     try:
-        cmd = [
-            'rtl_fm',
-            '-f', f'{float(freq)}M',
-            '-g', str(gain),
-            '-s', sample_rate,
-            '-d', str(device),
-            '-'
-        ]
+        # Create device object and build command via abstraction layer
+        sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+        builder = SDRFactory.get_builder(sdr_type)
+
+        # Parse sample rate
+        sample_rate_hz = int(float(sample_rate))
+
+        # Build FM demodulation command
+        cmd = builder.build_fm_demod_command(
+            device=sdr_device,
+            frequency_mhz=float(freq),
+            sample_rate=sample_rate_hz,
+            gain=float(gain),
+            ppm=None,
+            modulation='fm',
+            squelch=None
+        )
 
         app_module.satellite_process = subprocess.Popen(
             cmd,
