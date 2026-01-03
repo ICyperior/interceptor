@@ -17,7 +17,7 @@
 </p>
 
 ## Screenshot
-<img src="{{ url_for('static', filename='images/screenshots/screenshot2.png') }}">
+<img src="static/images/screenshots/screenshot2.png">
 
 ---
 
