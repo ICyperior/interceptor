@@ -96,6 +96,7 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
             timeout=5,
             env=env 
         )
+        output = result.stderr + result.stdout
 
         # Parse device info from rtl_test output
         # Format: "0:  Realtek, RTL2838UHIDIR, SN: 00000001"
@@ -314,4 +315,5 @@ def detect_all_devices() -> list[SDRDevice]:
         logger.debug(f"  {d.sdr_type.value}:{d.index} - {d.name} (serial: {d.serial})")
 
     return devices
+
 
