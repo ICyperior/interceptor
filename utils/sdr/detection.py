@@ -81,13 +81,21 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
         return devices
 
     try:
+        import os
+        import platform
+        env = os.environ.copy()
+        
+        if platform.system() == 'Darwin':
+            lib_paths = ['/usr/local/lib', '/opt/homebrew/lib']
+            current_ld = env.get('DYLD_LIBRARY_PATH', '')
+            env['DYLD_LIBRARY_PATH'] = ':'.join(lib_paths + [current_ld] if current_ld else lib_paths)
         result = subprocess.run(
             ['rtl_test', '-t'],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            env=env 
         )
-        output = result.stderr + result.stdout
 
         # Parse device info from rtl_test output
         # Format: "0:  Realtek, RTL2838UHIDIR, SN: 00000001"
@@ -306,3 +314,4 @@ def detect_all_devices() -> list[SDRDevice]:
         logger.debug(f"  {d.sdr_type.value}:{d.index} - {d.name} (serial: {d.serial})")
 
     return devices
+
