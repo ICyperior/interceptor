@@ -16,15 +16,14 @@
   Unified interface for pager decoding, 433MHz sensors, ADS-B aircraft tracking, satellite monitoring, WiFi reconnaissance, and Bluetooth scanning.
 </p>
 
-## Community
-<p align="center">
-  https://discord.gg/q4Dv6DMZ
-</p>
-
 ## Screenshot
 <img src="static/images/screenshots/screenshot2.png">
 
 ---
+## Community
+<p align="center">
+  https://discord.gg/z3g3NJMe
+</p>
 
 ## Quick Start
 
@@ -526,6 +525,7 @@ By using INTERCEPT, you acknowledge that:
 - The developers assume no liability for misuse of this software
 
 A disclaimer must be accepted when first launching the application.
+
 
 
 
