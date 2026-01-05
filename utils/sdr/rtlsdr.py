@@ -40,7 +40,7 @@ class RTLSDRCommandBuilder(CommandBuilder):
         """
         Build rtl_fm command for FM demodulation.
 
-        Used for pager decoding and iridium capture.
+        Used for pager decoding.
         """
         cmd = [
             'rtl_fm',

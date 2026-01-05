@@ -41,7 +41,6 @@ Complete feature list for all modules.
 - **Celestrak integration** - fetch by category (Amateur, Weather, ISS, Starlink, etc.)
 - **Next pass countdown** - time remaining, visibility duration, max elevation
 - **Telemetry panel** - real-time azimuth, elevation, range, velocity
-- **Iridium burst detection** monitoring (demo mode)
 - **Multiple satellite tracking** simultaneously
 
 ## WiFi Reconnaissance

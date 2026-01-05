@@ -6,6 +6,9 @@ import logging
 import os
 import sys
 
+# Application version
+VERSION = "1.0.0"
+
 
 def _get_env(key: str, default: str) -> str:
     """Get environment variable with default."""
@@ -56,10 +59,6 @@ DEFAULT_DEVICE = _get_env('DEFAULT_DEVICE', '0')
 # Pager defaults
 DEFAULT_PAGER_FREQ = _get_env('PAGER_FREQ', '929.6125M')
 
-# Iridium defaults
-DEFAULT_IRIDIUM_FREQ = _get_env('IRIDIUM_FREQ', '1626.0')
-DEFAULT_IRIDIUM_SAMPLE_RATE = _get_env('IRIDIUM_SAMPLE_RATE', '2.048e6')
-
 # Timeouts
 PROCESS_TIMEOUT = _get_env_int('PROCESS_TIMEOUT', 5)
 SOCKET_TIMEOUT = _get_env_int('SOCKET_TIMEOUT', 5)
@@ -81,9 +80,6 @@ ADSB_UPDATE_INTERVAL = _get_env_float('ADSB_UPDATE_INTERVAL', 1.0)
 SATELLITE_UPDATE_INTERVAL = _get_env_int('SATELLITE_UPDATE_INTERVAL', 30)
 SATELLITE_TRAJECTORY_POINTS = _get_env_int('SATELLITE_TRAJECTORY_POINTS', 30)
 SATELLITE_ORBIT_MINUTES = _get_env_int('SATELLITE_ORBIT_MINUTES', 45)
-
-# Maximum burst count for Iridium monitoring
-IRIDIUM_MAX_BURSTS = _get_env_int('IRIDIUM_MAX_BURSTS', 100)
 
 
 def configure_logging() -> None:

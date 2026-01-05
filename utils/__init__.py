@@ -19,7 +19,6 @@ from .logging import (
     bluetooth_logger,
     adsb_logger,
     satellite_logger,
-    iridium_logger,
 )
 from .validation import (
     escape_html,

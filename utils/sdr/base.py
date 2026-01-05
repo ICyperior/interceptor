@@ -83,7 +83,7 @@ class CommandBuilder(ABC):
         squelch: Optional[int] = None
     ) -> list[str]:
         """
-        Build FM demodulation command (for pager, iridium).
+        Build FM demodulation command (for pager decoding).
 
         Args:
             device: The SDR device to use

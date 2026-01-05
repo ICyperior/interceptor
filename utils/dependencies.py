@@ -189,18 +189,6 @@ TOOL_DEPENDENCIES = {
             }
         }
     },
-    'iridium': {
-        'name': 'Iridium Monitoring',
-        'tools': {
-            'iridium-extractor': {
-                'required': False,
-                'description': 'Iridium burst extractor',
-                'install': {
-                    'manual': 'https://github.com/muccc/gr-iridium'
-                }
-            }
-        }
-    },
     'sdr_hardware': {
         'name': 'SDR Hardware Support',
         'tools': {

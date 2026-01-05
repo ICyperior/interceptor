@@ -8,7 +8,6 @@ def register_blueprints(app):
     from .bluetooth import bluetooth_bp
     from .adsb import adsb_bp
     from .satellite import satellite_bp
-    from .iridium import iridium_bp
     from .gps import gps_bp
 
     app.register_blueprint(pager_bp)
@@ -17,5 +16,4 @@ def register_blueprints(app):
     app.register_blueprint(bluetooth_bp)
     app.register_blueprint(adsb_bp)
     app.register_blueprint(satellite_bp)
-    app.register_blueprint(iridium_bp)
     app.register_blueprint(gps_bp)

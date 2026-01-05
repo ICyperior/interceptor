@@ -101,7 +101,7 @@
                 <path d="M50 88 L45 83 L50 83 Z" fill="#00d4ff"/>
             </svg>
         </div>
-        <h1>INTERCEPT</h1>
+        <h1>INTERCEPT <span class="version-badge">v{{ version }}</span></h1>
         <p>Signal Intelligence // by smittix <span class="active-mode-indicator" id="activeModeIndicator"><span class="pulse-dot"></span>PAGER</span></p>
 
         <!-- Header Stats (mode-specific) -->
@@ -814,8 +814,7 @@
                 <div id="satelliteMode" class="mode-content">
                     <a href="/satellite/dashboard" target="_blank" class="run-btn" style="display: block; text-align: center; text-decoration: none; margin-bottom: 15px;">Full Screen Dashboard</a>
                     <div class="satellite-tabs">
-                        <button class="satellite-tab active" onclick="switchSatelliteTab('predictor')">🛰️ Pass Predictor</button>
-                        <button class="satellite-tab" onclick="switchSatelliteTab('iridium')">📡 Iridium</button>
+                        <button class="satellite-tab active">🛰️ Pass Predictor</button>
                     </div>
 
                     <!-- Pass Predictor Sub-tab -->
@@ -919,47 +918,6 @@
                         </button>
                     </div>
 
-                    <!-- Iridium Sub-tab -->
-                    <div id="iridiumTab" class="satellite-content">
-                        <div class="iridium-warning">
-                            <strong>⚠️ Hardware Required</strong>
-                            Iridium burst detection requires:<br>
-                            • RTL-SDR dongle<br>
-                            • L-band patch antenna (1616-1626 MHz)<br>
-                            • Low Noise Amplifier (LNA)<br>
-                            • Clear view of sky
-                        </div>
-
-                        <div class="section">
-                            <h3>Iridium Settings</h3>
-                            <div class="form-group">
-                                <label>Center Frequency (MHz)</label>
-                                <input type="text" id="iridiumFreq" value="1626.0" placeholder="1626.0">
-                            </div>
-                            <div class="form-group">
-                                <label>Gain (dB)</label>
-                                <input type="text" id="iridiumGain" value="40" placeholder="40">
-                            </div>
-                            <div class="form-group">
-                                <label>Sample Rate</label>
-                                <select id="iridiumSampleRate">
-                                    <option value="2.4e6">2.4 MSPS</option>
-                                    <option value="2.048e6" selected>2.048 MSPS</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="info-text" style="margin-bottom: 10px;" id="iridiumToolStatus">
-                            <span>iridium-extractor:</span> <span class="tool-status" id="iridiumExtractorStatus">Checking...</span>
-                        </div>
-
-                        <button class="run-btn" id="startIridiumBtn" onclick="startIridiumCapture()">
-                            Start Capture
-                        </button>
-                        <button class="stop-btn" id="stopIridiumBtn" onclick="stopIridiumCapture()" style="display: none;">
-                            Stop Capture
-                        </button>
-                    </div>
                 </div>
 
                 <button class="preset-btn" onclick="killAll()" style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
@@ -1005,7 +963,6 @@
                         </div>
                         <div class="stats" id="satelliteStats" style="display: none;">
                             <div title="Upcoming Passes">🛰️ <span id="passCount">0</span></div>
-                            <div title="Iridium Bursts">📡 <span id="burstCount">0</span></div>
                         </div>
                     </div>
                 </div>
@@ -1248,20 +1205,6 @@
                         </div>
                     </div>
 
-                    <!-- Iridium Burst Log -->
-                    <div id="iridiumBurstLog" style="display: none; margin-top: 15px;">
-                        <div class="pass-list-container">
-                            <div class="pass-list-header">
-                                <span>Iridium Burst Log</span>
-                                <button class="preset-btn" onclick="clearIridiumLog()" style="padding: 2px 8px; font-size: 10px;">Clear</button>
-                            </div>
-                            <div id="burstList">
-                                <div style="color: #666; text-align: center; padding: 30px; font-size: 11px;">
-                                    Iridium bursts will appear here when detected.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Satellite Popout Container -->
@@ -1435,7 +1378,6 @@
         let isRunning = false;
         let isSensorRunning = false;
         let isAdsbRunning = false;
-        let isIridiumRunning = false;
         let isWifiRunning = false;
         let isBtRunning = false;
         let currentMode = 'pager';
@@ -1492,7 +1434,6 @@
 
             // Satellite stats
             document.getElementById('headerPassCount').textContent = document.getElementById('passCount')?.textContent || '0';
-            document.getElementById('headerBurstCount').textContent = document.getElementById('burstCount')?.textContent || '0';
         }
         // Sync stats periodically
         setInterval(syncHeaderStats, 500);
@@ -1717,8 +1658,6 @@
         let satellitePasses = [];
         let selectedPass = null;
         let selectedPassIndex = 0;
-        let iridiumBursts = [];
-        let iridiumEventSource = null;
         let countdownInterval = null;
 
         // Start satellite countdown timer
@@ -1857,7 +1796,6 @@
             if (isWifiRunning) stopWifiScan();
             if (isBtRunning) stopBtScan();
             if (isAdsbRunning) stopAdsbScan();
-            if (isIridiumRunning) stopIridiumCapture();
 
             currentMode = mode;
             document.querySelectorAll('.mode-tab').forEach(tab => {
@@ -1958,7 +1896,6 @@
             } else if (mode === 'satellite') {
                 initPolarPlot();
                 initSatelliteList();
-                checkIridiumTools();
             }
         }
 
@@ -6234,16 +6171,6 @@
         // SATELLITE MODE FUNCTIONS
         // ============================================
 
-        function switchSatelliteTab(tab) {
-            document.querySelectorAll('.satellite-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.satellite-content').forEach(c => c.classList.remove('active'));
-            document.querySelector(`.satellite-tab:nth-child(${tab === 'predictor' ? 1 : 2})`).classList.add('active');
-            document.getElementById(tab === 'predictor' ? 'predictorTab' : 'iridiumTab').classList.add('active');
-
-            // Toggle Iridium burst log visibility
-            document.getElementById('iridiumBurstLog').style.display = tab === 'iridium' ? 'block' : 'none';
-        }
-
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
@@ -7277,99 +7204,6 @@
             }
         }
 
-        // Iridium functions
-        function checkIridiumTools() {
-            fetch('/iridium/tools')
-                .then(r => r.json())
-                .then(data => {
-                    const status = document.getElementById('iridiumExtractorStatus');
-                    status.textContent = data.available ? 'OK' : 'Not found';
-                    status.className = 'tool-status ' + (data.available ? 'ok' : 'missing');
-                });
-        }
-
-        function startIridiumCapture() {
-            const freq = document.getElementById('iridiumFreq').value;
-            const gain = document.getElementById('iridiumGain').value;
-            const sampleRate = document.getElementById('iridiumSampleRate').value;
-            const device = getSelectedDevice();
-            const sdr_type = getSelectedSDRType();
-
-            fetch('/iridium/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ freq, gain, sampleRate, device, sdr_type })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'started') {
-                    isIridiumRunning = true;
-                    document.getElementById('startIridiumBtn').style.display = 'none';
-                    document.getElementById('stopIridiumBtn').style.display = 'block';
-                    document.getElementById('statusDot').className = 'status-dot active';
-                    document.getElementById('statusText').textContent = 'Iridium Capture';
-                    startIridiumStream();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            });
-        }
-
-        function stopIridiumCapture() {
-            fetch('/iridium/stop', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    isIridiumRunning = false;
-                    document.getElementById('startIridiumBtn').style.display = 'block';
-                    document.getElementById('stopIridiumBtn').style.display = 'none';
-                    document.getElementById('statusDot').className = 'status-dot';
-                    document.getElementById('statusText').textContent = 'Idle';
-                    if (iridiumEventSource) {
-                        iridiumEventSource.close();
-                        iridiumEventSource = null;
-                    }
-                });
-        }
-
-        function startIridiumStream() {
-            if (iridiumEventSource) iridiumEventSource.close();
-            iridiumEventSource = new EventSource('/iridium/stream');
-
-            iridiumEventSource.onmessage = function(e) {
-                const data = JSON.parse(e.data);
-                if (data.type === 'burst') {
-                    iridiumBursts.unshift(data);
-                    document.getElementById('burstCount').textContent = iridiumBursts.length;
-                    addBurstToLog(data);
-                }
-            };
-        }
-
-        function addBurstToLog(burst) {
-            const container = document.getElementById('burstList');
-            const placeholder = container.querySelector('div[style*="color: #666"]');
-            if (placeholder) placeholder.remove();
-
-            const card = document.createElement('div');
-            card.className = 'burst-card';
-            card.innerHTML = `
-                <div class="burst-time">${burst.time}</div>
-                <div class="burst-freq">${burst.frequency} MHz</div>
-                <div class="burst-data">${burst.data || 'No payload data'}</div>
-            `;
-            container.insertBefore(card, container.firstChild);
-
-            while (container.children.length > 100) {
-                container.removeChild(container.lastChild);
-            }
-        }
-
-        function clearIridiumLog() {
-            iridiumBursts = [];
-            document.getElementById('burstCount').textContent = '0';
-            document.getElementById('burstList').innerHTML = '<div style="color: #666; text-align: center; padding: 30px; font-size: 11px;">Iridium bursts will appear here when detected.</div>';
-        }
-
         // Utility function
         function showInfo(message) {
             // Simple notification - could be enhanced
@@ -7513,7 +7347,6 @@
                     <li>Add satellites manually or fetch from Celestrak by category</li>
                     <li>Categories: Amateur, Weather, ISS, Starlink, GPS, and more</li>
                     <li>View next pass predictions with elevation and duration</li>
-                    <li>Monitor for Iridium satellite bursts</li>
                 </ul>
 
                 <h3>📶 WiFi Mode</h3>

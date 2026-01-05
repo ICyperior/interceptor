@@ -25,6 +25,7 @@ from typing import Any
 
 from flask import Flask, render_template, jsonify, send_file, Response, request
 
+from config import VERSION
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
 from utils.process import cleanup_stale_processes
 from utils.sdr import SDRFactory
@@ -91,7 +92,6 @@ bt_services = {}     # MAC -> list of services
 adsb_aircraft = {}   # ICAO hex -> aircraft info
 
 # Satellite state
-iridium_bursts = []  # List of detected Iridium bursts
 satellite_passes = [] # Predicted satellite passes
 
 
@@ -107,7 +107,7 @@ def index() -> str:
         'rtl_433': check_tool('rtl_433')
     }
     devices = [d.to_dict() for d in SDRFactory.detect_devices()]
-    return render_template('index.html', tools=tools, devices=devices)
+    return render_template('index.html', tools=tools, devices=devices, version=VERSION)
 
 
 @app.route('/favicon.svg')

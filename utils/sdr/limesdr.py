@@ -46,7 +46,7 @@ class LimeSDRCommandBuilder(CommandBuilder):
         """
         Build SoapySDR rx_fm command for FM demodulation.
 
-        For pager decoding and iridium capture with LimeSDR.
+        For pager decoding with LimeSDR.
         """
         device_str = self._build_device_string(device)
 

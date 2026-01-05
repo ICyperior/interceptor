@@ -6,7 +6,7 @@ A comprehensive signal intelligence tool featuring:
 - Pager decoding (POCSAG/FLEX)
 - 433MHz sensor monitoring
 - ADS-B aircraft tracking with WarGames-style display
-- Satellite pass prediction and Iridium burst detection
+- Satellite pass prediction
 - WiFi reconnaissance and drone detection
 - Bluetooth scanning
 
@@ -24,6 +24,12 @@ if sys.version_info < (3, 9):
     print("  - On macOS: brew install python@3.11")
     print("  - Or use pyenv to install a newer version")
     sys.exit(1)
+
+# Handle --version early before other imports
+if '--version' in sys.argv or '-V' in sys.argv:
+    from config import VERSION
+    print(f"INTERCEPT v{VERSION}")
+    sys.exit(0)
 
 import site
 

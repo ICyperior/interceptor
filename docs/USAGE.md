@@ -90,7 +90,6 @@ The system highlights aircraft transmitting emergency squawks:
 4. **View Sky Plot** - Polar plot shows satellite positions in real-time
 5. **Ground Track** - Map displays satellite orbit path and current position
 6. **Full Dashboard** - Click "Full Screen Dashboard" for dedicated satellite view
-7. **Iridium Mode** - Switch tabs to monitor for Iridium burst transmissions
 
 ### Adding Satellites from Celestrak
 
