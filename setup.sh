@@ -132,67 +132,150 @@ check_tools() {
     echo ""
 
     MISSING_TOOLS=()
+    MISSING_CORE=false
+    MISSING_WIFI=false
+    MISSING_BLUETOOTH=false
 
     # Core SDR tools
     echo "Core SDR Tools:"
-    check_tool "rtl_fm" "RTL-SDR FM demodulator"
-    check_tool "rtl_test" "RTL-SDR device detection"
-    check_tool "multimon-ng" "Pager decoder"
-    check_tool "rtl_433" "433MHz sensor decoder"
-    check_tool "dump1090" "ADS-B decoder"
+    check_tool "rtl_fm" "RTL-SDR FM demodulator" "core"
+    check_tool "rtl_test" "RTL-SDR device detection" "core"
+    check_tool "multimon-ng" "Pager decoder" "core"
+    check_tool "rtl_433" "433MHz sensor decoder" "core"
+    check_tool "dump1090" "ADS-B decoder" "core"
 
     echo ""
     echo "Additional SDR Hardware (optional):"
-    check_tool "SoapySDRUtil" "SoapySDR (for LimeSDR/HackRF)"
-    check_tool "LimeUtil" "LimeSDR tools"
-    check_tool "hackrf_info" "HackRF tools"
+    check_tool "SoapySDRUtil" "SoapySDR (for LimeSDR/HackRF)" "optional"
+    check_tool "LimeUtil" "LimeSDR tools" "optional"
+    check_tool "hackrf_info" "HackRF tools" "optional"
 
     echo ""
     echo "WiFi Tools:"
-    check_tool "airmon-ng" "WiFi monitor mode"
-    check_tool "airodump-ng" "WiFi scanner"
+    check_tool "airmon-ng" "WiFi monitor mode" "wifi"
+    check_tool "airodump-ng" "WiFi scanner" "wifi"
 
     echo ""
     echo "Bluetooth Tools:"
-    check_tool "bluetoothctl" "Bluetooth controller"
-    check_tool "hcitool" "Bluetooth HCI tool"
+    check_tool "bluetoothctl" "Bluetooth controller" "bluetooth"
+    check_tool "hcitool" "Bluetooth HCI tool" "bluetooth"
 
     if [ ${#MISSING_TOOLS[@]} -gt 0 ]; then
         echo ""
-        echo -e "${YELLOW}Some tools are missing. See installation instructions below.${NC}"
+        echo -e "${YELLOW}Some tools are missing.${NC}"
     fi
 }
 
 check_tool() {
     local cmd=$1
     local desc=$2
+    local category=$3
     if check_cmd "$cmd"; then
         echo -e "  ${GREEN}✓${NC} $cmd - $desc"
     else
         echo -e "  ${RED}✗${NC} $cmd - $desc ${YELLOW}(not found)${NC}"
         MISSING_TOOLS+=("$cmd")
+        case "$category" in
+            core) MISSING_CORE=true ;;
+            wifi) MISSING_WIFI=true ;;
+            bluetooth) MISSING_BLUETOOTH=true ;;
+        esac
     fi
 }
 
-# Show installation instructions
-show_install_instructions() {
+# Install tools on Debian/Ubuntu
+install_debian_tools() {
     echo ""
-    echo -e "${BLUE}[3/3] Installation instructions for missing tools${NC}"
+    echo -e "${BLUE}[3/3] Installing tools...${NC}"
     echo ""
 
     if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
-        echo -e "${GREEN}All tools are installed!${NC}"
+        echo -e "${GREEN}All tools are already installed!${NC}"
         return
     fi
 
-    echo "Run the following commands to install missing tools:"
+    echo -e "${YELLOW}The following tool categories need to be installed:${NC}"
+    $MISSING_CORE && echo "  - Core SDR tools (rtl-sdr, multimon-ng, rtl-433, dump1090)"
+    $MISSING_WIFI && echo "  - WiFi tools (aircrack-ng)"
+    $MISSING_BLUETOOTH && echo "  - Bluetooth tools (bluez)"
+    echo ""
+
+    read -p "Would you like to install missing tools automatically? [Y/n] " -n 1 -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        echo ""
+        echo "Updating package lists..."
+        sudo apt update
+
+        # Core SDR tools
+        if $MISSING_CORE; then
+            echo ""
+            echo -e "${BLUE}Installing Core SDR tools...${NC}"
+            sudo apt install -y rtl-sdr multimon-ng rtl-433 dump1090-mutability
+        fi
+
+        # WiFi tools
+        if $MISSING_WIFI; then
+            echo ""
+            echo -e "${BLUE}Installing WiFi tools...${NC}"
+            sudo apt install -y aircrack-ng
+        fi
+
+        # Bluetooth tools
+        if $MISSING_BLUETOOTH; then
+            echo ""
+            echo -e "${BLUE}Installing Bluetooth tools...${NC}"
+            sudo apt install -y bluez bluetooth
+        fi
+
+        echo ""
+        echo -e "${GREEN}Tool installation complete!${NC}"
+
+        # Setup udev rules automatically
+        setup_udev_rules_auto
+    else
+        echo ""
+        echo "Skipping automatic installation."
+        show_manual_instructions
+    fi
+}
+
+# Setup udev rules automatically (Debian)
+setup_udev_rules_auto() {
+    echo ""
+    echo -e "${BLUE}Setting up RTL-SDR udev rules...${NC}"
+
+    if [ -f /etc/udev/rules.d/20-rtlsdr.rules ]; then
+        echo "udev rules already exist, skipping."
+        return
+    fi
+
+    read -p "Would you like to setup RTL-SDR udev rules? [Y/n] " -n 1 -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        sudo bash -c 'cat > /etc/udev/rules.d/20-rtlsdr.rules << EOF
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0666"
+EOF'
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger
+        echo -e "${GREEN}udev rules installed!${NC}"
+        echo "Please unplug and replug your RTL-SDR device."
+    fi
+}
+
+# Show manual installation instructions
+show_manual_instructions() {
+    echo ""
+    echo -e "${BLUE}Manual installation instructions:${NC}"
     echo ""
 
     if [[ "$OS" == "macos" ]]; then
         echo -e "${YELLOW}macOS (Homebrew):${NC}"
         echo ""
 
-        # Check if Homebrew is installed
         if ! check_cmd brew; then
             echo "First, install Homebrew:"
             echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
@@ -255,6 +338,22 @@ show_install_instructions() {
     fi
 }
 
+# Show installation instructions (decides auto vs manual)
+install_or_show_instructions() {
+    if [[ "$OS" == "debian" ]]; then
+        install_debian_tools
+    else
+        echo ""
+        echo -e "${BLUE}[3/3] Installation instructions for missing tools${NC}"
+        if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
+            echo ""
+            echo -e "${GREEN}All tools are installed!${NC}"
+        else
+            show_manual_instructions
+        fi
+    fi
+}
+
 # RTL-SDR udev rules (Linux only)
 setup_udev_rules() {
     if [[ "$OS" != "macos" ]] && [[ "$OS" != "unknown" ]]; then
@@ -280,8 +379,12 @@ main() {
     detect_os
     install_python_deps
     check_tools
-    show_install_instructions
-    setup_udev_rules
+    install_or_show_instructions
+
+    # Show udev rules instructions for non-Debian Linux (Debian handles it automatically)
+    if [[ "$OS" != "debian" ]]; then
+        setup_udev_rules
+    fi
 
     echo ""
     echo "============================================"
