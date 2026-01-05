@@ -16,9 +16,11 @@ from utils.gps import (
     is_serial_available,
     get_gps_reader,
     start_gps,
+    start_gpsd,
     stop_gps,
     get_current_position,
     GPSPosition,
+    GPSDClient,
 )
 
 logger = get_logger('intercept.gps')
@@ -49,6 +51,34 @@ def check_gps_available():
         'available': is_serial_available(),
         'message': None if is_serial_available() else 'pyserial not installed - run: pip install pyserial'
     })
+
+
+@gps_bp.route('/gpsd/check')
+def check_gpsd_available():
+    """Check if gpsd is reachable."""
+    import socket
+
+    host = request.args.get('host', 'localhost')
+    port = int(request.args.get('port', 2947))
+
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2.0)
+        sock.connect((host, port))
+        sock.close()
+        return jsonify({
+            'available': True,
+            'host': host,
+            'port': port,
+            'message': f'gpsd reachable at {host}:{port}'
+        })
+    except Exception as e:
+        return jsonify({
+            'available': False,
+            'host': host,
+            'port': port,
+            'message': f'Cannot connect to gpsd at {host}:{port}: {e}'
+        })
 
 
 @gps_bp.route('/devices')
@@ -109,19 +139,15 @@ def start_gps_reader():
         except queue.Empty:
             break
 
-    # Start the GPS reader
-    success = start_gps(device_path, baudrate)
+    # Start the GPS reader with callback pre-registered (avoids race condition)
+    success = start_gps(device_path, baudrate, callback=_position_callback)
 
     if success:
-        # Register callback for SSE streaming
-        reader = get_gps_reader()
-        if reader:
-            reader.add_callback(_position_callback)
-
         return jsonify({
             'status': 'started',
             'device': device_path,
-            'baudrate': baudrate
+            'baudrate': baudrate,
+            'source': 'serial'
         })
     else:
         reader = get_gps_reader()
@@ -129,6 +155,58 @@ def start_gps_reader():
         return jsonify({
             'status': 'error',
             'message': f'Failed to start GPS reader: {error}'
+        }), 500
+
+
+@gps_bp.route('/gpsd/start', methods=['POST'])
+def start_gpsd_client():
+    """Start GPS client connected to gpsd."""
+    # Check if already running
+    reader = get_gps_reader()
+    if reader and reader.is_running:
+        return jsonify({
+            'status': 'error',
+            'message': 'GPS reader already running'
+        }), 409
+
+    data = request.json or {}
+    host = data.get('host', 'localhost')
+    port = data.get('port', 2947)
+
+    # Validate port
+    try:
+        port = int(port)
+        if not (1 <= port <= 65535):
+            raise ValueError("Port out of range")
+    except (ValueError, TypeError):
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid port number'
+        }), 400
+
+    # Clear the queue
+    while not _gps_queue.empty():
+        try:
+            _gps_queue.get_nowait()
+        except queue.Empty:
+            break
+
+    # Start the gpsd client with callback pre-registered
+    success = start_gpsd(host, port, callback=_position_callback)
+
+    if success:
+        return jsonify({
+            'status': 'started',
+            'host': host,
+            'port': port,
+            'source': 'gpsd'
+        })
+    else:
+        reader = get_gps_reader()
+        error = reader.error if reader else 'Unknown error'
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to connect to gpsd: {error}'
         }), 500
 
 
@@ -205,8 +283,10 @@ def debug_gps():
         })
 
     position = reader.position
+    source = 'gpsd' if isinstance(reader, GPSDClient) else 'serial'
     return jsonify({
         'running': reader.is_running,
+        'source': source,
         'device': reader.device_path,
         'baudrate': reader.baudrate,
         'has_position': position is not None,

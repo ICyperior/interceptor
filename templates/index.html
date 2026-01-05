@@ -275,6 +275,7 @@
                             <option value="rtlsdr">RTL-SDR</option>
                             <option value="limesdr">LimeSDR</option>
                             <option value="hackrf">HackRF</option>
+                            <option value="airspy">Airspy</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -754,22 +755,36 @@
                                 📍 Use Browser Location
                             </button>
                             <div class="gps-dongle-section" style="display: none; margin-top: 8px; padding: 8px; background: rgba(0,212,255,0.05); border-radius: 4px;">
-                                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                                    <select class="gps-device-select" style="flex: 1; font-size: 11px;">
-                                        <option value="">Select GPS Device...</option>
+                                <div style="margin-bottom: 5px;">
+                                    <select class="gps-source-select" onchange="toggleGpsSourceMode(this)" style="width: 100%; font-size: 11px;">
+                                        <option value="serial">Serial Device</option>
+                                        <option value="gpsd">gpsd (daemon)</option>
                                     </select>
-                                    <button class="preset-btn" onclick="refreshGpsDevices()" style="padding: 2px 6px; font-size: 10px;" title="Refresh">🔄</button>
                                 </div>
-                                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                                    <select class="gps-baudrate-select" style="flex: 1; font-size: 11px;">
-                                        <option value="4800">4800</option>
-                                        <option value="9600" selected>9600</option>
-                                        <option value="38400">38400</option>
-                                        <option value="115200">115200</option>
-                                    </select>
+                                <div class="gps-serial-controls">
+                                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                                        <select class="gps-device-select" style="flex: 1; font-size: 11px;">
+                                            <option value="">Select GPS Device...</option>
+                                        </select>
+                                        <button class="preset-btn" onclick="refreshGpsDevices()" style="padding: 2px 6px; font-size: 10px;" title="Refresh">🔄</button>
+                                    </div>
+                                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                                        <select class="gps-baudrate-select" style="flex: 1; font-size: 11px;">
+                                            <option value="4800">4800</option>
+                                            <option value="9600" selected>9600</option>
+                                            <option value="38400">38400</option>
+                                            <option value="115200">115200</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="gps-gpsd-controls" style="display: none;">
+                                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                                        <input type="text" class="gpsd-host-input" value="localhost" placeholder="Host" style="flex: 2; font-size: 11px;">
+                                        <input type="number" class="gpsd-port-input" value="2947" placeholder="Port" style="flex: 1; font-size: 11px;">
+                                    </div>
                                 </div>
                                 <div style="display: flex; gap: 5px;">
-                                    <button class="preset-btn gps-connect-btn" onclick="startGpsDongle(this.closest('.gps-dongle-section').querySelector('.gps-device-select').value, parseInt(this.closest('.gps-dongle-section').querySelector('.gps-baudrate-select').value))" style="flex: 1; font-size: 10px; padding: 4px;">
+                                    <button class="preset-btn gps-connect-btn" onclick="startGpsFromSection(this.closest('.gps-dongle-section'))" style="flex: 1; font-size: 10px; padding: 4px;">
                                         Connect
                                     </button>
                                     <button class="preset-btn gps-disconnect-btn" onclick="stopGpsDongle()" style="flex: 1; display: none; font-size: 10px; padding: 4px; background: rgba(255,0,0,0.1); border-color: #ff4444;">
@@ -865,25 +880,44 @@
                             </button>
                             <div class="gps-dongle-section" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0,212,255,0.05); border-radius: 4px;">
                                 <div class="form-group" style="margin-bottom: 8px;">
-                                    <label style="font-size: 11px;">GPS Device</label>
-                                    <div style="display: flex; gap: 5px;">
-                                        <select class="gps-device-select" style="flex: 1;">
-                                            <option value="">Select GPS Device...</option>
-                                        </select>
-                                        <button class="preset-btn" onclick="refreshGpsDevices()" style="padding: 4px 8px;" title="Refresh">🔄</button>
-                                    </div>
-                                </div>
-                                <div class="form-group" style="margin-bottom: 8px;">
-                                    <label style="font-size: 11px;">Baud Rate</label>
-                                    <select class="gps-baudrate-select" style="width: 100%;">
-                                        <option value="4800">4800</option>
-                                        <option value="9600" selected>9600</option>
-                                        <option value="38400">38400</option>
-                                        <option value="115200">115200</option>
+                                    <label style="font-size: 11px;">GPS Source</label>
+                                    <select class="gps-source-select" onchange="toggleGpsSourceMode(this)" style="width: 100%;">
+                                        <option value="serial">Serial Device</option>
+                                        <option value="gpsd">gpsd (daemon)</option>
                                     </select>
                                 </div>
+                                <div class="gps-serial-controls">
+                                    <div class="form-group" style="margin-bottom: 8px;">
+                                        <label style="font-size: 11px;">GPS Device</label>
+                                        <div style="display: flex; gap: 5px;">
+                                            <select class="gps-device-select" style="flex: 1;">
+                                                <option value="">Select GPS Device...</option>
+                                            </select>
+                                            <button class="preset-btn" onclick="refreshGpsDevices()" style="padding: 4px 8px;" title="Refresh">🔄</button>
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 8px;">
+                                        <label style="font-size: 11px;">Baud Rate</label>
+                                        <select class="gps-baudrate-select" style="width: 100%;">
+                                            <option value="4800">4800</option>
+                                            <option value="9600" selected>9600</option>
+                                            <option value="38400">38400</option>
+                                            <option value="115200">115200</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="gps-gpsd-controls" style="display: none;">
+                                    <div class="form-group" style="margin-bottom: 8px;">
+                                        <label style="font-size: 11px;">gpsd Host</label>
+                                        <input type="text" class="gpsd-host-input" value="localhost" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 8px;">
+                                        <label style="font-size: 11px;">gpsd Port</label>
+                                        <input type="number" class="gpsd-port-input" value="2947" style="width: 100%;">
+                                    </div>
+                                </div>
                                 <div style="display: flex; gap: 5px;">
-                                    <button class="preset-btn gps-connect-btn" onclick="startGpsDongle(this.closest('.gps-dongle-section').querySelector('.gps-device-select').value, parseInt(this.closest('.gps-dongle-section').querySelector('.gps-baudrate-select').value))" style="flex: 1;">
+                                    <button class="preset-btn gps-connect-btn" onclick="startGpsFromSection(this.closest('.gps-dongle-section'))" style="flex: 1;">
                                         Connect GPS
                                     </button>
                                     <button class="preset-btn gps-disconnect-btn" onclick="stopGpsDongle()" style="flex: 1; display: none; background: rgba(255,0,0,0.1); border-color: #ff4444;">
@@ -1472,8 +1506,17 @@
             sessionStart: null              // When tracking started
         };
 
-        // Observer location for distance calculations
-        let observerLocation = { lat: 51.5074, lon: -0.1278 };  // Default London
+        // Observer location for distance calculations (load from localStorage or default to London)
+        let observerLocation = (function() {
+            const saved = localStorage.getItem('observerLocation');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.lat && parsed.lon) return parsed;
+                } catch (e) {}
+            }
+            return { lat: 51.5074, lon: -0.1278 };
+        })();
         let rangeRingsLayer = null;
         let observerMarkerAdsb = null;
 
@@ -1804,6 +1847,16 @@
                     this.parentElement.classList.toggle('collapsed');
                 });
             });
+
+            // Initialize observer location input fields from saved location
+            const adsbLatInput = document.getElementById('adsbObsLat');
+            const adsbLonInput = document.getElementById('adsbObsLon');
+            const obsLatInput = document.getElementById('obsLat');
+            const obsLonInput = document.getElementById('obsLon');
+            if (adsbLatInput) adsbLatInput.value = observerLocation.lat.toFixed(4);
+            if (adsbLonInput) adsbLonInput.value = observerLocation.lon.toFixed(4);
+            if (obsLatInput) obsLatInput.value = observerLocation.lat.toFixed(4);
+            if (obsLonInput) obsLonInput.value = observerLocation.lon.toFixed(4);
         });
 
         // Toggle section collapse
@@ -6025,6 +6078,9 @@
                     observerLocation.lat = lat;
                     observerLocation.lon = lon;
 
+                    // Save to localStorage for persistence
+                    localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
+
                     // Center map on location
                     if (aircraftMap) {
                         aircraftMap.setView([observerLocation.lat, observerLocation.lon], 8);
@@ -6057,6 +6113,9 @@
                 (position) => {
                     observerLocation.lat = position.coords.latitude;
                     observerLocation.lon = position.coords.longitude;
+
+                    // Save to localStorage for persistence
+                    localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
 
                     // Update input fields
                     const latInput = document.getElementById('adsbObsLat');
@@ -6308,6 +6367,63 @@
                     select.value = currentValue;
                 }
             });
+        }
+
+        function toggleGpsSourceMode(selectElement) {
+            // Toggle between serial and gpsd controls
+            const section = selectElement.closest('.gps-dongle-section');
+            const serialControls = section.querySelector('.gps-serial-controls');
+            const gpsdControls = section.querySelector('.gps-gpsd-controls');
+            const source = selectElement.value;
+
+            if (source === 'gpsd') {
+                serialControls.style.display = 'none';
+                gpsdControls.style.display = 'block';
+            } else {
+                serialControls.style.display = 'block';
+                gpsdControls.style.display = 'none';
+            }
+        }
+
+        async function startGpsFromSection(section) {
+            // Start GPS based on the selected source in the section
+            const sourceSelect = section.querySelector('.gps-source-select');
+            const source = sourceSelect ? sourceSelect.value : 'serial';
+
+            if (source === 'gpsd') {
+                const host = section.querySelector('.gpsd-host-input').value || 'localhost';
+                const port = parseInt(section.querySelector('.gpsd-port-input').value) || 2947;
+                return await startGpsd(host, port);
+            } else {
+                const devicePath = section.querySelector('.gps-device-select').value;
+                const baudrate = parseInt(section.querySelector('.gps-baudrate-select').value) || 9600;
+                return await startGpsDongle(devicePath, baudrate);
+            }
+        }
+
+        async function startGpsd(host = 'localhost', port = 2947) {
+            try {
+                const response = await fetch('/gps/gpsd/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ host: host, port: port })
+                });
+                const data = await response.json();
+
+                if (data.status === 'started') {
+                    gpsConnected = true;
+                    startGpsStream();
+                    updateGpsStatus(true);
+                    showInfo(`Connected to gpsd at ${host}:${port}`);
+                    return true;
+                } else {
+                    showError('Failed to connect to gpsd: ' + data.message);
+                    return false;
+                }
+            } catch (e) {
+                showError('gpsd connection error: ' + e.message);
+                return false;
+            }
         }
 
         async function startGpsDongle(devicePath, baudrate = 9600) {

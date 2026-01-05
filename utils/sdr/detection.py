@@ -28,11 +28,13 @@ def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
     from .rtlsdr import RTLSDRCommandBuilder
     from .limesdr import LimeSDRCommandBuilder
     from .hackrf import HackRFCommandBuilder
+    from .airspy import AirspyCommandBuilder
 
     builders = {
         SDRType.RTL_SDR: RTLSDRCommandBuilder,
         SDRType.LIME_SDR: LimeSDRCommandBuilder,
         SDRType.HACKRF: HackRFCommandBuilder,
+        SDRType.AIRSPY: AirspyCommandBuilder,
     }
 
     builder_class = builders.get(sdr_type)
@@ -60,6 +62,8 @@ def _driver_to_sdr_type(driver: str) -> Optional[SDRType]:
         'lime': SDRType.LIME_SDR,
         'limesdr': SDRType.LIME_SDR,
         'hackrf': SDRType.HACKRF,
+        'airspy': SDRType.AIRSPY,
+        'airspyhf': SDRType.AIRSPY,  # Airspy HF+ uses same builder
         # Future support
         # 'uhd': SDRType.USRP,
         # 'bladerf': SDRType.BLADE_RF,

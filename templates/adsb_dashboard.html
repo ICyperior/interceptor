@@ -141,6 +141,7 @@
                     <option value="manual">Manual</option>
                     <option value="browser">Browser</option>
                     <option value="dongle">USB GPS</option>
+                    <option value="gpsd">gpsd</option>
                 </select>
             </div>
             <div class="control-group" id="browserGpsGroup">
@@ -157,6 +158,13 @@
                     <option value="115200">115200</option>
                 </select>
                 <button class="gps-btn gps-connect-btn" onclick="startGpsDongle()">Connect</button>
+                <button class="gps-btn gps-disconnect-btn" onclick="stopGpsDongle()" style="display: none; background: rgba(255,0,0,0.2); border-color: #ff4444;">Stop</button>
+            </div>
+            <div class="control-group gps-gpsd-controls" style="display: none;">
+                <input type="text" id="gpsdHost" value="localhost" placeholder="Host" style="width: 80px; font-size: 10px;">
+                <span style="color: #666;">:</span>
+                <input type="number" id="gpsdPort" value="2947" min="1" max="65535" style="width: 50px; font-size: 10px;">
+                <button class="gps-btn gps-connect-btn" onclick="startGpsdClient()">Connect</button>
                 <button class="gps-btn gps-disconnect-btn" onclick="stopGpsDongle()" style="display: none; background: rgba(255,0,0,0.2); border-color: #ff4444;">Stop</button>
             </div>
             <div class="control-group">
@@ -208,8 +216,17 @@
             messageTimestamps: []
         };
 
-        // Observer location and range rings
-        let observerLocation = { lat: 51.5074, lon: -0.1278 };
+        // Observer location and range rings (load from localStorage or default to London)
+        let observerLocation = (function() {
+            const saved = localStorage.getItem('observerLocation');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.lat && parsed.lon) return parsed;
+                } catch (e) {}
+            }
+            return { lat: 51.5074, lon: -0.1278 };
+        })();
         let rangeRingsLayer = null;
         let observerMarker = null;
 
@@ -834,6 +851,10 @@
             if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
                 observerLocation.lat = lat;
                 observerLocation.lon = lon;
+
+                // Save to localStorage for persistence
+                localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
+
                 if (radarMap) {
                     radarMap.setView([lat, lon], radarMap.getZoom());
                 }
@@ -858,6 +879,10 @@
                 (position) => {
                     observerLocation.lat = position.coords.latitude;
                     observerLocation.lon = position.coords.longitude;
+
+                    // Save to localStorage for persistence
+                    localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
+
                     document.getElementById('obsLat').value = observerLocation.lat.toFixed(4);
                     document.getElementById('obsLon').value = observerLocation.lon.toFixed(4);
                     if (radarMap) {
@@ -881,18 +906,22 @@
             const source = document.getElementById('gpsSource').value;
             const browserGroup = document.getElementById('browserGpsGroup');
             const dongleControls = document.querySelector('.gps-dongle-controls');
+            const gpsdControls = document.querySelector('.gps-gpsd-controls');
+
+            // Hide all first
+            browserGroup.style.display = 'none';
+            dongleControls.style.display = 'none';
+            gpsdControls.style.display = 'none';
 
             if (source === 'dongle') {
-                browserGroup.style.display = 'none';
                 dongleControls.style.display = 'flex';
                 refreshGpsDevices();
             } else if (source === 'browser') {
                 browserGroup.style.display = 'flex';
-                dongleControls.style.display = 'none';
-            } else {
-                browserGroup.style.display = 'none';
-                dongleControls.style.display = 'none';
+            } else if (source === 'gpsd') {
+                gpsdControls.style.display = 'flex';
             }
+            // 'manual' keeps everything hidden
         }
 
         async function refreshGpsDevices() {
@@ -935,13 +964,47 @@
                 if (data.status === 'started') {
                     gpsConnected = true;
                     startGpsStream();
-                    document.querySelector('.gps-connect-btn').style.display = 'none';
-                    document.querySelector('.gps-disconnect-btn').style.display = 'block';
+                    updateGpsButtons(true, '.gps-dongle-controls');
                 } else {
                     alert('Failed to start GPS: ' + data.message);
                 }
             } catch (e) {
                 alert('GPS connection error: ' + e.message);
+            }
+        }
+
+        async function startGpsdClient() {
+            const host = document.getElementById('gpsdHost').value || 'localhost';
+            const port = parseInt(document.getElementById('gpsdPort').value) || 2947;
+
+            try {
+                const response = await fetch('/gps/gpsd/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ host: host, port: port })
+                });
+                const data = await response.json();
+
+                if (data.status === 'started') {
+                    gpsConnected = true;
+                    startGpsStream();
+                    updateGpsButtons(true, '.gps-gpsd-controls');
+                } else {
+                    alert('Failed to connect to gpsd: ' + data.message);
+                }
+            } catch (e) {
+                alert('gpsd connection error: ' + e.message);
+            }
+        }
+
+        function updateGpsButtons(connected, containerSelector) {
+            // Update buttons in the specified container
+            const container = document.querySelector(containerSelector);
+            if (container) {
+                const connectBtn = container.querySelector('.gps-connect-btn');
+                const disconnectBtn = container.querySelector('.gps-disconnect-btn');
+                if (connectBtn) connectBtn.style.display = connected ? 'none' : 'block';
+                if (disconnectBtn) disconnectBtn.style.display = connected ? 'block' : 'none';
             }
         }
 
@@ -953,8 +1016,9 @@
                 }
                 await fetch('/gps/stop', { method: 'POST' });
                 gpsConnected = false;
-                document.querySelector('.gps-connect-btn').style.display = 'block';
-                document.querySelector('.gps-disconnect-btn').style.display = 'none';
+                // Reset buttons in both containers
+                updateGpsButtons(false, '.gps-dongle-controls');
+                updateGpsButtons(false, '.gps-gpsd-controls');
             } catch (e) {
                 console.warn('GPS stop error:', e);
             }
@@ -1027,6 +1091,12 @@
         // INITIALIZATION
         // ============================================
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize observer location input fields from saved location
+            const obsLatInput = document.getElementById('obsLat');
+            const obsLonInput = document.getElementById('obsLon');
+            if (obsLatInput) obsLatInput.value = observerLocation.lat.toFixed(4);
+            if (obsLonInput) obsLonInput.value = observerLocation.lon.toFixed(4);
+
             initMap();
             updateClock();
             setInterval(updateClock, 1000);
