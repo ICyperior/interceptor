@@ -50,6 +50,13 @@ check_cmd() {
     command -v "$1" &> /dev/null
 }
 
+# Check if a package is installable (has a candidate version)
+pkg_available() {
+    local candidate
+    candidate=$(apt-cache policy "$1" 2>/dev/null | grep "Candidate:" | awk '{print $2}')
+    [ -n "$candidate" ] && [ "$candidate" != "(none)" ]
+}
+
 # Setup sudo command (empty if running as root)
 setup_sudo() {
     if [ "$(id -u)" -eq 0 ]; then
@@ -246,24 +253,20 @@ install_debian_tools() {
             $SUDO apt install -y rtl-sdr multimon-ng
 
             # rtl-433 may be named differently or unavailable
-            if apt-cache show rtl-433 &>/dev/null; then
+            if pkg_available rtl-433; then
                 $SUDO apt install -y rtl-433
-            elif apt-cache show rtl433 &>/dev/null; then
+            elif pkg_available rtl433; then
                 $SUDO apt install -y rtl433
             else
                 echo -e "${YELLOW}Note: rtl-433 not found in repositories. Install manually or from source.${NC}"
             fi
 
-            # dump1090 has multiple package variants
-            if apt-cache show dump1090-fa &>/dev/null; then
-                $SUDO apt install -y dump1090-fa
-            elif apt-cache show dump1090-mutability &>/dev/null; then
-                $SUDO apt install -y dump1090-mutability
-            elif apt-cache show dump1090 &>/dev/null; then
-                $SUDO apt install -y dump1090
-            else
-                echo -e "${YELLOW}Note: dump1090 not found in repositories.${NC}"
-                echo "  Install FlightAware's version from: https://flightaware.com/adsb/piaware/install"
+            # dump1090 is not in Debian repos - show manual install info
+            if ! check_cmd dump1090; then
+                echo ""
+                echo -e "${YELLOW}Note: dump1090 must be installed manually (not in Debian repos).${NC}"
+                echo "  FlightAware version: https://flightaware.com/adsb/piaware/install"
+                echo "  Or from source: https://github.com/flightaware/dump1090"
             fi
         fi
 
