@@ -241,7 +241,30 @@ install_debian_tools() {
         if $MISSING_CORE; then
             echo ""
             echo -e "${BLUE}Installing Core SDR tools...${NC}"
-            $SUDO apt install -y rtl-sdr multimon-ng rtl-433 dump1090-mutability
+
+            # Install packages that are reliably available
+            $SUDO apt install -y rtl-sdr multimon-ng
+
+            # rtl-433 may be named differently or unavailable
+            if apt-cache show rtl-433 &>/dev/null; then
+                $SUDO apt install -y rtl-433
+            elif apt-cache show rtl433 &>/dev/null; then
+                $SUDO apt install -y rtl433
+            else
+                echo -e "${YELLOW}Note: rtl-433 not found in repositories. Install manually or from source.${NC}"
+            fi
+
+            # dump1090 has multiple package variants
+            if apt-cache show dump1090-fa &>/dev/null; then
+                $SUDO apt install -y dump1090-fa
+            elif apt-cache show dump1090-mutability &>/dev/null; then
+                $SUDO apt install -y dump1090-mutability
+            elif apt-cache show dump1090 &>/dev/null; then
+                $SUDO apt install -y dump1090
+            else
+                echo -e "${YELLOW}Note: dump1090 not found in repositories.${NC}"
+                echo "  Install FlightAware's version from: https://flightaware.com/adsb/piaware/install"
+            fi
         fi
 
         # WiFi tools
@@ -328,7 +351,11 @@ show_manual_instructions() {
         echo ""
         echo "# Core SDR tools"
         echo "sudo apt update"
-        echo "sudo apt install rtl-sdr multimon-ng rtl-433 dump1090-mutability"
+        echo "sudo apt install rtl-sdr multimon-ng rtl-433"
+        echo ""
+        echo "# dump1090 (try one of these - package name varies):"
+        echo "sudo apt install dump1090-fa      # FlightAware version"
+        echo "# Or install from: https://flightaware.com/adsb/piaware/install"
         echo ""
         echo "# LimeSDR support (optional)"
         echo "sudo apt install soapysdr-tools limesuite soapysdr-module-lms7"
