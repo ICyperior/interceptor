@@ -123,3 +123,41 @@ rtl_test
 # LimeSDR/HackRF
 SoapySDRUtil --find
 ```
+
+## Python Dependencies
+
+### Option 1: setup.sh (Recommended)
+```bash
+./setup.sh
+```
+This creates a virtual environment and installs dependencies automatically.
+
+### Option 2: pip
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Option 3: uv (Fast alternative)
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer.
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create venv and install deps
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv sync
+
+# Or just install deps in existing environment
+uv pip install -r requirements.txt
+```
+
+### Option 4: pip with pyproject.toml
+```bash
+pip install .           # Install as package
+pip install -e .        # Install in editable mode (for development)
+pip install -e ".[dev]" # Include dev dependencies
+```

@@ -49,6 +49,19 @@ sudo python3 intercept.py
 
 Open http://localhost:5050 in your browser.
 
+<details>
+<summary><strong>Alternative: Install with uv</strong></summary>
+
+```bash
+git clone https://github.com/smittix/intercept.git
+cd intercept
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv sync
+sudo python3 intercept.py
+```
+</details>
+
 > **Note:** Requires Python 3.9+ and external tools. See [Hardware & Installation](docs/HARDWARE.md).
 
 ---
