@@ -261,10 +261,16 @@ install_debian_tools() {
                 echo -e "${YELLOW}Note: rtl-433 not found in repositories. Install manually or from source.${NC}"
             fi
 
-            # dump1090 is not in Debian repos - show manual install info
-            if ! check_cmd dump1090; then
+            # dump1090 - try available variants, not available on all Debian versions
+            if pkg_available dump1090-fa; then
+                $SUDO apt install -y dump1090-fa
+            elif pkg_available dump1090-mutability; then
+                $SUDO apt install -y dump1090-mutability
+            elif pkg_available dump1090; then
+                $SUDO apt install -y dump1090
+            elif ! check_cmd dump1090; then
                 echo ""
-                echo -e "${YELLOW}Note: dump1090 must be installed manually (not in Debian repos).${NC}"
+                echo -e "${YELLOW}Note: dump1090 not available in your repos (e.g. Debian Trixie).${NC}"
                 echo "  FlightAware version: https://flightaware.com/adsb/piaware/install"
                 echo "  Or from source: https://github.com/flightaware/dump1090"
             fi
