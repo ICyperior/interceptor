@@ -26,6 +26,8 @@ from .validation import (
     validate_longitude,
     validate_frequency,
     validate_device_index,
+    validate_rtl_tcp_host,
+    validate_rtl_tcp_port,
     validate_gain,
     validate_ppm,
     validate_hours,

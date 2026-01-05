@@ -46,15 +46,23 @@ class SDRDevice:
     serial: str
     driver: str                  # e.g., "rtlsdr", "lime", "hackrf"
     capabilities: SDRCapabilities
+    rtl_tcp_host: Optional[str] = None   # Remote rtl_tcp server host
+    rtl_tcp_port: Optional[int] = None   # Remote rtl_tcp server port
+
+    @property
+    def is_network(self) -> bool:
+        """Check if this is a network/remote device."""
+        return self.rtl_tcp_host is not None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
-        return {
+        result = {
             'index': self.index,
             'name': self.name,
             'serial': self.serial,
             'sdr_type': self.sdr_type.value,
             'driver': self.driver,
+            'is_network': self.is_network,
             'capabilities': {
                 'freq_min_mhz': self.capabilities.freq_min_mhz,
                 'freq_max_mhz': self.capabilities.freq_max_mhz,
@@ -66,6 +74,10 @@ class SDRDevice:
                 'tx_capable': self.capabilities.tx_capable,
             }
         }
+        if self.is_network:
+            result['rtl_tcp_host'] = self.rtl_tcp_host
+            result['rtl_tcp_port'] = self.rtl_tcp_port
+        return result
 
 
 class CommandBuilder(ABC):

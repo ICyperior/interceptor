@@ -159,6 +159,17 @@
                 <button class="gps-btn gps-connect-btn" onclick="startGpsDongle()">Connect</button>
                 <button class="gps-btn gps-disconnect-btn" onclick="stopGpsDongle()" style="display: none; background: rgba(255,0,0,0.2); border-color: #ff4444;">Stop</button>
             </div>
+            <div class="control-group">
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; cursor: pointer;">
+                    <input type="checkbox" id="useRemoteDump1090" onchange="toggleRemoteDump1090()">
+                    <span>Remote</span>
+                </label>
+            </div>
+            <div class="control-group remote-dump1090-controls" style="display: none;">
+                <input type="text" id="remoteSbsHost" placeholder="Host" style="width: 90px; font-size: 10px;">
+                <span style="color: #666;">:</span>
+                <input type="number" id="remoteSbsPort" value="30003" min="1" max="65535" style="width: 55px; font-size: 10px;">
+            </div>
             <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
         </div>
     </main>
@@ -1054,15 +1065,47 @@
         // ============================================
         // TRACKING CONTROL
         // ============================================
+
+        function toggleRemoteDump1090() {
+            const useRemote = document.getElementById('useRemoteDump1090').checked;
+            const controls = document.querySelector('.remote-dump1090-controls');
+            controls.style.display = useRemote ? 'flex' : 'none';
+        }
+
+        function getRemoteDump1090Config() {
+            const useRemote = document.getElementById('useRemoteDump1090').checked;
+            if (!useRemote) return null;
+
+            const host = document.getElementById('remoteSbsHost').value.trim();
+            const port = parseInt(document.getElementById('remoteSbsPort').value) || 30003;
+
+            if (!host) {
+                alert('Please enter remote dump1090 host address');
+                return false;
+            }
+
+            return { host, port };
+        }
+
         async function toggleTracking() {
             const btn = document.getElementById('startBtn');
 
             if (!isTracking) {
+                // Check for remote dump1090 config
+                const remoteConfig = getRemoteDump1090Config();
+                if (remoteConfig === false) return;
+
+                const requestBody = {};
+                if (remoteConfig) {
+                    requestBody.remote_sbs_host = remoteConfig.host;
+                    requestBody.remote_sbs_port = remoteConfig.port;
+                }
+
                 try {
                     const response = await fetch('/adsb/start', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
+                        body: JSON.stringify(requestBody)
                     });
 
                     const text = await response.text();

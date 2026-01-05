@@ -18,7 +18,10 @@ from flask import Blueprint, jsonify, request, Response
 
 import app as app_module
 from utils.logging import pager_logger as logger
-from utils.validation import validate_frequency, validate_device_index, validate_gain, validate_ppm
+from utils.validation import (
+    validate_frequency, validate_device_index, validate_gain, validate_ppm,
+    validate_rtl_tcp_host, validate_rtl_tcp_port
+)
 from utils.sse import format_sse
 from utils.process import safe_terminate, register_process
 from utils.sdr import SDRFactory, SDRType, SDRValidationError
@@ -209,9 +212,25 @@ def start_decoding() -> Response:
         except ValueError:
             sdr_type = SDRType.RTL_SDR
 
-        # Create device object and get command builder
-        sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
-        builder = SDRFactory.get_builder(sdr_type)
+        # Check for rtl_tcp (remote SDR) connection
+        rtl_tcp_host = data.get('rtl_tcp_host')
+        rtl_tcp_port = data.get('rtl_tcp_port', 1234)
+
+        if rtl_tcp_host:
+            # Validate and create network device
+            try:
+                rtl_tcp_host = validate_rtl_tcp_host(rtl_tcp_host)
+                rtl_tcp_port = validate_rtl_tcp_port(rtl_tcp_port)
+            except ValueError as e:
+                return jsonify({'status': 'error', 'message': str(e)}), 400
+
+            sdr_device = SDRFactory.create_network_device(rtl_tcp_host, rtl_tcp_port)
+            logger.info(f"Using remote SDR: rtl_tcp://{rtl_tcp_host}:{rtl_tcp_port}")
+        else:
+            # Create local device object
+            sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+
+        builder = SDRFactory.get_builder(sdr_device.sdr_type)
 
         # Build FM demodulation command
         rtl_cmd = builder.build_fm_demod_command(

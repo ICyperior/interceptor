@@ -16,7 +16,10 @@ from flask import Blueprint, jsonify, request, Response, render_template
 
 import app as app_module
 from utils.logging import adsb_logger as logger
-from utils.validation import validate_device_index, validate_gain
+from utils.validation import (
+    validate_device_index, validate_gain,
+    validate_rtl_tcp_host, validate_rtl_tcp_port
+)
 from utils.sse import format_sse
 from utils.sdr import SDRFactory, SDRType
 
@@ -237,6 +240,25 @@ def start_adsb():
         device = validate_device_index(data.get('device', '0'))
     except ValueError as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
+
+    # Check for remote SBS connection (e.g., remote dump1090)
+    remote_sbs_host = data.get('remote_sbs_host')
+    remote_sbs_port = data.get('remote_sbs_port', 30003)
+
+    if remote_sbs_host:
+        # Validate and connect to remote dump1090 SBS output
+        try:
+            remote_sbs_host = validate_rtl_tcp_host(remote_sbs_host)
+            remote_sbs_port = validate_rtl_tcp_port(remote_sbs_port)
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+
+        remote_addr = f"{remote_sbs_host}:{remote_sbs_port}"
+        logger.info(f"Connecting to remote dump1090 SBS at {remote_addr}")
+        adsb_using_service = True
+        thread = threading.Thread(target=parse_sbs_stream, args=(remote_addr,), daemon=True)
+        thread.start()
+        return jsonify({'status': 'started', 'message': f'Connected to remote dump1090 at {remote_addr}'})
 
     # Check if dump1090 is already running externally (e.g., user started it manually)
     existing_service = check_dump1090_service()

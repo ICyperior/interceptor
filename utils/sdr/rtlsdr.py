@@ -27,6 +27,16 @@ class RTLSDRCommandBuilder(CommandBuilder):
         tx_capable=False
     )
 
+    def _get_device_arg(self, device: SDRDevice) -> str:
+        """Get device argument for rtl_* tools.
+
+        Returns rtl_tcp connection string for network devices,
+        or device index for local devices.
+        """
+        if device.is_network:
+            return f"rtl_tcp:{device.rtl_tcp_host}:{device.rtl_tcp_port}"
+        return str(device.index)
+
     def build_fm_demod_command(
         self,
         device: SDRDevice,
@@ -40,11 +50,11 @@ class RTLSDRCommandBuilder(CommandBuilder):
         """
         Build rtl_fm command for FM demodulation.
 
-        Used for pager decoding.
+        Used for pager decoding. Supports local devices and rtl_tcp connections.
         """
         cmd = [
             'rtl_fm',
-            '-d', str(device.index),
+            '-d', self._get_device_arg(device),
             '-f', f'{frequency_mhz}M',
             '-M', modulation,
             '-s', str(sample_rate),
@@ -73,7 +83,17 @@ class RTLSDRCommandBuilder(CommandBuilder):
         Build dump1090 command for ADS-B decoding.
 
         Uses dump1090 with network output for SBS data streaming.
+
+        Note: dump1090 does not support rtl_tcp. For remote SDR, connect to
+        a remote dump1090's SBS output (port 30003) instead.
         """
+        if device.is_network:
+            raise ValueError(
+                "dump1090 does not support rtl_tcp. "
+                "For remote ADS-B, run dump1090 on the remote machine and "
+                "connect to its SBS output (port 30003)."
+            )
+
         cmd = [
             'dump1090',
             '--net',
@@ -96,11 +116,11 @@ class RTLSDRCommandBuilder(CommandBuilder):
         """
         Build rtl_433 command for ISM band sensor decoding.
 
-        Outputs JSON for easy parsing.
+        Outputs JSON for easy parsing. Supports local devices and rtl_tcp connections.
         """
         cmd = [
             'rtl_433',
-            '-d', str(device.index),
+            '-d', self._get_device_arg(device),
             '-f', f'{frequency_mhz}M',
             '-F', 'json'
         ]

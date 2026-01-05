@@ -172,6 +172,34 @@ class SDRFactory:
             capabilities=caps
         )
 
+    @classmethod
+    def create_network_device(
+        cls,
+        host: str,
+        port: int = 1234
+    ) -> SDRDevice:
+        """
+        Create a network device for rtl_tcp connection.
+
+        Args:
+            host: rtl_tcp server hostname or IP address
+            port: rtl_tcp server port (default 1234)
+
+        Returns:
+            SDRDevice configured for rtl_tcp connection
+        """
+        caps = cls.get_capabilities(SDRType.RTL_SDR)
+        return SDRDevice(
+            sdr_type=SDRType.RTL_SDR,
+            index=0,
+            name=f'{host}:{port}',
+            serial='rtl_tcp',
+            driver='rtl_tcp',
+            capabilities=caps,
+            rtl_tcp_host=host,
+            rtl_tcp_port=port
+        )
+
 
 # Export commonly used items at package level
 __all__ = [

@@ -66,6 +66,32 @@ def validate_device_index(device: Any) -> int:
         raise ValueError(f"Invalid device index: {device}") from e
 
 
+def validate_rtl_tcp_host(host: Any) -> str:
+    """Validate and return rtl_tcp server hostname or IP address."""
+    if not host or not isinstance(host, str):
+        raise ValueError("rtl_tcp host is required")
+    host = host.strip()
+    if not host:
+        raise ValueError("rtl_tcp host cannot be empty")
+    # Allow alphanumeric, dots, hyphens (valid for hostnames and IPs)
+    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9.\-]*$', host):
+        raise ValueError(f"Invalid rtl_tcp host: {host}")
+    if len(host) > 253:
+        raise ValueError("rtl_tcp host too long")
+    return host
+
+
+def validate_rtl_tcp_port(port: Any) -> int:
+    """Validate and return rtl_tcp server port."""
+    try:
+        port_int = int(port)
+        if not 1 <= port_int <= 65535:
+            raise ValueError(f"Port must be between 1 and 65535, got {port_int}")
+        return port_int
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Invalid rtl_tcp port: {port}") from e
+
+
 def validate_gain(gain: Any) -> float:
     """Validate and return gain value."""
     try:

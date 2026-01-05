@@ -298,6 +298,29 @@
                     <button class="preset-btn" onclick="refreshDevices()" style="width: 100%;">
                         Refresh Devices
                     </button>
+
+                    <!-- Remote SDR (rtl_tcp) -->
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="useRemoteSDR" onchange="toggleRemoteSDR()">
+                            <span style="font-size: 11px; color: #888;">Use Remote SDR (rtl_tcp)</span>
+                        </label>
+                    </div>
+                    <div id="remoteSDRConfig" style="display: none; margin-bottom: 10px;">
+                        <div class="form-group">
+                            <label style="font-size: 11px; color: #888;">Host</label>
+                            <input type="text" id="rtlTcpHost" placeholder="192.168.1.100" style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 11px; color: #888;">Port</label>
+                            <input type="number" id="rtlTcpPort" value="1234" min="1" max="65535" style="width: 100%;">
+                        </div>
+                        <div class="info-text" style="font-size: 10px; color: #666; margin-top: 4px;">
+                            Connect to rtl_tcp server on remote machine.<br>
+                            Start server with: <code style="color: #00d4ff;">rtl_tcp -a 0.0.0.0</code>
+                        </div>
+                    </div>
+
                     <div id="toolStatusPager" class="info-text tool-status-section" style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
                         <span>rtl_fm:</span><span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK' if tools.rtl_fm else 'Missing' }}</span>
                         <span>multimon-ng:</span><span class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon else 'Missing' }}</span>
@@ -1918,6 +1941,10 @@
             const ppm = document.getElementById('sensorPpm').value;
             const device = getSelectedDevice();
 
+            // Check for remote SDR
+            const remoteConfig = getRemoteSDRConfig();
+            if (remoteConfig === false) return; // Validation failed
+
             const config = {
                 frequency: freq,
                 gain: gain,
@@ -1925,6 +1952,12 @@
                 device: device,
                 sdr_type: getSelectedSDRType()
             };
+
+            // Add rtl_tcp params if using remote SDR
+            if (remoteConfig) {
+                config.rtl_tcp_host = remoteConfig.host;
+                config.rtl_tcp_port = remoteConfig.port;
+            }
 
             fetch('/start_sensor', {
                 method: 'POST',
@@ -2403,6 +2436,35 @@
             return document.getElementById('sdrTypeSelect').value;
         }
 
+        function toggleRemoteSDR() {
+            const useRemote = document.getElementById('useRemoteSDR').checked;
+            const configDiv = document.getElementById('remoteSDRConfig');
+            const localControls = document.querySelectorAll('#sdrTypeSelect, #deviceSelect');
+
+            configDiv.style.display = useRemote ? 'block' : 'none';
+
+            // Dim local device controls when using remote
+            localControls.forEach(el => {
+                el.style.opacity = useRemote ? '0.5' : '1';
+                el.disabled = useRemote;
+            });
+        }
+
+        function getRemoteSDRConfig() {
+            const useRemote = document.getElementById('useRemoteSDR').checked;
+            if (!useRemote) return null;
+
+            const host = document.getElementById('rtlTcpHost').value.trim();
+            const port = parseInt(document.getElementById('rtlTcpPort').value) || 1234;
+
+            if (!host) {
+                alert('Please enter rtl_tcp host address');
+                return false;
+            }
+
+            return { host, port };
+        }
+
         function getSelectedProtocols() {
             const protocols = [];
             if (document.getElementById('proto_pocsag512').checked) protocols.push('POCSAG512');
@@ -2425,6 +2487,10 @@
                 return;
             }
 
+            // Check for remote SDR
+            const remoteConfig = getRemoteSDRConfig();
+            if (remoteConfig === false) return; // Validation failed
+
             const config = {
                 frequency: freq,
                 gain: gain,
@@ -2434,6 +2500,12 @@
                 sdr_type: getSelectedSDRType(),
                 protocols: protocols
             };
+
+            // Add rtl_tcp params if using remote SDR
+            if (remoteConfig) {
+                config.rtl_tcp_host = remoteConfig.host;
+                config.rtl_tcp_port = remoteConfig.port;
+            }
 
             fetch('/start', {
                 method: 'POST',
