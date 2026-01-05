@@ -2118,7 +2118,7 @@
                 ];
                 csv.push(row.join(','));
             });
-            downloadFile(csv.join('\\n'), 'intercept_messages.csv', 'text/csv');
+            downloadFile(csv.join('\n'), 'intercept_messages.csv', 'text/csv');
         }
 
         function exportJSON() {
@@ -2682,6 +2682,7 @@
             pocsagCount = 0;
             flexCount = 0;
             sensorCount = 0;
+            allMessages = [];
             uniqueDevices.clear();
             document.getElementById('msgCount').textContent = '0';
             document.getElementById('pocsagCount').textContent = '0';
