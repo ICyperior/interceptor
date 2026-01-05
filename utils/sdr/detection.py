@@ -144,15 +144,17 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
     return devices
 
 
-def detect_soapy_devices() -> list[SDRDevice]:
+def detect_soapy_devices(skip_types: Optional[set[SDRType]] = None) -> list[SDRDevice]:
     """
     Detect SDR devices via SoapySDR.
 
-    This detects LimeSDR, HackRF, USRP, BladeRF, and other SoapySDR-compatible
-    devices. RTL-SDR devices may also appear here but we prefer the native
-    detection for those.
+    This detects LimeSDR, HackRF, Airspy, and other SoapySDR-compatible devices.
+
+    Args:
+        skip_types: Set of SDRType values to skip (e.g., if already found via native detection)
     """
     devices: list[SDRDevice] = []
+    skip_types = skip_types or set()
 
     if not _check_tool('SoapySDRUtil'):
         logger.debug("SoapySDRUtil not found, skipping SoapySDR detection")
@@ -181,7 +183,7 @@ def detect_soapy_devices() -> list[SDRDevice]:
             # Start of new device block
             if line.startswith('Found device'):
                 if current_device.get('driver'):
-                    _add_soapy_device(devices, current_device, device_counts)
+                    _add_soapy_device(devices, current_device, device_counts, skip_types)
                 current_device = {}
                 continue
 
@@ -194,7 +196,7 @@ def detect_soapy_devices() -> list[SDRDevice]:
 
         # Don't forget the last device
         if current_device.get('driver'):
-            _add_soapy_device(devices, current_device, device_counts)
+            _add_soapy_device(devices, current_device, device_counts, skip_types)
 
     except subprocess.TimeoutExpired:
         logger.warning("SoapySDRUtil timed out")
@@ -207,7 +209,8 @@ def detect_soapy_devices() -> list[SDRDevice]:
 def _add_soapy_device(
     devices: list[SDRDevice],
     device_info: dict,
-    device_counts: dict[SDRType, int]
+    device_counts: dict[SDRType, int],
+    skip_types: set[SDRType]
 ) -> None:
     """Add a device from SoapySDR detection to the list."""
     driver = device_info.get('driver', '').lower()
@@ -217,8 +220,9 @@ def _add_soapy_device(
         logger.debug(f"Unknown SoapySDR driver: {driver}")
         return
 
-    # Skip RTL-SDR devices from SoapySDR (we use native detection)
-    if sdr_type == SDRType.RTL_SDR:
+    # Skip device types that were already found via native detection
+    if sdr_type in skip_types:
+        logger.debug(f"Skipping {driver} from SoapySDR (already found via native detection)")
         return
 
     # Track device index per type
@@ -298,18 +302,23 @@ def detect_all_devices() -> list[SDRDevice]:
     Returns a unified list of SDRDevice objects sorted by type and index.
     """
     devices: list[SDRDevice] = []
+    skip_in_soapy: set[SDRType] = set()
 
     # RTL-SDR via native tool (primary method)
-    devices.extend(detect_rtlsdr_devices())
+    rtlsdr_devices = detect_rtlsdr_devices()
+    devices.extend(rtlsdr_devices)
+    if rtlsdr_devices:
+        skip_in_soapy.add(SDRType.RTL_SDR)
 
-    # SoapySDR devices (LimeSDR, HackRF, etc.)
-    soapy_devices = detect_soapy_devices()
+    # Native HackRF detection (primary method)
+    hackrf_devices = detect_hackrf_devices()
+    devices.extend(hackrf_devices)
+    if hackrf_devices:
+        skip_in_soapy.add(SDRType.HACKRF)
+
+    # SoapySDR devices (LimeSDR, Airspy, and fallback for HackRF/RTL-SDR if native failed)
+    soapy_devices = detect_soapy_devices(skip_types=skip_in_soapy)
     devices.extend(soapy_devices)
-
-    # Native HackRF detection (fallback if SoapySDR didn't find it)
-    hackrf_from_soapy = any(d.sdr_type == SDRType.HACKRF for d in soapy_devices)
-    if not hackrf_from_soapy:
-        devices.extend(detect_hackrf_devices())
 
     # Sort by type name, then index
     devices.sort(key=lambda d: (d.sdr_type.value, d.index))
