@@ -49,6 +49,8 @@ INTERCEPT automatically detects connected devices and shows hardware-specific ca
 ## Quick Install Commands
 
 ### Ubuntu/Debian
+> [!NOTE]
+> Known Issue: On the latest version of Debian (Trixie) and those distros that use it dump1090 is not available in the repsitories and will need to be built from source until the developers release it.
 ```bash
 # Core tools
 sudo apt update
@@ -161,3 +163,4 @@ pip install .           # Install as package
 pip install -e .        # Install in editable mode (for development)
 pip install -e ".[dev]" # Include dev dependencies
 ```
+
