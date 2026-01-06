@@ -7,13 +7,13 @@ All notable changes to INTERCEPT will be documented in this file.
 ### Added
 - **Listening Post Mode** - New frequency scanner with automatic signal detection
   - Scans frequency ranges and stops on detected signals
-  - Real-time audio monitoring with sox integration
+  - Real-time audio monitoring with ffmpeg integration
   - Skip button to continue scanning after signal detection
   - Configurable dwell time, squelch, and step size
   - Preset frequency bands (FM broadcast, Air band, Marine, etc.)
   - Activity log of detected signals
 - **Aircraft Dashboard Improvements**
-  - Dependency warning when rtl_fm or sox not installed
+  - Dependency warning when rtl_fm or ffmpeg not installed
   - Auto-restart audio when switching frequencies
   - Fixed toolbar overflow with custom frequency input
 - **Device Correlation** - Match WiFi and Bluetooth devices by manufacturer
@@ -29,10 +29,10 @@ All notable changes to INTERCEPT will be documented in this file.
 - **Setup Script Rewrite**
   - Full macOS support with Homebrew auto-installation
   - Improved Debian/Ubuntu package detection
-  - Added sox to tool checks
+  - Added ffmpeg to tool checks
   - Better error messages with platform-specific install commands
 - **Dockerfile Updated**
-  - Added sox and libsox-fmt-all for Listening Post audio
+  - Added ffmpeg for Listening Post audio encoding
   - Added dump1090 with fallback for different package names
 
 ### Fixed

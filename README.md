@@ -41,7 +41,7 @@
 **2. Install dependencies:**
 ```bash
 # Required
-brew install python@3.11 librtlsdr multimon-ng rtl_433 sox
+brew install python@3.11 librtlsdr multimon-ng rtl_433 ffmpeg
 
 # For ADS-B aircraft tracking
 brew install dump1090-mutability
@@ -66,7 +66,7 @@ sudo apt update
 sudo apt install -y python3 python3-pip python3-venv git
 
 # Required SDR tools
-sudo apt install -y rtl-sdr multimon-ng rtl-433 sox
+sudo apt install -y rtl-sdr multimon-ng rtl-433 ffmpeg
 
 # For ADS-B aircraft tracking (package name varies)
 sudo apt install -y dump1090-mutability  # or dump1090-fa

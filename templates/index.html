@@ -8775,7 +8775,7 @@
         // ============================================
 
         let isAudioPlaying = false;
-        let audioToolsAvailable = { rtl_fm: false, audio_player: false };
+        let audioToolsAvailable = { rtl_fm: false, ffmpeg: false };
 
         // Web Audio API for visualization
         let visualizerContext = null;
@@ -8919,14 +8919,14 @@
                 .then(r => r.json())
                 .then(data => {
                     audioToolsAvailable.rtl_fm = data.rtl_fm;
-                    audioToolsAvailable.can_stream = data.can_stream;
+                    audioToolsAvailable.ffmpeg = data.ffmpeg;
 
                     const warnings = [];
                     if (!data.rtl_fm) {
                         warnings.push('rtl_fm not found - install rtl-sdr tools');
                     }
-                    if (!data.can_stream) {
-                        warnings.push('No audio encoder (ffmpeg/sox) - install: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)');
+                    if (!data.ffmpeg) {
+                        warnings.push('ffmpeg not found - install: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)');
                     }
 
                     const warningDiv = document.getElementById('audioToolsWarning');

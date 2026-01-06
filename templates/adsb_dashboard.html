@@ -1780,7 +1780,7 @@ sudo make install</code>
                 .then(data => {
                     const missingTools = [];
                     if (!data.rtl_fm) missingTools.push('rtl_fm');
-                    if (!data.sox) missingTools.push('sox (audio player)');
+                    if (!data.ffmpeg) missingTools.push('ffmpeg (audio encoder)');
 
                     if (missingTools.length > 0) {
                         document.getElementById('airbandBtn').disabled = true;
@@ -1825,7 +1825,7 @@ sudo make install</code>
                 <div style="font-weight: bold; margin-bottom: 6px;">⚠️ Airband Listen Unavailable</div>
                 <div>Missing required tools: <strong>${toolList}</strong></div>
                 <div style="margin-top: 8px; font-size: 10px; opacity: 0.9;">
-                    Install with: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">sudo apt install rtl-sdr sox</code> (Debian) or <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">brew install librtlsdr sox</code> (macOS)
+                    Install with: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">sudo apt install rtl-sdr ffmpeg</code> (Debian) or <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">brew install librtlsdr ffmpeg</code> (macOS)
                 </div>
                 <button onclick="this.parentElement.remove()" style="position: absolute; top: 5px; right: 8px; background: none; border: none; color: white; cursor: pointer; font-size: 14px;">×</button>
             `;

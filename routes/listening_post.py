@@ -79,9 +79,6 @@ def find_ffmpeg() -> str | None:
     return shutil.which('ffmpeg')
 
 
-def find_sox() -> str | None:
-    """Find sox for audio encoding."""
-    return shutil.which('sox')
 
 
 def add_activity_log(event_type: str, frequency: float, details: str = ''):
@@ -450,15 +447,11 @@ def check_tools() -> Response:
     """Check for required tools."""
     rtl_fm = find_rtl_fm()
     ffmpeg = find_ffmpeg()
-    sox = find_sox()
-    can_stream = ffmpeg is not None or sox is not None
 
     return jsonify({
         'rtl_fm': rtl_fm is not None,
         'ffmpeg': ffmpeg is not None,
-        'sox': sox is not None,
-        'can_stream': can_stream,
-        'available': rtl_fm is not None and can_stream
+        'available': rtl_fm is not None and ffmpeg is not None
     })
 
 

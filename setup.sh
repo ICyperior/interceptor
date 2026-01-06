@@ -179,11 +179,7 @@ check_tools() {
 
     echo ""
     echo "Audio Tools:"
-    check_tool "sox" "Audio player/processor" "audio"
-    # ffmpeg is optional alternative to sox
-    if check_cmd ffmpeg; then
-        echo -e "  ${GREEN}✓${NC} ffmpeg - Audio encoder (optional)"
-    fi
+    check_tool "ffmpeg" "Audio encoder for streaming" "audio"
 
     echo ""
     echo "WiFi Tools:"
@@ -258,7 +254,7 @@ install_macos_tools() {
     echo ""
     echo -e "${YELLOW}The following will be installed:${NC}"
     $MISSING_CORE && echo "  - Core SDR tools (rtl-sdr, multimon-ng, rtl_433, dump1090)"
-    $MISSING_AUDIO && echo "  - Audio tools (sox)"
+    $MISSING_AUDIO && echo "  - Audio tools (ffmpeg)"
     $MISSING_WIFI && echo "  - WiFi tools (aircrack-ng)"
     echo ""
 
@@ -283,7 +279,7 @@ install_macos_tools() {
         if $MISSING_AUDIO; then
             echo ""
             echo -e "${BLUE}Installing Audio tools...${NC}"
-            brew install sox
+            brew install ffmpeg
         fi
 
         # WiFi tools
@@ -305,7 +301,7 @@ show_macos_manual() {
     echo -e "${BLUE}Manual installation (macOS):${NC}"
     echo ""
     echo "# Required tools"
-    echo "brew install librtlsdr multimon-ng rtl_433 sox"
+    echo "brew install librtlsdr multimon-ng rtl_433 ffmpeg"
     echo ""
     echo "# ADS-B tracking"
     echo "brew install dump1090-mutability"
@@ -329,7 +325,7 @@ install_debian_tools() {
 
     echo -e "${YELLOW}The following will be installed:${NC}"
     $MISSING_CORE && echo "  - Core SDR tools (rtl-sdr, multimon-ng, rtl-433, dump1090)"
-    $MISSING_AUDIO && echo "  - Audio tools (sox)"
+    $MISSING_AUDIO && echo "  - Audio tools (ffmpeg)"
     $MISSING_WIFI && echo "  - WiFi tools (aircrack-ng)"
     $MISSING_BLUETOOTH && echo "  - Bluetooth tools (bluez)"
     echo ""
@@ -376,7 +372,7 @@ install_debian_tools() {
         if $MISSING_AUDIO; then
             echo ""
             echo -e "${BLUE}Installing Audio tools...${NC}"
-            $SUDO apt install -y sox
+            $SUDO apt install -y ffmpeg
         fi
 
         # WiFi tools
@@ -408,7 +404,7 @@ show_debian_manual() {
     echo -e "${BLUE}Manual installation (Debian/Ubuntu):${NC}"
     echo ""
     echo "# Required tools"
-    echo "sudo apt install rtl-sdr multimon-ng rtl-433 sox"
+    echo "sudo apt install rtl-sdr multimon-ng rtl-433 ffmpeg"
     echo ""
     echo "# ADS-B tracking"
     echo "sudo apt install dump1090-mutability  # or dump1090-fa"

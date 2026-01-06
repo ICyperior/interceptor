@@ -20,8 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Pager decoder
     multimon-ng \
     # Audio tools for Listening Post
-    sox \
-    libsox-fmt-all \
+    ffmpeg \
     # WiFi tools (aircrack-ng suite)
     aircrack-ng \
     iw \

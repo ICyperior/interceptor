@@ -21,7 +21,7 @@ INTERCEPT automatically detects connected devices.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Core tools (required)
-brew install python@3.11 librtlsdr multimon-ng rtl_433 sox
+brew install python@3.11 librtlsdr multimon-ng rtl_433 ffmpeg
 
 # ADS-B aircraft tracking
 brew install dump1090-mutability
@@ -44,7 +44,7 @@ sudo apt update
 
 # Core tools (required)
 sudo apt install -y python3 python3-pip python3-venv
-sudo apt install -y rtl-sdr multimon-ng rtl-433 sox
+sudo apt install -y rtl-sdr multimon-ng rtl-433 ffmpeg
 
 # ADS-B aircraft tracking
 sudo apt install -y dump1090-mutability
@@ -162,7 +162,7 @@ Open **http://localhost:5050** in your browser.
 | `multimon-ng` | multimon-ng | multimon-ng | Pager decoding |
 | `rtl_433` | rtl-433 | rtl_433 | 433MHz sensors |
 | `dump1090` | dump1090-mutability | dump1090-mutability | ADS-B tracking |
-| `sox` | sox | sox | Listening Post audio |
+| `ffmpeg` | ffmpeg | ffmpeg | Listening Post audio |
 | `airmon-ng` | aircrack-ng | aircrack-ng | WiFi monitor mode |
 | `airodump-ng` | aircrack-ng | aircrack-ng | WiFi scanning |
 | `aireplay-ng` | aircrack-ng | aircrack-ng | WiFi deauth (optional) |
