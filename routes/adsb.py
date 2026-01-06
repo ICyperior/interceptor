@@ -222,8 +222,8 @@ def check_adsb_tools():
     # Check what SDR hardware is detected
     devices = SDRFactory.detect_devices()
     has_rtlsdr = any(d.sdr_type == SDRType.RTL_SDR for d in devices)
-    has_soapy_sdr = any(d.sdr_type in (SDRType.HACKRF, SDRType.LIMESDR, SDRType.AIRSPY) for d in devices)
-    soapy_types = [d.sdr_type.value for d in devices if d.sdr_type in (SDRType.HACKRF, SDRType.LIMESDR, SDRType.AIRSPY)]
+    has_soapy_sdr = any(d.sdr_type in (SDRType.HACKRF, SDRType.LIME_SDR, SDRType.AIRSPY) for d in devices)
+    soapy_types = [d.sdr_type.value for d in devices if d.sdr_type in (SDRType.HACKRF, SDRType.LIME_SDR, SDRType.AIRSPY)]
 
     # Determine if readsb is needed but missing
     needs_readsb = has_soapy_sdr and not has_readsb
