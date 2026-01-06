@@ -1,93 +1,75 @@
-# Hardware & Installation
+# Hardware & Advanced Setup
 
 ## Supported SDR Hardware
 
-| Hardware | Frequency Range | Gain Range | TX | Price | Notes |
-|----------|-----------------|------------|-----|-------|-------|
-| **RTL-SDR** | 24 - 1766 MHz | 0 - 50 dB | No | ~$25 | Most common, budget-friendly |
-| **LimeSDR** | 0.1 - 3800 MHz | 0 - 73 dB | Yes | ~$300 | Wide range, requires SoapySDR |
-| **HackRF** | 1 - 6000 MHz | 0 - 62 dB | Yes | ~$300 | Ultra-wide range, requires SoapySDR |
+| Hardware | Frequency Range | Price | Notes |
+|----------|-----------------|-------|-------|
+| **RTL-SDR** | 24 - 1766 MHz | ~$25-35 | Recommended for beginners |
+| **LimeSDR** | 0.1 - 3800 MHz | ~$300 | Wide range, requires SoapySDR |
+| **HackRF** | 1 - 6000 MHz | ~$300 | Ultra-wide range, requires SoapySDR |
 
-INTERCEPT automatically detects connected devices and shows hardware-specific capabilities in the UI.
+INTERCEPT automatically detects connected devices.
 
-## Requirements
+---
 
-### Hardware
-- **SDR Device** - RTL-SDR, LimeSDR, or HackRF
-- **WiFi adapter** capable of monitor mode (for WiFi features)
-- **Bluetooth adapter** (for Bluetooth features)
-- **GPS dongle** (optional, for precise location)
-
-### Software
-- **Python 3.9+** required
-- External tools (see installation below)
-
-## Tool Installation
-
-### Core SDR Tools
-
-| Tool | macOS | Ubuntu/Debian | Purpose |
-|------|-------|---------------|---------|
-| rtl-sdr | `brew install librtlsdr` | `sudo apt install rtl-sdr` | RTL-SDR support |
-| multimon-ng | `brew install multimon-ng` | `sudo apt install multimon-ng` | Pager decoding |
-| rtl_433 | `brew install rtl_433` | `sudo apt install rtl-433` | 433MHz sensors |
-| dump1090 | `brew install dump1090-mutability` | `sudo apt install dump1090-mutability` | ADS-B aircraft |
-| aircrack-ng | `brew install aircrack-ng` | `sudo apt install aircrack-ng` | WiFi reconnaissance |
-| bluez | Built-in (limited) | `sudo apt install bluez bluetooth` | Bluetooth scanning |
-
-### LimeSDR / HackRF Support (Optional)
-
-| Tool | macOS | Ubuntu/Debian | Purpose |
-|------|-------|---------------|---------|
-| SoapySDR | `brew install soapysdr` | `sudo apt install soapysdr-tools` | Universal SDR abstraction |
-| LimeSDR | `brew install limesuite soapylms7` | `sudo apt install limesuite soapysdr-module-lms7` | LimeSDR support |
-| HackRF | `brew install hackrf soapyhackrf` | `sudo apt install hackrf soapysdr-module-hackrf` | HackRF support |
-| readsb | Build from source | Build from source | ADS-B with SoapySDR |
-
-> **Note:** RTL-SDR works out of the box. LimeSDR and HackRF require SoapySDR plus the hardware-specific driver.
-
-## Quick Install Commands
-
-### Ubuntu/Debian
-> [!NOTE]
-> Known Issue: On the latest version of Debian (Trixie) and those distros that use it dump1090 is not available in the repsitories and will need to be built from source until the developers release it.
-```bash
-# Core tools
-sudo apt update
-sudo apt install rtl-sdr multimon-ng rtl-433 dump1090-mutability aircrack-ng bluez bluetooth
-
-# LimeSDR (optional)
-sudo apt install soapysdr-tools limesuite soapysdr-module-lms7
-
-# HackRF (optional)
-sudo apt install hackrf soapysdr-module-hackrf
-```
+## Quick Install
 
 ### macOS (Homebrew)
-```bash
-# Core tools
-brew install librtlsdr multimon-ng rtl_433 dump1090-mutability aircrack-ng
 
-# LimeSDR (optional)
+```bash
+# Install Homebrew if needed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Core tools (required)
+brew install python@3.11 librtlsdr multimon-ng rtl_433 sox
+
+# ADS-B aircraft tracking
+brew install dump1090-mutability
+
+# WiFi tools (optional)
+brew install aircrack-ng
+
+# LimeSDR support (optional)
 brew install soapysdr limesuite soapylms7
 
-# HackRF (optional)
+# HackRF support (optional)
 brew install hackrf soapyhackrf
 ```
 
-### Arch Linux
-```bash
-# Core tools
-sudo pacman -S rtl-sdr multimon-ng
-yay -S rtl_433 dump1090
+### Debian / Ubuntu / Raspberry Pi OS
 
-# LimeSDR/HackRF (optional)
-sudo pacman -S soapysdr limesuite hackrf
+```bash
+# Update package lists
+sudo apt update
+
+# Core tools (required)
+sudo apt install -y python3 python3-pip python3-venv
+sudo apt install -y rtl-sdr multimon-ng rtl-433 sox
+
+# ADS-B aircraft tracking
+sudo apt install -y dump1090-mutability
+# Alternative: dump1090-fa (FlightAware version)
+
+# WiFi tools (optional)
+sudo apt install -y aircrack-ng
+
+# Bluetooth tools (optional)
+sudo apt install -y bluez bluetooth
+
+# LimeSDR support (optional)
+sudo apt install -y soapysdr-tools limesuite soapysdr-module-lms7
+
+# HackRF support (optional)
+sudo apt install -y hackrf soapysdr-module-hackrf
 ```
 
-## Linux udev Rules
+---
 
-If your SDR isn't detected, add udev rules:
+## RTL-SDR Setup (Linux)
+
+### Add udev rules
+
+If your RTL-SDR isn't detected, create udev rules:
 
 ```bash
 sudo bash -c 'cat > /etc/udev/rules.d/20-rtlsdr.rules << EOF
@@ -99,9 +81,9 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
-Then unplug and replug your device.
+Then unplug and replug your RTL-SDR.
 
-## Blacklist DVB-T Driver (Linux)
+### Blacklist DVB-T driver
 
 The default DVB-T driver conflicts with rtl-sdr:
 
@@ -110,57 +92,120 @@ echo "blacklist dvb_usb_rtl28xxu" | sudo tee /etc/modprobe.d/blacklist-rtl.conf
 sudo modprobe -r dvb_usb_rtl28xxu
 ```
 
+---
+
 ## Verify Installation
 
-Check what's installed:
+### Check dependencies
 ```bash
 python3 intercept.py --check-deps
 ```
 
-Test SDR detection:
+### Test SDR detection
 ```bash
 # RTL-SDR
 rtl_test
 
-# LimeSDR/HackRF
+# LimeSDR/HackRF (via SoapySDR)
 SoapySDRUtil --find
 ```
 
-## Python Dependencies
+---
 
-### Option 1: setup.sh (Recommended)
+## Python Environment
+
+### Using setup.sh (Recommended)
 ```bash
 ./setup.sh
 ```
-This creates a virtual environment and installs dependencies automatically.
 
-### Option 2: pip
+This automatically:
+- Detects your OS
+- Creates a virtual environment if needed (for PEP 668 systems)
+- Installs Python dependencies
+- Checks for required tools
+
+### Manual setup
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Option 3: uv (Fast alternative)
-[uv](https://github.com/astral-sh/uv) is a fast Python package installer.
+---
+
+## Running INTERCEPT
+
+After installation:
 
 ```bash
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Standard
+sudo python3 intercept.py
 
-# Create venv and install deps
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv sync
+# With virtual environment
+sudo venv/bin/python intercept.py
 
-# Or just install deps in existing environment
-uv pip install -r requirements.txt
+# Custom port
+INTERCEPT_PORT=8080 sudo python3 intercept.py
 ```
 
-### Option 4: pip with pyproject.toml
-```bash
-pip install .           # Install as package
-pip install -e .        # Install in editable mode (for development)
-pip install -e ".[dev]" # Include dev dependencies
-```
+Open **http://localhost:5050** in your browser.
 
+---
+
+## Complete Tool Reference
+
+| Tool | Package (Debian) | Package (macOS) | Required For |
+|------|------------------|-----------------|--------------|
+| `rtl_fm` | rtl-sdr | librtlsdr | Pager, Listening Post |
+| `rtl_test` | rtl-sdr | librtlsdr | SDR detection |
+| `multimon-ng` | multimon-ng | multimon-ng | Pager decoding |
+| `rtl_433` | rtl-433 | rtl_433 | 433MHz sensors |
+| `dump1090` | dump1090-mutability | dump1090-mutability | ADS-B tracking |
+| `sox` | sox | sox | Listening Post audio |
+| `airmon-ng` | aircrack-ng | aircrack-ng | WiFi monitor mode |
+| `airodump-ng` | aircrack-ng | aircrack-ng | WiFi scanning |
+| `aireplay-ng` | aircrack-ng | aircrack-ng | WiFi deauth (optional) |
+| `hcitool` | bluez | N/A | Bluetooth scanning |
+| `bluetoothctl` | bluez | N/A | Bluetooth control |
+| `hciconfig` | bluez | N/A | Bluetooth config |
+
+### Optional tools:
+| Tool | Package (Debian) | Package (macOS) | Purpose |
+|------|------------------|-----------------|---------|
+| `ffmpeg` | ffmpeg | ffmpeg | Alternative audio encoder |
+| `SoapySDRUtil` | soapysdr-tools | soapysdr | LimeSDR/HackRF support |
+| `LimeUtil` | limesuite | limesuite | LimeSDR native tools |
+| `hackrf_info` | hackrf | hackrf | HackRF native tools |
+
+### Python dependencies (requirements.txt):
+| Package | Purpose |
+|---------|---------|
+| `flask` | Web server |
+| `skyfield` | Satellite tracking (optional) |
+| `pyserial` | USB GPS dongle support (optional) |
+
+---
+
+## dump1090 Notes
+
+### Package names vary by distribution:
+- `dump1090-mutability` - Most common
+- `dump1090-fa` - FlightAware version (recommended)
+- `dump1090` - Generic
+
+### Not in repositories (Debian Trixie)?
+
+Install FlightAware's version:
+https://flightaware.com/adsb/piaware/install
+
+Or build from source:
+https://github.com/flightaware/dump1090
+
+---
+
+## Notes
+
+- **Bluetooth on macOS**: Uses native CoreBluetooth, bluez tools not needed
+- **WiFi on macOS**: Monitor mode has limited support, full functionality on Linux
+- **System tools**: `iw`, `iwconfig`, `rfkill`, `ip` are pre-installed on most Linux systems

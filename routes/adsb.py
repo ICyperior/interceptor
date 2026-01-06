@@ -22,6 +22,19 @@ from utils.validation import (
 )
 from utils.sse import format_sse
 from utils.sdr import SDRFactory, SDRType
+from utils.constants import (
+    ADSB_SBS_PORT,
+    ADSB_TERMINATE_TIMEOUT,
+    PROCESS_TERMINATE_TIMEOUT,
+    SBS_SOCKET_TIMEOUT,
+    SBS_RECONNECT_DELAY,
+    SOCKET_BUFFER_SIZE,
+    SSE_KEEPALIVE_INTERVAL,
+    SSE_QUEUE_TIMEOUT,
+    SOCKET_CONNECT_TIMEOUT,
+    ADSB_UPDATE_INTERVAL,
+    DUMP1090_START_WAIT,
+)
 
 adsb_bp = Blueprint('adsb', __name__, url_prefix='/adsb')
 
@@ -63,21 +76,21 @@ def find_dump1090():
 
 
 def check_dump1090_service():
-    """Check if dump1090 SBS port (30003) is available."""
+    """Check if dump1090 SBS port is available."""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(2)
-        result = sock.connect_ex(('localhost', 30003))
+        sock.settimeout(SOCKET_CONNECT_TIMEOUT)
+        result = sock.connect_ex(('localhost', ADSB_SBS_PORT))
         sock.close()
         if result == 0:
-            return 'localhost:30003'
-    except Exception:
+            return f'localhost:{ADSB_SBS_PORT}'
+    except OSError:
         pass
     return None
 
 
 def parse_sbs_stream(service_addr):
-    """Parse SBS format data from dump1090 port 30003."""
+    """Parse SBS format data from dump1090 SBS port."""
     global adsb_using_service, adsb_connected, adsb_messages_received, adsb_last_message_time
 
     host, port = service_addr.split(':')
@@ -90,7 +103,7 @@ def parse_sbs_stream(service_addr):
     while adsb_using_service:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(5)
+            sock.settimeout(SBS_SOCKET_TIMEOUT)
             sock.connect((host, port))
             adsb_connected = True
             logger.info("Connected to SBS stream")
@@ -101,7 +114,7 @@ def parse_sbs_stream(service_addr):
 
             while adsb_using_service:
                 try:
-                    data = sock.recv(4096).decode('utf-8', errors='ignore')
+                    data = sock.recv(SOCKET_BUFFER_SIZE).decode('utf-8', errors='ignore')
                     if not data:
                         break
                     buffer += data
@@ -121,7 +134,7 @@ def parse_sbs_stream(service_addr):
                         if not icao:
                             continue
 
-                        aircraft = app_module.adsb_aircraft.get(icao, {'icao': icao})
+                        aircraft = app_module.adsb_aircraft.get(icao) or {'icao': icao}
 
                         if msg_type == '1' and len(parts) > 10:
                             callsign = parts[10].strip()
@@ -168,13 +181,13 @@ def parse_sbs_stream(service_addr):
                             if parts[17]:
                                 aircraft['squawk'] = parts[17]
 
-                        app_module.adsb_aircraft[icao] = aircraft
+                        app_module.adsb_aircraft.set(icao, aircraft)
                         pending_updates.add(icao)
                         adsb_messages_received += 1
                         adsb_last_message_time = time.time()
 
                         now = time.time()
-                        if now - last_update >= 1.0:
+                        if now - last_update >= ADSB_UPDATE_INTERVAL:
                             for update_icao in pending_updates:
                                 if update_icao in app_module.adsb_aircraft:
                                     app_module.adsb_queue.put({
@@ -189,10 +202,10 @@ def parse_sbs_stream(service_addr):
 
             sock.close()
             adsb_connected = False
-        except Exception as e:
+        except OSError as e:
             adsb_connected = False
             logger.warning(f"SBS connection error: {e}, reconnecting...")
-            time.sleep(2)
+            time.sleep(SBS_RECONNECT_DELAY)
 
     adsb_connected = False
     logger.info("SBS stream parser stopped")
@@ -291,9 +304,12 @@ def start_adsb():
     if app_module.adsb_process:
         try:
             app_module.adsb_process.terminate()
-            app_module.adsb_process.wait(timeout=2)
-        except Exception:
-            pass
+            app_module.adsb_process.wait(timeout=PROCESS_TERMINATE_TIMEOUT)
+        except (subprocess.TimeoutExpired, OSError):
+            try:
+                app_module.adsb_process.kill()
+            except OSError:
+                pass
         app_module.adsb_process = None
 
     # Create device object and build command via abstraction layer
@@ -317,13 +333,13 @@ def start_adsb():
             stderr=subprocess.DEVNULL
         )
 
-        time.sleep(3)
+        time.sleep(DUMP1090_START_WAIT)
 
         if app_module.adsb_process.poll() is not None:
             return jsonify({'status': 'error', 'message': 'dump1090 failed to start. Check RTL-SDR device permissions or if another process is using it.'})
 
         adsb_using_service = True
-        thread = threading.Thread(target=parse_sbs_stream, args=('localhost:30003',), daemon=True)
+        thread = threading.Thread(target=parse_sbs_stream, args=(f'localhost:{ADSB_SBS_PORT}',), daemon=True)
         thread.start()
 
         return jsonify({'status': 'started', 'message': 'ADS-B tracking started'})
@@ -340,13 +356,13 @@ def stop_adsb():
         if app_module.adsb_process:
             app_module.adsb_process.terminate()
             try:
-                app_module.adsb_process.wait(timeout=5)
+                app_module.adsb_process.wait(timeout=ADSB_TERMINATE_TIMEOUT)
             except subprocess.TimeoutExpired:
                 app_module.adsb_process.kill()
             app_module.adsb_process = None
         adsb_using_service = False
 
-    app_module.adsb_aircraft = {}
+    app_module.adsb_aircraft.clear()
     return jsonify({'status': 'stopped'})
 
 
@@ -355,16 +371,15 @@ def stream_adsb():
     """SSE stream for ADS-B aircraft."""
     def generate():
         last_keepalive = time.time()
-        keepalive_interval = 30.0
 
         while True:
             try:
-                msg = app_module.adsb_queue.get(timeout=1)
+                msg = app_module.adsb_queue.get(timeout=SSE_QUEUE_TIMEOUT)
                 last_keepalive = time.time()
                 yield format_sse(msg)
             except queue.Empty:
                 now = time.time()
-                if now - last_keepalive >= keepalive_interval:
+                if now - last_keepalive >= SSE_KEEPALIVE_INTERVAL:
                     yield format_sse({'type': 'keepalive'})
                     last_keepalive = now
 

@@ -23,6 +23,17 @@ from utils.logging import bluetooth_logger as logger
 from utils.sse import format_sse
 from data.oui import OUI_DATABASE, load_oui_database, get_manufacturer
 from data.patterns import AIRTAG_PREFIXES, TILE_PREFIXES, SAMSUNG_TRACKER
+from utils.constants import (
+    BT_TERMINATE_TIMEOUT,
+    SSE_KEEPALIVE_INTERVAL,
+    SSE_QUEUE_TIMEOUT,
+    SUBPROCESS_TIMEOUT_SHORT,
+    SERVICE_ENUM_TIMEOUT,
+    PROCESS_START_WAIT,
+    BT_RESET_DELAY,
+    BT_ADAPTER_DOWN_WAIT,
+    PROCESS_TERMINATE_TIMEOUT,
+)
 
 bluetooth_bp = Blueprint('bluetooth', __name__, url_prefix='/bt')
 
@@ -113,7 +124,7 @@ def detect_bt_interfaces():
 
     if platform.system() == 'Linux':
         try:
-            result = subprocess.run(['hciconfig'], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(['hciconfig'], capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_SHORT)
             blocks = re.split(r'(?=^hci\d+:)', result.stdout, flags=re.MULTILINE)
             for block in blocks:
                 if block.strip():
@@ -127,8 +138,12 @@ def detect_bt_interfaces():
                             'type': 'hci',
                             'status': 'up' if is_up else 'down'
                         })
-        except Exception:
-            pass
+        except FileNotFoundError:
+            logger.debug("hciconfig not found")
+        except subprocess.TimeoutExpired:
+            logger.warning("hciconfig timed out")
+        except subprocess.SubprocessError as e:
+            logger.warning(f"Error running hciconfig: {e}")
 
     elif platform.system() == 'Darwin':
         interfaces.append({

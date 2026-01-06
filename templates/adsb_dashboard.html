@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIRCRAFT RADAR // INTERCEPT</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_dashboard.css') }}">
@@ -179,6 +179,50 @@
                 <input type="number" id="remoteSbsPort" value="30003" min="1" max="65535" style="width: 55px; font-size: 10px;">
             </div>
             <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
+            <div class="airband-divider"></div>
+            <div class="control-group airband-controls">
+                <span class="control-label" style="color: var(--accent-cyan);">AIRBAND:</span>
+                <select id="airbandFreqSelect" onchange="updateAirbandFreq()">
+                    <option value="121.5">121.5 MHz (Guard)</option>
+                    <option value="118.0">118.0 MHz</option>
+                    <option value="119.1">119.1 MHz</option>
+                    <option value="120.5">120.5 MHz</option>
+                    <option value="123.45">123.45 MHz (Air-Air)</option>
+                    <option value="127.85">127.85 MHz</option>
+                    <option value="128.825">128.825 MHz</option>
+                    <option value="132.0">132.0 MHz</option>
+                    <option value="134.725">134.725 MHz</option>
+                    <option value="custom">Custom...</option>
+                </select>
+                <input type="number" id="airbandCustomFreq" step="0.005" placeholder="MHz" style="width: 70px; display: none;">
+            </div>
+            <div class="control-group airband-controls">
+                <span class="control-label">SDR:</span>
+                <select id="airbandDeviceSelect" style="width: 80px;">
+                    <option value="0">Dev 0</option>
+                </select>
+            </div>
+            <div class="control-group airband-controls">
+                <span class="control-label">SQ:</span>
+                <input type="range" id="airbandSquelch" min="0" max="100" value="20" style="width: 60px;">
+            </div>
+            <button class="airband-btn" id="airbandBtn" onclick="toggleAirband()">
+                <span class="airband-icon">▶</span> LISTEN
+            </button>
+            <div class="airband-status">
+                <span id="airbandStatus" style="color: var(--text-muted);">OFF</span>
+            </div>
+            <audio id="airbandPlayer" style="display: none;" crossorigin="anonymous"></audio>
+            <!-- Airband Visualizer (compact) -->
+            <div class="airband-visualizer" id="airbandVisualizerContainer" style="display: none;">
+                <div class="signal-meter">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="airbandSignalMeter"></div>
+                        <div class="meter-peak" id="airbandSignalPeak"></div>
+                    </div>
+                </div>
+                <canvas id="airbandSpectrumCanvas" width="120" height="30"></canvas>
+            </div>
         </div>
     </main>
 
@@ -1117,8 +1161,8 @@
                 maxZoom: 15
             });
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '©OpenStreetMap, ©CartoDB'
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
             }).addTo(radarMap);
 
             if (navigator.geolocation) {
@@ -1554,6 +1598,318 @@
                 scheduleUIUpdate();
             }
         }
+
+        // ============================================
+        // AIRBAND AUDIO
+        // ============================================
+        let isAirbandPlaying = false;
+
+        // Web Audio API for airband visualization
+        let airbandAudioContext = null;
+        let airbandAnalyser = null;
+        let airbandSource = null;
+        let airbandVisualizerId = null;
+        let airbandPeakLevel = 0;
+
+        function initAirbandVisualizer() {
+            const audioPlayer = document.getElementById('airbandPlayer');
+
+            if (!airbandAudioContext) {
+                airbandAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            if (airbandAudioContext.state === 'suspended') {
+                airbandAudioContext.resume();
+            }
+
+            if (!airbandSource) {
+                try {
+                    airbandSource = airbandAudioContext.createMediaElementSource(audioPlayer);
+                    airbandAnalyser = airbandAudioContext.createAnalyser();
+                    airbandAnalyser.fftSize = 128;
+                    airbandAnalyser.smoothingTimeConstant = 0.7;
+
+                    airbandSource.connect(airbandAnalyser);
+                    airbandAnalyser.connect(airbandAudioContext.destination);
+                } catch (e) {
+                    console.warn('Could not create airband audio source:', e);
+                    return;
+                }
+            }
+
+            document.getElementById('airbandVisualizerContainer').style.display = 'flex';
+            drawAirbandVisualizer();
+        }
+
+        function drawAirbandVisualizer() {
+            if (!airbandAnalyser) return;
+
+            const canvas = document.getElementById('airbandSpectrumCanvas');
+            const ctx = canvas.getContext('2d');
+            const bufferLength = airbandAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function draw() {
+                airbandVisualizerId = requestAnimationFrame(draw);
+                airbandAnalyser.getByteFrequencyData(dataArray);
+
+                // Signal meter
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                const average = sum / bufferLength;
+                const levelPercent = (average / 255) * 100;
+
+                if (levelPercent > airbandPeakLevel) {
+                    airbandPeakLevel = levelPercent;
+                } else {
+                    airbandPeakLevel *= 0.95;
+                }
+
+                const meterFill = document.getElementById('airbandSignalMeter');
+                const meterPeak = document.getElementById('airbandSignalPeak');
+                if (meterFill) meterFill.style.width = levelPercent + '%';
+                if (meterPeak) meterPeak.style.left = Math.min(airbandPeakLevel, 100) + '%';
+
+                // Draw spectrum
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const barWidth = canvas.width / bufferLength * 2;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * canvas.height;
+                    const hue = 200 - (i / bufferLength) * 60;
+                    ctx.fillStyle = `hsl(${hue}, 80%, ${40 + (dataArray[i] / 255) * 30}%)`;
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+                    x += barWidth;
+                }
+            }
+            draw();
+        }
+
+        function stopAirbandVisualizer() {
+            if (airbandVisualizerId) {
+                cancelAnimationFrame(airbandVisualizerId);
+                airbandVisualizerId = null;
+            }
+
+            const meterFill = document.getElementById('airbandSignalMeter');
+            const meterPeak = document.getElementById('airbandSignalPeak');
+            if (meterFill) meterFill.style.width = '0%';
+            if (meterPeak) meterPeak.style.left = '0%';
+            airbandPeakLevel = 0;
+
+            const container = document.getElementById('airbandVisualizerContainer');
+            if (container) container.style.display = 'none';
+        }
+
+        function initAirband() {
+            // Populate device selector
+            fetch('/devices')
+                .then(r => r.json())
+                .then(devices => {
+                    const select = document.getElementById('airbandDeviceSelect');
+                    select.innerHTML = '';
+                    if (devices.length === 0) {
+                        select.innerHTML = '<option value="0">No SDR</option>';
+                    } else {
+                        devices.forEach((dev, i) => {
+                            const opt = document.createElement('option');
+                            opt.value = dev.index || i;
+                            opt.textContent = `Dev ${dev.index || i}`;
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(() => {});
+
+            // Check if audio tools are available
+            fetch('/listening/tools')
+                .then(r => r.json())
+                .then(data => {
+                    const missingTools = [];
+                    if (!data.rtl_fm) missingTools.push('rtl_fm');
+                    if (!data.sox) missingTools.push('sox (audio player)');
+
+                    if (missingTools.length > 0) {
+                        document.getElementById('airbandBtn').disabled = true;
+                        document.getElementById('airbandBtn').style.opacity = '0.5';
+                        document.getElementById('airbandStatus').textContent = 'UNAVAILABLE';
+                        document.getElementById('airbandStatus').style.color = 'var(--accent-red)';
+
+                        // Show warning banner
+                        showAirbandWarning(missingTools);
+                    }
+                })
+                .catch(() => {
+                    // Endpoint not available, disable airband
+                    document.getElementById('airbandBtn').disabled = true;
+                    document.getElementById('airbandBtn').style.opacity = '0.5';
+                    document.getElementById('airbandStatus').textContent = 'UNAVAILABLE';
+                    document.getElementById('airbandStatus').style.color = 'var(--accent-red)';
+                });
+        }
+
+        function showAirbandWarning(missingTools) {
+            const warning = document.createElement('div');
+            warning.id = 'airbandWarning';
+            warning.style.cssText = `
+                position: fixed;
+                bottom: 70px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(239, 68, 68, 0.95);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 12px;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                max-width: 400px;
+                text-align: center;
+            `;
+
+            const toolList = missingTools.join(', ');
+            warning.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 6px;">⚠️ Airband Listen Unavailable</div>
+                <div>Missing required tools: <strong>${toolList}</strong></div>
+                <div style="margin-top: 8px; font-size: 10px; opacity: 0.9;">
+                    Install with: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">sudo apt install rtl-sdr sox</code> (Debian) or <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">brew install librtlsdr sox</code> (macOS)
+                </div>
+                <button onclick="this.parentElement.remove()" style="position: absolute; top: 5px; right: 8px; background: none; border: none; color: white; cursor: pointer; font-size: 14px;">×</button>
+            `;
+            document.body.appendChild(warning);
+
+            // Auto-dismiss after 15 seconds
+            setTimeout(() => {
+                if (warning.parentElement) {
+                    warning.style.opacity = '0';
+                    warning.style.transition = 'opacity 0.3s';
+                    setTimeout(() => warning.remove(), 300);
+                }
+            }, 15000);
+        }
+
+        function updateAirbandFreq() {
+            const select = document.getElementById('airbandFreqSelect');
+            const customInput = document.getElementById('airbandCustomFreq');
+            if (select.value === 'custom') {
+                customInput.style.display = 'inline-block';
+            } else {
+                customInput.style.display = 'none';
+                // If audio is playing, restart on new frequency
+                if (isAirbandPlaying) {
+                    stopAirband();
+                    setTimeout(() => startAirband(), 300);
+                }
+            }
+        }
+
+        // Handle custom frequency input changes
+        document.addEventListener('DOMContentLoaded', () => {
+            const customInput = document.getElementById('airbandCustomFreq');
+            if (customInput) {
+                customInput.addEventListener('change', () => {
+                    // If audio is playing, restart on new custom frequency
+                    if (isAirbandPlaying) {
+                        stopAirband();
+                        setTimeout(() => startAirband(), 300);
+                    }
+                });
+            }
+        });
+
+        function getAirbandFrequency() {
+            const select = document.getElementById('airbandFreqSelect');
+            if (select.value === 'custom') {
+                return parseFloat(document.getElementById('airbandCustomFreq').value) || 121.5;
+            }
+            return parseFloat(select.value);
+        }
+
+        function toggleAirband() {
+            if (isAirbandPlaying) {
+                stopAirband();
+            } else {
+                startAirband();
+            }
+        }
+
+        function startAirband() {
+            const frequency = getAirbandFrequency();
+            const device = parseInt(document.getElementById('airbandDeviceSelect').value);
+            const squelch = parseInt(document.getElementById('airbandSquelch').value);
+
+            document.getElementById('airbandStatus').textContent = 'STARTING...';
+            document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
+
+            fetch('/spectrum/audio/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    frequency: frequency,
+                    modulation: 'am',  // Airband uses AM
+                    squelch: squelch,
+                    gain: 40,
+                    device: device
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    isAirbandPlaying = true;
+
+                    // Start browser audio playback
+                    const audioPlayer = document.getElementById('airbandPlayer');
+                    audioPlayer.src = '/spectrum/audio/stream?' + Date.now();
+
+                    // Initialize visualizer before playing
+                    initAirbandVisualizer();
+
+                    audioPlayer.play().catch(e => {
+                        console.warn('Audio autoplay blocked:', e);
+                    });
+
+                    document.getElementById('airbandBtn').innerHTML = '<span class="airband-icon">⏹</span> STOP';
+                    document.getElementById('airbandBtn').classList.add('active');
+                    document.getElementById('airbandStatus').textContent = frequency.toFixed(3) + ' MHz';
+                    document.getElementById('airbandStatus').style.color = 'var(--accent-green)';
+                } else {
+                    document.getElementById('airbandStatus').textContent = 'ERROR';
+                    document.getElementById('airbandStatus').style.color = 'var(--accent-red)';
+                    alert('Airband Error: ' + (data.message || 'Failed to start'));
+                }
+            })
+            .catch(err => {
+                document.getElementById('airbandStatus').textContent = 'ERROR';
+                document.getElementById('airbandStatus').style.color = 'var(--accent-red)';
+            });
+        }
+
+        function stopAirband() {
+            // Stop visualizer
+            stopAirbandVisualizer();
+
+            // Stop browser audio
+            const audioPlayer = document.getElementById('airbandPlayer');
+            audioPlayer.pause();
+            audioPlayer.src = '';
+
+            fetch('/spectrum/audio/stop', { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    isAirbandPlaying = false;
+                    document.getElementById('airbandBtn').innerHTML = '<span class="airband-icon">▶</span> LISTEN';
+                    document.getElementById('airbandBtn').classList.remove('active');
+                    document.getElementById('airbandStatus').textContent = 'OFF';
+                    document.getElementById('airbandStatus').style.color = 'var(--text-muted)';
+                })
+                .catch(() => {});
+        }
+
+        // Initialize airband on page load
+        document.addEventListener('DOMContentLoaded', initAirband);
     </script>
 </body>
 </html>

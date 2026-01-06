@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # INTERCEPT Setup Script
-# Installs Python dependencies and checks for external tools
+# Installs dependencies for macOS and Debian/Ubuntu
 #
 
 set -e
@@ -32,17 +32,11 @@ detect_os() {
     elif [[ -f /etc/debian_version ]]; then
         OS="debian"
         PKG_MANAGER="apt"
-    elif [[ -f /etc/redhat-release ]]; then
-        OS="redhat"
-        PKG_MANAGER="dnf"
-    elif [[ -f /etc/arch-release ]]; then
-        OS="arch"
-        PKG_MANAGER="pacman"
     else
         OS="unknown"
         PKG_MANAGER="unknown"
     fi
-    echo -e "${BLUE}Detected OS:${NC} $OS (package manager: $PKG_MANAGER)"
+    echo -e "${BLUE}Detected OS:${NC} $OS"
 }
 
 # Check if a command exists
@@ -50,14 +44,14 @@ check_cmd() {
     command -v "$1" &> /dev/null
 }
 
-# Check if a package is installable (has a candidate version)
+# Check if a package is installable (Debian)
 pkg_available() {
     local candidate
     candidate=$(apt-cache policy "$1" 2>/dev/null | grep "Candidate:" | awk '{print $2}')
     [ -n "$candidate" ] && [ "$candidate" != "(none)" ]
 }
 
-# Setup sudo command (empty if running as root)
+# Setup sudo command
 setup_sudo() {
     if [ "$(id -u)" -eq 0 ]; then
         SUDO=""
@@ -66,46 +60,44 @@ setup_sudo() {
         SUDO="sudo"
     else
         echo -e "${RED}Error: Not running as root and sudo is not installed${NC}"
-        echo ""
-        echo "Please either:"
-        echo "  1. Run this script as root: su -c './setup.sh'"
-        echo "  2. Install sudo: apt install sudo"
         exit 1
     fi
 }
 
-# Install Python dependencies
+# ============================================
+# PYTHON DEPENDENCIES
+# ============================================
 install_python_deps() {
     echo ""
     echo -e "${BLUE}[1/3] Installing Python dependencies...${NC}"
 
     if ! check_cmd python3; then
         echo -e "${RED}Error: Python 3 is not installed${NC}"
-        echo "Please install Python 3.9 or later"
+        if [[ "$OS" == "macos" ]]; then
+            echo "Install with: brew install python@3.11"
+        else
+            echo "Install with: sudo apt install python3"
+        fi
         exit 1
     fi
 
-    # Check Python version (need 3.9+)
+    # Check Python version
     PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
     PYTHON_MAJOR=$(python3 -c 'import sys; print(sys.version_info.major)')
     PYTHON_MINOR=$(python3 -c 'import sys; print(sys.version_info.minor)')
     echo "Python version: $PYTHON_VERSION"
 
     if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 9 ]); then
-        echo -e "${RED}Error: Python 3.9 or later is required${NC}"
-        echo "You have Python $PYTHON_VERSION"
-        echo ""
-        echo "Please upgrade Python:"
-        if [ -n "$SUDO" ]; then
-            echo "  Ubuntu/Debian: sudo apt install python3.11"
+        echo -e "${RED}Error: Python 3.9 or later is required (you have $PYTHON_VERSION)${NC}"
+        if [[ "$OS" == "macos" ]]; then
+            echo "Upgrade with: brew install python@3.11"
         else
-            echo "  Ubuntu/Debian: apt install python3.11"
+            echo "Upgrade with: sudo apt install python3.11"
         fi
-        echo "  macOS: brew install python@3.11"
         exit 1
     fi
 
-    # Check if we're in a virtual environment
+    # Install dependencies
     if [ -n "$VIRTUAL_ENV" ]; then
         echo "Using virtual environment: $VIRTUAL_ENV"
         pip install -r requirements.txt
@@ -114,54 +106,59 @@ install_python_deps() {
         source venv/bin/activate
         pip install -r requirements.txt
     else
-        # Try direct pip install first, fall back to venv if it fails (PEP 668)
-        echo "Attempting to install dependencies..."
+        # Try pip install, fall back to venv if needed (PEP 668)
         if python3 -m pip install -r requirements.txt 2>/dev/null; then
-            echo -e "${GREEN}Python dependencies installed successfully${NC}"
+            echo -e "${GREEN}Python dependencies installed${NC}"
             return
         fi
 
-        # If pip install failed (likely PEP 668), create a virtual environment
-        echo ""
-        echo -e "${YELLOW}System Python is externally managed (PEP 668).${NC}"
-        echo "Creating virtual environment..."
-
-        # Remove any incomplete venv directory from previous failed attempts
+        echo -e "${YELLOW}Creating virtual environment...${NC}"
         if [ -d "venv" ] && [ ! -f "venv/bin/activate" ]; then
-            echo "Removing incomplete venv directory..."
             rm -rf venv
         fi
 
         if ! python3 -m venv venv; then
             echo -e "${RED}Error: Failed to create virtual environment${NC}"
-            echo ""
-            echo "On Debian/Ubuntu, install the venv module with:"
-            if [ -n "$SUDO" ]; then
-                echo "  sudo apt install python3-venv"
-            else
-                echo "  apt install python3-venv"
+            if [[ "$OS" == "debian" ]]; then
+                echo "Install with: sudo apt install python3-venv"
             fi
-            echo ""
-            echo "Then run this setup script again."
             exit 1
         fi
+
         source venv/bin/activate
         pip install -r requirements.txt
+
         echo ""
-        echo -e "${YELLOW}NOTE: A virtual environment was created.${NC}"
-        echo "You must activate it before running INTERCEPT:"
-        echo "  source venv/bin/activate"
-        if [ -n "$SUDO" ]; then
-            echo "  sudo venv/bin/python intercept.py"
-        else
-            echo "  venv/bin/python intercept.py"
-        fi
+        echo -e "${YELLOW}NOTE: Virtual environment created.${NC}"
+        echo "Activate with: source venv/bin/activate"
     fi
 
-    echo -e "${GREEN}Python dependencies installed successfully${NC}"
+    echo -e "${GREEN}Python dependencies installed${NC}"
 }
 
-# Check external tools
+# ============================================
+# TOOL CHECKING
+# ============================================
+check_tool() {
+    local cmd=$1
+    local desc=$2
+    local category=$3
+    if check_cmd "$cmd"; then
+        echo -e "  ${GREEN}✓${NC} $cmd - $desc"
+        return 0
+    else
+        echo -e "  ${RED}✗${NC} $cmd - $desc ${YELLOW}(not found)${NC}"
+        MISSING_TOOLS+=("$cmd")
+        case "$category" in
+            core) MISSING_CORE=true ;;
+            audio) MISSING_AUDIO=true ;;
+            wifi) MISSING_WIFI=true ;;
+            bluetooth) MISSING_BLUETOOTH=true ;;
+        esac
+        return 1
+    fi
+}
+
 check_tools() {
     echo ""
     echo -e "${BLUE}[2/3] Checking external tools...${NC}"
@@ -169,10 +166,10 @@ check_tools() {
 
     MISSING_TOOLS=()
     MISSING_CORE=false
+    MISSING_AUDIO=false
     MISSING_WIFI=false
     MISSING_BLUETOOTH=false
 
-    # Core SDR tools
     echo "Core SDR Tools:"
     check_tool "rtl_fm" "RTL-SDR FM demodulator" "core"
     check_tool "rtl_test" "RTL-SDR device detection" "core"
@@ -181,48 +178,51 @@ check_tools() {
     check_tool "dump1090" "ADS-B decoder" "core"
 
     echo ""
-    echo "Additional SDR Hardware (optional):"
-    check_tool "SoapySDRUtil" "SoapySDR (for LimeSDR/HackRF)" "optional"
-    check_tool "LimeUtil" "LimeSDR tools" "optional"
-    check_tool "hackrf_info" "HackRF tools" "optional"
+    echo "Audio Tools:"
+    check_tool "sox" "Audio player/processor" "audio"
+    # ffmpeg is optional alternative to sox
+    if check_cmd ffmpeg; then
+        echo -e "  ${GREEN}✓${NC} ffmpeg - Audio encoder (optional)"
+    fi
 
     echo ""
     echo "WiFi Tools:"
     check_tool "airmon-ng" "WiFi monitor mode" "wifi"
     check_tool "airodump-ng" "WiFi scanner" "wifi"
+    # aireplay-ng is optional (for deauth)
+    if check_cmd aireplay-ng; then
+        echo -e "  ${GREEN}✓${NC} aireplay-ng - Deauthentication (optional)"
+    fi
 
     echo ""
     echo "Bluetooth Tools:"
+    check_tool "hcitool" "Bluetooth scanner" "bluetooth"
     check_tool "bluetoothctl" "Bluetooth controller" "bluetooth"
-    check_tool "hcitool" "Bluetooth HCI tool" "bluetooth"
+    check_tool "hciconfig" "Bluetooth adapter config" "bluetooth"
+
+    echo ""
+    echo "Optional (LimeSDR/HackRF):"
+    if check_cmd SoapySDRUtil; then
+        echo -e "  ${GREEN}✓${NC} SoapySDRUtil - SoapySDR support"
+    else
+        echo -e "  ${YELLOW}-${NC} SoapySDRUtil - Not installed (optional)"
+    fi
 
     if [ ${#MISSING_TOOLS[@]} -gt 0 ]; then
         echo ""
         echo -e "${YELLOW}Some tools are missing.${NC}"
-    fi
-}
-
-check_tool() {
-    local cmd=$1
-    local desc=$2
-    local category=$3
-    if check_cmd "$cmd"; then
-        echo -e "  ${GREEN}✓${NC} $cmd - $desc"
     else
-        echo -e "  ${RED}✗${NC} $cmd - $desc ${YELLOW}(not found)${NC}"
-        MISSING_TOOLS+=("$cmd")
-        case "$category" in
-            core) MISSING_CORE=true ;;
-            wifi) MISSING_WIFI=true ;;
-            bluetooth) MISSING_BLUETOOTH=true ;;
-        esac
+        echo ""
+        echo -e "${GREEN}All tools installed!${NC}"
     fi
 }
 
-# Install tools on Debian/Ubuntu
-install_debian_tools() {
+# ============================================
+# macOS INSTALLATION
+# ============================================
+install_macos_tools() {
     echo ""
-    echo -e "${BLUE}[3/3] Installing tools...${NC}"
+    echo -e "${BLUE}[3/3] Installing tools (macOS)...${NC}"
     echo ""
 
     if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
@@ -230,17 +230,114 @@ install_debian_tools() {
         return
     fi
 
-    echo -e "${YELLOW}The following tool categories need to be installed:${NC}"
+    # Check for Homebrew
+    if ! check_cmd brew; then
+        echo -e "${YELLOW}Homebrew is not installed.${NC}"
+        echo ""
+        read -p "Would you like to install Homebrew? [Y/n] " -n 1 -r
+        echo ""
+
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            echo "Installing Homebrew..."
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+            # Add brew to PATH for this session
+            if [[ -f /opt/homebrew/bin/brew ]]; then
+                eval "$(/opt/homebrew/bin/brew shellenv)"
+            elif [[ -f /usr/local/bin/brew ]]; then
+                eval "$(/usr/local/bin/brew shellenv)"
+            fi
+        else
+            echo ""
+            echo "Skipping tool installation. Install manually with:"
+            show_macos_manual
+            return
+        fi
+    fi
+
+    echo ""
+    echo -e "${YELLOW}The following will be installed:${NC}"
+    $MISSING_CORE && echo "  - Core SDR tools (rtl-sdr, multimon-ng, rtl_433, dump1090)"
+    $MISSING_AUDIO && echo "  - Audio tools (sox)"
+    $MISSING_WIFI && echo "  - WiFi tools (aircrack-ng)"
+    echo ""
+
+    read -p "Install missing tools? [Y/n] " -n 1 -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        # Core SDR tools
+        if $MISSING_CORE; then
+            echo ""
+            echo -e "${BLUE}Installing Core SDR tools...${NC}"
+            brew install librtlsdr multimon-ng rtl_433 2>/dev/null || true
+
+            # dump1090
+            if ! check_cmd dump1090; then
+                brew install dump1090-mutability 2>/dev/null || \
+                echo -e "${YELLOW}Note: dump1090 may need manual installation${NC}"
+            fi
+        fi
+
+        # Audio tools
+        if $MISSING_AUDIO; then
+            echo ""
+            echo -e "${BLUE}Installing Audio tools...${NC}"
+            brew install sox
+        fi
+
+        # WiFi tools
+        if $MISSING_WIFI; then
+            echo ""
+            echo -e "${BLUE}Installing WiFi tools...${NC}"
+            brew install aircrack-ng
+        fi
+
+        echo ""
+        echo -e "${GREEN}Tool installation complete!${NC}"
+    else
+        show_macos_manual
+    fi
+}
+
+show_macos_manual() {
+    echo ""
+    echo -e "${BLUE}Manual installation (macOS):${NC}"
+    echo ""
+    echo "# Required tools"
+    echo "brew install librtlsdr multimon-ng rtl_433 sox"
+    echo ""
+    echo "# ADS-B tracking"
+    echo "brew install dump1090-mutability"
+    echo ""
+    echo "# WiFi scanning (optional)"
+    echo "brew install aircrack-ng"
+}
+
+# ============================================
+# DEBIAN INSTALLATION
+# ============================================
+install_debian_tools() {
+    echo ""
+    echo -e "${BLUE}[3/3] Installing tools (Debian/Ubuntu)...${NC}"
+    echo ""
+
+    if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
+        echo -e "${GREEN}All tools are already installed!${NC}"
+        return
+    fi
+
+    echo -e "${YELLOW}The following will be installed:${NC}"
     $MISSING_CORE && echo "  - Core SDR tools (rtl-sdr, multimon-ng, rtl-433, dump1090)"
+    $MISSING_AUDIO && echo "  - Audio tools (sox)"
     $MISSING_WIFI && echo "  - WiFi tools (aircrack-ng)"
     $MISSING_BLUETOOTH && echo "  - Bluetooth tools (bluez)"
     echo ""
 
-    read -p "Would you like to install missing tools automatically? [Y/n] " -n 1 -r
+    read -p "Install missing tools? [Y/n] " -n 1 -r
     echo ""
 
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        echo ""
         echo "Updating package lists..."
         $SUDO apt update
 
@@ -248,32 +345,38 @@ install_debian_tools() {
         if $MISSING_CORE; then
             echo ""
             echo -e "${BLUE}Installing Core SDR tools...${NC}"
+            $SUDO apt install -y rtl-sdr multimon-ng 2>/dev/null || true
 
-            # Install packages that are reliably available
-            $SUDO apt install -y rtl-sdr multimon-ng
-
-            # rtl-433 may be named differently or unavailable
+            # rtl-433 (package name varies)
             if pkg_available rtl-433; then
                 $SUDO apt install -y rtl-433
             elif pkg_available rtl433; then
                 $SUDO apt install -y rtl433
             else
-                echo -e "${YELLOW}Note: rtl-433 not found in repositories. Install manually or from source.${NC}"
+                echo -e "${YELLOW}Note: rtl-433 not in repositories, install manually${NC}"
             fi
 
-            # dump1090 - try available variants, not available on all Debian versions
-            if pkg_available dump1090-fa; then
-                $SUDO apt install -y dump1090-fa
-            elif pkg_available dump1090-mutability; then
-                $SUDO apt install -y dump1090-mutability
-            elif pkg_available dump1090; then
-                $SUDO apt install -y dump1090
-            elif ! check_cmd dump1090; then
-                echo ""
-                echo -e "${YELLOW}Note: dump1090 not available in your repos (e.g. Debian Trixie).${NC}"
-                echo "  FlightAware version: https://flightaware.com/adsb/piaware/install"
-                echo "  Or from source: https://github.com/flightaware/dump1090"
+            # dump1090 (package varies by distribution)
+            if ! check_cmd dump1090; then
+                if pkg_available dump1090-fa; then
+                    $SUDO apt install -y dump1090-fa
+                elif pkg_available dump1090-mutability; then
+                    $SUDO apt install -y dump1090-mutability
+                elif pkg_available dump1090; then
+                    $SUDO apt install -y dump1090
+                else
+                    echo ""
+                    echo -e "${YELLOW}Note: dump1090 not in repositories.${NC}"
+                    echo "Install from: https://flightaware.com/adsb/piaware/install"
+                fi
             fi
+        fi
+
+        # Audio tools
+        if $MISSING_AUDIO; then
+            echo ""
+            echo -e "${BLUE}Installing Audio tools...${NC}"
+            $SUDO apt install -y sox
         fi
 
         # WiFi tools
@@ -293,26 +396,37 @@ install_debian_tools() {
         echo ""
         echo -e "${GREEN}Tool installation complete!${NC}"
 
-        # Setup udev rules automatically
-        setup_udev_rules_auto
+        # Setup udev rules
+        setup_udev_rules
     else
-        echo ""
-        echo "Skipping automatic installation."
-        show_manual_instructions
+        show_debian_manual
     fi
 }
 
-# Setup udev rules automatically (Debian)
-setup_udev_rules_auto() {
+show_debian_manual() {
     echo ""
-    echo -e "${BLUE}Setting up RTL-SDR udev rules...${NC}"
+    echo -e "${BLUE}Manual installation (Debian/Ubuntu):${NC}"
+    echo ""
+    echo "# Required tools"
+    echo "sudo apt install rtl-sdr multimon-ng rtl-433 sox"
+    echo ""
+    echo "# ADS-B tracking"
+    echo "sudo apt install dump1090-mutability  # or dump1090-fa"
+    echo ""
+    echo "# WiFi scanning (optional)"
+    echo "sudo apt install aircrack-ng"
+    echo ""
+    echo "# Bluetooth scanning (optional)"
+    echo "sudo apt install bluez bluetooth"
+}
 
+setup_udev_rules() {
     if [ -f /etc/udev/rules.d/20-rtlsdr.rules ]; then
-        echo "udev rules already exist, skipping."
         return
     fi
 
-    read -p "Would you like to setup RTL-SDR udev rules? [Y/n] " -n 1 -r
+    echo ""
+    read -p "Setup RTL-SDR udev rules? [Y/n] " -n 1 -r
     echo ""
 
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
@@ -323,133 +437,32 @@ EOF'
         $SUDO udevadm control --reload-rules
         $SUDO udevadm trigger
         echo -e "${GREEN}udev rules installed!${NC}"
-        echo "Please unplug and replug your RTL-SDR device."
+        echo "Please unplug and replug your RTL-SDR."
     fi
 }
 
-# Show manual installation instructions
-show_manual_instructions() {
-    echo ""
-    echo -e "${BLUE}Manual installation instructions:${NC}"
-    echo ""
-
-    if [[ "$OS" == "macos" ]]; then
-        echo -e "${YELLOW}macOS (Homebrew):${NC}"
-        echo ""
-
-        if ! check_cmd brew; then
-            echo "First, install Homebrew:"
-            echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-            echo ""
-        fi
-
-        echo "# Core SDR tools"
-        echo "brew install librtlsdr multimon-ng rtl_433 dump1090-mutability"
-        echo ""
-        echo "# LimeSDR support (optional)"
-        echo "brew install soapysdr limesuite soapylms7"
-        echo ""
-        echo "# HackRF support (optional)"
-        echo "brew install hackrf soapyhackrf"
-        echo ""
-        echo "# WiFi tools"
-        echo "brew install aircrack-ng"
-
-    elif [[ "$OS" == "debian" ]]; then
-        echo -e "${YELLOW}Ubuntu/Debian:${NC}"
-        echo ""
-        echo "# Core SDR tools"
-        echo "sudo apt update"
-        echo "sudo apt install rtl-sdr multimon-ng rtl-433"
-        echo ""
-        echo "# dump1090 (try one of these - package name varies):"
-        echo "sudo apt install dump1090-fa      # FlightAware version"
-        echo "# Or install from: https://flightaware.com/adsb/piaware/install"
-        echo ""
-        echo "# LimeSDR support (optional)"
-        echo "sudo apt install soapysdr-tools limesuite soapysdr-module-lms7"
-        echo ""
-        echo "# HackRF support (optional)"
-        echo "sudo apt install hackrf soapysdr-module-hackrf"
-        echo ""
-        echo "# WiFi tools"
-        echo "sudo apt install aircrack-ng"
-        echo ""
-        echo "# Bluetooth tools"
-        echo "sudo apt install bluez bluetooth"
-
-    elif [[ "$OS" == "arch" ]]; then
-        echo -e "${YELLOW}Arch Linux:${NC}"
-        echo ""
-        echo "# Core SDR tools"
-        echo "sudo pacman -S rtl-sdr multimon-ng"
-        echo "yay -S rtl_433 dump1090"
-        echo ""
-        echo "# LimeSDR/HackRF support (optional)"
-        echo "sudo pacman -S soapysdr limesuite hackrf"
-
-    elif [[ "$OS" == "redhat" ]]; then
-        echo -e "${YELLOW}Fedora/RHEL:${NC}"
-        echo ""
-        echo "# Core SDR tools"
-        echo "sudo dnf install rtl-sdr"
-        echo "# multimon-ng, rtl_433, dump1090 may need to be built from source"
-
-    else
-        echo "Please install the following tools manually:"
-        for tool in "${MISSING_TOOLS[@]}"; do
-            echo "  - $tool"
-        done
-    fi
-}
-
-# Show installation instructions (decides auto vs manual)
-install_or_show_instructions() {
-    if [[ "$OS" == "debian" ]]; then
-        install_debian_tools
-    else
-        echo ""
-        echo -e "${BLUE}[3/3] Installation instructions for missing tools${NC}"
-        if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
-            echo ""
-            echo -e "${GREEN}All tools are installed!${NC}"
-        else
-            show_manual_instructions
-        fi
-    fi
-}
-
-# RTL-SDR udev rules (Linux only)
-setup_udev_rules() {
-    if [[ "$OS" != "macos" ]] && [[ "$OS" != "unknown" ]]; then
-        echo ""
-        echo -e "${BLUE}RTL-SDR udev rules (Linux only):${NC}"
-        echo ""
-        echo "If your RTL-SDR is not detected, you may need to add udev rules:"
-        echo ""
-        echo "sudo bash -c 'cat > /etc/udev/rules.d/20-rtlsdr.rules << EOF"
-        echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666"'
-        echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0666"'
-        echo "EOF'"
-        echo ""
-        echo "sudo udevadm control --reload-rules"
-        echo "sudo udevadm trigger"
-        echo ""
-        echo "Then unplug and replug your RTL-SDR device."
-    fi
-}
-
-# Main
+# ============================================
+# MAIN
+# ============================================
 main() {
     detect_os
-    setup_sudo
+
+    if [[ "$OS" == "unknown" ]]; then
+        echo -e "${RED}Unsupported OS. This script supports macOS and Debian/Ubuntu.${NC}"
+        exit 1
+    fi
+
+    if [[ "$OS" == "debian" ]]; then
+        setup_sudo
+    fi
+
     install_python_deps
     check_tools
-    install_or_show_instructions
 
-    # Show udev rules instructions for non-Debian Linux (Debian handles it automatically)
-    if [[ "$OS" != "debian" ]]; then
-        setup_udev_rules
+    if [[ "$OS" == "macos" ]]; then
+        install_macos_tools
+    else
+        install_debian_tools
     fi
 
     echo ""
@@ -457,20 +470,22 @@ main() {
     echo -e "${GREEN}Setup complete!${NC}"
     echo ""
     echo "To start INTERCEPT:"
+
     if [ -d "venv" ]; then
         echo "  source venv/bin/activate"
-        if [ -n "$SUDO" ]; then
+        if [[ "$OS" == "debian" ]]; then
             echo "  sudo venv/bin/python intercept.py"
         else
-            echo "  venv/bin/python intercept.py"
+            echo "  sudo python3 intercept.py"
         fi
     else
-        if [ -n "$SUDO" ]; then
+        if [[ "$OS" == "debian" ]]; then
             echo "  sudo python3 intercept.py"
         else
-            echo "  python3 intercept.py"
+            echo "  sudo python3 intercept.py"
         fi
     fi
+
     echo ""
     echo "Then open http://localhost:5050 in your browser"
     echo ""

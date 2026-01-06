@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <!-- Chart.js for signal strength graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
@@ -244,29 +246,35 @@
         </div>
     </header>
 
+    <!-- Mode Navigation Bar -->
+    <nav class="mode-nav">
+        <div class="mode-nav-group">
+            <span class="mode-nav-label">SDR / RF</span>
+            <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span class="nav-label">Pager</span></button>
+            <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span class="nav-label">433MHz</span></button>
+            <button class="mode-nav-btn" onclick="switchMode('aircraft')"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></button>
+            <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span class="nav-label">Satellite</span></button>
+            <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span class="nav-label">Listening Post</span></button>
+        </div>
+        <div class="mode-nav-divider"></div>
+        <div class="mode-nav-group">
+            <span class="mode-nav-label">Wireless</span>
+            <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon">📶</span><span class="nav-label">WiFi</span></button>
+            <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon">🔵</span><span class="nav-label">Bluetooth</span></button>
+        </div>
+        <div class="mode-nav-actions">
+            <a href="/adsb/dashboard" target="_blank" class="nav-action-btn" id="adsbDashboardBtn" style="display: none;">
+                <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
+            </a>
+            <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn" style="display: none;">
+                <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
+            </a>
+        </div>
+    </nav>
+
     <div class="container">
         <div class="main-content">
             <div class="sidebar">
-                <!-- Mode Tabs - Grouped -->
-                <div class="mode-tabs-container">
-                    <div class="tab-group">
-                        <div class="tab-group-label">SDR / RF</div>
-                        <div class="mode-tabs">
-                            <button class="mode-tab active" onclick="switchMode('pager')"><span class="tab-icon">📟</span>Pager</button>
-                            <button class="mode-tab" onclick="switchMode('sensor')"><span class="tab-icon">📡</span>433MHz</button>
-                            <button class="mode-tab" onclick="switchMode('aircraft')"><span class="tab-icon">✈️</span>Aircraft</button>
-                            <button class="mode-tab" onclick="switchMode('satellite')"><span class="tab-icon">🛰️</span>Satellite</button>
-                        </div>
-                    </div>
-                    <div class="tab-group">
-                        <div class="tab-group-label">Wireless</div>
-                        <div class="mode-tabs">
-                            <button class="mode-tab" onclick="switchMode('wifi')"><span class="tab-icon">📶</span>WiFi</button>
-                            <button class="mode-tab" onclick="switchMode('bluetooth')"><span class="tab-icon">🔵</span>BT</button>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="section" id="rtlDeviceSection">
                     <h3>SDR Device</h3>
                     <div class="form-group">
@@ -302,9 +310,9 @@
 
                     <!-- Remote SDR (rtl_tcp) -->
                     <div class="form-group" style="margin-top: 10px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <label class="inline-checkbox">
                             <input type="checkbox" id="useRemoteSDR" onchange="toggleRemoteSDR()">
-                            <span style="font-size: 11px; color: #888;">Use Remote SDR (rtl_tcp)</span>
+                            Use Remote SDR (rtl_tcp)
                         </label>
                     </div>
                     <div id="remoteSDRConfig" style="display: none; margin-bottom: 10px;">
@@ -688,7 +696,6 @@
                 <!-- AIRCRAFT MODE (ADS-B) -->
                 <div id="aircraftMode" class="mode-content">
                     <div class="section">
-                        <a href="/adsb/dashboard" target="_blank" class="run-btn" style="display: block; text-align: center; text-decoration: none; margin-bottom: 15px;">Full Screen Dashboard</a>
                         <h3>ADS-B Receiver</h3>
                         <div class="form-group">
                             <label>Frequency</label>
@@ -850,7 +857,6 @@
 
                 <!-- SATELLITE MODE -->
                 <div id="satelliteMode" class="mode-content">
-                    <a href="/satellite/dashboard" target="_blank" class="run-btn" style="display: block; text-align: center; text-decoration: none; margin-bottom: 15px;">Full Screen Dashboard</a>
                     <div class="satellite-tabs">
                         <button class="satellite-tab active">🛰️ Pass Predictor</button>
                     </div>
@@ -975,6 +981,240 @@
                         </button>
                     </div>
 
+                </div>
+
+                <!-- LISTENING POST MODE -->
+                <div id="listeningPostMode" class="mode-content">
+                    <div class="section">
+                        <h3>Frequency Scanner</h3>
+                        <div id="scannerToolsWarning" style="display: none; background: rgba(255, 100, 100, 0.1); border: 1px solid var(--accent-red); border-radius: 4px; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: var(--accent-red); margin: 0; font-size: 0.85em;">
+                                <strong>Missing Dependencies:</strong><br>
+                                <span id="scannerToolsWarningText"></span>
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label>SDR Device</label>
+                            <select id="scannerDeviceSelect">
+                                <option value="0">Device 0 (Default)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Band Preset</label>
+                            <select id="scannerPreset" onchange="applyScannerPreset()">
+                                <option value="custom">Custom Range</option>
+                                <option value="fm">FM Broadcast (88-108 MHz)</option>
+                                <option value="air" selected>Airband (118-137 MHz)</option>
+                                <option value="marine">Marine VHF (156-163 MHz)</option>
+                                <option value="amateur2m">Amateur 2m (144-148 MHz)</option>
+                                <option value="pager">Pager Band (152-160 MHz)</option>
+                                <option value="amateur70cm">Amateur 70cm (420-450 MHz)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Frequency Range (MHz)</label>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <input type="number" id="scannerStartFreq" value="118" step="0.1" style="flex: 1;" placeholder="Start">
+                                <span>-</span>
+                                <input type="number" id="scannerEndFreq" value="137" step="0.1" style="flex: 1;" placeholder="End">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Step Size (kHz)</label>
+                            <select id="scannerStep">
+                                <option value="12.5">12.5 kHz (Narrow)</option>
+                                <option value="25" selected>25 kHz (Standard)</option>
+                                <option value="50">50 kHz</option>
+                                <option value="100">100 kHz</option>
+                                <option value="200">200 kHz (FM Broadcast)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Modulation</label>
+                            <select id="scannerModulation">
+                                <option value="am" selected>AM (Airband)</option>
+                                <option value="fm">Narrow FM</option>
+                                <option value="wfm">Wide FM (Broadcast)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Squelch Level</label>
+                            <input type="range" id="scannerSquelch" min="0" max="100" value="30" oninput="document.getElementById('scannerSquelchValue').textContent = this.value">
+                            <span id="scannerSquelchValue">30</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Dwell Time (seconds)</label>
+                            <select id="scannerDwell">
+                                <option value="2">2s (Quick)</option>
+                                <option value="5">5s (Short)</option>
+                                <option value="10" selected>10s (Normal)</option>
+                                <option value="30">30s (Extended)</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <button class="run-btn" id="scannerStartBtn" onclick="toggleScanner()" style="flex: 2;">
+                                Start Scanner
+                            </button>
+                            <button class="preset-btn" id="scannerPauseBtn" onclick="pauseScanner()" style="flex: 1;" disabled>
+                                ⏸ Pause
+                            </button>
+                        </div>
+                        <!-- Prominent frequency display -->
+                        <div id="scannerFreqDisplay" style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; margin: 10px 0; text-align: center;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px;">
+                                <span id="scannerModeLabel">STOPPED</span>
+                            </div>
+                            <div id="scannerCurrentFreq" style="font-size: 28px; font-weight: bold; font-family: 'JetBrains Mono', monospace; color: var(--text-muted);">
+                                ---.--- MHz
+                            </div>
+                            <div id="scannerModLabel" style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">
+                                --
+                            </div>
+                            <!-- Progress bar for scan range -->
+                            <div id="scannerProgress" style="display: none; margin-top: 10px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted);">
+                                    <span id="scannerRangeStart">88.0</span>
+                                    <span id="scannerRangeEnd">108.0</span>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; margin-top: 2px;">
+                                    <div id="scannerProgressBar" style="background: var(--accent-cyan); height: 100%; border-radius: 2px; width: 0%; transition: width 0.2s;"></div>
+                                </div>
+                            </div>
+                            <!-- Signal level meter -->
+                            <div id="scannerLevelMeter" style="display: none; margin-top: 10px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted);">
+                                    <span>Signal Level</span>
+                                    <span id="scannerLevelValue">0</span>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; margin-top: 2px; overflow: hidden;">
+                                    <div id="scannerLevelBar" style="background: var(--accent-green); height: 100%; border-radius: 4px; width: 0%; transition: width 0.1s, background 0.1s;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Signal detected panel -->
+                        <div id="scannerSignalPanel" style="display: none; background: rgba(0, 255, 100, 0.1); border: 1px solid var(--accent-green); border-radius: 6px; padding: 10px; margin: 10px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 11px; color: var(--accent-green); font-weight: bold;">SIGNAL DETECTED</div>
+                                    <div style="font-size: 10px; color: var(--text-secondary);">Audio streaming...</div>
+                                </div>
+                                <button class="preset-btn" id="scannerSkipBtn" onclick="skipSignal()" style="background: var(--accent-orange); border-color: var(--accent-orange); color: #000;">
+                                    Skip >>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; font-size: 11px; color: var(--text-muted);">
+                            <span>Signals: <strong id="scannerSignalCount" style="color: var(--accent-green);">0</strong></span>
+                            <span>|</span>
+                            <span id="scannerStatusText">Ready</span>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h3>Manual Audio Receiver</h3>
+                        <div id="audioToolsWarning" style="display: none; background: rgba(255, 100, 100, 0.1); border: 1px solid var(--accent-red); border-radius: 4px; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: var(--accent-red); margin: 0; font-size: 0.85em;">
+                                <strong>Missing Dependencies:</strong><br>
+                                <span id="audioToolsWarningText"></span>
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label>SDR Device</label>
+                            <select id="audioDeviceSelect">
+                                <option value="0">Device 0 (Default)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Frequency Preset</label>
+                            <select id="audioPreset" onchange="applyAudioPreset()">
+                                <option value="custom">Custom Frequency</option>
+                                <option value="fm">FM Radio (87.5-108 MHz)</option>
+                                <option value="airband">Airband (118-137 MHz)</option>
+                                <option value="marine">Marine VHF (156-163 MHz)</option>
+                                <option value="amateur2m">Amateur 2m (144-148 MHz)</option>
+                                <option value="amateur70cm">Amateur 70cm (420-450 MHz)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tune Frequency (MHz)</label>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <input type="number" id="audioFrequency" value="98.1" step="0.1" style="flex: 1;">
+                                <button class="preset-btn" onclick="audioFreqDown()" style="padding: 5px 10px;">-</button>
+                                <button class="preset-btn" onclick="audioFreqUp()" style="padding: 5px 10px;">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Modulation</label>
+                            <select id="audioModulation">
+                                <option value="wfm">Wide FM (Broadcast)</option>
+                                <option value="fm">Narrow FM</option>
+                                <option value="am">AM</option>
+                                <option value="usb">USB (Upper Sideband)</option>
+                                <option value="lsb">LSB (Lower Sideband)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Squelch</label>
+                            <input type="range" id="audioSquelch" min="0" max="100" value="0" oninput="document.getElementById('audioSquelchValue').textContent = this.value">
+                            <span id="audioSquelchValue">0</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Gain (dB)</label>
+                            <input type="range" id="audioGain" min="0" max="50" value="40" oninput="document.getElementById('audioGainValue').textContent = this.value">
+                            <span id="audioGainValue">40</span>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="run-btn" id="audioStartBtn" onclick="toggleAudio()" style="flex: 1;">
+                                ▶ Play Audio
+                            </button>
+                        </div>
+                        <div class="status-line" style="margin-top: 10px;">
+                            <span>Status:</span>
+                            <span id="audioStatus" style="color: var(--text-muted);">STOPPED</span>
+                        </div>
+                        <div class="status-line">
+                            <span>Tuned:</span>
+                            <span id="audioTunedFreq">-- MHz</span>
+                        </div>
+                        <div class="status-line">
+                            <span>Device:</span>
+                            <span id="audioDeviceStatus">--</span>
+                        </div>
+                        <!-- Audio Visualizer -->
+                        <div class="audio-visualizer" id="audioVisualizerContainer" style="display: none; margin-top: 12px;">
+                            <div class="signal-meter">
+                                <label>Signal</label>
+                                <div class="meter-bar">
+                                    <div class="meter-fill" id="audioSignalMeter"></div>
+                                    <div class="meter-peak" id="audioSignalPeak"></div>
+                                </div>
+                                <span class="meter-value" id="audioSignalValue">-∞ dB</span>
+                            </div>
+                            <canvas id="audioSpectrumCanvas" width="280" height="60"></canvas>
+                        </div>
+                        <!-- Hidden audio element for browser playback -->
+                        <audio id="audioPlayer" style="display: none;" crossorigin="anonymous"></audio>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label>Volume</label>
+                            <input type="range" id="audioVolume" min="0" max="100" value="80"
+                                   oninput="updateAudioVolume()" style="width: 100%;">
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+                            Audio streams to your <strong>browser</strong>.<br>
+                            Requires rtl_fm and ffmpeg installed on server.
+                        </p>
+                    </div>
+                    <div class="section">
+                        <h3>Activity Log</h3>
+                        <div id="scannerLogContainer" style="max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 4px; padding: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+                            <div id="scannerLog" style="color: var(--text-secondary);">
+                                <div style="color: var(--text-muted);">Scanner activity will appear here...</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="preset-btn" onclick="clearScannerLog()" style="flex: 1;">Clear Log</button>
+                            <button class="preset-btn" onclick="exportScannerLog()" style="flex: 1;">Export Log</button>
+                        </div>
+                    </div>
                 </div>
 
                 <button class="preset-btn" onclick="killAll()" style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
@@ -1163,6 +1403,13 @@
                             <canvas id="btRadarCanvas" width="150" height="150"></canvas>
                         </div>
                     </div>
+                    <div class="wifi-visual-panel signal-graph-panel" style="grid-column: span 2;">
+                        <div class="signal-graph-header">
+                            <h4>📈 BT Signal History</h4>
+                            <span class="signal-graph-device" id="btSignalGraphDevice">Click a device to track</span>
+                        </div>
+                        <canvas id="btSignalGraph"></canvas>
+                    </div>
                 </div>
 
                 <!-- Aircraft Visualizations - Leaflet Map -->
@@ -1181,7 +1428,130 @@
                             </div>
                         </div>
                     </div>
+                    <div class="wifi-visual-panel signal-graph-panel" style="grid-column: span 2;">
+                        <div class="signal-graph-header">
+                            <h4>📊 Aircraft Count Over Time</h4>
+                            <span class="signal-graph-device" id="adsbStatsLabel">Tracking history</span>
+                        </div>
+                        <canvas id="adsbStatsChart"></canvas>
+                    </div>
                 </div>
+
+                <!-- Listening Post Visualizations -->
+                <div class="wifi-visuals" id="listeningPostVisuals" style="display: none;">
+                    <!-- Large frequency display panel -->
+                    <div class="wifi-visual-panel" style="grid-column: span 4;">
+                        <div style="display: flex; gap: 20px; align-items: stretch;">
+                            <!-- Big frequency display -->
+                            <div style="flex: 2; background: rgba(0,0,0,0.4); border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px;">
+                                    <span id="mainScannerModeLabel">SCANNER STOPPED</span>
+                                </div>
+                                <div id="mainScannerFreq" style="font-size: 56px; font-weight: bold; font-family: 'JetBrains Mono', monospace; color: var(--accent-cyan); line-height: 1;">
+                                    ---.---
+                                </div>
+                                <div style="font-size: 24px; color: var(--text-muted);">MHz</div>
+                                <div id="mainScannerMod" style="font-size: 14px; color: var(--text-secondary); margin-top: 10px;">
+                                    --
+                                </div>
+                                <!-- Scanning animation -->
+                                <div id="mainScannerAnimation" style="display: none; margin-top: 15px;">
+                                    <div style="display: flex; justify-content: center; gap: 4px;">
+                                        <div class="scan-dot" style="width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; animation: pulse 1s infinite;"></div>
+                                        <div class="scan-dot" style="width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; animation: pulse 1s infinite 0.2s;"></div>
+                                        <div class="scan-dot" style="width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; animation: pulse 1s infinite 0.4s;"></div>
+                                    </div>
+                                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Scanning...</div>
+                                </div>
+                                <!-- Progress bar -->
+                                <div id="mainScannerProgress" style="display: none; margin-top: 15px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+                                        <span id="mainRangeStart">--</span>
+                                        <span id="mainRangeEnd">--</span>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; margin-top: 4px;">
+                                        <div id="mainProgressBar" style="background: var(--accent-cyan); height: 100%; border-radius: 3px; width: 0%; transition: width 0.3s;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Status panel -->
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                                <!-- Signal found alert -->
+                                <div id="mainSignalAlert" style="display: none; background: rgba(0, 255, 100, 0.15); border: 2px solid var(--accent-green); border-radius: 8px; padding: 15px; text-align: center;">
+                                    <div style="font-size: 16px; color: var(--accent-green); font-weight: bold;">SIGNAL FOUND!</div>
+                                    <div style="font-size: 12px; color: var(--text-secondary); margin: 5px 0;">Audio streaming to browser</div>
+                                    <button class="run-btn" onclick="skipSignal()" style="margin-top: 10px; background: var(--accent-orange); border-color: var(--accent-orange);">
+                                        Skip & Continue >>
+                                    </button>
+                                </div>
+                                <!-- Stats -->
+                                <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px; flex: 1;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Statistics</div>
+                                    <div style="margin-top: 10px; font-size: 12px;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                            <span style="color: var(--text-secondary);">Signals Found</span>
+                                            <span id="mainSignalCount" style="color: var(--accent-green); font-weight: bold;">0</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                            <span style="color: var(--text-secondary);">Frequencies Scanned</span>
+                                            <span id="mainFreqsScanned" style="color: var(--text-primary);">0</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="color: var(--text-secondary);">Scan Cycles</span>
+                                            <span id="mainScanCycles" style="color: var(--text-primary);">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Audio player for scanner -->
+                                <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Scanner Audio</div>
+                                    <audio id="scannerAudioPlayer" style="width: 100%; height: 30px;" controls></audio>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Activity log -->
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
+                        <div class="signal-graph-header">
+                            <h4>Activity Log</h4>
+                            <button class="preset-btn" onclick="clearScannerLog()" style="padding: 2px 8px; font-size: 10px;">Clear</button>
+                        </div>
+                        <div id="scannerActivityLog" style="height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+                            <div class="scanner-log-entry" style="color: var(--text-muted);">
+                                Waiting for scanner to start...
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Signal hits table -->
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
+                        <div class="signal-graph-header">
+                            <h4>Signal Hits</h4>
+                            <span class="signal-graph-device" id="scannerHitCount">0 signals found</span>
+                        </div>
+                        <div id="scannerHitsList" style="max-height: 200px; overflow-y: auto;">
+                            <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
+                                        <th style="text-align: left; padding: 5px;">Time</th>
+                                        <th style="text-align: left; padding: 5px;">Frequency</th>
+                                        <th style="text-align: center; padding: 5px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scannerHitsBody">
+                                    <tr style="color: var(--text-muted);">
+                                        <td colspan="3" style="padding: 20px; text-align: center;">No signals detected yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0%, 100% { opacity: 0.3; transform: scale(0.8); }
+                        50% { opacity: 1; transform: scale(1); }
+                    }
+                </style>
 
                 <!-- Satellite Visualizations -->
                 <div id="satelliteVisuals" style="display: none;">
@@ -1848,6 +2218,14 @@
                 });
             });
 
+            // Collapse all sections by default (except SDR Device which is first)
+            document.querySelectorAll('.section').forEach((section, index) => {
+                // Keep first section expanded, collapse rest
+                if (index > 0) {
+                    section.classList.add('collapsed');
+                }
+            });
+
             // Initialize observer location input fields from saved location
             const adsbLatInput = document.getElementById('adsbObsLat');
             const adsbLonInput = document.getElementById('adsbObsLon');
@@ -1874,15 +2252,18 @@
             if (isAdsbRunning) stopAdsbScan();
 
             currentMode = mode;
-            document.querySelectorAll('.mode-tab').forEach(tab => {
-                const tabText = tab.textContent.toLowerCase();
-                const isActive = (mode === 'pager' && tabText.includes('pager')) ||
-                                 (mode === 'sensor' && tabText.includes('433')) ||
-                                 (mode === 'aircraft' && tabText.includes('aircraft')) ||
-                                 (mode === 'satellite' && tabText.includes('satellite')) ||
-                                 (mode === 'wifi' && tabText.includes('wifi')) ||
-                                 (mode === 'bluetooth' && tabText === 'bt');
-                tab.classList.toggle('active', isActive);
+            // Remove active from all nav buttons, then add to the correct one
+            document.querySelectorAll('.mode-nav-btn').forEach(btn => btn.classList.remove('active'));
+            const modeMap = {
+                'pager': 'pager', 'sensor': '433', 'aircraft': 'aircraft',
+                'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth',
+                'listening': 'listening'
+            };
+            document.querySelectorAll('.mode-nav-btn').forEach(btn => {
+                const label = btn.querySelector('.nav-label');
+                if (label && label.textContent.toLowerCase().includes(modeMap[mode])) {
+                    btn.classList.add('active');
+                }
             });
             document.getElementById('pagerMode').classList.toggle('active', mode === 'pager');
             document.getElementById('sensorMode').classList.toggle('active', mode === 'sensor');
@@ -1890,6 +2271,7 @@
             document.getElementById('satelliteMode').classList.toggle('active', mode === 'satellite');
             document.getElementById('wifiMode').classList.toggle('active', mode === 'wifi');
             document.getElementById('bluetoothMode').classList.toggle('active', mode === 'bluetooth');
+            document.getElementById('listeningPostMode').classList.toggle('active', mode === 'listening');
             document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
             document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
             document.getElementById('aircraftStats').style.display = mode === 'aircraft' ? 'flex' : 'none';
@@ -1905,6 +2287,10 @@
             document.getElementById('headerWifiStats').classList.toggle('active', mode === 'wifi');
             document.getElementById('headerBtStats').classList.toggle('active', mode === 'bluetooth');
 
+            // Show/hide dashboard buttons in nav bar
+            document.getElementById('adsbDashboardBtn').style.display = mode === 'aircraft' ? 'inline-flex' : 'none';
+            document.getElementById('satelliteDashboardBtn').style.display = mode === 'satellite' ? 'inline-flex' : 'none';
+
             // Update active mode indicator
             const modeNames = {
                 'pager': 'PAGER',
@@ -1912,7 +2298,8 @@
                 'aircraft': 'AIRCRAFT',
                 'satellite': 'SATELLITE',
                 'wifi': 'WIFI',
-                'bluetooth': 'BLUETOOTH'
+                'bluetooth': 'BLUETOOTH',
+                'listening': 'LISTENING POST'
             };
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiVisuals').style.display = mode === 'wifi' ? 'grid' : 'none';
@@ -1921,6 +2308,7 @@
             const showRadar = document.getElementById('adsbEnableMap').checked;
             document.getElementById('aircraftVisuals').style.display = (mode === 'aircraft' && showRadar) ? 'grid' : 'none';
             document.getElementById('satelliteVisuals').style.display = mode === 'satellite' ? 'block' : 'none';
+            document.getElementById('listeningPostVisuals').style.display = mode === 'listening' ? 'grid' : 'none';
 
             // Update output panel title based on mode
             const titles = {
@@ -1929,14 +2317,15 @@
                 'aircraft': 'ADS-B Aircraft Tracker',
                 'satellite': 'Satellite Monitor',
                 'wifi': 'WiFi Scanner',
-                'bluetooth': 'Bluetooth Scanner'
+                'bluetooth': 'Bluetooth Scanner',
+                'listening': 'Listening Post'
             };
             document.getElementById('outputTitle').textContent = titles[mode] || 'Signal Monitor';
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
-            if (mode === 'satellite' || mode === 'aircraft') {
+            if (mode === 'satellite' || mode === 'aircraft' || mode === 'listening') {
                 document.getElementById('reconPanel').style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -1953,8 +2342,8 @@
             document.getElementById('toolStatusSensor').style.display = (mode === 'sensor') ? 'grid' : 'none';
             document.getElementById('toolStatusAircraft').style.display = (mode === 'aircraft') ? 'grid' : 'none';
 
-            // Hide waterfall and output console for satellite mode (uses its own visualizations)
-            document.querySelector('.waterfall-container').style.display = (mode === 'satellite') ? 'none' : 'block';
+            // Hide waterfall and output console for satellite/listening modes (use their own visualizations)
+            document.querySelector('.waterfall-container').style.display = (mode === 'satellite' || mode === 'listening') ? 'none' : 'block';
             document.getElementById('output').style.display = (mode === 'satellite') ? 'none' : 'block';
             document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
 
@@ -1994,6 +2383,11 @@
             const ppm = document.getElementById('sensorPpm').value;
             const device = getSelectedDevice();
 
+            // Check if device is available
+            if (!checkDeviceAvailability('sensor')) {
+                return;
+            }
+
             // Check for remote SDR
             const remoteConfig = getRemoteSDRConfig();
             if (remoteConfig === false) return; // Validation failed
@@ -2019,6 +2413,7 @@
             }).then(r => r.json())
               .then(data => {
                   if (data.status === 'started') {
+                      reserveDevice(parseInt(device), 'sensor');
                       setSensorRunning(true);
                       startSensorStream();
                   } else {
@@ -2032,6 +2427,7 @@
             fetch('/stop_sensor', {method: 'POST'})
                 .then(r => r.json())
                 .then(data => {
+                    releaseDevice('sensor');
                     setSensorRunning(false);
                     if (eventSource) {
                         eventSource.close();
@@ -2428,6 +2824,95 @@
         // Current device list with SDR type info
         let currentDeviceList = [];
 
+        // SDR Device Usage Tracking
+        // Tracks which mode is using which device index
+        const sdrDeviceUsage = {
+            // deviceIndex: 'modeName' (e.g., 0: 'pager', 1: 'scanner')
+        };
+
+        function getDeviceInUseBy(deviceIndex) {
+            return sdrDeviceUsage[deviceIndex] || null;
+        }
+
+        function isDeviceInUse(deviceIndex) {
+            return sdrDeviceUsage[deviceIndex] !== undefined;
+        }
+
+        function reserveDevice(deviceIndex, modeName) {
+            sdrDeviceUsage[deviceIndex] = modeName;
+            updateDeviceSelectStatus();
+        }
+
+        function releaseDevice(modeName) {
+            for (const [idx, mode] of Object.entries(sdrDeviceUsage)) {
+                if (mode === modeName) {
+                    delete sdrDeviceUsage[idx];
+                }
+            }
+            updateDeviceSelectStatus();
+        }
+
+        function getAvailableDevice() {
+            // Find first device not in use
+            for (const device of currentDeviceList) {
+                if (!isDeviceInUse(device.index)) {
+                    return device.index;
+                }
+            }
+            return null;
+        }
+
+        function updateDeviceSelectStatus() {
+            // Update device dropdown to show which devices are in use
+            const select = document.getElementById('deviceSelect');
+            if (!select) return;
+
+            const options = select.querySelectorAll('option');
+            options.forEach(opt => {
+                const idx = parseInt(opt.value);
+                const usedBy = getDeviceInUseBy(idx);
+                const baseName = opt.textContent.replace(/ \[.*\]$/, ''); // Remove existing status
+                if (usedBy) {
+                    opt.textContent = `${baseName} [${usedBy.toUpperCase()}]`;
+                    opt.style.color = 'var(--accent-orange)';
+                } else {
+                    opt.textContent = baseName;
+                    opt.style.color = '';
+                }
+            });
+        }
+
+        function checkDeviceAvailability(modeName) {
+            const selectedDevice = parseInt(getSelectedDevice());
+            const usedBy = getDeviceInUseBy(selectedDevice);
+
+            if (usedBy && usedBy !== modeName) {
+                // Device is in use by another mode
+                const availableDevice = getAvailableDevice();
+
+                if (availableDevice !== null) {
+                    // Another device is available - offer to switch
+                    const switchDevice = confirm(
+                        `Device ${selectedDevice} is in use by ${usedBy.toUpperCase()}.\n\n` +
+                        `Device ${availableDevice} is available. Switch to it?`
+                    );
+                    if (switchDevice) {
+                        document.getElementById('deviceSelect').value = availableDevice;
+                        return true; // Can proceed with new device
+                    }
+                    return false; // User declined to switch
+                } else {
+                    // No other devices available
+                    showNotification('SDR In Use',
+                        `Device ${selectedDevice} is in use by ${usedBy.toUpperCase()}. ` +
+                        `No other SDR devices available. Stop ${usedBy} first or connect another SDR.`
+                    );
+                    return false;
+                }
+            }
+            return true; // Device is available
+        }
+
         function onSDRTypeChanged() {
             const sdrType = document.getElementById('sdrTypeSelect').value;
             const select = document.getElementById('deviceSelect');
@@ -2540,6 +3025,11 @@
                 return;
             }
 
+            // Check if device is available
+            if (!checkDeviceAvailability('pager')) {
+                return;
+            }
+
             // Check for remote SDR
             const remoteConfig = getRemoteSDRConfig();
             if (remoteConfig === false) return; // Validation failed
@@ -2567,6 +3057,7 @@
             }).then(r => r.json())
               .then(data => {
                   if (data.status === 'started') {
+                      reserveDevice(parseInt(device), 'pager');
                       setRunning(true);
                       startStream();
                   } else {
@@ -2582,6 +3073,7 @@
             fetch('/stop', {method: 'POST'})
                 .then(r => r.json())
                 .then(data => {
+                    releaseDevice('pager');
                     setRunning(false);
                     if (eventSource) {
                         eventSource.close();
@@ -2594,7 +3086,16 @@
             fetch('/killall', {method: 'POST'})
                 .then(r => r.json())
                 .then(data => {
+                    // Release all devices
+                    Object.keys(sdrDeviceUsage).forEach(idx => delete sdrDeviceUsage[idx]);
+                    updateDeviceSelectStatus();
+
                     setRunning(false);
+                    setSensorRunning(false);
+                    isAdsbRunning = false;
+                    isScannerRunning = false;
+                    isAudioPlaying = false;
+
                     if (eventSource) {
                         eventSource.close();
                         eventSource = null;
@@ -3566,17 +4067,20 @@
 
         // ============== NEW FEATURES ==============
 
-        // Signal History Graph
+        // Signal History Graph with Chart.js
         let signalHistory = {};  // {mac: [{time, signal}]}
         let trackedDevice = null;
+        let trackedDeviceMode = 'wifi';  // 'wifi' or 'bluetooth'
         const maxSignalPoints = 60;
+        let signalChart = null;
 
-        function trackDeviceSignal(mac, signal) {
+        function trackDeviceSignal(mac, signal, mode = 'wifi') {
             if (!signalHistory[mac]) {
                 signalHistory[mac] = [];
             }
+            const timestamp = Date.now();
             signalHistory[mac].push({
-                time: Date.now(),
+                time: timestamp,
                 signal: parseInt(signal) || -100
             });
             // Keep only last N points
@@ -3585,87 +4089,275 @@
             }
             // Update graph if this is the tracked device
             if (trackedDevice === mac) {
-                drawSignalGraph();
+                updateSignalChart();
             }
+            // Persist to server (non-blocking)
+            fetch('/settings/signal-history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode, device_id: mac, signal_strength: signal })
+            }).catch(() => {}); // Ignore errors
         }
 
-        function setTrackedDevice(mac, name) {
+        function setTrackedDevice(mac, name, mode = 'wifi') {
             trackedDevice = mac;
+            trackedDeviceMode = mode;
             document.getElementById('signalGraphDevice').textContent = name || mac;
-            drawSignalGraph();
+            initSignalChart();
+            updateSignalChart();
         }
 
-        function drawSignalGraph() {
+        function initSignalChart() {
             const canvas = document.getElementById('signalGraph');
             if (!canvas) return;
+
+            // Destroy existing chart if any
+            if (signalChart) {
+                signalChart.destroy();
+            }
+
             const ctx = canvas.getContext('2d');
-            const width = canvas.offsetWidth;
-            const height = canvas.offsetHeight;
-            canvas.width = width;
-            canvas.height = height;
-
-            // Clear
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, width, height);
-
-            // Draw grid
-            ctx.strokeStyle = '#1a1a1a';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 4; i++) {
-                const y = (height / 4) * i;
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(width, y);
-                ctx.stroke();
-            }
-
-            // Draw dBm labels
-            ctx.fillStyle = '#444';
-            ctx.font = '9px monospace';
-            ctx.fillText('-30', 2, 12);
-            ctx.fillText('-60', 2, height/2);
-            ctx.fillText('-90', 2, height - 4);
-
-            if (!trackedDevice || !signalHistory[trackedDevice] || signalHistory[trackedDevice].length < 2) {
-                ctx.fillStyle = '#444';
-                ctx.font = '12px sans-serif';
-                ctx.fillText('Click a device to track signal', width/2 - 80, height/2);
-                return;
-            }
-
-            const data = signalHistory[trackedDevice];
-            const stepX = width / (maxSignalPoints - 1);
-
-            // Draw signal line
-            ctx.beginPath();
-            ctx.strokeStyle = '#00d4ff';
-            ctx.lineWidth = 2;
-
-            data.forEach((point, i) => {
-                // Map signal from -30 to -90 dBm to canvas height
-                const normalizedSignal = Math.max(-90, Math.min(-30, point.signal));
-                const y = height - ((normalizedSignal + 90) / 60) * height;
-                const x = i * stepX;
-
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
+            signalChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Signal (dBm)',
+                        data: [],
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#00d4ff',
+                            bodyColor: '#fff'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            min: -100,
+                            max: -20,
+                            reverse: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: {
+                                color: '#666',
+                                font: { size: 10, family: 'monospace' },
+                                callback: v => v + ' dBm'
+                            }
+                        }
+                    }
                 }
             });
-            ctx.stroke();
+        }
 
-            // Draw glow effect
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#00d4ff';
-            ctx.stroke();
-            ctx.shadowBlur = 0;
+        function updateSignalChart() {
+            if (!signalChart || !trackedDevice) return;
 
-            // Draw current value
+            const data = signalHistory[trackedDevice] || [];
+            if (data.length === 0) return;
+
+            signalChart.data.labels = data.map((_, i) => i);
+            signalChart.data.datasets[0].data = data.map(p => p.signal);
+            signalChart.update('none');
+
+            // Update current value display
             const lastSignal = data[data.length - 1].signal;
-            ctx.fillStyle = '#00d4ff';
-            ctx.font = 'bold 14px monospace';
-            ctx.fillText(lastSignal + ' dBm', width - 70, 20);
+            const deviceLabel = document.getElementById('signalGraphDevice');
+            if (deviceLabel && !deviceLabel.textContent.includes('dBm')) {
+                deviceLabel.textContent += ` (${lastSignal} dBm)`;
+            }
+        }
+
+        // Legacy function for backward compatibility
+        function drawSignalGraph() {
+            if (!signalChart) {
+                initSignalChart();
+            }
+            updateSignalChart();
+        }
+
+        // Bluetooth Signal History Chart
+        let btSignalChart = null;
+        let btTrackedDevice = null;
+        let btSignalHistory = {};
+
+        function trackBtDeviceSignal(mac, rssi) {
+            if (!btSignalHistory[mac]) {
+                btSignalHistory[mac] = [];
+            }
+            btSignalHistory[mac].push({
+                time: Date.now(),
+                signal: parseInt(rssi) || -100
+            });
+            if (btSignalHistory[mac].length > maxSignalPoints) {
+                btSignalHistory[mac].shift();
+            }
+            if (btTrackedDevice === mac) {
+                updateBtSignalChart();
+            }
+            // Persist to server
+            fetch('/settings/signal-history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'bluetooth', device_id: mac, signal_strength: rssi })
+            }).catch(() => {});
+        }
+
+        function setBtTrackedDevice(mac, name) {
+            btTrackedDevice = mac;
+            document.getElementById('btSignalGraphDevice').textContent = name || mac;
+            initBtSignalChart();
+            updateBtSignalChart();
+        }
+
+        function initBtSignalChart() {
+            const canvas = document.getElementById('btSignalGraph');
+            if (!canvas) return;
+
+            if (btSignalChart) {
+                btSignalChart.destroy();
+            }
+
+            const ctx = canvas.getContext('2d');
+            btSignalChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'RSSI (dBm)',
+                        data: [],
+                        borderColor: '#ff6600',
+                        backgroundColor: 'rgba(255, 102, 0, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            min: -100,
+                            max: -20,
+                            reverse: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: {
+                                color: '#666',
+                                font: { size: 10, family: 'monospace' },
+                                callback: v => v + ' dBm'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateBtSignalChart() {
+            if (!btSignalChart || !btTrackedDevice) return;
+            const data = btSignalHistory[btTrackedDevice] || [];
+            if (data.length === 0) return;
+
+            btSignalChart.data.labels = data.map((_, i) => i);
+            btSignalChart.data.datasets[0].data = data.map(p => p.signal);
+            btSignalChart.update('none');
+        }
+
+        // ADS-B Aircraft Count Chart
+        let adsbStatsChart = null;
+        let adsbCountHistory = [];
+        const maxAdsbPoints = 60;
+
+        function trackAdsbCount(count) {
+            adsbCountHistory.push({
+                time: Date.now(),
+                count: count
+            });
+            if (adsbCountHistory.length > maxAdsbPoints) {
+                adsbCountHistory.shift();
+            }
+            updateAdsbStatsChart();
+            // Persist to server
+            fetch('/settings/signal-history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'adsb', device_id: 'aircraft_count', signal_strength: count })
+            }).catch(() => {});
+        }
+
+        function initAdsbStatsChart() {
+            const canvas = document.getElementById('adsbStatsChart');
+            if (!canvas || adsbStatsChart) return;
+
+            const ctx = canvas.getContext('2d');
+            adsbStatsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Aircraft',
+                        data: [],
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            min: 0,
+                            suggestedMax: 20,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: {
+                                color: '#666',
+                                font: { size: 10, family: 'monospace' },
+                                stepSize: 5
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateAdsbStatsChart() {
+            if (!adsbStatsChart) {
+                initAdsbStatsChart();
+            }
+            if (!adsbStatsChart || adsbCountHistory.length === 0) return;
+
+            adsbStatsChart.data.labels = adsbCountHistory.map((_, i) => i);
+            adsbStatsChart.data.datasets[0].data = adsbCountHistory.map(p => p.count);
+            adsbStatsChart.update('none');
+
+            const lastCount = adsbCountHistory[adsbCountHistory.length - 1].count;
+            document.getElementById('adsbStatsLabel').textContent = `${lastCount} aircraft tracked`;
         }
 
         // Network Topology Graph
@@ -3799,13 +4491,37 @@
 
         // Device Correlation (WiFi <-> Bluetooth)
         let deviceCorrelations = [];
+        let correlationFetchPending = false;
 
         function correlateDevices() {
+            // Use server-side correlation API for better analysis
+            if (correlationFetchPending) return;
+            correlationFetchPending = true;
+
+            fetch('/correlation?min_confidence=0.4')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        deviceCorrelations = data.correlations || [];
+                        updateCorrelationDisplay();
+                    }
+                })
+                .catch(err => {
+                    console.warn('Correlation fetch failed:', err);
+                    // Fallback to local OUI matching
+                    correlateDevicesLocal();
+                })
+                .finally(() => {
+                    correlationFetchPending = false;
+                });
+        }
+
+        function correlateDevicesLocal() {
+            // Fallback: simple OUI-based correlation
             deviceCorrelations = [];
             const wifiMacs = Object.keys(wifiNetworks).concat(Object.keys(wifiClients));
             const btMacs = Object.keys(btDevices || {});
 
-            // Compare OUI prefixes
             wifiMacs.forEach(wifiMac => {
                 const wifiOui = wifiMac.substring(0, 8).toUpperCase();
                 btMacs.forEach(btMac => {
@@ -3814,27 +4530,17 @@
                         const wifiDev = wifiNetworks[wifiMac] || wifiClients[wifiMac];
                         const btDev = btDevices[btMac];
                         deviceCorrelations.push({
-                            wifiMac: wifiMac,
-                            btMac: btMac,
-                            wifiName: wifiDev?.essid || wifiDev?.mac || wifiMac,
-                            btName: btDev?.name || btMac,
-                            manufacturer: getManufacturer(wifiOui)
+                            wifi_mac: wifiMac,
+                            bt_mac: btMac,
+                            wifi_name: wifiDev?.essid || wifiDev?.mac || wifiMac,
+                            bt_name: btDev?.name || btMac,
+                            confidence: 0.5,
+                            reason: 'same OUI'
                         });
                     }
                 });
             });
-
             updateCorrelationDisplay();
-        }
-
-        function getManufacturer(oui) {
-            // Simple lookup - would be expanded
-            const lookup = {
-                '00:25:DB': 'Apple', 'AC:BC:32': 'Apple', '3C:22:FB': 'Apple',
-                '8C:71:F8': 'Samsung', 'C4:73:1E': 'Samsung',
-                '54:60:09': 'Google', 'F4:F5:D8': 'Google'
-            };
-            return lookup[oui] || 'Unknown';
         }
 
         function updateCorrelationDisplay() {
@@ -3846,14 +4552,23 @@
                 return;
             }
 
-            list.innerHTML = deviceCorrelations.map(c => `
-                <div style="padding: 4px 0; border-bottom: 1px solid var(--border-color);">
-                    <span style="color: var(--accent-cyan);">📶 ${c.wifiName}</span>
-                    <span style="color: var(--text-dim);"> ↔ </span>
-                    <span style="color: #6495ED;">🔵 ${c.btName}</span>
-                    <span class="correlation-badge">${c.manufacturer}</span>
-                </div>
-            `).join('');
+            list.innerHTML = deviceCorrelations.slice(0, 10).map(c => {
+                const confidence = Math.round((c.confidence || 0.5) * 100);
+                const confidenceColor = confidence >= 70 ? 'var(--accent-green)' :
+                                       confidence >= 50 ? 'var(--accent-orange)' : 'var(--text-dim)';
+                return `
+                    <div style="padding: 4px 0; border-bottom: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--accent-cyan);">📶 ${c.wifi_name || c.wifi_mac}</span>
+                            <span class="correlation-badge" style="background: ${confidenceColor};">${confidence}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #6495ED;">🔵 ${c.bt_name || c.bt_mac}</span>
+                            <span style="font-size: 9px; color: var(--text-dim);">${c.reason || ''}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Hidden SSID Revealer
@@ -5280,6 +5995,11 @@
 
             btDevices[device.mac] = device;
 
+            // Track signal history for graphs
+            if (device.rssi) {
+                trackBtDeviceSignal(device.mac, device.rssi);
+            }
+
             if (isNew) {
                 btDeviceCount++;
                 document.getElementById('btDeviceCount').textContent = btDeviceCount;
@@ -6162,6 +6882,11 @@
             const device = getSelectedDevice();
             const sdr_type = getSelectedSDRType();
 
+            // Check if device is available
+            if (!checkDeviceAvailability('adsb')) {
+                return;
+            }
+
             fetch('/adsb/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -6170,6 +6895,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.status === 'started') {
+                    reserveDevice(parseInt(device), 'adsb');
                     isAdsbRunning = true;
                     document.getElementById('startAdsbBtn').style.display = 'none';
                     document.getElementById('stopAdsbBtn').style.display = 'block';
@@ -6189,6 +6915,7 @@
             fetch('/adsb/stop', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
+                    releaseDevice('adsb');
                     isAdsbRunning = false;
                     document.getElementById('startAdsbBtn').style.display = 'block';
                     document.getElementById('stopAdsbBtn').style.display = 'none';
@@ -6259,9 +6986,12 @@
         }
 
         function updateAdsbStats() {
-            document.getElementById('aircraftCount').textContent = Object.keys(adsbAircraft).length;
+            const count = Object.keys(adsbAircraft).length;
+            document.getElementById('aircraftCount').textContent = count;
             document.getElementById('adsbMsgCount').textContent = adsbMsgCount;
-            document.getElementById('icaoCount').textContent = Object.keys(adsbAircraft).length;
+            document.getElementById('icaoCount').textContent = count;
+            // Track aircraft count for chart
+            trackAdsbCount(count);
         }
 
         function addAircraftToOutput(aircraft) {
@@ -6794,8 +7524,9 @@
                 attributionControl: false
             });
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
             }).addTo(groundTrackMap);
 
             // Add observer marker
@@ -7419,15 +8150,43 @@
                 html.setAttribute('data-theme', newTheme);
             }
 
+            // Save to localStorage for instant load on next visit
             localStorage.setItem('intercept-theme', newTheme);
+
+            // Persist to server for cross-device sync
+            fetch('/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: newTheme })
+            }).catch(err => console.warn('Failed to save theme to server:', err));
         }
 
         // Load saved theme on page load
         (function() {
-            const savedTheme = localStorage.getItem('intercept-theme');
-            if (savedTheme === 'light') {
+            // First apply localStorage theme for instant load (no flash)
+            const localTheme = localStorage.getItem('intercept-theme');
+            if (localTheme === 'light') {
                 document.documentElement.setAttribute('data-theme', 'light');
             }
+
+            // Then fetch from server to sync (in case changed on another device)
+            fetch('/settings/theme')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success' && data.value) {
+                        const serverTheme = data.value;
+                        if (serverTheme !== localTheme) {
+                            // Server has different theme, apply it
+                            if (serverTheme === 'light') {
+                                document.documentElement.setAttribute('data-theme', 'light');
+                            } else {
+                                document.documentElement.removeAttribute('data-theme');
+                            }
+                            localStorage.setItem('intercept-theme', serverTheme);
+                        }
+                    }
+                })
+                .catch(() => {}); // Ignore errors, localStorage is fallback
         })();
 
         // Help modal functions
@@ -7456,6 +8215,945 @@
                 e.preventDefault();
                 showHelp();
             }
+        });
+
+        // ============================================
+        // FREQUENCY SCANNER (Listening Post)
+        // ============================================
+        let isScannerRunning = false;
+        let isScannerPaused = false;
+        let scannerEventSource = null;
+        let scannerSignalCount = 0;
+        let scannerLogEntries = [];
+        let scannerFreqsScanned = 0;
+        let scannerCycles = 0;
+        let scannerStartFreq = 118;
+        let scannerEndFreq = 137;
+        let scannerSignalActive = false;
+
+        // Scanner presets
+        const scannerPresets = {
+            fm: { start: 88, end: 108, step: 200, mod: 'wfm' },
+            air: { start: 118, end: 137, step: 25, mod: 'am' },
+            marine: { start: 156, end: 163, step: 25, mod: 'fm' },
+            amateur2m: { start: 144, end: 148, step: 12.5, mod: 'fm' },
+            pager: { start: 152, end: 160, step: 25, mod: 'fm' },
+            amateur70cm: { start: 420, end: 450, step: 25, mod: 'fm' }
+        };
+
+        // Check scanner tools on load
+        function checkScannerTools() {
+            fetch('/listening/tools')
+                .then(r => r.json())
+                .then(data => {
+                    const warnings = [];
+                    if (!data.rtl_fm) {
+                        warnings.push('rtl_fm not found - install rtl-sdr tools');
+                    }
+                    if (!data.available) {
+                        warnings.push('No RTL-SDR devices found');
+                    }
+
+                    const warningDiv = document.getElementById('scannerToolsWarning');
+                    const warningText = document.getElementById('scannerToolsWarningText');
+                    if (warnings.length > 0) {
+                        warningText.innerHTML = warnings.join('<br>');
+                        warningDiv.style.display = 'block';
+                        document.getElementById('scannerStartBtn').disabled = true;
+                        document.getElementById('scannerStartBtn').style.opacity = '0.5';
+                    } else {
+                        warningDiv.style.display = 'none';
+                        document.getElementById('scannerStartBtn').disabled = false;
+                        document.getElementById('scannerStartBtn').style.opacity = '1';
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // Populate scanner device selector
+        function populateScannerDeviceSelect() {
+            fetch('/devices')
+                .then(r => r.json())
+                .then(devices => {
+                    const select = document.getElementById('scannerDeviceSelect');
+                    select.innerHTML = '';
+                    if (devices.length === 0) {
+                        select.innerHTML = '<option value="0">No SDR Found</option>';
+                    } else {
+                        devices.forEach((dev, i) => {
+                            const opt = document.createElement('option');
+                            opt.value = dev.index || i;
+                            opt.textContent = `${dev.name || 'SDR'} (${dev.index || i})`;
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function applyScannerPreset() {
+            const preset = document.getElementById('scannerPreset').value;
+            if (preset !== 'custom' && scannerPresets[preset]) {
+                const p = scannerPresets[preset];
+                document.getElementById('scannerStartFreq').value = p.start;
+                document.getElementById('scannerEndFreq').value = p.end;
+                document.getElementById('scannerStep').value = p.step;
+                document.getElementById('scannerModulation').value = p.mod;
+            }
+        }
+
+        function toggleScanner() {
+            if (isScannerRunning) {
+                stopScanner();
+            } else {
+                startScanner();
+            }
+        }
+
+        function startScanner() {
+            const startFreq = parseFloat(document.getElementById('scannerStartFreq').value);
+            const endFreq = parseFloat(document.getElementById('scannerEndFreq').value);
+            const step = parseFloat(document.getElementById('scannerStep').value);
+            const modulation = document.getElementById('scannerModulation').value;
+            const squelch = parseInt(document.getElementById('scannerSquelch').value);
+            const dwell = parseInt(document.getElementById('scannerDwell').value);
+            const device = parseInt(document.getElementById('scannerDeviceSelect').value);
+
+            if (startFreq >= endFreq) {
+                showNotification('Scanner Error', 'End frequency must be greater than start');
+                return;
+            }
+
+            // Check if device is available
+            if (!checkDeviceAvailability('scanner')) {
+                return;
+            }
+
+            // Store scanner range for progress calculation
+            scannerStartFreq = startFreq;
+            scannerEndFreq = endFreq;
+            scannerFreqsScanned = 0;
+            scannerCycles = 0;
+
+            // Update sidebar display
+            document.getElementById('scannerModeLabel').textContent = 'STARTING...';
+            document.getElementById('scannerModeLabel').style.color = 'var(--accent-orange)';
+            document.getElementById('scannerCurrentFreq').style.color = 'var(--accent-orange)';
+            document.getElementById('scannerModLabel').textContent = modulation.toUpperCase();
+
+            // Update main display
+            document.getElementById('mainScannerModeLabel').textContent = 'STARTING...';
+            document.getElementById('mainScannerFreq').style.color = 'var(--accent-orange)';
+            document.getElementById('mainScannerMod').textContent = modulation.toUpperCase();
+
+            // Show progress bars
+            document.getElementById('scannerProgress').style.display = 'block';
+            document.getElementById('scannerRangeStart').textContent = startFreq.toFixed(1);
+            document.getElementById('scannerRangeEnd').textContent = endFreq.toFixed(1);
+            document.getElementById('mainScannerProgress').style.display = 'block';
+            document.getElementById('mainRangeStart').textContent = startFreq.toFixed(1) + ' MHz';
+            document.getElementById('mainRangeEnd').textContent = endFreq.toFixed(1) + ' MHz';
+
+            fetch('/listening/scanner/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    start_freq: startFreq,
+                    end_freq: endFreq,
+                    step: step,
+                    modulation: modulation,
+                    squelch: squelch,
+                    dwell_time: dwell,
+                    device: device
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    reserveDevice(device, 'scanner');
+                    isScannerRunning = true;
+                    isScannerPaused = false;
+                    scannerSignalActive = false;
+
+                    // Update sidebar controls
+                    document.getElementById('scannerStartBtn').textContent = 'Stop Scanner';
+                    document.getElementById('scannerStartBtn').classList.add('active');
+                    document.getElementById('scannerPauseBtn').disabled = false;
+                    document.getElementById('scannerModeLabel').textContent = 'SCANNING';
+                    document.getElementById('scannerModeLabel').style.color = 'var(--accent-cyan)';
+                    document.getElementById('scannerCurrentFreq').style.color = 'var(--accent-cyan)';
+                    document.getElementById('scannerStatusText').textContent = 'Scanning...';
+
+                    // Update main display
+                    document.getElementById('mainScannerModeLabel').textContent = 'SCANNING';
+                    document.getElementById('mainScannerFreq').style.color = 'var(--accent-cyan)';
+                    document.getElementById('mainScannerAnimation').style.display = 'block';
+
+                    // Show level meter
+                    document.getElementById('scannerLevelMeter').style.display = 'block';
+
+                    connectScannerStream();
+                    addScannerLogEntry('Scanner started', `Range: ${startFreq}-${endFreq} MHz, Step: ${step} kHz`);
+                    showNotification('Scanner Started', `Scanning ${startFreq} - ${endFreq} MHz`);
+                } else {
+                    document.getElementById('scannerModeLabel').textContent = 'ERROR';
+                    document.getElementById('scannerModeLabel').style.color = 'var(--accent-red)';
+                    document.getElementById('mainScannerModeLabel').textContent = 'ERROR';
+                    showNotification('Scanner Error', data.message || 'Failed to start');
+                }
+            })
+            .catch(err => {
+                document.getElementById('scannerStatus').textContent = 'ERROR';
+                document.getElementById('scannerStatus').style.color = 'var(--accent-red)';
+                showNotification('Scanner Error', err.message);
+            });
+        }
+
+        function stopScanner() {
+            fetch('/listening/scanner/stop', { method: 'POST' })
+                .then(() => {
+                    releaseDevice('scanner');
+                    isScannerRunning = false;
+                    isScannerPaused = false;
+                    scannerSignalActive = false;
+
+                    // Update sidebar
+                    document.getElementById('scannerStartBtn').textContent = 'Start Scanner';
+                    document.getElementById('scannerStartBtn').classList.remove('active');
+                    document.getElementById('scannerPauseBtn').disabled = true;
+                    document.getElementById('scannerPauseBtn').textContent = '⏸ Pause';
+                    document.getElementById('scannerModeLabel').textContent = 'STOPPED';
+                    document.getElementById('scannerModeLabel').style.color = 'var(--text-muted)';
+                    document.getElementById('scannerCurrentFreq').textContent = '---.--- MHz';
+                    document.getElementById('scannerCurrentFreq').style.color = 'var(--text-muted)';
+                    document.getElementById('scannerModLabel').textContent = '--';
+                    document.getElementById('scannerProgress').style.display = 'none';
+                    document.getElementById('scannerSignalPanel').style.display = 'none';
+                    document.getElementById('scannerLevelMeter').style.display = 'none';
+                    document.getElementById('scannerStatusText').textContent = 'Ready';
+
+                    // Update main display
+                    document.getElementById('mainScannerModeLabel').textContent = 'SCANNER STOPPED';
+                    document.getElementById('mainScannerFreq').textContent = '---.---';
+                    document.getElementById('mainScannerFreq').style.color = 'var(--text-muted)';
+                    document.getElementById('mainScannerMod').textContent = '--';
+                    document.getElementById('mainScannerAnimation').style.display = 'none';
+                    document.getElementById('mainScannerProgress').style.display = 'none';
+                    document.getElementById('mainSignalAlert').style.display = 'none';
+
+                    // Stop scanner audio
+                    const scannerAudio = document.getElementById('scannerAudioPlayer');
+                    if (scannerAudio) {
+                        scannerAudio.pause();
+                        scannerAudio.src = '';
+                    }
+
+                    if (scannerEventSource) {
+                        scannerEventSource.close();
+                        scannerEventSource = null;
+                    }
+                    addScannerLogEntry('Scanner stopped', '');
+                })
+                .catch(() => {});
+        }
+
+        function pauseScanner() {
+            const endpoint = isScannerPaused ? '/listening/scanner/resume' : '/listening/scanner/pause';
+            fetch(endpoint, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    isScannerPaused = !isScannerPaused;
+                    document.getElementById('scannerPauseBtn').textContent = isScannerPaused ? '▶ Resume' : '⏸ Pause';
+                    document.getElementById('scannerStatus').textContent = isScannerPaused ? 'PAUSED' : 'SCANNING';
+                    document.getElementById('scannerStatus').style.color = isScannerPaused ? 'var(--accent-orange)' : 'var(--accent-green)';
+                    document.getElementById('scannerActivityStatus').textContent = isScannerPaused ? 'PAUSED' : 'SCANNING';
+                    document.getElementById('scannerActivityStatus').style.color = isScannerPaused ? 'var(--accent-orange)' : 'var(--accent-green)';
+                    addScannerLogEntry(isScannerPaused ? 'Scanner paused' : 'Scanner resumed', '');
+                })
+                .catch(() => {});
+        }
+
+        function connectScannerStream() {
+            if (scannerEventSource) {
+                scannerEventSource.close();
+            }
+
+            scannerEventSource = new EventSource('/listening/scanner/stream');
+
+            scannerEventSource.onmessage = function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+
+                    if (data.type === 'freq_change') {
+                        // Update frequency displays
+                        const freqStr = data.frequency.toFixed(3);
+                        document.getElementById('scannerCurrentFreq').textContent = freqStr + ' MHz';
+                        document.getElementById('mainScannerFreq').textContent = freqStr;
+
+                        // Update progress bar
+                        const progress = ((data.frequency - scannerStartFreq) / (scannerEndFreq - scannerStartFreq)) * 100;
+                        document.getElementById('scannerProgressBar').style.width = Math.max(0, Math.min(100, progress)) + '%';
+                        document.getElementById('mainProgressBar').style.width = Math.max(0, Math.min(100, progress)) + '%';
+
+                        scannerFreqsScanned++;
+                        document.getElementById('mainFreqsScanned').textContent = scannerFreqsScanned;
+
+                        // Check if this is scanning or dwelling on signal
+                        if (data.scanning) {
+                            document.getElementById('scannerStatusText').textContent = 'Scanning ' + freqStr + ' MHz...';
+                        }
+
+                    } else if (data.type === 'scan_update') {
+                        // Update frequency and level displays
+                        const freqStr = data.frequency.toFixed(3);
+                        document.getElementById('scannerCurrentFreq').textContent = freqStr + ' MHz';
+                        document.getElementById('mainScannerFreq').textContent = freqStr;
+
+                        // Update progress bar
+                        const progress = ((data.frequency - scannerStartFreq) / (scannerEndFreq - scannerStartFreq)) * 100;
+                        document.getElementById('scannerProgressBar').style.width = Math.max(0, Math.min(100, progress)) + '%';
+                        document.getElementById('mainProgressBar').style.width = Math.max(0, Math.min(100, progress)) + '%';
+
+                        // Update level meter (scale 0-5000 to 0-100%)
+                        const levelPercent = Math.min(100, (data.level / 5000) * 100);
+                        const levelBar = document.getElementById('scannerLevelBar');
+                        levelBar.style.width = levelPercent + '%';
+                        // Color based on level vs threshold
+                        if (data.detected) {
+                            levelBar.style.background = 'var(--accent-green)';
+                        } else if (data.level > data.threshold * 0.7) {
+                            levelBar.style.background = 'var(--accent-orange)';
+                        } else {
+                            levelBar.style.background = 'var(--accent-cyan)';
+                        }
+                        document.getElementById('scannerLevelValue').textContent = data.level;
+
+                        scannerFreqsScanned++;
+                        document.getElementById('mainFreqsScanned').textContent = scannerFreqsScanned;
+                        document.getElementById('scannerStatusText').textContent = `${freqStr} MHz (level: ${data.level})`;
+
+                    } else if (data.type === 'signal_found') {
+                        // Signal detected!
+                        scannerSignalCount++;
+                        scannerSignalActive = true;
+                        const freqStr = data.frequency.toFixed(3);
+
+                        document.getElementById('scannerSignalCount').textContent = scannerSignalCount;
+                        document.getElementById('mainSignalCount').textContent = scannerSignalCount;
+
+                        // Update sidebar
+                        document.getElementById('scannerModeLabel').textContent = 'SIGNAL FOUND';
+                        document.getElementById('scannerModeLabel').style.color = 'var(--accent-green)';
+                        document.getElementById('scannerCurrentFreq').style.color = 'var(--accent-green)';
+                        document.getElementById('scannerSignalPanel').style.display = 'block';
+                        document.getElementById('scannerStatusText').textContent = 'Listening to signal...';
+
+                        // Update main display
+                        document.getElementById('mainScannerModeLabel').textContent = 'SIGNAL DETECTED';
+                        document.getElementById('mainScannerFreq').style.color = 'var(--accent-green)';
+                        document.getElementById('mainScannerAnimation').style.display = 'none';
+                        document.getElementById('mainSignalAlert').style.display = 'block';
+
+                        // Start audio playback
+                        if (data.audio_streaming) {
+                            const scannerAudio = document.getElementById('scannerAudioPlayer');
+                            scannerAudio.src = '/listening/audio/stream?' + Date.now();
+                            scannerAudio.play().catch(e => console.warn('Audio autoplay blocked'));
+                        }
+
+                        addScannerLogEntry('SIGNAL FOUND', `${freqStr} MHz (${data.modulation.toUpperCase()})`, 'signal');
+                        addSignalHit(data);
+                        showNotification('Signal Found!', `${freqStr} MHz - Audio streaming`);
+
+                    } else if (data.type === 'signal_lost') {
+                        scannerSignalActive = false;
+
+                        // Update sidebar
+                        document.getElementById('scannerModeLabel').textContent = 'SCANNING';
+                        document.getElementById('scannerModeLabel').style.color = 'var(--accent-cyan)';
+                        document.getElementById('scannerCurrentFreq').style.color = 'var(--accent-cyan)';
+                        document.getElementById('scannerSignalPanel').style.display = 'none';
+                        document.getElementById('scannerStatusText').textContent = 'Scanning...';
+
+                        // Update main display
+                        document.getElementById('mainScannerModeLabel').textContent = 'SCANNING';
+                        document.getElementById('mainScannerFreq').style.color = 'var(--accent-cyan)';
+                        document.getElementById('mainScannerAnimation').style.display = 'block';
+                        document.getElementById('mainSignalAlert').style.display = 'none';
+
+                        // Stop audio
+                        const scannerAudio = document.getElementById('scannerAudioPlayer');
+                        scannerAudio.pause();
+                        scannerAudio.src = '';
+
+                        addScannerLogEntry('Signal lost', `${data.frequency.toFixed(3)} MHz`, 'info');
+
+                    } else if (data.type === 'signal_skipped') {
+                        scannerSignalActive = false;
+
+                        // Update displays back to scanning mode
+                        document.getElementById('scannerModeLabel').textContent = 'SCANNING';
+                        document.getElementById('scannerModeLabel').style.color = 'var(--accent-cyan)';
+                        document.getElementById('scannerCurrentFreq').style.color = 'var(--accent-cyan)';
+                        document.getElementById('scannerSignalPanel').style.display = 'none';
+
+                        document.getElementById('mainScannerModeLabel').textContent = 'SCANNING';
+                        document.getElementById('mainScannerFreq').style.color = 'var(--accent-cyan)';
+                        document.getElementById('mainScannerAnimation').style.display = 'block';
+                        document.getElementById('mainSignalAlert').style.display = 'none';
+
+                        // Stop audio
+                        const scannerAudio = document.getElementById('scannerAudioPlayer');
+                        scannerAudio.pause();
+                        scannerAudio.src = '';
+
+                        addScannerLogEntry('Signal skipped', `${data.frequency.toFixed(3)} MHz`, 'info');
+
+                    } else if (data.type === 'log') {
+                        // Activity log entry from server
+                        if (data.entry && data.entry.type === 'scan_cycle') {
+                            scannerCycles++;
+                            document.getElementById('mainScanCycles').textContent = scannerCycles;
+                        }
+
+                    } else if (data.type === 'stopped') {
+                        stopScanner();
+                    }
+                } catch (err) {
+                    console.warn('Scanner parse error:', err);
+                }
+            };
+
+            scannerEventSource.onerror = function() {
+                if (isScannerRunning) {
+                    setTimeout(connectScannerStream, 2000);
+                }
+            };
+        }
+
+        function addScannerLogEntry(title, detail, type = 'info') {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            const entry = { timestamp, title, detail, type };
+            scannerLogEntries.unshift(entry);
+
+            // Keep only last 100 entries
+            if (scannerLogEntries.length > 100) {
+                scannerLogEntries.pop();
+            }
+
+            // Update sidebar log
+            const sidebarLog = document.getElementById('scannerLog');
+            const color = type === 'signal' ? 'var(--accent-green)' : 'var(--text-secondary)';
+            sidebarLog.innerHTML = scannerLogEntries.slice(0, 20).map(e =>
+                `<div style="margin-bottom: 4px; color: ${e.type === 'signal' ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+                    <span style="color: var(--text-muted);">[${e.timestamp}]</span>
+                    <strong>${e.title}</strong> ${e.detail}
+                </div>`
+            ).join('');
+
+            // Update main activity log
+            const activityLog = document.getElementById('scannerActivityLog');
+            activityLog.innerHTML = scannerLogEntries.slice(0, 50).map(e =>
+                `<div class="scanner-log-entry" style="margin-bottom: 6px; padding: 4px; border-left: 2px solid ${e.type === 'signal' ? 'var(--accent-green)' : 'var(--border-color)'};">
+                    <span style="color: var(--text-muted);">[${e.timestamp}]</span>
+                    <strong style="color: ${e.type === 'signal' ? 'var(--accent-green)' : 'var(--text-primary)'};">${e.title}</strong>
+                    <span style="color: var(--text-secondary);">${e.detail}</span>
+                </div>`
+            ).join('');
+        }
+
+        function addSignalHit(data) {
+            const tbody = document.getElementById('scannerHitsBody');
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+
+            // Remove "no signals" placeholder if present
+            if (tbody.innerHTML.includes('No signals detected')) {
+                tbody.innerHTML = '';
+            }
+
+            const mod = data.modulation || 'fm';
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid var(--border-color)';
+            row.innerHTML = `
+                <td style="padding: 5px; color: var(--text-secondary);">${timestamp}</td>
+                <td style="padding: 5px; color: var(--accent-green); font-weight: bold;">${data.frequency.toFixed(3)} MHz (${mod.toUpperCase()})</td>
+                <td style="padding: 5px; text-align: center;">
+                    <button class="preset-btn" onclick="tuneToFrequency(${data.frequency}, '${mod}')" style="padding: 2px 8px; font-size: 10px;">Listen</button>
+                </td>
+            `;
+            tbody.insertBefore(row, tbody.firstChild);
+
+            // Keep only last 50 hits in table
+            while (tbody.children.length > 50) {
+                tbody.removeChild(tbody.lastChild);
+            }
+
+            document.getElementById('scannerHitCount').textContent = `${tbody.children.length} signals found`;
+        }
+
+        function tuneToFrequency(freq, mod) {
+            // Stop scanner if running
+            if (isScannerRunning) {
+                stopScanner();
+            }
+
+            // Stop any current audio
+            if (isAudioPlaying) {
+                stopAudio();
+            }
+
+            // Set frequency in manual audio form
+            document.getElementById('audioFrequency').value = freq.toFixed(3);
+            document.getElementById('audioPreset').value = 'custom';
+            if (mod) {
+                document.getElementById('audioModulation').value = mod;
+            }
+
+            // Start playing immediately
+            startAudio();
+            showNotification('Tuned', `Now listening to ${freq.toFixed(3)} MHz`);
+        }
+
+        function skipSignal() {
+            if (!isScannerRunning) {
+                showNotification('Scanner', 'Scanner is not running');
+                return;
+            }
+
+            fetch('/listening/scanner/skip', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'skipped') {
+                        showNotification('Signal Skipped', `Continuing scan from ${data.frequency.toFixed(3)} MHz`);
+                    }
+                })
+                .catch(err => {
+                    showNotification('Skip Error', err.message);
+                });
+        }
+
+        function clearScannerLog() {
+            scannerLogEntries = [];
+            scannerSignalCount = 0;
+            scannerFreqsScanned = 0;
+            scannerCycles = 0;
+            document.getElementById('scannerSignalCount').textContent = '0';
+            document.getElementById('mainSignalCount').textContent = '0';
+            document.getElementById('mainFreqsScanned').textContent = '0';
+            document.getElementById('mainScanCycles').textContent = '0';
+            document.getElementById('scannerLog').innerHTML = '<div style="color: var(--text-muted);">Scanner activity will appear here...</div>';
+            document.getElementById('scannerActivityLog').innerHTML = '<div class="scanner-log-entry" style="color: var(--text-muted);">Waiting for scanner to start...</div>';
+            document.getElementById('scannerHitsBody').innerHTML = '<tr style="color: var(--text-muted);"><td colspan="3" style="padding: 20px; text-align: center;">No signals detected yet</td></tr>';
+            document.getElementById('scannerHitCount').textContent = '0 signals found';
+        }
+
+        function exportScannerLog() {
+            if (scannerLogEntries.length === 0) {
+                showNotification('Export', 'No log entries to export');
+                return;
+            }
+
+            const csv = 'Timestamp,Event,Details\n' + scannerLogEntries.map(e =>
+                `"${e.timestamp}","${e.title}","${e.detail}"`
+            ).join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scanner_log_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showNotification('Export', 'Log exported to CSV');
+        }
+
+        // ============================================
+        // AUDIO RECEIVER (Manual Listening)
+        // Audio plays through server speakers (not browser)
+        // ============================================
+
+        let isAudioPlaying = false;
+        let audioToolsAvailable = { rtl_fm: false, audio_player: false };
+
+        // Web Audio API for visualization
+        let visualizerContext = null;
+        let visualizerAnalyser = null;
+        let visualizerSource = null;
+        let visualizerAnimationId = null;
+        let peakLevel = 0;
+        let peakDecay = 0.95;
+
+        function initAudioVisualizer() {
+            const audioPlayer = document.getElementById('audioPlayer');
+
+            // Create audio context if not exists
+            if (!visualizerContext) {
+                visualizerContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Resume audio context (required for autoplay policies)
+            if (visualizerContext.state === 'suspended') {
+                visualizerContext.resume();
+            }
+
+            // Only create source once per audio element
+            if (!visualizerSource) {
+                try {
+                    visualizerSource = visualizerContext.createMediaElementSource(audioPlayer);
+                    visualizerAnalyser = visualizerContext.createAnalyser();
+                    visualizerAnalyser.fftSize = 256;
+                    visualizerAnalyser.smoothingTimeConstant = 0.7;
+
+                    visualizerSource.connect(visualizerAnalyser);
+                    visualizerAnalyser.connect(visualizerContext.destination);
+                } catch (e) {
+                    console.warn('Could not create audio source:', e);
+                    return;
+                }
+            }
+
+            // Show visualizer
+            document.getElementById('audioVisualizerContainer').style.display = 'block';
+
+            // Start animation
+            drawAudioVisualizer();
+        }
+
+        function drawAudioVisualizer() {
+            if (!visualizerAnalyser) return;
+
+            const canvas = document.getElementById('audioSpectrumCanvas');
+            const ctx = canvas.getContext('2d');
+            const bufferLength = visualizerAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function draw() {
+                visualizerAnimationId = requestAnimationFrame(draw);
+
+                visualizerAnalyser.getByteFrequencyData(dataArray);
+
+                // Calculate average level for signal meter
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / bufferLength;
+                const levelPercent = (average / 255) * 100;
+
+                // Update peak hold
+                if (levelPercent > peakLevel) {
+                    peakLevel = levelPercent;
+                } else {
+                    peakLevel *= peakDecay;
+                }
+
+                // Update signal meter
+                const meterFill = document.getElementById('audioSignalMeter');
+                const meterPeak = document.getElementById('audioSignalPeak');
+                const meterValue = document.getElementById('audioSignalValue');
+
+                meterFill.style.width = levelPercent + '%';
+                meterPeak.style.left = Math.min(peakLevel, 100) + '%';
+
+                // Convert to dB-like scale for display
+                const db = average > 0 ? Math.round(20 * Math.log10(average / 255)) : -60;
+                meterValue.textContent = db + ' dB';
+
+                // Draw spectrum
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const barWidth = canvas.width / bufferLength * 2.5;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * canvas.height;
+
+                    // Color gradient based on frequency and amplitude
+                    const hue = 200 - (i / bufferLength) * 60; // Blue to cyan
+                    const lightness = 40 + (dataArray[i] / 255) * 30;
+                    ctx.fillStyle = `hsl(${hue}, 80%, ${lightness}%)`;
+
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+                    x += barWidth;
+                }
+
+                // Draw frequency labels
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.font = '8px JetBrains Mono';
+                ctx.fillText('0', 2, canvas.height - 2);
+                ctx.fillText('4kHz', canvas.width / 4, canvas.height - 2);
+                ctx.fillText('8kHz', canvas.width / 2, canvas.height - 2);
+            }
+
+            draw();
+        }
+
+        function stopAudioVisualizer() {
+            if (visualizerAnimationId) {
+                cancelAnimationFrame(visualizerAnimationId);
+                visualizerAnimationId = null;
+            }
+
+            // Reset meter
+            const meterFill = document.getElementById('audioSignalMeter');
+            const meterPeak = document.getElementById('audioSignalPeak');
+            const meterValue = document.getElementById('audioSignalValue');
+
+            if (meterFill) meterFill.style.width = '0%';
+            if (meterPeak) meterPeak.style.left = '0%';
+            if (meterValue) meterValue.textContent = '-∞ dB';
+
+            peakLevel = 0;
+
+            // Hide visualizer
+            const container = document.getElementById('audioVisualizerContainer');
+            if (container) container.style.display = 'none';
+        }
+
+        // Check audio tools availability on load
+        function checkAudioTools() {
+            fetch('/listening/tools')
+                .then(r => r.json())
+                .then(data => {
+                    audioToolsAvailable.rtl_fm = data.rtl_fm;
+                    audioToolsAvailable.can_stream = data.can_stream;
+
+                    const warnings = [];
+                    if (!data.rtl_fm) {
+                        warnings.push('rtl_fm not found - install rtl-sdr tools');
+                    }
+                    if (!data.can_stream) {
+                        warnings.push('No audio encoder (ffmpeg/sox) - install: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)');
+                    }
+
+                    const warningDiv = document.getElementById('audioToolsWarning');
+                    const warningText = document.getElementById('audioToolsWarningText');
+                    if (warnings.length > 0) {
+                        warningText.innerHTML = warnings.join('<br>');
+                        warningDiv.style.display = 'block';
+                        document.getElementById('audioStartBtn').disabled = true;
+                        document.getElementById('audioStartBtn').style.opacity = '0.5';
+                        document.getElementById('audioStartBtn').style.cursor = 'not-allowed';
+                    } else {
+                        warningDiv.style.display = 'none';
+                        document.getElementById('audioStartBtn').disabled = false;
+                        document.getElementById('audioStartBtn').style.opacity = '1';
+                        document.getElementById('audioStartBtn').style.cursor = 'pointer';
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // Populate audio device selector
+        function populateAudioDeviceSelect() {
+            fetch('/devices')
+                .then(r => r.json())
+                .then(devices => {
+                    const select = document.getElementById('audioDeviceSelect');
+                    select.innerHTML = '';
+                    if (devices.length === 0) {
+                        select.innerHTML = '<option value="0">No SDR devices found</option>';
+                    } else {
+                        devices.forEach((dev, i) => {
+                            const opt = document.createElement('option');
+                            opt.value = dev.index || i;
+                            opt.textContent = `Device ${dev.index || i}: ${dev.name || 'Unknown SDR'}`;
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // Audio presets
+        function applyAudioPreset() {
+            const preset = document.getElementById('audioPreset').value;
+            const freqInput = document.getElementById('audioFrequency');
+            const modSelect = document.getElementById('audioModulation');
+
+            switch(preset) {
+                case 'fm':
+                    freqInput.value = '98.1';
+                    modSelect.value = 'wfm';
+                    break;
+                case 'airband':
+                    freqInput.value = '121.5'; // Emergency/guard frequency
+                    modSelect.value = 'am';
+                    break;
+                case 'marine':
+                    freqInput.value = '156.8'; // Channel 16 - distress
+                    modSelect.value = 'fm';
+                    break;
+                case 'amateur2m':
+                    freqInput.value = '146.52'; // 2m calling frequency
+                    modSelect.value = 'fm';
+                    break;
+                case 'amateur70cm':
+                    freqInput.value = '446.0';
+                    modSelect.value = 'fm';
+                    break;
+            }
+        }
+
+        function toggleAudio() {
+            if (isAudioPlaying) {
+                stopAudio();
+            } else {
+                startAudio();
+            }
+        }
+
+        function startAudio() {
+            const frequency = parseFloat(document.getElementById('audioFrequency').value);
+            const modulation = document.getElementById('audioModulation').value;
+            const squelch = parseInt(document.getElementById('audioSquelch').value);
+            const gain = parseInt(document.getElementById('audioGain').value);
+            const device = parseInt(document.getElementById('audioDeviceSelect').value);
+
+            if (isNaN(frequency) || frequency <= 0) {
+                showNotification('Audio Error', 'Invalid frequency');
+                return;
+            }
+
+            // Check if this device is already in use by another mode
+            const usedBy = getDeviceInUseBy(device);
+            if (usedBy && usedBy !== 'audio') {
+                showNotification('SDR In Use', `Device ${device} is being used by ${usedBy.toUpperCase()}. Select a different device or stop ${usedBy} first.`);
+                return;
+            }
+
+            document.getElementById('audioStatus').textContent = 'STARTING...';
+            document.getElementById('audioStatus').style.color = 'var(--accent-orange)';
+
+            fetch('/listening/audio/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    frequency: frequency,
+                    modulation: modulation,
+                    squelch: squelch,
+                    gain: gain,
+                    device: device
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    reserveDevice(device, 'audio');
+                    isAudioPlaying = true;
+
+                    // Start browser audio playback
+                    const audioPlayer = document.getElementById('audioPlayer');
+                    audioPlayer.src = '/listening/audio/stream?' + Date.now(); // Cache bust
+                    audioPlayer.volume = document.getElementById('audioVolume').value / 100;
+
+                    // Initialize visualizer before playing (needs audio context)
+                    initAudioVisualizer();
+
+                    audioPlayer.play().catch(e => {
+                        console.warn('Audio autoplay blocked:', e);
+                        showNotification('Audio Ready', 'Click Play button again if audio does not start');
+                    });
+
+                    document.getElementById('audioStartBtn').textContent = '⏹ Stop Audio';
+                    document.getElementById('audioStartBtn').classList.add('active');
+                    document.getElementById('audioStatus').textContent = 'STREAMING';
+                    document.getElementById('audioStatus').style.color = 'var(--accent-green)';
+                    document.getElementById('audioTunedFreq').textContent = frequency.toFixed(2) + ' MHz (' + modulation.toUpperCase() + ')';
+                    document.getElementById('audioDeviceStatus').textContent = 'SDR ' + device;
+                    showNotification('Audio Started', `Streaming ${frequency} MHz to browser`);
+                } else {
+                    document.getElementById('audioStatus').textContent = 'ERROR';
+                    document.getElementById('audioStatus').style.color = 'var(--accent-red)';
+                    showNotification('Audio Error', data.message || 'Failed to start audio');
+                }
+            })
+            .catch(err => {
+                document.getElementById('audioStatus').textContent = 'ERROR';
+                document.getElementById('audioStatus').style.color = 'var(--accent-red)';
+                showNotification('Audio Error', err.message);
+            });
+        }
+
+        function stopAudio() {
+            // Stop visualizer
+            stopAudioVisualizer();
+
+            // Stop browser audio
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.pause();
+            audioPlayer.src = '';
+
+            fetch('/listening/audio/stop', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    releaseDevice('audio');
+                    isAudioPlaying = false;
+                    document.getElementById('audioStartBtn').textContent = '▶ Play Audio';
+                    document.getElementById('audioStartBtn').classList.remove('active');
+                    document.getElementById('audioStatus').textContent = 'STOPPED';
+                    document.getElementById('audioStatus').style.color = 'var(--text-muted)';
+                    document.getElementById('audioDeviceStatus').textContent = '--';
+                })
+                .catch(() => {});
+        }
+
+        function updateAudioVolume() {
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.volume = document.getElementById('audioVolume').value / 100;
+        }
+
+        function audioFreqUp() {
+            const input = document.getElementById('audioFrequency');
+            const mod = document.getElementById('audioModulation').value;
+            const step = (mod === 'wfm') ? 0.2 : 0.025;
+            input.value = (parseFloat(input.value) + step).toFixed(2);
+            // Retune if playing
+            if (isAudioPlaying) {
+                tuneAudioFrequency(parseFloat(input.value));
+            }
+        }
+
+        function audioFreqDown() {
+            const input = document.getElementById('audioFrequency');
+            const mod = document.getElementById('audioModulation').value;
+            const step = (mod === 'wfm') ? 0.2 : 0.025;
+            input.value = (parseFloat(input.value) - step).toFixed(2);
+            // Retune if playing
+            if (isAudioPlaying) {
+                tuneAudioFrequency(parseFloat(input.value));
+            }
+        }
+
+        function tuneAudioFrequency(frequency) {
+            fetch('/listening/audio/tune', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frequency: frequency })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'tuned') {
+                    document.getElementById('audioTunedFreq').textContent = frequency.toFixed(2) + ' MHz';
+                }
+            })
+            .catch(() => {
+                // If tune fails, restart audio
+                stopAudio();
+                setTimeout(startAudio, 300);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize scanner
+            checkScannerTools();
+            populateScannerDeviceSelect();
+            // Initialize audio receiver
+            checkAudioTools();
+            populateAudioDeviceSelect();
         });
     </script>
 
@@ -7795,7 +9493,9 @@
                         }
 
                         // Show startup prompt if tools are missing and not dismissed
-                        if (missingModes > 0 && !dismissed) {
+                        // Only show if disclaimer has been accepted
+                        const disclaimerAccepted = localStorage.getItem('disclaimerAccepted') === 'true';
+                        if (missingModes > 0 && !dismissed && disclaimerAccepted) {
                             showStartupDepsPrompt(missingModes, missingTools.length);
                         }
                     }

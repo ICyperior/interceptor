@@ -22,6 +22,26 @@ from utils.process import is_valid_mac, is_valid_channel
 from utils.validation import validate_wifi_channel, validate_mac_address
 from utils.sse import format_sse
 from data.oui import get_manufacturer
+from utils.constants import (
+    WIFI_TERMINATE_TIMEOUT,
+    PMKID_TERMINATE_TIMEOUT,
+    SSE_KEEPALIVE_INTERVAL,
+    SSE_QUEUE_TIMEOUT,
+    WIFI_CSV_PARSE_INTERVAL,
+    WIFI_CSV_TIMEOUT_WARNING,
+    SUBPROCESS_TIMEOUT_SHORT,
+    SUBPROCESS_TIMEOUT_MEDIUM,
+    SUBPROCESS_TIMEOUT_LONG,
+    DEAUTH_TIMEOUT,
+    MIN_DEAUTH_COUNT,
+    MAX_DEAUTH_COUNT,
+    DEFAULT_DEAUTH_COUNT,
+    PROCESS_START_WAIT,
+    MONITOR_MODE_DELAY,
+    WIFI_CAPTURE_PATH_PREFIX,
+    HANDSHAKE_CAPTURE_PATH_PREFIX,
+    PMKID_CAPTURE_PATH_PREFIX,
+)
 
 wifi_bp = Blueprint('wifi', __name__, url_prefix='/wifi')
 
@@ -37,7 +57,7 @@ def detect_wifi_interfaces():
     if platform.system() == 'Darwin':  # macOS
         try:
             result = subprocess.run(['networksetup', '-listallhardwareports'],
-                                    capture_output=True, text=True, timeout=5)
+                                    capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_SHORT)
             lines = result.stdout.split('\n')
             for i, line in enumerate(lines):
                 if 'Wi-Fi' in line or 'AirPort' in line:
@@ -51,12 +71,16 @@ def detect_wifi_interfaces():
                                 'status': 'up'
                             })
                             break
-        except Exception as e:
+        except FileNotFoundError:
+            logger.debug("networksetup not found")
+        except subprocess.TimeoutExpired:
+            logger.warning("networksetup timed out")
+        except subprocess.SubprocessError as e:
             logger.error(f"Error detecting macOS interfaces: {e}")
 
         try:
             result = subprocess.run(['system_profiler', 'SPUSBDataType'],
-                                    capture_output=True, text=True, timeout=10)
+                                    capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_MEDIUM)
             if 'Wireless' in result.stdout or 'WLAN' in result.stdout or '802.11' in result.stdout:
                 interfaces.append({
                     'name': 'USB WiFi Adapter',
@@ -64,12 +88,16 @@ def detect_wifi_interfaces():
                     'monitor_capable': True,
                     'status': 'detected'
                 })
-        except Exception:
-            pass
+        except FileNotFoundError:
+            logger.debug("system_profiler not found")
+        except subprocess.TimeoutExpired:
+            logger.debug("system_profiler timed out")
+        except subprocess.SubprocessError as e:
+            logger.debug(f"Error running system_profiler: {e}")
 
     else:  # Linux
         try:
-            result = subprocess.run(['iw', 'dev'], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(['iw', 'dev'], capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_SHORT)
             current_iface = None
             for line in result.stdout.split('\n'):
                 line = line.strip()
@@ -85,8 +113,9 @@ def detect_wifi_interfaces():
                     })
                     current_iface = None
         except FileNotFoundError:
+            # Fall back to iwconfig if iw is not available
             try:
-                result = subprocess.run(['iwconfig'], capture_output=True, text=True, timeout=5)
+                result = subprocess.run(['iwconfig'], capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_SHORT)
                 for line in result.stdout.split('\n'):
                     if 'IEEE 802.11' in line:
                         iface = line.split()[0]
@@ -96,9 +125,13 @@ def detect_wifi_interfaces():
                             'monitor_capable': True,
                             'status': 'up'
                         })
-            except Exception:
-                pass
-        except Exception as e:
+            except FileNotFoundError:
+                logger.debug("Neither iw nor iwconfig found")
+            except subprocess.SubprocessError as e:
+                logger.debug(f"Error running iwconfig: {e}")
+        except subprocess.TimeoutExpired:
+            logger.warning("iw command timed out")
+        except subprocess.SubprocessError as e:
             logger.error(f"Error detecting Linux interfaces: {e}")
 
     return interfaces

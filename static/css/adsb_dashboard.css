@@ -5,24 +5,27 @@
 }
 
 :root {
-    --bg-dark: #0a0a0f;
-    --bg-panel: #0d1117;
-    --bg-card: #161b22;
-    --border-glow: #00ff88;
-    --text-primary: #e6edf3;
-    --text-secondary: #8b949e;
-    --accent-green: #00ff88;
-    --accent-cyan: #00d4ff;
-    --accent-orange: #ff9500;
-    --accent-red: #ff4444;
-    --accent-yellow: #ffcc00;
-    --grid-line: rgba(0, 255, 136, 0.1);
-    --radar-cyan: #00ffff;
-    --radar-bg: #1a1a2e;
+    --bg-dark: #0a0c10;
+    --bg-panel: #0f1218;
+    --bg-card: #151a23;
+    --border-color: #1f2937;
+    --border-glow: #4a9eff;
+    --text-primary: #e8eaed;
+    --text-secondary: #9ca3af;
+    --text-dim: #4b5563;
+    --accent-green: #22c55e;
+    --accent-cyan: #4a9eff;
+    --accent-orange: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-yellow: #eab308;
+    --accent-amber: #d4a853;
+    --grid-line: rgba(74, 158, 255, 0.08);
+    --radar-cyan: #4a9eff;
+    --radar-bg: #0f1218;
 }
 
 body {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-dark);
     color: var(--text-primary);
     min-height: 100vh;
@@ -44,18 +47,18 @@ body {
     z-index: 0;
 }
 
-/* Scan line effect */
+/* Scan line effect - subtle */
 .scanline {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
-    animation: scan 4s linear infinite;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    animation: scan 6s linear infinite;
     pointer-events: none;
     z-index: 1000;
-    opacity: 0.5;
+    opacity: 0.3;
 }
 
 @keyframes scan {
@@ -73,20 +76,20 @@ body {
     position: relative;
     z-index: 10;
     padding: 12px 20px;
-    background: linear-gradient(180deg, rgba(0, 255, 136, 0.1) 0%, transparent 100%);
-    border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .logo {
-    font-family: 'Orbitron', monospace;
-    font-size: 24px;
-    font-weight: 900;
-    letter-spacing: 4px;
-    color: var(--accent-green);
-    text-shadow: 0 0 20px var(--accent-green), 0 0 40px var(--accent-green);
+    font-family: 'Inter', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--text-primary);
+    text-transform: uppercase;
 }
 
 .logo span {
@@ -115,8 +118,8 @@ body {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--accent-green);
-    box-shadow: 0 0 10px var(--accent-green);
+    background: var(--accent-cyan);
+    box-shadow: 0 0 10px var(--accent-cyan);
     animation: pulse 2s ease-in-out infinite;
 }
 
@@ -144,8 +147,8 @@ body {
 }
 
 .stat-badge {
-    background: rgba(0, 255, 136, 0.1);
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    background: rgba(74, 158, 255, 0.1);
+    border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
     padding: 4px 10px;
     font-family: 'JetBrains Mono', monospace;
@@ -153,7 +156,7 @@ body {
 }
 
 .stat-badge .value {
-    color: var(--accent-green);
+    color: var(--accent-cyan);
     font-weight: 600;
 }
 
@@ -165,15 +168,15 @@ body {
 .datetime {
     font-family: 'Orbitron', monospace;
     font-size: 12px;
-    color: var(--accent-green);
+    color: var(--accent-cyan);
 }
 
 .back-link {
-    color: var(--accent-green);
+    color: var(--accent-cyan);
     text-decoration: none;
     font-size: 11px;
     padding: 4px 10px;
-    border: 1px solid var(--accent-green);
+    border: 1px solid var(--accent-cyan);
     border-radius: 4px;
 }
 
@@ -192,7 +195,7 @@ body {
 /* Panels */
 .panel {
     background: var(--bg-panel);
-    border: 1px solid rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(74, 158, 255, 0.2);
     overflow: hidden;
     position: relative;
 }
@@ -204,19 +207,19 @@ body {
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
 }
 
 .panel-header {
     padding: 10px 15px;
-    background: rgba(0, 255, 136, 0.05);
-    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    background: rgba(74, 158, 255, 0.05);
+    border-bottom: 1px solid rgba(74, 158, 255, 0.1);
     font-family: 'Orbitron', monospace;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--accent-green);
+    color: var(--accent-cyan);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -225,7 +228,7 @@ body {
 .panel-indicator {
     width: 6px;
     height: 6px;
-    background: var(--accent-green);
+    background: var(--accent-cyan);
     border-radius: 50%;
     animation: blink 1s ease-in-out infinite;
 }
@@ -300,7 +303,7 @@ body {
     grid-row: 1;
     display: flex;
     flex-direction: column;
-    border-left: 1px solid rgba(0, 255, 136, 0.2);
+    border-left: 1px solid rgba(74, 158, 255, 0.2);
     overflow: hidden;
 }
 
@@ -310,13 +313,13 @@ body {
     padding: 10px;
     gap: 8px;
     background: var(--bg-panel);
-    border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+    border-bottom: 1px solid rgba(74, 158, 255, 0.2);
 }
 
 .view-btn {
     flex: 1;
     padding: 10px;
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    border: 1px solid rgba(74, 158, 255, 0.3);
     background: transparent;
     color: var(--text-secondary);
     font-family: 'Orbitron', monospace;
@@ -330,13 +333,13 @@ body {
 }
 
 .view-btn:hover {
-    border-color: var(--accent-green);
-    color: var(--accent-green);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
 }
 
 .view-btn.active {
-    background: var(--accent-green);
-    border-color: var(--accent-green);
+    background: var(--accent-cyan);
+    border-color: var(--accent-cyan);
     color: var(--bg-dark);
 }
 
@@ -355,8 +358,8 @@ body {
     font-family: 'Orbitron', monospace;
     font-size: 20px;
     font-weight: 700;
-    color: var(--accent-green);
-    text-shadow: 0 0 15px var(--accent-green);
+    color: var(--accent-cyan);
+    text-shadow: 0 0 15px var(--accent-cyan);
     text-align: center;
     margin-bottom: 12px;
 }
@@ -371,7 +374,7 @@ body {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 4px;
     padding: 8px;
-    border-left: 2px solid var(--accent-green);
+    border-left: 2px solid var(--accent-cyan);
 }
 
 .telemetry-label {
@@ -404,7 +407,7 @@ body {
 
 .aircraft-item {
     background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 255, 136, 0.15);
+    border: 1px solid rgba(74, 158, 255, 0.15);
     border-radius: 4px;
     padding: 8px 10px;
     margin-bottom: 6px;
@@ -413,14 +416,14 @@ body {
 }
 
 .aircraft-item:hover {
-    border-color: var(--accent-green);
-    background: rgba(0, 255, 136, 0.05);
+    border-color: var(--accent-cyan);
+    background: rgba(74, 158, 255, 0.05);
 }
 
 .aircraft-item.selected {
-    border-color: var(--accent-green);
-    box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
-    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px rgba(74, 158, 255, 0.2);
+    background: rgba(74, 158, 255, 0.1);
 }
 
 .aircraft-header {
@@ -434,14 +437,14 @@ body {
     font-family: 'Orbitron', monospace;
     font-size: 12px;
     font-weight: 600;
-    color: var(--accent-green);
+    color: var(--accent-cyan);
 }
 
 .aircraft-icao {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px;
     color: var(--text-secondary);
-    background: rgba(0, 255, 136, 0.1);
+    background: rgba(74, 158, 255, 0.1);
     padding: 2px 5px;
     border-radius: 3px;
 }
@@ -475,10 +478,11 @@ body {
     grid-row: 2;
     display: flex;
     align-items: center;
-    gap: 20px;
+    flex-wrap: wrap;
+    gap: 10px 20px;
     padding: 10px 20px;
     background: var(--bg-panel);
-    border-top: 1px solid rgba(0, 255, 136, 0.3);
+    border-top: 1px solid rgba(74, 158, 255, 0.3);
 }
 
 .control-group {
@@ -497,15 +501,15 @@ body {
 }
 
 .control-group input[type="checkbox"] {
-    accent-color: var(--accent-green);
+    accent-color: var(--accent-cyan);
 }
 
 .control-group select {
     padding: 6px 10px;
     background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
-    color: var(--accent-green);
+    color: var(--accent-cyan);
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
 }
@@ -514,9 +518,9 @@ body {
     width: 80px;
     padding: 6px 8px;
     background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
-    color: var(--accent-green);
+    color: var(--accent-cyan);
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
 }
@@ -531,9 +535,9 @@ body {
 /* Start/stop button */
 .start-btn {
     padding: 8px 20px;
-    border: 1px solid var(--accent-green);
-    background: rgba(0, 255, 136, 0.1);
-    color: var(--accent-green);
+    border: 1px solid var(--accent-cyan);
+    background: rgba(74, 158, 255, 0.1);
+    color: var(--accent-cyan);
     font-family: 'Orbitron', monospace;
     font-size: 11px;
     font-weight: 600;
@@ -546,9 +550,9 @@ body {
 }
 
 .start-btn:hover {
-    background: var(--accent-green);
+    background: var(--accent-cyan);
     color: var(--bg-dark);
-    box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+    box-shadow: 0 0 20px rgba(74, 158, 255, 0.3);
 }
 
 .start-btn.active {
@@ -564,10 +568,10 @@ body {
 /* GPS button */
 .gps-btn {
     padding: 6px 10px;
-    background: rgba(0, 255, 136, 0.2);
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    background: rgba(74, 158, 255, 0.2);
+    border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
-    color: var(--accent-green);
+    color: var(--accent-cyan);
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     cursor: pointer;
@@ -578,10 +582,15 @@ body {
     background: var(--bg-dark) !important;
 }
 
+.leaflet-tile-pane,
+.leaflet-container .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(1.2) !important;
+}
+
 .leaflet-control-zoom a {
     background: var(--bg-panel) !important;
-    color: var(--accent-green) !important;
-    border-color: rgba(0, 255, 136, 0.3) !important;
+    color: var(--accent-cyan) !important;
+    border-color: var(--border-color) !important;
 }
 
 .leaflet-control-attribution {
@@ -600,7 +609,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--accent-green);
+    background: var(--accent-cyan);
     border-radius: 3px;
 }
 
@@ -632,7 +641,7 @@ body {
         grid-column: 1;
         grid-row: 2;
         border-left: none;
-        border-top: 1px solid rgba(0, 255, 136, 0.2);
+        border-top: 1px solid rgba(74, 158, 255, 0.2);
         max-height: 300px;
     }
 
@@ -640,4 +649,129 @@ body {
         grid-row: 3;
         flex-wrap: wrap;
     }
+}
+/* Airband Audio Controls */
+.airband-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-color);
+    margin: 0 10px;
+}
+
+.airband-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.airband-btn {
+    padding: 6px 12px;
+    background: rgba(74, 158, 255, 0.1);
+    border: 1px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.airband-btn:hover {
+    background: rgba(74, 158, 255, 0.2);
+}
+
+.airband-btn.active {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
+.airband-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.airband-icon {
+    font-size: 10px;
+}
+
+.airband-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 0 8px;
+}
+
+#airbandSquelch {
+    accent-color: var(--accent-cyan);
+}
+
+/* Airband Audio Visualizer */
+.airband-visualizer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    border-left: 1px solid var(--border-color);
+    margin-left: 5px;
+}
+
+.airband-visualizer .signal-meter {
+    width: 80px;
+}
+
+.airband-visualizer .meter-bar {
+    height: 10px;
+    background: linear-gradient(90deg, 
+        var(--accent-green) 0%, 
+        var(--accent-green) 60%, 
+        var(--accent-orange) 60%, 
+        var(--accent-orange) 80%, 
+        var(--accent-red) 80%, 
+        var(--accent-red) 100%
+    );
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0.3;
+}
+
+.airband-visualizer .meter-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        var(--accent-green) 0%, 
+        var(--accent-green) 60%, 
+        var(--accent-orange) 60%, 
+        var(--accent-orange) 80%, 
+        var(--accent-red) 80%, 
+        var(--accent-red) 100%
+    );
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.05s ease-out;
+}
+
+.airband-visualizer .meter-peak {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 2px;
+    background: #fff;
+    opacity: 0.8;
+    transition: left 0.05s ease-out;
+    left: 0%;
+}
+
+#airbandSpectrumCanvas {
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.4);
 }
