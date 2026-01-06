@@ -8250,8 +8250,8 @@
                     if (!data.rtl_fm) {
                         warnings.push('rtl_fm not found - install rtl-sdr tools');
                     }
-                    if (!data.available) {
-                        warnings.push('No RTL-SDR devices found');
+                    if (!data.ffmpeg) {
+                        warnings.push('ffmpeg not found - install: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)');
                     }
 
                     const warningDiv = document.getElementById('scannerToolsWarning');
