@@ -69,7 +69,7 @@ setup_sudo() {
 # ============================================
 install_python_deps() {
     echo ""
-    echo -e "${BLUE}[1/3] Installing Python dependencies...${NC}"
+    echo -e "${BLUE}[3/3] Installing Python dependencies...${NC}"
 
     if ! check_cmd python3; then
         echo -e "${RED}Error: Python 3 is not installed${NC}"
@@ -100,11 +100,11 @@ install_python_deps() {
     # Install dependencies
     if [ -n "$VIRTUAL_ENV" ]; then
         echo "Using virtual environment: $VIRTUAL_ENV"
-        pip install -r requirements.txt
+        pip install -r requirements.txt || echo -e "${YELLOW}Warning: Some Python packages may have failed${NC}"
     elif [ -f "venv/bin/activate" ]; then
         echo "Found existing venv, activating..."
         source venv/bin/activate
-        pip install -r requirements.txt
+        pip install -r requirements.txt || echo -e "${YELLOW}Warning: Some Python packages may have failed${NC}"
     else
         # Try pip install, fall back to venv if needed (PEP 668)
         if python3 -m pip install -r requirements.txt 2>/dev/null; then
@@ -117,16 +117,19 @@ install_python_deps() {
             rm -rf venv
         fi
 
+        # Install python3-venv if needed
+        if [[ "$OS" == "debian" ]]; then
+            $SUDO apt-get install -y python3-venv 2>/dev/null || true
+        fi
+
         if ! python3 -m venv venv; then
             echo -e "${RED}Error: Failed to create virtual environment${NC}"
-            if [[ "$OS" == "debian" ]]; then
-                echo "Install with: sudo apt install python3-venv"
-            fi
-            exit 1
+            echo -e "${YELLOW}Continuing with system tool installation...${NC}"
+            return
         fi
 
         source venv/bin/activate
-        pip install -r requirements.txt
+        pip install -r requirements.txt || echo -e "${YELLOW}Warning: Some Python packages may have failed${NC}"
 
         echo ""
         echo -e "${YELLOW}NOTE: Virtual environment created.${NC}"
@@ -161,7 +164,7 @@ check_tool() {
 
 check_tools() {
     echo ""
-    echo -e "${BLUE}[2/3] Checking external tools...${NC}"
+    echo -e "${BLUE}[1/3] Checking external tools...${NC}"
     echo ""
 
     MISSING_TOOLS=()
@@ -218,7 +221,7 @@ check_tools() {
 # ============================================
 install_macos_tools() {
     echo ""
-    echo -e "${BLUE}[3/3] Installing tools (macOS)...${NC}"
+    echo -e "${BLUE}[2/3] Installing tools (macOS)...${NC}"
     echo ""
 
     if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
@@ -343,7 +346,7 @@ install_dump1090_from_source() {
 # ============================================
 install_debian_tools() {
     echo ""
-    echo -e "${BLUE}[3/3] Installing tools (Debian/Ubuntu)...${NC}"
+    echo -e "${BLUE}[2/3] Installing tools (Debian/Ubuntu)...${NC}"
     echo ""
 
     if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
@@ -489,7 +492,7 @@ main() {
         setup_sudo
     fi
 
-    install_python_deps
+    # Check and install system tools FIRST
     check_tools
 
     if [[ "$OS" == "macos" ]]; then
@@ -497,6 +500,9 @@ main() {
     else
         install_debian_tools
     fi
+
+    # Install Python dependencies AFTER system tools
+    install_python_deps
 
     echo ""
     echo "============================================"
