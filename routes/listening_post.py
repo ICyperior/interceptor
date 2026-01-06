@@ -379,24 +379,41 @@ def _start_audio_stream(frequency: float, modulation: str):
         ]
 
         try:
+            logger.info(f"Starting rtl_fm: {' '.join(rtl_cmd)}")
             audio_rtl_process = subprocess.Popen(
                 rtl_cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.PIPE
             )
 
+            logger.info(f"Starting ffmpeg: {' '.join(encoder_cmd)}")
             audio_process = subprocess.Popen(
                 encoder_cmd,
                 stdin=audio_rtl_process.stdout,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 bufsize=0
             )
 
             audio_rtl_process.stdout.close()
+
+            # Brief delay to check if processes started successfully
+            time.sleep(0.2)
+
+            if audio_rtl_process.poll() is not None:
+                stderr = audio_rtl_process.stderr.read().decode() if audio_rtl_process.stderr else ''
+                logger.error(f"rtl_fm exited immediately: {stderr}")
+                return
+
+            if audio_process.poll() is not None:
+                stderr = audio_process.stderr.read().decode() if audio_process.stderr else ''
+                logger.error(f"ffmpeg exited immediately: {stderr}")
+                return
+
             audio_running = True
             audio_frequency = frequency
             audio_modulation = modulation
+            logger.info(f"Audio stream started: {frequency} MHz ({modulation})")
 
         except Exception as e:
             logger.error(f"Failed to start audio stream: {e}")
@@ -694,7 +711,7 @@ def start_audio() -> Response:
     else:
         return jsonify({
             'status': 'error',
-            'message': 'Failed to start audio'
+            'message': 'Failed to start audio. Check that rtl_fm and ffmpeg are installed, and that an SDR device is connected and not in use by another process.'
         }), 500
 
 
@@ -718,11 +735,15 @@ def audio_status() -> Response:
 @listening_post_bp.route('/audio/stream')
 def stream_audio() -> Response:
     """Stream MP3 audio."""
+    # Wait briefly for audio to start (handles race condition with /audio/start)
+    for _ in range(10):
+        if audio_running and audio_process:
+            break
+        time.sleep(0.1)
+
     if not audio_running or not audio_process:
-        return jsonify({
-            'status': 'error',
-            'message': 'Audio not running'
-        }), 400
+        # Return empty audio response instead of JSON (browser audio element can't parse JSON)
+        return Response(b'', mimetype='audio/mpeg', status=204)
 
     def generate():
         chunk_size = 4096
