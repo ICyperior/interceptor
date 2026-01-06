@@ -349,97 +349,76 @@ install_debian_tools() {
     echo -e "${BLUE}[2/3] Installing tools (Debian/Ubuntu)...${NC}"
     echo ""
 
-    if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
-        echo -e "${GREEN}All tools are already installed!${NC}"
-        return
+    echo "Updating package lists..."
+    $SUDO apt-get update -qq
+
+    # Always try to install all tools - apt will skip already installed ones
+    echo ""
+    echo -e "${BLUE}Installing Core SDR tools...${NC}"
+
+    # Install rtl-sdr
+    echo "  Installing rtl-sdr..."
+    $SUDO apt-get install -y rtl-sdr || echo -e "${YELLOW}  Warning: rtl-sdr installation failed${NC}"
+
+    # Install multimon-ng
+    echo "  Installing multimon-ng..."
+    $SUDO apt-get install -y multimon-ng || echo -e "${YELLOW}  Warning: multimon-ng installation failed${NC}"
+
+    # rtl-433 (package name varies by distribution)
+    echo "  Installing rtl-433..."
+    if $SUDO apt-get install -y rtl-433 2>/dev/null; then
+        echo -e "${GREEN}  rtl-433 installed${NC}"
+    elif $SUDO apt-get install -y rtl433 2>/dev/null; then
+        echo -e "${GREEN}  rtl433 installed${NC}"
+    else
+        echo -e "${YELLOW}  Note: rtl-433 not in repositories${NC}"
+        echo "  Install manually from: https://github.com/merbanan/rtl_433"
     fi
 
-    echo -e "${YELLOW}Installing missing tools automatically...${NC}"
-    echo ""
-
-    echo "Updating package lists..."
-    $SUDO apt-get update
-
-    # Core SDR tools - always try to install these
-    if $MISSING_CORE; then
-        echo ""
-        echo -e "${BLUE}Installing Core SDR tools...${NC}"
-
-        # Install rtl-sdr
-        echo "  Installing rtl-sdr..."
-        if ! $SUDO apt-get install -y rtl-sdr; then
-            echo -e "${YELLOW}  Warning: rtl-sdr installation failed${NC}"
-        fi
-
-        # Install multimon-ng
-        echo "  Installing multimon-ng..."
-        if ! $SUDO apt-get install -y multimon-ng; then
-            echo -e "${YELLOW}  Warning: multimon-ng installation failed${NC}"
-        fi
-
-        # rtl-433 (package name varies by distribution)
-        echo "  Installing rtl-433..."
-        if pkg_available rtl-433; then
-            $SUDO apt-get install -y rtl-433
-        elif pkg_available rtl433; then
-            $SUDO apt-get install -y rtl433
-        else
-            echo -e "${YELLOW}  Note: rtl-433 not in repositories${NC}"
-            echo "  Install manually from: https://github.com/merbanan/rtl_433"
-        fi
-
-        # dump1090 (package varies by distribution)
-        if ! check_cmd dump1090; then
-            echo "  Installing dump1090..."
-            if pkg_available dump1090-fa; then
-                $SUDO apt-get install -y dump1090-fa
-            elif pkg_available dump1090-mutability; then
-                $SUDO apt-get install -y dump1090-mutability
-            elif pkg_available dump1090; then
-                $SUDO apt-get install -y dump1090
-            else
-                # Build from source as fallback
-                echo -e "${YELLOW}  dump1090 not in repositories, building from source...${NC}"
-                install_dump1090_from_source
-            fi
-        fi
+    # dump1090 (package varies by distribution)
+    echo "  Installing dump1090..."
+    if check_cmd dump1090; then
+        echo -e "${GREEN}  dump1090 already installed${NC}"
+    elif $SUDO apt-get install -y dump1090-fa 2>/dev/null; then
+        echo -e "${GREEN}  dump1090-fa installed${NC}"
+    elif $SUDO apt-get install -y dump1090-mutability 2>/dev/null; then
+        echo -e "${GREEN}  dump1090-mutability installed${NC}"
+    elif $SUDO apt-get install -y dump1090 2>/dev/null; then
+        echo -e "${GREEN}  dump1090 installed${NC}"
+    else
+        # Build from source as fallback
+        echo -e "${YELLOW}  dump1090 not in repositories, building from source...${NC}"
+        install_dump1090_from_source
     fi
 
     # Audio tools
-    if $MISSING_AUDIO; then
-        echo ""
-        echo -e "${BLUE}Installing Audio tools...${NC}"
-        echo "  Installing ffmpeg..."
-        if ! $SUDO apt-get install -y ffmpeg; then
-            echo -e "${YELLOW}  Warning: ffmpeg installation failed${NC}"
-        fi
-    fi
+    echo ""
+    echo -e "${BLUE}Installing Audio tools...${NC}"
+    echo "  Installing ffmpeg..."
+    $SUDO apt-get install -y ffmpeg || echo -e "${YELLOW}  Warning: ffmpeg installation failed${NC}"
 
     # WiFi tools
-    if $MISSING_WIFI; then
-        echo ""
-        echo -e "${BLUE}Installing WiFi tools...${NC}"
-        echo "  Installing aircrack-ng..."
-        if ! $SUDO apt-get install -y aircrack-ng; then
-            echo -e "${YELLOW}  Warning: aircrack-ng installation failed${NC}"
-        fi
-    fi
+    echo ""
+    echo -e "${BLUE}Installing WiFi tools...${NC}"
+    echo "  Installing aircrack-ng..."
+    $SUDO apt-get install -y aircrack-ng || echo -e "${YELLOW}  Warning: aircrack-ng installation failed${NC}"
 
     # Bluetooth tools
-    if $MISSING_BLUETOOTH; then
-        echo ""
-        echo -e "${BLUE}Installing Bluetooth tools...${NC}"
-        echo "  Installing bluez..."
-        if ! $SUDO apt-get install -y bluez bluetooth; then
-            echo -e "${YELLOW}  Warning: bluez installation failed${NC}"
-        fi
-    fi
+    echo ""
+    echo -e "${BLUE}Installing Bluetooth tools...${NC}"
+    echo "  Installing bluez..."
+    $SUDO apt-get install -y bluez bluetooth || echo -e "${YELLOW}  Warning: bluez installation failed${NC}"
 
     echo ""
     echo -e "${GREEN}Tool installation complete!${NC}"
 
     # Setup udev rules
     setup_udev_rules
+
+    # Verify installation
+    echo ""
+    echo -e "${BLUE}Verifying installation...${NC}"
+    verify_tools
 }
 
 show_debian_manual() {
@@ -457,6 +436,55 @@ show_debian_manual() {
     echo ""
     echo "# Bluetooth scanning (optional)"
     echo "sudo apt install bluez bluetooth"
+}
+
+verify_tools() {
+    local all_ok=true
+
+    echo ""
+    if check_cmd rtl_fm; then
+        echo -e "  ${GREEN}✓${NC} rtl_fm"
+    else
+        echo -e "  ${RED}✗${NC} rtl_fm - NOT INSTALLED"
+        all_ok=false
+    fi
+
+    if check_cmd multimon-ng; then
+        echo -e "  ${GREEN}✓${NC} multimon-ng"
+    else
+        echo -e "  ${RED}✗${NC} multimon-ng - NOT INSTALLED"
+        all_ok=false
+    fi
+
+    if check_cmd rtl_433; then
+        echo -e "  ${GREEN}✓${NC} rtl_433"
+    else
+        echo -e "  ${YELLOW}-${NC} rtl_433 - not installed (optional)"
+    fi
+
+    if check_cmd dump1090; then
+        echo -e "  ${GREEN}✓${NC} dump1090"
+    else
+        echo -e "  ${YELLOW}-${NC} dump1090 - not installed (optional)"
+    fi
+
+    if check_cmd ffmpeg; then
+        echo -e "  ${GREEN}✓${NC} ffmpeg"
+    else
+        echo -e "  ${RED}✗${NC} ffmpeg - NOT INSTALLED"
+        all_ok=false
+    fi
+
+    if check_cmd airmon-ng; then
+        echo -e "  ${GREEN}✓${NC} aircrack-ng"
+    else
+        echo -e "  ${YELLOW}-${NC} aircrack-ng - not installed (optional)"
+    fi
+
+    if ! $all_ok; then
+        echo ""
+        echo -e "${YELLOW}Some required tools failed to install. You may need to install them manually.${NC}"
+    fi
 }
 
 setup_udev_rules() {
