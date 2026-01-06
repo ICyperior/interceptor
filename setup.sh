@@ -228,72 +228,67 @@ install_macos_tools() {
 
     # Check for Homebrew
     if ! check_cmd brew; then
-        echo -e "${YELLOW}Homebrew is not installed.${NC}"
+        echo -e "${YELLOW}Homebrew is not installed. Installing...${NC}"
         echo ""
-        read -p "Would you like to install Homebrew? [Y/n] " -n 1 -r
-        echo ""
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            echo "Installing Homebrew..."
-            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        # Add brew to PATH for this session
+        if [[ -f /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -f /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
 
-            # Add brew to PATH for this session
-            if [[ -f /opt/homebrew/bin/brew ]]; then
-                eval "$(/opt/homebrew/bin/brew shellenv)"
-            elif [[ -f /usr/local/bin/brew ]]; then
-                eval "$(/usr/local/bin/brew shellenv)"
-            fi
-        else
-            echo ""
-            echo "Skipping tool installation. Install manually with:"
+        if ! check_cmd brew; then
+            echo -e "${RED}Failed to install Homebrew. Install manually:${NC}"
             show_macos_manual
             return
         fi
     fi
 
-    echo ""
-    echo -e "${YELLOW}The following will be installed:${NC}"
-    $MISSING_CORE && echo "  - Core SDR tools (rtl-sdr, multimon-ng, rtl_433, dump1090)"
-    $MISSING_AUDIO && echo "  - Audio tools (ffmpeg)"
-    $MISSING_WIFI && echo "  - WiFi tools (aircrack-ng)"
+    echo -e "${YELLOW}Installing missing tools automatically...${NC}"
     echo ""
 
-    read -p "Install missing tools? [Y/n] " -n 1 -r
-    echo ""
-
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        # Core SDR tools
-        if $MISSING_CORE; then
-            echo ""
-            echo -e "${BLUE}Installing Core SDR tools...${NC}"
-            brew install librtlsdr multimon-ng rtl_433 2>/dev/null || true
-
-            # dump1090
-            if ! check_cmd dump1090; then
-                brew install dump1090-mutability 2>/dev/null || \
-                echo -e "${YELLOW}Note: dump1090 may need manual installation${NC}"
-            fi
-        fi
-
-        # Audio tools
-        if $MISSING_AUDIO; then
-            echo ""
-            echo -e "${BLUE}Installing Audio tools...${NC}"
-            brew install ffmpeg
-        fi
-
-        # WiFi tools
-        if $MISSING_WIFI; then
-            echo ""
-            echo -e "${BLUE}Installing WiFi tools...${NC}"
-            brew install aircrack-ng
-        fi
-
+    # Core SDR tools
+    if $MISSING_CORE; then
         echo ""
-        echo -e "${GREEN}Tool installation complete!${NC}"
-    else
-        show_macos_manual
+        echo -e "${BLUE}Installing Core SDR tools...${NC}"
+
+        echo "  Installing librtlsdr..."
+        brew install librtlsdr || echo -e "${YELLOW}  Warning: librtlsdr installation failed${NC}"
+
+        echo "  Installing multimon-ng..."
+        brew install multimon-ng || echo -e "${YELLOW}  Warning: multimon-ng installation failed${NC}"
+
+        echo "  Installing rtl_433..."
+        brew install rtl_433 || echo -e "${YELLOW}  Warning: rtl_433 installation failed${NC}"
+
+        # dump1090
+        if ! check_cmd dump1090; then
+            echo "  Installing dump1090..."
+            brew install dump1090-mutability || \
+            echo -e "${YELLOW}  Note: dump1090 may need manual installation${NC}"
+        fi
     fi
+
+    # Audio tools
+    if $MISSING_AUDIO; then
+        echo ""
+        echo -e "${BLUE}Installing Audio tools...${NC}"
+        echo "  Installing ffmpeg..."
+        brew install ffmpeg || echo -e "${YELLOW}  Warning: ffmpeg installation failed${NC}"
+    fi
+
+    # WiFi tools
+    if $MISSING_WIFI; then
+        echo ""
+        echo -e "${BLUE}Installing WiFi tools...${NC}"
+        echo "  Installing aircrack-ng..."
+        brew install aircrack-ng || echo -e "${YELLOW}  Warning: aircrack-ng installation failed${NC}"
+    fi
+
+    echo ""
+    echo -e "${GREEN}Tool installation complete!${NC}"
 }
 
 show_macos_manual() {
@@ -323,80 +318,89 @@ install_debian_tools() {
         return
     fi
 
-    echo -e "${YELLOW}The following will be installed:${NC}"
-    $MISSING_CORE && echo "  - Core SDR tools (rtl-sdr, multimon-ng, rtl-433, dump1090)"
-    $MISSING_AUDIO && echo "  - Audio tools (ffmpeg)"
-    $MISSING_WIFI && echo "  - WiFi tools (aircrack-ng)"
-    $MISSING_BLUETOOTH && echo "  - Bluetooth tools (bluez)"
+    echo -e "${YELLOW}Installing missing tools automatically...${NC}"
     echo ""
 
-    read -p "Install missing tools? [Y/n] " -n 1 -r
-    echo ""
+    echo "Updating package lists..."
+    $SUDO apt-get update
 
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        echo "Updating package lists..."
-        $SUDO apt update
-
-        # Core SDR tools
-        if $MISSING_CORE; then
-            echo ""
-            echo -e "${BLUE}Installing Core SDR tools...${NC}"
-            $SUDO apt install -y rtl-sdr multimon-ng 2>/dev/null || true
-
-            # rtl-433 (package name varies)
-            if pkg_available rtl-433; then
-                $SUDO apt install -y rtl-433
-            elif pkg_available rtl433; then
-                $SUDO apt install -y rtl433
-            else
-                echo -e "${YELLOW}Note: rtl-433 not in repositories, install manually${NC}"
-            fi
-
-            # dump1090 (package varies by distribution)
-            if ! check_cmd dump1090; then
-                if pkg_available dump1090-fa; then
-                    $SUDO apt install -y dump1090-fa
-                elif pkg_available dump1090-mutability; then
-                    $SUDO apt install -y dump1090-mutability
-                elif pkg_available dump1090; then
-                    $SUDO apt install -y dump1090
-                else
-                    echo ""
-                    echo -e "${YELLOW}Note: dump1090 not in repositories.${NC}"
-                    echo "Install from: https://flightaware.com/adsb/piaware/install"
-                fi
-            fi
-        fi
-
-        # Audio tools
-        if $MISSING_AUDIO; then
-            echo ""
-            echo -e "${BLUE}Installing Audio tools...${NC}"
-            $SUDO apt install -y ffmpeg
-        fi
-
-        # WiFi tools
-        if $MISSING_WIFI; then
-            echo ""
-            echo -e "${BLUE}Installing WiFi tools...${NC}"
-            $SUDO apt install -y aircrack-ng
-        fi
-
-        # Bluetooth tools
-        if $MISSING_BLUETOOTH; then
-            echo ""
-            echo -e "${BLUE}Installing Bluetooth tools...${NC}"
-            $SUDO apt install -y bluez bluetooth
-        fi
-
+    # Core SDR tools - always try to install these
+    if $MISSING_CORE; then
         echo ""
-        echo -e "${GREEN}Tool installation complete!${NC}"
+        echo -e "${BLUE}Installing Core SDR tools...${NC}"
 
-        # Setup udev rules
-        setup_udev_rules
-    else
-        show_debian_manual
+        # Install rtl-sdr
+        echo "  Installing rtl-sdr..."
+        if ! $SUDO apt-get install -y rtl-sdr; then
+            echo -e "${YELLOW}  Warning: rtl-sdr installation failed${NC}"
+        fi
+
+        # Install multimon-ng
+        echo "  Installing multimon-ng..."
+        if ! $SUDO apt-get install -y multimon-ng; then
+            echo -e "${YELLOW}  Warning: multimon-ng installation failed${NC}"
+        fi
+
+        # rtl-433 (package name varies by distribution)
+        echo "  Installing rtl-433..."
+        if pkg_available rtl-433; then
+            $SUDO apt-get install -y rtl-433
+        elif pkg_available rtl433; then
+            $SUDO apt-get install -y rtl433
+        else
+            echo -e "${YELLOW}  Note: rtl-433 not in repositories${NC}"
+            echo "  Install manually from: https://github.com/merbanan/rtl_433"
+        fi
+
+        # dump1090 (package varies by distribution)
+        echo "  Installing dump1090..."
+        if pkg_available dump1090-fa; then
+            $SUDO apt-get install -y dump1090-fa
+        elif pkg_available dump1090-mutability; then
+            $SUDO apt-get install -y dump1090-mutability
+        elif pkg_available dump1090; then
+            $SUDO apt-get install -y dump1090
+        else
+            echo -e "${YELLOW}  Note: dump1090 not in repositories${NC}"
+            echo "  Install from: https://flightaware.com/adsb/piaware/install"
+        fi
     fi
+
+    # Audio tools
+    if $MISSING_AUDIO; then
+        echo ""
+        echo -e "${BLUE}Installing Audio tools...${NC}"
+        echo "  Installing ffmpeg..."
+        if ! $SUDO apt-get install -y ffmpeg; then
+            echo -e "${YELLOW}  Warning: ffmpeg installation failed${NC}"
+        fi
+    fi
+
+    # WiFi tools
+    if $MISSING_WIFI; then
+        echo ""
+        echo -e "${BLUE}Installing WiFi tools...${NC}"
+        echo "  Installing aircrack-ng..."
+        if ! $SUDO apt-get install -y aircrack-ng; then
+            echo -e "${YELLOW}  Warning: aircrack-ng installation failed${NC}"
+        fi
+    fi
+
+    # Bluetooth tools
+    if $MISSING_BLUETOOTH; then
+        echo ""
+        echo -e "${BLUE}Installing Bluetooth tools...${NC}"
+        echo "  Installing bluez..."
+        if ! $SUDO apt-get install -y bluez bluetooth; then
+            echo -e "${YELLOW}  Warning: bluez installation failed${NC}"
+        fi
+    fi
+
+    echo ""
+    echo -e "${GREEN}Tool installation complete!${NC}"
+
+    # Setup udev rules
+    setup_udev_rules
 }
 
 show_debian_manual() {
@@ -418,23 +422,20 @@ show_debian_manual() {
 
 setup_udev_rules() {
     if [ -f /etc/udev/rules.d/20-rtlsdr.rules ]; then
+        echo -e "${GREEN}udev rules already configured${NC}"
         return
     fi
 
     echo ""
-    read -p "Setup RTL-SDR udev rules? [Y/n] " -n 1 -r
-    echo ""
-
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        $SUDO bash -c 'cat > /etc/udev/rules.d/20-rtlsdr.rules << EOF
+    echo -e "${BLUE}Setting up RTL-SDR udev rules...${NC}"
+    $SUDO bash -c 'cat > /etc/udev/rules.d/20-rtlsdr.rules << EOF
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0666"
 EOF'
-        $SUDO udevadm control --reload-rules
-        $SUDO udevadm trigger
-        echo -e "${GREEN}udev rules installed!${NC}"
-        echo "Please unplug and replug your RTL-SDR."
-    fi
+    $SUDO udevadm control --reload-rules
+    $SUDO udevadm trigger
+    echo -e "${GREEN}udev rules installed!${NC}"
+    echo "Please unplug and replug your RTL-SDR if connected."
 }
 
 # ============================================
