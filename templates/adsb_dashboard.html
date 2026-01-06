@@ -1894,7 +1894,7 @@ sudo make install</code>
             document.getElementById('airbandStatus').textContent = 'STARTING...';
             document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
 
-            fetch('/spectrum/audio/start', {
+            fetch('/listening/audio/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1912,7 +1912,7 @@ sudo make install</code>
 
                     // Start browser audio playback
                     const audioPlayer = document.getElementById('airbandPlayer');
-                    audioPlayer.src = '/spectrum/audio/stream?' + Date.now();
+                    audioPlayer.src = '/listening/audio/stream?' + Date.now();
 
                     // Initialize visualizer before playing
                     initAirbandVisualizer();
@@ -1946,7 +1946,7 @@ sudo make install</code>
             audioPlayer.pause();
             audioPlayer.src = '';
 
-            fetch('/spectrum/audio/stop', { method: 'POST' })
+            fetch('/listening/audio/stop', { method: 'POST' })
                 .then(r => r.json())
                 .then(() => {
                     isAirbandPlaying = false;
