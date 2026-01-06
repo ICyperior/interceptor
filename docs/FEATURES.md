@@ -31,6 +31,10 @@ Complete feature list for all modules.
 - **Emergency squawk highlighting** - visual alerts for 7500/7600/7700
 - **Aircraft details popup** - callsign, altitude, speed, heading, squawk, ICAO
 
+<p align="center">
+  <img src="/static/images/screenshots/screenshot_radar.png" alt="Screenshot">
+</p>
+
 ## Satellite Tracking
 
 - **Full-screen dashboard** - dedicated popout with polar plot and ground track
@@ -42,6 +46,13 @@ Complete feature list for all modules.
 - **Next pass countdown** - time remaining, visibility duration, max elevation
 - **Telemetry panel** - real-time azimuth, elevation, range, velocity
 - **Multiple satellite tracking** simultaneously
+
+<p align="center">
+  <img src="/static/images/screenshots/screenshot_sat.png" alt="Screenshot">
+</p>
+<p align="center">
+  <img src="/static/images/screenshots/screenshot_sat_2.png" alt="Screenshot">
+</p>
 
 ## WiFi Reconnaissance
 
@@ -108,3 +119,4 @@ Complete feature list for all modules.
 - **GPS dongle support** - USB GPS receivers for precise observer location
 - **Disclaimer acceptance** on first use
 - **Auto-stop** when switching between modes
+

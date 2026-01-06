@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="static/images/screenshots/screenshot2.png" alt="Screenshot">
+  <img src="static/images/screenshots/screenshot_main.png" alt="Screenshot">
 </p>
 
 ---
@@ -185,3 +185,13 @@ MIT License - see [LICENSE](LICENSE)
 ## Author
 
 Created by **smittix** - [GitHub](https://github.com/smittix)
+
+## Acknowledgments
+
+[rtl-sdr](https://osmocom.org/projects/rtl-sdr/wiki) |
+[multimon-ng](https://github.com/EliasOenal/multimon-ng) |
+[rtl_433](https://github.com/merbanan/rtl_433) |
+[dump1090](https://github.com/flightaware/dump1090) |
+[aircrack-ng](https://www.aircrack-ng.org/) |
+[Leaflet.js](https://leafletjs.com/) |
+[Celestrak](https://celestrak.org/)
