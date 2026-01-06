@@ -49,6 +49,12 @@ sudo python3 intercept.py
 
 Open http://localhost:5050 in your browser.
 
+## Usage of Black Formatter
+```bash
+uv run black . # If you use UV
+black . # For Python
+```
+
 <details>
 <summary><strong>Alternative: Install with uv</strong></summary>
 
