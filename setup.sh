@@ -7,6 +7,13 @@
 # Don't exit on errors - we handle them explicitly
 set +e
 
+# Pause briefly after each action so output is readable
+PAUSE_TIME=1
+
+pause() {
+    sleep $PAUSE_TIME
+}
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -383,6 +390,7 @@ install_debian_tools() {
     else
         echo -e "${YELLOW}  Warning: rtl-sdr installation failed${NC}"
     fi
+    pause
 
     # Install multimon-ng
     echo "  Installing multimon-ng..."
@@ -391,6 +399,7 @@ install_debian_tools() {
     else
         echo -e "${YELLOW}  Warning: multimon-ng installation failed${NC}"
     fi
+    pause
 
     # rtl-433 (package name varies by distribution)
     echo "  Installing rtl-433..."
@@ -402,6 +411,7 @@ install_debian_tools() {
         echo -e "${YELLOW}  Note: rtl-433 not in repositories${NC}"
         echo "  Install manually from: https://github.com/merbanan/rtl_433"
     fi
+    pause
 
     # dump1090 (package varies by distribution)
     echo "  Installing dump1090..."
@@ -418,6 +428,7 @@ install_debian_tools() {
         echo -e "${YELLOW}  dump1090 not in repositories, building from source...${NC}"
         install_dump1090_from_source
     fi
+    pause
 
     # Audio tools
     echo ""
@@ -428,21 +439,33 @@ install_debian_tools() {
     else
         echo -e "${YELLOW}  Warning: ffmpeg installation failed${NC}"
     fi
+    pause
 
     # WiFi tools
     echo ""
     echo -e "${BLUE}Installing WiFi tools...${NC}"
     echo "  Installing aircrack-ng..."
-    $SUDO apt-get install -y aircrack-ng || echo -e "${YELLOW}  Warning: aircrack-ng installation failed${NC}"
+    if $SUDO apt-get install -y aircrack-ng; then
+        echo -e "${GREEN}  aircrack-ng installed${NC}"
+    else
+        echo -e "${YELLOW}  Warning: aircrack-ng installation failed${NC}"
+    fi
+    pause
 
     # Bluetooth tools
     echo ""
     echo -e "${BLUE}Installing Bluetooth tools...${NC}"
     echo "  Installing bluez..."
-    $SUDO apt-get install -y bluez bluetooth || echo -e "${YELLOW}  Warning: bluez installation failed${NC}"
+    if $SUDO apt-get install -y bluez bluetooth; then
+        echo -e "${GREEN}  bluez installed${NC}"
+    else
+        echo -e "${YELLOW}  Warning: bluez installation failed${NC}"
+    fi
+    pause
 
     echo ""
     echo -e "${GREEN}Tool installation complete!${NC}"
+    pause
 
     # Setup udev rules
     setup_udev_rules
