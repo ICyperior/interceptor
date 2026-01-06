@@ -1145,7 +1145,57 @@
             updateClock();
             setInterval(updateClock, 1000);
             setInterval(cleanupOldAircraft, 10000);
+            checkAdsbTools();
         });
+
+        function checkAdsbTools() {
+            fetch('/adsb/tools')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.needs_readsb) {
+                        showReadsbWarning(data.soapy_types);
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function showReadsbWarning(sdrTypes) {
+            const typeList = sdrTypes.join(', ') || 'SoapySDR device';
+            const warning = document.createElement('div');
+            warning.id = 'readsbWarning';
+            warning.style.cssText = `
+                position: fixed;
+                bottom: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(245, 158, 11, 0.95);
+                color: #000;
+                padding: 15px 25px;
+                border-radius: 8px;
+                font-size: 12px;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                max-width: 500px;
+                text-align: left;
+                font-family: 'Inter', sans-serif;
+            `;
+            warning.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 8px;">⚠️ ${typeList} Detected - readsb Required</div>
+                <div style="margin-bottom: 10px;">ADS-B tracking with ${typeList} requires <strong>readsb</strong> compiled with SoapySDR support.</div>
+                <details style="font-size: 11px;">
+                    <summary style="cursor: pointer; margin-bottom: 8px;">Installation Instructions</summary>
+                    <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; margin-top: 5px;">
+                        <code style="display: block; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 10px;">sudo apt install build-essential libsoapysdr-dev librtlsdr-dev
+git clone https://github.com/wiedehopf/readsb.git
+cd readsb
+make HAVE_SOAPYSDR=1
+sudo make install</code>
+                    </div>
+                </details>
+                <button onclick="this.parentElement.remove()" style="position: absolute; top: 8px; right: 12px; background: none; border: none; color: #000; cursor: pointer; font-size: 16px; font-weight: bold;">×</button>
+            `;
+            document.body.appendChild(warning);
+        }
 
         function updateClock() {
             const now = new Date();

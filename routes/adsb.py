@@ -213,10 +213,29 @@ def parse_sbs_stream(service_addr):
 
 @adsb_bp.route('/tools')
 def check_adsb_tools():
-    """Check for ADS-B decoding tools."""
+    """Check for ADS-B decoding tools and hardware."""
+    # Check available decoders
+    has_dump1090 = find_dump1090() is not None
+    has_readsb = shutil.which('readsb') is not None
+    has_rtl_adsb = shutil.which('rtl_adsb') is not None
+
+    # Check what SDR hardware is detected
+    devices = SDRFactory.detect_devices()
+    has_rtlsdr = any(d.sdr_type == SDRType.RTL_SDR for d in devices)
+    has_soapy_sdr = any(d.sdr_type in (SDRType.HACKRF, SDRType.LIMESDR, SDRType.AIRSPY) for d in devices)
+    soapy_types = [d.sdr_type.value for d in devices if d.sdr_type in (SDRType.HACKRF, SDRType.LIMESDR, SDRType.AIRSPY)]
+
+    # Determine if readsb is needed but missing
+    needs_readsb = has_soapy_sdr and not has_readsb
+
     return jsonify({
-        'dump1090': find_dump1090() is not None,
-        'rtl_adsb': shutil.which('rtl_adsb') is not None
+        'dump1090': has_dump1090,
+        'readsb': has_readsb,
+        'rtl_adsb': has_rtl_adsb,
+        'has_rtlsdr': has_rtlsdr,
+        'has_soapy_sdr': has_soapy_sdr,
+        'soapy_types': soapy_types,
+        'needs_readsb': needs_readsb
     })
 
 
