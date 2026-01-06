@@ -336,7 +336,10 @@ def start_adsb():
         time.sleep(DUMP1090_START_WAIT)
 
         if app_module.adsb_process.poll() is not None:
-            return jsonify({'status': 'error', 'message': 'dump1090 failed to start. Check RTL-SDR device permissions or if another process is using it.'})
+            if sdr_type == SDRType.RTL_SDR:
+                return jsonify({'status': 'error', 'message': 'dump1090 failed to start. Check RTL-SDR device permissions or if another process is using it.'})
+            else:
+                return jsonify({'status': 'error', 'message': f'ADS-B decoder failed to start for {sdr_type.value}. Ensure readsb is installed with SoapySDR support and the device is connected.'})
 
         adsb_using_service = True
         thread = threading.Thread(target=parse_sbs_stream, args=(f'localhost:{ADSB_SBS_PORT}',), daemon=True)
