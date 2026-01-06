@@ -3114,6 +3114,9 @@
                             startStream();
                         }
                     }
+                })
+                .catch(() => {
+                    // Silently ignore - server may be restarting or network issue
                 });
         }
 
