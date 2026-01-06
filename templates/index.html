@@ -8666,10 +8666,32 @@
             ).join('');
         }
 
+        // Track recent signal hits to prevent duplicates
+        let recentSignalHits = new Map(); // frequency -> timestamp
+
         function addSignalHit(data) {
             const tbody = document.getElementById('scannerHitsBody');
-            const now = new Date();
-            const timestamp = now.toLocaleTimeString();
+            const now = Date.now();
+            const freqKey = data.frequency.toFixed(3);
+
+            // Check for duplicate - same frequency within last 5 seconds
+            if (recentSignalHits.has(freqKey)) {
+                const lastHit = recentSignalHits.get(freqKey);
+                if (now - lastHit < 5000) {
+                    // Duplicate, skip
+                    return;
+                }
+            }
+            recentSignalHits.set(freqKey, now);
+
+            // Clean up old entries (older than 30 seconds)
+            for (const [freq, time] of recentSignalHits) {
+                if (now - time > 30000) {
+                    recentSignalHits.delete(freq);
+                }
+            }
+
+            const timestamp = new Date().toLocaleTimeString();
 
             // Remove "no signals" placeholder if present
             if (tbody.innerHTML.includes('No signals detected')) {
