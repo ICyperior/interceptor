@@ -4,7 +4,8 @@
 # Installs dependencies for macOS and Debian/Ubuntu
 #
 
-set -e
+# Don't exit on errors - we handle them explicitly
+set +e
 
 # Colors for output
 RED='\033[0;31m'
@@ -312,32 +313,51 @@ show_macos_manual() {
 # BUILD DUMP1090 FROM SOURCE
 # ============================================
 install_dump1090_from_source() {
-    # Install build dependencies
     echo "    Installing build dependencies..."
-    $SUDO apt-get install -y build-essential librtlsdr-dev libusb-1.0-0-dev pkg-config git
+    $SUDO apt-get install -y build-essential git librtlsdr-dev libusb-1.0-0-dev \
+        pkg-config libncurses-dev debhelper tcl-dev python3-dev || true
 
-    # Create temp directory
+    # Save current directory
+    local orig_dir=$(pwd)
     local tmp_dir=$(mktemp -d)
-    cd "$tmp_dir"
 
     echo "    Cloning dump1090 repository..."
-    if git clone https://github.com/flightaware/dump1090.git; then
-        cd dump1090
-        echo "    Compiling dump1090..."
-        if make; then
-            echo "    Installing dump1090 to /usr/local/bin..."
-            $SUDO cp dump1090 /usr/local/bin/
-            $SUDO chmod +x /usr/local/bin/dump1090
-            echo -e "${GREEN}    dump1090 installed successfully!${NC}"
-        else
-            echo -e "${RED}    Failed to compile dump1090${NC}"
-        fi
-    else
+    if ! git clone --depth 1 https://github.com/flightaware/dump1090.git "$tmp_dir/dump1090" 2>&1; then
         echo -e "${RED}    Failed to clone dump1090 repository${NC}"
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    cd "$tmp_dir/dump1090"
+
+    echo "    Compiling dump1090 (this may take a minute)..."
+    # Try to build - use BLADERF=no to skip BladeRF dependency
+    if make BLADERF=no RTLSDR=yes 2>&1; then
+        echo "    Installing dump1090 to /usr/local/bin..."
+        $SUDO cp dump1090 /usr/local/bin/
+        $SUDO chmod +x /usr/local/bin/dump1090
+        echo -e "${GREEN}    dump1090 installed successfully!${NC}"
+    else
+        echo -e "${RED}    Failed to compile dump1090${NC}"
+        echo "    Trying simpler antirez version..."
+
+        # Try the simpler antirez version as fallback
+        cd "$tmp_dir"
+        rm -rf dump1090
+        if git clone --depth 1 https://github.com/antirez/dump1090.git 2>&1; then
+            cd dump1090
+            if make 2>&1; then
+                $SUDO cp dump1090 /usr/local/bin/
+                $SUDO chmod +x /usr/local/bin/dump1090
+                echo -e "${GREEN}    dump1090 (antirez) installed successfully!${NC}"
+            else
+                echo -e "${RED}    Failed to compile dump1090${NC}"
+            fi
+        fi
     fi
 
     # Cleanup
-    cd - > /dev/null
+    cd "$orig_dir"
     rm -rf "$tmp_dir"
 }
 
@@ -358,11 +378,19 @@ install_debian_tools() {
 
     # Install rtl-sdr
     echo "  Installing rtl-sdr..."
-    $SUDO apt-get install -y rtl-sdr || echo -e "${YELLOW}  Warning: rtl-sdr installation failed${NC}"
+    if $SUDO apt-get install -y rtl-sdr; then
+        echo -e "${GREEN}  rtl-sdr installed${NC}"
+    else
+        echo -e "${YELLOW}  Warning: rtl-sdr installation failed${NC}"
+    fi
 
     # Install multimon-ng
     echo "  Installing multimon-ng..."
-    $SUDO apt-get install -y multimon-ng || echo -e "${YELLOW}  Warning: multimon-ng installation failed${NC}"
+    if $SUDO apt-get install -y multimon-ng; then
+        echo -e "${GREEN}  multimon-ng installed${NC}"
+    else
+        echo -e "${YELLOW}  Warning: multimon-ng installation failed${NC}"
+    fi
 
     # rtl-433 (package name varies by distribution)
     echo "  Installing rtl-433..."
@@ -395,7 +423,11 @@ install_debian_tools() {
     echo ""
     echo -e "${BLUE}Installing Audio tools...${NC}"
     echo "  Installing ffmpeg..."
-    $SUDO apt-get install -y ffmpeg || echo -e "${YELLOW}  Warning: ffmpeg installation failed${NC}"
+    if $SUDO apt-get install -y ffmpeg; then
+        echo -e "${GREEN}  ffmpeg installed${NC}"
+    else
+        echo -e "${YELLOW}  Warning: ffmpeg installation failed${NC}"
+    fi
 
     # WiFi tools
     echo ""
