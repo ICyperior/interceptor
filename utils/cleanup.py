@@ -99,6 +99,23 @@ class DataStore:
         with self._lock:
             return key in self.data
 
+    def __getitem__(self, key: str) -> Any:
+        """Get an entry using subscript notation."""
+        with self._lock:
+            return self.data[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set an entry using subscript notation."""
+        with self._lock:
+            self.data[key] = value
+            self.timestamps[key] = time.time()
+
+    def __delitem__(self, key: str) -> None:
+        """Delete an entry using subscript notation."""
+        with self._lock:
+            del self.data[key]
+            del self.timestamps[key]
+
     def cleanup(self) -> int:
         """
         Remove entries older than max_age.
