@@ -47,9 +47,9 @@ detect_os() {
     echo -e "${BLUE}Detected OS:${NC} $OS"
 }
 
-# Check if a command exists
+# Check if a command exists (also check /usr/sbin for Debian)
 check_cmd() {
-    command -v "$1" &> /dev/null
+    command -v "$1" &> /dev/null || [ -x "/usr/sbin/$1" ] || [ -x "/sbin/$1" ]
 }
 
 # Check if a package is installable (Debian)
@@ -200,6 +200,17 @@ check_tools() {
     if check_cmd aireplay-ng; then
         echo -e "  ${GREEN}✓${NC} aireplay-ng - Deauthentication (optional)"
     fi
+    # PMKID tools are optional
+    if check_cmd hcxdumptool; then
+        echo -e "  ${GREEN}✓${NC} hcxdumptool - PMKID capture (optional)"
+    else
+        echo -e "  ${YELLOW}-${NC} hcxdumptool - PMKID capture (optional)"
+    fi
+    if check_cmd hcxpcapngtool; then
+        echo -e "  ${GREEN}✓${NC} hcxpcapngtool - Hash extraction (optional)"
+    else
+        echo -e "  ${YELLOW}-${NC} hcxpcapngtool - Hash extraction (optional)"
+    fi
 
     echo ""
     echo "Bluetooth Tools:"
@@ -296,6 +307,8 @@ install_macos_tools() {
         echo -e "${BLUE}Installing WiFi tools...${NC}"
         echo "  Installing aircrack-ng..."
         brew install aircrack-ng || echo -e "${YELLOW}  Warning: aircrack-ng installation failed${NC}"
+        echo "  Installing hcxtools (PMKID capture)..."
+        brew install hcxtools || echo -e "${YELLOW}  Warning: hcxtools installation failed${NC}"
     fi
 
     echo ""
@@ -313,7 +326,7 @@ show_macos_manual() {
     echo "brew install dump1090-mutability"
     echo ""
     echo "# WiFi scanning (optional)"
-    echo "brew install aircrack-ng"
+    echo "brew install aircrack-ng hcxtools"
 }
 
 # ============================================
@@ -452,6 +465,23 @@ install_debian_tools() {
     fi
     pause
 
+    # PMKID capture tools
+    echo "  Installing hcxdumptool (PMKID capture)..."
+    if $SUDO apt-get install -y hcxdumptool; then
+        echo -e "${GREEN}  hcxdumptool installed${NC}"
+    else
+        echo -e "${YELLOW}  Warning: hcxdumptool installation failed${NC}"
+    fi
+    pause
+
+    echo "  Installing hcxtools (hash extraction)..."
+    if $SUDO apt-get install -y hcxtools; then
+        echo -e "${GREEN}  hcxtools installed${NC}"
+    else
+        echo -e "${YELLOW}  Warning: hcxtools installation failed${NC}"
+    fi
+    pause
+
     # Bluetooth tools
     echo ""
     echo -e "${BLUE}Installing Bluetooth tools...${NC}"
@@ -487,7 +517,7 @@ show_debian_manual() {
     echo "sudo apt install dump1090-mutability  # or dump1090-fa"
     echo ""
     echo "# WiFi scanning (optional)"
-    echo "sudo apt install aircrack-ng"
+    echo "sudo apt install aircrack-ng hcxdumptool hcxtools"
     echo ""
     echo "# Bluetooth scanning (optional)"
     echo "sudo apt install bluez bluetooth"

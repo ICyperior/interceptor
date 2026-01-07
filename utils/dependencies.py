@@ -1,15 +1,35 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from typing import Any
 
 logger = logging.getLogger('intercept.dependencies')
 
+# Additional paths to search for tools (e.g., /usr/sbin on Debian)
+EXTRA_TOOL_PATHS = ['/usr/sbin', '/sbin']
+
 
 def check_tool(name: str) -> bool:
     """Check if a tool is installed."""
-    return shutil.which(name) is not None
+    return get_tool_path(name) is not None
+
+
+def get_tool_path(name: str) -> str | None:
+    """Get the full path to a tool, checking standard PATH and extra locations."""
+    # First check standard PATH
+    path = shutil.which(name)
+    if path:
+        return path
+
+    # Check additional paths (e.g., /usr/sbin for aircrack-ng on Debian)
+    for extra_path in EXTRA_TOOL_PATHS:
+        full_path = os.path.join(extra_path, name)
+        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+            return full_path
+
+    return None
 
 
 # Comprehensive tool dependency definitions

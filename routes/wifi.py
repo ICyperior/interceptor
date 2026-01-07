@@ -16,7 +16,7 @@ from typing import Any, Generator
 from flask import Blueprint, jsonify, request, Response
 
 import app as app_module
-from utils.dependencies import check_tool
+from utils.dependencies import check_tool, get_tool_path
 from utils.logging import wifi_logger as logger
 from utils.process import is_valid_mac, is_valid_channel
 from utils.validation import validate_wifi_channel, validate_mac_address
@@ -345,10 +345,11 @@ def toggle_monitor_mode():
                 interfaces_before = get_wireless_interfaces()
 
                 kill_processes = data.get('kill_processes', False)
+                airmon_path = get_tool_path('airmon-ng')
                 if kill_processes:
-                    subprocess.run(['airmon-ng', 'check', 'kill'], capture_output=True, timeout=10)
+                    subprocess.run([airmon_path, 'check', 'kill'], capture_output=True, timeout=10)
 
-                result = subprocess.run(['airmon-ng', 'start', interface],
+                result = subprocess.run([airmon_path, 'start', interface],
                                         capture_output=True, text=True, timeout=15)
 
                 output = result.stdout + result.stderr
@@ -429,7 +430,8 @@ def toggle_monitor_mode():
     else:  # stop
         if check_tool('airmon-ng'):
             try:
-                subprocess.run(['airmon-ng', 'stop', app_module.wifi_monitor_interface or interface],
+                airmon_path = get_tool_path('airmon-ng')
+                subprocess.run([airmon_path, 'stop', app_module.wifi_monitor_interface or interface],
                                capture_output=True, text=True, timeout=15)
                 app_module.wifi_monitor_interface = None
                 return jsonify({'status': 'success', 'message': 'Monitor mode disabled'})
@@ -480,8 +482,9 @@ def start_wifi_scan():
             except OSError:
                 pass
 
+        airodump_path = get_tool_path('airodump-ng')
         cmd = [
-            'airodump-ng',
+            airodump_path,
             '-w', csv_path,
             '--output-format', 'csv,pcap',
             '--band', band,
@@ -579,8 +582,9 @@ def send_deauth():
         return jsonify({'status': 'error', 'message': 'aireplay-ng not found'})
 
     try:
+        aireplay_path = get_tool_path('aireplay-ng')
         cmd = [
-            'aireplay-ng',
+            aireplay_path,
             '--deauth', str(count),
             '-a', target_bssid,
             '-c', target_client,
@@ -625,8 +629,9 @@ def capture_handshake():
 
         capture_path = f'/tmp/intercept_handshake_{target_bssid.replace(":", "")}'
 
+        airodump_path = get_tool_path('airodump-ng')
         cmd = [
-            'airodump-ng',
+            airodump_path,
             '-c', str(channel),
             '--bssid', target_bssid,
             '-w', capture_path,
@@ -664,14 +669,16 @@ def check_handshake_status():
 
     try:
         if target_bssid and is_valid_mac(target_bssid):
-            result = subprocess.run(
-                ['aircrack-ng', '-a', '2', '-b', target_bssid, capture_file],
-                capture_output=True, text=True, timeout=10
-            )
-            output = result.stdout + result.stderr
-            if '1 handshake' in output or ('handshake' in output.lower() and 'wpa' in output.lower()):
-                if '0 handshake' not in output:
-                    handshake_found = True
+            aircrack_path = get_tool_path('aircrack-ng')
+            if aircrack_path:
+                result = subprocess.run(
+                    [aircrack_path, '-a', '2', '-b', target_bssid, capture_file],
+                    capture_output=True, text=True, timeout=10
+                )
+                output = result.stdout + result.stderr
+                if '1 handshake' in output or ('handshake' in output.lower() and 'wpa' in output.lower()):
+                    if '0 handshake' not in output:
+                        handshake_found = True
     except subprocess.TimeoutExpired:
         pass
     except Exception as e:
