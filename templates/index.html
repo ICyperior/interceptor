@@ -403,6 +403,23 @@
                         </div>
                     </div>
 
+                    <div class="section">
+                        <h3>Message Filters</h3>
+                        <div class="checkbox-group" style="margin-bottom: 10px;">
+                            <label>
+                                <input type="checkbox" id="filterToneOnly" checked onchange="savePagerFilters()">
+                                Hide "Tone Only" messages
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Hide messages containing (comma-separated)</label>
+                            <input type="text" id="filterKeywords" placeholder="e.g. test, spam, alert" onchange="savePagerFilters()">
+                        </div>
+                        <div class="info-text" style="font-size: 10px; color: #666; margin-top: 5px;">
+                            Messages matching these keywords will be hidden from display but still logged.
+                        </div>
+                    </div>
+
                     <button class="run-btn" id="startBtn" onclick="startDecoding()">
                         Start Decoding
                     </button>
@@ -1711,7 +1728,14 @@
         let pocsagCount = 0;
         let flexCount = 0;
         let sensorCount = 0;
+        let filteredCount = 0;  // Count of filtered messages
         let deviceList = {{ devices | tojson | safe }};
+
+        // Pager message filter settings
+        let pagerFilters = {
+            hideToneOnly: true,
+            keywords: []
+        };
 
         // Aircraft (ADS-B) state
         let adsbAircraft = {};
@@ -1731,6 +1755,50 @@
         // Update clock every second
         setInterval(updateHeaderClock, 1000);
         updateHeaderClock();  // Initial call
+
+        // Pager message filter functions
+        function loadPagerFilters() {
+            const saved = localStorage.getItem('pagerFilters');
+            if (saved) {
+                try {
+                    pagerFilters = JSON.parse(saved);
+                } catch (e) {
+                    console.warn('Failed to load pager filters:', e);
+                }
+            }
+            // Update UI
+            document.getElementById('filterToneOnly').checked = pagerFilters.hideToneOnly;
+            document.getElementById('filterKeywords').value = pagerFilters.keywords.join(', ');
+        }
+
+        function savePagerFilters() {
+            pagerFilters.hideToneOnly = document.getElementById('filterToneOnly').checked;
+            const keywordsInput = document.getElementById('filterKeywords').value;
+            pagerFilters.keywords = keywordsInput
+                .split(',')
+                .map(k => k.trim().toLowerCase())
+                .filter(k => k.length > 0);
+            localStorage.setItem('pagerFilters', JSON.stringify(pagerFilters));
+        }
+
+        function shouldFilterMessage(msg) {
+            // Check for Tone Only filter
+            if (pagerFilters.hideToneOnly) {
+                if (msg.message === '[Tone Only]' || msg.msg_type === 'Tone') {
+                    return true;
+                }
+            }
+            // Check keyword filters
+            if (pagerFilters.keywords.length > 0) {
+                const msgLower = (msg.message || '').toLowerCase();
+                for (const keyword of pagerFilters.keywords) {
+                    if (msgLower.includes(keyword)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
 
         // Sync header stats with output panel stats
         function syncHeaderStats() {
@@ -2136,6 +2204,9 @@
 
             // Auto-connect to gpsd if available
             autoConnectGps();
+
+            // Load pager message filters
+            loadPagerFilters();
         });
 
         // Toggle section collapse
@@ -3092,18 +3163,13 @@
                 placeholder.remove();
             }
 
-            // Store message for export
+            // Store message for export (always, even if filtered)
             allMessages.push(msg);
 
-            // Play audio alert
-            playAlert();
+            // Check if message should be filtered from display
+            const isFiltered = shouldFilterMessage(msg);
 
-            // Update signal meter
-            pulseSignal();
-
-            // Add to waterfall
-            addWaterfallPoint(Date.now(), 0.8);
-
+            // Update counts (always, even if filtered)
             msgCount++;
             document.getElementById('msgCount').textContent = msgCount;
 
@@ -3117,6 +3183,21 @@
                 protoClass = 'flex';
                 document.getElementById('flexCount').textContent = flexCount;
             }
+
+            // If filtered, skip display but update filtered count
+            if (isFiltered) {
+                filteredCount++;
+                return;
+            }
+
+            // Play audio alert (only for non-filtered messages)
+            playAlert();
+
+            // Update signal meter
+            pulseSignal();
+
+            // Add to waterfall
+            addWaterfallPoint(Date.now(), 0.8);
 
             const isNumeric = /^[0-9\s\-\*\#U]+$/.test(msg.message);
             const relativeTime = getRelativeTime(msg.timestamp);
@@ -3216,6 +3297,7 @@
             pocsagCount = 0;
             flexCount = 0;
             sensorCount = 0;
+            filteredCount = 0;
             allMessages = [];
             uniqueDevices.clear();
             document.getElementById('msgCount').textContent = '0';
