@@ -64,8 +64,17 @@ After starting, open **http://localhost:5050** in your browser.
 | **RTL-SDR** | Required for all SDR features | ~$25-35 |
 | **WiFi adapter** | Must support promiscuous (monitor) mode | ~$20-40 |
 | **Bluetooth adapter** | Device scanning (usually built-in) | - |
+| **GPS** | Any Linux supported GPS Unit | ~10 |
 
 Most features work with a basic RTL-SDR dongle (RTL2832U + R820T2).
+
+| :exclamation:  Not using an RTL-SDR Device?   |
+|-----------------------------------------------
+|Intercept supports any device that SoapySDR supports. You must however have the correct module for your device installed! For example if you have an SDRPlay device you'd need to install soapysdr-module-sdrplay.
+
+| :exclamation:  GPS Usage   |
+|-----------------------------------------------
+|gpsd is needed for real time location. Intercept automatically checks to see if you're running gpsd in the background when any maps are rendered.
 
 ---
 
@@ -144,4 +153,5 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
 [Celestrak](https://celestrak.org/)
+
 
