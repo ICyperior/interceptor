@@ -101,6 +101,7 @@ Then unplug and replug your RTL-SDR.
 3. Check for other applications: `lsof | grep rtl`
 
 ### LimeSDR/HackRF not detected
+Ensure the correct SoapySDR module for your hardware is installed first
 
 1. Verify SoapySDR is installed: `SoapySDRUtil --info`
 2. Check driver is loaded: `SoapySDRUtil --find`
@@ -146,21 +147,6 @@ Run with sudo or add your user to the bluetooth group:
 sudo usermod -a -G bluetooth $USER
 ```
 
-## GPS Issues
-
-### GPS dongle not detected
-
-1. Install pyserial: `pip install pyserial`
-2. Check device is connected:
-   - Linux: `ls /dev/ttyUSB* /dev/ttyACM*`
-   - macOS: `ls /dev/tty.usb*`
-3. Add user to dialout group (Linux):
-   ```bash
-   sudo usermod -a -G dialout $USER
-   ```
-4. Most GPS dongles use 9600 baud (default in INTERCEPT)
-5. GPS needs clear sky view to get a fix
-
 ## Decoding Issues
 
 ### No messages appearing (Pager mode)
@@ -172,13 +158,14 @@ sudo usermod -a -G bluetooth $USER
 
 ### No aircraft appearing (ADS-B mode)
 
-1. Verify dump1090 or readsb is installed
+1. Verify dump1090 is installed
 2. Check antenna is connected (1090 MHz antenna recommended)
 3. Ensure clear view of sky
-4. Set correct observer location for range calculations
+4. Set correct observer location for range calculations or use gpsd
 
 ### Satellite passes not calculating
 
-1. Ensure skyfield is installed: `pip install skyfield`
+1. Ensure skyfield is installed: `apt install python3-skyfield`
 2. Check TLE data is valid and recent
 3. Verify observer location is set correctly
+
