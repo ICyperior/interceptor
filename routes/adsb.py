@@ -35,6 +35,7 @@ from utils.constants import (
     ADSB_UPDATE_INTERVAL,
     DUMP1090_START_WAIT,
 )
+from utils import aircraft_db
 
 adsb_bp = Blueprint('adsb', __name__, url_prefix='/adsb')
 
@@ -43,6 +44,14 @@ adsb_using_service = False
 adsb_connected = False
 adsb_messages_received = 0
 adsb_last_message_time = None
+adsb_bytes_received = 0
+adsb_lines_received = 0
+
+# Track ICAOs already looked up in aircraft database (avoid repeated lookups)
+_looked_up_icaos: set[str] = set()
+
+# Load aircraft database at module init
+aircraft_db.load_database()
 
 # Common installation paths for dump1090 (when not in PATH)
 DUMP1090_PATHS = [
@@ -91,7 +100,7 @@ def check_dump1090_service():
 
 def parse_sbs_stream(service_addr):
     """Parse SBS format data from dump1090 SBS port."""
-    global adsb_using_service, adsb_connected, adsb_messages_received, adsb_last_message_time
+    global adsb_using_service, adsb_connected, adsb_messages_received, adsb_last_message_time, adsb_bytes_received, adsb_lines_received
 
     host, port = service_addr.split(':')
     port = int(port)
@@ -111,12 +120,16 @@ def parse_sbs_stream(service_addr):
             buffer = ""
             last_update = time.time()
             pending_updates = set()
+            adsb_bytes_received = 0
+            adsb_lines_received = 0
 
             while adsb_using_service:
                 try:
                     data = sock.recv(SOCKET_BUFFER_SIZE).decode('utf-8', errors='ignore')
                     if not data:
+                        logger.warning("SBS connection closed (no data)")
                         break
+                    adsb_bytes_received += len(data)
                     buffer += data
 
                     while '\n' in buffer:
@@ -125,8 +138,15 @@ def parse_sbs_stream(service_addr):
                         if not line:
                             continue
 
+                        adsb_lines_received += 1
+                        # Log first few lines for debugging
+                        if adsb_lines_received <= 3:
+                            logger.info(f"SBS line {adsb_lines_received}: {line[:100]}")
+
                         parts = line.split(',')
                         if len(parts) < 11 or parts[0] != 'MSG':
+                            if adsb_lines_received <= 5:
+                                logger.debug(f"Skipping non-MSG line: {line[:50]}")
                             continue
 
                         msg_type = parts[1]
@@ -135,6 +155,18 @@ def parse_sbs_stream(service_addr):
                             continue
 
                         aircraft = app_module.adsb_aircraft.get(icao) or {'icao': icao}
+
+                        # Look up aircraft type from database (once per ICAO)
+                        if icao not in _looked_up_icaos:
+                            _looked_up_icaos.add(icao)
+                            db_info = aircraft_db.lookup(icao)
+                            if db_info:
+                                if db_info['registration']:
+                                    aircraft['registration'] = db_info['registration']
+                                if db_info['type_code']:
+                                    aircraft['type_code'] = db_info['type_code']
+                                if db_info['type_desc']:
+                                    aircraft['type_desc'] = db_info['type_desc']
 
                         if msg_type == '1' and len(parts) > 10:
                             callsign = parts[10].strip()
@@ -154,7 +186,7 @@ def parse_sbs_stream(service_addr):
                                 except (ValueError, TypeError):
                                     pass
 
-                        elif msg_type == '4' and len(parts) > 13:
+                        elif msg_type == '4' and len(parts) > 16:
                             if parts[12]:
                                 try:
                                     aircraft['speed'] = int(float(parts[12]))
@@ -163,6 +195,11 @@ def parse_sbs_stream(service_addr):
                             if parts[13]:
                                 try:
                                     aircraft['heading'] = int(float(parts[13]))
+                                except (ValueError, TypeError):
+                                    pass
+                            if parts[16]:
+                                try:
+                                    aircraft['vertical_rate'] = int(float(parts[16]))
                                 except (ValueError, TypeError):
                                     pass
 
@@ -242,15 +279,23 @@ def check_adsb_tools():
 @adsb_bp.route('/status')
 def adsb_status():
     """Get ADS-B tracking status for debugging."""
+    # Check if dump1090 process is still running
+    dump1090_running = False
+    if app_module.adsb_process:
+        dump1090_running = app_module.adsb_process.poll() is None
+
     return jsonify({
         'tracking_active': adsb_using_service,
         'connected_to_sbs': adsb_connected,
         'messages_received': adsb_messages_received,
+        'bytes_received': adsb_bytes_received,
+        'lines_received': adsb_lines_received,
         'last_message_time': adsb_last_message_time,
         'aircraft_count': len(app_module.adsb_aircraft),
         'aircraft': dict(app_module.adsb_aircraft),  # Full aircraft data
         'queue_size': app_module.adsb_queue.qsize(),
         'dump1090_path': find_dump1090(),
+        'dump1090_running': dump1090_running,
         'port_30003_open': check_dump1090_service() is not None
     })
 
@@ -349,16 +394,29 @@ def start_adsb():
         app_module.adsb_process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.PIPE
         )
 
         time.sleep(DUMP1090_START_WAIT)
 
         if app_module.adsb_process.poll() is not None:
+            # Process exited - try to get error message
+            stderr_output = ''
+            if app_module.adsb_process.stderr:
+                try:
+                    stderr_output = app_module.adsb_process.stderr.read().decode('utf-8', errors='ignore').strip()
+                except Exception:
+                    pass
             if sdr_type == SDRType.RTL_SDR:
-                return jsonify({'status': 'error', 'message': 'dump1090 failed to start. Check RTL-SDR device permissions or if another process is using it.'})
+                error_msg = 'dump1090 failed to start. Check RTL-SDR device permissions or if another process is using it.'
+                if stderr_output:
+                    error_msg += f' Error: {stderr_output[:200]}'
+                return jsonify({'status': 'error', 'message': error_msg})
             else:
-                return jsonify({'status': 'error', 'message': f'ADS-B decoder failed to start for {sdr_type.value}. Ensure readsb is installed with SoapySDR support and the device is connected.'})
+                error_msg = f'ADS-B decoder failed to start for {sdr_type.value}. Ensure readsb is installed with SoapySDR support and the device is connected.'
+                if stderr_output:
+                    error_msg += f' Error: {stderr_output[:200]}'
+                return jsonify({'status': 'error', 'message': error_msg})
 
         adsb_using_service = True
         thread = threading.Thread(target=parse_sbs_stream, args=(f'localhost:{ADSB_SBS_PORT}',), daemon=True)
@@ -385,6 +443,7 @@ def stop_adsb():
         adsb_using_service = False
 
     app_module.adsb_aircraft.clear()
+    _looked_up_icaos.clear()
     return jsonify({'status': 'stopped'})
 
 
@@ -415,3 +474,38 @@ def stream_adsb():
 def adsb_dashboard():
     """Popout ADS-B dashboard."""
     return render_template('adsb_dashboard.html')
+
+
+# ============================================
+# AIRCRAFT DATABASE MANAGEMENT
+# ============================================
+
+@adsb_bp.route('/aircraft-db/status')
+def aircraft_db_status():
+    """Get aircraft database status."""
+    return jsonify(aircraft_db.get_db_status())
+
+
+@adsb_bp.route('/aircraft-db/check-updates')
+def aircraft_db_check_updates():
+    """Check for aircraft database updates."""
+    result = aircraft_db.check_for_updates()
+    return jsonify(result)
+
+
+@adsb_bp.route('/aircraft-db/download', methods=['POST'])
+def aircraft_db_download():
+    """Download/update aircraft database."""
+    global _looked_up_icaos
+    result = aircraft_db.download_database()
+    if result.get('success'):
+        # Clear lookup cache so new data is used
+        _looked_up_icaos.clear()
+    return jsonify(result)
+
+
+@adsb_bp.route('/aircraft-db/delete', methods=['POST'])
+def aircraft_db_delete():
+    """Delete aircraft database."""
+    result = aircraft_db.delete_database()
+    return jsonify(result)
