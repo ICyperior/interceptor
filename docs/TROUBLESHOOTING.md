@@ -156,6 +156,10 @@ sudo usermod -a -G bluetooth $USER
 3. Check pager services are active in your area
 4. Ensure antenna is connected
 
+### Cannot install dump1090 in Debian (ADS-B mode)
+
+On newer Debian versions, dump1090 may not be in repositories. The recommended action is to build from source or use the setup.sh script which will do it for you.
+
 ### No aircraft appearing (ADS-B mode)
 
 1. Verify dump1090 is installed
