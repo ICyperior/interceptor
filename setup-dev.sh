@@ -124,6 +124,10 @@ check_tools() {
   check_required "dump1090"    "ADS-B decoder" dump1090
 
   echo
+  info "GPS:"
+  check_required "gpsd" "GPS daemon" gpsd
+
+  echo
   info "Audio:"
   check_required "ffmpeg" "Audio encoder/decoder" ffmpeg
 
@@ -241,6 +245,7 @@ install_macos_packages() {
   brew_install aircrack-ng
   brew_install hcxtools
   brew_install soapysdr
+  brew_install gpsd
 
   warn "macOS note: hcitool/hciconfig are Linux (BlueZ) utilities and often unavailable on macOS."
   echo
@@ -335,6 +340,7 @@ install_debian_packages() {
   apt_install hcxtools || true
   apt_install bluez bluetooth || true
   apt_install soapysdr-tools || true
+  apt_install gpsd gpsd-clients || true
 
   # dump1090: apt first; source fallback; hard fail inside if it can't build
   if ! cmd_exists dump1090; then
