@@ -28,3 +28,6 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+
+# Package manager lock files
+uv.lock
