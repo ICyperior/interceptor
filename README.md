@@ -78,36 +78,6 @@ Most features work with a basic RTL-SDR dongle (RTL2832U + R820T2).
 
 ---
 
-## Troubleshooting
-
-### RTL-SDR not detected (Linux)
-
-Add udev rules:
-```bash
-sudo bash -c 'cat > /etc/udev/rules.d/20-rtlsdr.rules << EOF
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0666"
-EOF'
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
-Then unplug and replug your RTL-SDR.
-
-### "externally-managed-environment" error (Ubuntu 23.04+)
-
-The setup script handles this automatically by creating a virtual environment. Run:
-```bash
-./setup.sh
-source venv/bin/activate
-sudo venv/bin/python intercept.py
-```
-
-### dump1090 not available (Debian Trixie)
-
-On newer Debian versions, dump1090 may not be in repositories. The recommended action is to build from source or use the setup.sh script which will do it for you.
-
-
----
-
 ## Discord Server
 
 <p align="center">
@@ -153,5 +123,6 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
 [Celestrak](https://celestrak.org/)
+
 
 
