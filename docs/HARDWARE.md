@@ -43,7 +43,7 @@ brew install hackrf soapyhackrf
 sudo apt update
 
 # Core tools (required)
-sudo apt install -y python3 python3-pip python3-venv
+sudo apt install -y python3 python3-pip python3-venv python3-skyfield
 sudo apt install -y rtl-sdr multimon-ng rtl-433 ffmpeg
 
 # ADS-B aircraft tracking
@@ -182,8 +182,7 @@ Open **http://localhost:5050** in your browser.
 | Package | Purpose |
 |---------|---------|
 | `flask` | Web server |
-| `skyfield` | Satellite tracking (optional) |
-| `pyserial` | USB GPS dongle support (optional) |
+| `skyfield` | Satellite tracking |
 
 ---
 
@@ -209,3 +208,4 @@ https://github.com/flightaware/dump1090
 - **Bluetooth on macOS**: Uses native CoreBluetooth, bluez tools not needed
 - **WiFi on macOS**: Monitor mode has limited support, full functionality on Linux
 - **System tools**: `iw`, `iwconfig`, `rfkill`, `ip` are pre-installed on most Linux systems
+
