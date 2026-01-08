@@ -118,7 +118,8 @@ class CommandBuilder(ABC):
     def build_adsb_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None
+        gain: Optional[float] = None,
+        bias_t: bool = False
     ) -> list[str]:
         """
         Build ADS-B decoder command.
@@ -126,6 +127,7 @@ class CommandBuilder(ABC):
         Args:
             device: The SDR device to use
             gain: Gain in dB (None for auto)
+            bias_t: Enable bias-T power (for active antennas)
 
         Returns:
             Command as list of strings for subprocess

@@ -75,13 +75,15 @@ class LimeSDRCommandBuilder(CommandBuilder):
     def build_adsb_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None
+        gain: Optional[float] = None,
+        bias_t: bool = False
     ) -> list[str]:
         """
         Build dump1090 command with SoapySDR support for ADS-B decoding.
 
         Uses dump1090 compiled with SoapySDR support, or readsb as alternative.
         Note: Requires dump1090 with SoapySDR support or readsb.
+        Note: LimeSDR does not support bias-T, parameter is ignored.
         """
         device_str = self._build_device_string(device)
 

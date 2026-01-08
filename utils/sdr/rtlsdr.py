@@ -81,7 +81,8 @@ class RTLSDRCommandBuilder(CommandBuilder):
     def build_adsb_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None
+        gain: Optional[float] = None,
+        bias_t: bool = False
     ) -> list[str]:
         """
         Build dump1090 command for ADS-B decoding.
@@ -107,6 +108,9 @@ class RTLSDRCommandBuilder(CommandBuilder):
 
         if gain is not None:
             cmd.extend(['--gain', str(int(gain))])
+
+        if bias_t:
+            cmd.extend(['--enable-bias-t'])
 
         return cmd
 
