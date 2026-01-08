@@ -2779,6 +2779,57 @@ header p {
     background: rgba(0, 122, 255, 0.05);
 }
 
+/* LoRa Layout Container */
+.lora-layout-container {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    margin: 0 15px 10px 15px;
+    border: 1px solid var(--border-color);
+    height: calc(100vh - 200px);
+    min-height: 400px;
+}
+
+.lora-layout-container .wifi-visuals {
+    flex: 1;
+}
+
+.lora-device-list {
+    border-left-color: var(--accent-green) !important;
+}
+
+.lora-device-list .wifi-device-list-header h5 {
+    color: var(--accent-green);
+}
+
+.lora-device-card {
+    border-left-color: var(--accent-green) !important;
+}
+
+.lora-device-card.selected {
+    border-color: var(--accent-green);
+    background: rgba(0, 255, 136, 0.1);
+}
+
+@media (max-width: 1200px) {
+    .lora-layout-container {
+        flex-direction: column;
+        height: auto;
+        max-height: calc(100vh - 200px);
+    }
+
+    .lora-layout-container .wifi-visuals {
+        max-height: 50vh;
+    }
+
+    .lora-device-list {
+        width: 100%;
+        min-width: auto;
+        max-height: 300px;
+    }
+}
+
 @media (max-width: 1200px) {
     .bt-layout-container {
         flex-direction: column;

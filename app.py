@@ -103,6 +103,11 @@ satellite_process = None
 satellite_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 satellite_lock = threading.Lock()
 
+# LoRa/ISM band
+lora_process = None
+lora_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+lora_lock = threading.Lock()
+
 # ============================================
 # GLOBAL STATE DICTIONARIES
 # ============================================
@@ -304,6 +309,7 @@ def health_check() -> Response:
             'adsb': adsb_process is not None and (adsb_process.poll() is None if adsb_process else False),
             'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
             'bluetooth': bt_process is not None and (bt_process.poll() is None if bt_process else False),
+            'lora': lora_process is not None and (lora_process.poll() is None if lora_process else False),
         },
         'data': {
             'aircraft_count': len(adsb_aircraft),
@@ -317,7 +323,7 @@ def health_check() -> Response:
 @app.route('/killall', methods=['POST'])
 def kill_all() -> Response:
     """Kill all decoder and WiFi processes."""
-    global current_process, sensor_process, wifi_process, adsb_process
+    global current_process, sensor_process, wifi_process, adsb_process, lora_process
 
     # Import adsb module to reset its state
     from routes import adsb as adsb_module
@@ -350,6 +356,10 @@ def kill_all() -> Response:
     with adsb_lock:
         adsb_process = None
         adsb_module.adsb_using_service = False
+
+    # Reset LoRa state
+    with lora_lock:
+        lora_process = None
 
     return jsonify({'status': 'killed', 'processes': killed})
 

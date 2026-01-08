@@ -243,6 +243,24 @@
                     </div>
                 </div>
             </div>
+
+            <!-- LoRa Stats -->
+            <div class="header-stats-group" id="headerLoraStats">
+                <div class="stat-badge">
+                    <span class="badge-icon">📶</span>
+                    <div>
+                        <span class="badge-value" id="headerLoraDeviceCount">0</span>
+                        <span class="badge-label">devices</span>
+                    </div>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-icon">📡</span>
+                    <div>
+                        <span class="badge-value" id="headerLoraSignalCount">0</span>
+                        <span class="badge-label">signals</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -252,6 +270,7 @@
             <span class="mode-nav-label">SDR / RF</span>
             <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span class="nav-label">Pager</span></button>
             <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span class="nav-label">433MHz</span></button>
+            <button class="mode-nav-btn" onclick="switchMode('lora')"><span class="nav-icon">📶</span><span class="nav-label">LoRa/ISM</span></button>
             <button class="mode-nav-btn" onclick="switchMode('aircraft')"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></button>
             <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span class="nav-label">Satellite</span></button>
             <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span class="nav-label">Listening Post</span></button>
@@ -482,6 +501,70 @@
                     </button>
                     <button class="stop-btn" id="stopSensorBtn" onclick="stopSensorDecoding()" style="display: none;">
                         Stop Listening
+                    </button>
+                </div>
+
+                <!-- LoRa MODE -->
+                <div id="loraMode" class="mode-content">
+                    <div class="section">
+                        <h3>LoRa Band</h3>
+                        <div class="form-group">
+                            <label>Region/Band</label>
+                            <select id="loraBandSelect" onchange="onLoraBandChanged()">
+                                <option value="eu868">EU 868 MHz</option>
+                                <option value="us915">US 915 MHz</option>
+                                <option value="au915">AU 915 MHz</option>
+                                <option value="as923">AS 923 MHz</option>
+                                <option value="in865">IN 865 MHz</option>
+                                <option value="ism433">ISM 433 MHz</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Frequency (MHz)</label>
+                            <input type="text" id="loraFrequency" value="868.0" placeholder="e.g., 868.0">
+                        </div>
+                        <div class="preset-buttons" id="loraChannelButtons">
+                            <!-- Populated by JavaScript based on selected band -->
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Settings</h3>
+                        <div class="form-group">
+                            <label>Gain (dB, higher for weak signals)</label>
+                            <input type="text" id="loraGain" value="40" placeholder="0-50, 40 recommended">
+                        </div>
+                        <div class="form-group">
+                            <label>PPM Correction</label>
+                            <input type="text" id="loraPpm" value="0" placeholder="Frequency correction">
+                        </div>
+                        <div class="form-group">
+                            <label class="inline-checkbox">
+                                <input type="checkbox" id="loraHop">
+                                Enable Channel Hopping
+                            </label>
+                            <div class="info-text" style="font-size: 10px; color: #666; margin-top: 4px;">
+                                Monitor multiple channels in the selected band
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Device Patterns</h3>
+                        <div class="info-text" style="font-size: 11px;">
+                            rtl_433 detects LoRa/LPWAN devices including:<br>
+                            <span style="color: var(--accent-cyan);">• Smart meters</span> (water, gas, electric)<br>
+                            <span style="color: var(--accent-green);">• LoRaWAN</span> gateways and nodes<br>
+                            <span style="color: var(--accent-orange);">• IoT sensors</span> and controllers<br>
+                            <span style="color: var(--accent-purple);">• Agricultural</span> monitoring systems
+                        </div>
+                    </div>
+
+                    <button class="run-btn" id="startLoraBtn" onclick="startLoraMonitoring()">
+                        Start Monitoring
+                    </button>
+                    <button class="stop-btn" id="stopLoraBtn" onclick="stopLoraMonitoring()" style="display: none;">
+                        Stop Monitoring
                     </button>
                 </div>
 
@@ -1173,6 +1256,10 @@
                         <div class="stats" id="satelliteStats" style="display: none;">
                             <div title="Upcoming Passes">🛰️ <span id="passCount">0</span></div>
                         </div>
+                        <div class="stats" id="loraStats" style="display: none;">
+                            <div title="LoRa Devices">📶 <span id="loraDeviceCount">0</span></div>
+                            <div title="Signals Detected">📡 <span id="loraSignalCount">0</span></div>
+                        </div>
                     </div>
                 </div>
 
@@ -1359,6 +1446,81 @@
                         <div class="wifi-device-list-content" id="btDeviceListContent">
                             <div style="color: var(--text-dim); text-align: center; padding: 30px;">
                                 Start scanning to discover Bluetooth devices
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LoRa Layout Container -->
+                <div class="lora-layout-container" id="loraLayoutContainer" style="display: none;">
+                    <!-- Left: LoRa Visualizations -->
+                    <div class="wifi-visuals" id="loraVisuals">
+                        <!-- Selected Device Info -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <h5>📋 Selected Device</h5>
+                            <div id="loraSelectedDevice" style="font-size: 11px; min-height: 100px;">
+                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device to view details</div>
+                            </div>
+                        </div>
+                        <!-- Row 1: Signal Radar + Device Types -->
+                        <div class="wifi-visual-panel">
+                            <h5>Signal Radar</h5>
+                            <div class="radar-container">
+                                <canvas id="loraRadarCanvas" width="150" height="150"></canvas>
+                            </div>
+                        </div>
+                        <div class="wifi-visual-panel">
+                            <h5>Device Categories</h5>
+                            <div class="bt-type-overview" id="loraTypeOverview">
+                                <div class="bt-type-item"><span class="bt-type-icon">🌡️</span> Sensors: <strong id="loraSensorCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">⚡</span> Meters: <strong id="loraMeterCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">📡</span> LoRaWAN: <strong id="loraLorawanCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">🔵</span> Other: <strong id="loraOtherTypeCount">0</strong></div>
+                            </div>
+                        </div>
+                        <!-- Row 2: Signal Quality + Band Activity -->
+                        <div class="wifi-visual-panel">
+                            <h5>📶 Signal Quality</h5>
+                            <div class="bt-signal-dist" id="loraSignalDist">
+                                <div class="signal-range"><span>Strong (-50+)</span><div class="signal-bar-bg"><div class="signal-bar strong" id="loraSignalStrong" style="width: 0%;"></div></div><span id="loraSignalStrongCount">0</span></div>
+                                <div class="signal-range"><span>Medium (-80)</span><div class="signal-bar-bg"><div class="signal-bar medium" id="loraSignalMedium" style="width: 0%;"></div></div><span id="loraSignalMediumCount">0</span></div>
+                                <div class="signal-range"><span>Weak (-100)</span><div class="signal-bar-bg"><div class="signal-bar weak" id="loraSignalWeak" style="width: 0%;"></div></div><span id="loraSignalWeakCount">0</span></div>
+                            </div>
+                        </div>
+                        <div class="wifi-visual-panel">
+                            <h5>📊 Band Activity</h5>
+                            <div id="loraBandActivity" style="font-size: 11px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span>Current Band:</span>
+                                    <span id="loraCurrentBand" style="color: var(--accent-cyan);">--</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span>Frequency:</span>
+                                    <span id="loraCurrentFreq" style="color: var(--accent-green);">-- MHz</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Total Signals:</span>
+                                    <span id="loraTotalSignals" style="color: var(--accent-orange);">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Row 3: Activity Log -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <h5>📜 Activity Log</h5>
+                            <div id="loraActivityLog" style="max-height: 120px; overflow-y: auto; font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Waiting for signals...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right: LoRa Device Cards -->
+                    <div class="wifi-device-list lora-device-list" id="loraDeviceListPanel">
+                        <div class="wifi-device-list-header">
+                            <h5>📶 LoRa/ISM Devices</h5>
+                            <span class="device-count">(<span id="loraDeviceListCount">0</span>)</span>
+                        </div>
+                        <div class="wifi-device-list-content" id="loraDeviceListContent">
+                            <div style="color: var(--text-dim); text-align: center; padding: 30px;">
+                                Start monitoring to discover devices
                             </div>
                         </div>
                     </div>
@@ -1804,6 +1966,7 @@
         let eventSource = null;
         let isRunning = false;
         let isSensorRunning = false;
+        let isLoraRunning = false;
         let isAdsbRunning = false;
         let isWifiRunning = false;
         let isBtRunning = false;
@@ -2307,6 +2470,7 @@
             // Stop any running scans when switching modes
             if (isRunning) stopDecoding();
             if (isSensorRunning) stopSensorDecoding();
+            if (isLoraRunning) stopLoraMonitoring();
             if (isWifiRunning) stopWifiScan();
             if (isBtRunning) stopBtScan();
             if (isAdsbRunning) stopAdsbScan();
@@ -2315,9 +2479,9 @@
             // Remove active from all nav buttons, then add to the correct one
             document.querySelectorAll('.mode-nav-btn').forEach(btn => btn.classList.remove('active'));
             const modeMap = {
-                'pager': 'pager', 'sensor': '433', 'aircraft': 'aircraft',
-                'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth',
-                'listening': 'listening'
+                'pager': 'pager', 'sensor': '433', 'lora': 'lora',
+                'aircraft': 'aircraft', 'satellite': 'satellite', 'wifi': 'wifi',
+                'bluetooth': 'bluetooth', 'listening': 'listening'
             };
             document.querySelectorAll('.mode-nav-btn').forEach(btn => {
                 const label = btn.querySelector('.nav-label');
@@ -2327,6 +2491,7 @@
             });
             document.getElementById('pagerMode').classList.toggle('active', mode === 'pager');
             document.getElementById('sensorMode').classList.toggle('active', mode === 'sensor');
+            document.getElementById('loraMode').classList.toggle('active', mode === 'lora');
             document.getElementById('aircraftMode').classList.toggle('active', mode === 'aircraft');
             document.getElementById('satelliteMode').classList.toggle('active', mode === 'satellite');
             document.getElementById('wifiMode').classList.toggle('active', mode === 'wifi');
@@ -2334,6 +2499,7 @@
             document.getElementById('listeningPostMode').classList.toggle('active', mode === 'listening');
             document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
             document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
+            document.getElementById('loraStats').style.display = mode === 'lora' ? 'flex' : 'none';
             document.getElementById('aircraftStats').style.display = mode === 'aircraft' ? 'flex' : 'none';
             document.getElementById('satelliteStats').style.display = mode === 'satellite' ? 'flex' : 'none';
             document.getElementById('wifiStats').style.display = mode === 'wifi' ? 'flex' : 'none';
@@ -2345,6 +2511,7 @@
             // Update header stats groups
             document.getElementById('headerPagerStats').classList.toggle('active', mode === 'pager');
             document.getElementById('headerSensorStats').classList.toggle('active', mode === 'sensor');
+            document.getElementById('headerLoraStats').classList.toggle('active', mode === 'lora');
             document.getElementById('headerAircraftStats').classList.toggle('active', mode === 'aircraft');
             document.getElementById('headerSatelliteStats').classList.toggle('active', mode === 'satellite');
             document.getElementById('headerWifiStats').classList.toggle('active', mode === 'wifi');
@@ -2358,6 +2525,7 @@
             const modeNames = {
                 'pager': 'PAGER',
                 'sensor': '433MHZ',
+                'lora': 'LORA/ISM',
                 'aircraft': 'AIRCRAFT',
                 'satellite': 'SATELLITE',
                 'wifi': 'WIFI',
@@ -2367,6 +2535,7 @@
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
             document.getElementById('btLayoutContainer').style.display = mode === 'bluetooth' ? 'flex' : 'none';
+            document.getElementById('loraLayoutContainer').style.display = mode === 'lora' ? 'flex' : 'none';
             // Respect the "Show Radar Display" checkbox for aircraft mode
             const showRadar = document.getElementById('adsbEnableMap').checked;
             document.getElementById('aircraftVisuals').style.display = (mode === 'aircraft' && showRadar) ? 'grid' : 'none';
@@ -2377,6 +2546,7 @@
             const titles = {
                 'pager': 'Pager Decoder',
                 'sensor': '433MHz Sensor Monitor',
+                'lora': 'LoRa/ISM Band Monitor',
                 'aircraft': 'ADS-B Aircraft Tracker',
                 'satellite': 'Satellite Monitor',
                 'wifi': 'WiFi Scanner',
@@ -2402,7 +2572,7 @@
             }
 
             // Show RTL-SDR device section for modes that use it
-            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'aircraft') ? 'block' : 'none';
+            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'lora' || mode === 'aircraft' || mode === 'listening') ? 'block' : 'none';
 
             // Toggle mode-specific tool status displays
             document.getElementById('toolStatusPager').style.display = (mode === 'pager') ? 'grid' : 'none';
@@ -2608,6 +2778,345 @@
                 body: JSON.stringify({enabled: enabled, log_file: 'sensor_data.log'})
             });
         }
+
+        // ============================================
+        // LoRa/ISM BAND MONITORING
+        // ============================================
+
+        let loraEventSource = null;
+        let loraDevices = {};
+        let loraSignalCount = 0;
+        let loraDeviceCount = 0;
+
+        // LoRa band definitions
+        const LORA_BANDS = {
+            'eu868': { name: 'EU 868 MHz', frequency: 868.0, channels: [868.1, 868.3, 868.5, 867.1, 867.3, 867.5, 867.7, 867.9] },
+            'us915': { name: 'US 915 MHz', frequency: 915.0, channels: [902.3, 902.5, 902.7, 902.9, 903.1, 903.3, 903.5, 903.7] },
+            'au915': { name: 'AU 915 MHz', frequency: 915.0, channels: [915.2, 915.4, 915.6, 915.8, 916.0, 916.2, 916.4, 916.6] },
+            'as923': { name: 'AS 923 MHz', frequency: 923.0, channels: [923.2, 923.4, 923.6, 923.8, 924.0, 924.2, 924.4, 924.6] },
+            'in865': { name: 'IN 865 MHz', frequency: 865.0, channels: [865.0625, 865.4025, 865.985] },
+            'ism433': { name: 'ISM 433 MHz', frequency: 433.92, channels: [433.05, 433.42, 433.92, 434.42] }
+        };
+
+        function onLoraBandChanged() {
+            const bandId = document.getElementById('loraBandSelect').value;
+            const band = LORA_BANDS[bandId];
+            if (band) {
+                document.getElementById('loraFrequency').value = band.frequency;
+                updateLoraChannelButtons(bandId);
+            }
+        }
+
+        function updateLoraChannelButtons(bandId) {
+            const band = LORA_BANDS[bandId];
+            const container = document.getElementById('loraChannelButtons');
+            container.innerHTML = '';
+            if (band && band.channels) {
+                band.channels.slice(0, 4).forEach(freq => {
+                    const btn = document.createElement('button');
+                    btn.className = 'preset-btn';
+                    btn.textContent = freq;
+                    btn.onclick = () => document.getElementById('loraFrequency').value = freq;
+                    container.appendChild(btn);
+                });
+            }
+        }
+
+        function setLoraRunning(running) {
+            isLoraRunning = running;
+            document.getElementById('statusDot').classList.toggle('running', running);
+            document.getElementById('startLoraBtn').style.display = running ? 'none' : 'block';
+            document.getElementById('stopLoraBtn').style.display = running ? 'block' : 'none';
+        }
+
+        function startLoraMonitoring() {
+            const band = document.getElementById('loraBandSelect').value;
+            const freq = document.getElementById('loraFrequency').value;
+            const gain = document.getElementById('loraGain').value;
+            const ppm = document.getElementById('loraPpm').value;
+            const hop = document.getElementById('loraHop').checked;
+            const device = getSelectedDevice();
+
+            // Check if device is available
+            if (!checkDeviceAvailability('lora')) {
+                return;
+            }
+
+            // Check for remote SDR
+            const remoteConfig = getRemoteSDRConfig();
+            if (remoteConfig === false) return;
+
+            const config = {
+                band: band,
+                frequency: freq,
+                gain: gain,
+                ppm: ppm,
+                device: device,
+                hop_enabled: hop,
+                sdr_type: getSelectedSDRType(),
+                bias_t: getBiasTEnabled()
+            };
+
+            if (remoteConfig) {
+                config.rtl_tcp_host = remoteConfig.host;
+                config.rtl_tcp_port = remoteConfig.port;
+            }
+
+            fetch('/lora/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            }).then(r => r.json())
+              .then(data => {
+                  if (data.status === 'started') {
+                      reserveDevice(parseInt(device), 'lora');
+                      setLoraRunning(true);
+                      startLoraStream();
+                      // Update band info
+                      document.getElementById('loraCurrentBand').textContent = LORA_BANDS[band]?.name || band;
+                      document.getElementById('loraCurrentFreq').textContent = freq + ' MHz';
+                      addLoraLogEntry('Started monitoring ' + LORA_BANDS[band]?.name + ' at ' + freq + ' MHz');
+                  } else {
+                      showError('Failed to start: ' + (data.message || 'Unknown error'));
+                  }
+              });
+        }
+
+        function stopLoraMonitoring() {
+            fetch('/lora/stop', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    releaseDevice('lora');
+                    setLoraRunning(false);
+                    if (loraEventSource) {
+                        loraEventSource.close();
+                        loraEventSource = null;
+                    }
+                    addLoraLogEntry('Monitoring stopped');
+                });
+        }
+
+        function startLoraStream() {
+            if (loraEventSource) {
+                loraEventSource.close();
+            }
+
+            loraEventSource = new EventSource('/lora/stream');
+
+            loraEventSource.onopen = function() {
+                addLoraLogEntry('Stream connected...');
+            };
+
+            loraEventSource.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.type === 'lora_device') {
+                    handleLoraDevice(data);
+                } else if (data.type === 'status') {
+                    if (data.text === 'stopped') {
+                        setLoraRunning(false);
+                    } else if (data.text === 'started') {
+                        addLoraLogEntry('Receiver started');
+                    }
+                } else if (data.type === 'info') {
+                    addLoraLogEntry(data.text);
+                } else if (data.type === 'error') {
+                    addLoraLogEntry('Error: ' + data.text, true);
+                }
+            };
+
+            loraEventSource.onerror = function(e) {
+                console.error('LoRa stream error');
+                addLoraLogEntry('Stream connection error', true);
+            };
+        }
+
+        function handleLoraDevice(data) {
+            loraSignalCount++;
+            document.getElementById('loraSignalCount').textContent = loraSignalCount;
+            document.getElementById('headerLoraSignalCount').textContent = loraSignalCount;
+            document.getElementById('loraTotalSignals').textContent = loraSignalCount;
+
+            // Create device key
+            const deviceKey = (data.model || 'Unknown') + '_' + (data.id || data.channel || Math.random().toString(36).substr(2, 9));
+
+            // Track device
+            if (!loraDevices[deviceKey]) {
+                loraDeviceCount++;
+                document.getElementById('loraDeviceCount').textContent = loraDeviceCount;
+                document.getElementById('headerLoraDeviceCount').textContent = loraDeviceCount;
+                document.getElementById('loraDeviceListCount').textContent = loraDeviceCount;
+            }
+
+            loraDevices[deviceKey] = {
+                ...data,
+                key: deviceKey,
+                lastSeen: new Date().toISOString()
+            };
+
+            // Update visualizations
+            updateLoraStats();
+            addLoraDeviceCard(data, deviceKey);
+            addLoraLogEntry('Signal: ' + (data.model || 'Unknown') + (data.id ? ' ID:' + data.id : ''));
+
+            // Update radar
+            updateLoraRadar();
+        }
+
+        function addLoraDeviceCard(data, deviceKey) {
+            const container = document.getElementById('loraDeviceListContent');
+
+            // Remove placeholder
+            const placeholder = container.querySelector('[style*="padding: 30px"]');
+            if (placeholder) placeholder.remove();
+
+            // Check if card exists
+            let card = container.querySelector(`[data-device-key="${deviceKey}"]`);
+            if (!card) {
+                card = document.createElement('div');
+                card.className = 'wifi-device-card lora-device-card';
+                card.setAttribute('data-device-key', deviceKey);
+                card.onclick = () => selectLoraDevice(deviceKey);
+                container.insertBefore(card, container.firstChild);
+            }
+
+            const rssi = data.rssi || data.signal_quality;
+            const signalClass = rssi && rssi > -50 ? 'strong' : rssi && rssi > -80 ? 'medium' : 'weak';
+
+            card.innerHTML = `
+                <div class="device-card-header">
+                    <span class="device-name">${data.model || 'Unknown Device'}</span>
+                    <span class="device-signal ${signalClass}">${rssi ? rssi + ' dBm' : 'N/A'}</span>
+                </div>
+                <div class="device-card-details">
+                    ${data.id ? `<span>ID: ${data.id}</span>` : ''}
+                    ${data.channel ? `<span>CH: ${data.channel}</span>` : ''}
+                    ${data.is_lora ? '<span style="color: var(--accent-green);">LoRa</span>' : ''}
+                </div>
+            `;
+        }
+
+        function selectLoraDevice(deviceKey) {
+            const device = loraDevices[deviceKey];
+            if (!device) return;
+
+            document.querySelectorAll('.lora-device-card').forEach(c => c.classList.remove('selected'));
+            const card = document.querySelector(`[data-device-key="${deviceKey}"]`);
+            if (card) card.classList.add('selected');
+
+            const container = document.getElementById('loraSelectedDevice');
+            let details = '<div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;">';
+            for (const [key, value] of Object.entries(device)) {
+                if (value !== null && value !== undefined && !['type', 'key'].includes(key)) {
+                    const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    details += `<span style="color: var(--text-dim);">${label}:</span><span>${value}</span>`;
+                }
+            }
+            details += '</div>';
+            container.innerHTML = details;
+        }
+
+        function updateLoraStats() {
+            // Count device types
+            let sensors = 0, meters = 0, lorawan = 0, other = 0;
+            let strong = 0, medium = 0, weak = 0;
+
+            for (const device of Object.values(loraDevices)) {
+                const model = (device.model || '').toLowerCase();
+                if (model.includes('sensor') || model.includes('weather') || model.includes('temperature')) {
+                    sensors++;
+                } else if (model.includes('meter') || model.includes('smart') || model.includes('utility')) {
+                    meters++;
+                } else if (model.includes('lora') || model.includes('lpwan') || device.is_lora) {
+                    lorawan++;
+                } else {
+                    other++;
+                }
+
+                const rssi = device.rssi;
+                if (rssi && rssi > -50) strong++;
+                else if (rssi && rssi > -80) medium++;
+                else weak++;
+            }
+
+            document.getElementById('loraSensorCount').textContent = sensors;
+            document.getElementById('loraMeterCount').textContent = meters;
+            document.getElementById('loraLorawanCount').textContent = lorawan;
+            document.getElementById('loraOtherTypeCount').textContent = other;
+
+            // Update signal distribution
+            const total = Object.keys(loraDevices).length || 1;
+            document.getElementById('loraSignalStrong').style.width = (strong / total * 100) + '%';
+            document.getElementById('loraSignalMedium').style.width = (medium / total * 100) + '%';
+            document.getElementById('loraSignalWeak').style.width = (weak / total * 100) + '%';
+            document.getElementById('loraSignalStrongCount').textContent = strong;
+            document.getElementById('loraSignalMediumCount').textContent = medium;
+            document.getElementById('loraSignalWeakCount').textContent = weak;
+        }
+
+        function addLoraLogEntry(text, isError = false) {
+            const log = document.getElementById('loraActivityLog');
+            const placeholder = log.querySelector('[style*="padding: 10px"]');
+            if (placeholder) placeholder.remove();
+
+            const entry = document.createElement('div');
+            entry.style.cssText = `padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: ${isError ? 'var(--accent-red)' : 'var(--text-secondary)'};`;
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span style="color: var(--text-dim);">[${time}]</span> ${text}`;
+            log.insertBefore(entry, log.firstChild);
+
+            // Limit entries
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        function updateLoraRadar() {
+            const canvas = document.getElementById('loraRadarCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            const cx = w / 2, cy = h / 2;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw radar circles
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+            ctx.lineWidth = 1;
+            for (let r = 20; r <= 60; r += 20) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Draw crosshairs
+            ctx.beginPath();
+            ctx.moveTo(cx, 10);
+            ctx.lineTo(cx, h - 10);
+            ctx.moveTo(10, cy);
+            ctx.lineTo(w - 10, cy);
+            ctx.stroke();
+
+            // Plot devices
+            let i = 0;
+            for (const device of Object.values(loraDevices)) {
+                const rssi = device.rssi || -100;
+                const dist = Math.max(10, Math.min(60, (rssi + 120) * 0.6));
+                const angle = (i * 137.5) * Math.PI / 180;
+                const x = cx + dist * Math.cos(angle);
+                const y = cy + dist * Math.sin(angle);
+
+                ctx.fillStyle = device.is_lora ? 'var(--accent-green)' : 'var(--accent-cyan)';
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                i++;
+            }
+        }
+
+        // Initialize LoRa on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLoraChannelButtons('eu868');
+        });
 
         // Audio alert settings
         let audioMuted = localStorage.getItem('audioMuted') === 'true';
