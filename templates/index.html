@@ -8946,8 +8946,8 @@
                 }
             })
             .catch(err => {
-                document.getElementById('scannerStatus').textContent = 'ERROR';
-                document.getElementById('scannerStatus').style.color = 'var(--accent-red)';
+                document.getElementById('scannerStatusText').textContent = 'ERROR';
+                document.getElementById('scannerStatusText').style.color = 'var(--accent-red)';
                 showNotification('Scanner Error', err.message);
             });
         }
@@ -9007,8 +9007,8 @@
                 .then(data => {
                     isScannerPaused = !isScannerPaused;
                     document.getElementById('scannerPauseBtn').textContent = isScannerPaused ? '▶ Resume' : '⏸ Pause';
-                    document.getElementById('scannerStatus').textContent = isScannerPaused ? 'PAUSED' : 'SCANNING';
-                    document.getElementById('scannerStatus').style.color = isScannerPaused ? 'var(--accent-orange)' : 'var(--accent-green)';
+                    document.getElementById('scannerStatusText').textContent = isScannerPaused ? 'PAUSED' : 'SCANNING';
+                    document.getElementById('scannerStatusText').style.color = isScannerPaused ? 'var(--accent-orange)' : 'var(--accent-green)';
                     document.getElementById('scannerActivityStatus').textContent = isScannerPaused ? 'PAUSED' : 'SCANNING';
                     document.getElementById('scannerActivityStatus').style.color = isScannerPaused ? 'var(--accent-orange)' : 'var(--accent-green)';
                     addScannerLogEntry(isScannerPaused ? 'Scanner paused' : 'Scanner resumed', '');
@@ -9266,8 +9266,8 @@
                     isScannerRunning = false;
                     document.getElementById('scannerStartBtn').textContent = '▶ Start Scanner';
                     document.getElementById('scannerStartBtn').classList.remove('active');
-                    document.getElementById('scannerStatus').textContent = 'STOPPED';
-                    document.getElementById('scannerStatus').style.color = 'var(--text-muted)';
+                    document.getElementById('scannerStatusText').textContent = 'STOPPED';
+                    document.getElementById('scannerStatusText').style.color = 'var(--text-muted)';
                 }
 
                 // Stop any current audio and wait for it to complete
