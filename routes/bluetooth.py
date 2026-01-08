@@ -275,7 +275,12 @@ def stream_bt_scan(process, scan_mode):
                                 if match:
                                     mac = match.group(1).upper()
                                     name = match.group(2).strip()
-                                    # Remove "RSSI: -XX" from name if present
+
+                                    # Extract RSSI from name if present
+                                    rssi_in_name = re.search(r'RSSI:\s*(-?\d+)', name)
+                                    initial_rssi = int(rssi_in_name.group(1)) if rssi_in_name else None
+
+                                    # Remove "RSSI: -XX" from name
                                     name = re.sub(r'\s*RSSI:\s*-?\d+\s*', '', name).strip()
 
                                     manufacturer = get_manufacturer(mac)
@@ -284,7 +289,7 @@ def stream_bt_scan(process, scan_mode):
                                         'name': name or '[Unknown]',
                                         'manufacturer': manufacturer,
                                         'type': classify_bt_device(name, None, None, manufacturer),
-                                        'rssi': None,
+                                        'rssi': initial_rssi,
                                         'last_seen': time.time()
                                     }
 
