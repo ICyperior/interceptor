@@ -325,6 +325,11 @@ EOF
 
 install_debian_packages() {
   need_sudo
+
+  # Suppress needrestart prompts (Ubuntu Server 22.04+)
+  export DEBIAN_FRONTEND=noninteractive
+  export NEEDRESTART_MODE=a
+
   info "Updating APT package lists..."
   $SUDO apt-get update -y >/dev/null
 
