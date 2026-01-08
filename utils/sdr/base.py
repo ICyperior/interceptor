@@ -19,6 +19,7 @@ class SDRType(Enum):
     LIME_SDR = "limesdr"
     HACKRF = "hackrf"
     AIRSPY = "airspy"
+    SDRPLAY = "sdrplay"
     # Future support
     # USRP = "usrp"
     # BLADE_RF = "bladerf"
