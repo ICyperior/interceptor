@@ -130,8 +130,7 @@ def start_sensor() -> Response:
             app_module.sensor_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=1
+                stderr=subprocess.PIPE
             )
 
             # Start output thread
