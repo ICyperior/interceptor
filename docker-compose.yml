@@ -1,0 +1,37 @@
+# INTERCEPT - Signal Intelligence Platform
+# Docker Compose configuration for easy deployment
+
+services:
+  intercept:
+    build: .
+    container_name: intercept
+    ports:
+      - "5050:5050"
+    # Privileged mode required for USB SDR device access
+    # Alternatively, use device mapping (see below)
+    privileged: true
+    # USB device mapping (alternative to privileged mode)
+    # devices:
+    #   - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      # Persist data directory
+      - ./data:/app/data
+      # Optional: mount logs directory
+      # - ./logs:/app/logs
+    environment:
+      - INTERCEPT_HOST=0.0.0.0
+      - INTERCEPT_PORT=5050
+      - INTERCEPT_LOG_LEVEL=INFO
+    # Network mode for WiFi scanning (requires host network)
+    # network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Optional: Add volume for persistent SQLite database
+# volumes:
+#   intercept-data:

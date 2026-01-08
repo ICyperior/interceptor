@@ -5,22 +5,25 @@
 }
 
 :root {
-    --bg-dark: #0a0a0f;
-    --bg-panel: #0d1117;
-    --bg-card: #161b22;
-    --border-glow: #00d4ff;
-    --text-primary: #e6edf3;
-    --text-secondary: #8b949e;
-    --accent-cyan: #00d4ff;
-    --accent-green: #00ff88;
-    --accent-orange: #ff9500;
-    --accent-red: #ff4444;
+    --bg-dark: #0a0c10;
+    --bg-panel: #0f1218;
+    --bg-card: #151a23;
+    --border-color: #1f2937;
+    --border-glow: #4a9eff;
+    --text-primary: #e8eaed;
+    --text-secondary: #9ca3af;
+    --text-dim: #4b5563;
+    --accent-cyan: #4a9eff;
+    --accent-green: #22c55e;
+    --accent-orange: #f59e0b;
+    --accent-red: #ef4444;
     --accent-purple: #a855f7;
-    --grid-line: rgba(0, 212, 255, 0.1);
+    --accent-amber: #d4a853;
+    --grid-line: rgba(74, 158, 255, 0.08);
 }
 
 body {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-dark);
     color: var(--text-primary);
     min-height: 100vh;
@@ -82,28 +85,28 @@ body {
     position: relative;
     z-index: 10;
     padding: 12px 20px;
-    background: linear-gradient(180deg, rgba(0, 212, 255, 0.1) 0%, transparent 100%);
-    border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .logo {
-    font-family: 'Orbitron', monospace;
-    font-size: 24px;
-    font-weight: 900;
-    letter-spacing: 4px;
-    color: var(--accent-cyan);
-    text-shadow: 0 0 20px var(--accent-cyan), 0 0 40px var(--accent-cyan);
+    font-family: 'Inter', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--text-primary);
+    text-transform: uppercase;
 }
 
 .logo span {
     color: var(--text-secondary);
     font-weight: 400;
-    font-size: 14px;
+    font-size: 12px;
     margin-left: 15px;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
 }
 
 /* Stats badges in header */
@@ -113,7 +116,7 @@ body {
 }
 
 .stat-badge {
-    background: rgba(0, 212, 255, 0.1);
+    background: var(--bg-card);
     border: 1px solid rgba(0, 212, 255, 0.3);
     border-radius: 4px;
     padding: 4px 10px;
@@ -600,10 +603,15 @@ body {
     background: var(--bg-dark) !important;
 }
 
+.leaflet-tile-pane,
+.leaflet-container .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(1.2) !important;
+}
+
 .leaflet-control-zoom a {
     background: var(--bg-panel) !important;
     color: var(--accent-cyan) !important;
-    border-color: rgba(0, 212, 255, 0.3) !important;
+    border-color: var(--border-color) !important;
 }
 
 .leaflet-control-attribution {

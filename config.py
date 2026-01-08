@@ -7,7 +7,7 @@ import os
 import sys
 
 # Application version
-VERSION = "1.2.0"
+VERSION = "2.0.0"
 
 
 def _get_env(key: str, default: str) -> str:

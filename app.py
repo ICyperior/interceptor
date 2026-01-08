@@ -29,6 +29,17 @@ from config import VERSION
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
 from utils.process import cleanup_stale_processes
 from utils.sdr import SDRFactory
+from utils.cleanup import DataStore, cleanup_manager
+from utils.constants import (
+    MAX_AIRCRAFT_AGE_SECONDS,
+    MAX_WIFI_NETWORK_AGE_SECONDS,
+    MAX_BT_DEVICE_AGE_SECONDS,
+    QUEUE_MAX_SIZE,
+)
+
+# Track application start time for uptime calculation
+import time as _time
+_app_start_time = _time.time()
 
 
 # Create Flask app
@@ -40,32 +51,32 @@ app = Flask(__name__)
 
 # Pager decoder
 current_process = None
-output_queue = queue.Queue()
+output_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 process_lock = threading.Lock()
 
 # RTL_433 sensor
 sensor_process = None
-sensor_queue = queue.Queue()
+sensor_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 sensor_lock = threading.Lock()
 
 # WiFi
 wifi_process = None
-wifi_queue = queue.Queue()
+wifi_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 wifi_lock = threading.Lock()
 
 # Bluetooth
 bt_process = None
-bt_queue = queue.Queue()
+bt_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 bt_lock = threading.Lock()
 
 # ADS-B aircraft
 adsb_process = None
-adsb_queue = queue.Queue()
+adsb_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 adsb_lock = threading.Lock()
 
 # Satellite/Iridium
 satellite_process = None
-satellite_queue = queue.Queue()
+satellite_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 satellite_lock = threading.Lock()
 
 # ============================================
@@ -76,23 +87,30 @@ satellite_lock = threading.Lock()
 logging_enabled = False
 log_file_path = 'pager_messages.log'
 
-# WiFi state
+# WiFi state - using DataStore for automatic cleanup
 wifi_monitor_interface = None
-wifi_networks = {}   # BSSID -> network info
-wifi_clients = {}    # Client MAC -> client info
-wifi_handshakes = [] # Captured handshakes
+wifi_networks = DataStore(max_age_seconds=MAX_WIFI_NETWORK_AGE_SECONDS, name='wifi_networks')
+wifi_clients = DataStore(max_age_seconds=MAX_WIFI_NETWORK_AGE_SECONDS, name='wifi_clients')
+wifi_handshakes = []  # Captured handshakes (list, not auto-cleaned)
 
-# Bluetooth state
+# Bluetooth state - using DataStore for automatic cleanup
 bt_interface = None
-bt_devices = {}      # MAC -> device info
-bt_beacons = {}      # MAC -> beacon info (AirTags, Tiles, iBeacons)
-bt_services = {}     # MAC -> list of services
+bt_devices = DataStore(max_age_seconds=MAX_BT_DEVICE_AGE_SECONDS, name='bt_devices')
+bt_beacons = DataStore(max_age_seconds=MAX_BT_DEVICE_AGE_SECONDS, name='bt_beacons')
+bt_services = {}     # MAC -> list of services (not auto-cleaned, user-requested)
 
-# Aircraft (ADS-B) state
-adsb_aircraft = {}   # ICAO hex -> aircraft info
+# Aircraft (ADS-B) state - using DataStore for automatic cleanup
+adsb_aircraft = DataStore(max_age_seconds=MAX_AIRCRAFT_AGE_SECONDS, name='adsb_aircraft')
 
 # Satellite state
-satellite_passes = [] # Predicted satellite passes
+satellite_passes = []  # Predicted satellite passes (not auto-cleaned, calculated)
+
+# Register data stores with cleanup manager
+cleanup_manager.register(wifi_networks)
+cleanup_manager.register(wifi_clients)
+cleanup_manager.register(bt_devices)
+cleanup_manager.register(bt_beacons)
+cleanup_manager.register(adsb_aircraft)
 
 
 # ============================================
@@ -130,15 +148,16 @@ def get_dependencies() -> Response:
     # Determine OS for install instructions
     system = platform.system().lower()
     if system == 'darwin':
-        install_method = 'brew'
+        pkg_manager = 'brew'
     elif system == 'linux':
-        install_method = 'apt'
+        pkg_manager = 'apt'
     else:
-        install_method = 'manual'
+        pkg_manager = 'manual'
 
     return jsonify({
+        'status': 'success',
         'os': system,
-        'install_method': install_method,
+        'pkg_manager': pkg_manager,
         'modes': results
     })
 
@@ -159,14 +178,14 @@ def export_aircraft() -> Response:
         for icao, ac in adsb_aircraft.items():
             writer.writerow([
                 icao,
-                ac.get('callsign', ''),
-                ac.get('altitude', ''),
-                ac.get('speed', ''),
-                ac.get('heading', ''),
-                ac.get('lat', ''),
-                ac.get('lon', ''),
-                ac.get('squawk', ''),
-                ac.get('lastSeen', '')
+                ac.get('callsign', '') if isinstance(ac, dict) else '',
+                ac.get('altitude', '') if isinstance(ac, dict) else '',
+                ac.get('speed', '') if isinstance(ac, dict) else '',
+                ac.get('heading', '') if isinstance(ac, dict) else '',
+                ac.get('lat', '') if isinstance(ac, dict) else '',
+                ac.get('lon', '') if isinstance(ac, dict) else '',
+                ac.get('squawk', '') if isinstance(ac, dict) else '',
+                ac.get('lastSeen', '') if isinstance(ac, dict) else ''
             ])
 
         response = Response(output.getvalue(), mimetype='text/csv')
@@ -175,7 +194,7 @@ def export_aircraft() -> Response:
     else:
         return jsonify({
             'timestamp': __import__('datetime').datetime.utcnow().isoformat(),
-            'aircraft': list(adsb_aircraft.values())
+            'aircraft': adsb_aircraft.values()
         })
 
 
@@ -195,11 +214,11 @@ def export_wifi() -> Response:
         for bssid, net in wifi_networks.items():
             writer.writerow([
                 bssid,
-                net.get('ssid', ''),
-                net.get('channel', ''),
-                net.get('signal', ''),
-                net.get('encryption', ''),
-                net.get('clients', 0)
+                net.get('ssid', '') if isinstance(net, dict) else '',
+                net.get('channel', '') if isinstance(net, dict) else '',
+                net.get('signal', '') if isinstance(net, dict) else '',
+                net.get('encryption', '') if isinstance(net, dict) else '',
+                net.get('clients', 0) if isinstance(net, dict) else 0
             ])
 
         response = Response(output.getvalue(), mimetype='text/csv')
@@ -208,8 +227,8 @@ def export_wifi() -> Response:
     else:
         return jsonify({
             'timestamp': __import__('datetime').datetime.utcnow().isoformat(),
-            'networks': list(wifi_networks.values()),
-            'clients': list(wifi_clients.values())
+            'networks': wifi_networks.values(),
+            'clients': wifi_clients.values()
         })
 
 
@@ -229,11 +248,11 @@ def export_bluetooth() -> Response:
         for mac, dev in bt_devices.items():
             writer.writerow([
                 mac,
-                dev.get('name', ''),
-                dev.get('rssi', ''),
-                dev.get('type', ''),
-                dev.get('manufacturer', ''),
-                dev.get('lastSeen', '')
+                dev.get('name', '') if isinstance(dev, dict) else '',
+                dev.get('rssi', '') if isinstance(dev, dict) else '',
+                dev.get('type', '') if isinstance(dev, dict) else '',
+                dev.get('manufacturer', '') if isinstance(dev, dict) else '',
+                dev.get('lastSeen', '') if isinstance(dev, dict) else ''
             ])
 
         response = Response(output.getvalue(), mimetype='text/csv')
@@ -242,9 +261,33 @@ def export_bluetooth() -> Response:
     else:
         return jsonify({
             'timestamp': __import__('datetime').datetime.utcnow().isoformat(),
-            'devices': list(bt_devices.values()),
-            'beacons': list(bt_beacons.values())
+            'devices': bt_devices.values(),
+            'beacons': bt_beacons.values()
         })
+
+
+@app.route('/health')
+def health_check() -> Response:
+    """Health check endpoint for monitoring."""
+    import time
+    return jsonify({
+        'status': 'healthy',
+        'version': VERSION,
+        'uptime_seconds': round(time.time() - _app_start_time, 2),
+        'processes': {
+            'pager': current_process is not None and (current_process.poll() is None if current_process else False),
+            'sensor': sensor_process is not None and (sensor_process.poll() is None if sensor_process else False),
+            'adsb': adsb_process is not None and (adsb_process.poll() is None if adsb_process else False),
+            'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
+            'bluetooth': bt_process is not None and (bt_process.poll() is None if bt_process else False),
+        },
+        'data': {
+            'aircraft_count': len(adsb_aircraft),
+            'wifi_networks_count': len(wifi_networks),
+            'wifi_clients_count': len(wifi_clients),
+            'bt_devices_count': len(bt_devices),
+        }
+    })
 
 
 @app.route('/killall', methods=['POST'])
@@ -342,6 +385,13 @@ def main() -> None:
 
     # Clean up any stale processes from previous runs
     cleanup_stale_processes()
+
+    # Initialize database for settings storage
+    from utils.database import init_db
+    init_db()
+
+    # Start automatic cleanup of stale data entries
+    cleanup_manager.start()
 
     # Register blueprints
     from routes import register_blueprints

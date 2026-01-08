@@ -8,7 +8,7 @@
 
 <p align="center">
   <strong>Signal Intelligence Platform</strong><br>
-  A web-based front-end for signal intelligence tools.
+  A web-based interface for software-defined radio tools.
 </p>
 
 <p align="center">
@@ -17,29 +17,23 @@
 
 ---
 
-## What is INTERCEPT?
-
-INTERCEPT provides a unified web interface for signal intelligence tools:
+## Features
 
 - **Pager Decoding** - POCSAG/FLEX via rtl_fm + multimon-ng
-- **433MHz Sensors** - Weather stations, TPMS, IoT via rtl_433
-- **Aircraft Tracking** - ADS-B via dump1090 with real-time map
+- **433MHz Sensors** - Weather stations, TPMS, IoT devices via rtl_433
+- **Aircraft Tracking** - ADS-B via dump1090 with real-time map and radar
+- **Listening Post** - Frequency scanner with audio monitoring
 - **Satellite Tracking** - Pass prediction using TLE data
-- **WiFi Recon** - Monitor mode scanning via aircrack-ng
+- **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
 - **Bluetooth Scanning** - Device discovery and tracker detection
 
 ---
 
-## Community
+## Installation / Debian / Ubuntu / MacOS
 
-<p align="center">
-  <a href="https://discord.gg/z3g3NJMe">Join our Discord</a>
-</p>
+```
 
----
-
-## Quick Start
-
+**1. Clone and run:**
 ```bash
 git clone https://github.com/smittix/intercept.git
 cd intercept
@@ -47,72 +41,67 @@ cd intercept
 sudo python3 intercept.py
 ```
 
-Open http://localhost:5050 in your browser.
-
-## Usage of Black Formatter
-```bash
-uv run black . # If you use UV
-black . # For Python
-```
-
-<details>
-<summary><strong>Alternative: Install with uv</strong></summary>
+### Docker (Alternative)
 
 ```bash
 git clone https://github.com/smittix/intercept.git
 cd intercept
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv sync
-sudo python3 intercept.py
+docker-compose up -d
 ```
-</details>
 
-> **Note:** Requires Python 3.9+ and external tools. See [Hardware & Installation](docs/HARDWARE.md).
+> **Note:** Docker requires privileged mode for USB SDR access. See `docker-compose.yml` for configuration options.
+
+### Open the Interface
+
+After starting, open **http://localhost:5050** in your browser.
 
 ---
 
-## Requirements
+## Hardware Requirements
 
-- **Python 3.9+**
-- **SDR Hardware** - RTL-SDR (~$25), LimeSDR, or HackRF
-- **External Tools** - rtl-sdr, multimon-ng, rtl_433, dump1090, aircrack-ng
+| Hardware | Purpose | Price |
+|----------|---------|-------|
+| **RTL-SDR** | Required for all SDR features | ~$25-35 |
+| **WiFi adapter** | Must support promiscuous (monitor) mode | ~$20-40 |
+| **Bluetooth adapter** | Device scanning (usually built-in) | - |
+| **GPS** | Any Linux supported GPS Unit | ~10 |
 
-Quick install (Ubuntu/Debian):
-```bash
-sudo apt install rtl-sdr multimon-ng rtl-433 dump1090-mutability aircrack-ng bluez
-```
+Most features work with a basic RTL-SDR dongle (RTL2832U + R820T2).
 
-See [Hardware & Installation](docs/HARDWARE.md) for full details.
+| :exclamation:  Not using an RTL-SDR Device?   |
+|-----------------------------------------------
+|Intercept supports any device that SoapySDR supports. You must however have the correct module for your device installed! For example if you have an SDRPlay device you'd need to install soapysdr-module-sdrplay.
+
+| :exclamation:  GPS Usage   |
+|-----------------------------------------------
+|gpsd is needed for real time location. Intercept automatically checks to see if you're running gpsd in the background when any maps are rendered.
+
+---
+
+## Discord Server
+
+<p align="center">
+  <a href="https://discord.gg/z3g3NJMe">Join our Discord</a>
+</p>
 
 ---
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Features](docs/FEATURES.md) | Complete feature list for all modules |
-| [Usage Guide](docs/USAGE.md) | Detailed instructions for each mode |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | Solutions for common issues |
-| [Hardware & Installation](docs/HARDWARE.md) | SDR hardware and tool installation |
-
----
-
-## Development
-
-This project was developed using AI as a coding partner, combining human direction with AI-assisted implementation. The goal: make Software Defined Radio more accessible by providing a clean, unified interface for common SDR tools.
-
-Contributions and improvements welcome.
+- [Usage Guide](docs/USAGE.md) - Detailed instructions for each mode
+- [Hardware Guide](docs/HARDWARE.md) - SDR hardware and advanced setup
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
 
 ---
 
 ## Disclaimer
 
-**This software is for educational purposes only.**
+This project was developed using AI as a coding partner, combining human direction with AI-assisted implementation. The goal: make Software Defined Radio more accessible by providing a clean, unified interface for common SDR tools.
+
+**This software is for educational and authorized testing purposes only.**
 
 - Only use with proper authorization
 - Intercepting communications without consent may be illegal
-- WiFi/Bluetooth attacks require explicit permission
 - You are responsible for compliance with applicable laws
 
 ---
@@ -134,4 +123,6 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
 [Celestrak](https://celestrak.org/)
+
+
 

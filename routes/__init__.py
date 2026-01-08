@@ -9,6 +9,9 @@ def register_blueprints(app):
     from .adsb import adsb_bp
     from .satellite import satellite_bp
     from .gps import gps_bp
+    from .settings import settings_bp
+    from .correlation import correlation_bp
+    from .listening_post import listening_post_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -17,3 +20,6 @@ def register_blueprints(app):
     app.register_blueprint(adsb_bp)
     app.register_blueprint(satellite_bp)
     app.register_blueprint(gps_bp)
+    app.register_blueprint(settings_bp)
+    app.register_blueprint(correlation_bp)
+    app.register_blueprint(listening_post_bp)

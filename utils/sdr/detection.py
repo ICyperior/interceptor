@@ -144,6 +144,15 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
     return devices
 
 
+def _find_soapy_util() -> str | None:
+    """Find SoapySDR utility command (name varies by distribution)."""
+    # Try different command names used across distributions
+    for cmd in ['SoapySDRUtil', 'soapy_sdr_util', 'soapysdr-util']:
+        if _check_tool(cmd):
+            return cmd
+    return None
+
+
 def detect_soapy_devices(skip_types: Optional[set[SDRType]] = None) -> list[SDRDevice]:
     """
     Detect SDR devices via SoapySDR.
@@ -156,13 +165,14 @@ def detect_soapy_devices(skip_types: Optional[set[SDRType]] = None) -> list[SDRD
     devices: list[SDRDevice] = []
     skip_types = skip_types or set()
 
-    if not _check_tool('SoapySDRUtil'):
-        logger.debug("SoapySDRUtil not found, skipping SoapySDR detection")
+    soapy_cmd = _find_soapy_util()
+    if not soapy_cmd:
+        logger.debug("SoapySDR utility not found, skipping SoapySDR detection")
         return devices
 
     try:
         result = subprocess.run(
-            ['SoapySDRUtil', '--find'],
+            [soapy_cmd, '--find'],
             capture_output=True,
             text=True,
             timeout=10
