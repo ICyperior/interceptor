@@ -21,6 +21,7 @@ from utils.constants import (
     SSE_KEEPALIVE_INTERVAL,
     PROCESS_TERMINATE_TIMEOUT,
 )
+from utils.sdr import SDRFactory, SDRType
 
 logger = get_logger('intercept.listening_post')
 
@@ -55,6 +56,7 @@ scanner_config = {
     'device': 0,
     'gain': 40,
     'bias_t': False,  # Bias-T power for external LNA
+    'sdr_type': 'rtlsdr',  # SDR type: rtlsdr, hackrf, airspy, limesdr, sdrplay
 }
 
 # Activity log
@@ -73,6 +75,11 @@ scanner_queue: queue.Queue = queue.Queue(maxsize=100)
 def find_rtl_fm() -> str | None:
     """Find rtl_fm binary."""
     return shutil.which('rtl_fm')
+
+
+def find_rx_fm() -> str | None:
+    """Find rx_fm binary (SoapySDR FM demodulator for HackRF/Airspy/LimeSDR)."""
+    return shutil.which('rx_fm')
 
 
 def find_ffmpeg() -> str | None:
@@ -341,14 +348,19 @@ def _start_audio_stream(frequency: float, modulation: str):
         # Stop any existing stream
         _stop_audio_stream_internal()
 
-        rtl_fm_path = find_rtl_fm()
         ffmpeg_path = find_ffmpeg()
-
-        if not rtl_fm_path or not ffmpeg_path:
+        if not ffmpeg_path:
+            logger.error("ffmpeg not found")
             return
 
-        freq_hz = int(frequency * 1e6)
+        # Determine SDR type and build appropriate command
+        sdr_type_str = scanner_config.get('sdr_type', 'rtlsdr')
+        try:
+            sdr_type = SDRType(sdr_type_str)
+        except ValueError:
+            sdr_type = SDRType.RTL_SDR
 
+        # Set sample rates based on modulation
         if modulation == 'wfm':
             sample_rate = 170000
             resample_rate = 32000
@@ -359,19 +371,50 @@ def _start_audio_stream(frequency: float, modulation: str):
             sample_rate = 24000
             resample_rate = 24000
 
-        rtl_cmd = [
-            rtl_fm_path,
-            '-M', modulation,
-            '-f', str(freq_hz),
-            '-s', str(sample_rate),
-            '-r', str(resample_rate),
-            '-g', str(scanner_config['gain']),
-            '-d', str(scanner_config['device']),
-            '-l', str(scanner_config['squelch']),
-        ]
-        # Add bias-t flag if enabled (for external LNA power)
-        if scanner_config.get('bias_t', False):
-            rtl_cmd.append('-T')
+        # Build the SDR command based on device type
+        if sdr_type == SDRType.RTL_SDR:
+            # Use rtl_fm for RTL-SDR devices
+            rtl_fm_path = find_rtl_fm()
+            if not rtl_fm_path:
+                logger.error("rtl_fm not found")
+                return
+
+            freq_hz = int(frequency * 1e6)
+            sdr_cmd = [
+                rtl_fm_path,
+                '-M', modulation,
+                '-f', str(freq_hz),
+                '-s', str(sample_rate),
+                '-r', str(resample_rate),
+                '-g', str(scanner_config['gain']),
+                '-d', str(scanner_config['device']),
+                '-l', str(scanner_config['squelch']),
+            ]
+            if scanner_config.get('bias_t', False):
+                sdr_cmd.append('-T')
+        else:
+            # Use SDR abstraction layer for HackRF, Airspy, LimeSDR, SDRPlay
+            rx_fm_path = find_rx_fm()
+            if not rx_fm_path:
+                logger.error(f"rx_fm not found - required for {sdr_type.value}. Install SoapySDR utilities.")
+                return
+
+            # Create device and get command builder
+            device = SDRFactory.create_default_device(sdr_type, index=scanner_config['device'])
+            builder = SDRFactory.get_builder(sdr_type)
+
+            # Build FM demod command
+            sdr_cmd = builder.build_fm_demod_command(
+                device=device,
+                frequency_mhz=frequency,
+                sample_rate=resample_rate,
+                gain=float(scanner_config['gain']),
+                modulation=modulation,
+                squelch=scanner_config['squelch'],
+                bias_t=scanner_config.get('bias_t', False)
+            )
+            # Ensure we use the found rx_fm path
+            sdr_cmd[0] = rx_fm_path
 
         encoder_cmd = [
             ffmpeg_path,
@@ -392,9 +435,9 @@ def _start_audio_stream(frequency: float, modulation: str):
         ]
 
         try:
-            logger.info(f"Starting rtl_fm: {' '.join(rtl_cmd)}")
+            logger.info(f"Starting SDR ({sdr_type.value}): {' '.join(sdr_cmd)}")
             audio_rtl_process = subprocess.Popen(
-                rtl_cmd,
+                sdr_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
@@ -415,7 +458,7 @@ def _start_audio_stream(frequency: float, modulation: str):
 
             if audio_rtl_process.poll() is not None:
                 stderr = audio_rtl_process.stderr.read().decode() if audio_rtl_process.stderr else ''
-                logger.error(f"rtl_fm exited immediately: {stderr}")
+                logger.error(f"SDR process exited immediately: {stderr}")
                 return
 
             if audio_process.poll() is not None:
@@ -426,7 +469,7 @@ def _start_audio_stream(frequency: float, modulation: str):
             audio_running = True
             audio_frequency = frequency
             audio_modulation = modulation
-            logger.info(f"Audio stream started: {frequency} MHz ({modulation})")
+            logger.info(f"Audio stream started: {frequency} MHz ({modulation}) via {sdr_type.value}")
 
         except Exception as e:
             logger.error(f"Failed to start audio stream: {e}")
@@ -476,12 +519,23 @@ def _stop_audio_stream_internal():
 def check_tools() -> Response:
     """Check for required tools."""
     rtl_fm = find_rtl_fm()
+    rx_fm = find_rx_fm()
     ffmpeg = find_ffmpeg()
+
+    # Determine which SDR types are supported
+    supported_sdr_types = []
+    if rtl_fm:
+        supported_sdr_types.append('rtlsdr')
+    if rx_fm:
+        # rx_fm from SoapySDR supports these types
+        supported_sdr_types.extend(['hackrf', 'airspy', 'limesdr', 'sdrplay'])
 
     return jsonify({
         'rtl_fm': rtl_fm is not None,
+        'rx_fm': rx_fm is not None,
         'ffmpeg': ffmpeg is not None,
-        'available': rtl_fm is not None and ffmpeg is not None
+        'available': (rtl_fm is not None or rx_fm is not None) and ffmpeg is not None,
+        'supported_sdr_types': supported_sdr_types
     })
 
 
@@ -511,6 +565,7 @@ def start_scanner() -> Response:
         scanner_config['device'] = int(data.get('device', 0))
         scanner_config['gain'] = int(data.get('gain', 40))
         scanner_config['bias_t'] = bool(data.get('bias_t', False))
+        scanner_config['sdr_type'] = str(data.get('sdr_type', 'rtlsdr')).lower()
     except (ValueError, TypeError) as e:
         return jsonify({
             'status': 'error',
@@ -524,12 +579,20 @@ def start_scanner() -> Response:
             'message': 'start_freq must be less than end_freq'
         }), 400
 
-    # Check tools
-    if not find_rtl_fm():
-        return jsonify({
-            'status': 'error',
-            'message': 'rtl_fm not found. Install rtl-sdr tools.'
-        }), 503
+    # Check tools based on SDR type
+    sdr_type = scanner_config['sdr_type']
+    if sdr_type == 'rtlsdr':
+        if not find_rtl_fm():
+            return jsonify({
+                'status': 'error',
+                'message': 'rtl_fm not found. Install rtl-sdr tools.'
+            }), 503
+    else:
+        if not find_rx_fm():
+            return jsonify({
+                'status': 'error',
+                'message': f'rx_fm not found. Install SoapySDR utilities for {sdr_type}.'
+            }), 503
 
     # Start scanner thread
     scanner_running = True
@@ -688,6 +751,7 @@ def start_audio() -> Response:
         squelch = int(data.get('squelch', 0))
         gain = int(data.get('gain', 40))
         device = int(data.get('device', 0))
+        sdr_type = str(data.get('sdr_type', 'rtlsdr')).lower()
     except (ValueError, TypeError) as e:
         return jsonify({
             'status': 'error',
@@ -707,10 +771,18 @@ def start_audio() -> Response:
             'message': f'Invalid modulation. Use: {", ".join(valid_mods)}'
         }), 400
 
+    valid_sdr_types = ['rtlsdr', 'hackrf', 'airspy', 'limesdr', 'sdrplay']
+    if sdr_type not in valid_sdr_types:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid sdr_type. Use: {", ".join(valid_sdr_types)}'
+        }), 400
+
     # Update config for audio
     scanner_config['squelch'] = squelch
     scanner_config['gain'] = gain
     scanner_config['device'] = device
+    scanner_config['sdr_type'] = sdr_type
 
     _start_audio_stream(frequency, modulation)
 
