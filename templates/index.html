@@ -1271,14 +1271,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Signal Strength History Graph -->
-                    <div class="wifi-visual-panel signal-graph-panel" id="signalGraphPanel" style="grid-column: span 2;">
-                        <div class="signal-graph-header">
-                            <h4>📈 Signal History</h4>
-                            <span class="signal-graph-device" id="signalGraphDevice">Click a device to track</span>
-                        </div>
-                        <canvas id="signalGraph"></canvas>
-                    </div>
                     <!-- Network Relationship Graph -->
                     <div class="wifi-visual-panel network-graph-container" style="grid-column: span 2;">
                         <h4>🕸️ Network Topology</h4>
@@ -1354,13 +1346,6 @@
                         <div id="btTrackerList" style="max-height: 120px; overflow-y: auto; font-size: 11px;">
                             <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles, and other trackers...</div>
                         </div>
-                    </div>
-                    <div class="wifi-visual-panel signal-graph-panel" style="grid-column: span 4;">
-                        <div class="signal-graph-header">
-                            <h4>📈 BT Signal History</h4>
-                            <span class="signal-graph-device" id="btSignalGraphDevice">Select a device from the list</span>
-                        </div>
-                        <canvas id="btSignalGraph"></canvas>
                     </div>
                 </div>
 
@@ -2340,6 +2325,10 @@
             } else {
                 if (reconBtn) reconBtn.style.display = 'inline-block';
                 if (intelBtn) intelBtn.style.display = 'inline-block';
+                // Restore panel visibility based on reconEnabled state
+                if (reconEnabled) {
+                    document.getElementById('reconPanel').style.display = 'block';
+                }
             }
 
             // Show RTL-SDR device section for modes that use it
@@ -3599,7 +3588,7 @@
                 <div class="device-info">
                     <div class="device-name-row">
                         <span class="timeline-dot ${timelineDot}"></span>
-                        <span class="badge ${badgeClass}">${profile.protocol.substring(0, 8)}</span>
+                        <span class="badge ${badgeClass}">${profile.protocol.substring(0, 10)}</span>
                         ${deviceId.substring(0, 30)}
                     </div>
                     <div class="device-id">
@@ -4109,221 +4098,6 @@
 
         // ============== NEW FEATURES ==============
 
-        // Signal History Graph with Chart.js
-        let signalHistory = {};  // {mac: [{time, signal}]}
-        let trackedDevice = null;
-        let trackedDeviceMode = 'wifi';  // 'wifi' or 'bluetooth'
-        const maxSignalPoints = 60;
-        let signalChart = null;
-
-        function trackDeviceSignal(mac, signal, mode = 'wifi') {
-            if (!signalHistory[mac]) {
-                signalHistory[mac] = [];
-            }
-            const timestamp = Date.now();
-            signalHistory[mac].push({
-                time: timestamp,
-                signal: parseInt(signal) || -100
-            });
-            // Keep only last N points
-            if (signalHistory[mac].length > maxSignalPoints) {
-                signalHistory[mac].shift();
-            }
-            // Update graph if this is the tracked device
-            if (trackedDevice === mac) {
-                updateSignalChart();
-            }
-            // Persist to server (non-blocking)
-            fetch('/settings/signal-history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode, device_id: mac, signal_strength: signal })
-            }).catch(() => {}); // Ignore errors
-        }
-
-        function setTrackedDevice(mac, name, mode = 'wifi') {
-            trackedDevice = mac;
-            trackedDeviceMode = mode;
-            document.getElementById('signalGraphDevice').textContent = name || mac;
-            initSignalChart();
-            updateSignalChart();
-        }
-
-        function initSignalChart() {
-            const canvas = document.getElementById('signalGraph');
-            if (!canvas) return;
-
-            // Destroy existing chart if any
-            if (signalChart) {
-                signalChart.destroy();
-            }
-
-            const ctx = canvas.getContext('2d');
-            signalChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Signal (dBm)',
-                        data: [],
-                        borderColor: '#00d4ff',
-                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 0,
-                        pointHoverRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: { duration: 0 },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#00d4ff',
-                            bodyColor: '#fff'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            display: false
-                        },
-                        y: {
-                            min: -100,
-                            max: -20,
-                            reverse: true,
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            ticks: {
-                                color: '#666',
-                                font: { size: 10, family: 'monospace' },
-                                callback: v => v + ' dBm'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateSignalChart() {
-            if (!signalChart || !trackedDevice) return;
-
-            const data = signalHistory[trackedDevice] || [];
-            if (data.length === 0) return;
-
-            signalChart.data.labels = data.map((_, i) => i);
-            signalChart.data.datasets[0].data = data.map(p => p.signal);
-            signalChart.update('none');
-
-            // Update current value display
-            const lastSignal = data[data.length - 1].signal;
-            const deviceLabel = document.getElementById('signalGraphDevice');
-            if (deviceLabel && !deviceLabel.textContent.includes('dBm')) {
-                deviceLabel.textContent += ` (${lastSignal} dBm)`;
-            }
-        }
-
-        // Legacy function for backward compatibility
-        function drawSignalGraph() {
-            if (!signalChart) {
-                initSignalChart();
-            }
-            updateSignalChart();
-        }
-
-        // Bluetooth Signal History Chart
-        let btSignalChart = null;
-        let btTrackedDevice = null;
-        let btSignalHistory = {};
-
-        function trackBtDeviceSignal(mac, rssi) {
-            if (!btSignalHistory[mac]) {
-                btSignalHistory[mac] = [];
-            }
-            btSignalHistory[mac].push({
-                time: Date.now(),
-                signal: parseInt(rssi) || -100
-            });
-            if (btSignalHistory[mac].length > maxSignalPoints) {
-                btSignalHistory[mac].shift();
-            }
-            if (btTrackedDevice === mac) {
-                updateBtSignalChart();
-            }
-            // Persist to server
-            fetch('/settings/signal-history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'bluetooth', device_id: mac, signal_strength: rssi })
-            }).catch(() => {});
-        }
-
-        function setBtTrackedDevice(mac, name) {
-            btTrackedDevice = mac;
-            document.getElementById('btSignalGraphDevice').textContent = name || mac;
-            initBtSignalChart();
-            updateBtSignalChart();
-        }
-
-        function initBtSignalChart() {
-            const canvas = document.getElementById('btSignalGraph');
-            if (!canvas) return;
-
-            if (btSignalChart) {
-                btSignalChart.destroy();
-            }
-
-            const ctx = canvas.getContext('2d');
-            btSignalChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'RSSI (dBm)',
-                        data: [],
-                        borderColor: '#ff6600',
-                        backgroundColor: 'rgba(255, 102, 0, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: { duration: 0 },
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: {
-                            min: -100,
-                            max: -20,
-                            reverse: true,
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            ticks: {
-                                color: '#666',
-                                font: { size: 10, family: 'monospace' },
-                                callback: v => v + ' dBm'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateBtSignalChart() {
-            if (!btSignalChart || !btTrackedDevice) return;
-            const data = btSignalHistory[btTrackedDevice] || [];
-            if (data.length === 0) return;
-
-            btSignalChart.data.labels = data.map((_, i) => i);
-            btSignalChart.data.datasets[0].data = data.map(p => p.signal);
-            btSignalChart.update('none');
-        }
-
         // Network Topology Graph
         function drawNetworkGraph() {
             const canvas = document.getElementById('networkGraph');
@@ -4604,7 +4378,6 @@
         // Update visualizations periodically
         setInterval(() => {
             if (currentMode === 'wifi') {
-                drawSignalGraph();
                 drawNetworkGraph();
                 updateChannelRecommendation();
                 correlateDevices();
@@ -4620,9 +4393,18 @@
                     if (data.interfaces.length === 0) {
                         select.innerHTML = '<option value="">No WiFi interfaces found</option>';
                     } else {
-                        select.innerHTML = data.interfaces.map(i =>
-                            `<option value="${i.name}">${i.name} (${i.type})${i.monitor_capable ? ' [Monitor OK]' : ''}</option>`
-                        ).join('');
+                        select.innerHTML = data.interfaces.map(i => {
+                            // Build descriptive label with available info
+                            let label = i.name;
+                            let details = [];
+                            if (i.chipset) details.push(i.chipset);
+                            else if (i.driver) details.push(i.driver);
+                            if (i.mac) details.push(i.mac.substring(0, 8) + '...');
+                            if (details.length > 0) label += ' - ' + details.join(' | ');
+                            label += ` (${i.type})`;
+                            if (i.monitor_capable) label += ' [Monitor OK]';
+                            return `<option value="${i.name}">${label}</option>`;
+                        }).join('');
                     }
 
                     // Update tool status
@@ -4839,9 +4621,6 @@
             const isNew = !wifiNetworks[net.bssid];
             wifiNetworks[net.bssid] = net;
 
-            // Track signal history for graphs
-            trackDeviceSignal(net.bssid, net.power);
-
             // Check if this reveals a hidden SSID
             if (net.essid && net.essid !== 'Hidden' && net.essid !== '[Hidden]') {
                 revealHiddenSsid(net.bssid, net.essid);
@@ -4889,9 +4668,6 @@
         function handleWifiClientImmediate(client) {
             const isNew = !wifiClients[client.mac];
             wifiClients[client.mac] = client;
-
-            // Track signal history for graphs
-            trackDeviceSignal(client.mac, client.power);
 
             if (isNew) {
                 clientCount++;
@@ -5059,7 +4835,6 @@
                     <button class="preset-btn" onclick="targetNetwork('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
                     <button class="preset-btn" onclick="captureHandshake('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px; border-color: var(--accent-orange); color: var(--accent-orange);">4-Way</button>
                     <button class="preset-btn pmkid-btn" onclick="capturePmkid('${escapeAttr(net.bssid)}', '${escapeAttr(net.channel)}')" style="font-size: 10px; padding: 4px 8px;">PMKID</button>
-                    <button class="preset-btn" onclick="setTrackedDevice('${escapeAttr(net.bssid)}', '${escapeAttr(net.essid || net.bssid)}')" style="font-size: 10px; padding: 4px 8px; border-color: var(--accent-cyan); color: var(--accent-cyan);" title="Track signal strength">📈</button>
                 </div>
             `;
 
@@ -5963,10 +5738,6 @@
             }
             btDevices[device.mac] = device;
 
-            // Track signal history for graphs
-            if (device.rssi) {
-                trackBtDeviceSignal(device.mac, device.rssi);
-            }
 
             if (isNew) {
                 btDeviceCount++;
@@ -6062,12 +5833,11 @@
             }).join('');
         }
 
-        // Select a BT device for signal tracking
+        // Select a BT device for details
         function selectBtDevice(mac) {
             selectedBtDevice = mac;
             const device = btDevices[mac];
             if (device) {
-                document.getElementById('btSignalGraphDevice').textContent = device.name || mac;
                 document.getElementById('btTargetMac').value = mac;
                 updateBtSelectedDevice(device);
             }
@@ -6226,7 +5996,7 @@
                     </div>
                     <div class="data-item">
                         <div class="data-label">Manufacturer</div>
-                        <div class="data-value">${escapeHtml(device.manufacturer)}</div>
+                        <div class="data-value">${escapeHtml(device.manufacturer || 'Unknown')}</div>
                     </div>
                     ${device.findmy ? `
                     <div class="data-item">
@@ -8733,31 +8503,41 @@
         }
 
         async function tuneToFrequency(freq, mod) {
-            // Stop scanner if running
-            if (isScannerRunning) {
-                stopScanner();
+            try {
+                // Stop scanner if running
+                if (isScannerRunning) {
+                    await fetch('/listening/scanner/stop', { method: 'POST' });
+                    isScannerRunning = false;
+                    document.getElementById('scannerStartBtn').textContent = '▶ Start Scanner';
+                    document.getElementById('scannerStartBtn').classList.remove('active');
+                    document.getElementById('scannerStatus').textContent = 'STOPPED';
+                    document.getElementById('scannerStatus').style.color = 'var(--text-muted)';
+                }
+
+                // Stop any current audio and wait for it to complete
+                if (isAudioPlaying) {
+                    await stopAudio();
+                    // Extra delay to ensure backend processes are fully stopped
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                // Set frequency in manual audio form
+                document.getElementById('audioFrequency').value = freq.toFixed(3);
+                document.getElementById('audioPreset').value = 'custom';
+                if (mod) {
+                    document.getElementById('audioModulation').value = mod;
+                }
+
+                // Small delay before starting to ensure backend is ready
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                // Start playing
+                startAudio();
+                showNotification('Tuned', `Now listening to ${freq.toFixed(3)} MHz`);
+            } catch (err) {
+                console.error('Error tuning to frequency:', err);
+                showNotification('Tune Error', 'Failed to tune to frequency: ' + err.message);
             }
-
-            // Stop any current audio and wait for it to complete
-            if (isAudioPlaying) {
-                stopAudio();
-                // Wait for audio to fully stop
-                await new Promise(resolve => setTimeout(resolve, 300));
-            }
-
-            // Set frequency in manual audio form
-            document.getElementById('audioFrequency').value = freq.toFixed(3);
-            document.getElementById('audioPreset').value = 'custom';
-            if (mod) {
-                document.getElementById('audioModulation').value = mod;
-            }
-
-            // Small delay before starting to ensure backend is ready
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Start playing
-            startAudio();
-            showNotification('Tuned', `Now listening to ${freq.toFixed(3)} MHz`);
         }
 
         function skipSignal() {
@@ -9154,7 +8934,7 @@
             });
         }
 
-        function stopAudio() {
+        async function stopAudio() {
             // Stop visualizer
             stopAudioVisualizer();
 
@@ -9163,18 +8943,18 @@
             audioPlayer.pause();
             audioPlayer.src = '';
 
-            fetch('/listening/audio/stop', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    releaseDevice('audio');
-                    isAudioPlaying = false;
-                    document.getElementById('audioStartBtn').textContent = '▶ Play Audio';
-                    document.getElementById('audioStartBtn').classList.remove('active');
-                    document.getElementById('audioStatus').textContent = 'STOPPED';
-                    document.getElementById('audioStatus').style.color = 'var(--text-muted)';
-                    document.getElementById('audioDeviceStatus').textContent = '--';
-                })
-                .catch(() => {});
+            try {
+                await fetch('/listening/audio/stop', { method: 'POST' });
+                releaseDevice('audio');
+                isAudioPlaying = false;
+                document.getElementById('audioStartBtn').textContent = '▶ Play Audio';
+                document.getElementById('audioStartBtn').classList.remove('active');
+                document.getElementById('audioStatus').textContent = 'STOPPED';
+                document.getElementById('audioStatus').style.color = 'var(--text-muted)';
+                document.getElementById('audioDeviceStatus').textContent = '--';
+            } catch (e) {
+                console.error('Error stopping audio:', e);
+            }
         }
 
         function updateAudioVolume() {

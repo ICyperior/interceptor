@@ -105,12 +105,18 @@ def detect_wifi_interfaces():
                     current_iface = line.split()[1]
                 elif current_iface and 'type' in line:
                     iface_type = line.split()[-1]
-                    interfaces.append({
+                    iface_info = {
                         'name': current_iface,
                         'type': iface_type,
                         'monitor_capable': True,
-                        'status': 'up'
-                    })
+                        'status': 'up',
+                        'driver': '',
+                        'chipset': '',
+                        'mac': ''
+                    }
+                    # Get additional interface details
+                    iface_info.update(_get_interface_details(current_iface))
+                    interfaces.append(iface_info)
                     current_iface = None
         except FileNotFoundError:
             # Fall back to iwconfig if iw is not available
@@ -119,12 +125,17 @@ def detect_wifi_interfaces():
                 for line in result.stdout.split('\n'):
                     if 'IEEE 802.11' in line:
                         iface = line.split()[0]
-                        interfaces.append({
+                        iface_info = {
                             'name': iface,
                             'type': 'managed',
                             'monitor_capable': True,
-                            'status': 'up'
-                        })
+                            'status': 'up',
+                            'driver': '',
+                            'chipset': '',
+                            'mac': ''
+                        }
+                        iface_info.update(_get_interface_details(iface))
+                        interfaces.append(iface_info)
             except FileNotFoundError:
                 logger.debug("Neither iw nor iwconfig found")
             except subprocess.SubprocessError as e:
@@ -135,6 +146,60 @@ def detect_wifi_interfaces():
             logger.error(f"Error detecting Linux interfaces: {e}")
 
     return interfaces
+
+
+def _get_interface_details(iface_name):
+    """Get additional details about a WiFi interface (driver, chipset, MAC)."""
+    details = {'driver': '', 'chipset': '', 'mac': ''}
+
+    # Get MAC address
+    try:
+        mac_path = f'/sys/class/net/{iface_name}/address'
+        with open(mac_path, 'r') as f:
+            details['mac'] = f.read().strip().upper()
+    except (FileNotFoundError, IOError):
+        pass
+
+    # Get driver name
+    try:
+        driver_link = f'/sys/class/net/{iface_name}/device/driver'
+        import os
+        if os.path.islink(driver_link):
+            driver_path = os.readlink(driver_link)
+            details['driver'] = os.path.basename(driver_path)
+    except (FileNotFoundError, IOError, OSError):
+        pass
+
+    # Get chipset info from USB or PCI
+    try:
+        # Check if USB device
+        device_path = f'/sys/class/net/{iface_name}/device'
+        import os
+        if os.path.exists(device_path):
+            # Try to get USB product name
+            for usb_path in [f'{device_path}/product', f'{device_path}/../product']:
+                try:
+                    with open(usb_path, 'r') as f:
+                        details['chipset'] = f.read().strip()
+                        break
+                except (FileNotFoundError, IOError):
+                    pass
+
+            # If no USB product, try to get from uevent
+            if not details['chipset']:
+                try:
+                    uevent_path = f'{device_path}/uevent'
+                    with open(uevent_path, 'r') as f:
+                        for line in f:
+                            if line.startswith('PCI_ID=') or line.startswith('PRODUCT='):
+                                details['chipset'] = line.split('=')[1].strip()
+                                break
+                except (FileNotFoundError, IOError):
+                    pass
+    except (FileNotFoundError, IOError, OSError):
+        pass
+
+    return details
 
 
 def parse_airodump_csv(csv_path):

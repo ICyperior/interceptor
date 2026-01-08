@@ -1309,38 +1309,6 @@ header p {
     color: var(--accent-red);
 }
 
-/* Signal Strength Graph */
-.signal-graph-panel {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 12px;
-    margin-top: 10px;
-}
-
-.signal-graph-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.signal-graph-header h4 {
-    color: var(--accent-cyan);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 0;
-}
-
-.signal-graph-device {
-    font-size: 10px;
-    color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
-}
-
-#signalGraph,
-#btSignalGraph,
 #adsbStatsChart {
     width: 100%;
     height: 80px;

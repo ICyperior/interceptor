@@ -9,8 +9,6 @@ from utils.database import (
     set_setting,
     delete_setting,
     get_all_settings,
-    get_signal_history,
-    add_signal_reading,
     get_correlations,
 )
 from utils.logging import get_logger
@@ -139,66 +137,6 @@ def delete_single_setting(key: str) -> Response:
             }), 404
     except Exception as e:
         logger.error(f"Error deleting setting {key}: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-
-# =============================================================================
-# Signal History Endpoints
-# =============================================================================
-
-@settings_bp.route('/signal-history/<mode>/<device_id>', methods=['GET'])
-def get_device_signal_history(mode: str, device_id: str) -> Response:
-    """Get signal strength history for a device."""
-    limit = request.args.get('limit', 100, type=int)
-    since_minutes = request.args.get('since', 60, type=int)
-
-    # Validate mode
-    valid_modes = ['wifi', 'bluetooth', 'adsb', 'pager', 'sensor']
-    if mode not in valid_modes:
-        return jsonify({
-            'status': 'error',
-            'message': f'Invalid mode. Valid modes: {valid_modes}'
-        }), 400
-
-    try:
-        history = get_signal_history(mode, device_id, limit, since_minutes)
-        return jsonify({
-            'status': 'success',
-            'mode': mode,
-            'device_id': device_id,
-            'history': history
-        })
-    except Exception as e:
-        logger.error(f"Error getting signal history: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-
-@settings_bp.route('/signal-history', methods=['POST'])
-def add_signal_history() -> Response:
-    """Add a signal strength reading (for internal use)."""
-    data = request.json or {}
-
-    mode = data.get('mode')
-    device_id = data.get('device_id')
-    signal_strength = data.get('signal_strength')
-
-    if not all([mode, device_id, signal_strength is not None]):
-        return jsonify({
-            'status': 'error',
-            'message': 'mode, device_id, and signal_strength are required'
-        }), 400
-
-    try:
-        add_signal_reading(mode, device_id, signal_strength, data.get('metadata'))
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        logger.error(f"Error adding signal reading: {e}")
         return jsonify({
             'status': 'error',
             'message': str(e)
