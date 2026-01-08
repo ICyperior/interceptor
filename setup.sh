@@ -362,7 +362,7 @@ install_debian_packages() {
   export DEBIAN_FRONTEND=noninteractive
   export NEEDRESTART_MODE=a
 
-  TOTAL_STEPS=15
+  TOTAL_STEPS=16
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -397,6 +397,9 @@ install_debian_packages() {
 
   progress "Installing gpsd"
   apt_install gpsd gpsd-clients || true
+
+  progress "Installing Python venv"
+  apt_install python3-venv || true
 
   progress "Installing dump1090"
   if ! cmd_exists dump1090; then
