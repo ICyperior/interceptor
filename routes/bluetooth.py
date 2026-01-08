@@ -44,42 +44,76 @@ def classify_bt_device(name, device_class, services, manufacturer=None):
     name_lower = (name or '').lower()
     mfr_lower = (manufacturer or '').lower()
 
+    # Audio devices - check name patterns first
     audio_patterns = [
         'airpod', 'earbud', 'headphone', 'headset', 'speaker', 'audio', 'beats', 'bose',
         'jbl', 'sony wh', 'sony wf', 'sennheiser', 'jabra', 'soundcore', 'anker', 'buds',
-        'earphone', 'pod', 'soundbar', 'skullcandy', 'marshall', 'b&o', 'bang', 'olufsen'
+        'earphone', 'pod', 'soundbar', 'skullcandy', 'marshall', 'b&o', 'bang', 'olufsen',
+        'powerbeats', 'soundlink', 'soundsport', 'quietcomfort', 'qc35', 'qc45', 'nc700',
+        'wh-1000', 'wf-1000', 'linkbuds', 'freebuds', 'galaxy buds', 'pixel buds',
+        'echo dot', 'homepod', 'sonos', 'ue boom', 'flip', 'charge', 'xtreme', 'pulse'
     ]
     if any(x in name_lower for x in audio_patterns):
         return 'audio'
 
+    # Wearables
     wearable_patterns = [
         'watch', 'band', 'fitbit', 'garmin', 'mi band', 'miband', 'amazfit',
-        'galaxy watch', 'gear', 'versa', 'sense', 'charge', 'inspire'
+        'galaxy watch', 'gear', 'versa', 'sense', 'charge', 'inspire', 'fenix',
+        'forerunner', 'venu', 'vivoactive', 'instinct', 'apple watch', 'gt 2', 'gt2'
     ]
     if any(x in name_lower for x in wearable_patterns):
         return 'wearable'
 
+    # Phones - check name patterns
     phone_patterns = [
-        'iphone', 'galaxy', 'pixel', 'phone', 'android', 'oneplus', 'huawei', 'xiaomi'
+        'iphone', 'galaxy', 'pixel', 'phone', 'android', 'oneplus', 'huawei', 'xiaomi',
+        'redmi', 'poco', 'realme', 'oppo', 'vivo', 'motorola', 'nokia', 'lg-', 'sm-',
+        'moto g', 'moto e', 'note', 'ultra', 'pro max', 's21', 's22', 's23', 's24'
     ]
     if any(x in name_lower for x in phone_patterns):
         return 'phone'
 
-    tracker_patterns = ['airtag', 'tile', 'smarttag', 'chipolo', 'find my']
+    # Trackers
+    tracker_patterns = ['airtag', 'tile', 'smarttag', 'chipolo', 'find my', 'findmy']
     if any(x in name_lower for x in tracker_patterns):
         return 'tracker'
 
-    input_patterns = ['keyboard', 'mouse', 'controller', 'gamepad', 'remote']
+    # Input devices
+    input_patterns = ['keyboard', 'mouse', 'controller', 'gamepad', 'remote', 'trackpad',
+                      'magic keyboard', 'magic mouse', 'magic trackpad', 'mx master', 'mx keys',
+                      'logitech k', 'logitech m', 'razer', 'dualshock', 'dualsense', 'xbox']
     if any(x in name_lower for x in input_patterns):
         return 'input'
 
-    if mfr_lower in ['bose', 'jbl', 'sony', 'sennheiser', 'jabra', 'beats']:
+    # Computers/laptops
+    computer_patterns = ['macbook', 'imac', 'mac pro', 'mac mini', 'dell', 'hp ', 'lenovo',
+                         'thinkpad', 'surface', 'chromebook', 'laptop', 'desktop', 'pc']
+    if any(x in name_lower for x in computer_patterns):
+        return 'computer'
+
+    # Check manufacturer for device type inference
+    audio_manufacturers = ['bose', 'jbl', 'sony', 'sennheiser', 'jabra', 'beats',
+                           'bang & olufsen', 'audio-technica', 'skullcandy', 'anker', 'plantronics']
+    if mfr_lower in audio_manufacturers:
         return 'audio'
-    if mfr_lower in ['fitbit', 'garmin']:
+
+    wearable_manufacturers = ['fitbit', 'garmin']
+    if mfr_lower in wearable_manufacturers:
         return 'wearable'
+
     if mfr_lower == 'tile':
         return 'tracker'
 
+    phone_manufacturers = ['samsung', 'xiaomi', 'huawei', 'oneplus', 'google', 'oppo', 'vivo', 'realme']
+    if mfr_lower in phone_manufacturers:
+        return 'phone'
+
+    computer_manufacturers = ['dell', 'hp', 'lenovo', 'microsoft', 'intel']
+    if mfr_lower in computer_manufacturers:
+        return 'computer'
+
+    # Check device class if available
     if device_class:
         major_class = (device_class >> 8) & 0x1F
         if major_class == 1:

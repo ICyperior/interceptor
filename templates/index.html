@@ -2342,9 +2342,8 @@
             document.getElementById('wifiStats').style.display = mode === 'wifi' ? 'flex' : 'none';
             document.getElementById('btStats').style.display = mode === 'bluetooth' ? 'flex' : 'none';
 
-            // Show signal meter only for modes that use it (pager, sensor, wifi, bluetooth)
-            const signalMeterModes = ['pager', 'sensor', 'wifi', 'bluetooth'];
-            document.getElementById('signalMeter').style.display = signalMeterModes.includes(mode) ? 'flex' : 'none';
+            // Hide signal meter - individual panels show signal strength where needed
+            document.getElementById('signalMeter').style.display = 'none';
 
             // Update header stats groups
             document.getElementById('headerPagerStats').classList.toggle('active', mode === 'pager');
