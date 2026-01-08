@@ -150,6 +150,7 @@ def detect_wifi_interfaces():
 
 def _get_interface_details(iface_name):
     """Get additional details about a WiFi interface (driver, chipset, MAC)."""
+    import os
     details = {'driver': '', 'chipset': '', 'mac': ''}
 
     # Get MAC address
@@ -163,41 +164,81 @@ def _get_interface_details(iface_name):
     # Get driver name
     try:
         driver_link = f'/sys/class/net/{iface_name}/device/driver'
-        import os
         if os.path.islink(driver_link):
             driver_path = os.readlink(driver_link)
             details['driver'] = os.path.basename(driver_path)
     except (FileNotFoundError, IOError, OSError):
         pass
 
-    # Get chipset info from USB or PCI
+    # Try airmon-ng first for chipset info (most reliable for WiFi adapters)
     try:
-        # Check if USB device
-        device_path = f'/sys/class/net/{iface_name}/device'
-        import os
-        if os.path.exists(device_path):
-            # Try to get USB product name
-            for usb_path in [f'{device_path}/product', f'{device_path}/../product']:
-                try:
-                    with open(usb_path, 'r') as f:
-                        details['chipset'] = f.read().strip()
-                        break
-                except (FileNotFoundError, IOError):
-                    pass
-
-            # If no USB product, try to get from uevent
-            if not details['chipset']:
-                try:
-                    uevent_path = f'{device_path}/uevent'
-                    with open(uevent_path, 'r') as f:
-                        for line in f:
-                            if line.startswith('PCI_ID=') or line.startswith('PRODUCT='):
-                                details['chipset'] = line.split('=')[1].strip()
-                                break
-                except (FileNotFoundError, IOError):
-                    pass
-    except (FileNotFoundError, IOError, OSError):
+        result = subprocess.run(['airmon-ng'], capture_output=True, text=True, timeout=5)
+        for line in result.stdout.split('\n'):
+            # airmon-ng output format: PHY  Interface  Driver  Chipset
+            parts = line.split('\t')
+            if len(parts) >= 4:
+                if parts[1].strip() == iface_name or parts[1].strip().startswith(iface_name):
+                    if parts[2].strip():
+                        details['driver'] = parts[2].strip()
+                    if parts[3].strip():
+                        details['chipset'] = parts[3].strip()
+                    break
+            # Also try space-separated format
+            parts = line.split()
+            if len(parts) >= 4:
+                if parts[1] == iface_name or parts[1].startswith(iface_name):
+                    details['driver'] = parts[2]
+                    details['chipset'] = ' '.join(parts[3:])
+                    break
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
         pass
+
+    # Fallback: Get chipset info from USB or PCI sysfs
+    if not details['chipset']:
+        try:
+            device_path = f'/sys/class/net/{iface_name}/device'
+            if os.path.exists(device_path):
+                # Try to get USB product name
+                for usb_path in [f'{device_path}/product', f'{device_path}/../product']:
+                    try:
+                        with open(usb_path, 'r') as f:
+                            details['chipset'] = f.read().strip()
+                            break
+                    except (FileNotFoundError, IOError):
+                        pass
+
+                # If no USB product, try lsusb for USB devices
+                if not details['chipset']:
+                    try:
+                        # Get USB bus/device info
+                        uevent_path = f'{device_path}/uevent'
+                        with open(uevent_path, 'r') as f:
+                            for line in f:
+                                if line.startswith('PRODUCT='):
+                                    # PRODUCT format: vendor/product/bcdDevice
+                                    product = line.split('=')[1].strip()
+                                    parts = product.split('/')
+                                    if len(parts) >= 2:
+                                        vid = parts[0].zfill(4)
+                                        pid = parts[1].zfill(4)
+                                        # Try lsusb to get device name
+                                        try:
+                                            lsusb = subprocess.run(
+                                                ['lsusb', '-d', f'{vid}:{pid}'],
+                                                capture_output=True, text=True, timeout=5
+                                            )
+                                            if lsusb.stdout:
+                                                # Format: Bus XXX Device YYY: ID vid:pid Name
+                                                usb_parts = lsusb.stdout.split(f'{vid}:{pid}')
+                                                if len(usb_parts) > 1:
+                                                    details['chipset'] = usb_parts[1].strip()
+                                        except (FileNotFoundError, subprocess.TimeoutExpired):
+                                            pass
+                                    break
+                    except (FileNotFoundError, IOError):
+                        pass
+        except (FileNotFoundError, IOError, OSError):
+            pass
 
     return details
 

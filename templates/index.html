@@ -4458,9 +4458,17 @@
                           .then(ifaceData => {
                               const select = document.getElementById('wifiInterfaceSelect');
                               if (ifaceData.interfaces.length > 0) {
-                                  select.innerHTML = ifaceData.interfaces.map(i =>
-                                      `<option value="${i.name}" ${i.name === monitorInterface ? 'selected' : ''}>${i.name} (${i.type})${i.monitor_capable ? ' [Monitor OK]' : ''}</option>`
-                                  ).join('');
+                                  select.innerHTML = ifaceData.interfaces.map(i => {
+                                      let label = i.name;
+                                      let details = [];
+                                      if (i.chipset) details.push(i.chipset);
+                                      else if (i.driver) details.push(i.driver);
+                                      if (i.mac) details.push(i.mac.substring(0, 8) + '...');
+                                      if (details.length > 0) label += ' - ' + details.join(' | ');
+                                      label += ` (${i.type})`;
+                                      if (i.monitor_capable) label += ' [Monitor OK]';
+                                      return `<option value="${i.name}" ${i.name === monitorInterface ? 'selected' : ''}>${label}</option>`;
+                                  }).join('');
                               }
                           });
                   } else {
@@ -4502,33 +4510,79 @@
                 : 'Monitor mode: <span style="color: var(--accent-red);">Inactive</span>';
         }
 
-        // Start WiFi scan
-        function startWifiScan() {
+        // Start WiFi scan - auto-enables monitor mode if needed
+        async function startWifiScan() {
             const band = document.getElementById('wifiBand').value;
             const channel = document.getElementById('wifiChannel').value;
 
+            // Auto-enable monitor mode if not already enabled
             if (!monitorInterface) {
-                alert('Enable monitor mode first');
-                return;
+                const iface = document.getElementById('wifiInterfaceSelect').value;
+                if (!iface) {
+                    showNotification('WiFi Error', 'No WiFi interface selected');
+                    return;
+                }
+
+                // Show status
+                document.getElementById('statusText').textContent = 'Enabling monitor mode...';
+                document.getElementById('statusDot').classList.add('running');
+
+                try {
+                    const killProcesses = document.getElementById('killProcesses').checked;
+                    const monitorResp = await fetch('/wifi/monitor', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({interface: iface, action: 'start', kill_processes: killProcesses})
+                    });
+                    const monitorData = await monitorResp.json();
+
+                    if (monitorData.status === 'success') {
+                        monitorInterface = monitorData.monitor_interface;
+                        updateMonitorStatus(true);
+                        showNotification('Monitor Mode', 'Enabled on ' + monitorInterface);
+                    } else {
+                        document.getElementById('statusText').textContent = 'Idle';
+                        document.getElementById('statusDot').classList.remove('running');
+                        showNotification('Monitor Error', monitorData.message || 'Failed to enable monitor mode');
+                        return;
+                    }
+                } catch (err) {
+                    document.getElementById('statusText').textContent = 'Idle';
+                    document.getElementById('statusDot').classList.remove('running');
+                    showNotification('Monitor Error', err.message);
+                    return;
+                }
             }
 
-            fetch('/wifi/scan/start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    interface: monitorInterface,
-                    band: band,
-                    channel: channel || null
-                })
-            }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'started') {
-                      setWifiRunning(true);
-                      startWifiStream();
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              });
+            // Now start the scan
+            document.getElementById('statusText').textContent = 'Starting scan...';
+
+            try {
+                const scanResp = await fetch('/wifi/scan/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        interface: monitorInterface,
+                        band: band,
+                        channel: channel || null
+                    })
+                });
+                const scanData = await scanResp.json();
+
+                if (scanData.status === 'started') {
+                    setWifiRunning(true);
+                    startWifiStream();
+                    showNotification('WiFi Scanner', 'Scanning started on ' + monitorInterface);
+                } else {
+                    document.getElementById('statusText').textContent = 'Idle';
+                    document.getElementById('statusDot').classList.remove('running');
+                    showNotification('Scan Error', scanData.message || 'Failed to start scan');
+                }
+            } catch (err) {
+                document.getElementById('statusText').textContent = 'Idle';
+                document.getElementById('statusDot').classList.remove('running');
+                showNotification('Scan Error', err.message);
+            }
         }
 
         // Stop WiFi scan
