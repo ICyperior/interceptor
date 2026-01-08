@@ -926,6 +926,7 @@ header p {
     position: relative;
     overflow-y: auto;
     overflow-x: hidden;
+    min-height: 0; /* Allow shrinking in grid context for proper scrolling */
 }
 
 .output-panel::before {
@@ -994,6 +995,7 @@ header p {
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
     background: var(--bg-primary);
+    min-height: 200px; /* Ensure minimum space for device cards */
 }
 
 .output-content::-webkit-scrollbar {
@@ -2552,6 +2554,8 @@ header p {
     background: var(--bg-secondary);
     margin: 0 15px 10px 15px;
     border: 1px solid var(--border-color);
+    max-height: 50vh; /* Limit height to leave room for device cards */
+    overflow-y: auto; /* Allow scrolling within visualizations */
 }
 
 @media (max-width: 1200px) {
