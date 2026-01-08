@@ -346,12 +346,24 @@ body {
 /* Selected aircraft panel */
 .selected-aircraft {
     flex-shrink: 0;
-    max-height: 280px;
+    max-height: 480px;
     overflow-y: auto;
 }
 
 .selected-info {
     padding: 12px;
+}
+
+#aircraftPhotoContainer {
+    margin-bottom: 12px;
+}
+
+#aircraftPhotoContainer img {
+    max-height: 140px;
+    width: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 212, 255, 0.3);
 }
 
 .selected-callsign {
