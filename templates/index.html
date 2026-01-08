@@ -1360,7 +1360,7 @@
                 <!-- Aircraft Visualizations - Leaflet Map -->
                 <div class="wifi-visuals" id="aircraftVisuals" style="display: none;">
                     <!-- Map Panel -->
-                    <div class="wifi-visual-panel" style="grid-column: span 3;">
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
                         <h5 style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan);">ADS-B AIRCRAFT TRACKING</h5>
                         <div class="aircraft-map-container">
                             <div class="map-header">
@@ -1398,6 +1398,35 @@
                         <a href="/adsb/dashboard" target="_blank" class="preset-btn" style="display: block; text-align: center; text-decoration: none; background: var(--accent-cyan); color: #000; padding: 8px;">
                             Open Full Dashboard
                         </a>
+                    </div>
+                    <!-- Aircraft Image Panel -->
+                    <div class="wifi-visual-panel" style="grid-column: span 1; display: flex; flex-direction: column;">
+                        <h5 style="color: var(--accent-green); margin-bottom: 10px;">AIRCRAFT IMAGE</h5>
+                        <div id="mainAircraftPhotoContainer" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div id="mainAircraftPhotoPlaceholder" style="color: var(--text-muted); text-align: center; padding: 40px 20px;">
+                                <div style="font-size: 48px; opacity: 0.3; margin-bottom: 10px;">✈️</div>
+                                <div>Select an aircraft to view photo</div>
+                            </div>
+                            <div id="mainAircraftPhotoWrapper" style="display: none; width: 100%;">
+                                <a id="mainAircraftPhotoLink" href="#" target="_blank" rel="noopener">
+                                    <img id="mainAircraftPhoto" src="" alt="Aircraft photo" style="width: 100%; border-radius: 6px; border: 1px solid var(--border-color);">
+                                </a>
+                                <div id="mainAircraftPhotoCredit" style="font-size: 9px; color: var(--text-dim); margin-top: 4px; text-align: right;"></div>
+                                <div id="mainAircraftPhotoInfo" style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 10px;">
+                                    <div style="color: var(--text-dim);">REGISTRATION</div>
+                                    <div id="mainAircraftPhotoReg" style="color: var(--accent-cyan); font-size: 14px; font-weight: bold;">--</div>
+                                </div>
+                            </div>
+                            <div id="mainAircraftPhotoLoading" style="display: none; color: var(--text-muted); text-align: center; padding: 20px;">
+                                <div style="font-size: 24px; animation: pulse 1s infinite;">📷</div>
+                                <div style="margin-top: 8px;">Loading photo...</div>
+                            </div>
+                            <div id="mainAircraftPhotoNoPhoto" style="display: none; color: var(--text-muted); text-align: center; padding: 20px;">
+                                <div style="font-size: 32px; opacity: 0.5; margin-bottom: 8px;">📷</div>
+                                <div>No photo available</div>
+                                <div style="font-size: 10px; margin-top: 4px; color: var(--text-dim);">Registration not found in database</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -7218,6 +7247,7 @@
 
             if (!selectedMainAircraft || !adsbAircraft[selectedMainAircraft]) {
                 infoPanel.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">Click an aircraft to view details</div>';
+                showMainAircraftPhotoState('placeholder');
                 return;
             }
 
@@ -7251,6 +7281,96 @@
                 ${a.type ? `<div style="margin-top: 8px; color: var(--text-dim); font-size: 10px; text-align: center;">Aircraft: ${a.type}</div>` : ''}
                 <div style="margin-top: 8px; color: var(--text-dim); font-size: 9px; text-align: center;">ICAO: ${selectedMainAircraft}</div>
             `;
+
+            // Fetch aircraft photo if registration is available
+            if (a.registration) {
+                fetchMainAircraftPhoto(a.registration);
+            } else {
+                // No registration - show placeholder or no photo state
+                showMainAircraftPhotoState('noregistration');
+            }
+        }
+
+        // Cache for aircraft photos to avoid repeated API calls
+        const mainPhotoCache = {};
+
+        // Show different states for the aircraft photo panel
+        function showMainAircraftPhotoState(state) {
+            const placeholder = document.getElementById('mainAircraftPhotoPlaceholder');
+            const wrapper = document.getElementById('mainAircraftPhotoWrapper');
+            const loading = document.getElementById('mainAircraftPhotoLoading');
+            const noPhoto = document.getElementById('mainAircraftPhotoNoPhoto');
+
+            if (!placeholder || !wrapper || !loading || !noPhoto) return;
+
+            placeholder.style.display = state === 'placeholder' ? 'block' : 'none';
+            wrapper.style.display = state === 'photo' ? 'block' : 'none';
+            loading.style.display = state === 'loading' ? 'block' : 'none';
+            noPhoto.style.display = (state === 'nophoto' || state === 'noregistration') ? 'block' : 'none';
+
+            // Update no photo message for no registration case
+            if (state === 'noregistration' && noPhoto) {
+                noPhoto.innerHTML = `
+                    <div style="font-size: 32px; opacity: 0.5; margin-bottom: 8px;">📷</div>
+                    <div>No photo available</div>
+                    <div style="font-size: 10px; margin-top: 4px; color: var(--text-dim);">Aircraft registration unknown</div>
+                `;
+            } else if (state === 'nophoto' && noPhoto) {
+                noPhoto.innerHTML = `
+                    <div style="font-size: 32px; opacity: 0.5; margin-bottom: 8px;">📷</div>
+                    <div>No photo available</div>
+                    <div style="font-size: 10px; margin-top: 4px; color: var(--text-dim);">Registration not found in database</div>
+                `;
+            }
+        }
+
+        // Fetch aircraft photo from the API
+        async function fetchMainAircraftPhoto(registration) {
+            const img = document.getElementById('mainAircraftPhoto');
+            const link = document.getElementById('mainAircraftPhotoLink');
+            const credit = document.getElementById('mainAircraftPhotoCredit');
+            const regDisplay = document.getElementById('mainAircraftPhotoReg');
+
+            if (!img) return;
+
+            // Check cache first
+            if (mainPhotoCache[registration]) {
+                const cached = mainPhotoCache[registration];
+                if (cached.thumbnail) {
+                    img.src = cached.thumbnail;
+                    link.href = cached.link || '#';
+                    credit.textContent = cached.photographer ? `Photo: ${cached.photographer}` : '';
+                    if (regDisplay) regDisplay.textContent = registration;
+                    showMainAircraftPhotoState('photo');
+                } else {
+                    showMainAircraftPhotoState('nophoto');
+                }
+                return;
+            }
+
+            // Show loading state
+            showMainAircraftPhotoState('loading');
+
+            try {
+                const response = await fetch(`/adsb/aircraft-photo/${encodeURIComponent(registration)}`);
+                const data = await response.json();
+
+                // Cache the result
+                mainPhotoCache[registration] = data;
+
+                if (data.success && data.thumbnail) {
+                    img.src = data.thumbnail;
+                    link.href = data.link || '#';
+                    credit.textContent = data.photographer ? `Photo: ${data.photographer}` : '';
+                    if (regDisplay) regDisplay.textContent = registration;
+                    showMainAircraftPhotoState('photo');
+                } else {
+                    showMainAircraftPhotoState('nophoto');
+                }
+            } catch (err) {
+                console.debug('Failed to fetch aircraft photo:', err);
+                showMainAircraftPhotoState('nophoto');
+            }
         }
 
         function addAircraftToOutput(aircraft) {
