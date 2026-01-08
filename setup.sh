@@ -307,36 +307,35 @@ install_dump1090_from_source_debian() {
     librtlsdr-dev libusb-1.0-0-dev \
     libncurses-dev tcl-dev python3-dev
 
-  local orig_dir tmp_dir
-  orig_dir="$(pwd)"
-  tmp_dir="$(mktemp -d)"
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
 
-  cleanup() { cd "$orig_dir" >/dev/null 2>&1 || true; rm -rf "$tmp_dir"; }
-  trap cleanup EXIT
+    info "Cloning FlightAware dump1090..."
+    git clone --depth 1 https://github.com/flightaware/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
+      || { fail "Failed to clone FlightAware dump1090"; exit 1; }
 
-  info "Cloning FlightAware dump1090..."
-  git clone --depth 1 https://github.com/flightaware/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
-    || { fail "Failed to clone FlightAware dump1090"; exit 1; }
+    cd "$tmp_dir/dump1090"
+    info "Compiling FlightAware dump1090..."
+    if make BLADERF=no RTLSDR=yes >/dev/null 2>&1; then
+      $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
+      ok "dump1090 installed successfully (FlightAware)."
+      exit 0
+    fi
 
-  cd "$tmp_dir/dump1090"
-  info "Compiling FlightAware dump1090..."
-  if make BLADERF=no RTLSDR=yes >/dev/null 2>&1; then
+    warn "FlightAware build failed. Falling back to antirez/dump1090..."
+    rm -rf "$tmp_dir/dump1090"
+    git clone --depth 1 https://github.com/antirez/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
+      || { fail "Failed to clone antirez dump1090"; exit 1; }
+
+    cd "$tmp_dir/dump1090"
+    info "Compiling antirez dump1090..."
+    make >/dev/null 2>&1 || { fail "Failed to build dump1090 from source (required)."; exit 1; }
+
     $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
-    ok "dump1090 installed successfully (FlightAware)."
-    return 0
-  fi
-
-  warn "FlightAware build failed. Falling back to antirez/dump1090..."
-  rm -rf "$tmp_dir/dump1090"
-  git clone --depth 1 https://github.com/antirez/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
-    || { fail "Failed to clone antirez dump1090"; exit 1; }
-
-  cd "$tmp_dir/dump1090"
-  info "Compiling antirez dump1090..."
-  make >/dev/null 2>&1 || { fail "Failed to build dump1090 from source (required)."; exit 1; }
-
-  $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
-  ok "dump1090 installed successfully (antirez)."
+    ok "dump1090 installed successfully (antirez)."
+  )
 }
 
 setup_udev_rules_debian() {
