@@ -1199,15 +1199,17 @@
                     </div>
                 </div>
 
-                <!-- WiFi Visualizations (shown only in WiFi mode) -->
-                <div class="wifi-visuals" id="wifiVisuals" style="display: none;">
-                    <!-- Selected WiFi Device Info - at top for visibility -->
-                    <div class="wifi-visual-panel" style="grid-column: span 2;">
-                        <h5>📋 Selected Device</h5>
-                        <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
-                            <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network or client to view details</div>
+                <!-- WiFi Layout Container (visualizations left, device cards right) -->
+                <div class="wifi-layout-container" id="wifiLayoutContainer" style="display: none;">
+                    <!-- Left: WiFi Visualizations -->
+                    <div class="wifi-visuals" id="wifiVisuals">
+                        <!-- Selected WiFi Device Info - at top for visibility -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <h5>📋 Selected Device</h5>
+                            <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
+                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network or client to view details</div>
+                            </div>
                         </div>
-                    </div>
                     <div class="wifi-visual-panel">
                         <h5>Network Radar</h5>
                         <div class="radar-container">
@@ -1311,6 +1313,19 @@
                         </div>
                         <div id="probeAnalysisList" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
                             <div style="color: var(--text-dim);">Waiting for client probe requests...</div>
+                        </div>
+                    </div>
+                    </div>
+                    <!-- Right: WiFi Device Cards -->
+                    <div class="wifi-device-list" id="wifiDeviceList">
+                        <div class="wifi-device-list-header">
+                            <h5>📡 Discovered Networks</h5>
+                            <span class="device-count">(<span id="wifiDeviceListCount">0</span>)</span>
+                        </div>
+                        <div class="wifi-device-list-content" id="wifiDeviceListContent">
+                            <div style="color: var(--text-dim); text-align: center; padding: 30px;">
+                                Start scanning to discover WiFi networks
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2345,7 +2360,7 @@
                 'listening': 'LISTENING POST'
             };
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
-            document.getElementById('wifiVisuals').style.display = mode === 'wifi' ? 'grid' : 'none';
+            document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
             document.getElementById('btVisuals').style.display = mode === 'bluetooth' ? 'grid' : 'none';
             // Respect the "Show Radar Display" checkbox for aircraft mode
             const showRadar = document.getElementById('adsbEnableMap').checked;
@@ -2391,7 +2406,7 @@
 
             // Hide waterfall and output console for modes with their own visualizations
             document.querySelector('.waterfall-container').style.display = (mode === 'satellite' || mode === 'listening' || mode === 'aircraft' || mode === 'wifi') ? 'none' : 'block';
-            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft') ? 'none' : 'block';
+            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi') ? 'none' : 'block';
             document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
 
             // Load interfaces and initialize visualizations when switching modes
@@ -5032,11 +5047,17 @@
             }
         }
 
-        // Add WiFi network card to output
+        // Add WiFi network card to device list
         function addWifiNetworkCard(net, isNew) {
-            const output = document.getElementById('output');
-            const placeholder = output.querySelector('.placeholder');
-            if (placeholder) placeholder.remove();
+            // Use the WiFi device list panel instead of the generic output
+            const deviceList = document.getElementById('wifiDeviceListContent');
+            if (!deviceList) return;
+
+            // Remove placeholder if present
+            const placeholder = deviceList.querySelector('div[style*="text-align: center"]');
+            if (placeholder && placeholder.textContent.includes('Start scanning')) {
+                placeholder.remove();
+            }
 
             // Check if card already exists
             let card = document.getElementById('wifi_' + net.bssid.replace(/:/g, ''));
@@ -5044,13 +5065,17 @@
             if (!card) {
                 card = document.createElement('div');
                 card.id = 'wifi_' + net.bssid.replace(/:/g, '');
-                card.className = 'sensor-card';
+                card.className = 'sensor-card wifi-network-card';
                 card.style.borderLeftColor = net.privacy.includes('WPA') ? 'var(--accent-orange)' :
                                              net.privacy.includes('WEP') ? 'var(--accent-red)' :
                                              'var(--accent-green)';
                 card.style.cursor = 'pointer';
                 card.onclick = () => selectWifiDevice(net.bssid, 'network');
-                output.insertBefore(card, output.firstChild);
+                deviceList.insertBefore(card, deviceList.firstChild);
+
+                // Update device count
+                const countEl = document.getElementById('wifiDeviceListCount');
+                if (countEl) countEl.textContent = Object.keys(wifiNetworks).length;
             }
 
             // Handle signal strength - airodump returns -1 when not measured
@@ -5105,47 +5130,75 @@
         }
 
         // Start handshake capture
-        function captureHandshake(bssid, channel) {
+        async function captureHandshake(bssid, channel) {
             if (!confirm('Start handshake capture for ' + bssid + '? This will stop the current scan.')) {
                 return;
             }
 
-            fetch('/wifi/handshake/capture', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({bssid: bssid, channel: channel})
-            }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'started') {
-                      showInfo('🎯 Capturing handshakes for ' + bssid);
-                      setWifiRunning(true);
+            const iface = monitorInterface || document.getElementById('wifiInterfaceSelect').value;
+            if (!iface) {
+                showError('No monitor interface available. Enable monitor mode first.');
+                return;
+            }
 
-                      // Update handshake indicator to show active capture
-                      const hsSpan = document.getElementById('handshakeCount');
-                      hsSpan.style.animation = 'pulse 1s infinite';
-                      hsSpan.title = 'Capturing: ' + bssid;
+            // Stop any existing scan first
+            if (isWifiRunning) {
+                showInfo('Stopping current scan...');
+                try {
+                    await fetch('/wifi/scan/stop', {method: 'POST'});
+                    if (wifiEventSource) {
+                        wifiEventSource.close();
+                        wifiEventSource = null;
+                    }
+                    setWifiRunning(false);
+                    // Brief delay to ensure process stops
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (e) {
+                    console.error('Error stopping scan:', e);
+                }
+            }
 
-                      // Show capture status panel
-                      const panel = document.getElementById('captureStatusPanel');
-                      panel.style.display = 'block';
-                      document.getElementById('captureTargetBssid').textContent = bssid;
-                      document.getElementById('captureTargetChannel').textContent = channel;
-                      document.getElementById('captureFilePath').textContent = data.capture_file;
-                      document.getElementById('captureStatus').textContent = 'Waiting for handshake...';
-                      document.getElementById('captureStatus').style.color = 'var(--accent-orange)';
+            try {
+                const response = await fetch('/wifi/handshake/capture', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({bssid: bssid, channel: channel, interface: iface})
+                });
+                const data = await response.json();
 
-                      // Store active capture info and start polling
-                      activeCapture = {
-                          bssid: bssid,
-                          channel: channel,
-                          file: data.capture_file,
-                          startTime: Date.now(),
-                          pollInterval: setInterval(checkCaptureStatus, 5000)  // Check every 5 seconds
-                      };
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              });
+                if (data.status === 'started') {
+                    showInfo('🎯 Capturing handshakes for ' + bssid);
+                    setWifiRunning(true);
+
+                    // Update handshake indicator to show active capture
+                    const hsSpan = document.getElementById('handshakeCount');
+                    hsSpan.style.animation = 'pulse 1s infinite';
+                    hsSpan.title = 'Capturing: ' + bssid;
+
+                    // Show capture status panel
+                    const panel = document.getElementById('captureStatusPanel');
+                    panel.style.display = 'block';
+                    document.getElementById('captureTargetBssid').textContent = bssid;
+                    document.getElementById('captureTargetChannel').textContent = channel;
+                    document.getElementById('captureFilePath').textContent = data.capture_file;
+                    document.getElementById('captureStatus').textContent = 'Waiting for handshake...';
+                    document.getElementById('captureStatus').style.color = 'var(--accent-orange)';
+
+                    // Store active capture info and start polling
+                    activeCapture = {
+                        bssid: bssid,
+                        channel: channel,
+                        file: data.capture_file,
+                        startTime: Date.now(),
+                        pollInterval: setInterval(checkCaptureStatus, 5000)  // Check every 5 seconds
+                    };
+                } else {
+                    showError('Handshake capture failed: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                showError('Handshake capture error: ' + err.message);
+                console.error('Handshake capture error:', err);
+            }
         }
 
         // Check handshake capture status
@@ -5222,20 +5275,41 @@
         // PMKID Capture
         let activePmkid = null;
 
-        function capturePmkid(bssid, channel) {
-            if (!confirm('Start PMKID capture for ' + bssid + '?\\n\\nThis uses hcxdumptool to capture PMKID without needing clients.\\n\\n⚠ Only use on networks you own or have authorization to test!')) {
+        async function capturePmkid(bssid, channel) {
+            if (!confirm('Start PMKID capture for ' + bssid + '?\n\nThis uses hcxdumptool to capture PMKID without needing clients.\n\n⚠ Only use on networks you own or have authorization to test!')) {
                 return;
             }
 
-            const iface = document.getElementById('wifiInterfaceSelect').value;
+            const iface = monitorInterface || document.getElementById('wifiInterfaceSelect').value;
+            if (!iface) {
+                showError('No monitor interface available. Enable monitor mode first.');
+                return;
+            }
 
-            fetch('/wifi/pmkid/capture', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interface: iface, bssid: bssid, channel: channel })
-            })
-            .then(r => r.json())
-            .then(data => {
+            // Stop any existing scan first
+            if (isWifiRunning) {
+                showInfo('Stopping current scan...');
+                try {
+                    await fetch('/wifi/scan/stop', {method: 'POST'});
+                    if (wifiEventSource) {
+                        wifiEventSource.close();
+                        wifiEventSource = null;
+                    }
+                    setWifiRunning(false);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (e) {
+                    console.error('Error stopping scan:', e);
+                }
+            }
+
+            try {
+                const response = await fetch('/wifi/pmkid/capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ interface: iface, bssid: bssid, channel: channel })
+                });
+                const data = await response.json();
+
                 if (data.status === 'started') {
                     activePmkid = { bssid: bssid, file: data.file, startTime: Date.now() };
                     document.getElementById('pmkidPanel').style.display = 'block';
@@ -5247,9 +5321,12 @@
                     // Poll for PMKID
                     activePmkid.pollInterval = setInterval(checkPmkidStatus, 3000);
                 } else {
-                    alert('Failed to start PMKID capture: ' + data.message);
+                    showError('PMKID capture failed: ' + (data.message || 'Unknown error'));
                 }
-            });
+            } catch (err) {
+                showError('PMKID capture error: ' + err.message);
+                console.error('PMKID capture error:', err);
+            }
         }
 
         function checkPmkidStatus() {
