@@ -4864,6 +4864,7 @@
 
         // Handle discovered WiFi client (called from batched update)
         function handleWifiClientImmediate(client) {
+            console.log('handleWifiClientImmediate:', client);
             const isNew = !wifiClients[client.mac];
             wifiClients[client.mac] = client;
 
@@ -5196,8 +5197,12 @@
 
         // Add WiFi client card to device list
         function addWifiClientCard(client, isNew) {
+            console.log('addWifiClientCard called:', client.mac, 'isNew:', isNew);
             const deviceList = document.getElementById('wifiDeviceListContent');
-            if (!deviceList) return;
+            if (!deviceList) {
+                console.error('wifiDeviceListContent not found!');
+                return;
+            }
 
             // Remove placeholder if present
             const placeholder = deviceList.querySelector('div[style*="text-align: center"]');
