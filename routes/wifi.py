@@ -514,8 +514,35 @@ def toggle_monitor_mode():
                 if not monitor_iface:
                     monitor_iface = interface + 'mon'
 
+                # Verify the interface actually exists
+                def interface_exists(iface_name):
+                    return os.path.exists(f'/sys/class/net/{iface_name}')
+
+                if not interface_exists(monitor_iface):
+                    # Try common naming patterns
+                    candidates = [
+                        interface + 'mon',
+                        interface.replace('wlan', 'wlan') + 'mon',
+                        'wlan0mon', 'wlan1mon',
+                        interface  # Maybe it stayed the same but in monitor mode
+                    ]
+                    for candidate in candidates:
+                        if interface_exists(candidate):
+                            monitor_iface = candidate
+                            break
+                    else:
+                        # List all wireless interfaces to help debug
+                        all_wireless = [f for f in os.listdir('/sys/class/net')
+                                       if os.path.exists(f'/sys/class/net/{f}/wireless') or 'mon' in f or f.startswith('wl')]
+                        logger.error(f"Monitor interface not found. Tried: {monitor_iface}. Available: {all_wireless}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': f'Monitor interface not created. airmon-ng output: {output[:500]}. Available interfaces: {all_wireless}'
+                        })
+
                 app_module.wifi_monitor_interface = monitor_iface
                 app_module.wifi_queue.put({'type': 'info', 'text': f'Monitor mode enabled on {app_module.wifi_monitor_interface}'})
+                logger.info(f"Monitor mode enabled on {monitor_iface}")
                 return jsonify({'status': 'success', 'monitor_interface': app_module.wifi_monitor_interface})
 
             except Exception as e:
@@ -582,6 +609,15 @@ def start_wifi_scan():
         if not interface:
             return jsonify({'status': 'error', 'message': 'No monitor interface available.'})
 
+        # Verify interface exists
+        if not os.path.exists(f'/sys/class/net/{interface}'):
+            all_wireless = [f for f in os.listdir('/sys/class/net')
+                           if os.path.exists(f'/sys/class/net/{f}/wireless') or 'mon' in f or f.startswith('wl')]
+            return jsonify({
+                'status': 'error',
+                'message': f'Interface "{interface}" does not exist. Available: {all_wireless}'
+            })
+
         app_module.wifi_networks = {}
         app_module.wifi_clients = {}
 
@@ -632,11 +668,12 @@ def start_wifi_scan():
                 error_msg = re.sub(r'\x1b\[[0-9;]*m', '', error_msg)
 
                 if 'No such device' in error_msg or 'No such interface' in error_msg:
-                    error_msg = f'Interface "{interface}" not found.'
+                    error_msg = f'Interface "{interface}" not found. Make sure monitor mode is enabled.'
                 elif 'Operation not permitted' in error_msg:
                     error_msg = 'Permission denied. Try running with sudo.'
 
-                return jsonify({'status': 'error', 'message': error_msg})
+                logger.error(f"airodump-ng failed for interface '{interface}': {error_msg}")
+                return jsonify({'status': 'error', 'message': error_msg, 'interface': interface})
 
             thread = threading.Thread(target=stream_airodump_output, args=(app_module.wifi_process, csv_path))
             thread.daemon = True
