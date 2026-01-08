@@ -330,6 +330,17 @@
                         </div>
                     </div>
 
+                    <!-- Global SDR Power Settings -->
+                    <div class="section" style="padding: 8px; margin-bottom: 10px; background: rgba(0, 212, 255, 0.05); border-radius: 4px;">
+                        <div class="checkbox-group" style="margin: 0;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="biasT" onchange="saveBiasTSetting()">
+                                <span style="color: var(--accent-cyan);">Bias-T Power</span>
+                                <span style="font-size: 10px; color: #666;">(LNA/Preamp)</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <div id="toolStatusPager" class="info-text tool-status-section" style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
                         <span>rtl_fm:</span><span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK' if tools.rtl_fm else 'Missing' }}</span>
                         <span>multimon-ng:</span><span class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon else 'Missing' }}</span>
@@ -2192,6 +2203,9 @@
                 }
             });
 
+            // Load bias-T setting from localStorage
+            loadBiasTSetting();
+
             // Initialize observer location input fields from saved location
             const adsbLatInput = document.getElementById('adsbObsLat');
             const adsbLonInput = document.getElementById('adsbObsLon');
@@ -2373,7 +2387,8 @@
                 gain: gain,
                 ppm: ppm,
                 device: device,
-                sdr_type: getSelectedSDRType()
+                sdr_type: getSelectedSDRType(),
+                bias_t: getBiasTEnabled()
             };
 
             // Add rtl_tcp params if using remote SDR
@@ -2950,6 +2965,24 @@
             return document.getElementById('sdrTypeSelect').value;
         }
 
+        // Bias-T power setting
+        function saveBiasTSetting() {
+            const enabled = document.getElementById('biasT')?.checked || false;
+            localStorage.setItem('biasTEnabled', enabled);
+        }
+
+        function getBiasTEnabled() {
+            return document.getElementById('biasT')?.checked || false;
+        }
+
+        function loadBiasTSetting() {
+            const saved = localStorage.getItem('biasTEnabled');
+            if (saved === 'true') {
+                const checkbox = document.getElementById('biasT');
+                if (checkbox) checkbox.checked = true;
+            }
+        }
+
         function toggleRemoteSDR() {
             const useRemote = document.getElementById('useRemoteSDR').checked;
             const configDiv = document.getElementById('remoteSDRConfig');
@@ -3017,7 +3050,8 @@
                 ppm: ppm,
                 device: device,
                 sdr_type: getSelectedSDRType(),
-                protocols: protocols
+                protocols: protocols,
+                bias_t: getBiasTEnabled()
             };
 
             // Add rtl_tcp params if using remote SDR
@@ -3206,10 +3240,10 @@
             msgEl.className = 'message ' + protoClass;
             msgEl.innerHTML = `
                 <div class="header">
-                    <span class="protocol">${msg.protocol}</span>
-                    <span class="msg-time" data-timestamp="${msg.timestamp}" title="${msg.timestamp}">${relativeTime}</span>
+                    <span class="protocol">${escapeHtml(msg.protocol)}</span>
+                    <span class="msg-time" data-timestamp="${escapeAttr(msg.timestamp)}" title="${escapeAttr(msg.timestamp)}">${escapeHtml(relativeTime)}</span>
                 </div>
-                <div class="address">Address: ${msg.address}${msg.function ? ' | Func: ' + msg.function : ''}</div>
+                <div class="address">Address: ${escapeHtml(msg.address)}${msg.function ? ' | Func: ' + escapeHtml(msg.function) : ''}</div>
                 <div class="content ${isNumeric ? 'numeric' : ''}">${escapeHtml(msg.message)}</div>
             `;
 
@@ -6802,7 +6836,7 @@
             fetch('/adsb/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gain, device, sdr_type })
+                body: JSON.stringify({ gain, device, sdr_type, bias_t: getBiasTEnabled() })
             })
             .then(r => r.json())
             .then(data => {
@@ -8135,7 +8169,8 @@
                     modulation: modulation,
                     squelch: squelch,
                     dwell_time: dwell,
-                    device: device
+                    device: device,
+                    bias_t: getBiasTEnabled()
                 })
             })
             .then(r => r.json())

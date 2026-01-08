@@ -233,6 +233,7 @@ def start_decoding() -> Response:
         builder = SDRFactory.get_builder(sdr_device.sdr_type)
 
         # Build FM demodulation command
+        bias_t = data.get('bias_t', False)
         rtl_cmd = builder.build_fm_demod_command(
             device=sdr_device,
             frequency_mhz=freq,
@@ -240,7 +241,8 @@ def start_decoding() -> Response:
             gain=float(gain) if gain and gain != '0' else None,
             ppm=int(ppm) if ppm and ppm != '0' else None,
             modulation='fm',
-            squelch=squelch if squelch and squelch != 0 else None
+            squelch=squelch if squelch and squelch != 0 else None,
+            bias_t=bias_t
         )
 
         multimon_cmd = ['multimon-ng', '-t', 'raw'] + decoders + ['-f', 'alpha', '-']

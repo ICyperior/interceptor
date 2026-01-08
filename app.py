@@ -45,6 +45,30 @@ _app_start_time = _time.time()
 # Create Flask app
 app = Flask(__name__)
 
+# Disable Werkzeug debugger PIN (not needed for local development tool)
+os.environ['WERKZEUG_DEBUG_PIN'] = 'off'
+
+
+# ============================================
+# SECURITY HEADERS
+# ============================================
+
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses."""
+    # Prevent MIME type sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # Prevent clickjacking
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    # Enable XSS filter
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    # Referrer policy
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Permissions policy (disable unnecessary features)
+    response.headers['Permissions-Policy'] = 'geolocation=(self), microphone=()'
+    return response
+
+
 # ============================================
 # GLOBAL PROCESS MANAGEMENT
 # ============================================

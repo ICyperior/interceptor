@@ -381,9 +381,11 @@ def start_adsb():
     builder = SDRFactory.get_builder(sdr_type)
 
     # Build ADS-B decoder command
+    bias_t = data.get('bias_t', False)
     cmd = builder.build_adsb_command(
         device=sdr_device,
-        gain=float(gain)
+        gain=float(gain),
+        bias_t=bias_t
     )
 
     # For RTL-SDR, ensure we use the found dump1090 path

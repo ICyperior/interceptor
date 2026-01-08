@@ -21,6 +21,7 @@ import app as app_module
 from utils.dependencies import check_tool
 from utils.logging import bluetooth_logger as logger
 from utils.sse import format_sse
+from utils.validation import validate_bluetooth_interface
 from data.oui import OUI_DATABASE, load_oui_database, get_manufacturer
 from data.patterns import AIRTAG_PREFIXES, TILE_PREFIXES, SAMSUNG_TRACKER
 from utils.constants import (
@@ -304,8 +305,13 @@ def start_bt_scan():
 
         data = request.json
         scan_mode = data.get('mode', 'hcitool')
-        interface = data.get('interface', 'hci0')
         scan_ble = data.get('scan_ble', True)
+
+        # Validate Bluetooth interface name
+        try:
+            interface = validate_bluetooth_interface(data.get('interface', 'hci0'))
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
 
         app_module.bt_interface = interface
         app_module.bt_devices = {}
@@ -388,7 +394,12 @@ def stop_bt_scan():
 def reset_bt_adapter():
     """Reset Bluetooth adapter."""
     data = request.json
-    interface = data.get('interface', 'hci0')
+
+    # Validate Bluetooth interface name
+    try:
+        interface = validate_bluetooth_interface(data.get('interface', 'hci0'))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
     with app_module.bt_lock:
         if app_module.bt_process:

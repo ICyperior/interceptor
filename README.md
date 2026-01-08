@@ -91,6 +91,7 @@ Most features work with a basic RTL-SDR dongle (RTL2832U + R820T2).
 - [Usage Guide](docs/USAGE.md) - Detailed instructions for each mode
 - [Hardware Guide](docs/HARDWARE.md) - SDR hardware and advanced setup
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Security](docs/SECURITY.md) - Network security and best practices
 
 ---
 

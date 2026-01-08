@@ -19,7 +19,7 @@ import app as app_module
 from utils.dependencies import check_tool, get_tool_path
 from utils.logging import wifi_logger as logger
 from utils.process import is_valid_mac, is_valid_channel
-from utils.validation import validate_wifi_channel, validate_mac_address
+from utils.validation import validate_wifi_channel, validate_mac_address, validate_network_interface
 from utils.sse import format_sse
 from data.oui import get_manufacturer
 from utils.constants import (
@@ -303,11 +303,13 @@ def get_wifi_interfaces():
 def toggle_monitor_mode():
     """Enable or disable monitor mode on an interface."""
     data = request.json
-    interface = data.get('interface')
     action = data.get('action', 'start')
 
-    if not interface:
-        return jsonify({'status': 'error', 'message': 'No interface specified'})
+    # Validate interface name to prevent command injection
+    try:
+        interface = validate_network_interface(data.get('interface'))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
     if action == 'start':
         if check_tool('airmon-ng'):
@@ -458,9 +460,18 @@ def start_wifi_scan():
             return jsonify({'status': 'error', 'message': 'Scan already running'})
 
         data = request.json
-        interface = data.get('interface') or app_module.wifi_monitor_interface
         channel = data.get('channel')
         band = data.get('band', 'abg')
+
+        # Use provided interface or fall back to stored monitor interface
+        interface = data.get('interface')
+        if interface:
+            try:
+                interface = validate_network_interface(interface)
+            except ValueError as e:
+                return jsonify({'status': 'error', 'message': str(e)}), 400
+        else:
+            interface = app_module.wifi_monitor_interface
 
         if not interface:
             return jsonify({'status': 'error', 'message': 'No monitor interface available.'})
@@ -557,7 +568,16 @@ def send_deauth():
     target_bssid = data.get('bssid')
     target_client = data.get('client', 'FF:FF:FF:FF:FF:FF')
     count = data.get('count', 5)
-    interface = data.get('interface') or app_module.wifi_monitor_interface
+
+    # Validate interface
+    interface = data.get('interface')
+    if interface:
+        try:
+            interface = validate_network_interface(interface)
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+    else:
+        interface = app_module.wifi_monitor_interface
 
     if not target_bssid:
         return jsonify({'status': 'error', 'message': 'Target BSSID required'})
@@ -612,7 +632,16 @@ def capture_handshake():
     data = request.json
     target_bssid = data.get('bssid')
     channel = data.get('channel')
-    interface = data.get('interface') or app_module.wifi_monitor_interface
+
+    # Validate interface
+    interface = data.get('interface')
+    if interface:
+        try:
+            interface = validate_network_interface(interface)
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+    else:
+        interface = app_module.wifi_monitor_interface
 
     if not target_bssid or not channel:
         return jsonify({'status': 'error', 'message': 'BSSID and channel required'})
@@ -701,7 +730,16 @@ def capture_pmkid():
     data = request.json
     target_bssid = data.get('bssid')
     channel = data.get('channel')
-    interface = data.get('interface') or app_module.wifi_monitor_interface
+
+    # Validate interface
+    interface = data.get('interface')
+    if interface:
+        try:
+            interface = validate_network_interface(interface)
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+    else:
+        interface = app_module.wifi_monitor_interface
 
     if not target_bssid:
         return jsonify({'status': 'error', 'message': 'BSSID required'})

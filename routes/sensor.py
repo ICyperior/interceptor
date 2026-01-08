@@ -114,11 +114,13 @@ def start_sensor() -> Response:
         builder = SDRFactory.get_builder(sdr_device.sdr_type)
 
         # Build ISM band decoder command
+        bias_t = data.get('bias_t', False)
         cmd = builder.build_ism_command(
             device=sdr_device,
             frequency_mhz=freq,
             gain=float(gain) if gain and gain != 0 else None,
-            ppm=int(ppm) if ppm and ppm != 0 else None
+            ppm=int(ppm) if ppm and ppm != 0 else None,
+            bias_t=bias_t
         )
 
         full_cmd = ' '.join(cmd)

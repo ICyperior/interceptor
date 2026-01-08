@@ -195,3 +195,64 @@ def sanitize_device_name(name: str | None) -> str:
         return ''
     # Escape HTML and limit length
     return escape_html(str(name)[:64])
+
+
+def validate_network_interface(name: Any) -> str:
+    """
+    Validate network interface name to prevent command injection.
+
+    Interface names must:
+    - Start with a letter
+    - Contain only alphanumeric, underscore, or hyphen
+    - Be 1-15 characters long (Linux IFNAMSIZ limit)
+
+    Args:
+        name: Interface name to validate
+
+    Returns:
+        Validated interface name
+
+    Raises:
+        ValueError: If interface name is invalid
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Interface name is required")
+
+    name = name.strip()
+
+    if not name:
+        raise ValueError("Interface name cannot be empty")
+
+    if len(name) > 15:
+        raise ValueError(f"Interface name too long (max 15 chars): {name}")
+
+    # Must start with letter, contain only alphanumeric/underscore/hyphen
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_-]*$', name):
+        raise ValueError(f"Invalid interface name: {name}")
+
+    return name
+
+
+def validate_bluetooth_interface(name: Any) -> str:
+    """
+    Validate Bluetooth interface name (hciX format).
+
+    Args:
+        name: Interface name to validate
+
+    Returns:
+        Validated interface name
+
+    Raises:
+        ValueError: If interface name is invalid
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Bluetooth interface name is required")
+
+    name = name.strip()
+
+    # Must be hciX format where X is a number 0-255
+    if not re.match(r'^hci([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$', name):
+        raise ValueError(f"Invalid Bluetooth interface name (expected hciX): {name}")
+
+    return name

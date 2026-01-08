@@ -54,6 +54,7 @@ scanner_config = {
     'scan_delay': 0.1,  # Seconds between frequency hops (keep low for fast scanning)
     'device': 0,
     'gain': 40,
+    'bias_t': False,  # Bias-T power for external LNA
 }
 
 # Activity log
@@ -177,6 +178,9 @@ def scanner_loop():
                 '-g', str(scanner_config['gain']),
                 '-d', str(scanner_config['device']),
             ]
+            # Add bias-t flag if enabled (for external LNA power)
+            if scanner_config.get('bias_t', False):
+                rtl_cmd.append('-T')
 
             try:
                 # Start rtl_fm
@@ -365,6 +369,9 @@ def _start_audio_stream(frequency: float, modulation: str):
             '-d', str(scanner_config['device']),
             '-l', str(scanner_config['squelch']),
         ]
+        # Add bias-t flag if enabled (for external LNA power)
+        if scanner_config.get('bias_t', False):
+            rtl_cmd.append('-T')
 
         encoder_cmd = [
             ffmpeg_path,
@@ -497,6 +504,7 @@ def start_scanner() -> Response:
         scanner_config['scan_delay'] = float(data.get('scan_delay', 0.5))
         scanner_config['device'] = int(data.get('device', 0))
         scanner_config['gain'] = int(data.get('gain', 40))
+        scanner_config['bias_t'] = bool(data.get('bias_t', False))
     except (ValueError, TypeError) as e:
         return jsonify({
             'status': 'error',
