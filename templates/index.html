@@ -331,13 +331,17 @@
                     </div>
 
                     <!-- Global SDR Power Settings -->
-                    <div class="section" style="padding: 8px; margin-bottom: 10px; background: rgba(0, 212, 255, 0.05); border-radius: 4px;">
+                    <div class="section" style="padding: 10px; margin: 10px 0; background: rgba(255, 100, 0, 0.1); border: 1px solid rgba(255, 100, 0, 0.3); border-radius: 4px;">
+                        <div style="font-size: 10px; color: var(--accent-orange); text-transform: uppercase; margin-bottom: 6px; font-weight: bold;">⚡ Power Settings</div>
                         <div class="checkbox-group" style="margin: 0;">
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" id="biasT" onchange="saveBiasTSetting()">
-                                <span style="color: var(--accent-cyan);">Bias-T Power</span>
-                                <span style="font-size: 10px; color: #666;">(LNA/Preamp)</span>
+                                <input type="checkbox" id="biasT" onchange="saveBiasTSetting()" style="width: 16px; height: 16px;">
+                                <span style="color: var(--accent-orange); font-weight: bold;">Bias-T Power</span>
+                                <span style="font-size: 10px; color: #888;">(LNA/Preamp)</span>
                             </label>
+                        </div>
+                        <div style="font-size: 9px; color: #666; margin-top: 6px;">
+                            Enable to power external LNA via antenna cable
                         </div>
                     </div>
 
