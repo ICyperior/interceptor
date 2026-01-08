@@ -2659,6 +2659,144 @@ header p {
     }
 }
 
+/* Bluetooth Layout Container */
+.bt-layout-container {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    margin: 0 15px 10px 15px;
+    border: 1px solid var(--border-color);
+    height: calc(100vh - 200px);
+    min-height: 400px;
+}
+
+.bt-layout-container .wifi-visuals {
+    flex: 1;
+}
+
+.bt-device-list {
+    border-left-color: var(--accent-purple) !important;
+}
+
+.bt-device-list .wifi-device-list-header h5 {
+    color: var(--accent-purple);
+}
+
+/* Bluetooth Device Type Overview */
+.bt-type-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.bt-type-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 3px;
+}
+
+.bt-type-icon {
+    font-size: 14px;
+}
+
+/* Bluetooth Signal Distribution */
+.bt-signal-dist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 10px;
+}
+
+.signal-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.signal-range span:first-child {
+    width: 70px;
+    color: var(--text-dim);
+}
+
+.signal-range span:last-child {
+    width: 20px;
+    text-align: right;
+}
+
+.signal-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.signal-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.signal-bar.strong {
+    background: var(--accent-green);
+}
+
+.signal-bar.medium {
+    background: var(--accent-orange);
+}
+
+.signal-bar.weak {
+    background: var(--accent-red);
+}
+
+/* Bluetooth Device Cards */
+.bt-device-card {
+    margin-bottom: 8px;
+    padding: 10px !important;
+    border-left-color: var(--accent-purple) !important;
+}
+
+.bt-device-card .header {
+    font-size: 12px;
+}
+
+.bt-device-card .sensor-data {
+    font-size: 10px;
+}
+
+.bt-device-card.tracker {
+    border-left-color: var(--accent-orange) !important;
+    background: rgba(255, 165, 0, 0.05);
+}
+
+.bt-device-card.findmy {
+    border-left-color: #007aff !important;
+    background: rgba(0, 122, 255, 0.05);
+}
+
+@media (max-width: 1200px) {
+    .bt-layout-container {
+        flex-direction: column;
+        height: auto;
+        max-height: calc(100vh - 200px);
+    }
+
+    .bt-layout-container .wifi-visuals {
+        max-height: 50vh;
+    }
+
+    .bt-device-list {
+        width: 100%;
+        min-width: auto;
+        max-height: 300px;
+    }
+}
+
 .wifi-visual-panel {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);

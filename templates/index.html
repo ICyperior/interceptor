@@ -1302,30 +1302,67 @@
                     </div>
                 </div>
 
-                <!-- Bluetooth Visualizations -->
-                <div class="wifi-visuals" id="btVisuals" style="display: none;">
-                    <div class="wifi-visual-panel" style="grid-column: span 2;">
-                        <h5>Bluetooth Proximity Radar</h5>
-                        <div class="radar-container">
-                            <canvas id="btRadarCanvas" width="150" height="150"></canvas>
+                <!-- Bluetooth Layout Container (visualizations left, device cards right) -->
+                <div class="bt-layout-container" id="btLayoutContainer" style="display: none;">
+                    <!-- Left: Bluetooth Visualizations -->
+                    <div class="wifi-visuals" id="btVisuals">
+                        <!-- Selected Bluetooth Device Info - at top for visibility -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <h5>📋 Selected Device</h5>
+                            <div id="btSelectedDevice" style="font-size: 11px; min-height: 100px;">
+                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device to view details</div>
+                            </div>
+                        </div>
+                        <!-- Row 1: Bluetooth Radar + Device Types -->
+                        <div class="wifi-visual-panel">
+                            <h5>Proximity Radar</h5>
+                            <div class="radar-container">
+                                <canvas id="btRadarCanvas" width="150" height="150"></canvas>
+                            </div>
+                        </div>
+                        <div class="wifi-visual-panel">
+                            <h5>Device Types</h5>
+                            <div class="bt-type-overview" id="btTypeOverview">
+                                <div class="bt-type-item"><span class="bt-type-icon">📱</span> Phones: <strong id="btPhoneCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">💻</span> Computers: <strong id="btComputerCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">🎧</span> Audio: <strong id="btAudioCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">⌚</span> Wearables: <strong id="btWearableCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">🔵</span> Other: <strong id="btOtherCount">0</strong></div>
+                            </div>
+                        </div>
+                        <!-- Row 2: Tracker Detection + Signal Analysis -->
+                        <div class="wifi-visual-panel">
+                            <h5>📍 Tracker Detection</h5>
+                            <div id="btTrackerList" style="max-height: 120px; overflow-y: auto; font-size: 11px;">
+                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles...</div>
+                            </div>
+                        </div>
+                        <div class="wifi-visual-panel">
+                            <h5>📶 Signal Distribution</h5>
+                            <div class="bt-signal-dist" id="btSignalDist">
+                                <div class="signal-range"><span>Strong (-50+)</span><div class="signal-bar-bg"><div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div></div><span id="btSignalStrongCount">0</span></div>
+                                <div class="signal-range"><span>Medium (-70)</span><div class="signal-bar-bg"><div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div></div><span id="btSignalMediumCount">0</span></div>
+                                <div class="signal-range"><span>Weak (-90)</span><div class="signal-bar-bg"><div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div></div><span id="btSignalWeakCount">0</span></div>
+                            </div>
+                        </div>
+                        <!-- Row 3: FindMy Detection -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <h5>🍎 Apple FindMy Network</h5>
+                            <div id="btFindMyList" style="max-height: 100px; overflow-y: auto; font-size: 11px;">
+                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for FindMy-compatible devices...</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="wifi-visual-panel" style="grid-column: span 2;">
-                        <h5>📋 Selected Device</h5>
-                        <div id="btSelectedDevice" style="font-size: 11px; min-height: 120px;">
-                            <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device to view details</div>
+                    <!-- Right: Bluetooth Device Cards -->
+                    <div class="wifi-device-list bt-device-list" id="btDeviceListPanel">
+                        <div class="wifi-device-list-header">
+                            <h5>🔵 Bluetooth Devices</h5>
+                            <span class="device-count">(<span id="btDeviceListCount">0</span>)</span>
                         </div>
-                    </div>
-                    <div class="wifi-visual-panel" style="grid-column: span 2;">
-                        <h5>🔵 Discovered Devices (<span id="btListCount">0</span>)</h5>
-                        <div id="btDeviceList" style="max-height: 180px; overflow-y: auto; font-size: 11px;">
-                            <div style="color: var(--text-dim); padding: 10px; text-align: center;">Start scanning to discover devices...</div>
-                        </div>
-                    </div>
-                    <div class="wifi-visual-panel" style="grid-column: span 2;">
-                        <h5>📍 Tracker Detection</h5>
-                        <div id="btTrackerList" style="max-height: 120px; overflow-y: auto; font-size: 11px;">
-                            <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles, and other trackers...</div>
+                        <div class="wifi-device-list-content" id="btDeviceListContent">
+                            <div style="color: var(--text-dim); text-align: center; padding: 30px;">
+                                Start scanning to discover Bluetooth devices
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2333,7 +2370,7 @@
             };
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
-            document.getElementById('btVisuals').style.display = mode === 'bluetooth' ? 'grid' : 'none';
+            document.getElementById('btLayoutContainer').style.display = mode === 'bluetooth' ? 'flex' : 'none';
             // Respect the "Show Radar Display" checkbox for aircraft mode
             const showRadar = document.getElementById('adsbEnableMap').checked;
             document.getElementById('aircraftVisuals').style.display = (mode === 'aircraft' && showRadar) ? 'grid' : 'none';
@@ -6408,69 +6445,164 @@
             }).join('');
         }
 
-        // Add Bluetooth device card to output
+        // Add Bluetooth device card to device list panel
         function addBtDeviceCard(device, isNew) {
-            const output = document.getElementById('output');
-            const placeholder = output.querySelector('.placeholder');
-            if (placeholder) placeholder.remove();
+            // Add to new device list panel
+            const deviceList = document.getElementById('btDeviceListContent');
+            if (deviceList) {
+                // Remove placeholder if present
+                const placeholder = deviceList.querySelector('div[style*="text-align: center"]');
+                if (placeholder && placeholder.textContent.includes('Start scanning')) {
+                    placeholder.remove();
+                }
 
-            let card = document.getElementById('bt_' + device.mac.replace(/:/g, ''));
-
-            if (!card) {
-                card = document.createElement('div');
-                card.id = 'bt_' + device.mac.replace(/:/g, '');
-                card.className = 'sensor-card' + (device.findmy ? ' findmy-device' : '');
+                let card = document.getElementById('btcard_' + device.mac.replace(/:/g, ''));
                 const devType = device.device_type || device.type || 'other';
-                card.style.borderLeftColor = device.findmy ? '#007aff' :
-                                             device.tracker ? 'var(--accent-red)' :
-                                             devType === 'phone' ? 'var(--accent-cyan)' :
-                                             devType === 'audio' ? 'var(--accent-green)' :
-                                             'var(--accent-orange)';
-                output.insertBefore(card, output.firstChild);
+
+                if (!card) {
+                    card = document.createElement('div');
+                    card.id = 'btcard_' + device.mac.replace(/:/g, '');
+                    card.className = 'sensor-card bt-device-card' +
+                                     (device.findmy ? ' findmy' : '') +
+                                     (device.tracker && !device.findmy ? ' tracker' : '');
+                    card.style.cursor = 'pointer';
+                    card.onclick = () => selectBtDevice(device.mac);
+                    deviceList.insertBefore(card, deviceList.firstChild);
+
+                    // Update device count
+                    const countEl = document.getElementById('btDeviceListCount');
+                    if (countEl) countEl.textContent = Object.keys(btDevices).length;
+                }
+
+                const typeIcon = {
+                    'phone': '📱', 'audio': '🎧', 'wearable': '⌚', 'tracker': '📍',
+                    'computer': '💻', 'input': '⌨️', 'other': '📶'
+                }[devType] || '📶';
+
+                // Handle signal strength
+                const rssi = device.rssi || -100;
+                const signalBars = Math.max(0, Math.min(5, Math.floor((rssi + 100) / 15)));
+                const signalDisplay = rssi > -100 ? `${rssi} dBm` : 'N/A';
+
+                const findMyBadge = device.findmy
+                    ? `<span style="background: #007aff; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 9px; margin-left: 5px;">${device.findmy.network.toUpperCase()}</span>`
+                    : '';
+
+                const trackerBadge = device.tracker && !device.findmy
+                    ? `<span style="background: var(--accent-orange); color: #000; padding: 2px 6px; border-radius: 3px; font-size: 9px; margin-left: 5px;">TRACKER</span>`
+                    : '';
+
+                card.innerHTML = `
+                    <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span class="device-name" style="color: var(--accent-purple);">${typeIcon} ${escapeHtml(device.name || 'Unknown')}${findMyBadge}${trackerBadge}</span>
+                        <span style="font-size: 10px; color: var(--text-dim);">${escapeHtml(devType.toUpperCase())}</span>
+                    </div>
+                    <div class="sensor-data">
+                        <div class="data-item">
+                            <div class="data-label">MAC</div>
+                            <div class="data-value" style="font-size: 11px;">${escapeHtml(device.mac)}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">Manufacturer</div>
+                            <div class="data-value">${escapeHtml(device.manufacturer || 'Unknown')}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">Signal</div>
+                            <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5-signalBars)}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px; display: flex; gap: 5px;">
+                        <button class="preset-btn" onclick="event.stopPropagation(); btTargetDevice('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
+                        <button class="preset-btn" onclick="event.stopPropagation(); btEnumServicesFor('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Services</button>
+                    </div>
+                `;
             }
 
-            const devType = device.device_type || device.type || 'other';
-            const typeIcon = {
-                'phone': '📱', 'audio': '🎧', 'wearable': '⌚', 'tracker': '📍',
-                'computer': '💻', 'input': '⌨️', 'other': '📶'
-            }[devType] || '📶';
+            // Update statistics panels
+            updateBtStatsPanels();
+        }
 
-            const findMyBadge = device.findmy
-                ? `<span class="findmy-badge">${device.findmy.icon || '📍'} ${device.findmy.network.toUpperCase()}</span>`
-                : '';
+        // Select a Bluetooth device
+        function selectBtDevice(mac) {
+            selectedBtDevice = mac;
+            const device = btDevices[mac];
+            if (device) {
+                updateBtSelectedDevice(device);
+            }
+        }
 
-            card.innerHTML = `
-                <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span class="device-name">${typeIcon} ${escapeHtml(device.name)} ${findMyBadge}</span>
-                    <span style="color: #444; font-size: 10px;">${escapeHtml(devType.toUpperCase())}</span>
-                </div>
-                <div class="sensor-data">
-                    <div class="data-item">
-                        <div class="data-label">MAC</div>
-                        <div class="data-value" style="font-size: 11px;">${escapeHtml(device.mac)}</div>
-                    </div>
-                    <div class="data-item">
-                        <div class="data-label">Manufacturer</div>
-                        <div class="data-value">${escapeHtml(device.manufacturer || 'Unknown')}</div>
-                    </div>
-                    ${device.findmy ? `
-                    <div class="data-item">
-                        <div class="data-label">Find My</div>
-                        <div class="data-value" style="color: #007aff;">${escapeHtml(device.findmy.type)}</div>
-                    </div>` : ''}
-                    ${device.tracker && !device.findmy ? `
-                    <div class="data-item">
-                        <div class="data-label">Tracker</div>
-                        <div class="data-value" style="color: var(--accent-red);">${escapeHtml(device.tracker.name)}</div>
-                    </div>` : ''}
-                </div>
-                <div style="margin-top: 8px; display: flex; gap: 5px;">
-                    <button class="preset-btn" onclick="btTargetDevice('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
-                    <button class="preset-btn" onclick="btEnumServicesFor('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Services</button>
-                </div>
-            `;
+        // Update Bluetooth statistics panels
+        function updateBtStatsPanels() {
+            const devices = Object.values(btDevices);
 
-            if (autoScroll) output.scrollTop = 0;
+            // Device type counts
+            let phones = 0, computers = 0, audio = 0, wearables = 0, other = 0;
+            let strong = 0, medium = 0, weak = 0;
+
+            devices.forEach(d => {
+                const devType = d.device_type || d.type || 'other';
+                if (devType === 'phone') phones++;
+                else if (devType === 'computer') computers++;
+                else if (devType === 'audio') audio++;
+                else if (devType === 'wearable') wearables++;
+                else other++;
+
+                const rssi = d.rssi || -100;
+                if (rssi >= -50) strong++;
+                else if (rssi >= -70) medium++;
+                else weak++;
+            });
+
+            // Update type counts
+            const phoneEl = document.getElementById('btPhoneCount');
+            const compEl = document.getElementById('btComputerCount');
+            const audioEl = document.getElementById('btAudioCount');
+            const wearEl = document.getElementById('btWearableCount');
+            const otherEl = document.getElementById('btOtherCount');
+            if (phoneEl) phoneEl.textContent = phones;
+            if (compEl) compEl.textContent = computers;
+            if (audioEl) audioEl.textContent = audio;
+            if (wearEl) wearEl.textContent = wearables;
+            if (otherEl) otherEl.textContent = other;
+
+            // Update signal distribution
+            const total = devices.length || 1;
+            const strongBar = document.getElementById('btSignalStrong');
+            const mediumBar = document.getElementById('btSignalMedium');
+            const weakBar = document.getElementById('btSignalWeak');
+            const strongCount = document.getElementById('btSignalStrongCount');
+            const mediumCount = document.getElementById('btSignalMediumCount');
+            const weakCount = document.getElementById('btSignalWeakCount');
+
+            if (strongBar) strongBar.style.width = (strong / total * 100) + '%';
+            if (mediumBar) mediumBar.style.width = (medium / total * 100) + '%';
+            if (weakBar) weakBar.style.width = (weak / total * 100) + '%';
+            if (strongCount) strongCount.textContent = strong;
+            if (mediumCount) mediumCount.textContent = medium;
+            if (weakCount) weakCount.textContent = weak;
+
+            // Update FindMy list
+            updateBtFindMyList();
+        }
+
+        // Update FindMy device list
+        function updateBtFindMyList() {
+            const listEl = document.getElementById('btFindMyList');
+            if (!listEl) return;
+
+            const findMyDevices = Object.values(btDevices).filter(d => d.findmy);
+
+            if (findMyDevices.length === 0) {
+                listEl.innerHTML = '<div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for FindMy-compatible devices...</div>';
+                return;
+            }
+
+            listEl.innerHTML = findMyDevices.map(d => `
+                <div style="display: flex; justify-content: space-between; padding: 5px 8px; background: rgba(0,122,255,0.1); border-radius: 3px; margin-bottom: 4px; cursor: pointer;" onclick="selectBtDevice('${escapeAttr(d.mac)}')">
+                    <span>${d.findmy.icon || '📍'} ${escapeHtml(d.name || d.findmy.type)}</span>
+                    <span style="color: #007aff;">${d.rssi || '--'} dBm</span>
+                </div>
+            `).join('');
         }
 
         // Target a Bluetooth device
