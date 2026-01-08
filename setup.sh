@@ -27,6 +27,23 @@ ok()    { echo -e "${GREEN}[✓]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
 fail()  { echo -e "${RED}[x]${NC} $*"; }
 
+# ----------------------------
+# Progress tracking
+# ----------------------------
+CURRENT_STEP=0
+TOTAL_STEPS=0
+
+progress() {
+  local msg="$1"
+  ((CURRENT_STEP++)) || true
+  local pct=$((CURRENT_STEP * 100 / TOTAL_STEPS))
+  local filled=$((pct / 5))
+  local empty=$((20 - filled))
+  local bar=$(printf '█%.0s' $(seq 1 $filled 2>/dev/null) || true)
+  bar+=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null) || true)
+  echo -e "${BLUE}[${CURRENT_STEP}/${TOTAL_STEPS}]${NC} ${bar} ${pct}% - ${msg}"
+}
+
 on_error() {
   local line="$1"
   local cmd="${2:-unknown}"
@@ -174,7 +191,7 @@ PY
 }
 
 install_python_deps() {
-  info "Setting up Python virtual environment..."
+  progress "Setting up Python environment"
   check_python_version
 
   if [[ ! -f requirements.txt ]]; then
@@ -195,7 +212,7 @@ install_python_deps() {
   python -m pip install --upgrade pip setuptools wheel >/dev/null
   ok "Upgraded pip tooling"
 
-  info "Installing Python requirements..."
+  progress "Installing Python dependencies"
   python -m pip install -r requirements.txt
   ok "Python dependencies installed"
   echo
@@ -230,21 +247,37 @@ brew_install() {
 }
 
 install_macos_packages() {
-  ensure_brew
-  info "Installing packages via Homebrew..."
+  TOTAL_STEPS=12
+  CURRENT_STEP=0
 
+  progress "Checking Homebrew"
+  ensure_brew
+
+  progress "Installing RTL-SDR libraries"
   brew_install librtlsdr
+
+  progress "Installing multimon-ng"
   brew_install multimon-ng
+
+  progress "Installing ffmpeg"
   brew_install ffmpeg
+
+  progress "Installing rtl_433"
   brew_install rtl_433
 
-  # ADS-B (may not exist)
-  warn "Attempting dump1090 install via Homebrew (may be unavailable)..."
-  (brew_install dump1090-mutability) || true
+  progress "Installing dump1090"
+  (brew_install dump1090-mutability) || warn "dump1090 not available via Homebrew"
 
+  progress "Installing aircrack-ng"
   brew_install aircrack-ng
+
+  progress "Installing hcxtools"
   brew_install hcxtools
+
+  progress "Installing SoapySDR"
   brew_install soapysdr
+
+  progress "Installing gpsd"
   brew_install gpsd
 
   warn "macOS note: hcitool/hciconfig are Linux (BlueZ) utilities and often unavailable on macOS."
@@ -330,29 +363,49 @@ install_debian_packages() {
   export DEBIAN_FRONTEND=noninteractive
   export NEEDRESTART_MODE=a
 
-  info "Updating APT package lists..."
+  TOTAL_STEPS=15
+  CURRENT_STEP=0
+
+  progress "Updating APT package lists"
   $SUDO apt-get update -y >/dev/null
 
-  info "Installing required packages via APT..."
+  progress "Installing RTL-SDR"
   apt_install rtl-sdr
+
+  progress "Installing multimon-ng"
   apt_install multimon-ng
+
+  progress "Installing ffmpeg"
   apt_install ffmpeg
 
-  apt_try_install_any rtl-433 rtl433 || true
+  progress "Installing rtl_433"
+  apt_try_install_any rtl-433 rtl433 || warn "rtl-433 not available"
 
+  progress "Installing aircrack-ng"
   apt_install aircrack-ng || true
+
+  progress "Installing hcxdumptool"
   apt_install hcxdumptool || true
+
+  progress "Installing hcxtools"
   apt_install hcxtools || true
+
+  progress "Installing Bluetooth tools"
   apt_install bluez bluetooth || true
+
+  progress "Installing SoapySDR"
   apt_install soapysdr-tools || true
+
+  progress "Installing gpsd"
   apt_install gpsd gpsd-clients || true
 
-  # dump1090: apt first; source fallback; hard fail inside if it can't build
+  progress "Installing dump1090"
   if ! cmd_exists dump1090; then
     apt_try_install_any dump1090-fa dump1090-mutability dump1090 || true
   fi
   cmd_exists dump1090 || install_dump1090_from_source_debian
 
+  progress "Configuring udev rules"
   setup_udev_rules_debian
 }
 
