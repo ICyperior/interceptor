@@ -5957,6 +5957,10 @@
                 device.tracker = device.tracker || { name: findMyInfo.type };
             }
 
+            // Merge with existing device data to preserve RSSI if not in update
+            if (btDevices[device.mac] && !device.rssi && btDevices[device.mac].rssi) {
+                device.rssi = btDevices[device.mac].rssi;
+            }
             btDevices[device.mac] = device;
 
             // Track signal history for graphs
@@ -5969,6 +5973,11 @@
                 document.getElementById('btDeviceCount').textContent = btDeviceCount;
                 playAlert();
                 pulseSignal();
+            }
+
+            // Update selected device panel if this device is selected
+            if (selectedBtDevice === device.mac) {
+                updateBtSelectedDevice(device);
             }
 
             // Check for tracker following

@@ -219,10 +219,30 @@ def stream_bt_scan(process, scan_mode):
                             line = re.sub(r'\r', '', line)
 
                             if 'Device' in line:
+                                # Check for RSSI update: [CHG] Device XX:XX:XX RSSI: -65
+                                rssi_match = re.search(r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}).*RSSI:\s*(-?\d+)', line)
+                                if rssi_match:
+                                    mac = rssi_match.group(1).upper()
+                                    rssi = int(rssi_match.group(2))
+                                    if mac in app_module.bt_devices:
+                                        app_module.bt_devices[mac]['rssi'] = rssi
+                                        app_module.bt_devices[mac]['last_seen'] = time.time()
+                                        # Send RSSI update
+                                        app_module.bt_queue.put({
+                                            **app_module.bt_devices[mac],
+                                            'type': 'device',
+                                            'device_type': app_module.bt_devices[mac].get('type', 'other'),
+                                            'action': 'update',
+                                        })
+                                    continue
+
+                                # Check for new device: [NEW] Device XX:XX:XX Name
                                 match = re.search(r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})\s*(.*)', line)
                                 if match:
                                     mac = match.group(1).upper()
                                     name = match.group(2).strip()
+                                    # Remove "RSSI: -XX" from name if present
+                                    name = re.sub(r'\s*RSSI:\s*-?\d+\s*', '', name).strip()
 
                                     manufacturer = get_manufacturer(mac)
                                     device = {
