@@ -1337,12 +1337,24 @@
                             <canvas id="btRadarCanvas" width="150" height="150"></canvas>
                         </div>
                     </div>
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
+                        <h5>🔵 Discovered Devices (<span id="btListCount">0</span>)</h5>
+                        <div id="btDeviceList" style="max-height: 200px; overflow-y: auto; font-size: 11px;">
+                            <div style="color: var(--text-dim); padding: 10px; text-align: center;">Start scanning to discover devices...</div>
+                        </div>
+                    </div>
                     <div class="wifi-visual-panel signal-graph-panel" style="grid-column: span 2;">
                         <div class="signal-graph-header">
                             <h4>📈 BT Signal History</h4>
-                            <span class="signal-graph-device" id="btSignalGraphDevice">Click a device to track</span>
+                            <span class="signal-graph-device" id="btSignalGraphDevice">Select a device from the list</span>
                         </div>
                         <canvas id="btSignalGraph"></canvas>
+                    </div>
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
+                        <h5>📍 Tracker Detection</h5>
+                        <div id="btTrackerList" style="max-height: 150px; overflow-y: auto; font-size: 11px;">
+                            <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles, and other trackers...</div>
+                        </div>
                     </div>
                 </div>
 
@@ -5970,6 +5982,109 @@
 
             // Add device card
             addBtDeviceCard(device, isNew);
+
+            // Update device list panel
+            updateBtDeviceList();
+
+            // Check for trackers and update tracker list
+            if (device.tracker || device.findmy) {
+                updateBtTrackerList();
+            }
+        }
+
+        // Currently selected BT device for signal tracking
+        let selectedBtDevice = null;
+
+        // Update the Bluetooth device list panel
+        function updateBtDeviceList() {
+            const listEl = document.getElementById('btDeviceList');
+            const countEl = document.getElementById('btListCount');
+            if (!listEl) return;
+
+            const devices = Object.values(btDevices);
+            countEl.textContent = devices.length;
+
+            if (devices.length === 0) {
+                listEl.innerHTML = '<div style="color: var(--text-dim); padding: 10px; text-align: center;">Start scanning to discover devices...</div>';
+                return;
+            }
+
+            // Sort by RSSI (strongest first)
+            devices.sort((a, b) => (b.rssi || -100) - (a.rssi || -100));
+
+            listEl.innerHTML = devices.map(d => {
+                const typeIcon = {
+                    'phone': '📱', 'audio': '🎧', 'wearable': '⌚', 'tracker': '📍',
+                    'computer': '💻', 'input': '⌨️', 'other': '📶'
+                }[d.device_type || d.type] || '📶';
+
+                const rssiColor = d.rssi > -50 ? 'var(--accent-green)' :
+                                  d.rssi > -70 ? 'var(--accent-cyan)' :
+                                  d.rssi > -85 ? 'var(--accent-orange)' : 'var(--accent-red)';
+
+                const isSelected = selectedBtDevice === d.mac;
+                const trackerBadge = d.findmy ? `<span style="color:#007aff;font-size:9px;">FindMy</span>` :
+                                     d.tracker ? `<span style="color:var(--accent-red);font-size:9px;">Tracker</span>` : '';
+
+                return `
+                    <div onclick="selectBtDevice('${d.mac}')" style="
+                        padding: 8px;
+                        border-bottom: 1px solid rgba(255,255,255,0.05);
+                        cursor: pointer;
+                        background: ${isSelected ? 'rgba(0,212,255,0.1)' : 'transparent'};
+                        border-left: 2px solid ${isSelected ? 'var(--accent-cyan)' : 'transparent'};
+                    " onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isSelected ? 'rgba(0,212,255,0.1)' : 'transparent'}'">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span>${typeIcon} ${escapeHtml(d.name || 'Unknown')}</span>
+                            <span style="color:${rssiColor};font-weight:bold;">${d.rssi || '--'} dBm</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;color:var(--text-dim);font-size:10px;margin-top:2px;">
+                            <span>${escapeHtml(d.mac)}</span>
+                            ${trackerBadge}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Select a BT device for signal tracking
+        function selectBtDevice(mac) {
+            selectedBtDevice = mac;
+            const device = btDevices[mac];
+            if (device) {
+                document.getElementById('btSignalGraphDevice').textContent = device.name || mac;
+                document.getElementById('btTargetMac').value = mac;
+            }
+            updateBtDeviceList(); // Refresh to show selection
+        }
+
+        // Update tracker list panel
+        function updateBtTrackerList() {
+            const listEl = document.getElementById('btTrackerList');
+            if (!listEl) return;
+
+            const trackers = Object.values(btDevices).filter(d => d.tracker || d.findmy);
+
+            if (trackers.length === 0) {
+                listEl.innerHTML = '<div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles, and other trackers...</div>';
+                return;
+            }
+
+            listEl.innerHTML = trackers.map(d => {
+                const icon = d.findmy ? '🍎' : '📍';
+                const type = d.findmy ? d.findmy.type : (d.tracker ? d.tracker.name : 'Unknown');
+                const color = d.findmy ? '#007aff' : 'var(--accent-red)';
+
+                return `
+                    <div style="padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <div style="display:flex;justify-content:space-between;">
+                            <span style="color:${color};">${icon} ${escapeHtml(type)}</span>
+                            <span style="color:var(--text-dim);">${d.rssi || '--'} dBm</span>
+                        </div>
+                        <div style="color:var(--text-dim);font-size:10px;">${escapeHtml(d.mac)}</div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Add Bluetooth device card to output
