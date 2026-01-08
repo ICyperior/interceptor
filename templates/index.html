@@ -491,14 +491,15 @@
                 <!-- WiFi MODE -->
                 <div id="wifiMode" class="mode-content">
                     <div class="section">
-                        <h3>WiFi Interface</h3>
+                        <h3>WiFi Adapter</h3>
                         <div class="form-group">
-                            <select id="wifiInterfaceSelect">
+                            <label>Select Device</label>
+                            <select id="wifiInterfaceSelect" style="font-size: 12px;">
                                 <option value="">Detecting interfaces...</option>
                             </select>
                         </div>
                         <button class="preset-btn" onclick="refreshWifiInterfaces()" style="width: 100%;">
-                            Refresh Interfaces
+                            🔄 Refresh Devices
                         </button>
                         <div class="info-text" style="margin-top: 8px; display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;" id="wifiToolStatus">
                             <span>airmon-ng:</span><span class="tool-status missing">Checking...</span>
@@ -4386,12 +4387,18 @@
 
         // Refresh WiFi interfaces
         function refreshWifiInterfaces() {
+            const select = document.getElementById('wifiInterfaceSelect');
+            select.innerHTML = '<option value="">Loading interfaces...</option>';
+
             fetch('/wifi/interfaces')
-                .then(r => r.json())
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to fetch interfaces');
+                    return r.json();
+                })
                 .then(data => {
-                    const select = document.getElementById('wifiInterfaceSelect');
-                    if (data.interfaces.length === 0) {
+                    if (!data.interfaces || data.interfaces.length === 0) {
                         select.innerHTML = '<option value="">No WiFi interfaces found</option>';
+                        showNotification('WiFi', 'No WiFi interfaces detected. Make sure you have a WiFi adapter connected.');
                     } else {
                         select.innerHTML = data.interfaces.map(i => {
                             // Build descriptive label with available info
@@ -4405,20 +4412,28 @@
                             if (i.monitor_capable) label += ' [Monitor OK]';
                             return `<option value="${i.name}">${label}</option>`;
                         }).join('');
+                        showNotification('WiFi', `Found ${data.interfaces.length} interface(s)`);
                     }
 
                     // Update tool status
                     const statusDiv = document.getElementById('wifiToolStatus');
-                    statusDiv.innerHTML = `
-                        <span>airmon-ng:</span><span class="tool-status ${data.tools.airmon ? 'ok' : 'missing'}">${data.tools.airmon ? 'OK' : 'Missing'}</span>
-                        <span>airodump-ng:</span><span class="tool-status ${data.tools.airodump ? 'ok' : 'missing'}">${data.tools.airodump ? 'OK' : 'Missing'}</span>
-                    `;
+                    if (statusDiv) {
+                        statusDiv.innerHTML = `
+                            <span>airmon-ng:</span><span class="tool-status ${data.tools?.airmon ? 'ok' : 'missing'}">${data.tools?.airmon ? 'OK' : 'Missing'}</span>
+                            <span>airodump-ng:</span><span class="tool-status ${data.tools?.airodump ? 'ok' : 'missing'}">${data.tools?.airodump ? 'OK' : 'Missing'}</span>
+                        `;
+                    }
 
                     // Update monitor status
                     if (data.monitor_interface) {
                         monitorInterface = data.monitor_interface;
                         updateMonitorStatus(true);
                     }
+                })
+                .catch(err => {
+                    console.error('Error fetching WiFi interfaces:', err);
+                    select.innerHTML = '<option value="">Error loading interfaces</option>';
+                    showNotification('WiFi Error', 'Could not detect WiFi interfaces: ' + err.message);
                 });
         }
 
