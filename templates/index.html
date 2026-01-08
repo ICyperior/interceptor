@@ -2413,8 +2413,8 @@
             document.getElementById('toolStatusAircraft').style.display = (mode === 'aircraft') ? 'grid' : 'none';
 
             // Hide waterfall and output console for modes with their own visualizations
-            document.querySelector('.waterfall-container').style.display = (mode === 'satellite' || mode === 'listening' || mode === 'aircraft' || mode === 'wifi') ? 'none' : 'block';
-            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi') ? 'none' : 'block';
+            document.querySelector('.waterfall-container').style.display = (mode === 'satellite' || mode === 'listening' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth') ? 'none' : 'block';
+            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth') ? 'none' : 'block';
             document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
 
             // Load interfaces and initialize visualizations when switching modes
