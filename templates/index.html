@@ -4366,17 +4366,29 @@
             if (!list) return;
 
             const entries = Object.entries(revealedSsids);
+            const hiddenCount = Object.keys(hiddenNetworks).length;
+
             if (entries.length === 0) {
-                list.innerHTML = '<div style="color: var(--text-dim);">No hidden SSIDs revealed yet</div>';
+                if (hiddenCount > 0) {
+                    list.innerHTML = `<div style="color: var(--text-dim);">Monitoring ${hiddenCount} hidden network${hiddenCount > 1 ? 's' : ''}...</div>`;
+                } else {
+                    list.innerHTML = '<div style="color: var(--text-dim);">No hidden networks detected</div>';
+                }
                 return;
             }
 
-            list.innerHTML = entries.map(([bssid, ssid]) => `
+            let html = entries.map(([bssid, ssid]) => `
                 <div style="padding: 4px 0; border-bottom: 1px solid var(--border-color);">
-                    <span class="hidden-ssid-revealed">"${ssid}"</span>
+                    <span style="color: var(--accent-green);">✓ "${escapeHtml(ssid)}"</span>
                     <span style="color: var(--text-dim); font-size: 9px;"> (${bssid})</span>
                 </div>
             `).join('');
+
+            if (hiddenCount > 0) {
+                html += `<div style="color: var(--text-dim); margin-top: 4px; font-size: 10px;">+ ${hiddenCount} hidden still monitoring</div>`;
+            }
+
+            list.innerHTML = html;
         }
 
         // Browser Notifications
@@ -4417,9 +4429,10 @@
         // Update visualizations periodically
         setInterval(() => {
             if (currentMode === 'wifi') {
-                drawNetworkGraph();
                 updateChannelRecommendation();
                 correlateDevices();
+                updateHiddenSsidDisplay();
+                updateProbeAnalysis();
             }
         }, 2000);
 
@@ -4742,14 +4755,27 @@
             };
         }
 
+        // Track networks that were originally hidden
+        let hiddenNetworks = {};  // {bssid: true} for networks first seen with hidden ESSID
+
         // Handle discovered WiFi network (called from batched update)
         function handleWifiNetworkImmediate(net) {
             const isNew = !wifiNetworks[net.bssid];
+            const previousNet = wifiNetworks[net.bssid];
             wifiNetworks[net.bssid] = net;
 
-            // Check if this reveals a hidden SSID
-            if (net.essid && net.essid !== 'Hidden' && net.essid !== '[Hidden]') {
+            // Track if this network was originally hidden
+            if (isNew) {
+                const isHidden = !net.essid || net.essid === '' || net.essid === 'Hidden' || net.essid === '[Hidden]';
+                if (isHidden) {
+                    hiddenNetworks[net.bssid] = true;
+                }
+            }
+
+            // Check if a previously hidden network now has a revealed SSID
+            if (hiddenNetworks[net.bssid] && net.essid && net.essid !== '' && net.essid !== 'Hidden' && net.essid !== '[Hidden]') {
                 revealHiddenSsid(net.bssid, net.essid);
+                delete hiddenNetworks[net.bssid];  // No longer hidden
             }
 
             if (isNew) {
@@ -4803,6 +4829,16 @@
                 checkWatchList(client.mac, 'Client');
             }
 
+            // If client is connected to a hidden network and has probes, try to reveal the SSID
+            if (client.bssid && hiddenNetworks[client.bssid] && client.probes) {
+                const probes = client.probes.split(',').map(p => p.trim()).filter(p => p);
+                if (probes.length > 0) {
+                    // Use the first probe as the likely SSID for this hidden network
+                    revealHiddenSsid(client.bssid, probes[0]);
+                    delete hiddenNetworks[client.bssid];
+                }
+            }
+
             // Track in device intelligence with vendor info
             const vendorInfo = client.vendor && client.vendor !== 'Unknown' ? ` [${client.vendor}]` : '';
             trackDevice({
@@ -4812,7 +4848,11 @@
                 bssid: client.bssid,
                 vendor: client.vendor
             });
-            // Note: Probe analysis updated separately if needed
+
+            // Update probe analysis when we get client data with probes
+            if (client.probes && client.probes.trim()) {
+                scheduleProbeAnalysisUpdate();
+            }
         }
 
         // Throttled probe analysis (called less frequently)
