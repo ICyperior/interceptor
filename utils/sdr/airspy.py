@@ -126,7 +126,8 @@ class AirspyCommandBuilder(CommandBuilder):
         device: SDRDevice,
         frequency_mhz: float = 433.92,
         gain: Optional[float] = None,
-        ppm: Optional[int] = None
+        ppm: Optional[int] = None,
+        bias_t: bool = False
     ) -> list[str]:
         """
         Build rtl_433 command with SoapySDR support for ISM band decoding.
@@ -144,6 +145,9 @@ class AirspyCommandBuilder(CommandBuilder):
 
         if gain is not None and gain > 0:
             cmd.extend(['-g', str(int(gain))])
+
+        if bias_t:
+            cmd.extend(['-T'])
 
         return cmd
 

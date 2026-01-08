@@ -138,7 +138,8 @@ class CommandBuilder(ABC):
         device: SDRDevice,
         frequency_mhz: float = 433.92,
         gain: Optional[float] = None,
-        ppm: Optional[int] = None
+        ppm: Optional[int] = None,
+        bias_t: bool = False
     ) -> list[str]:
         """
         Build ISM band decoder command (433MHz sensors).
@@ -148,6 +149,7 @@ class CommandBuilder(ABC):
             frequency_mhz: Center frequency in MHz (default 433.92)
             gain: Gain in dB (None for auto)
             ppm: PPM frequency correction
+            bias_t: Enable bias-T power (for active antennas)
 
         Returns:
             Command as list of strings for subprocess

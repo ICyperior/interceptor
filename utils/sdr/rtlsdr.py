@@ -115,7 +115,8 @@ class RTLSDRCommandBuilder(CommandBuilder):
         device: SDRDevice,
         frequency_mhz: float = 433.92,
         gain: Optional[float] = None,
-        ppm: Optional[int] = None
+        ppm: Optional[int] = None,
+        bias_t: bool = False
     ) -> list[str]:
         """
         Build rtl_433 command for ISM band sensor decoding.
@@ -134,6 +135,9 @@ class RTLSDRCommandBuilder(CommandBuilder):
 
         if ppm is not None and ppm != 0:
             cmd.extend(['-p', str(ppm)])
+
+        if bias_t:
+            cmd.extend(['-T'])
 
         return cmd
 
