@@ -4289,12 +4289,8 @@
             channels5g.forEach(ch => channelCounts5[ch] = 0);
 
             // Count networks per channel
-            console.log('Channel recommendation - networks:', Object.keys(wifiNetworks).length);
             Object.values(wifiNetworks).forEach(net => {
                 const ch = parseInt(net.channel);
-                if (isNaN(ch)) {
-                    console.warn('Invalid channel for network:', net.essid, 'channel value:', net.channel);
-                }
                 if (ch >= 1 && ch <= 13) {
                     // 2.4 GHz channels overlap, so count neighbors too
                     for (let i = Math.max(1, ch - 2); i <= Math.min(13, ch + 2); i++) {
@@ -4333,12 +4329,6 @@
                     best5 = ch;
                 }
             });
-
-            // Debug: show final counts
-            console.log('Channel counts 2.4GHz:', channelCounts24);
-            console.log('Channel counts 5GHz:', channelCounts5);
-            console.log('Best 2.4GHz:', best24, 'count:', minCount24);
-            console.log('Best 5GHz:', best5, 'count:', minCount5);
 
             // Update UI with more context
             document.getElementById('rec24Channel').textContent = best24;
@@ -4911,7 +4901,6 @@
 
         // Handle discovered WiFi client (called from batched update)
         function handleWifiClientImmediate(client) {
-            console.log('handleWifiClientImmediate:', client);
             const isNew = !wifiClients[client.mac];
             wifiClients[client.mac] = client;
 
@@ -5244,12 +5233,8 @@
 
         // Add WiFi client card to device list
         function addWifiClientCard(client, isNew) {
-            console.log('addWifiClientCard called:', client.mac, 'isNew:', isNew);
             const deviceList = document.getElementById('wifiDeviceListContent');
-            if (!deviceList) {
-                console.error('wifiDeviceListContent not found!');
-                return;
-            }
+            if (!deviceList) return;
 
             // Remove placeholder if present
             const placeholder = deviceList.querySelector('div[style*="text-align: center"]');
