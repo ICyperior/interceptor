@@ -1591,6 +1591,12 @@ sudo make install</code>
                 `<div style="color:#00d4ff;font-size:11px;margin-bottom:6px;">${typeDesc || typeCode}${registration ? ' • ' + registration : ''}</div>` : '';
 
             container.innerHTML = `
+                <div id="aircraftPhotoContainer" style="display:none;margin-bottom:10px;">
+                    <a id="aircraftPhotoLink" href="#" target="_blank" rel="noopener">
+                        <img id="aircraftPhoto" src="" alt="Aircraft photo" style="width:100%;border-radius:6px;border:1px solid #333;">
+                    </a>
+                    <div id="aircraftPhotoCredit" style="font-size:9px;color:#666;margin-top:2px;text-align:right;"></div>
+                </div>
                 <div class="selected-callsign">${callsign}</div>
                 ${typeInfo}
                 ${badge}
@@ -1632,6 +1638,55 @@ sudo make install</code>
                         <div class="telemetry-value">${ac.lat ? calculateDistanceNm(observerLocation.lat, observerLocation.lon, ac.lat, ac.lon).toFixed(1) + ' nm' : 'N/A'}</div>
                     </div>
                 </div>`;
+
+            // Fetch aircraft photo if registration is available
+            if (registration) {
+                fetchAircraftPhoto(registration);
+            }
+        }
+
+        // Cache for aircraft photos to avoid repeated API calls
+        const photoCache = {};
+
+        async function fetchAircraftPhoto(registration) {
+            const container = document.getElementById('aircraftPhotoContainer');
+            const img = document.getElementById('aircraftPhoto');
+            const link = document.getElementById('aircraftPhotoLink');
+            const credit = document.getElementById('aircraftPhotoCredit');
+
+            if (!container || !img) return;
+
+            // Check cache first
+            if (photoCache[registration]) {
+                const cached = photoCache[registration];
+                if (cached.thumbnail) {
+                    img.src = cached.thumbnail;
+                    link.href = cached.link || '#';
+                    credit.textContent = cached.photographer ? `Photo: ${cached.photographer}` : '';
+                    container.style.display = 'block';
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(`/adsb/aircraft-photo/${encodeURIComponent(registration)}`);
+                const data = await response.json();
+
+                // Cache the result
+                photoCache[registration] = data;
+
+                if (data.success && data.thumbnail) {
+                    img.src = data.thumbnail;
+                    link.href = data.link || '#';
+                    credit.textContent = data.photographer ? `Photo: ${data.photographer}` : '';
+                    container.style.display = 'block';
+                } else {
+                    container.style.display = 'none';
+                }
+            } catch (err) {
+                console.debug('Failed to fetch aircraft photo:', err);
+                container.style.display = 'none';
+            }
         }
 
         function cleanupOldAircraft() {

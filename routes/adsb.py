@@ -511,3 +511,39 @@ def aircraft_db_delete():
     """Delete aircraft database."""
     result = aircraft_db.delete_database()
     return jsonify(result)
+
+
+@adsb_bp.route('/aircraft-photo/<registration>')
+def aircraft_photo(registration: str):
+    """Fetch aircraft photo from Planespotters.net API."""
+    import requests
+
+    # Validate registration format (alphanumeric with dashes)
+    if not registration or not all(c.isalnum() or c == '-' for c in registration):
+        return jsonify({'error': 'Invalid registration'}), 400
+
+    try:
+        # Planespotters.net public API
+        url = f'https://api.planespotters.net/pub/photos/reg/{registration}'
+        resp = requests.get(url, timeout=5, headers={
+            'User-Agent': 'INTERCEPT-ADS-B/1.0'
+        })
+
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('photos') and len(data['photos']) > 0:
+                photo = data['photos'][0]
+                return jsonify({
+                    'success': True,
+                    'thumbnail': photo.get('thumbnail_large', {}).get('src'),
+                    'link': photo.get('link'),
+                    'photographer': photo.get('photographer')
+                })
+
+        return jsonify({'success': False, 'error': 'No photo found'})
+
+    except requests.Timeout:
+        return jsonify({'success': False, 'error': 'Request timeout'}), 504
+    except Exception as e:
+        logger.debug(f"Error fetching aircraft photo: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
