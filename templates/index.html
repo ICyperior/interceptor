@@ -1201,6 +1201,13 @@
 
                 <!-- WiFi Visualizations (shown only in WiFi mode) -->
                 <div class="wifi-visuals" id="wifiVisuals" style="display: none;">
+                    <!-- Selected WiFi Device Info - at top for visibility -->
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
+                        <h5>📋 Selected Device</h5>
+                        <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
+                            <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network or client to view details</div>
+                        </div>
+                    </div>
                     <div class="wifi-visual-panel">
                         <h5>Network Radar</h5>
                         <div class="radar-container">
@@ -1270,13 +1277,6 @@
                                 <div class="signal-bar-large"></div>
                                 <div class="signal-bar-large"></div>
                             </div>
-                        </div>
-                    </div>
-                    <!-- Selected WiFi Device Info -->
-                    <div class="wifi-visual-panel" style="grid-column: span 2;">
-                        <h5>📋 Selected Device</h5>
-                        <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
-                            <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network or client to view details</div>
                         </div>
                     </div>
                     <!-- Network Relationship Graph -->
