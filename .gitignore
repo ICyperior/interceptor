@@ -30,5 +30,7 @@ dist/
 build/
 *.egg-info/
 
-# Package manager lock files
+# Package manager lock files & DB files
 uv.lock
+*.db
+*.sqlite3
