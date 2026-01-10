@@ -199,9 +199,21 @@ install_python_deps() {
     return 0
   fi
 
+  # On Debian/Ubuntu, try apt packages first as they're more reliable
+  if [[ "$OS" == "debian" ]]; then
+    info "Installing Python packages via apt (more reliable on Debian/Ubuntu)..."
+    $SUDO apt-get install -y python3-flask python3-requests python3-serial >/dev/null 2>&1 || true
+
+    # skyfield may not be available in all distros, try apt first then pip
+    if ! $SUDO apt-get install -y python3-skyfield >/dev/null 2>&1; then
+      warn "python3-skyfield not in apt, will try pip later"
+    fi
+    ok "Installed available Python packages via apt"
+  fi
+
   if [[ ! -d venv ]]; then
-    python3 -m venv venv
-    ok "Created venv/"
+    python3 -m venv --system-site-packages venv
+    ok "Created venv/ (with system site-packages)"
   else
     ok "Using existing venv/"
   fi
@@ -209,12 +221,23 @@ install_python_deps() {
   # shellcheck disable=SC1091
   source venv/bin/activate
 
-  python -m pip install --upgrade pip setuptools wheel >/dev/null
+  python -m pip install --upgrade pip setuptools wheel >/dev/null 2>&1 || true
   ok "Upgraded pip tooling"
 
   progress "Installing Python dependencies"
-  python -m pip install -r requirements.txt
-  ok "Python dependencies installed"
+  # Try pip install, but don't fail if apt packages already satisfied deps
+  if ! python -m pip install -r requirements.txt 2>/dev/null; then
+    warn "Some pip packages failed - checking if apt packages cover them..."
+    # Verify critical packages are available
+    python -c "import flask; import requests" 2>/dev/null || {
+      fail "Critical Python packages (flask, requests) not installed"
+      echo "Try: sudo apt install python3-flask python3-requests"
+      exit 1
+    }
+    ok "Core Python dependencies available"
+  else
+    ok "Python dependencies installed"
+  fi
   echo
 }
 
@@ -373,7 +396,7 @@ install_debian_packages() {
   export DEBIAN_FRONTEND=noninteractive
   export NEEDRESTART_MODE=a
 
-  TOTAL_STEPS=16
+  TOTAL_STEPS=15
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -409,8 +432,11 @@ install_debian_packages() {
   progress "Installing gpsd"
   apt_install gpsd gpsd-clients || true
 
-  progress "Installing Python venv"
-  apt_install python3-venv || true
+  progress "Installing Python packages"
+  apt_install python3-venv python3-pip || true
+  # Install Python packages via apt (more reliable than pip on modern Debian/Ubuntu)
+  $SUDO apt-get install -y python3-flask python3-requests python3-serial >/dev/null 2>&1 || true
+  $SUDO apt-get install -y python3-skyfield >/dev/null 2>&1 || true
 
   progress "Installing dump1090"
   if ! cmd_exists dump1090; then
