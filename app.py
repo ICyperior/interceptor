@@ -23,7 +23,7 @@ import subprocess
 
 from typing import Any
 
-from flask import Flask, render_template, jsonify, send_file, Response, request
+from flask import Flask, render_template, jsonify, send_file, Response, request,redirect, url_for, flash, session
 
 from config import VERSION
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
@@ -44,6 +44,7 @@ _app_start_time = _time.time()
 
 # Create Flask app
 app = Flask(__name__)
+app.secret_key = "signals_intelligence_secret" # Required for flash messages
 
 # Disable Werkzeug debugger PIN (not needed for local development tool)
 os.environ['WERKZEUG_DEBUG_PIN'] = 'off'
@@ -140,6 +141,34 @@ cleanup_manager.register(adsb_aircraft)
 # ============================================
 # MAIN ROUTES
 # ============================================
+
+@app.before_request
+def require_login():
+    # Lista de rutas que NO requieren login (para evitar un bucle infinito)
+    allowed_routes = ['login', 'static', 'favicon'] 
+    
+    # Si el usuario no está logueado y la ruta actual no está permitida...
+    if 'logged_in' not in session and request.endpoint not in allowed_routes:
+        return redirect(url_for('login'))
+    
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username == "admin" and password == "intercept2026":
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            flash("ACCESS DENIED: INVALID CREDENTIALS", "error")
+            
+    return render_template('login.html', version=VERSION)
 
 @app.route('/')
 def index() -> str:
