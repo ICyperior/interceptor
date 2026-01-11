@@ -139,14 +139,10 @@ pip install -r requirements.txt
 After installation:
 
 ```bash
-# Standard
-sudo python3 intercept.py
-
-# With virtual environment
-sudo venv/bin/python intercept.py
+sudo -E venv/bin/python intercept.py
 
 # Custom port
-INTERCEPT_PORT=8080 sudo python3 intercept.py
+INTERCEPT_PORT=8080 sudo -E venv/bin/python intercept.py
 ```
 
 Open **http://localhost:5050** in your browser.

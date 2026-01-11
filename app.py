@@ -164,6 +164,120 @@ def get_devices() -> Response:
     return jsonify([d.to_dict() for d in devices])
 
 
+@app.route('/devices/debug')
+def get_devices_debug() -> Response:
+    """Get detailed SDR device detection diagnostics."""
+    import shutil
+
+    diagnostics = {
+        'tools': {},
+        'rtl_test': {},
+        'soapy': {},
+        'usb': {},
+        'kernel_modules': {},
+        'detected_devices': [],
+        'suggestions': []
+    }
+
+    # Check for required tools
+    diagnostics['tools']['rtl_test'] = shutil.which('rtl_test') is not None
+    diagnostics['tools']['SoapySDRUtil'] = shutil.which('SoapySDRUtil') is not None
+    diagnostics['tools']['lsusb'] = shutil.which('lsusb') is not None
+
+    # Run rtl_test and capture full output
+    if diagnostics['tools']['rtl_test']:
+        try:
+            result = subprocess.run(
+                ['rtl_test', '-t'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            diagnostics['rtl_test'] = {
+                'returncode': result.returncode,
+                'stdout': result.stdout[:2000] if result.stdout else '',
+                'stderr': result.stderr[:2000] if result.stderr else ''
+            }
+
+            # Check for common errors
+            combined = (result.stdout or '') + (result.stderr or '')
+            if 'No supported devices found' in combined:
+                diagnostics['suggestions'].append('No RTL-SDR device detected. Check USB connection.')
+            if 'usb_claim_interface error' in combined:
+                diagnostics['suggestions'].append('Device busy - kernel DVB driver may have claimed it. Run: sudo modprobe -r dvb_usb_rtl28xxu')
+            if 'Permission denied' in combined.lower():
+                diagnostics['suggestions'].append('USB permission denied. Add udev rules or run as root.')
+
+        except subprocess.TimeoutExpired:
+            diagnostics['rtl_test'] = {'error': 'Timeout after 5 seconds'}
+        except Exception as e:
+            diagnostics['rtl_test'] = {'error': str(e)}
+    else:
+        diagnostics['suggestions'].append('rtl_test not found. Install rtl-sdr package.')
+
+    # Run SoapySDRUtil
+    if diagnostics['tools']['SoapySDRUtil']:
+        try:
+            result = subprocess.run(
+                ['SoapySDRUtil', '--find'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            diagnostics['soapy'] = {
+                'returncode': result.returncode,
+                'stdout': result.stdout[:2000] if result.stdout else '',
+                'stderr': result.stderr[:2000] if result.stderr else ''
+            }
+        except subprocess.TimeoutExpired:
+            diagnostics['soapy'] = {'error': 'Timeout after 10 seconds'}
+        except Exception as e:
+            diagnostics['soapy'] = {'error': str(e)}
+
+    # Check USB devices (Linux)
+    if diagnostics['tools']['lsusb']:
+        try:
+            result = subprocess.run(
+                ['lsusb'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            # Filter for common SDR vendor IDs
+            sdr_vendors = ['0bda', '1d50', '1df7', '0403']  # Realtek, OpenMoko/HackRF, SDRplay, FTDI
+            usb_lines = [l for l in result.stdout.split('\n')
+                        if any(v in l.lower() for v in sdr_vendors) or 'rtl' in l.lower() or 'sdr' in l.lower()]
+            diagnostics['usb']['devices'] = usb_lines if usb_lines else ['No SDR-related USB devices found']
+        except Exception as e:
+            diagnostics['usb'] = {'error': str(e)}
+
+    # Check for loaded kernel modules that conflict (Linux)
+    if platform.system() == 'Linux':
+        try:
+            result = subprocess.run(
+                ['lsmod'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            conflicting = ['dvb_usb_rtl28xxu', 'rtl2832', 'rtl2830']
+            loaded = [m for m in conflicting if m in result.stdout]
+            diagnostics['kernel_modules']['conflicting_loaded'] = loaded
+            if loaded:
+                diagnostics['suggestions'].append(f"Conflicting kernel modules loaded: {', '.join(loaded)}. Run: sudo modprobe -r {' '.join(loaded)}")
+        except Exception as e:
+            diagnostics['kernel_modules'] = {'error': str(e)}
+
+    # Get detected devices
+    devices = SDRFactory.detect_devices()
+    diagnostics['detected_devices'] = [d.to_dict() for d in devices]
+
+    if not devices and not diagnostics['suggestions']:
+        diagnostics['suggestions'].append('No devices detected. Check USB connection and driver installation.')
+
+    return jsonify(diagnostics)
+
+
 @app.route('/dependencies')
 def get_dependencies() -> Response:
     """Get status of all tool dependencies."""

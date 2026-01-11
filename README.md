@@ -38,7 +38,7 @@
 git clone https://github.com/smittix/intercept.git
 cd intercept
 ./setup.sh
-sudo python3 intercept.py
+sudo -E venv/bin/python intercept.py
 ```
 
 ### Docker (Alternative)

@@ -389,6 +389,34 @@ EOF
   echo
 }
 
+blacklist_kernel_drivers_debian() {
+  local blacklist_file="/etc/modprobe.d/blacklist-rtlsdr.conf"
+
+  if [[ -f "$blacklist_file" ]]; then
+    ok "RTL-SDR kernel driver blacklist already present"
+    return 0
+  fi
+
+  info "Blacklisting conflicting DVB kernel drivers..."
+  $SUDO tee "$blacklist_file" >/dev/null <<'EOF'
+# Blacklist DVB-T drivers to allow rtl-sdr to access RTL2832U devices
+blacklist dvb_usb_rtl28xxu
+blacklist rtl2832
+blacklist rtl2830
+blacklist r820t
+EOF
+
+  # Unload modules if currently loaded
+  for mod in dvb_usb_rtl28xxu rtl2832 rtl2830 r820t; do
+    if lsmod | grep -q "^$mod"; then
+      $SUDO modprobe -r "$mod" 2>/dev/null || true
+    fi
+  done
+
+  ok "Kernel drivers blacklisted. Unplug/replug your RTL-SDR if connected."
+  echo
+}
+
 install_debian_packages() {
   need_sudo
 
@@ -396,7 +424,7 @@ install_debian_packages() {
   export DEBIAN_FRONTEND=noninteractive
   export NEEDRESTART_MODE=a
 
-  TOTAL_STEPS=15
+  TOTAL_STEPS=16
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -452,6 +480,9 @@ install_debian_packages() {
 
   progress "Configuring udev rules"
   setup_udev_rules_debian
+
+  progress "Blacklisting conflicting kernel drivers"
+  blacklist_kernel_drivers_debian
 }
 
 # ----------------------------
@@ -476,8 +507,7 @@ final_summary_and_hard_fail() {
 
   echo
   echo "To start INTERCEPT:"
-  echo "  source venv/bin/activate"
-  echo "  sudo python intercept.py"
+  echo "  sudo -E venv/bin/python intercept.py"
   echo
   echo "Then open http://localhost:5050 in your browser"
   echo
