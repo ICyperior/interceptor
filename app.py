@@ -146,10 +146,10 @@ cleanup_manager.register(adsb_aircraft)
 
 @app.before_request
 def require_login():
-    # Lista de rutas que NO requieren login (para evitar un bucle infinito)
-    allowed_routes = ['login', 'static', 'favicon'] 
-    
-    # Si el usuario no está logueado y la ruta actual no está permitida...
+    # Routes that don't require login (to avoid infinite redirect loop)
+    allowed_routes = ['login', 'static', 'favicon', 'health']
+
+    # If user is not logged in and the current route is not allowed...
     if 'logged_in' not in session and request.endpoint not in allowed_routes:
         return redirect(url_for('login'))
     
@@ -164,17 +164,17 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        # 1. Conectar a la DB y buscar al usuario
+        # Connect to DB and find user
         with get_db() as conn:
             cursor = conn.execute(
-                'SELECT password_hash, role FROM users WHERE username = ?', 
+                'SELECT password_hash, role FROM users WHERE username = ?',
                 (username,)
             )
             user = cursor.fetchone()
 
-        # 2. Verificar si el usuario existe y la contraseña es correcta
+        # Verify user exists and password is correct
         if user and check_password_hash(user['password_hash'], password):
-            # Guardamos datos en la sesión
+            # Store data in session
             session['logged_in'] = True
             session['username'] = username
             session['role'] = user['role']
