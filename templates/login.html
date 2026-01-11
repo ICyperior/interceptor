@@ -5,42 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>iNTERCEPT // Restricted Access</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-    <style>
-        /* Specific overrides for login layout */
-        .login-box {
-            background: rgba(10, 10, 26, 0.9);
-            border: 1px solid var(--accent-cyan);
-            padding: 30px;
-            border-radius: 4px;
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
-            width: 100%;
-            max-width: 400px;
-            margin-top: 20px;
-        }
-        .form-input {
-            width: 100%;
-            background: #050510;
-            border: 1px solid #1a1a40;
-            color: var(--accent-cyan);
-            padding: 12px;
-            margin: 10px 0;
-            font-family: 'JetBrains Mono', monospace;
-            outline: none;
-        }
-        .form-input:focus {
-            border-color: var(--accent-green);
-            box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
-        }
-        .flash-error {
-            color: var(--accent-red);
-            font-size: 11px;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            border: 1px solid var(--accent-red);
-            padding: 8px;
-            background: rgba(255, 0, 0, 0.1);
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 </head>
 <body>
     <div class="landing-overlay">
