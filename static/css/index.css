@@ -658,14 +658,18 @@ header h1 .tagline {
 }
 
 #depsBtn {
-    right: 60px;
+    right: 5.5em;
+}
+
+#helpBtn {
+    right: 3.5em;
 }
 
 .theme-toggle {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    right: 100px;
+    right: 8em;
     width: 32px;
     height: 32px;
     border-radius: 50%;
