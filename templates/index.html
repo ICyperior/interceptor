@@ -915,18 +915,38 @@
                         <p style="color: var(--text-secondary); font-size: 11px; line-height: 1.5; margin-bottom: 15px;">
                             Full satellite tracking dashboard with polar plot, ground track map, pass predictions, and live telemetry.
                         </p>
-                        <div style="background: rgba(0,212,255,0.1); border: 1px solid var(--accent-cyan); border-radius: 6px; padding: 12px; margin-bottom: 15px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span style="font-size: 18px;">🛰️</span>
-                                <span style="color: var(--accent-cyan); font-weight: 600; font-size: 12px; text-transform: uppercase;">Dashboard Active</span>
-                            </div>
-                            <p style="color: var(--text-secondary); font-size: 10px; margin: 0;">
-                                Use the embedded dashboard controls to select satellites, set observer location, and calculate passes.
-                            </p>
-                        </div>
-                        <a href="/satellite/dashboard" target="_blank" class="preset-btn" style="display: block; text-align: center; text-decoration: none; width: 100%;">
+                        <a href="/satellite/dashboard" target="_blank" class="preset-btn" style="display: block; text-align: center; text-decoration: none; width: 100%; margin-bottom: 10px;">
                             Open in New Window
                         </a>
+                    </div>
+
+                    <div class="section">
+                        <h3>Satellite Database</h3>
+                        <p style="color: var(--text-secondary); font-size: 11px; margin-bottom: 10px;">
+                            Add satellites via TLE data or fetch from Celestrak.
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <button class="preset-btn" onclick="showAddSatelliteModal()" style="width: 100%;">
+                                Add Satellite (TLE)
+                            </button>
+                            <button class="preset-btn" onclick="fetchCelestrak()" style="width: 100%;">
+                                Update from Celestrak
+                            </button>
+                        </div>
+                        <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px;">TRACKED SATELLITES</div>
+                            <div id="satTrackingList" style="font-size: 11px; color: var(--text-secondary); max-height: 120px; overflow-y: auto;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                                    <span>ISS (ZARYA)</span>
+                                    <span>NOAA 15</span>
+                                    <span>NOAA 18</span>
+                                    <span>NOAA 19</span>
+                                    <span>NOAA 20</span>
+                                    <span>METEOR-M2</span>
+                                    <span>METEOR-M2-3</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="section">
@@ -935,18 +955,6 @@
                             <p><strong>Polar Plot:</strong> Shows satellite path across the sky. Center = overhead, edge = horizon.</p>
                             <p style="margin-top: 8px;"><strong>Ground Track:</strong> Real-time satellite position and orbital path on world map.</p>
                             <p style="margin-top: 8px;"><strong>Pass Quality:</strong> Excellent (60°+), Good (30°+), Fair (below 30°).</p>
-                        </div>
-                    </div>
-
-                    <div class="section">
-                        <h3>Supported Satellites</h3>
-                        <div style="font-size: 10px; color: var(--text-secondary);">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                                <span>ISS (ZARYA)</span>
-                                <span>NOAA 15/18/19/20</span>
-                                <span>METEOR-M2</span>
-                                <span>METEOR-M2-3</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1340,34 +1348,40 @@
                 </div>
 
                 <!-- APRS Visualizations -->
-                <div class="wifi-visuals" id="aprsVisuals" style="display: none;">
-                    <div class="wifi-visual-panel" style="grid-column: span 2;">
-                        <h5 style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); padding: 0 10px;">APRS STATION MAP</h5>
-                        <div class="aircraft-map-container" style="flex: 1;">
-                            <div class="map-header">
-                                <span id="aprsMapTime">--:--:--</span>
-                                <span id="aprsMapStatus">STANDBY</span>
+                <div id="aprsVisuals" style="display: none; flex-direction: column; gap: 10px; flex: 1; padding: 10px;">
+                    <!-- Top row: Map and Station List side by side -->
+                    <div style="display: flex; gap: 10px; flex: 1; min-height: 0;">
+                        <!-- Map Panel (larger) -->
+                        <div class="wifi-visual-panel" style="flex: 2; display: flex; flex-direction: column; min-width: 0;">
+                            <h5 style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); padding: 0 10px; margin-bottom: 8px;">APRS STATION MAP</h5>
+                            <div class="aircraft-map-container" style="flex: 1; display: flex; flex-direction: column;">
+                                <div class="map-header">
+                                    <span id="aprsMapTime">--:--:--</span>
+                                    <span id="aprsMapStatus">STANDBY</span>
+                                </div>
+                                <div id="aprsMap" style="flex: 1; min-height: 350px;"></div>
+                                <div class="map-footer">
+                                    <span>STATIONS: <span id="aprsStationCount">0</span></span>
+                                    <span>PACKETS: <span id="aprsPacketCount">0</span></span>
+                                </div>
                             </div>
-                            <div id="aprsMap" style="height: 400px;"></div>
-                            <div class="map-footer">
-                                <span>STATIONS: <span id="aprsStationCount">0</span></span>
-                                <span>PACKETS: <span id="aprsPacketCount">0</span></span>
+                        </div>
+
+                        <!-- Station List Panel -->
+                        <div class="wifi-visual-panel" style="flex: 1; min-width: 280px; max-width: 350px; display: flex; flex-direction: column;">
+                            <h5 style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); margin-bottom: 8px;">STATION LIST</h5>
+                            <div id="aprsStationList" style="flex: 1; overflow-y: auto; font-size: 11px;">
+                                <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                                    No stations received yet
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="wifi-visual-panel" style="display: flex; flex-direction: column; gap: 10px;">
-                        <h5 style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green);">STATION LIST</h5>
-                        <div id="aprsStationList" style="flex: 1; overflow-y: auto; max-height: 350px; font-size: 11px;">
-                            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-                                No stations received yet
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="wifi-visual-panel" style="grid-column: span 2; display: flex; flex-direction: column;">
-                        <h5 style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange);">PACKET LOG</h5>
-                        <div id="aprsPacketLog" style="flex: 1; overflow-y: auto; max-height: 200px; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
+                    <!-- Bottom row: Packet Log -->
+                    <div class="wifi-visual-panel" style="display: flex; flex-direction: column; max-height: 200px;">
+                        <h5 style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange); margin-bottom: 8px;">PACKET LOG</h5>
+                        <div id="aprsPacketLog" style="flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
                             <div style="color: var(--text-muted);">Waiting for packets...</div>
                         </div>
                     </div>
@@ -9164,6 +9178,60 @@
                     <strong>Note:</strong> ACARS decoding requires <code>acarsdec</code> which must be built from source.
                     See <a href="https://github.com/TLeconte/acarsdec" target="_blank" style="color: var(--accent-cyan);">github.com/TLeconte/acarsdec</a> or run <code>./setup.sh</code> for automated installation.
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Satellite Add Modal -->
+    <div id="satModal" class="help-modal" onclick="if(event.target === this) closeSatModal()">
+        <div class="help-content" style="max-width: 600px;">
+            <button class="help-close" onclick="closeSatModal()">×</button>
+            <h2>Add Satellites</h2>
+
+            <!-- Tabs -->
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <button class="sat-modal-tab preset-btn active" onclick="switchSatModalTab('tle')" style="flex: 1;">Manual TLE</button>
+                <button class="sat-modal-tab preset-btn" onclick="switchSatModalTab('celestrak')" style="flex: 1;">Celestrak</button>
+            </div>
+
+            <!-- TLE Section -->
+            <div id="tleSection" class="sat-modal-section active">
+                <p style="color: var(--text-secondary); font-size: 11px; margin-bottom: 10px;">
+                    Paste TLE (Two-Line Element) data. Format: Name on first line, followed by TLE lines 1 and 2.
+                </p>
+                <textarea id="tleInput" placeholder="ISS (ZARYA)
+1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9002
+2 25544  51.6400 208.9163 0006703 296.5855  63.4606 15.49995465478450"
+                    style="width: 100%; height: 150px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; resize: vertical;"></textarea>
+                <button class="preset-btn" onclick="addFromTLE()" style="margin-top: 10px; width: 100%;">Add Satellite</button>
+            </div>
+
+            <!-- Celestrak Section -->
+            <div id="celestrakSection" class="sat-modal-section">
+                <p style="color: var(--text-secondary); font-size: 11px; margin-bottom: 10px;">
+                    Fetch satellite TLE data from CelesTrak by category.
+                </p>
+                <div id="celestrakStatus" style="margin-bottom: 10px; font-size: 11px; min-height: 20px;"></div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 300px; overflow-y: auto;">
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('stations')">Space Stations</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('weather')">Weather</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('noaa')">NOAA</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('goes')">GOES</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('amateur')">Amateur</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('cubesat')">CubeSats</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('starlink')">Starlink</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('oneweb')">OneWeb</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('iridium-NEXT')">Iridium NEXT</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('visual')">Bright/Visual</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('geo')">Geostationary</button>
+                    <button class="preset-btn" onclick="fetchCelestrakCategory('resource')">Earth Resources</button>
+                </div>
+
+                <p style="color: var(--text-muted); font-size: 10px; margin-top: 10px;">
+                    Data from <a href="https://celestrak.org" target="_blank" style="color: var(--accent-cyan);">celestrak.org</a>.
+                    Note: Some categories (Starlink, OneWeb) contain many satellites.
+                </p>
             </div>
         </div>
     </div>
