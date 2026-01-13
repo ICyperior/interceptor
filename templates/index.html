@@ -292,6 +292,7 @@
             <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span class="nav-label">Pager</span></button>
             <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span class="nav-label">433MHz</span></button>
             <button class="mode-nav-btn" onclick="switchMode('aircraft')"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></button>
+            <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon">📍</span><span class="nav-label">APRS</span></button>
             <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span class="nav-label">Satellite</span></button>
             <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span class="nav-label">Listening Post</span></button>
         </div>
@@ -860,6 +861,53 @@
 
                 </div>
 
+                <!-- APRS MODE -->
+                <div id="aprsMode" class="mode-content" style="display: none;">
+                    <div class="section">
+                        <h3>APRS Tracking</h3>
+                        <p style="color: var(--text-secondary); font-size: 11px; line-height: 1.5; margin-bottom: 15px;">
+                            Decode APRS (Automatic Packet Reporting System) amateur radio position reports on VHF.
+                        </p>
+                        <div style="background: rgba(255,193,7,0.1); border: 1px solid var(--accent-yellow); border-radius: 4px; padding: 8px; margin-bottom: 10px; font-size: 10px;">
+                            <strong style="color: var(--accent-yellow);">Amateur Radio</strong><br>
+                            <span style="color: var(--text-secondary);">APRS operates on 144.390 MHz (N. America) or 144.800 MHz (Europe). Decodes position, weather, and messages from ham radio operators.</span>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h3>Configuration</h3>
+                        <div class="form-group">
+                            <label>Region</label>
+                            <select id="aprsRegion">
+                                <option value="north_america">North America (144.390)</option>
+                                <option value="europe">Europe (144.800)</option>
+                                <option value="australia">Australia (145.175)</option>
+                                <option value="japan">Japan (144.640)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>SDR Device</label>
+                            <select id="aprsDevice">
+                                <option value="0">Device 0</option>
+                                <option value="1">Device 1</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Gain (dB)</label>
+                            <input type="text" id="aprsGain" value="40" placeholder="40">
+                        </div>
+                        <div class="info-text" style="margin-top: 8px; display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                            <span>direwolf:</span><span class="tool-status" id="direwolfStatus">Checking...</span>
+                            <span>multimon-ng:</span><span class="tool-status" id="aprsMultimonStatus">Checking...</span>
+                        </div>
+                    </div>
+                    <button class="run-btn" id="startAprsBtn" onclick="startAprs()">
+                        Start APRS
+                    </button>
+                    <button class="stop-btn" id="stopAprsBtn" onclick="stopAprs()" style="display: none;">
+                        Stop APRS
+                    </button>
+                </div>
+
                 <!-- SATELLITE MODE -->
                 <div id="satelliteMode" class="mode-content">
                     <div class="section">
@@ -1287,6 +1335,40 @@
                                 <div>No photo available</div>
                                 <div style="font-size: 10px; margin-top: 4px; color: var(--text-dim);">Registration not found in database</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- APRS Visualizations -->
+                <div class="wifi-visuals" id="aprsVisuals" style="display: none;">
+                    <div class="wifi-visual-panel" style="grid-column: span 2;">
+                        <h5 style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); padding: 0 10px;">APRS STATION MAP</h5>
+                        <div class="aircraft-map-container" style="flex: 1;">
+                            <div class="map-header">
+                                <span id="aprsMapTime">--:--:--</span>
+                                <span id="aprsMapStatus">STANDBY</span>
+                            </div>
+                            <div id="aprsMap" style="height: 400px;"></div>
+                            <div class="map-footer">
+                                <span>STATIONS: <span id="aprsStationCount">0</span></span>
+                                <span>PACKETS: <span id="aprsPacketCount">0</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="wifi-visual-panel" style="display: flex; flex-direction: column; gap: 10px;">
+                        <h5 style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green);">STATION LIST</h5>
+                        <div id="aprsStationList" style="flex: 1; overflow-y: auto; max-height: 350px; font-size: 11px;">
+                            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                                No stations received yet
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="wifi-visual-panel" style="grid-column: span 2; display: flex; flex-direction: column;">
+                        <h5 style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange);">PACKET LOG</h5>
+                        <div id="aprsPacketLog" style="flex: 1; overflow-y: auto; max-height: 200px; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
+                            <div style="color: var(--text-muted);">Waiting for packets...</div>
                         </div>
                     </div>
                 </div>
@@ -2352,7 +2434,7 @@
             document.getElementById('pagerWaterfallPanel').style.display = (mode === 'pager') ? 'block' : 'none';
             // Sensor waterfall: show only for sensor (433MHz) mode
             document.getElementById('sensorWaterfallPanel').style.display = (mode === 'sensor') ? 'block' : 'none';
-            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening') ? 'none' : 'block';
+            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening') ? 'none' : 'block';
             document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
 
             // Load interfaces and initialize visualizations when switching modes
@@ -2366,6 +2448,9 @@
             } else if (mode === 'aircraft') {
                 checkAdsbTools();
                 initAircraftRadar();
+            } else if (mode === 'aprs') {
+                checkAprsTools();
+                initAprsMap();
             } else if (mode === 'satellite') {
                 initPolarPlot();
                 initSatelliteList();
@@ -7468,6 +7553,243 @@
             // Keep list manageable
             while (container.children.length > 50) {
                 container.removeChild(container.lastChild);
+            }
+        }
+
+        // ============================================
+        // APRS Functions
+        // ============================================
+        let aprsMap = null;
+        let aprsMarkers = {};
+        let aprsEventSource = null;
+        let isAprsRunning = false;
+        let aprsPacketCount = 0;
+        let aprsStationCount = 0;
+
+        function checkAprsTools() {
+            fetch('/aprs/tools')
+                .then(r => r.json())
+                .then(data => {
+                    const direwolfStatus = document.getElementById('direwolfStatus');
+                    const multimonStatus = document.getElementById('aprsMultimonStatus');
+
+                    if (direwolfStatus) {
+                        direwolfStatus.textContent = data.direwolf ? 'OK' : 'Missing';
+                        direwolfStatus.className = 'tool-status ' + (data.direwolf ? 'ok' : 'missing');
+                    }
+                    if (multimonStatus) {
+                        multimonStatus.textContent = data.multimon_ng ? 'OK' : 'Missing';
+                        multimonStatus.className = 'tool-status ' + (data.multimon_ng ? 'ok' : 'missing');
+                    }
+                })
+                .catch(() => {
+                    const direwolfStatus = document.getElementById('direwolfStatus');
+                    const multimonStatus = document.getElementById('aprsMultimonStatus');
+                    if (direwolfStatus) {
+                        direwolfStatus.textContent = 'Error';
+                        direwolfStatus.className = 'tool-status missing';
+                    }
+                    if (multimonStatus) {
+                        multimonStatus.textContent = 'Error';
+                        multimonStatus.className = 'tool-status missing';
+                    }
+                });
+        }
+
+        function initAprsMap() {
+            if (aprsMap) return;
+
+            const mapContainer = document.getElementById('aprsMap');
+            if (!mapContainer) return;
+
+            aprsMap = L.map('aprsMap').setView([39.8283, -98.5795], 4);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                maxZoom: 19
+            }).addTo(aprsMap);
+
+            // Update time display
+            setInterval(() => {
+                const timeEl = document.getElementById('aprsMapTime');
+                if (timeEl) {
+                    timeEl.textContent = new Date().toLocaleTimeString('en-US', {hour12: false});
+                }
+            }, 1000);
+        }
+
+        function startAprs() {
+            const region = document.getElementById('aprsRegion').value;
+            const device = document.getElementById('aprsDevice').value;
+            const gain = document.getElementById('aprsGain').value;
+
+            fetch('/aprs/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ region, device: parseInt(device), gain: parseInt(gain) })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    isAprsRunning = true;
+                    aprsPacketCount = 0;
+                    aprsStationCount = 0;
+                    document.getElementById('startAprsBtn').style.display = 'none';
+                    document.getElementById('stopAprsBtn').style.display = 'block';
+                    document.getElementById('aprsMapStatus').textContent = 'TRACKING';
+                    document.getElementById('aprsMapStatus').style.color = 'var(--accent-green)';
+                    startAprsStream();
+                } else {
+                    alert('APRS Error: ' + data.message);
+                }
+            })
+            .catch(err => alert('APRS Error: ' + err));
+        }
+
+        function stopAprs() {
+            fetch('/aprs/stop', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    isAprsRunning = false;
+                    document.getElementById('startAprsBtn').style.display = 'block';
+                    document.getElementById('stopAprsBtn').style.display = 'none';
+                    document.getElementById('aprsMapStatus').textContent = 'STANDBY';
+                    document.getElementById('aprsMapStatus').style.color = '';
+                    if (aprsEventSource) {
+                        aprsEventSource.close();
+                        aprsEventSource = null;
+                    }
+                });
+        }
+
+        function startAprsStream() {
+            if (aprsEventSource) aprsEventSource.close();
+            aprsEventSource = new EventSource('/aprs/stream');
+
+            aprsEventSource.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.type === 'aprs') {
+                    aprsPacketCount++;
+                    document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
+                    processAprsPacket(data);
+                }
+            };
+
+            aprsEventSource.onerror = function() {
+                console.error('APRS stream error');
+            };
+        }
+
+        function processAprsPacket(packet) {
+            // Update packet log
+            const logEl = document.getElementById('aprsPacketLog');
+            const logEntry = document.createElement('div');
+            logEntry.style.cssText = 'padding: 3px 0; border-bottom: 1px solid var(--border-color);';
+
+            const time = new Date().toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'});
+            const callsign = packet.callsign || 'UNKNOWN';
+            const packetType = packet.packet_type || 'unknown';
+
+            logEntry.innerHTML = `<span style="color: var(--text-muted);">${time}</span> <span style="color: var(--accent-cyan); font-weight: bold;">${callsign}</span> <span style="color: var(--accent-green);">[${packetType}]</span>`;
+
+            // Remove placeholder if present
+            const placeholder = logEl.querySelector('div[style*="color: var(--text-muted)"]');
+            if (placeholder && placeholder.textContent.includes('Waiting')) {
+                placeholder.remove();
+            }
+
+            logEl.insertBefore(logEntry, logEl.firstChild);
+
+            // Keep log manageable
+            while (logEl.children.length > 100) {
+                logEl.removeChild(logEl.lastChild);
+            }
+
+            // Update map if position data
+            if (packet.lat && packet.lon && aprsMap) {
+                updateAprsMarker(packet);
+            }
+
+            // Update station list
+            updateAprsStationList(packet);
+        }
+
+        function updateAprsMarker(packet) {
+            const callsign = packet.callsign;
+
+            if (aprsMarkers[callsign]) {
+                // Update existing marker
+                aprsMarkers[callsign].setLatLng([packet.lat, packet.lon]);
+            } else {
+                // Create new marker
+                aprsStationCount++;
+                document.getElementById('aprsStationCount').textContent = aprsStationCount;
+
+                const icon = L.divIcon({
+                    className: 'aprs-marker',
+                    html: `<div style="background: var(--accent-cyan); color: #000; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; white-space: nowrap;">${callsign}</div>`,
+                    iconSize: [80, 20],
+                    iconAnchor: [40, 10]
+                });
+
+                const marker = L.marker([packet.lat, packet.lon], { icon: icon }).addTo(aprsMap);
+
+                marker.bindPopup(`
+                    <div style="font-family: monospace;">
+                        <strong>${callsign}</strong><br>
+                        Position: ${packet.lat.toFixed(4)}, ${packet.lon.toFixed(4)}<br>
+                        ${packet.altitude ? `Altitude: ${packet.altitude} ft<br>` : ''}
+                        ${packet.speed ? `Speed: ${packet.speed} kts<br>` : ''}
+                        ${packet.course ? `Course: ${packet.course}°<br>` : ''}
+                    </div>
+                `);
+
+                aprsMarkers[callsign] = marker;
+            }
+        }
+
+        function updateAprsStationList(packet) {
+            const listEl = document.getElementById('aprsStationList');
+            const callsign = packet.callsign;
+
+            // Remove placeholder if present
+            const placeholder = listEl.querySelector('div[style*="text-align: center"]');
+            if (placeholder && placeholder.textContent.includes('No stations')) {
+                placeholder.remove();
+            }
+
+            // Check if station already exists
+            let stationEl = listEl.querySelector(`[data-callsign="${callsign}"]`);
+
+            if (!stationEl) {
+                stationEl = document.createElement('div');
+                stationEl.dataset.callsign = callsign;
+                stationEl.style.cssText = 'padding: 6px 8px; border-bottom: 1px solid var(--border-color); cursor: pointer;';
+                stationEl.onclick = () => {
+                    if (aprsMarkers[callsign] && aprsMap) {
+                        aprsMap.setView(aprsMarkers[callsign].getLatLng(), 10);
+                        aprsMarkers[callsign].openPopup();
+                    }
+                };
+                listEl.insertBefore(stationEl, listEl.firstChild);
+            }
+
+            const time = new Date().toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'});
+            const hasPos = packet.lat && packet.lon;
+
+            stationEl.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--accent-cyan); font-weight: bold;">${callsign}</span>
+                    <span style="font-size: 9px; color: var(--text-muted);">${time}</span>
+                </div>
+                <div style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">
+                    ${packet.packet_type || 'unknown'} ${hasPos ? `| ${packet.lat.toFixed(2)}, ${packet.lon.toFixed(2)}` : ''}
+                </div>
+            `;
+
+            // Keep list manageable
+            while (listEl.children.length > 50) {
+                listEl.removeChild(listEl.lastChild);
             }
         }
 

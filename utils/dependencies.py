@@ -209,6 +209,29 @@ TOOL_DEPENDENCIES = {
             }
         }
     },
+    'aprs': {
+        'name': 'APRS Tracking',
+        'tools': {
+            'direwolf': {
+                'required': False,
+                'description': 'APRS/packet radio decoder (preferred)',
+                'install': {
+                    'apt': 'sudo apt install direwolf',
+                    'brew': 'brew install direwolf',
+                    'manual': 'https://github.com/wb2osz/direwolf'
+                }
+            },
+            'multimon-ng': {
+                'required': False,
+                'description': 'Alternative AFSK1200 decoder',
+                'install': {
+                    'apt': 'sudo apt install multimon-ng',
+                    'brew': 'brew install multimon-ng',
+                    'manual': 'https://github.com/EliasOenal/multimon-ng'
+                }
+            }
+        }
+    },
     'satellite': {
         'name': 'Satellite Tracking',
         'tools': {

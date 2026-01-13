@@ -108,6 +108,12 @@ acars_process = None
 acars_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 acars_lock = threading.Lock()
 
+# APRS amateur radio tracking
+aprs_process = None
+aprs_rtl_process = None
+aprs_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+aprs_lock = threading.Lock()
+
 # ============================================
 # GLOBAL STATE DICTIONARIES
 # ============================================
@@ -422,6 +428,7 @@ def health_check() -> Response:
             'sensor': sensor_process is not None and (sensor_process.poll() is None if sensor_process else False),
             'adsb': adsb_process is not None and (adsb_process.poll() is None if adsb_process else False),
             'acars': acars_process is not None and (acars_process.poll() is None if acars_process else False),
+            'aprs': aprs_process is not None and (aprs_process.poll() is None if aprs_process else False),
             'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
             'bluetooth': bt_process is not None and (bt_process.poll() is None if bt_process else False),
         },
@@ -438,6 +445,7 @@ def health_check() -> Response:
 def kill_all() -> Response:
     """Kill all decoder and WiFi processes."""
     global current_process, sensor_process, wifi_process, adsb_process, acars_process
+    global aprs_process, aprs_rtl_process
 
     # Import adsb module to reset its state
     from routes import adsb as adsb_module
@@ -446,7 +454,7 @@ def kill_all() -> Response:
     processes_to_kill = [
         'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
-        'dump1090', 'acarsdec'
+        'dump1090', 'acarsdec', 'direwolf'
     ]
 
     for proc in processes_to_kill:
@@ -474,6 +482,11 @@ def kill_all() -> Response:
     # Reset ACARS state
     with acars_lock:
         acars_process = None
+
+    # Reset APRS state
+    with aprs_lock:
+        aprs_process = None
+        aprs_rtl_process = None
 
     return jsonify({'status': 'killed', 'processes': killed})
 
