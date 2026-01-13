@@ -862,7 +862,7 @@
                 </div>
 
                 <!-- APRS MODE -->
-                <div id="aprsMode" class="mode-content" style="display: none;">
+                <div id="aprsMode" class="mode-content">
                     <div class="section">
                         <h3>APRS Tracking</h3>
                         <p style="color: var(--text-secondary); font-size: 11px; line-height: 1.5; margin-bottom: 15px;">
@@ -2330,6 +2330,7 @@
             if (isWifiRunning) stopWifiScan();
             if (isBtRunning) stopBtScan();
             if (isAdsbRunning) stopAdsbScan();
+            if (isAprsRunning) stopAprs();
 
             currentMode = mode;
             // Remove active from all nav buttons, then add to the correct one
@@ -2337,7 +2338,7 @@
             const modeMap = {
                 'pager': 'pager', 'sensor': '433', 'aircraft': 'aircraft',
                 'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth',
-                'listening': 'listening'
+                'listening': 'listening', 'aprs': 'aprs'
             };
             document.querySelectorAll('.mode-nav-btn').forEach(btn => {
                 const label = btn.querySelector('.nav-label');
@@ -2352,15 +2353,13 @@
             document.getElementById('wifiMode').classList.toggle('active', mode === 'wifi');
             document.getElementById('bluetoothMode').classList.toggle('active', mode === 'bluetooth');
             document.getElementById('listeningPostMode').classList.toggle('active', mode === 'listening');
+            document.getElementById('aprsMode').classList.toggle('active', mode === 'aprs');
             document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
             document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
             document.getElementById('aircraftStats').style.display = mode === 'aircraft' ? 'flex' : 'none';
             document.getElementById('satelliteStats').style.display = mode === 'satellite' ? 'flex' : 'none';
             document.getElementById('wifiStats').style.display = mode === 'wifi' ? 'flex' : 'none';
             document.getElementById('btStats').style.display = mode === 'bluetooth' ? 'flex' : 'none';
-
-            // Hide signal meter - individual panels show signal strength where needed
-            document.getElementById('signalMeter').style.display = 'none';
 
             // Update header stats groups
             document.getElementById('headerPagerStats').classList.toggle('active', mode === 'pager');
@@ -2382,7 +2381,8 @@
                 'satellite': 'SATELLITE',
                 'wifi': 'WIFI',
                 'bluetooth': 'BLUETOOTH',
-                'listening': 'LISTENING POST'
+                'listening': 'LISTENING POST',
+                'aprs': 'APRS'
             };
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
@@ -2392,6 +2392,7 @@
             document.getElementById('aircraftVisuals').style.display = (mode === 'aircraft' && showRadar) ? 'grid' : 'none';
             document.getElementById('satelliteVisuals').style.display = mode === 'satellite' ? 'block' : 'none';
             document.getElementById('listeningPostVisuals').style.display = mode === 'listening' ? 'grid' : 'none';
+            document.getElementById('aprsVisuals').style.display = mode === 'aprs' ? 'flex' : 'none';
 
             // Update output panel title based on mode
             const titles = {
@@ -2401,14 +2402,15 @@
                 'satellite': 'Satellite Monitor',
                 'wifi': 'WiFi Scanner',
                 'bluetooth': 'Bluetooth Scanner',
-                'listening': 'Listening Post'
+                'listening': 'Listening Post',
+                'aprs': 'APRS Tracker'
             };
             document.getElementById('outputTitle').textContent = titles[mode] || 'Signal Monitor';
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
-            if (mode === 'satellite' || mode === 'aircraft' || mode === 'listening') {
+            if (mode === 'satellite' || mode === 'aircraft' || mode === 'listening' || mode === 'aprs') {
                 document.getElementById('reconPanel').style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -2422,7 +2424,7 @@
             }
 
             // Show RTL-SDR device section for modes that use it
-            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'aircraft' || mode === 'listening') ? 'block' : 'none';
+            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'aircraft' || mode === 'listening' || mode === 'aprs') ? 'block' : 'none';
 
             // Toggle mode-specific tool status displays
             document.getElementById('toolStatusPager').style.display = (mode === 'pager') ? 'grid' : 'none';
