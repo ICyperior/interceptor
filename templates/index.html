@@ -1555,32 +1555,19 @@
                         50% { opacity: 1; transform: scale(1); }
                     }
 
-                    /* Main ACARS Sidebar (Collapsible) - collapses outward */
+                    /* Main ACARS Sidebar (Collapsible) */
                     .main-acars-sidebar {
-                        position: relative;
-                        width: 220px;
-                        background: var(--bg-panel);
-                        border-left: 1px solid var(--border-color);
                         display: flex;
                         flex-direction: row;
-                        overflow: visible;
-                        transition: width 0.3s ease;
-                    }
-                    .main-acars-sidebar.collapsed {
-                        width: 0;
-                        border-left: none;
+                        background: var(--bg-panel);
+                        border-left: 1px solid var(--border-color);
                     }
                     .main-acars-collapse-btn {
-                        position: absolute;
-                        left: 0;
-                        top: 50%;
-                        transform: translateX(-100%) translateY(-50%);
-                        width: 22px;
-                        height: 70px;
-                        background: rgba(0,0,0,0.6);
-                        border: 1px solid var(--border-color);
-                        border-right: none;
-                        border-radius: 5px 0 0 5px;
+                        width: 24px;
+                        min-width: 24px;
+                        background: rgba(0,0,0,0.4);
+                        border: none;
+                        border-right: 1px solid var(--border-color);
                         color: var(--accent-cyan);
                         cursor: pointer;
                         display: flex;
@@ -1590,10 +1577,9 @@
                         gap: 5px;
                         padding: 6px 0;
                         transition: background 0.2s;
-                        z-index: 100;
                     }
                     .main-acars-collapse-btn:hover {
-                        background: rgba(74, 158, 255, 0.2);
+                        background: rgba(74, 158, 255, 0.15);
                     }
                     .main-acars-collapse-label {
                         writing-mode: vertical-rl;
@@ -1605,22 +1591,21 @@
                     .main-acars-sidebar.collapsed .main-acars-collapse-label { display: block; }
                     .main-acars-sidebar:not(.collapsed) .main-acars-collapse-label { display: none; }
                     #mainAcarsCollapseIcon {
-                        font-size: 8px;
+                        font-size: 10px;
                         transition: transform 0.3s;
                     }
                     .main-acars-sidebar.collapsed #mainAcarsCollapseIcon {
                         transform: rotate(180deg);
                     }
                     .main-acars-content {
-                        flex: 1;
+                        width: 196px;
                         display: flex;
                         flex-direction: column;
                         overflow: hidden;
-                        min-width: 0;
-                        opacity: 1;
-                        transition: opacity 0.2s ease;
+                        transition: width 0.3s ease, opacity 0.2s ease;
                     }
                     .main-acars-sidebar.collapsed .main-acars-content {
+                        width: 0;
                         opacity: 0;
                         pointer-events: none;
                     }
