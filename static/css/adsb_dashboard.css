@@ -211,9 +211,9 @@ body {
 
 .acars-collapse-btn {
     position: absolute;
-    right: 0;
+    left: 0;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateX(-100%) translateY(-50%);
     width: 24px;
     height: 80px;
     background: var(--bg-card);
@@ -228,12 +228,8 @@ body {
     justify-content: center;
     gap: 6px;
     padding: 8px 0;
-    transition: background 0.2s, right 0.3s ease;
+    transition: background 0.2s;
     z-index: 100;
-}
-
-.acars-sidebar.collapsed .acars-collapse-btn {
-    right: 100%;
 }
 
 .acars-collapse-btn:hover {

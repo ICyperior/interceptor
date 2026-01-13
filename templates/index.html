@@ -1210,7 +1210,7 @@
                         <!-- ACARS Sidebar (Collapsible) -->
                         <div class="main-acars-sidebar" id="mainAcarsSidebar">
                             <button class="main-acars-collapse-btn" onclick="toggleMainAcarsSidebar()" title="Toggle ACARS">
-                                <span id="mainAcarsCollapseIcon">◀</span>
+                                <span id="mainAcarsCollapseIcon">▶</span>
                                 <span class="main-acars-collapse-label">ACARS</span>
                             </button>
                             <div class="main-acars-content" id="mainAcarsContent">
@@ -1572,9 +1572,9 @@
                     }
                     .main-acars-collapse-btn {
                         position: absolute;
-                        right: 0;
+                        left: 0;
                         top: 50%;
-                        transform: translateY(-50%);
+                        transform: translateX(-100%) translateY(-50%);
                         width: 22px;
                         height: 70px;
                         background: rgba(0,0,0,0.6);
@@ -1589,11 +1589,8 @@
                         justify-content: center;
                         gap: 5px;
                         padding: 6px 0;
-                        transition: background 0.2s, right 0.3s ease;
+                        transition: background 0.2s;
                         z-index: 100;
-                    }
-                    .main-acars-sidebar.collapsed .main-acars-collapse-btn {
-                        right: 100%;
                     }
                     .main-acars-collapse-btn:hover {
                         background: rgba(74, 158, 255, 0.2);
@@ -2390,7 +2387,6 @@
                 initBtRadar();
             } else if (mode === 'aircraft') {
                 checkAdsbTools();
-                checkAcarsTools();
                 initAircraftRadar();
             } else if (mode === 'satellite') {
                 initPolarPlot();
