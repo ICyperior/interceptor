@@ -495,7 +495,9 @@ install_debian_packages() {
   apt_install bluez bluetooth || true
 
   progress "Installing SoapySDR"
-  apt_install soapysdr-tools || true
+  # Exclude xtrx-dkms - its kernel module fails to build on newer kernels (6.14+)
+  # and causes apt to hang. Most users don't have XTRX hardware anyway.
+  apt_install soapysdr-tools xtrx-dkms- || true
 
   progress "Installing gpsd"
   apt_install gpsd gpsd-clients || true
