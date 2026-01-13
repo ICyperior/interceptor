@@ -202,8 +202,8 @@ TOOL_DEPENDENCIES = {
                 'required': True,
                 'description': 'ACARS VHF decoder',
                 'install': {
-                    'apt': 'Build from source (not in apt repos)',
-                    'brew': 'Build from source',
+                    'apt': 'Run ./setup.sh (builds from source)',
+                    'brew': 'Run ./setup.sh (builds from source)',
                     'manual': 'https://github.com/TLeconte/acarsdec'
                 }
             }
