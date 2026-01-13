@@ -1598,47 +1598,60 @@
                         50% { opacity: 1; transform: scale(1); }
                     }
 
-                    /* Main ACARS Sidebar (Collapsible) */
+                    /* Main ACARS Sidebar (Collapsible) - collapses outward */
                     .main-acars-sidebar {
+                        position: relative;
                         width: 220px;
                         background: var(--bg-panel);
                         border-left: 1px solid var(--border-color);
                         display: flex;
                         flex-direction: row;
+                        overflow: visible;
                         transition: width 0.3s ease;
                     }
                     .main-acars-sidebar.collapsed {
-                        width: 28px;
+                        width: 0;
+                        border-left: none;
                     }
                     .main-acars-collapse-btn {
-                        width: 28px;
-                        min-width: 28px;
-                        background: rgba(0,0,0,0.3);
-                        border: none;
-                        border-right: 1px solid var(--border-color);
+                        position: absolute;
+                        right: 0;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        width: 22px;
+                        height: 70px;
+                        background: rgba(0,0,0,0.6);
+                        border: 1px solid var(--border-color);
+                        border-right: none;
+                        border-radius: 5px 0 0 5px;
                         color: var(--accent-cyan);
                         cursor: pointer;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
                         justify-content: center;
-                        gap: 6px;
-                        padding: 8px 0;
+                        gap: 5px;
+                        padding: 6px 0;
+                        transition: background 0.2s, right 0.3s ease;
+                        z-index: 100;
+                    }
+                    .main-acars-sidebar.collapsed .main-acars-collapse-btn {
+                        right: 100%;
                     }
                     .main-acars-collapse-btn:hover {
-                        background: rgba(74, 158, 255, 0.1);
+                        background: rgba(74, 158, 255, 0.2);
                     }
                     .main-acars-collapse-label {
                         writing-mode: vertical-rl;
                         text-orientation: mixed;
-                        font-size: 9px;
+                        font-size: 8px;
                         font-weight: 600;
                         letter-spacing: 1px;
                     }
                     .main-acars-sidebar.collapsed .main-acars-collapse-label { display: block; }
                     .main-acars-sidebar:not(.collapsed) .main-acars-collapse-label { display: none; }
                     #mainAcarsCollapseIcon {
-                        font-size: 9px;
+                        font-size: 8px;
                         transition: transform 0.3s;
                     }
                     .main-acars-sidebar.collapsed #mainAcarsCollapseIcon {
@@ -1650,9 +1663,12 @@
                         flex-direction: column;
                         overflow: hidden;
                         min-width: 0;
+                        opacity: 1;
+                        transition: opacity 0.2s ease;
                     }
                     .main-acars-sidebar.collapsed .main-acars-content {
-                        display: none;
+                        opacity: 0;
+                        pointer-events: none;
                     }
                     .main-acars-messages {
                         max-height: 350px;

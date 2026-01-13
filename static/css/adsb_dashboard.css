@@ -194,46 +194,58 @@ body {
 
 /* ACARS sidebar (between map and main sidebar) - Collapsible */
 .acars-sidebar {
+    position: relative;
     background: var(--bg-panel);
     border-left: 1px solid var(--border-color);
     display: flex;
     flex-direction: row;
-    overflow: hidden;
+    overflow: visible;
     transition: width 0.3s ease;
     width: 280px;
 }
 
 .acars-sidebar.collapsed {
-    width: 32px;
+    width: 0;
+    border-left: none;
 }
 
 .acars-collapse-btn {
-    width: 32px;
-    min-width: 32px;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 80px;
     background: var(--bg-card);
-    border: none;
-    border-right: 1px solid var(--border-color);
+    border: 1px solid var(--border-color);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
     color: var(--accent-cyan);
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 10px 0;
-    transition: background 0.2s;
+    gap: 6px;
+    padding: 8px 0;
+    transition: background 0.2s, right 0.3s ease;
+    z-index: 100;
+}
+
+.acars-sidebar.collapsed .acars-collapse-btn {
+    right: 100%;
 }
 
 .acars-collapse-btn:hover {
-    background: rgba(74, 158, 255, 0.1);
+    background: rgba(74, 158, 255, 0.2);
 }
 
 .acars-collapse-label {
     writing-mode: vertical-rl;
     text-orientation: mixed;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
 }
 
@@ -246,7 +258,7 @@ body {
 }
 
 #acarsCollapseIcon {
-    font-size: 10px;
+    font-size: 9px;
     transition: transform 0.3s;
 }
 
@@ -260,10 +272,13 @@ body {
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    opacity: 1;
+    transition: opacity 0.2s ease;
 }
 
 .acars-sidebar.collapsed .acars-sidebar-content {
-    display: none;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .acars-sidebar .panel {
