@@ -385,7 +385,7 @@ body {
 
 /* Main display container (map + radar scope) */
 .main-display {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1;
     position: relative;
 }
