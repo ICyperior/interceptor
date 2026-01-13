@@ -1396,9 +1396,11 @@
                             <!-- Main Frequency Display -->
                             <div style="flex: 1; text-align: center; padding: 15px 20px; background: rgba(0,0,0,0.6); border-radius: 6px; border: 1px solid var(--border-color);">
                                 <div class="freq-status" id="mainScannerModeLabel" style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 3px;">STOPPED</div>
-                                <div class="freq-digits" id="mainScannerFreq" style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: 'JetBrains Mono', monospace; letter-spacing: 3px;">118.000</div>
-                                <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 6px;">
-                                    <span class="freq-unit" style="font-size: 16px; color: var(--text-secondary);">MHz</span>
+                                <div style="display: flex; justify-content: center; align-items: baseline; gap: 8px;">
+                                    <div class="freq-digits" id="mainScannerFreq" style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: 'JetBrains Mono', monospace; letter-spacing: 3px;">118.000</div>
+                                    <span class="freq-unit" style="font-size: 20px; color: var(--text-secondary); font-weight: 500;">MHz</span>
+                                </div>
+                                <div style="display: flex; justify-content: center; align-items: center; margin-top: 6px;">
                                     <span class="freq-mode-badge" id="mainScannerMod" style="background: var(--accent-cyan); color: #000; padding: 3px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;">AM</span>
                                 </div>
                                 <!-- Progress bar -->
