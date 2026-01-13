@@ -185,17 +185,17 @@ body {
     position: relative;
     z-index: 10;
     display: grid;
-    grid-template-columns: 1fr auto 300px;
+    grid-template-columns: auto 1fr 300px;
     grid-template-rows: 1fr auto;
     gap: 0;
     height: calc(100vh - 60px);
     min-height: 500px;
 }
 
-/* ACARS sidebar (between map and main sidebar) - Collapsible */
+/* ACARS sidebar (left of map) - Collapsible */
 .acars-sidebar {
     background: var(--bg-panel);
-    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: row;
 }
@@ -205,7 +205,7 @@ body {
     min-width: 28px;
     background: var(--bg-card);
     border: none;
-    border-right: 1px solid var(--border-color);
+    border-left: 1px solid var(--border-color);
     color: var(--accent-cyan);
     cursor: pointer;
     display: flex;

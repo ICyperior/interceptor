@@ -43,22 +43,8 @@
     </header>
 
     <main class="dashboard">
-        <!-- Main Display (Map or Radar Scope) -->
-        <div class="main-display">
-            <div class="display-container">
-                <div id="radarMap"></div>
-                <div id="radarScope">
-                    <canvas id="radarCanvas"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- ACARS Panel (right of map) - Collapsible -->
+        <!-- ACARS Panel (left of map) - Collapsible -->
         <div class="acars-sidebar" id="acarsSidebar">
-            <button class="acars-collapse-btn" id="acarsCollapseBtn" onclick="toggleAcarsSidebar()" title="Toggle ACARS Panel">
-                <span id="acarsCollapseIcon">▶</span>
-                <span class="acars-collapse-label">ACARS</span>
-            </button>
             <div class="acars-sidebar-content" id="acarsSidebarContent">
                 <div class="panel acars-panel">
                     <div class="panel-header">
@@ -95,6 +81,20 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+            <button class="acars-collapse-btn" id="acarsCollapseBtn" onclick="toggleAcarsSidebar()" title="Toggle ACARS Panel">
+                <span id="acarsCollapseIcon">◀</span>
+                <span class="acars-collapse-label">ACARS</span>
+            </button>
+        </div>
+
+        <!-- Main Display (Map or Radar Scope) -->
+        <div class="main-display">
+            <div class="display-container">
+                <div id="radarMap"></div>
+                <div id="radarScope">
+                    <canvas id="radarCanvas"></canvas>
                 </div>
             </div>
         </div>
