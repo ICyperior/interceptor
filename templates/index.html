@@ -8840,8 +8840,12 @@
             <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
                 <h3 style="margin-bottom: 10px;">Quick Install (Debian/Ubuntu)</h3>
                 <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; overflow-x: auto;">
-                    <div>sudo apt install rtl-sdr multimon-ng rtl-433 aircrack-ng bluez dump1090-mutability hcxtools</div>
+                    <div>sudo apt install rtl-sdr multimon-ng rtl-433 aircrack-ng bluez dump1090-mutability hcxdumptool hcxtools</div>
                     <div style="margin-top: 5px;">pip install skyfield flask</div>
+                </div>
+                <div style="margin-top: 10px; font-size: 11px; color: var(--text-dim);">
+                    <strong>Note:</strong> ACARS decoding requires <code>acarsdec</code> which must be built from source.
+                    See <a href="https://github.com/TLeconte/acarsdec" target="_blank" style="color: var(--accent-cyan);">github.com/TLeconte/acarsdec</a> or run <code>./setup.sh</code> for automated installation.
                 </div>
             </div>
         </div>

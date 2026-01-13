@@ -7,8 +7,8 @@ from typing import Any
 
 logger = logging.getLogger('intercept.dependencies')
 
-# Additional paths to search for tools (e.g., /usr/sbin on Debian, /opt/local/bin for MacPorts)
-EXTRA_TOOL_PATHS = ['/usr/sbin', '/sbin', '/opt/local/bin', '/opt/local/sbin']
+# Additional paths to search for tools (e.g., /usr/sbin on Debian)
+EXTRA_TOOL_PATHS = ['/usr/sbin', '/sbin']
 
 
 def check_tool(name: str) -> bool:
@@ -51,8 +51,8 @@ TOOL_DEPENDENCIES = {
                 'description': 'Digital transmission decoder',
                 'install': {
                     'apt': 'sudo apt install multimon-ng',
-                    'brew': 'sudo port install multimon-ng (MacPorts) or build from source',
-                    'manual': 'https://github.com/EliasOewornal/multimon-ng'
+                    'brew': 'brew install multimon-ng',
+                    'manual': 'https://github.com/EliasOenal/multimon-ng'
                 }
             },
             'rtl_test': {
@@ -202,8 +202,8 @@ TOOL_DEPENDENCIES = {
                 'required': True,
                 'description': 'ACARS VHF decoder',
                 'install': {
-                    'apt': 'sudo apt install acarsdec',
-                    'brew': 'brew install acarsdec',
+                    'apt': 'Build from source (not in apt repos)',
+                    'brew': 'Build from source',
                     'manual': 'https://github.com/TLeconte/acarsdec'
                 }
             }
