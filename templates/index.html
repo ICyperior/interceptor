@@ -302,6 +302,11 @@
             <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon">📶</span><span class="nav-label">WiFi</span></button>
             <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon">🔵</span><span class="nav-label">Bluetooth</span></button>
         </div>
+        <div class="mode-nav-divider"></div>
+        <div class="mode-nav-group">
+            <span class="mode-nav-label">Security</span>
+            <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon">🔍</span><span class="nav-label">TSCM</span></button>
+        </div>
         <div class="mode-nav-actions">
             <a href="/adsb/dashboard" target="_blank" class="nav-action-btn" id="adsbDashboardBtn" style="display: none;">
                 <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
@@ -1007,6 +1012,104 @@
                         </div>
                     </div>
 
+                </div>
+
+                <!-- TSCM MODE (Counter-Surveillance) -->
+                <div id="tscmMode" class="mode-content">
+                    <div class="section">
+                        <h3>TSCM Sweep</h3>
+                        <div class="form-group">
+                            <label>Sweep Type</label>
+                            <select id="tscmSweepType">
+                                <option value="quick">Quick Scan (2 min)</option>
+                                <option value="standard" selected>Standard (5 min)</option>
+                                <option value="full">Full Sweep (15 min)</option>
+                                <option value="wireless_cameras">Wireless Cameras</option>
+                                <option value="body_worn">Body-Worn Devices</option>
+                                <option value="gps_trackers">GPS Trackers</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Compare Against</label>
+                            <select id="tscmBaselineSelect">
+                                <option value="">No Baseline</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Scan Sources</h3>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="tscmWifiEnabled" checked>
+                                WiFi Networks
+                            </label>
+                            <label>
+                                <input type="checkbox" id="tscmBtEnabled" checked>
+                                Bluetooth Devices
+                            </label>
+                            <label>
+                                <input type="checkbox" id="tscmRfEnabled" checked>
+                                RF Signals
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Baseline Management</h3>
+                        <div class="form-group">
+                            <input type="text" id="tscmBaselineName" placeholder="Baseline name...">
+                        </div>
+                        <button class="preset-btn" id="tscmRecordBaselineBtn" onclick="tscmRecordBaseline()" style="width: 100%;">
+                            Record New Baseline
+                        </button>
+                        <button class="preset-btn" id="tscmStopBaselineBtn" onclick="tscmStopBaseline()" style="width: 100%; display: none;">
+                            Stop Recording
+                        </button>
+                        <div id="tscmBaselineStatus" style="margin-top: 8px; font-size: 11px; color: var(--text-muted);"></div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Threat Summary</h3>
+                        <div id="tscmThreatSummary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                            <div class="threat-card critical"><span class="count">0</span><span class="label">Critical</span></div>
+                            <div class="threat-card high"><span class="count">0</span><span class="label">High</span></div>
+                            <div class="threat-card medium"><span class="count">0</span><span class="label">Medium</span></div>
+                            <div class="threat-card low"><span class="count">0</span><span class="label">Low</span></div>
+                        </div>
+                    </div>
+
+                    <button class="run-btn" id="startTscmBtn" onclick="startTscmSweep()">
+                        Start Sweep
+                    </button>
+                    <button class="stop-btn" id="stopTscmBtn" onclick="stopTscmSweep()" style="display: none;">
+                        Stop Sweep
+                    </button>
+
+                    <!-- Futuristic Scanner Progress -->
+                    <div id="tscmProgress" class="tscm-scanner-progress" style="display: none;">
+                        <div class="scanner-ring">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="scanner-track" cx="50" cy="50" r="45" />
+                                <circle class="scanner-progress" id="tscmScannerCircle" cx="50" cy="50" r="45" />
+                                <line class="scanner-sweep" x1="50" y1="50" x2="50" y2="8" />
+                            </svg>
+                            <div class="scanner-center">
+                                <span class="scanner-percent" id="tscmProgressPercent">0%</span>
+                            </div>
+                        </div>
+                        <div class="scanner-info">
+                            <div class="scanner-status" id="tscmProgressLabel">INITIALIZING</div>
+                            <div class="scanner-devices">
+                                <span class="device-indicator" id="tscmWifiIndicator" title="WiFi">📶</span>
+                                <span class="device-indicator" id="tscmBtIndicator" title="Bluetooth">🔵</span>
+                                <span class="device-indicator" id="tscmRfIndicator" title="RF/SDR">📡</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device Warnings -->
+                    <div id="tscmDeviceWarnings" style="display: none; margin-top: 8px; padding: 8px; background: rgba(255,153,51,0.1); border: 1px solid rgba(255,153,51,0.3); border-radius: 4px;"></div>
                 </div>
 
                 <button class="preset-btn" onclick="killAll()" style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
@@ -1717,6 +1820,280 @@
                     }
                 </style>
 
+                <!-- TSCM Styles -->
+                <style>
+                    /* TSCM Threat Cards */
+                    .threat-card {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 8px;
+                        border-radius: 6px;
+                        background: rgba(0,0,0,0.3);
+                        border: 1px solid var(--border-color);
+                    }
+                    .threat-card .count {
+                        font-size: 18px;
+                        font-weight: bold;
+                        line-height: 1;
+                    }
+                    .threat-card .label {
+                        font-size: 9px;
+                        text-transform: uppercase;
+                        opacity: 0.7;
+                        margin-top: 2px;
+                    }
+                    .threat-card.critical { border-color: #ff3366; color: #ff3366; }
+                    .threat-card.critical.active { background: rgba(255,51,102,0.2); }
+                    .threat-card.high { border-color: #ff9933; color: #ff9933; }
+                    .threat-card.high.active { background: rgba(255,153,51,0.2); }
+                    .threat-card.medium { border-color: #ffcc00; color: #ffcc00; }
+                    .threat-card.medium.active { background: rgba(255,204,0,0.2); }
+                    .threat-card.low { border-color: #00ff88; color: #00ff88; }
+                    .threat-card.low.active { background: rgba(0,255,136,0.2); }
+
+                    /* TSCM Dashboard */
+                    .tscm-dashboard {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 16px;
+                        height: 100%;
+                    }
+                    .tscm-threat-banner {
+                        display: flex;
+                        gap: 12px;
+                        padding: 12px;
+                        background: rgba(0,0,0,0.3);
+                        border-radius: 8px;
+                    }
+                    .tscm-threat-banner .threat-card {
+                        flex: 1;
+                        padding: 12px;
+                    }
+                    .tscm-threat-banner .threat-card .count {
+                        font-size: 24px;
+                    }
+                    .tscm-main-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 16px;
+                        flex: 1;
+                        min-height: 0;
+                    }
+                    .tscm-panel {
+                        background: rgba(0,0,0,0.3);
+                        border: 1px solid var(--border-color);
+                        border-radius: 8px;
+                        display: flex;
+                        flex-direction: column;
+                        overflow: hidden;
+                    }
+                    .tscm-panel-header {
+                        padding: 10px 12px;
+                        background: rgba(0,0,0,0.3);
+                        border-bottom: 1px solid var(--border-color);
+                        font-weight: 600;
+                        font-size: 12px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .tscm-panel-header .badge {
+                        background: var(--primary-color);
+                        color: #fff;
+                        padding: 2px 8px;
+                        border-radius: 10px;
+                        font-size: 10px;
+                        font-weight: normal;
+                    }
+                    .tscm-panel-content {
+                        flex: 1;
+                        overflow-y: auto;
+                        padding: 8px;
+                    }
+                    .tscm-device-item {
+                        padding: 8px 10px;
+                        border-radius: 4px;
+                        margin-bottom: 6px;
+                        background: rgba(0,0,0,0.2);
+                        border-left: 3px solid var(--border-color);
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    }
+                    .tscm-device-item:hover {
+                        background: rgba(74,158,255,0.1);
+                    }
+                    .tscm-device-item.new {
+                        border-left-color: #ff9933;
+                        animation: pulse-glow 2s infinite;
+                    }
+                    .tscm-device-item.threat {
+                        border-left-color: #ff3366;
+                    }
+                    .tscm-device-item.baseline {
+                        border-left-color: #00ff88;
+                    }
+                    .tscm-device-name {
+                        font-weight: 600;
+                        font-size: 12px;
+                        margin-bottom: 2px;
+                    }
+                    .tscm-device-meta {
+                        font-size: 10px;
+                        color: var(--text-muted);
+                        display: flex;
+                        gap: 8px;
+                    }
+                    .tscm-threat-list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 8px;
+                    }
+                    .tscm-threat-item {
+                        padding: 10px 12px;
+                        border-radius: 6px;
+                        background: rgba(0,0,0,0.2);
+                        border: 1px solid;
+                    }
+                    .tscm-threat-item.critical { border-color: #ff3366; background: rgba(255,51,102,0.1); }
+                    .tscm-threat-item.high { border-color: #ff9933; background: rgba(255,153,51,0.1); }
+                    .tscm-threat-item.medium { border-color: #ffcc00; background: rgba(255,204,0,0.1); }
+                    .tscm-threat-item.low { border-color: #00ff88; background: rgba(0,255,136,0.1); }
+                    .tscm-threat-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 4px;
+                    }
+                    .tscm-threat-type {
+                        font-weight: 600;
+                        font-size: 12px;
+                    }
+                    .tscm-threat-severity {
+                        font-size: 10px;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                        text-transform: uppercase;
+                    }
+                    .tscm-threat-item.critical .tscm-threat-severity { background: #ff3366; color: #fff; }
+                    .tscm-threat-item.high .tscm-threat-severity { background: #ff9933; color: #000; }
+                    .tscm-threat-item.medium .tscm-threat-severity { background: #ffcc00; color: #000; }
+                    .tscm-threat-item.low .tscm-threat-severity { background: #00ff88; color: #000; }
+                    .tscm-threat-details {
+                        font-size: 11px;
+                        color: var(--text-muted);
+                    }
+                    @keyframes pulse-glow {
+                        0%, 100% { box-shadow: 0 0 5px rgba(255,153,51,0.3); }
+                        50% { box-shadow: 0 0 15px rgba(255,153,51,0.6); }
+                    }
+                    .tscm-empty {
+                        text-align: center;
+                        padding: 30px;
+                        color: var(--text-muted);
+                        font-size: 12px;
+                    }
+
+                    /* Futuristic Scanner Progress */
+                    .tscm-scanner-progress {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 12px;
+                        margin-top: 10px;
+                        background: rgba(0,0,0,0.4);
+                        border: 1px solid var(--border-color);
+                        border-radius: 8px;
+                    }
+                    .scanner-ring {
+                        position: relative;
+                        width: 70px;
+                        height: 70px;
+                        flex-shrink: 0;
+                    }
+                    .scanner-ring svg {
+                        width: 100%;
+                        height: 100%;
+                        transform: rotate(-90deg);
+                    }
+                    .scanner-track {
+                        fill: none;
+                        stroke: rgba(74,158,255,0.1);
+                        stroke-width: 4;
+                    }
+                    .scanner-progress {
+                        fill: none;
+                        stroke: var(--accent-cyan);
+                        stroke-width: 4;
+                        stroke-linecap: round;
+                        stroke-dasharray: 283;
+                        stroke-dashoffset: 283;
+                        transition: stroke-dashoffset 0.3s ease;
+                        filter: drop-shadow(0 0 6px var(--accent-cyan));
+                    }
+                    .scanner-sweep {
+                        stroke: var(--accent-cyan);
+                        stroke-width: 2;
+                        opacity: 0.8;
+                        transform-origin: 50px 50px;
+                        animation: sweep-rotate 2s linear infinite;
+                        filter: drop-shadow(0 0 4px var(--accent-cyan));
+                    }
+                    @keyframes sweep-rotate {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                    .scanner-center {
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        text-align: center;
+                    }
+                    .scanner-percent {
+                        font-size: 14px;
+                        font-weight: bold;
+                        color: var(--accent-cyan);
+                        text-shadow: 0 0 10px var(--accent-cyan);
+                    }
+                    .scanner-info {
+                        flex: 1;
+                        min-width: 0;
+                    }
+                    .scanner-status {
+                        font-size: 10px;
+                        font-weight: 600;
+                        letter-spacing: 2px;
+                        color: var(--accent-cyan);
+                        margin-bottom: 6px;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
+                    .scanner-devices {
+                        display: flex;
+                        gap: 8px;
+                    }
+                    .device-indicator {
+                        font-size: 14px;
+                        opacity: 0.3;
+                        transition: opacity 0.3s, transform 0.3s;
+                    }
+                    .device-indicator.active {
+                        opacity: 1;
+                        animation: device-pulse 1.5s ease-in-out infinite;
+                    }
+                    .device-indicator.inactive {
+                        opacity: 0.2;
+                        filter: grayscale(1);
+                    }
+                    @keyframes device-pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                    }
+                </style>
+
                 <!-- Satellite Dashboard (Embedded) -->
                 <div id="satelliteVisuals" class="satellite-dashboard-embed" style="display: none;">
                     <iframe
@@ -1726,6 +2103,65 @@
                         style="width: 100%; height: 100%; min-height: 700px; border: none; border-radius: 8px;"
                         allowfullscreen>
                     </iframe>
+                </div>
+
+                <!-- TSCM Dashboard -->
+                <div id="tscmVisuals" class="tscm-dashboard" style="display: none; padding: 16px;">
+                    <!-- Threat Summary Banner -->
+                    <div class="tscm-threat-banner">
+                        <div class="threat-card critical" id="tscmCriticalCard">
+                            <span class="count" id="tscmCriticalCount">0</span>
+                            <span class="label">Critical</span>
+                        </div>
+                        <div class="threat-card high" id="tscmHighCard">
+                            <span class="count" id="tscmHighCount">0</span>
+                            <span class="label">High</span>
+                        </div>
+                        <div class="threat-card medium" id="tscmMediumCard">
+                            <span class="count" id="tscmMediumCount">0</span>
+                            <span class="label">Medium</span>
+                        </div>
+                        <div class="threat-card low" id="tscmLowCard">
+                            <span class="count" id="tscmLowCount">0</span>
+                            <span class="label">Low</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Content Grid -->
+                    <div class="tscm-main-grid">
+                        <!-- WiFi Panel -->
+                        <div class="tscm-panel">
+                            <div class="tscm-panel-header">
+                                WiFi Networks
+                                <span class="badge" id="tscmWifiCount">0</span>
+                            </div>
+                            <div class="tscm-panel-content" id="tscmWifiList">
+                                <div class="tscm-empty">Start a sweep to scan for WiFi networks</div>
+                            </div>
+                        </div>
+
+                        <!-- Bluetooth Panel -->
+                        <div class="tscm-panel">
+                            <div class="tscm-panel-header">
+                                Bluetooth Devices
+                                <span class="badge" id="tscmBtCount">0</span>
+                            </div>
+                            <div class="tscm-panel-content" id="tscmBtList">
+                                <div class="tscm-empty">Start a sweep to scan for Bluetooth devices</div>
+                            </div>
+                        </div>
+
+                        <!-- Threats Panel -->
+                        <div class="tscm-panel" style="grid-column: span 2;">
+                            <div class="tscm-panel-header">
+                                Detected Threats
+                                <span class="badge" id="tscmThreatCount">0</span>
+                            </div>
+                            <div class="tscm-panel-content" id="tscmThreatList">
+                                <div class="tscm-empty">No threats detected</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
@@ -2347,6 +2783,7 @@
             if (isBtRunning) stopBtScan();
             if (isAdsbRunning) stopAdsbScan();
             if (isAprsRunning) stopAprs();
+            if (isTscmRunning) stopTscmSweep();
 
             currentMode = mode;
             // Remove active from all nav buttons, then add to the correct one
@@ -2354,7 +2791,7 @@
             const modeMap = {
                 'pager': 'pager', 'sensor': '433', 'aircraft': 'aircraft',
                 'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth',
-                'listening': 'listening', 'aprs': 'aprs'
+                'listening': 'listening', 'aprs': 'aprs', 'tscm': 'tscm'
             };
             document.querySelectorAll('.mode-nav-btn').forEach(btn => {
                 const label = btn.querySelector('.nav-label');
@@ -2370,6 +2807,7 @@
             document.getElementById('bluetoothMode').classList.toggle('active', mode === 'bluetooth');
             document.getElementById('listeningPostMode').classList.toggle('active', mode === 'listening');
             document.getElementById('aprsMode').classList.toggle('active', mode === 'aprs');
+            document.getElementById('tscmMode').classList.toggle('active', mode === 'tscm');
             document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
             document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
             document.getElementById('aircraftStats').style.display = mode === 'aircraft' ? 'flex' : 'none';
@@ -2398,7 +2836,8 @@
                 'wifi': 'WIFI',
                 'bluetooth': 'BLUETOOTH',
                 'listening': 'LISTENING POST',
-                'aprs': 'APRS'
+                'aprs': 'APRS',
+                'tscm': 'TSCM'
             };
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
@@ -2409,6 +2848,7 @@
             document.getElementById('satelliteVisuals').style.display = mode === 'satellite' ? 'block' : 'none';
             document.getElementById('listeningPostVisuals').style.display = mode === 'listening' ? 'grid' : 'none';
             document.getElementById('aprsVisuals').style.display = mode === 'aprs' ? 'flex' : 'none';
+            document.getElementById('tscmVisuals').style.display = mode === 'tscm' ? 'flex' : 'none';
 
             // Update output panel title based on mode
             const titles = {
@@ -2419,14 +2859,20 @@
                 'wifi': 'WiFi Scanner',
                 'bluetooth': 'Bluetooth Scanner',
                 'listening': 'Listening Post',
-                'aprs': 'APRS Tracker'
+                'aprs': 'APRS Tracker',
+                'tscm': 'TSCM Counter-Surveillance'
             };
             document.getElementById('outputTitle').textContent = titles[mode] || 'Signal Monitor';
 
-            // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft)
+            // Initialize TSCM mode when selected
+            if (mode === 'tscm') {
+                loadTscmBaselines();
+            }
+
+            // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
-            if (mode === 'satellite' || mode === 'aircraft' || mode === 'listening' || mode === 'aprs') {
+            if (mode === 'satellite' || mode === 'aircraft' || mode === 'listening' || mode === 'aprs' || mode === 'tscm') {
                 document.getElementById('reconPanel').style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -8971,6 +9417,365 @@
         });
 
         // NOTE: Scanner and Audio Receiver code moved to static/js/modes/listening-post.js
+
+        // ============================================
+        // TSCM (Counter-Surveillance) Functions
+        // ============================================
+        let isTscmRunning = false;
+        let tscmEventSource = null;
+        let tscmThreats = [];
+        let tscmWifiDevices = [];
+        let tscmBtDevices = [];
+        let isRecordingBaseline = false;
+
+        async function loadTscmBaselines() {
+            try {
+                const response = await fetch('/tscm/baselines');
+                const data = await response.json();
+                const select = document.getElementById('tscmBaselineSelect');
+                select.innerHTML = '<option value="">No Baseline</option>';
+                if (data.baselines) {
+                    data.baselines.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.id;
+                        opt.textContent = b.name + (b.is_active ? ' (Active)' : '');
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load baselines:', e);
+            }
+        }
+
+        async function startTscmSweep() {
+            const sweepType = document.getElementById('tscmSweepType').value;
+            const baselineId = document.getElementById('tscmBaselineSelect').value || null;
+            const wifiEnabled = document.getElementById('tscmWifiEnabled').checked;
+            const btEnabled = document.getElementById('tscmBtEnabled').checked;
+            const rfEnabled = document.getElementById('tscmRfEnabled').checked;
+
+            // Clear any previous warnings
+            document.getElementById('tscmDeviceWarnings').style.display = 'none';
+            document.getElementById('tscmDeviceWarnings').innerHTML = '';
+
+            try {
+                const response = await fetch('/tscm/sweep/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sweep_type: sweepType,
+                        baseline_id: baselineId ? parseInt(baselineId) : null,
+                        wifi: wifiEnabled,
+                        bluetooth: btEnabled,
+                        rf: rfEnabled
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    isTscmRunning = true;
+                    document.getElementById('startTscmBtn').style.display = 'none';
+                    document.getElementById('stopTscmBtn').style.display = 'block';
+                    document.getElementById('tscmProgress').style.display = 'flex';
+
+                    // Show warnings if any devices unavailable
+                    if (data.warnings && data.warnings.length > 0) {
+                        const warningsDiv = document.getElementById('tscmDeviceWarnings');
+                        warningsDiv.innerHTML = data.warnings.map(w =>
+                            `<div style="color: #ff9933; font-size: 10px; margin-bottom: 2px;">⚠ ${w}</div>`
+                        ).join('');
+                        warningsDiv.style.display = 'block';
+                    }
+
+                    // Update device indicators
+                    updateTscmDeviceIndicators(data.devices);
+
+                    // Reset displays
+                    tscmThreats = [];
+                    tscmWifiDevices = [];
+                    tscmBtDevices = [];
+                    updateTscmDisplays();
+
+                    // Start SSE stream
+                    startTscmStream();
+                } else {
+                    // Show error with details
+                    let errorMsg = data.message || 'Failed to start sweep';
+                    if (data.details && data.details.length > 0) {
+                        errorMsg += '\n\n' + data.details.join('\n');
+                    }
+                    alert(errorMsg);
+                }
+            } catch (e) {
+                console.error('Failed to start TSCM sweep:', e);
+                alert('Failed to start sweep: Network error');
+            }
+        }
+
+        function updateTscmDeviceIndicators(devices) {
+            const wifiIndicator = document.getElementById('tscmWifiIndicator');
+            const btIndicator = document.getElementById('tscmBtIndicator');
+            const rfIndicator = document.getElementById('tscmRfIndicator');
+
+            if (wifiIndicator) {
+                wifiIndicator.classList.toggle('active', devices.wifi);
+                wifiIndicator.classList.toggle('inactive', !devices.wifi);
+            }
+            if (btIndicator) {
+                btIndicator.classList.toggle('active', devices.bluetooth);
+                btIndicator.classList.toggle('inactive', !devices.bluetooth);
+            }
+            if (rfIndicator) {
+                rfIndicator.classList.toggle('active', devices.rf);
+                rfIndicator.classList.toggle('inactive', !devices.rf);
+            }
+        }
+
+        async function stopTscmSweep() {
+            try {
+                await fetch('/tscm/sweep/stop', { method: 'POST' });
+            } catch (e) {
+                console.error('Error stopping sweep:', e);
+            }
+
+            isTscmRunning = false;
+            if (tscmEventSource) {
+                tscmEventSource.close();
+                tscmEventSource = null;
+            }
+
+            document.getElementById('startTscmBtn').style.display = 'block';
+            document.getElementById('stopTscmBtn').style.display = 'none';
+            document.getElementById('tscmProgress').style.display = 'none';
+        }
+
+        function startTscmStream() {
+            if (tscmEventSource) {
+                tscmEventSource.close();
+            }
+
+            tscmEventSource = new EventSource('/tscm/sweep/stream');
+
+            tscmEventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleTscmEvent(data);
+                } catch (e) {
+                    console.error('TSCM SSE parse error:', e);
+                }
+            };
+
+            tscmEventSource.onerror = function() {
+                console.warn('TSCM SSE connection error');
+            };
+        }
+
+        function handleTscmEvent(data) {
+            switch (data.type) {
+                case 'sweep_progress':
+                    updateTscmProgress(data);
+                    break;
+                case 'threat_detected':
+                    addTscmThreat(data);
+                    break;
+                case 'sweep_completed':
+                    completeTscmSweep(data);
+                    break;
+                case 'sweep_stopped':
+                case 'sweep_error':
+                    stopTscmSweep();
+                    break;
+            }
+        }
+
+        function updateTscmProgress(data) {
+            // Update percentage text
+            document.getElementById('tscmProgressPercent').textContent = data.progress + '%';
+
+            // Update SVG circle progress (circumference = 2 * PI * 45 = ~283)
+            const circumference = 283;
+            const offset = circumference - (data.progress / 100) * circumference;
+            const circle = document.getElementById('tscmScannerCircle');
+            if (circle) {
+                circle.style.strokeDashoffset = offset;
+            }
+
+            // Update status text
+            const statusText = data.threats_found > 0
+                ? `THREATS: ${data.threats_found}`
+                : `SCANNING ${data.wifi_count}W ${data.bt_count}B`;
+            document.getElementById('tscmProgressLabel').textContent = statusText;
+
+            // Update counts in sidebar
+            const criticalEl = document.querySelector('#tscmThreatSummary .threat-card.critical .count');
+            const highEl = document.querySelector('#tscmThreatSummary .threat-card.high .count');
+            const mediumEl = document.querySelector('#tscmThreatSummary .threat-card.medium .count');
+            const lowEl = document.querySelector('#tscmThreatSummary .threat-card.low .count');
+            if (criticalEl) criticalEl.textContent = data.critical || 0;
+            if (highEl) highEl.textContent = data.high || 0;
+            if (mediumEl) mediumEl.textContent = data.medium || 0;
+            if (lowEl) lowEl.textContent = data.low || 0;
+        }
+
+        function addTscmThreat(threat) {
+            tscmThreats.unshift(threat);
+
+            // Update dashboard counts
+            updateTscmThreatCounts();
+            updateTscmDisplays();
+        }
+
+        function updateTscmThreatCounts() {
+            const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+            tscmThreats.forEach(t => {
+                if (counts[t.severity] !== undefined) {
+                    counts[t.severity]++;
+                }
+            });
+
+            document.getElementById('tscmCriticalCount').textContent = counts.critical;
+            document.getElementById('tscmHighCount').textContent = counts.high;
+            document.getElementById('tscmMediumCount').textContent = counts.medium;
+            document.getElementById('tscmLowCount').textContent = counts.low;
+
+            document.getElementById('tscmCriticalCard').classList.toggle('active', counts.critical > 0);
+            document.getElementById('tscmHighCard').classList.toggle('active', counts.high > 0);
+            document.getElementById('tscmMediumCard').classList.toggle('active', counts.medium > 0);
+            document.getElementById('tscmLowCard').classList.toggle('active', counts.low > 0);
+
+            document.getElementById('tscmThreatCount').textContent = tscmThreats.length;
+        }
+
+        function updateTscmDisplays() {
+            // Update WiFi list
+            const wifiList = document.getElementById('tscmWifiList');
+            if (tscmWifiDevices.length === 0) {
+                wifiList.innerHTML = '<div class="tscm-empty">No WiFi networks detected</div>';
+            } else {
+                wifiList.innerHTML = tscmWifiDevices.map(d => `
+                    <div class="tscm-device-item ${d.is_threat ? 'threat' : (d.is_new ? 'new' : 'baseline')}">
+                        <div class="tscm-device-name">${escapeHtml(d.ssid || d.bssid || 'Hidden')}</div>
+                        <div class="tscm-device-meta">
+                            <span>${d.bssid}</span>
+                            <span>${d.signal || '--'} dBm</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('tscmWifiCount').textContent = tscmWifiDevices.length;
+
+            // Update BT list
+            const btList = document.getElementById('tscmBtList');
+            if (tscmBtDevices.length === 0) {
+                btList.innerHTML = '<div class="tscm-empty">No Bluetooth devices detected</div>';
+            } else {
+                btList.innerHTML = tscmBtDevices.map(d => `
+                    <div class="tscm-device-item ${d.is_threat ? 'threat' : (d.is_new ? 'new' : 'baseline')}">
+                        <div class="tscm-device-name">${escapeHtml(d.name || 'Unknown')}</div>
+                        <div class="tscm-device-meta">
+                            <span>${d.mac}</span>
+                            <span>${d.rssi || '--'} dBm</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('tscmBtCount').textContent = tscmBtDevices.length;
+
+            // Update threats list
+            const threatList = document.getElementById('tscmThreatList');
+            if (tscmThreats.length === 0) {
+                threatList.innerHTML = '<div class="tscm-empty">No threats detected</div>';
+            } else {
+                threatList.innerHTML = '<div class="tscm-threat-list">' + tscmThreats.map(t => `
+                    <div class="tscm-threat-item ${t.severity}">
+                        <div class="tscm-threat-header">
+                            <span class="tscm-threat-type">${escapeHtml(t.threat_type || 'Unknown')}</span>
+                            <span class="tscm-threat-severity">${t.severity}</span>
+                        </div>
+                        <div class="tscm-threat-details">
+                            <strong>${escapeHtml(t.name || t.identifier)}</strong><br>
+                            Source: ${t.source} | Signal: ${t.signal_strength || '--'} dBm
+                        </div>
+                    </div>
+                `).join('') + '</div>';
+            }
+        }
+
+        function completeTscmSweep(data) {
+            isTscmRunning = false;
+            if (tscmEventSource) {
+                tscmEventSource.close();
+                tscmEventSource = null;
+            }
+
+            document.getElementById('startTscmBtn').style.display = 'block';
+            document.getElementById('stopTscmBtn').style.display = 'none';
+            document.getElementById('tscmProgress').style.display = 'none';
+            document.getElementById('tscmProgressLabel').textContent = 'Sweep Complete';
+            document.getElementById('tscmProgressPercent').textContent = '100%';
+            document.getElementById('tscmProgressBar').style.width = '100%';
+
+            // Final update of counts
+            updateTscmThreatCounts();
+        }
+
+        async function tscmRecordBaseline() {
+            const name = document.getElementById('tscmBaselineName').value ||
+                         `Baseline ${new Date().toLocaleString()}`;
+
+            try {
+                const response = await fetch('/tscm/baseline/record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    isRecordingBaseline = true;
+                    document.getElementById('tscmRecordBaselineBtn').style.display = 'none';
+                    document.getElementById('tscmStopBaselineBtn').style.display = 'block';
+                    document.getElementById('tscmBaselineStatus').textContent = 'Recording baseline...';
+                    document.getElementById('tscmBaselineStatus').style.color = '#ff9933';
+                } else {
+                    alert(data.message || 'Failed to start baseline recording');
+                }
+            } catch (e) {
+                console.error('Failed to start baseline:', e);
+                alert('Failed to start baseline recording');
+            }
+        }
+
+        async function tscmStopBaseline() {
+            try {
+                const response = await fetch('/tscm/baseline/stop', { method: 'POST' });
+                const data = await response.json();
+
+                isRecordingBaseline = false;
+                document.getElementById('tscmRecordBaselineBtn').style.display = 'block';
+                document.getElementById('tscmStopBaselineBtn').style.display = 'none';
+
+                if (data.status === 'success') {
+                    document.getElementById('tscmBaselineStatus').textContent =
+                        `Baseline saved: ${data.wifi_count} WiFi, ${data.bt_count} BT, ${data.rf_count} RF`;
+                    document.getElementById('tscmBaselineStatus').style.color = '#00ff88';
+                    loadTscmBaselines();
+                } else {
+                    document.getElementById('tscmBaselineStatus').textContent = data.message || 'Recording stopped';
+                    document.getElementById('tscmBaselineStatus').style.color = 'var(--text-muted)';
+                }
+            } catch (e) {
+                console.error('Failed to stop baseline:', e);
+                document.getElementById('tscmBaselineStatus').textContent = 'Error stopping baseline';
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
     </script>
 
     <!-- Scanner/Audio code moved to static/js/modes/listening-post.js -->

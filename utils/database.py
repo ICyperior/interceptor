@@ -100,6 +100,100 @@ def init_db() -> None:
             )
         ''')
 
+        # =====================================================================
+        # TSCM (Technical Surveillance Countermeasures) Tables
+        # =====================================================================
+
+        # TSCM Baselines - Environment snapshots for comparison
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_baselines (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                location TEXT,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                wifi_networks TEXT,
+                bt_devices TEXT,
+                rf_frequencies TEXT,
+                gps_coords TEXT,
+                is_active BOOLEAN DEFAULT 0
+            )
+        ''')
+
+        # TSCM Sweeps - Individual sweep sessions
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_sweeps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                baseline_id INTEGER,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                status TEXT DEFAULT 'running',
+                sweep_type TEXT,
+                wifi_enabled BOOLEAN DEFAULT 1,
+                bt_enabled BOOLEAN DEFAULT 1,
+                rf_enabled BOOLEAN DEFAULT 1,
+                results TEXT,
+                anomalies TEXT,
+                threats_found INTEGER DEFAULT 0,
+                FOREIGN KEY (baseline_id) REFERENCES tscm_baselines(id)
+            )
+        ''')
+
+        # TSCM Threats - Detected threats/anomalies
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_threats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sweep_id INTEGER,
+                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                threat_type TEXT NOT NULL,
+                severity TEXT DEFAULT 'medium',
+                source TEXT,
+                identifier TEXT,
+                name TEXT,
+                signal_strength INTEGER,
+                frequency REAL,
+                details TEXT,
+                acknowledged BOOLEAN DEFAULT 0,
+                notes TEXT,
+                gps_coords TEXT,
+                FOREIGN KEY (sweep_id) REFERENCES tscm_sweeps(id)
+            )
+        ''')
+
+        # TSCM Scheduled Sweeps
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                baseline_id INTEGER,
+                zone_name TEXT,
+                cron_expression TEXT,
+                sweep_type TEXT DEFAULT 'standard',
+                enabled BOOLEAN DEFAULT 1,
+                last_run TIMESTAMP,
+                next_run TIMESTAMP,
+                notify_on_threat BOOLEAN DEFAULT 1,
+                notify_email TEXT,
+                FOREIGN KEY (baseline_id) REFERENCES tscm_baselines(id)
+            )
+        ''')
+
+        # TSCM indexes for performance
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tscm_threats_sweep
+            ON tscm_threats(sweep_id)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tscm_threats_severity
+            ON tscm_threats(severity, detected_at)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tscm_sweeps_baseline
+            ON tscm_sweeps(baseline_id)
+        ''')
+
         logger.info("Database initialized successfully")
 
 
@@ -349,3 +443,353 @@ def get_correlations(min_confidence: float = 0.5) -> list[dict]:
             })
 
         return results
+
+
+# =============================================================================
+# TSCM Functions
+# =============================================================================
+
+def create_tscm_baseline(
+    name: str,
+    location: str | None = None,
+    description: str | None = None,
+    wifi_networks: list | None = None,
+    bt_devices: list | None = None,
+    rf_frequencies: list | None = None,
+    gps_coords: dict | None = None
+) -> int:
+    """
+    Create a new TSCM baseline.
+
+    Returns:
+        The ID of the created baseline
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_baselines
+            (name, location, description, wifi_networks, bt_devices, rf_frequencies, gps_coords)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            name,
+            location,
+            description,
+            json.dumps(wifi_networks) if wifi_networks else None,
+            json.dumps(bt_devices) if bt_devices else None,
+            json.dumps(rf_frequencies) if rf_frequencies else None,
+            json.dumps(gps_coords) if gps_coords else None
+        ))
+        return cursor.lastrowid
+
+
+def get_tscm_baseline(baseline_id: int) -> dict | None:
+    """Get a specific TSCM baseline by ID."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT * FROM tscm_baselines WHERE id = ?
+        ''', (baseline_id,))
+        row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            'id': row['id'],
+            'name': row['name'],
+            'location': row['location'],
+            'description': row['description'],
+            'created_at': row['created_at'],
+            'wifi_networks': json.loads(row['wifi_networks']) if row['wifi_networks'] else [],
+            'bt_devices': json.loads(row['bt_devices']) if row['bt_devices'] else [],
+            'rf_frequencies': json.loads(row['rf_frequencies']) if row['rf_frequencies'] else [],
+            'gps_coords': json.loads(row['gps_coords']) if row['gps_coords'] else None,
+            'is_active': bool(row['is_active'])
+        }
+
+
+def get_all_tscm_baselines() -> list[dict]:
+    """Get all TSCM baselines."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT id, name, location, description, created_at, is_active
+            FROM tscm_baselines
+            ORDER BY created_at DESC
+        ''')
+
+        return [dict(row) for row in cursor]
+
+
+def get_active_tscm_baseline() -> dict | None:
+    """Get the currently active TSCM baseline."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT * FROM tscm_baselines WHERE is_active = 1 LIMIT 1
+        ''')
+        row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return get_tscm_baseline(row['id'])
+
+
+def set_active_tscm_baseline(baseline_id: int) -> bool:
+    """Set a baseline as active (deactivates others)."""
+    with get_db() as conn:
+        # Deactivate all
+        conn.execute('UPDATE tscm_baselines SET is_active = 0')
+        # Activate selected
+        cursor = conn.execute(
+            'UPDATE tscm_baselines SET is_active = 1 WHERE id = ?',
+            (baseline_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def update_tscm_baseline(
+    baseline_id: int,
+    wifi_networks: list | None = None,
+    bt_devices: list | None = None,
+    rf_frequencies: list | None = None
+) -> bool:
+    """Update baseline device lists."""
+    updates = []
+    params = []
+
+    if wifi_networks is not None:
+        updates.append('wifi_networks = ?')
+        params.append(json.dumps(wifi_networks))
+    if bt_devices is not None:
+        updates.append('bt_devices = ?')
+        params.append(json.dumps(bt_devices))
+    if rf_frequencies is not None:
+        updates.append('rf_frequencies = ?')
+        params.append(json.dumps(rf_frequencies))
+
+    if not updates:
+        return False
+
+    params.append(baseline_id)
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            f'UPDATE tscm_baselines SET {", ".join(updates)} WHERE id = ?',
+            params
+        )
+        return cursor.rowcount > 0
+
+
+def delete_tscm_baseline(baseline_id: int) -> bool:
+    """Delete a TSCM baseline."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'DELETE FROM tscm_baselines WHERE id = ?',
+            (baseline_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def create_tscm_sweep(
+    sweep_type: str,
+    baseline_id: int | None = None,
+    wifi_enabled: bool = True,
+    bt_enabled: bool = True,
+    rf_enabled: bool = True
+) -> int:
+    """
+    Create a new TSCM sweep session.
+
+    Returns:
+        The ID of the created sweep
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_sweeps
+            (baseline_id, sweep_type, wifi_enabled, bt_enabled, rf_enabled)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (baseline_id, sweep_type, wifi_enabled, bt_enabled, rf_enabled))
+        return cursor.lastrowid
+
+
+def update_tscm_sweep(
+    sweep_id: int,
+    status: str | None = None,
+    results: dict | None = None,
+    anomalies: list | None = None,
+    threats_found: int | None = None,
+    completed: bool = False
+) -> bool:
+    """Update a TSCM sweep."""
+    updates = []
+    params = []
+
+    if status is not None:
+        updates.append('status = ?')
+        params.append(status)
+    if results is not None:
+        updates.append('results = ?')
+        params.append(json.dumps(results))
+    if anomalies is not None:
+        updates.append('anomalies = ?')
+        params.append(json.dumps(anomalies))
+    if threats_found is not None:
+        updates.append('threats_found = ?')
+        params.append(threats_found)
+    if completed:
+        updates.append('completed_at = CURRENT_TIMESTAMP')
+
+    if not updates:
+        return False
+
+    params.append(sweep_id)
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            f'UPDATE tscm_sweeps SET {", ".join(updates)} WHERE id = ?',
+            params
+        )
+        return cursor.rowcount > 0
+
+
+def get_tscm_sweep(sweep_id: int) -> dict | None:
+    """Get a specific TSCM sweep by ID."""
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM tscm_sweeps WHERE id = ?', (sweep_id,))
+        row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            'id': row['id'],
+            'baseline_id': row['baseline_id'],
+            'started_at': row['started_at'],
+            'completed_at': row['completed_at'],
+            'status': row['status'],
+            'sweep_type': row['sweep_type'],
+            'wifi_enabled': bool(row['wifi_enabled']),
+            'bt_enabled': bool(row['bt_enabled']),
+            'rf_enabled': bool(row['rf_enabled']),
+            'results': json.loads(row['results']) if row['results'] else None,
+            'anomalies': json.loads(row['anomalies']) if row['anomalies'] else [],
+            'threats_found': row['threats_found']
+        }
+
+
+def add_tscm_threat(
+    sweep_id: int,
+    threat_type: str,
+    severity: str,
+    source: str,
+    identifier: str,
+    name: str | None = None,
+    signal_strength: int | None = None,
+    frequency: float | None = None,
+    details: dict | None = None,
+    gps_coords: dict | None = None
+) -> int:
+    """
+    Add a detected threat to a TSCM sweep.
+
+    Returns:
+        The ID of the created threat
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_threats
+            (sweep_id, threat_type, severity, source, identifier, name,
+             signal_strength, frequency, details, gps_coords)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            sweep_id, threat_type, severity, source, identifier, name,
+            signal_strength, frequency,
+            json.dumps(details) if details else None,
+            json.dumps(gps_coords) if gps_coords else None
+        ))
+        return cursor.lastrowid
+
+
+def get_tscm_threats(
+    sweep_id: int | None = None,
+    severity: str | None = None,
+    acknowledged: bool | None = None,
+    limit: int = 100
+) -> list[dict]:
+    """Get TSCM threats with optional filters."""
+    conditions = []
+    params = []
+
+    if sweep_id is not None:
+        conditions.append('sweep_id = ?')
+        params.append(sweep_id)
+    if severity is not None:
+        conditions.append('severity = ?')
+        params.append(severity)
+    if acknowledged is not None:
+        conditions.append('acknowledged = ?')
+        params.append(1 if acknowledged else 0)
+
+    where_clause = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+    params.append(limit)
+
+    with get_db() as conn:
+        cursor = conn.execute(f'''
+            SELECT * FROM tscm_threats
+            {where_clause}
+            ORDER BY detected_at DESC
+            LIMIT ?
+        ''', params)
+
+        results = []
+        for row in cursor:
+            results.append({
+                'id': row['id'],
+                'sweep_id': row['sweep_id'],
+                'detected_at': row['detected_at'],
+                'threat_type': row['threat_type'],
+                'severity': row['severity'],
+                'source': row['source'],
+                'identifier': row['identifier'],
+                'name': row['name'],
+                'signal_strength': row['signal_strength'],
+                'frequency': row['frequency'],
+                'details': json.loads(row['details']) if row['details'] else None,
+                'acknowledged': bool(row['acknowledged']),
+                'notes': row['notes'],
+                'gps_coords': json.loads(row['gps_coords']) if row['gps_coords'] else None
+            })
+
+        return results
+
+
+def acknowledge_tscm_threat(threat_id: int, notes: str | None = None) -> bool:
+    """Acknowledge a TSCM threat."""
+    with get_db() as conn:
+        if notes:
+            cursor = conn.execute(
+                'UPDATE tscm_threats SET acknowledged = 1, notes = ? WHERE id = ?',
+                (notes, threat_id)
+            )
+        else:
+            cursor = conn.execute(
+                'UPDATE tscm_threats SET acknowledged = 1 WHERE id = ?',
+                (threat_id,)
+            )
+        return cursor.rowcount > 0
+
+
+def get_tscm_threat_summary() -> dict:
+    """Get summary counts of threats by severity."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT severity, COUNT(*) as count
+            FROM tscm_threats
+            WHERE acknowledged = 0
+            GROUP BY severity
+        ''')
+
+        summary = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0}
+        for row in cursor:
+            summary[row['severity']] = row['count']
+            summary['total'] += row['count']
+
+        return summary

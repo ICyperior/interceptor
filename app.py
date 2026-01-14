@@ -114,6 +114,10 @@ aprs_rtl_process = None
 aprs_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 aprs_lock = threading.Lock()
 
+# TSCM (Technical Surveillance Countermeasures)
+tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+tscm_lock = threading.Lock()
+
 # ============================================
 # GLOBAL STATE DICTIONARIES
 # ============================================

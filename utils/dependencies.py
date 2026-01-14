@@ -311,6 +311,56 @@ TOOL_DEPENDENCIES = {
                 }
             }
         }
+    },
+    'tscm': {
+        'name': 'TSCM Counter-Surveillance',
+        'tools': {
+            'rtl_power': {
+                'required': False,
+                'description': 'Wideband spectrum sweep for RF analysis',
+                'install': {
+                    'apt': 'sudo apt install rtl-sdr',
+                    'brew': 'brew install librtlsdr',
+                    'manual': 'https://osmocom.org/projects/rtl-sdr/wiki'
+                }
+            },
+            'rtl_fm': {
+                'required': True,
+                'description': 'RF signal demodulation',
+                'install': {
+                    'apt': 'sudo apt install rtl-sdr',
+                    'brew': 'brew install librtlsdr',
+                    'manual': 'https://osmocom.org/projects/rtl-sdr/wiki'
+                }
+            },
+            'rtl_433': {
+                'required': False,
+                'description': 'ISM band device decoding',
+                'install': {
+                    'apt': 'sudo apt install rtl-433',
+                    'brew': 'brew install rtl_433',
+                    'manual': 'https://github.com/merbanan/rtl_433'
+                }
+            },
+            'airmon-ng': {
+                'required': False,
+                'description': 'WiFi monitor mode for network scanning',
+                'install': {
+                    'apt': 'sudo apt install aircrack-ng',
+                    'brew': 'Not available on macOS',
+                    'manual': 'https://aircrack-ng.org'
+                }
+            },
+            'bluetoothctl': {
+                'required': False,
+                'description': 'Bluetooth device scanning',
+                'install': {
+                    'apt': 'sudo apt install bluez',
+                    'brew': 'Not available on macOS (use native)',
+                    'manual': 'http://www.bluez.org'
+                }
+            }
+        }
     }
 }
 
