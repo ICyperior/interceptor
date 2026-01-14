@@ -2370,6 +2370,72 @@
                     .tscm-device-item {
                         cursor: pointer;
                     }
+                    .tscm-device-item:hover {
+                        background: rgba(255, 255, 255, 0.05);
+                    }
+                    .threat-card.clickable {
+                        cursor: pointer;
+                        transition: transform 0.2s, box-shadow 0.2s;
+                    }
+                    .threat-card.clickable:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    }
+                    .category-device-list {
+                        max-height: 400px;
+                        overflow-y: auto;
+                    }
+                    .category-device-item {
+                        padding: 12px 16px;
+                        border-bottom: 1px solid var(--border-color);
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    }
+                    .category-device-item:hover {
+                        background: rgba(255, 255, 255, 0.05);
+                    }
+                    .category-device-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .category-device-name {
+                        font-weight: 600;
+                        font-size: 13px;
+                    }
+                    .category-device-score {
+                        background: rgba(255, 255, 255, 0.1);
+                        padding: 2px 8px;
+                        border-radius: 10px;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+                    .category-device-meta {
+                        display: flex;
+                        gap: 6px;
+                        margin-top: 6px;
+                    }
+                    .protocol-badge {
+                        font-size: 9px;
+                        padding: 2px 6px;
+                        background: rgba(74, 158, 255, 0.2);
+                        color: #4a9eff;
+                        border-radius: 3px;
+                        text-transform: uppercase;
+                    }
+                    .indicator-mini {
+                        font-size: 9px;
+                        padding: 2px 6px;
+                        background: rgba(255, 153, 51, 0.2);
+                        color: #ff9933;
+                        border-radius: 3px;
+                    }
+                    .correlation-detail-item {
+                        padding: 12px;
+                        background: rgba(0, 0, 0, 0.2);
+                        border-radius: 6px;
+                        margin-bottom: 8px;
+                    }
                     .tscm-threat-list {
                         display: flex;
                         flex-direction: column;
@@ -2539,21 +2605,21 @@
                         No content is intercepted or decoded. Professional verification required.
                     </div>
 
-                    <!-- Risk Summary Banner (new scoring model) -->
+                    <!-- Risk Summary Banner (new scoring model) - clickable cards -->
                     <div class="tscm-threat-banner">
-                        <div class="threat-card critical" id="tscmHighInterestCard">
+                        <div class="threat-card critical clickable" id="tscmHighInterestCard" onclick="showDevicesByCategory('high_interest')" title="Click to view high interest devices">
                             <span class="count" id="tscmHighInterestCount">0</span>
                             <span class="label">High Interest</span>
                         </div>
-                        <div class="threat-card high" id="tscmNeedsReviewCard">
+                        <div class="threat-card high clickable" id="tscmNeedsReviewCard" onclick="showDevicesByCategory('review')" title="Click to view devices needing review">
                             <span class="count" id="tscmNeedsReviewCount">0</span>
                             <span class="label">Needs Review</span>
                         </div>
-                        <div class="threat-card low" id="tscmInformationalCard">
+                        <div class="threat-card low clickable" id="tscmInformationalCard" onclick="showDevicesByCategory('informational')" title="Click to view informational devices">
                             <span class="count" id="tscmInformationalCount">0</span>
                             <span class="label">Informational</span>
                         </div>
-                        <div class="threat-card medium" id="tscmCorrelationsCard">
+                        <div class="threat-card medium clickable" id="tscmCorrelationsCard" onclick="showDevicesByCategory('correlations')" title="Click to view correlations">
                             <span class="count" id="tscmCorrelationsCount">0</span>
                             <span class="label">Correlations</span>
                         </div>
@@ -10238,8 +10304,8 @@
                 tscmWifiDevices.push(device);
                 updateTscmDisplays();
                 updateTscmThreatCounts();
-                // Add to high interest if score >= 6
-                if (device.score >= 6) {
+                // Add to findings panel if score >= 3 (review level or higher)
+                if (device.score >= 3) {
                     addHighInterestDevice(device, 'wifi');
                 }
             }
@@ -10252,8 +10318,8 @@
                 tscmBtDevices.push(device);
                 updateTscmDisplays();
                 updateTscmThreatCounts();
-                // Add to high interest if score >= 6
-                if (device.score >= 6) {
+                // Add to threats panel if score >= 3 (review level or higher)
+                if (device.score >= 3) {
                     addHighInterestDevice(device, 'bluetooth');
                 }
             }
@@ -10267,8 +10333,8 @@
                 tscmRfSignals.push(signal);
                 updateTscmDisplays();
                 updateTscmThreatCounts();
-                // Add to high interest if score >= 6
-                if (signal.score >= 6) {
+                // Add to findings panel if score >= 3 (review level or higher)
+                if (signal.score >= 3) {
                     addHighInterestDevice(signal, 'rf');
                 }
             }
@@ -10297,21 +10363,28 @@
         function updateHighInterestPanel() {
             const panel = document.getElementById('tscmThreatList');
             if (tscmHighInterestDevices.length === 0) {
-                panel.innerHTML = '<div class="tscm-empty">No high-interest devices detected</div>';
+                panel.innerHTML = '<div class="tscm-empty">No flagged findings yet</div>';
             } else {
-                panel.innerHTML = '<div class="tscm-threat-list">' + tscmHighInterestDevices.map(d => `
-                    <div class="tscm-threat-item critical" onclick="showDeviceDetails('${d.id}', '${d.protocol}')">
+                // Sort by score (highest first)
+                const sorted = [...tscmHighInterestDevices].sort((a, b) => b.score - a.score);
+                panel.innerHTML = '<div class="tscm-threat-list">' + sorted.map(d => {
+                    const severityClass = d.score >= 6 ? 'critical' : d.score >= 4 ? 'high' : 'medium';
+                    return `
+                    <div class="tscm-threat-item ${severityClass}" onclick="showDeviceDetails('${d.id}', '${d.protocol}')">
                         <div class="tscm-threat-header">
                             <span class="tscm-threat-type">${d.protocol.toUpperCase()}</span>
                             <span class="tscm-threat-severity">Score: ${d.score}</span>
                         </div>
                         <div class="tscm-threat-details">
                             <strong>${escapeHtml(d.name)}</strong><br>
-                            ${d.indicators.slice(0, 2).map(i => i.desc || i.type).join(' | ')}
+                            <span style="font-size: 10px; color: var(--text-muted);">
+                            ${d.indicators && d.indicators.length > 0 ? d.indicators.slice(0, 2).map(i => i.desc || i.type).join(' | ') : 'Review recommended'}
+                            </span>
                         </div>
-                        <div class="tscm-threat-action">${d.recommended_action || 'investigate'}</div>
+                        <div class="tscm-threat-action">${d.recommended_action || 'review'}</div>
                     </div>
-                `).join('') + '</div>';
+                    `;
+                }).join('') + '</div>';
             }
         }
 
@@ -10535,6 +10608,110 @@
 
         function closeTscmDeviceModal() {
             document.getElementById('tscmDeviceModal').style.display = 'none';
+        }
+
+        function showDevicesByCategory(category) {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            let devices = [];
+            let title = '';
+            let titleClass = '';
+
+            if (category === 'correlations') {
+                // Show correlations
+                title = 'Cross-Protocol Correlations';
+                titleClass = 'classification-yellow';
+
+                if (tscmCorrelations.length === 0) {
+                    content.innerHTML = `
+                        <div class="device-detail-header ${titleClass}">
+                            <h3>${title}</h3>
+                        </div>
+                        <div class="device-detail-section">
+                            <p style="text-align: center; color: var(--text-muted);">No correlations detected yet.</p>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `
+                        <div class="device-detail-header ${titleClass}">
+                            <h3>${title} (${tscmCorrelations.length})</h3>
+                        </div>
+                        <div class="device-detail-section">
+                            ${tscmCorrelations.map(c => `
+                                <div class="correlation-detail-item">
+                                    <strong>${escapeHtml(c.description || 'Cross-protocol match')}</strong>
+                                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                        Protocols: ${(c.protocols || []).join(', ')}<br>
+                                        Devices: ${(c.devices || []).join(', ')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                modal.style.display = 'flex';
+                return;
+            }
+
+            // Filter devices by classification
+            const allDevices = [
+                ...tscmWifiDevices.map(d => ({...d, protocol: 'wifi', id: d.bssid})),
+                ...tscmBtDevices.map(d => ({...d, protocol: 'bluetooth', id: d.mac})),
+                ...tscmRfSignals.map(d => ({...d, protocol: 'rf', id: d.frequency}))
+            ];
+
+            if (category === 'high_interest') {
+                devices = allDevices.filter(d => d.classification === 'high_interest');
+                title = 'High Interest Devices';
+                titleClass = 'classification-red';
+            } else if (category === 'review') {
+                devices = allDevices.filter(d => d.classification === 'review');
+                title = 'Devices Needing Review';
+                titleClass = 'classification-yellow';
+            } else if (category === 'informational') {
+                devices = allDevices.filter(d => d.classification === 'informational');
+                title = 'Informational Devices';
+                titleClass = 'classification-green';
+            }
+
+            // Sort by score descending
+            devices.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+            if (devices.length === 0) {
+                content.innerHTML = `
+                    <div class="device-detail-header ${titleClass}">
+                        <h3>${title}</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        <p style="text-align: center; color: var(--text-muted);">No devices in this category.</p>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="device-detail-header ${titleClass}">
+                        <h3>${title} (${devices.length})</h3>
+                    </div>
+                    <div class="category-device-list">
+                        ${devices.map(d => `
+                            <div class="category-device-item" onclick="event.stopPropagation(); showDeviceDetails('${d.id}', '${d.protocol}')">
+                                <div class="category-device-header">
+                                    <span class="category-device-name">
+                                        ${getClassificationIcon(d.classification)}
+                                        ${escapeHtml(d.name || d.ssid || d.mac || d.bssid || d.frequency + ' MHz')}
+                                    </span>
+                                    <span class="category-device-score">${d.score || 0}</span>
+                                </div>
+                                <div class="category-device-meta">
+                                    <span class="protocol-badge">${d.protocol}</span>
+                                    ${d.indicators ? d.indicators.slice(0, 2).map(i => `<span class="indicator-mini">${i.type}</span>`).join('') : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            modal.style.display = 'flex';
         }
 
         function updateTscmDisplays() {
