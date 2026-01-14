@@ -447,8 +447,62 @@ class CorrelationEngine:
         mac_prefix = mac[:8] if len(mac) >= 8 else ''
         tracker_detected = False
 
-        # Check for Apple AirTag
-        if mac_prefix in TRACKER_SIGNATURES.get('airtag_oui', []):
+        # Check for tracker flags from BLE scanner (manufacturer ID detection)
+        if device.get('is_airtag'):
+            profile.add_indicator(
+                IndicatorType.AIRTAG_DETECTED,
+                'Apple AirTag detected via manufacturer data',
+                {'mac': mac, 'tracker_type': 'AirTag'}
+            )
+            profile.device_type = device.get('tracker_type', 'AirTag')
+            tracker_detected = True
+
+        if device.get('is_tile'):
+            profile.add_indicator(
+                IndicatorType.TILE_DETECTED,
+                'Tile tracker detected via manufacturer data',
+                {'mac': mac, 'tracker_type': 'Tile'}
+            )
+            profile.device_type = 'Tile Tracker'
+            tracker_detected = True
+
+        if device.get('is_smarttag'):
+            profile.add_indicator(
+                IndicatorType.SMARTTAG_DETECTED,
+                'Samsung SmartTag detected via manufacturer data',
+                {'mac': mac, 'tracker_type': 'SmartTag'}
+            )
+            profile.device_type = 'Samsung SmartTag'
+            tracker_detected = True
+
+        if device.get('is_espressif'):
+            profile.add_indicator(
+                IndicatorType.ESP32_DEVICE,
+                'ESP32/ESP8266 detected via Espressif manufacturer ID',
+                {'mac': mac, 'chipset': 'Espressif'}
+            )
+            profile.manufacturer = 'Espressif'
+            profile.device_type = device.get('tracker_type', 'ESP32/ESP8266')
+            tracker_detected = True
+
+        # Check manufacturer_id directly
+        mfg_id = device.get('manufacturer_id')
+        if mfg_id:
+            if mfg_id == 0x004C and not device.get('is_airtag'):
+                # Apple device - could be AirTag
+                profile.manufacturer = 'Apple'
+            elif mfg_id == 0x02E5 and not device.get('is_espressif'):
+                # Espressif device
+                profile.add_indicator(
+                    IndicatorType.ESP32_DEVICE,
+                    'ESP32/ESP8266 detected via manufacturer ID',
+                    {'mac': mac, 'manufacturer_id': mfg_id}
+                )
+                profile.manufacturer = 'Espressif'
+                tracker_detected = True
+
+        # Fallback: Check for Apple AirTag by OUI
+        if not tracker_detected and mac_prefix in TRACKER_SIGNATURES.get('airtag_oui', []):
             profile.add_indicator(
                 IndicatorType.AIRTAG_DETECTED,
                 'Apple AirTag detected - potential tracking device',

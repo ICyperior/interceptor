@@ -763,7 +763,12 @@ def _scan_wifi_networks(interface: str) -> list[dict]:
 
 
 def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
-    """Scan for Bluetooth devices using system tools."""
+    """
+    Scan for Bluetooth devices with manufacturer data detection.
+
+    Uses the BLE scanner module (bleak library) for proper manufacturer ID
+    detection, with fallback to system tools if bleak is unavailable.
+    """
     import platform
     import os
     import re
@@ -774,6 +779,47 @@ def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
     seen_macs = set()
 
     logger.info(f"Starting Bluetooth scan (duration={duration}s, interface={interface})")
+
+    # Try the BLE scanner module first (uses bleak for proper manufacturer detection)
+    try:
+        from utils.tscm.ble_scanner import get_ble_scanner, scan_ble_devices
+
+        logger.info("Using BLE scanner module with manufacturer detection")
+        ble_devices = scan_ble_devices(duration)
+
+        for ble_dev in ble_devices:
+            mac = ble_dev.get('mac', '').upper()
+            if mac and mac not in seen_macs:
+                seen_macs.add(mac)
+
+                device = {
+                    'mac': mac,
+                    'name': ble_dev.get('name', 'Unknown'),
+                    'rssi': ble_dev.get('rssi'),
+                    'type': 'ble',
+                    'manufacturer': ble_dev.get('manufacturer_name'),
+                    'manufacturer_id': ble_dev.get('manufacturer_id'),
+                    'is_tracker': ble_dev.get('is_tracker', False),
+                    'tracker_type': ble_dev.get('tracker_type'),
+                    'is_airtag': ble_dev.get('is_airtag', False),
+                    'is_tile': ble_dev.get('is_tile', False),
+                    'is_smarttag': ble_dev.get('is_smarttag', False),
+                    'is_espressif': ble_dev.get('is_espressif', False),
+                    'service_uuids': ble_dev.get('service_uuids', []),
+                }
+                devices.append(device)
+
+        if devices:
+            logger.info(f"BLE scanner found {len(devices)} devices")
+            trackers = [d for d in devices if d.get('is_tracker')]
+            if trackers:
+                logger.info(f"Trackers detected: {[d.get('tracker_type') for d in trackers]}")
+            return devices
+
+    except ImportError:
+        logger.warning("BLE scanner module not available, using fallback")
+    except Exception as e:
+        logger.warning(f"BLE scanner failed: {e}, using fallback")
 
     if platform.system() == 'Darwin':
         # macOS: Use system_profiler for basic Bluetooth info
@@ -1820,3 +1866,298 @@ def _generate_assessment(summary: dict) -> str:
             "BASELINE ENVIRONMENT: No significant anomalies detected. "
             "Environment appears consistent with expected wireless activity."
         )
+
+
+# =============================================================================
+# Device Identity Endpoints (MAC-Randomization Resistant Detection)
+# =============================================================================
+
+@tscm_bp.route('/identity/ingest/ble', methods=['POST'])
+def ingest_ble_observation():
+    """
+    Ingest a BLE observation for device identity clustering.
+
+    This endpoint accepts BLE advertisement data and feeds it into the
+    MAC-randomization resistant device detection engine.
+
+    Expected JSON payload:
+    {
+        "timestamp": "2024-01-01T12:00:00",  // ISO format or omit for now
+        "addr": "AA:BB:CC:DD:EE:FF",         // BLE address (may be randomized)
+        "addr_type": "rpa",                   // public/random_static/rpa/nrpa/unknown
+        "rssi": -65,                          // dBm
+        "tx_power": -10,                      // dBm (optional)
+        "adv_type": "ADV_IND",               // Advertisement type
+        "manufacturer_id": 1234,              // Company ID (optional)
+        "manufacturer_data": "0102030405",   // Hex string (optional)
+        "service_uuids": ["uuid1", "uuid2"], // List of UUIDs (optional)
+        "local_name": "Device Name",          // Advertised name (optional)
+        "appearance": 960,                    // BLE appearance (optional)
+        "packet_length": 31                   // Total packet length (optional)
+    }
+    """
+    try:
+        from utils.tscm.device_identity import ingest_ble_dict
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+        session = ingest_ble_dict(data)
+
+        return jsonify({
+            'status': 'success',
+            'session_id': session.session_id,
+            'observation_count': len(session.observations),
+        })
+
+    except Exception as e:
+        logger.error(f"BLE ingestion error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/ingest/wifi', methods=['POST'])
+def ingest_wifi_observation():
+    """
+    Ingest a WiFi observation for device identity clustering.
+
+    Expected JSON payload:
+    {
+        "timestamp": "2024-01-01T12:00:00",
+        "src_mac": "AA:BB:CC:DD:EE:FF",       // Client MAC (may be randomized)
+        "dst_mac": "11:22:33:44:55:66",       // Destination MAC
+        "bssid": "11:22:33:44:55:66",         // AP BSSID
+        "ssid": "NetworkName",                 // SSID if available
+        "frame_type": "probe_request",        // Frame type
+        "rssi": -70,                          // dBm
+        "channel": 6,                         // WiFi channel
+        "ht_capable": true,                   // 802.11n capable
+        "vht_capable": true,                  // 802.11ac capable
+        "he_capable": false,                  // 802.11ax capable
+        "supported_rates": [1, 2, 5.5, 11],  // Supported rates
+        "vendor_ies": [["001122", 10]],      // [(OUI, length), ...]
+        "probed_ssids": ["ssid1", "ssid2"]   // For probe requests
+    }
+    """
+    try:
+        from utils.tscm.device_identity import ingest_wifi_dict
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+        session = ingest_wifi_dict(data)
+
+        return jsonify({
+            'status': 'success',
+            'session_id': session.session_id,
+            'observation_count': len(session.observations),
+        })
+
+    except Exception as e:
+        logger.error(f"WiFi ingestion error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/ingest/batch', methods=['POST'])
+def ingest_batch_observations():
+    """
+    Ingest multiple observations in a single request.
+
+    Expected JSON payload:
+    {
+        "ble": [<ble_observation>, ...],
+        "wifi": [<wifi_observation>, ...]
+    }
+    """
+    try:
+        from utils.tscm.device_identity import ingest_ble_dict, ingest_wifi_dict
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+        ble_count = 0
+        wifi_count = 0
+
+        for ble_obs in data.get('ble', []):
+            ingest_ble_dict(ble_obs)
+            ble_count += 1
+
+        for wifi_obs in data.get('wifi', []):
+            ingest_wifi_dict(wifi_obs)
+            wifi_count += 1
+
+        return jsonify({
+            'status': 'success',
+            'ble_ingested': ble_count,
+            'wifi_ingested': wifi_count,
+        })
+
+    except Exception as e:
+        logger.error(f"Batch ingestion error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/clusters')
+def get_device_clusters():
+    """
+    Get all device clusters (probable physical device identities).
+
+    Query parameters:
+    - min_confidence: Minimum cluster confidence (0-1, default 0)
+    - protocol: Filter by protocol ('ble' or 'wifi')
+    - risk_level: Filter by risk level ('high', 'medium', 'low', 'informational')
+    """
+    try:
+        from utils.tscm.device_identity import get_identity_engine
+
+        engine = get_identity_engine()
+        min_conf = request.args.get('min_confidence', 0, type=float)
+        protocol = request.args.get('protocol')
+        risk_filter = request.args.get('risk_level')
+
+        clusters = engine.get_clusters(min_confidence=min_conf)
+
+        if protocol:
+            clusters = [c for c in clusters if c.protocol == protocol]
+
+        if risk_filter:
+            clusters = [c for c in clusters if c.risk_level.value == risk_filter]
+
+        return jsonify({
+            'status': 'success',
+            'count': len(clusters),
+            'clusters': [c.to_dict() for c in clusters],
+            'disclaimer': (
+                "Clusters represent PROBABLE device identities based on passive "
+                "fingerprinting. Results are statistical correlations, not "
+                "confirmed matches. False positives/negatives are expected."
+            )
+        })
+
+    except Exception as e:
+        logger.error(f"Get clusters error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/clusters/high-risk')
+def get_high_risk_clusters():
+    """Get device clusters with HIGH risk level."""
+    try:
+        from utils.tscm.device_identity import get_identity_engine
+
+        engine = get_identity_engine()
+        clusters = engine.get_high_risk_clusters()
+
+        return jsonify({
+            'status': 'success',
+            'count': len(clusters),
+            'clusters': [c.to_dict() for c in clusters],
+            'disclaimer': (
+                "High-risk classification indicates multiple behavioral indicators "
+                "consistent with potential surveillance devices. This does NOT "
+                "confirm surveillance activity. Professional verification required."
+            )
+        })
+
+    except Exception as e:
+        logger.error(f"Get high-risk clusters error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/summary')
+def get_identity_summary():
+    """
+    Get summary of device identity analysis.
+
+    Returns statistics, cluster counts by risk level, and monitoring period.
+    """
+    try:
+        from utils.tscm.device_identity import get_identity_engine
+
+        engine = get_identity_engine()
+        summary = engine.get_summary()
+
+        return jsonify({
+            'status': 'success',
+            'summary': summary
+        })
+
+    except Exception as e:
+        logger.error(f"Get identity summary error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/finalize', methods=['POST'])
+def finalize_identity_sessions():
+    """
+    Finalize all active sessions and complete clustering.
+
+    Call this at the end of a monitoring period to ensure all observations
+    are properly clustered and assessed.
+    """
+    try:
+        from utils.tscm.device_identity import get_identity_engine
+
+        engine = get_identity_engine()
+        engine.finalize_all_sessions()
+        summary = engine.get_summary()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'All sessions finalized',
+            'summary': summary
+        })
+
+    except Exception as e:
+        logger.error(f"Finalize sessions error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/reset', methods=['POST'])
+def reset_identity_engine():
+    """
+    Reset the device identity engine.
+
+    Clears all sessions, clusters, and monitoring state.
+    """
+    try:
+        from utils.tscm.device_identity import reset_identity_engine as reset_engine
+
+        reset_engine()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Device identity engine reset'
+        })
+
+    except Exception as e:
+        logger.error(f"Reset identity engine error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@tscm_bp.route('/identity/cluster/<cluster_id>')
+def get_cluster_detail(cluster_id: str):
+    """Get detailed information for a specific cluster."""
+    try:
+        from utils.tscm.device_identity import get_identity_engine
+
+        engine = get_identity_engine()
+
+        if cluster_id not in engine.clusters:
+            return jsonify({
+                'status': 'error',
+                'message': 'Cluster not found'
+            }), 404
+
+        cluster = engine.clusters[cluster_id]
+
+        return jsonify({
+            'status': 'success',
+            'cluster': cluster.to_dict()
+        })
+
+    except Exception as e:
+        logger.error(f"Get cluster detail error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500

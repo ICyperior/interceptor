@@ -348,6 +348,7 @@ install_macos_packages() {
   brew_install gpsd
 
   warn "macOS note: hcitool/hciconfig are Linux (BlueZ) utilities and often unavailable on macOS."
+  info "TSCM BLE scanning uses bleak library (installed via pip) for manufacturer data detection."
   echo
 }
 
@@ -539,6 +540,8 @@ install_debian_packages() {
   # Install Python packages via apt (more reliable than pip on modern Debian/Ubuntu)
   $SUDO apt-get install -y python3-flask python3-requests python3-serial >/dev/null 2>&1 || true
   $SUDO apt-get install -y python3-skyfield >/dev/null 2>&1 || true
+  # bleak for BLE scanning with manufacturer data (TSCM mode)
+  $SUDO apt-get install -y python3-bleak >/dev/null 2>&1 || true
 
   progress "Installing dump1090"
   if ! cmd_exists dump1090 && ! cmd_exists dump1090-mutability; then
