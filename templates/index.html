@@ -1050,20 +1050,36 @@
 
                     <div class="section">
                         <h3>Scan Sources</h3>
-                        <div class="checkbox-group">
-                            <label>
-                                <input type="checkbox" id="tscmWifiEnabled" checked>
-                                WiFi Networks
-                            </label>
-                            <label>
-                                <input type="checkbox" id="tscmBtEnabled" checked>
-                                Bluetooth Devices
-                            </label>
-                            <label>
-                                <input type="checkbox" id="tscmRfEnabled" checked>
-                                RF Signals
-                            </label>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="tscmWifiEnabled" checked style="margin: 0;">
+                                <label for="tscmWifiEnabled" style="flex: 1; margin: 0;">WiFi Networks</label>
+                            </div>
+                            <select id="tscmWifiInterface" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <option value="">Select WiFi interface...</option>
+                            </select>
                         </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="tscmBtEnabled" checked style="margin: 0;">
+                                <label for="tscmBtEnabled" style="flex: 1; margin: 0;">Bluetooth Devices</label>
+                            </div>
+                            <select id="tscmBtInterface" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <option value="">Select Bluetooth adapter...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="tscmRfEnabled" style="margin: 0;">
+                                <label for="tscmRfEnabled" style="flex: 1; margin: 0;">RF Signals</label>
+                            </div>
+                            <select id="tscmSdrDevice" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <option value="">Select SDR device...</option>
+                            </select>
+                        </div>
+                        <button class="preset-btn" onclick="refreshTscmDevices()" style="width: 100%; margin-top: 8px; font-size: 10px;">
+                            🔄 Refresh Devices
+                        </button>
                     </div>
 
                     <div class="section">
@@ -2953,6 +2969,7 @@
             // Initialize TSCM mode when selected
             if (mode === 'tscm') {
                 loadTscmBaselines();
+                refreshTscmDevices();
             }
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
@@ -9615,6 +9632,68 @@
         let tscmBtDevices = [];
         let isRecordingBaseline = false;
 
+        async function refreshTscmDevices() {
+            // Fetch available interfaces for TSCM scanning
+            try {
+                const response = await fetch('/tscm/devices');
+                const data = await response.json();
+                const devices = data.devices || {};
+
+                // Populate WiFi interfaces
+                const wifiSelect = document.getElementById('tscmWifiInterface');
+                wifiSelect.innerHTML = '<option value="">Select WiFi interface...</option>';
+                if (devices.wifi_interfaces && devices.wifi_interfaces.length > 0) {
+                    devices.wifi_interfaces.forEach(iface => {
+                        const opt = document.createElement('option');
+                        opt.value = iface.name;
+                        opt.textContent = `${iface.name}${iface.type ? ' (' + iface.type + ')' : ''}`;
+                        wifiSelect.appendChild(opt);
+                    });
+                    // Auto-select first interface
+                    if (devices.wifi_interfaces.length > 0) {
+                        wifiSelect.value = devices.wifi_interfaces[0].name;
+                    }
+                } else {
+                    wifiSelect.innerHTML = '<option value="">No WiFi interfaces found</option>';
+                }
+
+                // Populate Bluetooth adapters
+                const btSelect = document.getElementById('tscmBtInterface');
+                btSelect.innerHTML = '<option value="">Select Bluetooth adapter...</option>';
+                if (devices.bt_adapters && devices.bt_adapters.length > 0) {
+                    devices.bt_adapters.forEach(adapter => {
+                        const opt = document.createElement('option');
+                        opt.value = adapter.name;
+                        opt.textContent = `${adapter.name}${adapter.status ? ' [' + adapter.status + ']' : ''}`;
+                        btSelect.appendChild(opt);
+                    });
+                    // Auto-select first adapter
+                    if (devices.bt_adapters.length > 0) {
+                        btSelect.value = devices.bt_adapters[0].name;
+                    }
+                } else {
+                    btSelect.innerHTML = '<option value="">No Bluetooth adapters found</option>';
+                }
+
+                // Populate SDR devices
+                const sdrSelect = document.getElementById('tscmSdrDevice');
+                sdrSelect.innerHTML = '<option value="">Select SDR device...</option>';
+                if (devices.sdr_devices && devices.sdr_devices.length > 0) {
+                    devices.sdr_devices.forEach(dev => {
+                        const opt = document.createElement('option');
+                        opt.value = dev.index;
+                        opt.textContent = `${dev.index}: ${dev.name || 'SDR Device'}`;
+                        sdrSelect.appendChild(opt);
+                    });
+                } else {
+                    sdrSelect.innerHTML = '<option value="">No SDR devices found</option>';
+                }
+
+            } catch (e) {
+                console.error('Failed to refresh TSCM devices:', e);
+            }
+        }
+
         async function loadTscmBaselines() {
             try {
                 const response = await fetch('/tscm/baselines');
@@ -9640,6 +9719,9 @@
             const wifiEnabled = document.getElementById('tscmWifiEnabled').checked;
             const btEnabled = document.getElementById('tscmBtEnabled').checked;
             const rfEnabled = document.getElementById('tscmRfEnabled').checked;
+            const wifiInterface = document.getElementById('tscmWifiInterface').value;
+            const btInterface = document.getElementById('tscmBtInterface').value;
+            const sdrDevice = document.getElementById('tscmSdrDevice').value;
 
             // Clear any previous warnings
             document.getElementById('tscmDeviceWarnings').style.display = 'none';
@@ -9654,7 +9736,10 @@
                         baseline_id: baselineId ? parseInt(baselineId) : null,
                         wifi: wifiEnabled,
                         bluetooth: btEnabled,
-                        rf: rfEnabled
+                        rf: rfEnabled,
+                        wifi_interface: wifiInterface,
+                        bt_interface: btInterface,
+                        sdr_device: sdrDevice ? parseInt(sdrDevice) : null
                     })
                 });
 
@@ -9793,15 +9878,16 @@
                 : `SCANNING ${data.wifi_count}W ${data.bt_count}B`;
             document.getElementById('tscmProgressLabel').textContent = statusText;
 
-            // Update counts in sidebar
+            // Update counts in sidebar (from severity_counts object)
+            const counts = data.severity_counts || {};
             const criticalEl = document.querySelector('#tscmThreatSummary .threat-card.critical .count');
             const highEl = document.querySelector('#tscmThreatSummary .threat-card.high .count');
             const mediumEl = document.querySelector('#tscmThreatSummary .threat-card.medium .count');
             const lowEl = document.querySelector('#tscmThreatSummary .threat-card.low .count');
-            if (criticalEl) criticalEl.textContent = data.critical || 0;
-            if (highEl) highEl.textContent = data.high || 0;
-            if (mediumEl) mediumEl.textContent = data.medium || 0;
-            if (lowEl) lowEl.textContent = data.low || 0;
+            if (criticalEl) criticalEl.textContent = counts.critical || 0;
+            if (highEl) highEl.textContent = counts.high || 0;
+            if (mediumEl) mediumEl.textContent = counts.medium || 0;
+            if (lowEl) lowEl.textContent = counts.low || 0;
         }
 
         function addTscmThreat(threat) {
