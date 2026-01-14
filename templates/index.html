@@ -9646,7 +9646,7 @@
                     devices.wifi_interfaces.forEach(iface => {
                         const opt = document.createElement('option');
                         opt.value = iface.name;
-                        opt.textContent = `${iface.name}${iface.type ? ' (' + iface.type + ')' : ''}`;
+                        opt.textContent = iface.display_name || iface.name;
                         wifiSelect.appendChild(opt);
                     });
                     // Auto-select first interface
@@ -9664,7 +9664,7 @@
                     devices.bt_adapters.forEach(adapter => {
                         const opt = document.createElement('option');
                         opt.value = adapter.name;
-                        opt.textContent = `${adapter.name}${adapter.status ? ' [' + adapter.status + ']' : ''}`;
+                        opt.textContent = adapter.display_name || adapter.name;
                         btSelect.appendChild(opt);
                     });
                     // Auto-select first adapter
@@ -9682,9 +9682,13 @@
                     devices.sdr_devices.forEach(dev => {
                         const opt = document.createElement('option');
                         opt.value = dev.index;
-                        opt.textContent = `${dev.index}: ${dev.name || 'SDR Device'}`;
+                        opt.textContent = dev.display_name || dev.name || 'SDR Device';
                         sdrSelect.appendChild(opt);
                     });
+                    // Auto-select first SDR if available
+                    if (devices.sdr_devices.length > 0) {
+                        sdrSelect.value = devices.sdr_devices[0].index;
+                    }
                 } else {
                     sdrSelect.innerHTML = '<option value="">No SDR devices found</option>';
                 }
@@ -9873,9 +9877,18 @@
             }
 
             // Update status text
-            const statusText = data.threats_found > 0
-                ? `THREATS: ${data.threats_found}`
-                : `SCANNING ${data.wifi_count}W ${data.bt_count}B`;
+            let statusText = 'SCANNING...';
+            if (data.threats_found > 0) {
+                statusText = `THREATS: ${data.threats_found}`;
+            } else if (data.status) {
+                statusText = data.status;
+            } else {
+                const parts = [];
+                if (data.wifi_count > 0) parts.push(`${data.wifi_count} WiFi`);
+                if (data.bt_count > 0) parts.push(`${data.bt_count} BT`);
+                if (data.rf_count > 0) parts.push(`${data.rf_count} RF`);
+                statusText = parts.length > 0 ? parts.join(' | ') : 'SCANNING...';
+            }
             document.getElementById('tscmProgressLabel').textContent = statusText;
 
             // Update counts in sidebar (from severity_counts object)
