@@ -2332,7 +2332,7 @@ sudo make install</code>
                     isAcarsRunning = true;
                     acarsMessageCount = 0;
                     document.getElementById('acarsToggleBtn').textContent = '■ STOP ACARS';
-                    document.getElementById('acarsToggleBtn').style.background = 'var(--accent-red)';
+                    document.getElementById('acarsToggleBtn').classList.add('active');
                     document.getElementById('acarsPanelIndicator').classList.add('active');
                     startAcarsStream();
                 } else {
@@ -2348,7 +2348,7 @@ sudo make install</code>
                 .then(() => {
                     isAcarsRunning = false;
                     document.getElementById('acarsToggleBtn').textContent = '▶ START ACARS';
-                    document.getElementById('acarsToggleBtn').style.background = '';
+                    document.getElementById('acarsToggleBtn').classList.remove('active');
                     document.getElementById('acarsPanelIndicator').classList.remove('active');
                     if (acarsEventSource) {
                         acarsEventSource.close();

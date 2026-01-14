@@ -280,9 +280,9 @@ body {
 }
 
 .acars-sidebar .acars-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--accent-cyan);
-    color: var(--accent-cyan);
+    background: var(--accent-green);
+    border: none;
+    color: #fff;
     padding: 6px 10px;
     font-size: 10px;
     font-weight: 600;
@@ -290,10 +290,21 @@ body {
     transition: all 0.2s;
     text-transform: uppercase;
     letter-spacing: 1px;
+    border-radius: 4px;
 }
 
 .acars-sidebar .acars-btn:hover {
-    background: rgba(74, 158, 255, 0.2);
+    background: #1db954;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+}
+
+.acars-sidebar .acars-btn.active {
+    background: var(--accent-red);
+}
+
+.acars-sidebar .acars-btn.active:hover {
+    background: #dc2626;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
 .acars-message-item {
@@ -691,9 +702,9 @@ body {
 /* Start/stop button */
 .start-btn {
     padding: 8px 20px;
-    border: 1px solid var(--accent-cyan);
-    background: rgba(74, 158, 255, 0.1);
-    color: var(--accent-cyan);
+    border: none;
+    background: var(--accent-green);
+    color: #fff;
     font-family: 'Orbitron', monospace;
     font-size: 11px;
     font-weight: 600;
@@ -706,19 +717,18 @@ body {
 }
 
 .start-btn:hover {
-    background: var(--accent-cyan);
-    color: var(--bg-dark);
-    box-shadow: 0 0 20px rgba(74, 158, 255, 0.3);
+    background: #1db954;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
 }
 
 .start-btn.active {
     background: var(--accent-red);
-    border-color: var(--accent-red);
     color: #fff;
 }
 
 .start-btn.active:hover {
-    box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+    background: #dc2626;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
 }
 
 /* GPS button */
@@ -841,9 +851,9 @@ body {
 
 .airband-btn {
     padding: 6px 12px;
-    background: rgba(74, 158, 255, 0.1);
-    border: 1px solid var(--accent-cyan);
-    color: var(--accent-cyan);
+    background: var(--accent-green);
+    border: none;
+    color: #fff;
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
@@ -858,13 +868,18 @@ body {
 }
 
 .airband-btn:hover {
-    background: rgba(74, 158, 255, 0.2);
+    background: #1db954;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
 }
 
 .airband-btn.active {
-    background: rgba(34, 197, 94, 0.2);
-    border-color: var(--accent-green);
-    color: var(--accent-green);
+    background: var(--accent-red);
+    color: #fff;
+}
+
+.airband-btn.active:hover {
+    background: #dc2626;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
 .airband-btn:disabled {

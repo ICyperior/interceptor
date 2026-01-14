@@ -646,7 +646,7 @@
                                 <button class="preset-btn" onclick="checkCaptureStatus()" style="flex: 1; font-size: 10px; padding: 4px;">
                                     Check Status
                                 </button>
-                                <button class="preset-btn" onclick="stopHandshakeCapture()" style="flex: 1; font-size: 10px; padding: 4px; border-color: var(--accent-red); color: var(--accent-red);">
+                                <button class="preset-btn" onclick="stopHandshakeCapture()" style="flex: 1; font-size: 10px; padding: 4px; background: var(--accent-red); border: none; color: #fff;">
                                     Stop Capture
                                 </button>
                             </div>
@@ -892,8 +892,7 @@
                         <div class="form-group">
                             <label>SDR Device</label>
                             <select id="aprsDevice">
-                                <option value="0">Device 0</option>
-                                <option value="1">Device 1</option>
+                                <option value="">Loading devices...</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -911,6 +910,18 @@
                     <button class="stop-btn" id="stopAprsBtn" onclick="stopAprs()" style="display: none;">
                         Stop APRS
                     </button>
+                    <!-- APRS Status Bar -->
+                    <div id="aprsStatusBar" class="aprs-status-bar" style="display: none;">
+                        <div class="aprs-status-indicator">
+                            <span class="aprs-status-dot" id="aprsStatusDot"></span>
+                            <span class="aprs-status-text" id="aprsStatusText">STANDBY</span>
+                        </div>
+                        <div class="aprs-status-stats">
+                            <span class="aprs-stat"><span class="aprs-stat-label">FREQ:</span> <span id="aprsStatusFreq">--</span></span>
+                            <span class="aprs-stat"><span class="aprs-stat-label">STATIONS:</span> <span id="aprsStatusStations">0</span></span>
+                            <span class="aprs-stat"><span class="aprs-stat-label">PACKETS:</span> <span id="aprsStatusPackets">0</span></span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- SATELLITE MODE -->
@@ -1017,7 +1028,7 @@
                 <!-- TSCM MODE (Counter-Surveillance) -->
                 <div id="tscmMode" class="mode-content">
                     <div class="section">
-                        <h3>TSCM Sweep</h3>
+                        <h3 style="display: flex; align-items: center; gap: 8px;">TSCM Sweep <span style="font-size: 9px; font-weight: normal; background: var(--accent-orange); color: #000; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Alpha</span></h3>
                         <div class="form-group">
                             <label>Sweep Type</label>
                             <select id="tscmSweepType">
@@ -1060,10 +1071,10 @@
                         <div class="form-group">
                             <input type="text" id="tscmBaselineName" placeholder="Baseline name...">
                         </div>
-                        <button class="preset-btn" id="tscmRecordBaselineBtn" onclick="tscmRecordBaseline()" style="width: 100%;">
+                        <button class="run-btn" id="tscmRecordBaselineBtn" onclick="tscmRecordBaseline()" style="width: 100%; padding: 8px;">
                             Record New Baseline
                         </button>
-                        <button class="preset-btn" id="tscmStopBaselineBtn" onclick="tscmStopBaseline()" style="width: 100%; display: none;">
+                        <button class="stop-btn" id="tscmStopBaselineBtn" onclick="tscmStopBaseline()" style="width: 100%; padding: 8px; display: none;">
                             Stop Recording
                         </button>
                         <div id="tscmBaselineStatus" style="margin-top: 8px; font-size: 11px; color: var(--text-muted);"></div>
@@ -1382,9 +1393,18 @@
                                             <option value="ap">Asia-Pac</option>
                                         </select>
                                     </div>
-                                    <button id="mainAcarsToggleBtn" onclick="toggleMainAcars()" style="width: 100%; padding: 5px; font-size: 9px; background: var(--bg-dark); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); cursor: pointer;">
+                                    <button id="mainAcarsToggleBtn" onclick="toggleMainAcars()" style="width: 100%; padding: 5px; font-size: 9px; background: var(--accent-green); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold;">
                                         ▶ START
                                     </button>
+                                    <!-- ACARS Status Indicator -->
+                                    <div id="acarsStatusBar" style="display: none; margin-top: 6px; padding: 5px; background: rgba(0,0,0,0.3); border-radius: 3px;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span class="acars-status-dot" id="acarsStatusDot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);"></span>
+                                            <span id="acarsStatusText" style="font-size: 9px; font-weight: bold; letter-spacing: 0.5px;">STANDBY</span>
+                                            <span style="flex: 1;"></span>
+                                            <span style="font-size: 8px; color: var(--text-muted);">MSGS: <span id="acarsStatusCount">0</span></span>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="main-acars-messages" id="mainAcarsMessages" style="flex: 1; overflow-y: auto; font-size: 10px;">
                                     <div style="padding: 15px; text-align: center; color: var(--text-muted);">
@@ -1664,7 +1684,7 @@
                                 </div>
                                 <!-- Action Buttons -->
                                 <button class="radio-action-btn scan" id="radioScanBtn" onclick="toggleScanner()" style="padding: 12px; font-size: 13px; width: 100%; font-weight: bold;">📡 SCAN</button>
-                                <button class="radio-action-btn" id="radioListenBtn" onclick="toggleDirectListen()" style="padding: 10px; font-size: 12px; width: 100%; background: var(--accent-purple); border-color: var(--accent-purple); color: #fff;">🎧 LISTEN</button>
+                                <button class="radio-action-btn" id="radioListenBtn" onclick="toggleDirectListen()" style="padding: 10px; font-size: 12px; width: 100%; background: var(--accent-green); border: none; color: #fff;">🎧 LISTEN</button>
                             </div>
                         </div>
                     </div>
@@ -1817,6 +1837,72 @@
                     @keyframes fadeInMsg {
                         from { opacity: 0; transform: translateY(-3px); }
                         to { opacity: 1; transform: translateY(0); }
+                    }
+                </style>
+
+                <!-- APRS Status Bar Styles -->
+                <style>
+                    .aprs-status-bar {
+                        margin-top: 12px;
+                        padding: 10px;
+                        background: rgba(0,0,0,0.3);
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                    }
+                    .aprs-status-indicator {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        margin-bottom: 8px;
+                    }
+                    .aprs-status-dot {
+                        width: 10px;
+                        height: 10px;
+                        border-radius: 50%;
+                        background: var(--text-muted);
+                    }
+                    .aprs-status-dot.standby { background: var(--text-muted); }
+                    .aprs-status-dot.listening {
+                        background: var(--accent-cyan);
+                        animation: aprs-pulse 1.5s ease-in-out infinite;
+                    }
+                    .aprs-status-dot.tracking { background: var(--accent-green); }
+                    .aprs-status-dot.error { background: var(--accent-red); }
+                    @keyframes aprs-pulse {
+                        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 158, 255, 0.7); }
+                        50% { opacity: 0.6; box-shadow: 0 0 8px 4px rgba(74, 158, 255, 0.3); }
+                    }
+                    .aprs-status-text {
+                        font-size: 10px;
+                        font-weight: bold;
+                        letter-spacing: 1px;
+                    }
+                    .aprs-status-stats {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                        font-size: 9px;
+                    }
+                    .aprs-stat {
+                        color: var(--text-secondary);
+                    }
+                    .aprs-stat-label {
+                        color: var(--text-muted);
+                    }
+                    /* ACARS Status Indicator */
+                    .acars-status-dot.listening {
+                        background: var(--accent-cyan) !important;
+                        animation: acars-pulse 1.5s ease-in-out infinite;
+                    }
+                    .acars-status-dot.receiving {
+                        background: var(--accent-green) !important;
+                    }
+                    .acars-status-dot.error {
+                        background: var(--accent-red) !important;
+                    }
+                    @keyframes acars-pulse {
+                        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 158, 255, 0.7); }
+                        50% { opacity: 0.6; box-shadow: 0 0 6px 3px rgba(74, 158, 255, 0.3); }
                     }
                 </style>
 
@@ -2915,6 +3001,7 @@
             } else if (mode === 'aprs') {
                 checkAprsTools();
                 initAprsMap();
+                refreshAprsDevices();
             } else if (mode === 'satellite') {
                 initPolarPlot();
                 initSatelliteList();
@@ -7940,14 +8027,18 @@
                     mainAcarsMessageCount = 0;
                     document.getElementById('mainAcarsToggleBtn').innerHTML = '■ STOP';
                     document.getElementById('mainAcarsToggleBtn').style.background = 'var(--accent-red)';
-                    document.getElementById('mainAcarsToggleBtn').style.borderColor = 'var(--accent-red)';
-                    document.getElementById('mainAcarsToggleBtn').style.color = '#fff';
+                    // Show status bar with listening state
+                    updateAcarsStatus('listening');
                     startMainAcarsStream();
                 } else {
                     alert('ACARS Error: ' + data.message);
+                    updateAcarsStatus('error');
                 }
             })
-            .catch(err => alert('ACARS Error: ' + err));
+            .catch(err => {
+                alert('ACARS Error: ' + err);
+                updateAcarsStatus('error');
+            });
         }
 
         function stopMainAcars() {
@@ -7956,14 +8047,34 @@
                 .then(data => {
                     isMainAcarsRunning = false;
                     document.getElementById('mainAcarsToggleBtn').innerHTML = '▶ START';
-                    document.getElementById('mainAcarsToggleBtn').style.background = 'var(--bg-dark)';
-                    document.getElementById('mainAcarsToggleBtn').style.borderColor = 'var(--accent-cyan)';
-                    document.getElementById('mainAcarsToggleBtn').style.color = 'var(--accent-cyan)';
+                    document.getElementById('mainAcarsToggleBtn').style.background = 'var(--accent-green)';
+                    // Hide status bar
+                    document.getElementById('acarsStatusBar').style.display = 'none';
                     if (mainAcarsEventSource) {
                         mainAcarsEventSource.close();
                         mainAcarsEventSource = null;
                     }
                 });
+        }
+
+        function updateAcarsStatus(state) {
+            const statusBar = document.getElementById('acarsStatusBar');
+            const statusDot = document.getElementById('acarsStatusDot');
+            const statusText = document.getElementById('acarsStatusText');
+
+            statusBar.style.display = 'block';
+            statusDot.className = 'acars-status-dot ' + state;
+            statusText.textContent = state.toUpperCase();
+
+            if (state === 'listening') {
+                statusText.style.color = 'var(--accent-cyan)';
+            } else if (state === 'receiving') {
+                statusText.style.color = 'var(--accent-green)';
+            } else if (state === 'error') {
+                statusText.style.color = 'var(--accent-red)';
+            } else {
+                statusText.style.color = 'var(--text-muted)';
+            }
         }
 
         function startMainAcarsStream() {
@@ -7974,6 +8085,12 @@
                 const data = JSON.parse(e.data);
                 if (data.type === 'acars') {
                     mainAcarsMessageCount++;
+                    // Update status bar
+                    document.getElementById('acarsStatusCount').textContent = mainAcarsMessageCount;
+                    const dot = document.getElementById('acarsStatusDot');
+                    if (dot && !dot.classList.contains('receiving')) {
+                        updateAcarsStatus('receiving');
+                    }
                     addMainAcarsMessage(data);
                     // Also add to main output if ADS-B mode is active
                     addAcarsToOutput(data);
@@ -7982,6 +8099,7 @@
 
             mainAcarsEventSource.onerror = function() {
                 console.error('Main ACARS stream error');
+                updateAcarsStatus('error');
             };
         }
 
@@ -8082,6 +8200,56 @@
             }, 1000);
         }
 
+        function refreshAprsDevices() {
+            fetch('/devices')
+                .then(r => r.json())
+                .then(devices => {
+                    const select = document.getElementById('aprsDevice');
+                    select.innerHTML = '';
+                    if (devices.length === 0) {
+                        select.innerHTML = '<option value="">No SDR devices found</option>';
+                    } else {
+                        devices.forEach(dev => {
+                            const opt = document.createElement('option');
+                            opt.value = dev.index;
+                            opt.textContent = `${dev.index}: ${dev.name || 'Unknown'}`;
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to refresh APRS devices:', err);
+                    const select = document.getElementById('aprsDevice');
+                    select.innerHTML = '<option value="0">Error loading devices</option>';
+                });
+        }
+
+        function updateAprsStatus(state, freq) {
+            const statusBar = document.getElementById('aprsStatusBar');
+            const statusDot = document.getElementById('aprsStatusDot');
+            const statusText = document.getElementById('aprsStatusText');
+            const freqEl = document.getElementById('aprsStatusFreq');
+
+            statusBar.style.display = 'block';
+            statusDot.className = 'aprs-status-dot ' + state;
+            statusText.textContent = state.toUpperCase();
+
+            if (freq) {
+                freqEl.textContent = freq + ' MHz';
+            }
+
+            // Update color based on state
+            if (state === 'listening') {
+                statusText.style.color = 'var(--accent-cyan)';
+            } else if (state === 'tracking') {
+                statusText.style.color = 'var(--accent-green)';
+            } else if (state === 'error') {
+                statusText.style.color = 'var(--accent-red)';
+            } else {
+                statusText.style.color = 'var(--text-muted)';
+            }
+        }
+
         function startAprs() {
             const region = document.getElementById('aprsRegion').value;
             const device = document.getElementById('aprsDevice').value;
@@ -8102,12 +8270,20 @@
                     document.getElementById('stopAprsBtn').style.display = 'block';
                     document.getElementById('aprsMapStatus').textContent = 'TRACKING';
                     document.getElementById('aprsMapStatus').style.color = 'var(--accent-green)';
+                    // Update sidebar status bar
+                    updateAprsStatus('listening', data.frequency);
+                    document.getElementById('aprsStatusStations').textContent = '0';
+                    document.getElementById('aprsStatusPackets').textContent = '0';
                     startAprsStream();
                 } else {
                     alert('APRS Error: ' + data.message);
+                    updateAprsStatus('error');
                 }
             })
-            .catch(err => alert('APRS Error: ' + err));
+            .catch(err => {
+                alert('APRS Error: ' + err);
+                updateAprsStatus('error');
+            });
         }
 
         function stopAprs() {
@@ -8117,6 +8293,8 @@
                     isAprsRunning = false;
                     document.getElementById('startAprsBtn').style.display = 'block';
                     document.getElementById('stopAprsBtn').style.display = 'none';
+                    // Hide sidebar status bar
+                    document.getElementById('aprsStatusBar').style.display = 'none';
                     document.getElementById('aprsMapStatus').textContent = 'STANDBY';
                     document.getElementById('aprsMapStatus').style.color = '';
                     if (aprsEventSource) {
@@ -8135,12 +8313,20 @@
                 if (data.type === 'aprs') {
                     aprsPacketCount++;
                     document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
+                    // Update sidebar status bar
+                    document.getElementById('aprsStatusPackets').textContent = aprsPacketCount;
+                    // Switch to tracking state on first packet
+                    const dot = document.getElementById('aprsStatusDot');
+                    if (dot && !dot.classList.contains('tracking')) {
+                        updateAprsStatus('tracking');
+                    }
                     processAprsPacket(data);
                 }
             };
 
             aprsEventSource.onerror = function() {
                 console.error('APRS stream error');
+                updateAprsStatus('error');
             };
         }
 
@@ -8188,6 +8374,7 @@
                 // Create new marker
                 aprsStationCount++;
                 document.getElementById('aprsStationCount').textContent = aprsStationCount;
+                document.getElementById('aprsStatusStations').textContent = aprsStationCount;
 
                 const icon = L.divIcon({
                     className: 'aprs-marker',
@@ -9790,6 +9977,7 @@
                 <button class="help-tab active" data-tab="icons" onclick="switchHelpTab('icons')">Icons</button>
                 <button class="help-tab" data-tab="modes" onclick="switchHelpTab('modes')">Modes</button>
                 <button class="help-tab" data-tab="wifi" onclick="switchHelpTab('wifi')">WiFi</button>
+                <button class="help-tab" data-tab="aircraft" onclick="switchHelpTab('aircraft')">Aircraft</button>
                 <button class="help-tab" data-tab="tips" onclick="switchHelpTab('tips')">Tips</button>
             </div>
 
@@ -9810,17 +9998,21 @@
                     <div class="icon-item"><span class="icon">🚁</span><span class="desc">Detected drones (click for details)</span></div>
                     <div class="icon-item"><span class="icon">⚠️</span><span class="desc">Rogue APs (click for details)</span></div>
                     <div class="icon-item"><span class="icon">🔵</span><span class="desc">Bluetooth devices</span></div>
-                    <div class="icon-item"><span class="icon">📍</span><span class="desc">BLE beacons detected</span></div>
+                    <div class="icon-item"><span class="icon">📍</span><span class="desc">BLE beacons / APRS stations</span></div>
+                    <div class="icon-item"><span class="icon">📨</span><span class="desc">ACARS messages received</span></div>
                 </div>
 
                 <h3>Mode Tab Icons</h3>
                 <div class="icon-grid">
                     <div class="icon-item"><span class="icon">📟</span><span class="desc">Pager - POCSAG/FLEX decoder</span></div>
                     <div class="icon-item"><span class="icon">📡</span><span class="desc">433MHz - Sensor decoder</span></div>
-                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - ADS-B tracker</span></div>
+                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - ADS-B/ACARS tracker</span></div>
+                    <div class="icon-item"><span class="icon">📍</span><span class="desc">APRS - Amateur radio tracking</span></div>
                     <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellite - Pass prediction</span></div>
                     <div class="icon-item"><span class="icon">📶</span><span class="desc">WiFi - Network scanner</span></div>
                     <div class="icon-item"><span class="icon">🔵</span><span class="desc">Bluetooth - BT/BLE scanner</span></div>
+                    <div class="icon-item"><span class="icon">📻</span><span class="desc">Listening Post - SDR scanner</span></div>
+                    <div class="icon-item"><span class="icon">🔍</span><span class="desc">TSCM - Counter-surveillance</span></div>
                 </div>
             </div>
 
@@ -9847,8 +10039,18 @@
                     <li>Tracks aircraft via ADS-B using dump1090 or rtl_adsb</li>
                     <li>Interactive map with real OpenStreetMap tiles</li>
                     <li>Click aircraft markers to see callsign, altitude, speed, heading</li>
-                    <li>Map auto-fits to show all tracked aircraft</li>
+                    <li>ACARS messaging sidebar decodes aircraft datalink messages</li>
                     <li>Emergency squawk codes highlighted in red</li>
+                    <li>Open full dashboard for radar view and airband audio</li>
+                </ul>
+
+                <h3>📍 APRS Mode</h3>
+                <ul class="tip-list">
+                    <li>Decodes APRS (Automatic Packet Reporting System) on VHF</li>
+                    <li>Tracks amateur radio operators transmitting position data</li>
+                    <li>Regional frequencies: 144.390 MHz (N. America), 144.800 MHz (Europe)</li>
+                    <li>Uses Direwolf or multimon-ng for packet decoding</li>
+                    <li>Interactive map shows station positions in real-time</li>
                 </ul>
 
                 <h3>🛰️ Satellite Mode</h3>
@@ -9875,6 +10077,25 @@
                     <li>Shows device names, addresses, and signal strength</li>
                     <li>Manufacturer lookup from MAC address OUI</li>
                     <li>Radar visualization shows device proximity</li>
+                </ul>
+
+                <h3>📻 Listening Post Mode</h3>
+                <ul class="tip-list">
+                    <li>Wideband SDR scanner with spectrum visualization</li>
+                    <li>Tune to any frequency supported by your SDR hardware</li>
+                    <li>AM/FM/USB/LSB demodulation modes</li>
+                    <li>Bookmark frequencies for quick recall</li>
+                    <li>Quick tune presets for emergency and marine channels</li>
+                </ul>
+
+                <h3>🔍 TSCM Mode</h3>
+                <ul class="tip-list">
+                    <li>Technical Surveillance Countermeasures sweep</li>
+                    <li>Scans for unknown RF transmitters, WiFi devices, Bluetooth</li>
+                    <li>Baseline comparison to detect new/anomalous devices</li>
+                    <li>Threat classification: Critical, High, Medium, Low</li>
+                    <li>Useful for security audits and bug sweeps</li>
+                    <li><em style="color: var(--text-muted);">Note: This feature is in early development</em></li>
                 </ul>
             </div>
 
@@ -9926,6 +10147,50 @@
                 </ul>
             </div>
 
+            <!-- Aircraft Section -->
+            <div id="help-aircraft" class="help-section">
+                <h3>ADS-B Tracking</h3>
+                <ul class="tip-list">
+                    <li>Receives ADS-B broadcasts on 1090 MHz from aircraft transponders</li>
+                    <li>Displays position, altitude, speed, heading, and squawk code</li>
+                    <li>Interactive map and radar scope views available</li>
+                    <li>Click aircraft to see detailed telemetry and photos</li>
+                    <li>Emergency squawk codes (7500, 7600, 7700) highlighted</li>
+                </ul>
+
+                <h3>ACARS Messaging</h3>
+                <ul class="tip-list">
+                    <li>ACARS (Aircraft Communications Addressing and Reporting System)</li>
+                    <li>Decodes VHF datalink messages between aircraft and ground</li>
+                    <li>Requires a <strong>second SDR</strong> (separate from ADS-B)</li>
+                    <li>Regional frequencies vary - select N. America, Europe, or Asia-Pacific</li>
+                    <li>Messages include flight info, weather, OOOI events, and free text</li>
+                </ul>
+
+                <h3>ACARS Frequencies</h3>
+                <ul class="tip-list">
+                    <li><strong>N. America:</strong> 130.025, 130.450, 131.550 MHz</li>
+                    <li><strong>Europe:</strong> 131.525, 131.725, 131.550 MHz</li>
+                    <li><strong>Asia-Pacific:</strong> 131.550, 131.450 MHz</li>
+                </ul>
+
+                <h3>Airband Audio</h3>
+                <ul class="tip-list">
+                    <li>Listen to aviation voice communications (AM mode)</li>
+                    <li>Requires RTL-SDR or compatible SDR hardware</li>
+                    <li>Common frequencies: 118-137 MHz (civil aviation band)</li>
+                    <li>121.5 MHz is the international emergency/guard frequency</li>
+                </ul>
+
+                <h3>Full Dashboard</h3>
+                <ul class="tip-list">
+                    <li>Click "Open Full Dashboard" for expanded ADS-B view</li>
+                    <li>Toggle between map and radar scope displays</li>
+                    <li>Watchlist feature for tracking specific aircraft</li>
+                    <li>Aircraft photos fetched from JetPhotos when available</li>
+                </ul>
+            </div>
+
             <!-- Tips Section -->
             <div id="help-tips" class="help-section">
                 <h3>General Tips</h3>
@@ -9946,12 +10211,17 @@
 
                 <h3>Requirements</h3>
                 <ul class="tip-list">
-                    <li><strong>Pager/433MHz:</strong> RTL-SDR dongle, rtl_fm, multimon-ng, rtl_433</li>
-                    <li><strong>Aircraft:</strong> RTL-SDR dongle, dump1090 or rtl_adsb</li>
-                    <li><strong>Satellite:</strong> Internet connection for Celestrak (optional)</li>
-                    <li><strong>WiFi:</strong> Monitor-mode capable adapter, aircrack-ng suite</li>
-                    <li><strong>Bluetooth:</strong> Bluetooth adapter, hcitool/bluetoothctl</li>
-                    <li>Run as root/sudo for full functionality</li>
+                    <li><strong>Pager:</strong> RTL-SDR, rtl_fm, multimon-ng</li>
+                    <li><strong>433MHz Sensors:</strong> RTL-SDR, rtl_433</li>
+                    <li><strong>Aircraft (ADS-B):</strong> RTL-SDR, dump1090 or rtl_adsb</li>
+                    <li><strong>Aircraft (ACARS):</strong> Second RTL-SDR, acarsdec</li>
+                    <li><strong>APRS:</strong> RTL-SDR, direwolf or multimon-ng</li>
+                    <li><strong>Satellite:</strong> Internet for Celestrak (optional), skyfield</li>
+                    <li><strong>WiFi:</strong> Monitor-mode adapter, aircrack-ng suite</li>
+                    <li><strong>Bluetooth:</strong> Bluetooth adapter, bluez (hcitool/bluetoothctl)</li>
+                    <li><strong>Listening Post:</strong> RTL-SDR or SoapySDR-compatible hardware</li>
+                    <li><strong>TSCM:</strong> WiFi adapter, Bluetooth adapter, RTL-SDR (all optional)</li>
+                    <li>Run as root/sudo for full hardware access</li>
                 </ul>
 
                 <h3>Legal Notice</h3>

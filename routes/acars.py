@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
+import os
+import platform
+import pty
 import queue
 import shutil
 import subprocess
@@ -45,20 +49,25 @@ def find_acarsdec():
     return shutil.which('acarsdec')
 
 
-def stream_acars_output(process: subprocess.Popen) -> None:
+def stream_acars_output(process: subprocess.Popen, is_text_mode: bool = False) -> None:
     """Stream acarsdec JSON output to queue."""
     global acars_message_count, acars_last_message_time
 
     try:
         app_module.acars_queue.put({'type': 'status', 'status': 'started'})
 
-        for line in iter(process.stdout.readline, b''):
-            line = line.decode('utf-8', errors='replace').strip()
+        # Use appropriate sentinel based on mode (text mode for pty on macOS)
+        sentinel = '' if is_text_mode else b''
+        for line in iter(process.stdout.readline, sentinel):
+            if is_text_mode:
+                line = line.strip()
+            else:
+                line = line.decode('utf-8', errors='replace').strip()
             if not line:
                 continue
 
             try:
-                # acarsdec -j outputs JSON, one message per line
+                # acarsdec -o 4 outputs JSON, one message per line
                 data = json.loads(line)
 
                 # Add our metadata
@@ -167,33 +176,50 @@ def start_acars() -> Response:
     acars_last_message_time = None
 
     # Build acarsdec command
-    # acarsdec -j -r <device> -g <gain> -p <ppm> <freq1> <freq2> ...
+    # acarsdec -o 4 -g <gain> -p <ppm> -r <device> <freq1> <freq2> ...
+    # Note: -o 4 is JSON stdout, gain/ppm must come BEFORE -r
     cmd = [
         acarsdec_path,
-        '-j',                    # JSON output
-        '-r', str(device),       # RTL-SDR device index
+        '-o', '4',               # JSON output to stdout
     ]
 
-    # Add gain if not auto
+    # Add gain if not auto (must be before -r)
     if gain and str(gain) != '0':
         cmd.extend(['-g', str(gain)])
 
-    # Add PPM correction if specified
+    # Add PPM correction if specified (must be before -r)
     if ppm and str(ppm) != '0':
         cmd.extend(['-p', str(ppm)])
 
-    # Add frequencies
+    # Add device and frequencies (-r takes device, remaining args are frequencies)
+    cmd.extend(['-r', str(device)])
     cmd.extend(frequencies)
 
     logger.info(f"Starting ACARS decoder: {' '.join(cmd)}")
 
     try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True
-        )
+        is_text_mode = False
+
+        # On macOS, use pty to avoid stdout buffering issues
+        if platform.system() == 'Darwin':
+            master_fd, slave_fd = pty.openpty()
+            process = subprocess.Popen(
+                cmd,
+                stdout=slave_fd,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            os.close(slave_fd)
+            # Wrap master_fd as a text file for line-buffered reading
+            process.stdout = io.open(master_fd, 'r', buffering=1)
+            is_text_mode = True
+        else:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
 
         # Wait briefly to check if process started
         time.sleep(PROCESS_START_WAIT)
@@ -214,7 +240,7 @@ def start_acars() -> Response:
         # Start output streaming thread
         thread = threading.Thread(
             target=stream_acars_output,
-            args=(process,),
+            args=(process, is_text_mode),
             daemon=True
         )
         thread.start()
