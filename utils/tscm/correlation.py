@@ -41,6 +41,13 @@ class IndicatorType(Enum):
     MAC_ROTATION = 'mac_rotation'
     NARROWBAND_SIGNAL = 'narrowband_signal'
     ALWAYS_ON_CARRIER = 'always_on_carrier'
+    # Tracker-specific indicators
+    KNOWN_TRACKER = 'known_tracker'
+    AIRTAG_DETECTED = 'airtag_detected'
+    TILE_DETECTED = 'tile_detected'
+    SMARTTAG_DETECTED = 'smarttag_detected'
+    ESP32_DEVICE = 'esp32_device'
+    GENERIC_CHIPSET = 'generic_chipset'
 
 
 # Scoring weights for each indicator
@@ -58,6 +65,39 @@ INDICATOR_SCORES = {
     IndicatorType.MAC_ROTATION: 1,
     IndicatorType.NARROWBAND_SIGNAL: 2,
     IndicatorType.ALWAYS_ON_CARRIER: 2,
+    # Tracker scores - higher for covert tracking devices
+    IndicatorType.KNOWN_TRACKER: 3,
+    IndicatorType.AIRTAG_DETECTED: 3,
+    IndicatorType.TILE_DETECTED: 2,
+    IndicatorType.SMARTTAG_DETECTED: 2,
+    IndicatorType.ESP32_DEVICE: 2,
+    IndicatorType.GENERIC_CHIPSET: 1,
+}
+
+
+# Known tracker device signatures
+TRACKER_SIGNATURES = {
+    # Apple AirTag - OUI prefixes
+    'airtag_oui': ['4C:E6:76', '7C:04:D0', 'DC:A4:CA', 'F0:B3:EC'],
+    # Tile trackers
+    'tile_oui': ['D0:03:DF', 'EC:2E:4E'],
+    # Samsung SmartTag
+    'smarttag_oui': ['8C:71:F8', 'CC:2D:83', 'F0:5C:D5'],
+    # ESP32/ESP8266 Espressif chipsets
+    'espressif_oui': ['24:0A:C4', '24:6F:28', '24:62:AB', '30:AE:A4',
+                      '3C:61:05', '3C:71:BF', '40:F5:20', '48:3F:DA',
+                      '4C:11:AE', '54:43:B2', '58:BF:25', '5C:CF:7F',
+                      '60:01:94', '68:C6:3A', '7C:9E:BD', '84:0D:8E',
+                      '84:CC:A8', '84:F3:EB', '8C:AA:B5', '90:38:0C',
+                      '94:B5:55', '98:CD:AC', 'A4:7B:9D', 'A4:CF:12',
+                      'AC:67:B2', 'B4:E6:2D', 'BC:DD:C2', 'C4:4F:33',
+                      'C8:2B:96', 'CC:50:E3', 'D8:A0:1D', 'DC:4F:22',
+                      'E0:98:06', 'E8:68:E7', 'EC:FA:BC', 'F4:CF:A2'],
+    # Generic/suspicious chipset vendors (potential covert devices)
+    'generic_chipset_oui': [
+        '00:1A:7D',  # cyber-blue(HK)
+        '00:25:00',  # Apple (but generic BLE)
+    ],
 }
 
 
@@ -402,6 +442,92 @@ class CorrelationEngine:
                 'Random/rotating MAC address detected',
                 {'mac': mac}
             )
+
+        # 9. Known tracker detection (AirTag, Tile, SmartTag, ESP32)
+        mac_prefix = mac[:8] if len(mac) >= 8 else ''
+        tracker_detected = False
+
+        # Check for Apple AirTag
+        if mac_prefix in TRACKER_SIGNATURES.get('airtag_oui', []):
+            profile.add_indicator(
+                IndicatorType.AIRTAG_DETECTED,
+                'Apple AirTag detected - potential tracking device',
+                {'mac': mac, 'tracker_type': 'AirTag'}
+            )
+            profile.device_type = 'AirTag'
+            tracker_detected = True
+
+        # Check for Tile tracker
+        if mac_prefix in TRACKER_SIGNATURES.get('tile_oui', []):
+            profile.add_indicator(
+                IndicatorType.TILE_DETECTED,
+                'Tile tracker detected',
+                {'mac': mac, 'tracker_type': 'Tile'}
+            )
+            profile.device_type = 'Tile Tracker'
+            tracker_detected = True
+
+        # Check for Samsung SmartTag
+        if mac_prefix in TRACKER_SIGNATURES.get('smarttag_oui', []):
+            profile.add_indicator(
+                IndicatorType.SMARTTAG_DETECTED,
+                'Samsung SmartTag detected',
+                {'mac': mac, 'tracker_type': 'SmartTag'}
+            )
+            profile.device_type = 'Samsung SmartTag'
+            tracker_detected = True
+
+        # Check for ESP32/ESP8266 devices
+        if mac_prefix in TRACKER_SIGNATURES.get('espressif_oui', []):
+            profile.add_indicator(
+                IndicatorType.ESP32_DEVICE,
+                'ESP32/ESP8266 device detected - programmable hardware',
+                {'mac': mac, 'chipset': 'Espressif'}
+            )
+            profile.manufacturer = 'Espressif'
+            tracker_detected = True
+
+        # Check for generic/suspicious chipsets
+        if mac_prefix in TRACKER_SIGNATURES.get('generic_chipset_oui', []):
+            profile.add_indicator(
+                IndicatorType.GENERIC_CHIPSET,
+                'Generic chipset vendor - often used in covert devices',
+                {'mac': mac}
+            )
+            tracker_detected = True
+
+        # If any tracker detected, add general tracker indicator
+        if tracker_detected:
+            profile.add_indicator(
+                IndicatorType.KNOWN_TRACKER,
+                'Known tracking device signature detected',
+                {'mac': mac}
+            )
+
+        # Also check name for tracker keywords
+        if profile.name:
+            name_lower = profile.name.lower()
+            if 'airtag' in name_lower or 'findmy' in name_lower:
+                profile.add_indicator(
+                    IndicatorType.AIRTAG_DETECTED,
+                    f'AirTag identified by name: {profile.name}',
+                    {'name': profile.name}
+                )
+                profile.device_type = 'AirTag'
+            elif 'tile' in name_lower:
+                profile.add_indicator(
+                    IndicatorType.TILE_DETECTED,
+                    f'Tile tracker identified by name: {profile.name}',
+                    {'name': profile.name}
+                )
+                profile.device_type = 'Tile Tracker'
+            elif 'smarttag' in name_lower:
+                profile.add_indicator(
+                    IndicatorType.SMARTTAG_DETECTED,
+                    f'SmartTag identified by name: {profile.name}',
+                    {'name': profile.name}
+                )
+                profile.device_type = 'Samsung SmartTag'
 
         return profile
 

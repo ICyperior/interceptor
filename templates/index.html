@@ -2368,23 +2368,23 @@
                         No content is intercepted or decoded. Professional verification required.
                     </div>
 
-                    <!-- Threat Summary Banner -->
+                    <!-- Risk Summary Banner (new scoring model) -->
                     <div class="tscm-threat-banner">
-                        <div class="threat-card critical" id="tscmCriticalCard">
-                            <span class="count" id="tscmCriticalCount">0</span>
-                            <span class="label">Critical</span>
+                        <div class="threat-card critical" id="tscmHighInterestCard">
+                            <span class="count" id="tscmHighInterestCount">0</span>
+                            <span class="label">High Interest</span>
                         </div>
-                        <div class="threat-card high" id="tscmHighCard">
-                            <span class="count" id="tscmHighCount">0</span>
-                            <span class="label">High</span>
+                        <div class="threat-card high" id="tscmNeedsReviewCard">
+                            <span class="count" id="tscmNeedsReviewCount">0</span>
+                            <span class="label">Needs Review</span>
                         </div>
-                        <div class="threat-card medium" id="tscmMediumCard">
-                            <span class="count" id="tscmMediumCount">0</span>
-                            <span class="label">Medium</span>
+                        <div class="threat-card low" id="tscmInformationalCard">
+                            <span class="count" id="tscmInformationalCount">0</span>
+                            <span class="label">Informational</span>
                         </div>
-                        <div class="threat-card low" id="tscmLowCard">
-                            <span class="count" id="tscmLowCount">0</span>
-                            <span class="label">Low</span>
+                        <div class="threat-card medium" id="tscmCorrelationsCard">
+                            <span class="count" id="tscmCorrelationsCount">0</span>
+                            <span class="label">Correlations</span>
                         </div>
                     </div>
 
@@ -10136,24 +10136,29 @@
         }
 
         function updateTscmThreatCounts() {
-            const counts = { critical: 0, high: 0, medium: 0, low: 0 };
-            tscmThreats.forEach(t => {
-                if (counts[t.severity] !== undefined) {
-                    counts[t.severity]++;
-                }
+            // Count devices by new scoring model classification
+            const counts = { high_interest: 0, review: 0, informational: 0 };
+
+            // Count from all device lists
+            [...tscmWifiDevices, ...tscmBtDevices, ...tscmRfSignals].forEach(d => {
+                const classification = d.classification || 'review';
+                if (classification === 'high_interest') counts.high_interest++;
+                else if (classification === 'review') counts.review++;
+                else counts.informational++;
             });
 
-            document.getElementById('tscmCriticalCount').textContent = counts.critical;
-            document.getElementById('tscmHighCount').textContent = counts.high;
-            document.getElementById('tscmMediumCount').textContent = counts.medium;
-            document.getElementById('tscmLowCount').textContent = counts.low;
+            document.getElementById('tscmHighInterestCount').textContent = counts.high_interest;
+            document.getElementById('tscmNeedsReviewCount').textContent = counts.review;
+            document.getElementById('tscmInformationalCount').textContent = counts.informational;
+            document.getElementById('tscmCorrelationsCount').textContent = tscmCorrelations.length;
 
-            document.getElementById('tscmCriticalCard').classList.toggle('active', counts.critical > 0);
-            document.getElementById('tscmHighCard').classList.toggle('active', counts.high > 0);
-            document.getElementById('tscmMediumCard').classList.toggle('active', counts.medium > 0);
-            document.getElementById('tscmLowCard').classList.toggle('active', counts.low > 0);
+            document.getElementById('tscmHighInterestCard').classList.toggle('active', counts.high_interest > 0);
+            document.getElementById('tscmNeedsReviewCard').classList.toggle('active', counts.review > 0);
+            document.getElementById('tscmInformationalCard').classList.toggle('active', counts.informational > 0);
+            document.getElementById('tscmCorrelationsCard').classList.toggle('active', tscmCorrelations.length > 0);
 
-            document.getElementById('tscmThreatCount').textContent = tscmThreats.length;
+            // Update threat panel count (now shows high interest items)
+            document.getElementById('tscmThreatCount').textContent = counts.high_interest;
         }
 
         function getClassificationClass(classification) {

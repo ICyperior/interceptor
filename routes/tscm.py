@@ -647,40 +647,117 @@ def _scan_wifi_networks(interface: str) -> list[dict]:
             logger.warning(f"macOS WiFi scan failed: {e}")
 
     else:
-        # Linux: Try iwlist scan
-        iface = interface or 'wlan0'
-        try:
-            result = subprocess.run(
-                ['iwlist', iface, 'scan'],
-                capture_output=True, text=True, timeout=30
-            )
-            current_network = {}
-            for line in result.stdout.split('\n'):
-                line = line.strip()
-                if 'Cell' in line and 'Address:' in line:
+        # Linux: Try multiple scan methods
+        import shutil
+
+        # Detect wireless interface if not specified
+        if not interface:
+            try:
+                import glob
+                wireless_paths = glob.glob('/sys/class/net/*/wireless')
+                if wireless_paths:
+                    iface = wireless_paths[0].split('/')[4]
+                else:
+                    iface = 'wlan0'
+            except Exception:
+                iface = 'wlan0'
+        else:
+            iface = interface
+
+        logger.info(f"WiFi scan using interface: {iface}")
+
+        # Method 1: Try iw scan (sometimes works without root)
+        if shutil.which('iw'):
+            try:
+                logger.info("Trying 'iw' scan...")
+                result = subprocess.run(
+                    ['iw', 'dev', iface, 'scan'],
+                    capture_output=True, text=True, timeout=30
+                )
+                if result.returncode == 0 and 'BSS' in result.stdout:
+                    # Parse iw output
+                    current_bss = None
+                    for line in result.stdout.split('\n'):
+                        if line.startswith('BSS '):
+                            if current_bss and current_bss.get('bssid'):
+                                networks.append(current_bss)
+                            # Extract BSSID from "BSS xx:xx:xx:xx:xx:xx(on wlan0)"
+                            bssid_match = re.search(r'BSS ([0-9a-fA-F:]{17})', line)
+                            if bssid_match:
+                                current_bss = {'bssid': bssid_match.group(1).upper(), 'essid': '[Hidden]'}
+                        elif current_bss:
+                            line = line.strip()
+                            if line.startswith('SSID:'):
+                                ssid = line[5:].strip()
+                                current_bss['essid'] = ssid or '[Hidden]'
+                            elif line.startswith('signal:'):
+                                sig_match = re.search(r'(-?\d+)', line)
+                                if sig_match:
+                                    current_bss['power'] = sig_match.group(1)
+                            elif line.startswith('freq:'):
+                                freq = line[5:].strip()
+                                # Convert frequency to channel
+                                try:
+                                    freq_mhz = int(freq)
+                                    if freq_mhz < 3000:
+                                        channel = (freq_mhz - 2407) // 5
+                                    else:
+                                        channel = (freq_mhz - 5000) // 5
+                                    current_bss['channel'] = str(channel)
+                                except ValueError:
+                                    pass
+                            elif 'WPA' in line or 'RSN' in line:
+                                current_bss['privacy'] = 'WPA2' if 'RSN' in line else 'WPA'
+                    if current_bss and current_bss.get('bssid'):
+                        networks.append(current_bss)
+                    logger.info(f"iw scan found {len(networks)} networks")
+                elif 'Operation not permitted' in result.stderr or result.returncode != 0:
+                    logger.warning(f"iw scan requires root: {result.stderr[:100]}")
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+                logger.warning(f"iw scan failed: {e}")
+
+        # Method 2: Try iwlist scan if iw didn't work
+        if not networks and shutil.which('iwlist'):
+            try:
+                logger.info("Trying 'iwlist' scan...")
+                result = subprocess.run(
+                    ['iwlist', iface, 'scan'],
+                    capture_output=True, text=True, timeout=30
+                )
+                if 'Operation not permitted' in result.stderr:
+                    logger.warning("iwlist scan requires root privileges")
+                else:
+                    current_network = {}
+                    for line in result.stdout.split('\n'):
+                        line = line.strip()
+                        if 'Cell' in line and 'Address:' in line:
+                            if current_network.get('bssid'):
+                                networks.append(current_network)
+                            bssid = line.split('Address:')[1].strip()
+                            current_network = {'bssid': bssid.upper(), 'essid': '[Hidden]'}
+                        elif 'ESSID:' in line:
+                            essid = line.split('ESSID:')[1].strip().strip('"')
+                            current_network['essid'] = essid or '[Hidden]'
+                        elif 'Channel:' in line:
+                            channel = line.split('Channel:')[1].strip()
+                            current_network['channel'] = channel
+                        elif 'Signal level=' in line:
+                            match = re.search(r'Signal level[=:]?\s*(-?\d+)', line)
+                            if match:
+                                current_network['power'] = match.group(1)
+                        elif 'Encryption key:' in line:
+                            encrypted = 'on' in line.lower()
+                            current_network['encrypted'] = encrypted
+                        elif 'WPA' in line or 'WPA2' in line:
+                            current_network['privacy'] = 'WPA2' if 'WPA2' in line else 'WPA'
                     if current_network.get('bssid'):
                         networks.append(current_network)
-                    bssid = line.split('Address:')[1].strip()
-                    current_network = {'bssid': bssid.upper(), 'essid': '[Hidden]'}
-                elif 'ESSID:' in line:
-                    essid = line.split('ESSID:')[1].strip().strip('"')
-                    current_network['essid'] = essid or '[Hidden]'
-                elif 'Channel:' in line:
-                    channel = line.split('Channel:')[1].strip()
-                    current_network['channel'] = channel
-                elif 'Signal level=' in line:
-                    match = re.search(r'Signal level[=:]?\s*(-?\d+)', line)
-                    if match:
-                        current_network['power'] = match.group(1)
-                elif 'Encryption key:' in line:
-                    encrypted = 'on' in line.lower()
-                    current_network['encrypted'] = encrypted
-                elif 'WPA' in line or 'WPA2' in line:
-                    current_network['privacy'] = 'WPA2' if 'WPA2' in line else 'WPA'
-            if current_network.get('bssid'):
-                networks.append(current_network)
-        except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            logger.warning(f"Linux WiFi scan failed: {e}")
+                    logger.info(f"iwlist scan found {len(networks)} networks")
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+                logger.warning(f"iwlist scan failed: {e}")
+
+        if not networks:
+            logger.warning("WiFi scanning requires root privileges. Run with sudo for WiFi scanning.")
 
     return networks
 
