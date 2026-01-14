@@ -2063,16 +2063,141 @@
                         margin-left: 6px;
                         font-size: 10px;
                     }
+                    .tscm-device-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 4px;
+                    }
                     .tscm-device-name {
                         font-weight: 600;
                         font-size: 12px;
-                        margin-bottom: 2px;
                     }
                     .tscm-device-meta {
                         font-size: 10px;
                         color: var(--text-muted);
                         display: flex;
                         gap: 8px;
+                        flex-wrap: wrap;
+                    }
+                    .tscm-device-indicators {
+                        margin-top: 6px;
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 4px;
+                    }
+                    .indicator-tag {
+                        font-size: 9px;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                        background: rgba(255, 255, 255, 0.1);
+                        color: var(--text-muted);
+                        white-space: nowrap;
+                    }
+                    .score-badge {
+                        font-size: 10px;
+                        padding: 2px 8px;
+                        border-radius: 10px;
+                        font-weight: 600;
+                    }
+                    .score-badge.score-low {
+                        background: rgba(0, 204, 0, 0.2);
+                        color: #00cc00;
+                    }
+                    .score-badge.score-medium {
+                        background: rgba(255, 204, 0, 0.2);
+                        color: #ffcc00;
+                    }
+                    .score-badge.score-high {
+                        background: rgba(255, 51, 51, 0.2);
+                        color: #ff3333;
+                    }
+                    .tscm-action {
+                        margin-top: 4px;
+                        font-size: 10px;
+                        color: #ff9933;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                    }
+                    .tscm-correlations {
+                        margin-top: 16px;
+                        padding: 12px;
+                        background: rgba(255, 153, 51, 0.1);
+                        border-radius: 6px;
+                        border: 1px solid #ff9933;
+                    }
+                    .tscm-correlations h4 {
+                        margin: 0 0 8px 0;
+                        font-size: 12px;
+                        color: #ff9933;
+                    }
+                    .correlation-item {
+                        padding: 8px;
+                        margin-bottom: 6px;
+                        background: rgba(0, 0, 0, 0.2);
+                        border-radius: 4px;
+                        font-size: 11px;
+                    }
+                    .correlation-devices {
+                        font-size: 10px;
+                        color: var(--text-muted);
+                        margin-top: 4px;
+                    }
+                    .tscm-summary-box {
+                        display: flex;
+                        gap: 12px;
+                        margin-bottom: 16px;
+                        flex-wrap: wrap;
+                    }
+                    .summary-stat {
+                        flex: 1;
+                        min-width: 100px;
+                        padding: 12px;
+                        background: rgba(0, 0, 0, 0.3);
+                        border-radius: 6px;
+                        text-align: center;
+                    }
+                    .summary-stat .count {
+                        font-size: 24px;
+                        font-weight: 700;
+                    }
+                    .summary-stat .label {
+                        font-size: 10px;
+                        color: var(--text-muted);
+                        text-transform: uppercase;
+                    }
+                    .summary-stat.high-interest .count { color: #ff3333; }
+                    .summary-stat.needs-review .count { color: #ffcc00; }
+                    .summary-stat.informational .count { color: #00cc00; }
+                    .tscm-assessment {
+                        padding: 10px 14px;
+                        margin: 12px 0;
+                        border-radius: 6px;
+                        font-size: 13px;
+                    }
+                    .tscm-assessment.high-interest {
+                        background: rgba(255, 51, 51, 0.15);
+                        border: 1px solid #ff3333;
+                        color: #ff3333;
+                    }
+                    .tscm-assessment.needs-review {
+                        background: rgba(255, 204, 0, 0.15);
+                        border: 1px solid #ffcc00;
+                        color: #ffcc00;
+                    }
+                    .tscm-assessment.informational {
+                        background: rgba(0, 204, 0, 0.15);
+                        border: 1px solid #00cc00;
+                        color: #00cc00;
+                    }
+                    .tscm-disclaimer {
+                        font-size: 10px;
+                        color: var(--text-muted);
+                        font-style: italic;
+                        padding: 8px 12px;
+                        background: rgba(0, 0, 0, 0.2);
+                        border-radius: 4px;
+                        margin-top: 8px;
                     }
                     .tscm-threat-list {
                         display: flex;
@@ -2236,6 +2361,13 @@
 
                 <!-- TSCM Dashboard -->
                 <div id="tscmVisuals" class="tscm-dashboard" style="display: none; padding: 16px;">
+                    <!-- Legal Disclaimer Banner -->
+                    <div class="tscm-legal-banner" style="margin-bottom: 12px; padding: 8px 12px; background: rgba(74, 158, 255, 0.1); border: 1px solid rgba(74, 158, 255, 0.3); border-radius: 4px; font-size: 10px; color: var(--text-muted);">
+                        <strong>TSCM Screening Tool:</strong> This system identifies wireless and RF anomalies.
+                        Findings are indicators, NOT confirmed surveillance devices.
+                        No content is intercepted or decoded. Professional verification required.
+                    </div>
+
                     <!-- Threat Summary Banner -->
                     <div class="tscm-threat-banner">
                         <div class="threat-card critical" id="tscmCriticalCard">
@@ -2255,6 +2387,12 @@
                             <span class="label">Low</span>
                         </div>
                     </div>
+
+                    <!-- Sweep Summary (shown after sweep completes) -->
+                    <div id="tscmSweepSummary" style="display: none; margin-bottom: 16px;"></div>
+
+                    <!-- Cross-Protocol Correlations (shown when correlations found) -->
+                    <div id="tscmCorrelationsContainer" style="display: none;"></div>
 
                     <!-- Main Content Grid -->
                     <div class="tscm-main-grid">
@@ -9885,6 +10023,8 @@
             };
         }
 
+        let tscmCorrelations = [];
+
         function handleTscmEvent(data) {
             switch (data.type) {
                 case 'sweep_progress':
@@ -9902,6 +10042,9 @@
                 case 'threat_detected':
                     addTscmThreat(data);
                     break;
+                case 'correlation_findings':
+                    handleCorrelationFindings(data);
+                    break;
                 case 'sweep_completed':
                     completeTscmSweep(data);
                     break;
@@ -9910,6 +10053,11 @@
                     stopTscmSweep();
                     break;
             }
+        }
+
+        function handleCorrelationFindings(data) {
+            tscmCorrelations = data.correlations || [];
+            updateCorrelationsDisplay();
         }
 
         function addTscmWifiDevice(device) {
@@ -10027,23 +10175,43 @@
             }
         }
 
+        function formatIndicators(indicators) {
+            if (!indicators || indicators.length === 0) return '';
+            return indicators.map(i => `<span class="indicator-tag">${escapeHtml(i.desc || i.type)}</span>`).join(' ');
+        }
+
+        function getScoreBadge(score) {
+            if (score === undefined || score === null) return '';
+            let scoreClass = 'score-low';
+            if (score >= 6) scoreClass = 'score-high';
+            else if (score >= 3) scoreClass = 'score-medium';
+            return `<span class="score-badge ${scoreClass}">Score: ${score}</span>`;
+        }
+
         function updateTscmDisplays() {
             // Update WiFi list
             const wifiList = document.getElementById('tscmWifiList');
             if (tscmWifiDevices.length === 0) {
                 wifiList.innerHTML = '<div class="tscm-empty">No WiFi networks detected</div>';
             } else {
-                wifiList.innerHTML = tscmWifiDevices.map(d => `
+                // Sort by score (highest first)
+                const sorted = [...tscmWifiDevices].sort((a, b) => (b.score || 0) - (a.score || 0));
+                wifiList.innerHTML = sorted.map(d => `
                     <div class="tscm-device-item ${getClassificationClass(d.classification)}">
-                        <div class="tscm-device-name">
-                            <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
-                            ${escapeHtml(d.ssid || d.bssid || 'Hidden')}
+                        <div class="tscm-device-header">
+                            <div class="tscm-device-name">
+                                <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
+                                ${escapeHtml(d.ssid || d.bssid || 'Hidden')}
+                            </div>
+                            ${getScoreBadge(d.score)}
                         </div>
                         <div class="tscm-device-meta">
                             <span>${d.bssid}</span>
                             <span>${d.signal || '--'} dBm</span>
+                            <span>${d.security || 'Open'}</span>
                         </div>
-                        ${d.reasons && d.reasons.length > 0 ? `<div class="tscm-device-reasons">${d.reasons.join(' • ')}</div>` : ''}
+                        ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
+                        ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
                     </div>
                 `).join('');
             }
@@ -10054,18 +10222,25 @@
             if (tscmBtDevices.length === 0) {
                 btList.innerHTML = '<div class="tscm-empty">No Bluetooth devices detected</div>';
             } else {
-                btList.innerHTML = tscmBtDevices.map(d => `
+                // Sort by score (highest first)
+                const sorted = [...tscmBtDevices].sort((a, b) => (b.score || 0) - (a.score || 0));
+                btList.innerHTML = sorted.map(d => `
                     <div class="tscm-device-item ${getClassificationClass(d.classification)}">
-                        <div class="tscm-device-name">
-                            <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
-                            ${escapeHtml(d.name || 'Unknown')}
-                            ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">🎤</span>' : ''}
+                        <div class="tscm-device-header">
+                            <div class="tscm-device-name">
+                                <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
+                                ${escapeHtml(d.name || 'Unknown')}
+                                ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">🎤</span>' : ''}
+                            </div>
+                            ${getScoreBadge(d.score)}
                         </div>
                         <div class="tscm-device-meta">
                             <span>${d.mac}</span>
                             <span>${d.rssi || '--'} dBm</span>
+                            <span>${d.type || 'Unknown'}</span>
                         </div>
-                        ${d.reasons && d.reasons.length > 0 ? `<div class="tscm-device-reasons">${d.reasons.join(' • ')}</div>` : ''}
+                        ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
+                        ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
                     </div>
                 `).join('');
             }
@@ -10076,17 +10251,24 @@
             if (tscmRfSignals.length === 0) {
                 rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
             } else {
-                rfList.innerHTML = tscmRfSignals.map(s => `
+                // Sort by score (highest first)
+                const sorted = [...tscmRfSignals].sort((a, b) => (b.score || 0) - (a.score || 0));
+                rfList.innerHTML = sorted.map(s => `
                     <div class="tscm-device-item ${getClassificationClass(s.classification)}">
-                        <div class="tscm-device-name">
-                            <span class="classification-indicator">${getClassificationIcon(s.classification)}</span>
-                            ${s.frequency.toFixed(3)} MHz
+                        <div class="tscm-device-header">
+                            <div class="tscm-device-name">
+                                <span class="classification-indicator">${getClassificationIcon(s.classification)}</span>
+                                ${s.frequency.toFixed(3)} MHz
+                            </div>
+                            ${getScoreBadge(s.score)}
                         </div>
                         <div class="tscm-device-meta">
                             <span>${s.band}</span>
                             <span>${s.power.toFixed(1)} dBm</span>
+                            <span>+${(s.signal_strength || 0).toFixed(1)} dB above noise</span>
                         </div>
-                        ${s.reasons && s.reasons.length > 0 ? `<div class="tscm-device-reasons">${s.reasons.join(' • ')}</div>` : ''}
+                        ${s.indicators && s.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(s.indicators)}</div>` : ''}
+                        ${s.recommended_action && s.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${s.recommended_action}</div>` : ''}
                     </div>
                 `).join('');
             }
@@ -10112,6 +10294,32 @@
             }
         }
 
+        function updateCorrelationsDisplay() {
+            const container = document.getElementById('tscmCorrelationsContainer');
+            if (!container) return;
+
+            if (tscmCorrelations.length === 0) {
+                container.innerHTML = '';
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+            container.innerHTML = `
+                <div class="tscm-correlations">
+                    <h4>Cross-Protocol Correlations (${tscmCorrelations.length})</h4>
+                    ${tscmCorrelations.map(c => `
+                        <div class="correlation-item">
+                            <strong>${escapeHtml(c.description)}</strong>
+                            <div class="correlation-devices">
+                                Devices: ${c.devices.join(', ')} | Protocols: ${c.protocols.join(', ')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
         function completeTscmSweep(data) {
             isTscmRunning = false;
             if (tscmEventSource) {
@@ -10128,6 +10336,55 @@
 
             // Final update of counts
             updateTscmThreatCounts();
+
+            // Display sweep summary with correlation results
+            const summaryContainer = document.getElementById('tscmSweepSummary');
+            if (summaryContainer && data) {
+                const highInterest = data.high_interest_devices || 0;
+                const needsReview = data.needs_review_devices || 0;
+                const correlations = data.correlations_found || 0;
+
+                let assessment = 'BASELINE ENVIRONMENT';
+                let assessmentClass = 'informational';
+                if (highInterest > 0 || correlations > 0) {
+                    assessment = 'ELEVATED CONCERN';
+                    assessmentClass = 'high-interest';
+                } else if (needsReview > 3) {
+                    assessment = 'MODERATE CONCERN';
+                    assessmentClass = 'needs-review';
+                } else if (needsReview > 0) {
+                    assessment = 'LOW CONCERN';
+                    assessmentClass = 'needs-review';
+                }
+
+                summaryContainer.innerHTML = `
+                    <div class="tscm-summary-box">
+                        <div class="summary-stat high-interest">
+                            <div class="count">${highInterest}</div>
+                            <div class="label">High Interest</div>
+                        </div>
+                        <div class="summary-stat needs-review">
+                            <div class="count">${needsReview}</div>
+                            <div class="label">Needs Review</div>
+                        </div>
+                        <div class="summary-stat">
+                            <div class="count">${correlations}</div>
+                            <div class="label">Correlations</div>
+                        </div>
+                    </div>
+                    <div class="tscm-assessment ${assessmentClass}">
+                        <strong>Assessment:</strong> ${assessment}
+                    </div>
+                    <div class="tscm-disclaimer">
+                        This screening identifies wireless/RF anomalies, NOT confirmed surveillance devices.
+                        Findings require professional verification.
+                    </div>
+                `;
+                summaryContainer.style.display = 'block';
+            }
+
+            // Update correlations display
+            updateCorrelationsDisplay();
         }
 
         async function tscmRecordBaseline() {

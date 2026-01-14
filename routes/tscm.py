@@ -37,6 +37,11 @@ from utils.database import (
     update_tscm_sweep,
 )
 from utils.tscm.baseline import BaselineComparator, BaselineRecorder
+from utils.tscm.correlation import (
+    CorrelationEngine,
+    get_correlation_engine,
+    reset_correlation_engine,
+)
 from utils.tscm.detector import ThreatDetector
 
 logger = logging.getLogger('intercept.tscm')
@@ -910,7 +915,7 @@ def _run_sweep(
     Run the TSCM sweep in a background thread.
 
     This orchestrates data collection from WiFi, BT, and RF sources,
-    then analyzes results for threats.
+    then analyzes results for threats using the correlation engine.
     """
     global _sweep_running, _current_sweep_id
 
@@ -933,8 +938,11 @@ def _run_sweep(
             'rf': rf_enabled,
         })
 
-        # Initialize detector
+        # Initialize detector and correlation engine
         detector = ThreatDetector(baseline)
+        correlation = get_correlation_engine()
+        # Clear old profiles from previous sweeps (keep 24h history)
+        correlation.clear_old_profiles(24)
 
         # Collect and analyze data
         threats_found = 0
@@ -973,8 +981,9 @@ def _run_sweep(
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
-                            # Classify device
+                            # Classify device and get correlation profile
                             classification = detector.classify_wifi_device(network)
+                            profile = correlation.analyze_wifi_device(network)
                             # Send device to frontend
                             _emit_event('wifi_device', {
                                 'bssid': bssid,
@@ -984,8 +993,11 @@ def _run_sweep(
                                 'security': network.get('privacy', ''),
                                 'is_threat': is_threat,
                                 'is_new': not classification.get('in_baseline', False),
-                                'classification': classification.get('classification', 'review'),
+                                'classification': profile.risk_level.value,
                                 'reasons': classification.get('reasons', []),
+                                'score': profile.total_score,
+                                'indicators': [{'type': i.type.value, 'desc': i.description} for i in profile.indicators],
+                                'recommended_action': profile.recommended_action,
                             })
                     last_wifi_scan = current_time
                 except Exception as e:
@@ -1009,8 +1021,9 @@ def _run_sweep(
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
-                            # Classify device
+                            # Classify device and get correlation profile
                             classification = detector.classify_bt_device(device)
+                            profile = correlation.analyze_bluetooth_device(device)
                             # Send device to frontend
                             _emit_event('bt_device', {
                                 'mac': mac,
@@ -1019,9 +1032,12 @@ def _run_sweep(
                                 'rssi': device.get('rssi', ''),
                                 'is_threat': is_threat,
                                 'is_new': not classification.get('in_baseline', False),
-                                'classification': classification.get('classification', 'review'),
+                                'classification': profile.risk_level.value,
                                 'reasons': classification.get('reasons', []),
                                 'is_audio_capable': classification.get('is_audio_capable', False),
+                                'score': profile.total_score,
+                                'indicators': [{'type': i.type.value, 'desc': i.description} for i in profile.indicators],
+                                'recommended_action': profile.recommended_action,
                             })
                     last_bt_scan = current_time
                 except Exception as e:
@@ -1052,8 +1068,9 @@ def _run_sweep(
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
-                            # Classify signal
+                            # Classify signal and get correlation profile
                             classification = detector.classify_rf_signal(signal)
+                            profile = correlation.analyze_rf_signal(signal)
                             # Send signal to frontend
                             _emit_event('rf_signal', {
                                 'frequency': signal['frequency'],
@@ -1062,8 +1079,11 @@ def _run_sweep(
                                 'signal_strength': signal.get('signal_strength', 0),
                                 'is_threat': is_threat,
                                 'is_new': not classification.get('in_baseline', False),
-                                'classification': classification.get('classification', 'review'),
+                                'classification': profile.risk_level.value,
                                 'reasons': classification.get('reasons', []),
+                                'score': profile.total_score,
+                                'indicators': [{'type': i.type.value, 'desc': i.description} for i in profile.indicators],
+                                'recommended_action': profile.recommended_action,
                             })
                     last_rf_scan = current_time
                 except Exception as e:
@@ -1088,6 +1108,10 @@ def _run_sweep(
 
         # Complete sweep
         if _sweep_running and _current_sweep_id:
+            # Run cross-protocol correlation analysis
+            correlations = correlation.correlate_devices()
+            findings = correlation.get_all_findings()
+
             update_tscm_sweep(
                 _current_sweep_id,
                 status='completed',
@@ -1096,10 +1120,18 @@ def _run_sweep(
                     'bt_devices': len(all_bt),
                     'rf_signals': len(all_rf),
                     'severity_counts': severity_counts,
+                    'correlation_summary': findings.get('summary', {}),
                 },
                 threats_found=threats_found,
                 completed=True
             )
+
+            # Emit correlation findings
+            _emit_event('correlation_findings', {
+                'correlations': correlations,
+                'high_interest_count': findings['summary'].get('high_interest', 0),
+                'needs_review_count': findings['summary'].get('needs_review', 0),
+            })
 
             _emit_event('sweep_completed', {
                 'sweep_id': _current_sweep_id,
@@ -1108,6 +1140,9 @@ def _run_sweep(
                 'bt_count': len(all_bt),
                 'rf_count': len(all_rf),
                 'severity_counts': severity_counts,
+                'high_interest_devices': findings['summary'].get('high_interest', 0),
+                'needs_review_devices': findings['summary'].get('needs_review', 0),
+                'correlations_found': len(correlations),
             })
 
     except Exception as e:
@@ -1336,3 +1371,260 @@ def feed_rf():
     if data:
         _baseline_recorder.add_rf_signal(data)
     return jsonify({'status': 'success'})
+
+
+# =============================================================================
+# Correlation & Findings Endpoints
+# =============================================================================
+
+@tscm_bp.route('/findings')
+def get_findings():
+    """
+    Get comprehensive TSCM findings from the correlation engine.
+
+    Returns all device profiles organized by risk level, cross-protocol
+    correlations, and summary statistics with client-safe disclaimers.
+    """
+    correlation = get_correlation_engine()
+    findings = correlation.get_all_findings()
+
+    # Add client-safe disclaimer
+    findings['legal_disclaimer'] = (
+        "DISCLAIMER: This TSCM screening system identifies wireless and RF anomalies "
+        "and indicators. Results represent potential items of interest, NOT confirmed "
+        "surveillance devices. No content has been intercepted or decoded. Findings "
+        "require professional analysis and verification. This tool does not prove "
+        "malicious intent or illegal activity."
+    )
+
+    return jsonify({
+        'status': 'success',
+        'findings': findings
+    })
+
+
+@tscm_bp.route('/findings/high-interest')
+def get_high_interest():
+    """Get only high-interest devices (score >= 6)."""
+    correlation = get_correlation_engine()
+    high_interest = correlation.get_high_interest_devices()
+
+    return jsonify({
+        'status': 'success',
+        'count': len(high_interest),
+        'devices': [d.to_dict() for d in high_interest],
+        'disclaimer': (
+            "High-interest classification indicates multiple indicators warrant "
+            "investigation. This does NOT confirm surveillance activity."
+        )
+    })
+
+
+@tscm_bp.route('/findings/correlations')
+def get_correlations():
+    """Get cross-protocol correlation analysis."""
+    correlation = get_correlation_engine()
+    correlations = correlation.correlate_devices()
+
+    return jsonify({
+        'status': 'success',
+        'count': len(correlations),
+        'correlations': correlations,
+        'explanation': (
+            "Correlations identify devices across different protocols (Bluetooth, "
+            "WiFi, RF) that exhibit related behavior patterns. Cross-protocol "
+            "activity is one indicator among many in TSCM analysis."
+        )
+    })
+
+
+@tscm_bp.route('/findings/device/<identifier>')
+def get_device_profile(identifier: str):
+    """Get detailed profile for a specific device."""
+    correlation = get_correlation_engine()
+
+    # Search all protocols for the identifier
+    for protocol in ['bluetooth', 'wifi', 'rf']:
+        key = f"{protocol}:{identifier}"
+        if key in correlation.device_profiles:
+            profile = correlation.device_profiles[key]
+            return jsonify({
+                'status': 'success',
+                'profile': profile.to_dict()
+            })
+
+    return jsonify({
+        'status': 'error',
+        'message': 'Device not found'
+    }), 404
+
+
+# =============================================================================
+# Meeting Window Endpoints (for time correlation)
+# =============================================================================
+
+@tscm_bp.route('/meeting/start', methods=['POST'])
+def start_meeting():
+    """
+    Mark the start of a sensitive period (meeting, briefing, etc.).
+
+    Devices detected during this window will receive additional scoring
+    for meeting-correlated activity.
+    """
+    correlation = get_correlation_engine()
+    correlation.start_meeting_window()
+
+    _emit_event('meeting_started', {
+        'timestamp': datetime.now().isoformat(),
+        'message': 'Sensitive period monitoring active'
+    })
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Meeting window started - devices detected now will be flagged'
+    })
+
+
+@tscm_bp.route('/meeting/end', methods=['POST'])
+def end_meeting():
+    """Mark the end of a sensitive period."""
+    correlation = get_correlation_engine()
+    correlation.end_meeting_window()
+
+    _emit_event('meeting_ended', {
+        'timestamp': datetime.now().isoformat()
+    })
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Meeting window ended'
+    })
+
+
+@tscm_bp.route('/meeting/status')
+def meeting_status():
+    """Check if currently in a meeting window."""
+    correlation = get_correlation_engine()
+    in_meeting = correlation.is_during_meeting()
+
+    return jsonify({
+        'status': 'success',
+        'in_meeting': in_meeting,
+        'windows': [
+            {
+                'start': start.isoformat(),
+                'end': end.isoformat() if end else None
+            }
+            for start, end in correlation.meeting_windows
+        ]
+    })
+
+
+# =============================================================================
+# Report Generation Endpoints
+# =============================================================================
+
+@tscm_bp.route('/report')
+def generate_report():
+    """
+    Generate a comprehensive TSCM sweep report.
+
+    Includes all findings, correlations, indicators, and recommended actions
+    in a client-presentable format with appropriate disclaimers.
+    """
+    correlation = get_correlation_engine()
+    findings = correlation.get_all_findings()
+
+    # Build the report structure
+    report = {
+        'generated_at': datetime.now().isoformat(),
+        'report_type': 'TSCM Wireless Surveillance Screening',
+
+        'executive_summary': {
+            'total_devices_analyzed': findings['summary']['total_devices'],
+            'high_interest_items': findings['summary']['high_interest'],
+            'items_requiring_review': findings['summary']['needs_review'],
+            'cross_protocol_correlations': findings['summary']['correlations_found'],
+            'assessment': _generate_assessment(findings['summary']),
+        },
+
+        'methodology': {
+            'protocols_scanned': ['Bluetooth Low Energy', 'WiFi 802.11', 'RF Spectrum'],
+            'analysis_techniques': [
+                'Device fingerprinting',
+                'Signal stability analysis',
+                'Cross-protocol correlation',
+                'Time-based pattern detection',
+                'Manufacturer identification',
+            ],
+            'scoring_model': {
+                'informational': '0-2 points - Known or expected devices',
+                'needs_review': '3-5 points - Unusual devices requiring assessment',
+                'high_interest': '6+ points - Multiple indicators warrant investigation',
+            }
+        },
+
+        'findings': {
+            'high_interest': findings['devices']['high_interest'],
+            'needs_review': findings['devices']['needs_review'],
+            'informational': findings['devices']['informational'],
+        },
+
+        'correlations': findings['correlations'],
+
+        'disclaimers': {
+            'legal': (
+                "This report documents findings from a wireless and RF surveillance "
+                "screening. Results indicate anomalies and items of interest, NOT "
+                "confirmed surveillance devices. No communications content has been "
+                "intercepted, recorded, or decoded. This screening does not prove "
+                "malicious intent, illegal activity, or the presence of surveillance "
+                "equipment. All findings require professional verification."
+            ),
+            'technical': (
+                "Detection capabilities are limited by equipment sensitivity, "
+                "environmental factors, and the technical sophistication of any "
+                "potential devices. Absence of findings does NOT guarantee absence "
+                "of surveillance equipment."
+            ),
+            'recommendations': (
+                "High-interest items should be investigated by qualified TSCM "
+                "professionals using appropriate physical inspection techniques. "
+                "This electronic sweep is one component of comprehensive TSCM."
+            )
+        }
+    }
+
+    return jsonify({
+        'status': 'success',
+        'report': report
+    })
+
+
+def _generate_assessment(summary: dict) -> str:
+    """Generate an assessment summary based on findings."""
+    high = summary.get('high_interest', 0)
+    review = summary.get('needs_review', 0)
+    correlations = summary.get('correlations_found', 0)
+
+    if high > 0 or correlations > 0:
+        return (
+            f"ELEVATED CONCERN: {high} high-interest item(s) and "
+            f"{correlations} cross-protocol correlation(s) detected. "
+            "Professional TSCM inspection recommended."
+        )
+    elif review > 3:
+        return (
+            f"MODERATE CONCERN: {review} items requiring review. "
+            "Further analysis recommended to characterize unknown devices."
+        )
+    elif review > 0:
+        return (
+            f"LOW CONCERN: {review} item(s) flagged for review. "
+            "Likely benign but verification recommended."
+        )
+    else:
+        return (
+            "BASELINE ENVIRONMENT: No significant anomalies detected. "
+            "Environment appears consistent with expected wireless activity."
+        )
