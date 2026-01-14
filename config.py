@@ -7,10 +7,20 @@ import os
 import sys
 
 # Application version
-VERSION = "2.9.0"
+VERSION = "2.9.5"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.9.5",
+        "date": "January 2026",
+        "highlights": [
+            "Enhanced TSCM with MAC-randomization resistant detection",
+            "Clickable score cards and device detail expansion",
+            "RF scanning improvements with status feedback",
+            "Root privilege check and warning display",
+        ]
+    },
     {
         "version": "2.9.0",
         "date": "January 2026",
