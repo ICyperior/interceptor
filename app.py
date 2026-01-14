@@ -548,6 +548,28 @@ def main() -> None:
     print("=" * 50)
     print()
 
+    # Check if running as root (required for WiFi monitor mode, some BT operations)
+    import os
+    if os.geteuid() != 0:
+        print("\033[93m" + "=" * 50)
+        print("  ⚠️  WARNING: Not running as root/sudo")
+        print("=" * 50)
+        print("  Some features require root privileges:")
+        print("    - WiFi monitor mode and scanning")
+        print("    - Bluetooth low-level operations")
+        print("    - RTL-SDR access (on some systems)")
+        print()
+        print("  To run with full capabilities:")
+        print("    sudo -E venv/bin/python intercept.py")
+        print("=" * 50 + "\033[0m")
+        print()
+        # Store for API access
+        app.config['RUNNING_AS_ROOT'] = False
+    else:
+        app.config['RUNNING_AS_ROOT'] = True
+        print("Running as root - full capabilities enabled")
+        print()
+
     # Clean up any stale processes from previous runs
     cleanup_stale_processes()
 

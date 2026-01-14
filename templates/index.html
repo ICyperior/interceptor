@@ -2075,6 +2075,31 @@
                     .tscm-status-message .status-icon {
                         font-size: 16px;
                     }
+                    .tscm-privilege-warning {
+                        padding: 10px 12px;
+                        background: rgba(255, 51, 51, 0.15);
+                        border: 1px solid rgba(255, 51, 51, 0.4);
+                        border-radius: 6px;
+                        color: var(--text-primary);
+                        font-size: 11px;
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 10px;
+                        margin-bottom: 12px;
+                    }
+                    .tscm-privilege-warning .warning-icon {
+                        font-size: 18px;
+                        flex-shrink: 0;
+                    }
+                    .tscm-privilege-warning .warning-action {
+                        margin-top: 4px;
+                        font-family: 'JetBrains Mono', monospace;
+                        font-size: 10px;
+                        color: var(--accent-cyan);
+                        background: rgba(0, 0, 0, 0.3);
+                        padding: 4px 8px;
+                        border-radius: 3px;
+                    }
                     .tscm-device-reasons {
                         font-size: 10px;
                         color: var(--text-secondary);
@@ -10123,6 +10148,23 @@
                     }
                 } else {
                     sdrSelect.innerHTML = '<option value="">No SDR devices found</option>';
+                }
+
+                // Show warnings (e.g., not running as root)
+                const warningsDiv = document.getElementById('tscmDeviceWarnings');
+                if (data.warnings && data.warnings.length > 0) {
+                    warningsDiv.innerHTML = data.warnings.map(w =>
+                        `<div class="tscm-privilege-warning">
+                            <span class="warning-icon">⚠️</span>
+                            <div>
+                                <strong>${escapeHtml(w.message)}</strong>
+                                ${w.action ? `<div class="warning-action">${escapeHtml(w.action)}</div>` : ''}
+                            </div>
+                        </div>`
+                    ).join('');
+                    warningsDiv.style.display = 'block';
+                } else {
+                    warningsDiv.style.display = 'none';
                 }
 
             } catch (e) {

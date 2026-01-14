@@ -596,7 +596,25 @@ def get_tscm_devices():
     except Exception as e:
         logger.warning(f"Error detecting SDR devices: {e}")
 
-    return jsonify({'status': 'success', 'devices': devices})
+    # Check if running as root
+    import os
+    from flask import current_app
+    running_as_root = current_app.config.get('RUNNING_AS_ROOT', os.geteuid() == 0)
+
+    warnings = []
+    if not running_as_root:
+        warnings.append({
+            'type': 'privileges',
+            'message': 'Not running as root. WiFi monitor mode and some Bluetooth features require sudo.',
+            'action': 'Run with: sudo -E venv/bin/python intercept.py'
+        })
+
+    return jsonify({
+        'status': 'success',
+        'devices': devices,
+        'running_as_root': running_as_root,
+        'warnings': warnings
+    })
 
 
 def _scan_wifi_networks(interface: str) -> list[dict]:
