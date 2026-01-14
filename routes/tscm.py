@@ -127,7 +127,7 @@ def _check_available_devices(wifi: bool, bt: bool, rf: bool) -> dict:
                 available['wifi_reason'] = 'macOS airport utility not found'
         else:
             # Linux: Check for wireless tools
-            if shutil.which('iwlist') or shutil.which('iw'):
+            if shutil.which('airodump-ng') or shutil.which('iwlist') or shutil.which('iw'):
                 try:
                     result = subprocess.run(
                         ['iwconfig'],
@@ -140,7 +140,7 @@ def _check_available_devices(wifi: bool, bt: bool, rf: bool) -> dict:
                         available['wifi_reason'] = 'Wireless interface detected'
                     else:
                         available['wifi_reason'] = 'No wireless interfaces found'
-                except (subprocess.TimeoutExpired, FileNotFoundError):
+                except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
                     # Try iw as fallback
                     try:
                         result = subprocess.run(
@@ -153,11 +153,41 @@ def _check_available_devices(wifi: bool, bt: bool, rf: bool) -> dict:
                             available['wifi'] = True
                             available['wifi_reason'] = 'Wireless interface detected'
                         else:
-                            available['wifi_reason'] = 'No wireless interfaces found'
-                    except (subprocess.TimeoutExpired, FileNotFoundError):
-                        available['wifi_reason'] = 'Cannot detect wireless interfaces'
+                            # Check /sys/class/net for wireless interfaces
+                            try:
+                                import glob
+                                wireless_devs = glob.glob('/sys/class/net/*/wireless')
+                                if wireless_devs:
+                                    available['wifi'] = True
+                                    available['wifi_reason'] = 'Wireless interface detected'
+                                else:
+                                    available['wifi_reason'] = 'No wireless interfaces found'
+                            except Exception:
+                                available['wifi_reason'] = 'No wireless interfaces found'
+                    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+                        # Last resort: check /sys/class/net
+                        try:
+                            import glob
+                            wireless_devs = glob.glob('/sys/class/net/*/wireless')
+                            if wireless_devs:
+                                available['wifi'] = True
+                                available['wifi_reason'] = 'Wireless interface detected'
+                            else:
+                                available['wifi_reason'] = 'Cannot detect wireless interfaces'
+                        except Exception:
+                            available['wifi_reason'] = 'Cannot detect wireless interfaces'
             else:
-                available['wifi_reason'] = 'WiFi tools not installed (wireless-tools)'
+                # Fallback: check /sys/class/net even without tools
+                try:
+                    import glob
+                    wireless_devs = glob.glob('/sys/class/net/*/wireless')
+                    if wireless_devs:
+                        available['wifi'] = True
+                        available['wifi_reason'] = 'Wireless interface detected (no scan tools)'
+                    else:
+                        available['wifi_reason'] = 'WiFi tools not installed (wireless-tools)'
+                except Exception:
+                    available['wifi_reason'] = 'WiFi tools not installed (wireless-tools)'
 
     # Check Bluetooth
     if bt:
@@ -179,7 +209,7 @@ def _check_available_devices(wifi: bool, bt: bool, rf: bool) -> dict:
                 available['bt_reason'] = 'Cannot detect Bluetooth'
         else:
             # Linux: Check for Bluetooth tools
-            if shutil.which('bluetoothctl') or shutil.which('hcitool'):
+            if shutil.which('bluetoothctl') or shutil.which('hcitool') or shutil.which('hciconfig'):
                 try:
                     result = subprocess.run(
                         ['hciconfig'],
@@ -192,7 +222,7 @@ def _check_available_devices(wifi: bool, bt: bool, rf: bool) -> dict:
                         available['bt_reason'] = 'Bluetooth adapter detected'
                     else:
                         available['bt_reason'] = 'No Bluetooth adapters found'
-                except (subprocess.TimeoutExpired, FileNotFoundError):
+                except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
                     # Try bluetoothctl as fallback
                     try:
                         result = subprocess.run(
@@ -205,11 +235,41 @@ def _check_available_devices(wifi: bool, bt: bool, rf: bool) -> dict:
                             available['bluetooth'] = True
                             available['bt_reason'] = 'Bluetooth adapter detected'
                         else:
-                            available['bt_reason'] = 'No Bluetooth adapters found'
-                    except (subprocess.TimeoutExpired, FileNotFoundError):
-                        available['bt_reason'] = 'Cannot detect Bluetooth adapters'
+                            # Check /sys for Bluetooth
+                            try:
+                                import glob
+                                bt_devs = glob.glob('/sys/class/bluetooth/hci*')
+                                if bt_devs:
+                                    available['bluetooth'] = True
+                                    available['bt_reason'] = 'Bluetooth adapter detected'
+                                else:
+                                    available['bt_reason'] = 'No Bluetooth adapters found'
+                            except Exception:
+                                available['bt_reason'] = 'No Bluetooth adapters found'
+                    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+                        # Check /sys for Bluetooth
+                        try:
+                            import glob
+                            bt_devs = glob.glob('/sys/class/bluetooth/hci*')
+                            if bt_devs:
+                                available['bluetooth'] = True
+                                available['bt_reason'] = 'Bluetooth adapter detected'
+                            else:
+                                available['bt_reason'] = 'Cannot detect Bluetooth adapters'
+                        except Exception:
+                            available['bt_reason'] = 'Cannot detect Bluetooth adapters'
             else:
-                available['bt_reason'] = 'Bluetooth tools not installed (bluez)'
+                # Fallback: check /sys even without tools
+                try:
+                    import glob
+                    bt_devs = glob.glob('/sys/class/bluetooth/hci*')
+                    if bt_devs:
+                        available['bluetooth'] = True
+                        available['bt_reason'] = 'Bluetooth adapter detected (no scan tools)'
+                    else:
+                        available['bt_reason'] = 'Bluetooth tools not installed (bluez)'
+                except Exception:
+                    available['bt_reason'] = 'Bluetooth tools not installed (bluez)'
 
     # Check RF/SDR
     if rf:
