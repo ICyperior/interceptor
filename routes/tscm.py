@@ -43,6 +43,12 @@ from utils.tscm.correlation import (
     reset_correlation_engine,
 )
 from utils.tscm.detector import ThreatDetector
+from utils.tscm.device_identity import (
+    get_identity_engine,
+    reset_identity_engine,
+    ingest_ble_dict,
+    ingest_wifi_dict,
+)
 
 logger = logging.getLogger('intercept.tscm')
 
@@ -1226,6 +1232,10 @@ def _run_sweep(
         # Clear old profiles from previous sweeps (keep 24h history)
         correlation.clear_old_profiles(24)
 
+        # Initialize device identity engine for MAC-randomization resistant detection
+        identity_engine = get_identity_engine()
+        identity_engine.clear()  # Start fresh for this sweep
+
         # Collect and analyze data
         threats_found = 0
         severity_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
@@ -1266,6 +1276,24 @@ def _run_sweep(
                             # Classify device and get correlation profile
                             classification = detector.classify_wifi_device(network)
                             profile = correlation.analyze_wifi_device(network)
+
+                            # Feed to identity engine for MAC-randomization resistant clustering
+                            # Note: WiFi APs don't typically use randomized MACs, but clients do
+                            try:
+                                wifi_obs = {
+                                    'timestamp': datetime.now().isoformat(),
+                                    'src_mac': bssid,
+                                    'bssid': bssid,
+                                    'ssid': network.get('essid'),
+                                    'rssi': network.get('power'),
+                                    'channel': network.get('channel'),
+                                    'encryption': network.get('privacy'),
+                                    'frame_type': 'beacon',
+                                }
+                                ingest_wifi_dict(wifi_obs)
+                            except Exception as e:
+                                logger.debug(f"Identity engine WiFi ingest error: {e}")
+
                             # Send device to frontend
                             _emit_event('wifi_device', {
                                 'bssid': bssid,
@@ -1306,6 +1334,22 @@ def _run_sweep(
                             # Classify device and get correlation profile
                             classification = detector.classify_bt_device(device)
                             profile = correlation.analyze_bluetooth_device(device)
+
+                            # Feed to identity engine for MAC-randomization resistant clustering
+                            try:
+                                ble_obs = {
+                                    'timestamp': datetime.now().isoformat(),
+                                    'addr': mac,
+                                    'rssi': device.get('rssi'),
+                                    'manufacturer_id': device.get('manufacturer_id') or device.get('company_id'),
+                                    'manufacturer_data': device.get('manufacturer_data'),
+                                    'service_uuids': device.get('services', []),
+                                    'local_name': device.get('name'),
+                                }
+                                ingest_ble_dict(ble_obs)
+                            except Exception as e:
+                                logger.debug(f"Identity engine BLE ingest error: {e}")
+
                             # Send device to frontend
                             _emit_event('bt_device', {
                                 'mac': mac,
@@ -1403,6 +1447,11 @@ def _run_sweep(
             correlations = correlation.correlate_devices()
             findings = correlation.get_all_findings()
 
+            # Finalize identity engine and get MAC-randomization resistant clusters
+            identity_engine.finalize_all_sessions()
+            identity_summary = identity_engine.get_summary()
+            identity_clusters = [c.to_dict() for c in identity_engine.get_clusters()]
+
             update_tscm_sweep(
                 _current_sweep_id,
                 status='completed',
@@ -1412,6 +1461,7 @@ def _run_sweep(
                     'rf_signals': len(all_rf),
                     'severity_counts': severity_counts,
                     'correlation_summary': findings.get('summary', {}),
+                    'identity_summary': identity_summary.get('statistics', {}),
                 },
                 threats_found=threats_found,
                 completed=True
@@ -1424,6 +1474,15 @@ def _run_sweep(
                 'needs_review_count': findings['summary'].get('needs_review', 0),
             })
 
+            # Emit device identity cluster findings (MAC-randomization resistant)
+            _emit_event('identity_clusters', {
+                'total_clusters': identity_summary['statistics'].get('total_clusters', 0),
+                'high_risk_count': identity_summary['statistics'].get('high_risk_count', 0),
+                'medium_risk_count': identity_summary['statistics'].get('medium_risk_count', 0),
+                'unique_fingerprints': identity_summary['statistics'].get('unique_fingerprints', 0),
+                'clusters': identity_clusters,
+            })
+
             _emit_event('sweep_completed', {
                 'sweep_id': _current_sweep_id,
                 'threats_found': threats_found,
@@ -1434,6 +1493,7 @@ def _run_sweep(
                 'high_interest_devices': findings['summary'].get('high_interest', 0),
                 'needs_review_devices': findings['summary'].get('needs_review', 0),
                 'correlations_found': len(correlations),
+                'identity_clusters': identity_summary['statistics'].get('total_clusters', 0),
             })
 
     except Exception as e:
