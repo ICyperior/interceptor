@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
+from utils.dependencies import get_tool_path
 
 
 class RTLSDRCommandBuilder(CommandBuilder):
@@ -53,8 +54,9 @@ class RTLSDRCommandBuilder(CommandBuilder):
 
         Used for pager decoding. Supports local devices and rtl_tcp connections.
         """
+        rtl_fm_path = get_tool_path('rtl_fm') or 'rtl_fm'
         cmd = [
-            'rtl_fm',
+            rtl_fm_path,
             '-d', self._get_device_arg(device),
             '-f', f'{frequency_mhz}M',
             '-M', modulation,
@@ -99,8 +101,9 @@ class RTLSDRCommandBuilder(CommandBuilder):
                 "connect to its SBS output (port 30003)."
             )
 
+        dump1090_path = get_tool_path('dump1090') or 'dump1090'
         cmd = [
-            'dump1090',
+            dump1090_path,
             '--net',
             '--device-index', str(device.index),
             '--quiet'
@@ -127,8 +130,9 @@ class RTLSDRCommandBuilder(CommandBuilder):
 
         Outputs JSON for easy parsing. Supports local devices and rtl_tcp connections.
         """
+        rtl_433_path = get_tool_path('rtl_433') or 'rtl_433'
         cmd = [
-            'rtl_433',
+            rtl_433_path,
             '-d', self._get_device_arg(device),
             '-f', f'{frequency_mhz}M',
             '-F', 'json'

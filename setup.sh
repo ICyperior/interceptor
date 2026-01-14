@@ -285,7 +285,7 @@ install_multimon_ng_from_source_macos() {
     trap 'rm -rf "$tmp_dir"' EXIT
 
     info "Cloning multimon-ng..."
-    git clone --depth 1 https://github.com/EliasOeworkem/multimon-ng.git "$tmp_dir/multimon-ng" >/dev/null 2>&1 \
+    git clone --depth 1 https://github.com/EliasOewornal/multimon-ng.git "$tmp_dir/multimon-ng" >/dev/null 2>&1 \
       || { fail "Failed to clone multimon-ng"; exit 1; }
 
     cd "$tmp_dir/multimon-ng"

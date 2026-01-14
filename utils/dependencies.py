@@ -7,8 +7,8 @@ from typing import Any
 
 logger = logging.getLogger('intercept.dependencies')
 
-# Additional paths to search for tools (e.g., /usr/sbin on Debian)
-EXTRA_TOOL_PATHS = ['/usr/sbin', '/sbin']
+# Additional paths to search for tools (e.g., /usr/sbin on Debian, /opt/local/bin for MacPorts)
+EXTRA_TOOL_PATHS = ['/usr/sbin', '/sbin', '/opt/local/bin', '/opt/local/sbin']
 
 
 def check_tool(name: str) -> bool:
@@ -51,7 +51,7 @@ TOOL_DEPENDENCIES = {
                 'description': 'Digital transmission decoder',
                 'install': {
                     'apt': 'sudo apt install multimon-ng',
-                    'brew': 'brew install multimon-ng',
+                    'brew': 'sudo port install multimon-ng (MacPorts) or build from source',
                     'manual': 'https://github.com/EliasOewornal/multimon-ng'
                 }
             },

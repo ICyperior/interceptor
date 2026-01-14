@@ -1229,8 +1229,8 @@ header h1 .tagline {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     background: var(--bg-primary);
-    min-height: 100px;
-    max-height: 250px;
+    min-height: 400px;
+    max-height: 600px;
 }
 
 .output-content::-webkit-scrollbar {
@@ -1496,20 +1496,18 @@ header h1 .tagline {
     background: var(--accent-cyan);
 }
 
-.waterfall-container {
-    padding: 0 15px;
-    margin-bottom: 10px;
-}
-
-#waterfallCanvas {
+/* Waterfall canvases (inside collapsible panels) */
+#waterfallCanvas,
+#sensorWaterfallCanvas {
     width: 100%;
-    height: 60px;
+    height: 30px;
     background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    transition: box-shadow 0.3s ease;
+    border: none;
+    display: block;
 }
 
-#waterfallCanvas.active {
+#waterfallCanvas.active,
+#sensorWaterfallCanvas.active {
     border-color: var(--accent-cyan);
 }
 
@@ -1637,19 +1635,53 @@ header h1 .tagline {
     font-weight: bold;
 }
 
-.waterfall-container {
-    position: relative;
-    background: #000;
+/* Removed - now using sensor-waterfall-panel structure for waterfalls */
+
+/* Waterfall Panel (used for both pager and 433MHz modes) */
+.sensor-waterfall-panel {
+    margin: 0 15px 10px 15px;
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     overflow: hidden;
 }
 
-#waterfallCanvas {
-    width: 100%;
-    height: 200px;
-    display: block;
+.sensor-waterfall-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
 }
+
+.sensor-waterfall-header:hover {
+    background: var(--bg-hover);
+}
+
+.sensor-waterfall-content {
+    background: #000;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    max-height: 50px;
+    overflow: hidden;
+}
+
+.sensor-waterfall-panel.collapsed .sensor-waterfall-content {
+    max-height: 0;
+    padding: 0;
+}
+
+.sensor-waterfall-panel.collapsed .sensor-waterfall-header {
+    border-bottom: none;
+}
+
+/* Removed duplicate - consolidated above */
 
 .waterfall-scale {
     display: flex;

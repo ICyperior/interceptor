@@ -1530,9 +1530,9 @@
                 </div>
 
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
-                <div class="recon-panel" id="reconPanel">
+                <div class="recon-panel collapsed" id="reconPanel">
                     <div class="recon-header" onclick="toggleReconCollapse()" style="cursor: pointer;">
-                        <h4><span id="reconCollapseIcon">▼</span> Device Intelligence</h4>
+                        <h4><span id="reconCollapseIcon">▶</span> Device Intelligence</h4>
                         <div class="recon-stats">
                             <div>TRACKED: <span id="trackedCount">0</span></div>
                             <div>NEW: <span id="newDeviceCount">0</span></div>
@@ -1546,13 +1546,29 @@
                     </div>
                 </div>
 
-                <div class="waterfall-container">
-                    <canvas id="waterfallCanvas" width="800" height="60"></canvas>
-                </div>
-
                 <div class="output-content" id="output">
                     <div class="placeholder" style="color: #888; text-align: center; padding: 50px;">
                         Configure settings and click "Start Decoding" to begin.
+                    </div>
+                </div>
+
+                <!-- Pager Waterfall (pager mode only, at bottom, collapsible) -->
+                <div class="sensor-waterfall-panel collapsed" id="pagerWaterfallPanel" style="display: none;">
+                    <div class="sensor-waterfall-header" onclick="togglePagerWaterfall()" style="cursor: pointer;">
+                        <span id="pagerWaterfallIcon">▶</span> Signal Waterfall
+                    </div>
+                    <div class="sensor-waterfall-content" id="pagerWaterfallContent">
+                        <canvas id="waterfallCanvas" width="800" height="30"></canvas>
+                    </div>
+                </div>
+
+                <!-- Sensor Waterfall (433MHz mode only, at bottom, collapsible) -->
+                <div class="sensor-waterfall-panel collapsed" id="sensorWaterfallPanel" style="display: none;">
+                    <div class="sensor-waterfall-header" onclick="toggleSensorWaterfall()" style="cursor: pointer;">
+                        <span id="sensorWaterfallIcon">▶</span> Signal Waterfall
+                    </div>
+                    <div class="sensor-waterfall-content" id="sensorWaterfallContent">
+                        <canvas id="sensorWaterfallCanvas" width="800" height="30"></canvas>
                     </div>
                 </div>
 
@@ -2231,7 +2247,10 @@
             document.getElementById('toolStatusAircraft').style.display = (mode === 'aircraft') ? 'grid' : 'none';
 
             // Hide waterfall and output console for modes with their own visualizations
-            document.querySelector('.waterfall-container').style.display = (mode === 'satellite' || mode === 'listening' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth') ? 'none' : 'block';
+            // Pager waterfall: show only for pager mode
+            document.getElementById('pagerWaterfallPanel').style.display = (mode === 'pager') ? 'block' : 'none';
+            // Sensor waterfall: show only for sensor (433MHz) mode
+            document.getElementById('sensorWaterfallPanel').style.display = (mode === 'sensor') ? 'block' : 'none';
             document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening') ? 'none' : 'block';
             document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
 
@@ -2518,8 +2537,9 @@
             signalActivity = Math.min(1, signalActivity + 0.4);
             lastMessageTime = Date.now();
 
-            // Flash waterfall canvas
-            const canvas = document.getElementById('waterfallCanvas');
+            // Flash waterfall canvas (use appropriate canvas based on mode)
+            const canvasId = (currentMode === 'sensor') ? 'sensorWaterfallCanvas' : 'waterfallCanvas';
+            const canvas = document.getElementById(canvasId);
             if (canvas) {
                 canvas.classList.add('active');
                 setTimeout(() => canvas.classList.remove('active'), 500);
@@ -2539,7 +2559,9 @@
         }
 
         function renderWaterfall() {
-            const canvas = document.getElementById('waterfallCanvas');
+            // Render to the appropriate canvas based on current mode
+            const canvasId = (currentMode === 'sensor') ? 'sensorWaterfallCanvas' : 'waterfallCanvas';
+            const canvas = document.getElementById(canvasId);
             if (!canvas) return;
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             const width = canvas.width;
@@ -3533,6 +3555,20 @@
         function toggleReconCollapse() {
             const panel = document.getElementById('reconPanel');
             const icon = document.getElementById('reconCollapseIcon');
+            panel.classList.toggle('collapsed');
+            icon.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function toggleSensorWaterfall() {
+            const panel = document.getElementById('sensorWaterfallPanel');
+            const icon = document.getElementById('sensorWaterfallIcon');
+            panel.classList.toggle('collapsed');
+            icon.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function togglePagerWaterfall() {
+            const panel = document.getElementById('pagerWaterfallPanel');
+            const icon = document.getElementById('pagerWaterfallIcon');
             panel.classList.toggle('collapsed');
             icon.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
         }
