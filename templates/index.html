@@ -2036,6 +2036,33 @@
                     .tscm-device-item.baseline {
                         border-left-color: #00ff88;
                     }
+                    /* Classification colors */
+                    .tscm-device-item.classification-green {
+                        border-left-color: #00cc00;
+                        background: rgba(0, 204, 0, 0.1);
+                    }
+                    .tscm-device-item.classification-yellow {
+                        border-left-color: #ffcc00;
+                        background: rgba(255, 204, 0, 0.1);
+                    }
+                    .tscm-device-item.classification-red {
+                        border-left-color: #ff3333;
+                        background: rgba(255, 51, 51, 0.15);
+                        animation: pulse-glow 2s infinite;
+                    }
+                    .classification-indicator {
+                        margin-right: 6px;
+                    }
+                    .tscm-device-reasons {
+                        font-size: 9px;
+                        color: var(--text-muted);
+                        margin-top: 4px;
+                        font-style: italic;
+                    }
+                    .audio-badge {
+                        margin-left: 6px;
+                        font-size: 10px;
+                    }
                     .tscm-device-name {
                         font-weight: 600;
                         font-size: 12px;
@@ -9981,6 +10008,25 @@
             document.getElementById('tscmThreatCount').textContent = tscmThreats.length;
         }
 
+        function getClassificationClass(classification) {
+            // Map classification to CSS class
+            switch (classification) {
+                case 'high_interest': return 'classification-red';
+                case 'review': return 'classification-yellow';
+                case 'informational': return 'classification-green';
+                default: return 'classification-yellow';
+            }
+        }
+
+        function getClassificationIcon(classification) {
+            switch (classification) {
+                case 'high_interest': return '🔴';
+                case 'review': return '🟡';
+                case 'informational': return '🟢';
+                default: return '🟡';
+            }
+        }
+
         function updateTscmDisplays() {
             // Update WiFi list
             const wifiList = document.getElementById('tscmWifiList');
@@ -9988,12 +10034,16 @@
                 wifiList.innerHTML = '<div class="tscm-empty">No WiFi networks detected</div>';
             } else {
                 wifiList.innerHTML = tscmWifiDevices.map(d => `
-                    <div class="tscm-device-item ${d.is_threat ? 'threat' : (d.is_new ? 'new' : 'baseline')}">
-                        <div class="tscm-device-name">${escapeHtml(d.ssid || d.bssid || 'Hidden')}</div>
+                    <div class="tscm-device-item ${getClassificationClass(d.classification)}">
+                        <div class="tscm-device-name">
+                            <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
+                            ${escapeHtml(d.ssid || d.bssid || 'Hidden')}
+                        </div>
                         <div class="tscm-device-meta">
                             <span>${d.bssid}</span>
                             <span>${d.signal || '--'} dBm</span>
                         </div>
+                        ${d.reasons && d.reasons.length > 0 ? `<div class="tscm-device-reasons">${d.reasons.join(' • ')}</div>` : ''}
                     </div>
                 `).join('');
             }
@@ -10005,12 +10055,17 @@
                 btList.innerHTML = '<div class="tscm-empty">No Bluetooth devices detected</div>';
             } else {
                 btList.innerHTML = tscmBtDevices.map(d => `
-                    <div class="tscm-device-item ${d.is_threat ? 'threat' : (d.is_new ? 'new' : 'baseline')}">
-                        <div class="tscm-device-name">${escapeHtml(d.name || 'Unknown')}</div>
+                    <div class="tscm-device-item ${getClassificationClass(d.classification)}">
+                        <div class="tscm-device-name">
+                            <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
+                            ${escapeHtml(d.name || 'Unknown')}
+                            ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">🎤</span>' : ''}
+                        </div>
                         <div class="tscm-device-meta">
                             <span>${d.mac}</span>
                             <span>${d.rssi || '--'} dBm</span>
                         </div>
+                        ${d.reasons && d.reasons.length > 0 ? `<div class="tscm-device-reasons">${d.reasons.join(' • ')}</div>` : ''}
                     </div>
                 `).join('');
             }
@@ -10022,12 +10077,16 @@
                 rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
             } else {
                 rfList.innerHTML = tscmRfSignals.map(s => `
-                    <div class="tscm-device-item ${s.is_threat ? 'threat' : (s.is_new ? 'new' : 'baseline')}">
-                        <div class="tscm-device-name">${s.frequency.toFixed(3)} MHz</div>
+                    <div class="tscm-device-item ${getClassificationClass(s.classification)}">
+                        <div class="tscm-device-name">
+                            <span class="classification-indicator">${getClassificationIcon(s.classification)}</span>
+                            ${s.frequency.toFixed(3)} MHz
+                        </div>
                         <div class="tscm-device-meta">
                             <span>${s.band}</span>
                             <span>${s.power.toFixed(1)} dBm</span>
                         </div>
+                        ${s.reasons && s.reasons.length > 0 ? `<div class="tscm-device-reasons">${s.reasons.join(' • ')}</div>` : ''}
                     </div>
                 `).join('');
             }

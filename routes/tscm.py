@@ -915,6 +915,8 @@ def _run_sweep(
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
+                            # Classify device
+                            classification = detector.classify_wifi_device(network)
                             # Send device to frontend
                             _emit_event('wifi_device', {
                                 'bssid': bssid,
@@ -923,7 +925,9 @@ def _run_sweep(
                                 'signal': network.get('power', ''),
                                 'security': network.get('privacy', ''),
                                 'is_threat': is_threat,
-                                'is_new': True
+                                'is_new': not classification.get('in_baseline', False),
+                                'classification': classification.get('classification', 'review'),
+                                'reasons': classification.get('reasons', []),
                             })
                     last_wifi_scan = current_time
                 except Exception as e:
@@ -947,6 +951,8 @@ def _run_sweep(
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
+                            # Classify device
+                            classification = detector.classify_bt_device(device)
                             # Send device to frontend
                             _emit_event('bt_device', {
                                 'mac': mac,
@@ -954,7 +960,10 @@ def _run_sweep(
                                 'type': device.get('type', ''),
                                 'rssi': device.get('rssi', ''),
                                 'is_threat': is_threat,
-                                'is_new': True
+                                'is_new': not classification.get('in_baseline', False),
+                                'classification': classification.get('classification', 'review'),
+                                'reasons': classification.get('reasons', []),
+                                'is_audio_capable': classification.get('is_audio_capable', False),
                             })
                     last_bt_scan = current_time
                 except Exception as e:
@@ -985,6 +994,8 @@ def _run_sweep(
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
+                            # Classify signal
+                            classification = detector.classify_rf_signal(signal)
                             # Send signal to frontend
                             _emit_event('rf_signal', {
                                 'frequency': signal['frequency'],
@@ -992,7 +1003,9 @@ def _run_sweep(
                                 'band': signal['band'],
                                 'signal_strength': signal.get('signal_strength', 0),
                                 'is_threat': is_threat,
-                                'is_new': True
+                                'is_new': not classification.get('in_baseline', False),
+                                'classification': classification.get('classification', 'review'),
+                                'reasons': classification.get('reasons', []),
                             })
                     last_rf_scan = current_time
                 except Exception as e:

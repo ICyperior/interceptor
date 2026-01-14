@@ -23,6 +23,68 @@ from data.tscm_frequencies import (
 
 logger = logging.getLogger('intercept.tscm.detector')
 
+# Classification levels for TSCM devices
+CLASSIFICATION_LEVELS = {
+    'informational': {
+        'color': '#00cc00',  # Green
+        'label': 'Informational',
+        'description': 'Known device, expected infrastructure, or background noise',
+    },
+    'review': {
+        'color': '#ffcc00',  # Yellow
+        'label': 'Needs Review',
+        'description': 'Unknown device requiring investigation',
+    },
+    'high_interest': {
+        'color': '#ff3333',  # Red
+        'label': 'High Interest',
+        'description': 'Suspicious device requiring immediate attention',
+    },
+}
+
+# BLE device types that can transmit audio (potential bugs)
+AUDIO_CAPABLE_BLE_NAMES = [
+    'headphone', 'headset', 'earphone', 'earbud', 'speaker',
+    'audio', 'mic', 'microphone', 'airpod', 'buds',
+    'jabra', 'bose', 'sony wf', 'sony wh', 'beats',
+    'jbl', 'soundcore', 'anker', 'skullcandy',
+]
+
+# Device history for tracking repeat detections across scans
+_device_history: dict[str, list[datetime]] = {}
+_history_window_hours = 24  # Consider detections within 24 hours
+
+
+def _record_device_seen(identifier: str) -> int:
+    """Record a device sighting and return count of times seen."""
+    now = datetime.now()
+    if identifier not in _device_history:
+        _device_history[identifier] = []
+
+    # Clean old entries
+    cutoff = now.timestamp() - (_history_window_hours * 3600)
+    _device_history[identifier] = [
+        dt for dt in _device_history[identifier]
+        if dt.timestamp() > cutoff
+    ]
+
+    _device_history[identifier].append(now)
+    return len(_device_history[identifier])
+
+
+def _is_audio_capable_ble(name: str | None, device_type: str | None = None) -> bool:
+    """Check if a BLE device might be audio-capable."""
+    if name:
+        name_lower = name.lower()
+        for pattern in AUDIO_CAPABLE_BLE_NAMES:
+            if pattern in name_lower:
+                return True
+    if device_type:
+        type_lower = device_type.lower()
+        if any(t in type_lower for t in ['audio', 'headset', 'headphone', 'speaker']):
+            return True
+    return False
+
 
 class ThreatDetector:
     """
@@ -71,6 +133,184 @@ class ThreatDetector:
             f"Loaded baseline: {len(self.baseline_wifi_macs)} WiFi, "
             f"{len(self.baseline_bt_macs)} BT, {len(self.baseline_rf_freqs)} RF"
         )
+
+    def classify_wifi_device(self, device: dict) -> dict:
+        """
+        Classify a WiFi device into informational/review/high_interest.
+
+        Returns:
+            Dict with 'classification', 'reasons', and metadata
+        """
+        mac = device.get('bssid', device.get('mac', '')).upper()
+        ssid = device.get('essid', device.get('ssid', ''))
+        signal = device.get('power', device.get('signal', -100))
+
+        reasons = []
+        classification = 'informational'
+
+        # Track repeat detections
+        times_seen = _record_device_seen(f'wifi:{mac}') if mac else 1
+
+        # Check if in baseline (known device)
+        in_baseline = mac in self.baseline_wifi_macs if self.baseline else False
+
+        if in_baseline:
+            reasons.append('Known device in baseline')
+            classification = 'informational'
+        else:
+            # New/unknown device
+            reasons.append('New WiFi access point')
+            classification = 'review'
+
+            # Check for suspicious patterns -> high interest
+            if is_potential_camera(ssid=ssid, mac=mac):
+                reasons.append('Matches camera device patterns')
+                classification = 'high_interest'
+
+            if not ssid and signal and int(signal) > -60:
+                reasons.append('Hidden SSID with strong signal')
+                classification = 'high_interest'
+
+            # Repeat detections across scans
+            if times_seen >= 3:
+                reasons.append(f'Repeat detection ({times_seen} times)')
+                if classification != 'high_interest':
+                    classification = 'high_interest'
+
+        return {
+            'classification': classification,
+            'reasons': reasons,
+            'in_baseline': in_baseline,
+            'times_seen': times_seen,
+        }
+
+    def classify_bt_device(self, device: dict) -> dict:
+        """
+        Classify a Bluetooth device into informational/review/high_interest.
+
+        Returns:
+            Dict with 'classification', 'reasons', and metadata
+        """
+        mac = device.get('mac', device.get('address', '')).upper()
+        name = device.get('name', '')
+        rssi = device.get('rssi', device.get('signal', -100))
+        device_type = device.get('type', '')
+        manufacturer_data = device.get('manufacturer_data')
+
+        reasons = []
+        classification = 'informational'
+        tracker_info = None
+
+        # Track repeat detections
+        times_seen = _record_device_seen(f'bt:{mac}') if mac else 1
+
+        # Check if in baseline (known device)
+        in_baseline = mac in self.baseline_bt_macs if self.baseline else False
+
+        # Check for trackers (do this early for all devices)
+        tracker_info = is_known_tracker(name, manufacturer_data)
+
+        if in_baseline:
+            reasons.append('Known device in baseline')
+            classification = 'informational'
+        else:
+            # New/unknown BLE device
+            if not name or name == 'Unknown':
+                reasons.append('Unknown BLE device')
+                classification = 'review'
+            else:
+                reasons.append('New Bluetooth device')
+                classification = 'review'
+
+            # Check for trackers -> high interest
+            if tracker_info:
+                reasons.append(f"Known tracker: {tracker_info.get('name', 'Unknown')}")
+                classification = 'high_interest'
+
+            # Check for audio-capable devices -> high interest
+            if _is_audio_capable_ble(name, device_type):
+                reasons.append('Audio-capable BLE device')
+                classification = 'high_interest'
+
+            # Strong signal from unknown device
+            if rssi and int(rssi) > -50 and not name:
+                reasons.append('Strong signal from unnamed device')
+                classification = 'high_interest'
+
+            # Repeat detections across scans
+            if times_seen >= 3:
+                reasons.append(f'Repeat detection ({times_seen} times)')
+                if classification != 'high_interest':
+                    classification = 'high_interest'
+
+        return {
+            'classification': classification,
+            'reasons': reasons,
+            'in_baseline': in_baseline,
+            'times_seen': times_seen,
+            'is_tracker': tracker_info is not None,
+            'is_audio_capable': _is_audio_capable_ble(name, device_type),
+        }
+
+    def classify_rf_signal(self, signal: dict) -> dict:
+        """
+        Classify an RF signal into informational/review/high_interest.
+
+        Returns:
+            Dict with 'classification', 'reasons', and metadata
+        """
+        frequency = signal.get('frequency', 0)
+        power = signal.get('power', signal.get('level', -100))
+        band = signal.get('band', '')
+
+        reasons = []
+        classification = 'informational'
+        freq_rounded = round(frequency, 1)
+
+        # Track repeat detections
+        times_seen = _record_device_seen(f'rf:{freq_rounded}')
+
+        # Check if in baseline (known frequency)
+        in_baseline = freq_rounded in self.baseline_rf_freqs if self.baseline else False
+
+        # Get frequency risk info
+        risk, band_name = get_frequency_risk(frequency)
+
+        if in_baseline:
+            reasons.append('Known frequency in baseline')
+            classification = 'informational'
+        else:
+            # New/unidentified RF carrier
+            reasons.append(f'Unidentified RF carrier in {band_name}')
+
+            if risk == 'low':
+                reasons.append('Background RF noise band')
+                classification = 'review'
+            elif risk == 'medium':
+                reasons.append('ISM band signal')
+                classification = 'review'
+            elif risk in ['high', 'critical']:
+                reasons.append(f'High-risk surveillance band: {band_name}')
+                classification = 'high_interest'
+
+            # Strong persistent signal
+            if power and float(power) > -40:
+                reasons.append('Strong persistent transmitter')
+                classification = 'high_interest'
+
+            # Repeat detections (persistent transmitter)
+            if times_seen >= 2:
+                reasons.append(f'Persistent transmitter ({times_seen} detections)')
+                classification = 'high_interest'
+
+        return {
+            'classification': classification,
+            'reasons': reasons,
+            'in_baseline': in_baseline,
+            'times_seen': times_seen,
+            'risk_level': risk,
+            'band_name': band_name,
+        }
 
     def analyze_wifi_device(self, device: dict) -> dict | None:
         """
