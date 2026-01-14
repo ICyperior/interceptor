@@ -1,0 +1,48 @@
+/* APRS Status Bar Styles */
+.aprs-status-bar {
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+.aprs-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.aprs-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+}
+.aprs-status-dot.standby { background: var(--text-muted); }
+.aprs-status-dot.listening {
+    background: var(--accent-cyan);
+    animation: aprs-pulse 1.5s ease-in-out infinite;
+}
+.aprs-status-dot.tracking { background: var(--accent-green); }
+.aprs-status-dot.error { background: var(--accent-red); }
+@keyframes aprs-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 158, 255, 0.7); }
+    50% { opacity: 0.6; box-shadow: 0 0 8px 4px rgba(74, 158, 255, 0.3); }
+}
+.aprs-status-text {
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+.aprs-status-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 9px;
+}
+.aprs-stat {
+    color: var(--text-secondary);
+}
+.aprs-stat-label {
+    color: var(--text-muted);
+}

@@ -1,0 +1,103 @@
+<!-- TSCM MODE (Counter-Surveillance) -->
+                <div id="tscmMode" class="mode-content">
+                    <div class="section">
+                        <h3 style="display: flex; align-items: center; gap: 8px;">TSCM Sweep <span style="font-size: 9px; font-weight: normal; background: var(--accent-orange); color: #000; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Alpha</span></h3>
+                        <div class="form-group">
+                            <label>Sweep Type</label>
+                            <select id="tscmSweepType">
+                                <option value="quick">Quick Scan (2 min)</option>
+                                <option value="standard" selected>Standard (5 min)</option>
+                                <option value="full">Full Sweep (15 min)</option>
+                                <option value="wireless_cameras">Wireless Cameras</option>
+                                <option value="body_worn">Body-Worn Devices</option>
+                                <option value="gps_trackers">GPS Trackers</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Compare Against</label>
+                            <select id="tscmBaselineSelect">
+                                <option value="">No Baseline</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Scan Sources</h3>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="tscmWifiEnabled" checked style="margin: 0;">
+                                <label for="tscmWifiEnabled" style="flex: 1; margin: 0;">WiFi Networks</label>
+                            </div>
+                            <select id="tscmWifiInterface" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <option value="">Select WiFi interface...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="tscmBtEnabled" checked style="margin: 0;">
+                                <label for="tscmBtEnabled" style="flex: 1; margin: 0;">Bluetooth Devices</label>
+                            </div>
+                            <select id="tscmBtInterface" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <option value="">Select Bluetooth adapter...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="tscmRfEnabled" style="margin: 0;">
+                                <label for="tscmRfEnabled" style="flex: 1; margin: 0;">RF Signals</label>
+                            </div>
+                            <select id="tscmSdrDevice" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <option value="">Select SDR device...</option>
+                            </select>
+                        </div>
+                        <button class="preset-btn" onclick="refreshTscmDevices()" style="width: 100%; margin-top: 8px; font-size: 10px;">
+                            🔄 Refresh Devices
+                        </button>
+                    </div>
+
+                    <div class="section">
+                        <h3>Baseline Management</h3>
+                        <div class="form-group">
+                            <input type="text" id="tscmBaselineName" placeholder="Baseline name...">
+                        </div>
+                        <button class="run-btn" id="tscmRecordBaselineBtn" onclick="tscmRecordBaseline()" style="width: 100%; padding: 8px;">
+                            Record New Baseline
+                        </button>
+                        <button class="stop-btn" id="tscmStopBaselineBtn" onclick="tscmStopBaseline()" style="width: 100%; padding: 8px; display: none;">
+                            Stop Recording
+                        </button>
+                        <div id="tscmBaselineStatus" style="margin-top: 8px; font-size: 11px; color: var(--text-muted);"></div>
+                    </div>
+
+                    <button class="run-btn" id="startTscmBtn" onclick="startTscmSweep()">
+                        Start Sweep
+                    </button>
+                    <button class="stop-btn" id="stopTscmBtn" onclick="stopTscmSweep()" style="display: none;">
+                        Stop Sweep
+                    </button>
+
+                    <!-- Futuristic Scanner Progress -->
+                    <div id="tscmProgress" class="tscm-scanner-progress" style="display: none;">
+                        <div class="scanner-ring">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="scanner-track" cx="50" cy="50" r="45" />
+                                <circle class="scanner-progress" id="tscmScannerCircle" cx="50" cy="50" r="45" />
+                                <line class="scanner-sweep" x1="50" y1="50" x2="50" y2="8" />
+                            </svg>
+                            <div class="scanner-center">
+                                <span class="scanner-percent" id="tscmProgressPercent">0%</span>
+                            </div>
+                        </div>
+                        <div class="scanner-info">
+                            <div class="scanner-status" id="tscmProgressLabel">INITIALIZING</div>
+                            <div class="scanner-devices">
+                                <span class="device-indicator" id="tscmWifiIndicator" title="WiFi">📶</span>
+                                <span class="device-indicator" id="tscmBtIndicator" title="Bluetooth">🔵</span>
+                                <span class="device-indicator" id="tscmRfIndicator" title="RF/SDR">📡</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device Warnings -->
+                    <div id="tscmDeviceWarnings" style="display: none; margin-top: 8px; padding: 8px; background: rgba(255,153,51,0.1); border: 1px solid rgba(255,153,51,0.3); border-radius: 4px;"></div>
+                </div>
