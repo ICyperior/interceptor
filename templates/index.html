@@ -295,25 +295,41 @@
 
     <!-- Mode Navigation Bar -->
     <nav class="mode-nav">
-        <div class="mode-nav-group">
-            <span class="mode-nav-label">SDR / RF</span>
-            <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span class="nav-label">Pager</span></button>
-            <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span class="nav-label">433MHz</span></button>
-            <button class="mode-nav-btn" onclick="switchMode('aircraft')"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></button>
-            <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon">📍</span><span class="nav-label">APRS</span></button>
-            <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span class="nav-label">Satellite</span></button>
-            <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span class="nav-label">Listening Post</span></button>
+        <div class="mode-nav-dropdown" data-group="sdr">
+            <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('sdr')">
+                <span class="nav-icon">📡</span>
+                <span class="nav-label">SDR / RF</span>
+                <span class="dropdown-arrow">▼</span>
+            </button>
+            <div class="mode-nav-dropdown-menu">
+                <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span class="nav-label">Pager</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span class="nav-label">433MHz</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('aircraft')"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon">📍</span><span class="nav-label">APRS</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span class="nav-label">Satellite</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span class="nav-label">Listening Post</span></button>
+            </div>
         </div>
-        <div class="mode-nav-divider"></div>
-        <div class="mode-nav-group">
-            <span class="mode-nav-label">Wireless</span>
-            <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon">📶</span><span class="nav-label">WiFi</span></button>
-            <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon">🔵</span><span class="nav-label">Bluetooth</span></button>
+        <div class="mode-nav-dropdown" data-group="wireless">
+            <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('wireless')">
+                <span class="nav-icon">📶</span>
+                <span class="nav-label">Wireless</span>
+                <span class="dropdown-arrow">▼</span>
+            </button>
+            <div class="mode-nav-dropdown-menu">
+                <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon">📶</span><span class="nav-label">WiFi</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon">🔵</span><span class="nav-label">Bluetooth</span></button>
+            </div>
         </div>
-        <div class="mode-nav-divider"></div>
-        <div class="mode-nav-group">
-            <span class="mode-nav-label">Security</span>
-            <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon">🔍</span><span class="nav-label">TSCM</span></button>
+        <div class="mode-nav-dropdown" data-group="security">
+            <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('security')">
+                <span class="nav-icon">🔍</span>
+                <span class="nav-label">Security</span>
+                <span class="dropdown-arrow">▼</span>
+            </button>
+            <div class="mode-nav-dropdown-menu">
+                <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon">🔍</span><span class="nav-label">TSCM</span></button>
+            </div>
         </div>
         <div class="mode-nav-actions">
             <a href="/adsb/dashboard" target="_blank" class="nav-action-btn" id="adsbDashboardBtn" style="display: none;">
@@ -1102,16 +1118,6 @@
                             Stop Recording
                         </button>
                         <div id="tscmBaselineStatus" style="margin-top: 8px; font-size: 11px; color: var(--text-muted);"></div>
-                    </div>
-
-                    <div class="section">
-                        <h3>Threat Summary</h3>
-                        <div id="tscmThreatSummary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                            <div class="threat-card critical"><span class="count">0</span><span class="label">Critical</span></div>
-                            <div class="threat-card high"><span class="count">0</span><span class="label">High</span></div>
-                            <div class="threat-card medium"><span class="count">0</span><span class="label">Medium</span></div>
-                            <div class="threat-card low"><span class="count">0</span><span class="label">Low</span></div>
-                        </div>
                     </div>
 
                     <button class="run-btn" id="startTscmBtn" onclick="startTscmSweep()">
@@ -3353,12 +3359,60 @@
 
             // Load pager message filters
             loadPagerFilters();
+
+            // Initialize dropdown nav active state
+            updateDropdownActiveState();
         });
 
         // Toggle section collapse
         function toggleSection(el) {
             el.closest('.section').classList.toggle('collapsed');
         }
+
+        // Dropdown navigation
+        function toggleNavDropdown(group) {
+            const dropdown = document.querySelector(`.mode-nav-dropdown[data-group="${group}"]`);
+            const isOpen = dropdown.classList.contains('open');
+
+            // Close all dropdowns first
+            document.querySelectorAll('.mode-nav-dropdown').forEach(d => d.classList.remove('open'));
+
+            // Open this one if it was closed
+            if (!isOpen) {
+                dropdown.classList.add('open');
+            }
+        }
+
+        function closeAllDropdowns() {
+            document.querySelectorAll('.mode-nav-dropdown').forEach(d => d.classList.remove('open'));
+        }
+
+        function updateDropdownActiveState() {
+            // Map modes to their dropdown groups
+            const modeGroups = {
+                'pager': 'sdr', 'sensor': 'sdr', 'aircraft': 'sdr',
+                'aprs': 'sdr', 'satellite': 'sdr', 'listening': 'sdr',
+                'wifi': 'wireless', 'bluetooth': 'wireless',
+                'tscm': 'security'
+            };
+
+            // Remove has-active from all dropdowns
+            document.querySelectorAll('.mode-nav-dropdown').forEach(d => d.classList.remove('has-active'));
+
+            // Add has-active to the dropdown containing the current mode
+            const activeGroup = modeGroups[currentMode];
+            if (activeGroup) {
+                const dropdown = document.querySelector(`.mode-nav-dropdown[data-group="${activeGroup}"]`);
+                if (dropdown) dropdown.classList.add('has-active');
+            }
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.mode-nav-dropdown')) {
+                closeAllDropdowns();
+            }
+        });
 
         // Mode switching
         function switchMode(mode) {
@@ -3372,6 +3426,11 @@
             if (isTscmRunning) stopTscmSweep();
 
             currentMode = mode;
+
+            // Close dropdowns and update active state
+            closeAllDropdowns();
+            updateDropdownActiveState();
+
             // Remove active from all nav buttons, then add to the correct one
             document.querySelectorAll('.mode-nav-btn').forEach(btn => btn.classList.remove('active'));
             const modeMap = {
@@ -10400,6 +10459,14 @@
                 if (device.score >= 3) {
                     addHighInterestDevice(device, 'wifi');
                 }
+                // Feed to baseline recorder if recording
+                if (isRecordingBaseline) {
+                    fetch('/tscm/feed/wifi', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(device)
+                    }).catch(e => console.error('Baseline feed error:', e));
+                }
             }
         }
 
@@ -10413,6 +10480,14 @@
                 // Add to threats panel if score >= 3 (review level or higher)
                 if (device.score >= 3) {
                     addHighInterestDevice(device, 'bluetooth');
+                }
+                // Feed to baseline recorder if recording
+                if (isRecordingBaseline) {
+                    fetch('/tscm/feed/bluetooth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(device)
+                    }).catch(e => console.error('Baseline feed error:', e));
                 }
             }
         }
@@ -10432,6 +10507,14 @@
                 // Add to findings panel if score >= 3 (review level or higher)
                 if (signal.score >= 3) {
                     addHighInterestDevice(signal, 'rf');
+                }
+                // Feed to baseline recorder if recording
+                if (isRecordingBaseline) {
+                    fetch('/tscm/feed/rf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(signal)
+                    }).catch(e => console.error('Baseline feed error:', e));
                 }
             }
         }
@@ -10530,17 +10613,6 @@
                 statusText = parts.length > 0 ? parts.join(' | ') : 'SCANNING...';
             }
             document.getElementById('tscmProgressLabel').textContent = statusText;
-
-            // Update counts in sidebar (from severity_counts object)
-            const counts = data.severity_counts || {};
-            const criticalEl = document.querySelector('#tscmThreatSummary .threat-card.critical .count');
-            const highEl = document.querySelector('#tscmThreatSummary .threat-card.high .count');
-            const mediumEl = document.querySelector('#tscmThreatSummary .threat-card.medium .count');
-            const lowEl = document.querySelector('#tscmThreatSummary .threat-card.low .count');
-            if (criticalEl) criticalEl.textContent = counts.critical || 0;
-            if (highEl) highEl.textContent = counts.high || 0;
-            if (mediumEl) mediumEl.textContent = counts.medium || 0;
-            if (lowEl) lowEl.textContent = counts.low || 0;
         }
 
         function addTscmThreat(threat) {

@@ -470,6 +470,109 @@ header h1 {
     color: var(--bg-primary);
 }
 
+/* Dropdown Navigation */
+.mode-nav-dropdown {
+    position: relative;
+}
+
+.mode-nav-dropdown-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mode-nav-dropdown-btn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.mode-nav-dropdown-btn .nav-icon {
+    font-size: 14px;
+}
+
+.mode-nav-dropdown-btn .nav-label {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.mode-nav-dropdown-btn .dropdown-arrow {
+    font-size: 8px;
+    margin-left: 4px;
+    transition: transform 0.2s ease;
+}
+
+.mode-nav-dropdown.open .mode-nav-dropdown-btn {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.mode-nav-dropdown.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.mode-nav-dropdown.has-active .mode-nav-dropdown-btn {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+    border-color: var(--accent-cyan);
+}
+
+.mode-nav-dropdown.has-active .mode-nav-dropdown-btn .nav-icon {
+    filter: brightness(0);
+}
+
+.mode-nav-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 180px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.15s ease;
+    z-index: 1000;
+    padding: 6px;
+}
+
+.mode-nav-dropdown.open .mode-nav-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.mode-nav-dropdown-menu .mode-nav-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 12px;
+    border-radius: 4px;
+    margin: 0;
+}
+
+.mode-nav-dropdown-menu .mode-nav-btn:hover {
+    background: var(--bg-elevated);
+}
+
+.mode-nav-dropdown-menu .mode-nav-btn.active {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+}
+
 .version-badge {
     font-size: 0.6rem;
     font-weight: 500;
