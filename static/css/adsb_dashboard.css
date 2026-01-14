@@ -71,33 +71,61 @@ body {
     }
 }
 
-/* Header */
+/* Header - Mobile first */
 .header {
     position: relative;
     z-index: 10;
-    padding: 12px 20px;
+    padding: 10px 12px;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 52px;
+}
+
+@media (min-width: 768px) {
+    .header {
+        padding: 12px 20px;
+        flex-wrap: nowrap;
+    }
 }
 
 .logo {
     font-family: 'Inter', sans-serif;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     color: var(--text-primary);
     text-transform: uppercase;
 }
 
+@media (min-width: 768px) {
+    .logo {
+        font-size: 20px;
+        letter-spacing: 3px;
+    }
+}
+
 .logo span {
+    display: none;
     color: var(--text-secondary);
     font-weight: 400;
-    font-size: 14px;
-    margin-left: 15px;
-    letter-spacing: 2px;
+    font-size: 12px;
+    margin-left: 10px;
+    letter-spacing: 1px;
+}
+
+@media (min-width: 768px) {
+    .logo span {
+        display: inline;
+        font-size: 14px;
+        margin-left: 15px;
+        letter-spacing: 2px;
+    }
+}
 }
 
 .status-bar {
@@ -180,24 +208,48 @@ body {
     border-radius: 4px;
 }
 
-/* Main dashboard grid */
+/* Main dashboard grid - Mobile first */
 .dashboard {
     position: relative;
     z-index: 10;
-    display: grid;
-    grid-template-columns: auto 1fr 300px;
-    grid-template-rows: 1fr auto;
+    display: flex;
+    flex-direction: column;
     gap: 0;
-    height: calc(100vh - 60px);
-    min-height: 500px;
+    height: calc(100dvh - 60px);
+    height: calc(100vh - 60px); /* Fallback */
+    min-height: 400px;
+}
+
+/* Tablet: Two-column layout */
+@media (min-width: 768px) {
+    .dashboard {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        grid-template-rows: 1fr auto;
+        min-height: 500px;
+    }
+}
+
+/* Desktop: Full layout with ACARS */
+@media (min-width: 1024px) {
+    .dashboard {
+        grid-template-columns: auto 1fr 300px;
+    }
 }
 
 /* ACARS sidebar (left of map) - Collapsible */
 .acars-sidebar {
+    display: none;
     background: var(--bg-panel);
     border-right: 1px solid var(--border-color);
-    display: flex;
     flex-direction: row;
+}
+
+/* Show ACARS sidebar on desktop */
+@media (min-width: 1024px) {
+    .acars-sidebar {
+        display: flex;
+    }
 }
 
 .acars-collapse-btn {
@@ -434,14 +486,30 @@ body {
     max-height: 100%;
 }
 
-/* Right sidebar */
+/* Right sidebar - Mobile first */
 .sidebar {
-    grid-column: 3;
-    grid-row: 1;
     display: flex;
     flex-direction: column;
-    border-left: 1px solid rgba(74, 158, 255, 0.2);
+    border-left: none;
+    border-top: 1px solid rgba(74, 158, 255, 0.2);
     overflow: hidden;
+    max-height: 40vh;
+}
+
+@media (min-width: 768px) {
+    .sidebar {
+        grid-column: 2;
+        grid-row: 1;
+        border-left: 1px solid rgba(74, 158, 255, 0.2);
+        border-top: none;
+        max-height: none;
+    }
+}
+
+@media (min-width: 1024px) {
+    .sidebar {
+        grid-column: 3;
+    }
 }
 
 /* View toggle */
@@ -792,44 +860,24 @@ body {
     opacity: 0.5;
 }
 
-/* Responsive - medium screens (hide ACARS sidebar, keep main sidebar) */
-@media (max-width: 1200px) {
-    .dashboard {
-        grid-template-columns: 1fr 300px;
-        grid-template-rows: 1fr auto;
-    }
-
-    .acars-sidebar {
-        display: none;
-    }
+/* Responsive adjustments for main display */
+.main-display {
+    flex: 1;
+    min-height: 250px;
 }
 
-/* Responsive - small screens (single column) */
-@media (max-width: 900px) {
-    .dashboard {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto auto;
-    }
-
+@media (min-width: 768px) {
     .main-display {
         min-height: 400px;
     }
+}
 
-    .acars-sidebar {
-        display: none;
-    }
-
-    .sidebar {
-        grid-column: 1;
-        grid-row: 2;
-        border-left: none;
-        border-top: 1px solid rgba(74, 158, 255, 0.2);
-        max-height: 300px;
-    }
-
+/* Controls bar responsive */
+@media (max-width: 767px) {
     .controls-bar {
-        grid-row: 3;
         flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px;
     }
 }
 /* Airband Audio Controls */

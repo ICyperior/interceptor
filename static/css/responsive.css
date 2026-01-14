@@ -1,0 +1,371 @@
+/* ============================================
+   RESPONSIVE UTILITIES - iNTERCEPT
+   Shared responsive foundation for all pages
+   ============================================ */
+
+/* ============== CSS VARIABLES ============== */
+:root {
+    /* Touch targets */
+    --touch-min: 44px;
+    --touch-comfortable: 48px;
+
+    /* Responsive spacing */
+    --spacing-xs: clamp(4px, 1vw, 8px);
+    --spacing-sm: clamp(8px, 2vw, 12px);
+    --spacing-md: clamp(12px, 3vw, 20px);
+    --spacing-lg: clamp(16px, 4vw, 32px);
+
+    /* Responsive typography */
+    --font-xs: clamp(10px, 2.5vw, 11px);
+    --font-sm: clamp(11px, 2.8vw, 12px);
+    --font-base: clamp(13px, 3vw, 14px);
+    --font-md: clamp(14px, 3.5vw, 16px);
+    --font-lg: clamp(16px, 4vw, 20px);
+    --font-xl: clamp(20px, 5vw, 28px);
+    --font-2xl: clamp(24px, 6vw, 40px);
+
+    /* Header height for calculations */
+    --header-height: 52px;
+    --nav-height: 44px;
+}
+
+@media (min-width: 768px) {
+    :root {
+        --header-height: 60px;
+        --nav-height: 48px;
+    }
+}
+
+@media (min-width: 1024px) {
+    :root {
+        --header-height: 96px;
+        --nav-height: 0px;
+    }
+}
+
+/* ============== VIEWPORT HEIGHT FIX ============== */
+/* Handles iOS Safari address bar and dynamic viewport */
+.full-height {
+    height: 100dvh;
+    height: 100vh; /* Fallback */
+}
+
+@supports (-webkit-touch-callout: none) {
+    .full-height {
+        height: -webkit-fill-available;
+    }
+}
+
+/* ============== HAMBURGER BUTTON ============== */
+.hamburger-btn {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: var(--touch-min);
+    height: var(--touch-min);
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--border-color, #1f2937);
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    z-index: 1001;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.hamburger-btn:hover {
+    background: var(--bg-tertiary, #151a23);
+    border-color: var(--accent-cyan, #4a9eff);
+}
+
+.hamburger-btn span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--accent-cyan, #4a9eff);
+    margin: 2px 0;
+    border-radius: 1px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.hamburger-btn.active span:nth-child(1) {
+    transform: rotate(45deg) translate(4px, 4px);
+}
+
+.hamburger-btn.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger-btn.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(4px, -4px);
+}
+
+/* Hide hamburger on desktop */
+@media (min-width: 1024px) {
+    .hamburger-btn {
+        display: none;
+    }
+}
+
+/* ============== MOBILE DRAWER ============== */
+.mobile-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(320px, 85vw);
+    height: 100dvh;
+    height: 100vh; /* Fallback */
+    background: var(--bg-secondary, #0f1218);
+    border-right: 1px solid var(--border-color, #1f2937);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: 60px;
+}
+
+.mobile-drawer.open {
+    transform: translateX(0);
+}
+
+/* Show sidebar normally on desktop */
+@media (min-width: 1024px) {
+    .mobile-drawer {
+        position: static;
+        transform: none;
+        width: auto;
+        height: auto;
+        padding-top: 0;
+        z-index: auto;
+    }
+}
+
+/* ============== DRAWER OVERLAY ============== */
+.drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 999;
+}
+
+.drawer-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Hide overlay on desktop */
+@media (min-width: 1024px) {
+    .drawer-overlay {
+        display: none;
+    }
+}
+
+/* ============== TOUCH TARGETS ============== */
+@media (max-width: 1023px) {
+    /* Ensure minimum touch target size for interactive elements */
+    button,
+    .btn,
+    .preset-btn,
+    .mode-nav-btn,
+    .control-btn,
+    .nav-action-btn,
+    .icon-btn {
+        min-height: var(--touch-min);
+        min-width: var(--touch-min);
+    }
+
+    select,
+    input[type="text"],
+    input[type="number"],
+    input[type="search"] {
+        min-height: var(--touch-min);
+        padding: 10px 12px;
+        font-size: 16px; /* Prevents iOS zoom on focus */
+    }
+
+    .checkbox-group label,
+    .radio-group label {
+        min-height: var(--touch-min);
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* ============== RESPONSIVE UTILITIES ============== */
+/* Hide on mobile */
+.hide-mobile {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .hide-mobile {
+        display: initial;
+    }
+}
+
+/* Hide on tablet and up */
+.show-mobile-only {
+    display: initial;
+}
+
+@media (min-width: 768px) {
+    .show-mobile-only {
+        display: none;
+    }
+}
+
+/* Hide on desktop */
+.hide-desktop {
+    display: initial;
+}
+
+@media (min-width: 1024px) {
+    .hide-desktop {
+        display: none;
+    }
+}
+
+/* Show only on desktop */
+.show-desktop-only {
+    display: none;
+}
+
+@media (min-width: 1024px) {
+    .show-desktop-only {
+        display: initial;
+    }
+}
+
+/* ============== SCROLLABLE AREAS ============== */
+.scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.scroll-x::-webkit-scrollbar {
+    height: 4px;
+}
+
+.scroll-x::-webkit-scrollbar-thumb {
+    background: var(--border-color, #1f2937);
+    border-radius: 2px;
+}
+
+/* Hide scrollbar on mobile for cleaner look */
+@media (max-width: 767px) {
+    .scroll-x-mobile-hidden {
+        scrollbar-width: none;
+    }
+
+    .scroll-x-mobile-hidden::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* ============== MOBILE NAVIGATION BAR ============== */
+.mobile-nav-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--bg-tertiary, #151a23);
+    border-bottom: 1px solid var(--border-color, #1f2937);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.mobile-nav-bar::-webkit-scrollbar {
+    display: none;
+}
+
+.mobile-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg-card, #121620);
+    border: 1px solid var(--border-color, #1f2937);
+    border-radius: 6px;
+    color: var(--text-secondary, #9ca3af);
+    font-size: var(--font-xs);
+    font-family: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 36px;
+}
+
+.mobile-nav-btn:hover,
+.mobile-nav-btn.active {
+    background: var(--bg-elevated, #1a202c);
+    border-color: var(--accent-cyan, #4a9eff);
+    color: var(--text-primary, #e8eaed);
+}
+
+.mobile-nav-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Hide mobile nav bar on desktop */
+@media (min-width: 1024px) {
+    .mobile-nav-bar {
+        display: none;
+    }
+}
+
+/* ============== RESPONSIVE GRID UTILITIES ============== */
+.grid-responsive {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* 1 column base */
+.grid-1-2 {
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 480px) {
+    .grid-1-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.grid-2-3 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 768px) {
+    .grid-2-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ============== TYPOGRAPHY RESPONSIVE ============== */
+.text-responsive-xs { font-size: var(--font-xs); }
+.text-responsive-sm { font-size: var(--font-sm); }
+.text-responsive-base { font-size: var(--font-base); }
+.text-responsive-md { font-size: var(--font-md); }
+.text-responsive-lg { font-size: var(--font-lg); }
+.text-responsive-xl { font-size: var(--font-xl); }
+.text-responsive-2xl { font-size: var(--font-2xl); }
+
+/* Ensure minimum readable sizes for tiny text */
+.text-min-readable {
+    font-size: max(10px, var(--font-xs));
+}

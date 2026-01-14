@@ -399,23 +399,45 @@ body {
     to { opacity: 0; visibility: hidden; }
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* Responsive - Mobile First */
+/* Base: Mobile styles */
+.welcome-content {
+    grid-template-columns: 1fr;
+}
+
+.welcome-header {
+    flex-direction: column;
+    text-align: center;
+}
+
+.welcome-title-block {
+    text-align: center;
+}
+
+.mode-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* Larger phones: 3 columns for mode grid */
+@media (min-width: 480px) {
+    .mode-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Tablet and up: Side-by-side layout */
+@media (min-width: 768px) {
     .welcome-content {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1.5fr;
     }
 
     .welcome-header {
-        flex-direction: column;
-        text-align: center;
+        flex-direction: row;
+        text-align: left;
     }
 
     .welcome-title-block {
-        text-align: center;
-    }
-
-    .mode-grid {
-        grid-template-columns: repeat(2, 1fr);
+        text-align: left;
     }
 }
 
@@ -431,11 +453,28 @@ body {
 
 header {
     background: var(--bg-secondary);
-    padding: 12px 20px;
-    display: block;
-    text-align: center;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
     border-bottom: 1px solid var(--border-color);
     position: relative;
+    min-height: 52px;
+}
+
+@media (min-width: 768px) {
+    header {
+        justify-content: center;
+        padding: 12px 20px;
+    }
+}
+
+@media (min-width: 1024px) {
+    header {
+        text-align: center;
+        display: block;
+    }
 }
 
 header::before {
@@ -482,13 +521,19 @@ header h1 {
 
 /* Mode Navigation Bar */
 .mode-nav {
+    display: none;
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-color);
     padding: 0 20px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 44px;
+}
+
+@media (min-width: 1024px) {
+    .mode-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 44px;
+    }
 }
 
 .mode-nav-group {
@@ -723,14 +768,27 @@ header h1 .tagline {
     color: var(--accent-cyan, #00d4ff);
     font-size: 0.6em;
     opacity: 0.9;
+    display: none;
+}
+
+@media (min-width: 768px) {
+    header h1 .tagline {
+        display: inline;
+    }
 }
 
 /* Header stat badges */
 .header-stats {
-    display: flex;
+    display: none;
     justify-content: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+    .header-stats {
+        display: flex;
+    }
 }
 
 .stat-badge {
@@ -804,16 +862,27 @@ header h1 .tagline {
 
 /* UTC Clock in header */
 .header-clock {
-    position: absolute;
-    top: 50%;
-    left: 20px;
-    transform: translateY(-50%);
+    position: static;
+    transform: none;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    margin-left: auto;
+}
+
+@media (min-width: 1024px) {
+    .header-clock {
+        position: absolute;
+        top: 50%;
+        left: 20px;
+        transform: translateY(-50%);
+        font-size: 12px;
+        gap: 8px;
+        margin-left: 0;
+    }
 }
 
 .header-clock .utc-time {
@@ -1106,16 +1175,20 @@ header h1 .tagline {
 }
 
 .main-content {
-    display: grid;
-    grid-template-columns: 320px 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 0;
-    height: calc(100vh - 96px);
+    height: calc(100dvh - 96px);
+    height: calc(100vh - 96px); /* Fallback */
     overflow: hidden;
 }
 
-@media (max-width: 900px) {
+@media (min-width: 1024px) {
     .main-content {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        height: calc(100dvh - 96px);
+        height: calc(100vh - 96px); /* Fallback */
     }
 }
 
@@ -1127,6 +1200,13 @@ header h1 .tagline {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+/* Mobile: Sidebar is controlled by mobile-drawer class from responsive.css */
+@media (max-width: 1023px) {
+    .sidebar:not(.open) {
+        /* Hidden by mobile-drawer transform, but ensure no layout impact */
+    }
 }
 
 .sidebar::before {

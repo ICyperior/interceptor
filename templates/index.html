@@ -14,6 +14,7 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <!-- Chart.js for signal strength graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
@@ -192,8 +193,14 @@
         </div>
     </div>
     <header>
+        <!-- Hamburger Menu Button (Mobile) -->
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle navigation menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
         <!-- UTC Clock -->
-        <div class="header-clock">
+        <div class="header-clock hide-mobile">
             <span class="utc-label">UTC</span>
             <span class="utc-time" id="headerUtcTime">--:--:--</span>
         </div>
@@ -416,9 +423,24 @@
         </div>
     </nav>
 
+    <!-- Mobile Navigation Bar (simplified mode switching) -->
+    <nav class="mobile-nav-bar" id="mobileNavBar">
+        <button class="mobile-nav-btn active" data-mode="pager" onclick="switchMode('pager')">📟 Pager</button>
+        <button class="mobile-nav-btn" data-mode="sensor" onclick="switchMode('sensor')">📡 433MHz</button>
+        <button class="mobile-nav-btn" data-mode="aircraft" onclick="switchMode('aircraft')">✈️ Aircraft</button>
+        <button class="mobile-nav-btn" data-mode="wifi" onclick="switchMode('wifi')">📶 WiFi</button>
+        <button class="mobile-nav-btn" data-mode="bluetooth" onclick="switchMode('bluetooth')">🔵 BT</button>
+        <button class="mobile-nav-btn" data-mode="tscm" onclick="switchMode('tscm')">🔍 TSCM</button>
+        <button class="mobile-nav-btn" data-mode="satellite" onclick="switchMode('satellite')">🛰️ Sat</button>
+        <button class="mobile-nav-btn" data-mode="listening" onclick="switchMode('listening')">📻 Scanner</button>
+    </nav>
+
+    <!-- Mobile Drawer Overlay -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+
     <div class="container">
         <div class="main-content">
-            <div class="sidebar">
+            <div class="sidebar mobile-drawer" id="mainSidebar">
                 <div class="section" id="rtlDeviceSection">
                     <h3>SDR Device</h3>
                     <div class="form-group">
