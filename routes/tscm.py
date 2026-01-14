@@ -1143,7 +1143,7 @@ def _run_sweep(
                             _emit_event('bt_device', {
                                 'mac': mac,
                                 'name': device.get('name', 'Unknown'),
-                                'type': device.get('type', ''),
+                                'device_type': device.get('type', ''),
                                 'rssi': device.get('rssi', ''),
                                 'is_threat': is_threat,
                                 'is_new': not classification.get('in_baseline', False),

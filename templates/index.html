@@ -10237,7 +10237,7 @@
                         <div class="tscm-device-meta">
                             <span>${d.mac}</span>
                             <span>${d.rssi || '--'} dBm</span>
-                            <span>${d.type || 'Unknown'}</span>
+                            <span>${d.device_type || 'Unknown'}</span>
                         </div>
                         ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
                         ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
