@@ -25,7 +25,7 @@ from typing import Any
 
 from flask import Flask, render_template, jsonify, send_file, Response, request
 
-from config import VERSION
+from config import VERSION, CHANGELOG
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
 from utils.process import cleanup_stale_processes
 from utils.sdr import SDRFactory
@@ -164,7 +164,7 @@ def index() -> str:
         'rtl_433': check_tool('rtl_433')
     }
     devices = [d.to_dict() for d in SDRFactory.detect_devices()]
-    return render_template('index.html', tools=tools, devices=devices, version=VERSION)
+    return render_template('index.html', tools=tools, devices=devices, version=VERSION, changelog=CHANGELOG)
 
 
 @app.route('/favicon.svg')

@@ -17,36 +17,111 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
-    <!-- Landing Page / Splash Screen -->
-    <div class="landing-overlay" id="landingPage">
-        <div class="landing-content">
-            <div class="landing-logo">
-                <svg width="200" height="200" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Signal brackets - left side -->
-                    <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1"/>
-                    <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2"/>
-                    <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" class="signal-wave signal-wave-3"/>
-                    <!-- Signal brackets - right side -->
-                    <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1"/>
-                    <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2"/>
-                    <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" class="signal-wave signal-wave-3"/>
-                    <!-- The 'i' letter -->
-                    <circle cx="50" cy="22" r="6" fill="#00ff88" class="logo-dot"/>
-                    <rect x="44" y="35" width="12" height="45" rx="2" fill="#00d4ff"/>
-                    <rect x="38" y="35" width="24" height="4" rx="1" fill="#00d4ff"/>
-                    <rect x="38" y="76" width="24" height="4" rx="1" fill="#00d4ff"/>
-                </svg>
+    <!-- Welcome Page -->
+    <div class="welcome-overlay" id="welcomePage">
+        <div class="welcome-container">
+            <!-- Header Section -->
+            <div class="welcome-header">
+                <div class="welcome-logo">
+                    <svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1"/>
+                        <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2"/>
+                        <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" class="signal-wave signal-wave-3"/>
+                        <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1"/>
+                        <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2"/>
+                        <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" class="signal-wave signal-wave-3"/>
+                        <circle cx="50" cy="22" r="6" fill="#00ff88" class="logo-dot"/>
+                        <rect x="44" y="35" width="12" height="45" rx="2" fill="#00d4ff"/>
+                        <rect x="38" y="35" width="24" height="4" rx="1" fill="#00d4ff"/>
+                        <rect x="38" y="76" width="24" height="4" rx="1" fill="#00d4ff"/>
+                    </svg>
+                </div>
+                <div class="welcome-title-block">
+                    <h1 class="welcome-title">iNTERCEPT</h1>
+                    <p class="welcome-tagline">// See the Invisible</p>
+                    <span class="welcome-version">v{{ version }}</span>
+                </div>
             </div>
-            <h1 class="landing-title">iNTERCEPT</h1>
-            <p class="landing-tagline">// See the Invisible</p>
-            <p class="landing-subtitle">Signal Intelligence & Counter Surveillance Platform</p>
-            <button class="landing-enter-btn" onclick="enterApp()">
-                <span class="btn-text">ENTER</span>
-                <span class="btn-icon">→</span>
-            </button>
-            <p class="landing-version">v{{ version }}</p>
+
+            <!-- Main Content Grid -->
+            <div class="welcome-content">
+                <!-- Left: Changelog -->
+                <div class="welcome-changelog">
+                    <h2>What's New</h2>
+                    {% for release in changelog[:2] %}
+                    <div class="changelog-release">
+                        <div class="changelog-version-header">
+                            <span class="changelog-version">v{{ release.version }}</span>
+                            <span class="changelog-date">{{ release.date }}</span>
+                        </div>
+                        <ul class="changelog-list">
+                            {% for item in release.highlights %}
+                            <li>{{ item }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Right: Mode Selection -->
+                <div class="welcome-modes">
+                    <h2>Select Mode</h2>
+                    <div class="mode-grid">
+                        <button class="mode-card" onclick="selectMode('pager')">
+                            <span class="mode-icon">📟</span>
+                            <span class="mode-name">Pager</span>
+                            <span class="mode-desc">POCSAG/FLEX decoding</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('sensor')">
+                            <span class="mode-icon">📡</span>
+                            <span class="mode-name">433MHz</span>
+                            <span class="mode-desc">IoT sensor monitoring</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('aircraft')">
+                            <span class="mode-icon">✈️</span>
+                            <span class="mode-name">Aircraft</span>
+                            <span class="mode-desc">ADS-B tracking</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('wifi')">
+                            <span class="mode-icon">📶</span>
+                            <span class="mode-name">WiFi</span>
+                            <span class="mode-desc">Network reconnaissance</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('bluetooth')">
+                            <span class="mode-icon">🔵</span>
+                            <span class="mode-name">Bluetooth</span>
+                            <span class="mode-desc">Device discovery</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('tscm')">
+                            <span class="mode-icon">🔍</span>
+                            <span class="mode-name">TSCM</span>
+                            <span class="mode-desc">Counter-surveillance</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('satellite')">
+                            <span class="mode-icon">🛰️</span>
+                            <span class="mode-name">Satellite</span>
+                            <span class="mode-desc">Pass prediction</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('listening')">
+                            <span class="mode-icon">📻</span>
+                            <span class="mode-name">Scanner</span>
+                            <span class="mode-desc">Frequency scanning</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('aprs')">
+                            <span class="mode-icon">📍</span>
+                            <span class="mode-name">APRS</span>
+                            <span class="mode-desc">Amateur radio</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="welcome-footer">
+                <p>Signal Intelligence & Counter Surveillance Platform</p>
+            </div>
         </div>
-        <div class="landing-scanline"></div>
+        <div class="welcome-scanline"></div>
     </div>
 
     <!-- Disclaimer Modal -->
@@ -2831,16 +2906,20 @@
     <script src="{{ url_for('static', filename='js/modes/listening-post.js') }}"></script>
 
     <script>
-        // Landing page enter function
-        function enterApp() {
-            const landing = document.getElementById('landingPage');
-            landing.classList.add('fade-out');
+        // Selected mode from welcome screen
+        let selectedStartMode = 'pager';
 
-            // After fade out, hide landing and show disclaimer if needed
+        // Mode selection from welcome page
+        function selectMode(mode) {
+            selectedStartMode = mode;
+            const welcome = document.getElementById('welcomePage');
+            welcome.classList.add('fade-out');
+
+            // After fade out, hide welcome and show disclaimer if needed
             setTimeout(() => {
-                landing.style.display = 'none';
+                welcome.style.display = 'none';
                 checkDisclaimer();
-            }, 500);
+            }, 400);
         }
 
         // Disclaimer handling
@@ -2848,6 +2927,8 @@
             const accepted = localStorage.getItem('disclaimerAccepted');
             if (accepted === 'true') {
                 document.getElementById('disclaimerModal').style.display = 'none';
+                // Switch to the selected mode
+                switchMode(selectedStartMode);
             } else {
                 document.getElementById('disclaimerModal').style.display = 'flex';
             }
@@ -2856,6 +2937,10 @@
         function acceptDisclaimer() {
             localStorage.setItem('disclaimerAccepted', 'true');
             document.getElementById('disclaimerModal').classList.add('disclaimer-hidden');
+            // Switch to the selected mode after accepting
+            setTimeout(() => {
+                switchMode(selectedStartMode);
+            }, 300);
         }
 
         function declineDisclaimer() {
@@ -2863,7 +2948,7 @@
             document.getElementById('rejectionPage').classList.remove('disclaimer-hidden');
         }
 
-        // Don't auto-check disclaimer - wait for landing page enter
+        // Don't auto-check disclaimer - wait for welcome page mode selection
 
         let eventSource = null;
         let isRunning = false;
