@@ -426,15 +426,17 @@ def get_tscm_devices():
     try:
         from utils.sdr import SDRFactory
         sdr_list = SDRFactory.detect_devices()
-        for i, sdr in enumerate(sdr_list):
+        for sdr in sdr_list:
+            # SDRDevice is a dataclass with attributes, not a dict
             devices['sdr_devices'].append({
-                'index': i,
-                'name': sdr.get('name', f'SDR Device {i}'),
-                'type': sdr.get('type', 'unknown'),
-                'serial': sdr.get('serial', '')
+                'index': sdr.index,
+                'name': sdr.name,
+                'type': sdr.sdr_type.value if hasattr(sdr.sdr_type, 'value') else str(sdr.sdr_type),
+                'serial': sdr.serial,
+                'driver': sdr.driver
             })
     except ImportError:
-        pass
+        logger.debug("SDR module not available")
     except Exception as e:
         logger.warning(f"Error detecting SDR devices: {e}")
 
