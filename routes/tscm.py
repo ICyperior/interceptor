@@ -904,14 +904,27 @@ def _run_sweep(
                         bssid = network.get('bssid', '')
                         if bssid and bssid not in all_wifi:
                             all_wifi[bssid] = network
+                            # Emit device event for frontend
+                            is_threat = False
                             # Analyze for threats
                             threat = detector.analyze_wifi_device(network)
                             if threat:
                                 _handle_threat(threat)
                                 threats_found += 1
+                                is_threat = True
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
+                            # Send device to frontend
+                            _emit_event('wifi_device', {
+                                'bssid': bssid,
+                                'ssid': network.get('essid', 'Hidden'),
+                                'channel': network.get('channel', ''),
+                                'signal': network.get('power', ''),
+                                'security': network.get('privacy', ''),
+                                'is_threat': is_threat,
+                                'is_new': True
+                            })
                     last_wifi_scan = current_time
                 except Exception as e:
                     logger.error(f"WiFi scan error: {e}")
@@ -924,14 +937,25 @@ def _run_sweep(
                         mac = device.get('mac', '')
                         if mac and mac not in all_bt:
                             all_bt[mac] = device
+                            is_threat = False
                             # Analyze for threats
                             threat = detector.analyze_bt_device(device)
                             if threat:
                                 _handle_threat(threat)
                                 threats_found += 1
+                                is_threat = True
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
+                            # Send device to frontend
+                            _emit_event('bt_device', {
+                                'mac': mac,
+                                'name': device.get('name', 'Unknown'),
+                                'type': device.get('type', ''),
+                                'rssi': device.get('rssi', ''),
+                                'is_threat': is_threat,
+                                'is_new': True
+                            })
                     last_bt_scan = current_time
                 except Exception as e:
                     logger.error(f"Bluetooth scan error: {e}")
@@ -951,14 +975,25 @@ def _run_sweep(
                         freq_key = f"{signal['frequency']:.3f}"
                         if freq_key not in [f"{s['frequency']:.3f}" for s in all_rf]:
                             all_rf.append(signal)
+                            is_threat = False
                             # Analyze RF signal for threats
                             threat = detector.analyze_rf_signal(signal)
                             if threat:
                                 _handle_threat(threat)
                                 threats_found += 1
+                                is_threat = True
                                 sev = threat.get('severity', 'low').lower()
                                 if sev in severity_counts:
                                     severity_counts[sev] += 1
+                            # Send signal to frontend
+                            _emit_event('rf_signal', {
+                                'frequency': signal['frequency'],
+                                'power': signal['power'],
+                                'band': signal['band'],
+                                'signal_strength': signal.get('signal_strength', 0),
+                                'is_threat': is_threat,
+                                'is_new': True
+                            })
                     last_rf_scan = current_time
                 except Exception as e:
                     logger.error(f"RF scan error: {e}")

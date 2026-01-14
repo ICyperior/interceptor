@@ -2253,6 +2253,17 @@
                             </div>
                         </div>
 
+                        <!-- RF Signals Panel -->
+                        <div class="tscm-panel">
+                            <div class="tscm-panel-header">
+                                RF Signals
+                                <span class="badge" id="tscmRfCount">0</span>
+                            </div>
+                            <div class="tscm-panel-content" id="tscmRfList">
+                                <div class="tscm-empty">Enable RF scanning with an SDR device</div>
+                            </div>
+                        </div>
+
                         <!-- Threats Panel -->
                         <div class="tscm-panel" style="grid-column: span 2;">
                             <div class="tscm-panel-header">
@@ -9770,6 +9781,7 @@
                     tscmThreats = [];
                     tscmWifiDevices = [];
                     tscmBtDevices = [];
+                    tscmRfSignals = [];
                     updateTscmDisplays();
 
                     // Start SSE stream
@@ -9851,6 +9863,15 @@
                 case 'sweep_progress':
                     updateTscmProgress(data);
                     break;
+                case 'wifi_device':
+                    addTscmWifiDevice(data);
+                    break;
+                case 'bt_device':
+                    addTscmBtDevice(data);
+                    break;
+                case 'rf_signal':
+                    addTscmRfSignal(data);
+                    break;
                 case 'threat_detected':
                     addTscmThreat(data);
                     break;
@@ -9861,6 +9882,34 @@
                 case 'sweep_error':
                     stopTscmSweep();
                     break;
+            }
+        }
+
+        function addTscmWifiDevice(device) {
+            // Check if already exists
+            const exists = tscmWifiDevices.some(d => d.bssid === device.bssid);
+            if (!exists) {
+                tscmWifiDevices.push(device);
+                updateTscmDisplays();
+            }
+        }
+
+        function addTscmBtDevice(device) {
+            // Check if already exists
+            const exists = tscmBtDevices.some(d => d.mac === device.mac);
+            if (!exists) {
+                tscmBtDevices.push(device);
+                updateTscmDisplays();
+            }
+        }
+
+        let tscmRfSignals = [];
+        function addTscmRfSignal(signal) {
+            // Check if already exists (within 0.1 MHz)
+            const exists = tscmRfSignals.some(s => Math.abs(s.frequency - signal.frequency) < 0.1);
+            if (!exists) {
+                tscmRfSignals.push(signal);
+                updateTscmDisplays();
             }
         }
 
@@ -9966,6 +10015,23 @@
                 `).join('');
             }
             document.getElementById('tscmBtCount').textContent = tscmBtDevices.length;
+
+            // Update RF list
+            const rfList = document.getElementById('tscmRfList');
+            if (tscmRfSignals.length === 0) {
+                rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
+            } else {
+                rfList.innerHTML = tscmRfSignals.map(s => `
+                    <div class="tscm-device-item ${s.is_threat ? 'threat' : (s.is_new ? 'new' : 'baseline')}">
+                        <div class="tscm-device-name">${s.frequency.toFixed(3)} MHz</div>
+                        <div class="tscm-device-meta">
+                            <span>${s.band}</span>
+                            <span>${s.power.toFixed(1)} dBm</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('tscmRfCount').textContent = tscmRfSignals.length;
 
             // Update threats list
             const threatList = document.getElementById('tscmThreatList');
