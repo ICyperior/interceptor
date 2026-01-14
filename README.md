@@ -19,7 +19,7 @@ Support the developer of this open-source project
 </p>
 
 <p align="center">
-  <img src="static/images/screenshots/logo-banner.png" alt="Screenshot">
+  <img src="static/images/screenshots/intercept-main.png" alt="Screenshot">
 </p>
 
 ---
@@ -133,6 +133,7 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
 [Celestrak](https://celestrak.org/)
+
 
 
 
