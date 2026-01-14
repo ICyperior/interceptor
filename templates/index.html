@@ -2061,6 +2061,20 @@
                     .classification-indicator {
                         margin-right: 6px;
                     }
+                    .tscm-status-message {
+                        padding: 12px;
+                        background: rgba(255, 153, 51, 0.15);
+                        border: 1px solid rgba(255, 153, 51, 0.3);
+                        border-radius: 6px;
+                        color: var(--text-primary);
+                        font-size: 12px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    .tscm-status-message .status-icon {
+                        font-size: 16px;
+                    }
                     .tscm-device-reasons {
                         font-size: 10px;
                         color: var(--text-secondary);
@@ -10189,6 +10203,7 @@
                     tscmWifiDevices = [];
                     tscmBtDevices = [];
                     tscmRfSignals = [];
+                    tscmRfStatusMessage = null;
                     updateTscmDisplays();
 
                     // Start SSE stream
@@ -10281,6 +10296,9 @@
                 case 'rf_signal':
                     addTscmRfSignal(data);
                     break;
+                case 'rf_status':
+                    handleRfStatus(data);
+                    break;
                 case 'threat_detected':
                     addTscmThreat(data);
                     break;
@@ -10331,7 +10349,11 @@
         }
 
         let tscmRfSignals = [];
+        let tscmRfStatusMessage = null;
+
         function addTscmRfSignal(signal) {
+            // Clear any error message since we're receiving signals
+            tscmRfStatusMessage = null;
             // Check if already exists (within 0.1 MHz)
             const exists = tscmRfSignals.some(s => Math.abs(s.frequency - signal.frequency) < 0.1);
             if (!exists) {
@@ -10343,6 +10365,26 @@
                     addHighInterestDevice(signal, 'rf');
                 }
             }
+        }
+
+        function handleRfStatus(data) {
+            // Store status message to display in RF panel
+            tscmRfStatusMessage = data.message;
+            updateRfDisplay();
+        }
+
+        function updateRfDisplay() {
+            const rfList = document.getElementById('tscmRfList');
+            if (!rfList) return;
+
+            if (tscmRfSignals.length === 0) {
+                if (tscmRfStatusMessage) {
+                    rfList.innerHTML = `<div class="tscm-status-message"><span class="status-icon">⚠️</span> ${escapeHtml(tscmRfStatusMessage)}</div>`;
+                } else {
+                    rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
+                }
+            }
+            // If there are signals, updateTscmDisplays() will handle the display
         }
 
         // Track high-interest devices for the threats panel
@@ -10780,7 +10822,11 @@
             // Update RF list
             const rfList = document.getElementById('tscmRfList');
             if (tscmRfSignals.length === 0) {
-                rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
+                if (tscmRfStatusMessage) {
+                    rfList.innerHTML = `<div class="tscm-status-message"><span class="status-icon">⚠️</span> ${escapeHtml(tscmRfStatusMessage)}</div>`;
+                } else {
+                    rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
+                }
             } else {
                 // Sort by score (highest first)
                 const sorted = [...tscmRfSignals].sort((a, b) => (b.score || 0) - (a.score || 0));

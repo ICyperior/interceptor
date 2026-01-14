@@ -1022,9 +1022,35 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
     rtl_power_path = shutil.which('rtl_power')
     if not rtl_power_path:
         logger.warning("rtl_power not found in PATH, RF scanning unavailable")
+        _emit_event('rf_status', {
+            'status': 'error',
+            'message': 'rtl_power not installed. Install rtl-sdr package for RF scanning.',
+        })
         return signals
 
     logger.info(f"Found rtl_power at: {rtl_power_path}")
+
+    # Test if RTL-SDR device is accessible
+    rtl_test_path = shutil.which('rtl_test')
+    if rtl_test_path:
+        try:
+            test_result = subprocess.run(
+                [rtl_test_path, '-t'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if 'No supported devices found' in test_result.stderr or test_result.returncode != 0:
+                logger.warning("No RTL-SDR device found")
+                _emit_event('rf_status', {
+                    'status': 'error',
+                    'message': 'No RTL-SDR device connected. Connect an RTL-SDR dongle for RF scanning.',
+                })
+                return signals
+        except subprocess.TimeoutExpired:
+            pass  # Device might be busy, continue anyway
+        except Exception as e:
+            logger.debug(f"rtl_test check failed: {e}")
 
     # Define frequency bands to scan (in Hz) - focus on common bug frequencies
     # Format: (start_freq, end_freq, bin_size, description)
@@ -1089,12 +1115,12 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
                                     hz_step = float(parts[4])
                                     db_values = [float(x) for x in parts[6:] if x.strip()]
 
-                                    # Find peaks above noise floor (typically -60 dBm is strong)
+                                    # Find peaks above noise floor
                                     noise_floor = sum(db_values) / len(db_values) if db_values else -100
-                                    threshold = noise_floor + 15  # Signal must be 15dB above noise
+                                    threshold = noise_floor + 10  # Signal must be 10dB above noise
 
                                     for idx, db in enumerate(db_values):
-                                        if db > threshold and db > -50:  # Strong signal
+                                        if db > threshold and db > -70:  # Detect signals above -70dBm
                                             freq_hz = hz_low + (idx * hz_step)
                                             freq_mhz = freq_hz / 1000000
 
@@ -1282,7 +1308,7 @@ def _run_sweep(
                     logger.error(f"Bluetooth scan error: {e}")
 
             # Perform RF scan using SDR
-            if rf_enabled and sdr_device is not None and (current_time - last_rf_scan) >= rf_scan_interval:
+            if rf_enabled and (current_time - last_rf_scan) >= rf_scan_interval:
                 try:
                     _emit_event('sweep_progress', {
                         'progress': min(100, int(((current_time - start_time) / duration) * 100)),
@@ -1291,7 +1317,16 @@ def _run_sweep(
                         'bt_count': len(all_bt),
                         'rf_count': len(all_rf),
                     })
+                    # Try RF scan even if sdr_device is None (will use device 0)
                     rf_signals = _scan_rf_signals(sdr_device)
+
+                    # If no signals and this is first RF scan, send info event
+                    if not rf_signals and last_rf_scan == 0:
+                        _emit_event('rf_status', {
+                            'status': 'no_signals',
+                            'message': 'RF scan completed but no signals detected. Check RTL-SDR connection.',
+                        })
+
                     for signal in rf_signals:
                         freq_key = f"{signal['frequency']:.3f}"
                         if freq_key not in [f"{s['frequency']:.3f}" for s in all_rf]:
