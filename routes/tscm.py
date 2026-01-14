@@ -569,13 +569,14 @@ def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
     """Scan for Bluetooth devices using system tools."""
     import platform
     import os
-    import pty
     import re
-    import select
+    import shutil
     import subprocess
 
     devices = []
     seen_macs = set()
+
+    logger.info(f"Starting Bluetooth scan (duration={duration}s, interface={interface})")
 
     if platform.system() == 'Darwin':
         # macOS: Use system_profiler for basic Bluetooth info
@@ -603,107 +604,152 @@ def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
                                     'type': info.get('device_minorType', 'unknown'),
                                     'connected': section == 'device_connected'
                                 })
+            logger.info(f"macOS Bluetooth scan found {len(devices)} devices")
         except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError) as e:
             logger.warning(f"macOS Bluetooth scan failed: {e}")
 
     else:
-        # Linux: Use bluetoothctl or hcitool
+        # Linux: Try multiple methods
         iface = interface or 'hci0'
 
-        # Try bluetoothctl first
-        try:
-            master_fd, slave_fd = pty.openpty()
-            process = subprocess.Popen(
-                ['bluetoothctl'],
-                stdin=slave_fd,
-                stdout=slave_fd,
-                stderr=slave_fd,
-                close_fds=True
-            )
-            os.close(slave_fd)
-
-            # Start scanning
-            time.sleep(0.3)
-            os.write(master_fd, b'power on\n')
-            time.sleep(0.3)
-            os.write(master_fd, b'scan on\n')
-
-            # Collect devices for specified duration
-            scan_end = time.time() + duration
-            buffer = ''
-
-            while time.time() < scan_end and _sweep_running:
-                readable, _, _ = select.select([master_fd], [], [], 1.0)
-                if readable:
-                    try:
-                        data = os.read(master_fd, 4096)
-                        if not data:
-                            break
-                        buffer += data.decode('utf-8', errors='replace')
-
-                        while '\n' in buffer:
-                            line, buffer = buffer.split('\n', 1)
-                            line = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
-
-                            if 'Device' in line:
-                                match = re.search(
-                                    r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:'
-                                    r'[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})\s*(.*)',
-                                    line
-                                )
-                                if match:
-                                    mac = match.group(1).upper()
-                                    name = match.group(2).strip()
-                                    # Remove RSSI from name if present
-                                    name = re.sub(r'\s*RSSI:\s*-?\d+\s*', '', name).strip()
-
-                                    if mac not in seen_macs:
-                                        seen_macs.add(mac)
-                                        devices.append({
-                                            'mac': mac,
-                                            'name': name or '[Unknown]'
-                                        })
-                    except OSError:
-                        break
-
-            # Stop scanning and cleanup
+        # Method 1: Try hcitool scan (simpler, more reliable)
+        if shutil.which('hcitool'):
             try:
-                os.write(master_fd, b'scan off\n')
-                time.sleep(0.2)
-                os.write(master_fd, b'quit\n')
-            except OSError:
-                pass
-
-            process.terminate()
-            try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                process.kill()
-
-            try:
-                os.close(master_fd)
-            except OSError:
-                pass
-
-        except (FileNotFoundError, subprocess.SubprocessError) as e:
-            logger.warning(f"bluetoothctl scan failed: {e}")
-
-            # Fallback to hcitool
-            try:
+                logger.info("Trying hcitool scan...")
                 result = subprocess.run(
-                    ['hcitool', '-i', iface, 'scan'],
+                    ['hcitool', '-i', iface, 'scan', '--flush'],
                     capture_output=True, text=True, timeout=duration + 5
                 )
                 for line in result.stdout.split('\n'):
-                    parts = line.split()
-                    if len(parts) >= 1 and ':' in parts[0]:
-                        mac = parts[0].upper()
-                        name = ' '.join(parts[1:]) if len(parts) > 1 else '[Unknown]'
-                        if mac not in seen_macs:
-                            seen_macs.add(mac)
-                            devices.append({'mac': mac, 'name': name})
-            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+                    line = line.strip()
+                    if line and '\t' in line:
+                        parts = line.split('\t')
+                        if len(parts) >= 1 and ':' in parts[0]:
+                            mac = parts[0].strip().upper()
+                            name = parts[1].strip() if len(parts) > 1 else 'Unknown'
+                            if mac not in seen_macs:
+                                seen_macs.add(mac)
+                                devices.append({'mac': mac, 'name': name})
+                logger.info(f"hcitool scan found {len(devices)} classic BT devices")
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
                 logger.warning(f"hcitool scan failed: {e}")
+
+        # Method 2: Try btmgmt for BLE devices
+        if shutil.which('btmgmt'):
+            try:
+                logger.info("Trying btmgmt find...")
+                result = subprocess.run(
+                    ['btmgmt', 'find'],
+                    capture_output=True, text=True, timeout=duration + 5
+                )
+                for line in result.stdout.split('\n'):
+                    # Parse btmgmt output: "dev_found: XX:XX:XX:XX:XX:XX type LE..."
+                    if 'dev_found' in line.lower() or ('type' in line.lower() and ':' in line):
+                        mac_match = re.search(
+                            r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:'
+                            r'[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})',
+                            line
+                        )
+                        if mac_match:
+                            mac = mac_match.group(1).upper()
+                            if mac not in seen_macs:
+                                seen_macs.add(mac)
+                                # Try to extract name
+                                name_match = re.search(r'name\s+(.+?)(?:\s|$)', line, re.I)
+                                name = name_match.group(1) if name_match else 'Unknown BLE'
+                                devices.append({
+                                    'mac': mac,
+                                    'name': name,
+                                    'type': 'ble' if 'le' in line.lower() else 'classic'
+                                })
+                logger.info(f"btmgmt found {len(devices)} total devices")
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+                logger.warning(f"btmgmt find failed: {e}")
+
+        # Method 3: Try bluetoothctl as last resort
+        if not devices and shutil.which('bluetoothctl'):
+            try:
+                import pty
+                import select
+
+                logger.info("Trying bluetoothctl scan...")
+                master_fd, slave_fd = pty.openpty()
+                process = subprocess.Popen(
+                    ['bluetoothctl'],
+                    stdin=slave_fd,
+                    stdout=slave_fd,
+                    stderr=slave_fd,
+                    close_fds=True
+                )
+                os.close(slave_fd)
+
+                # Start scanning
+                time.sleep(0.3)
+                os.write(master_fd, b'power on\n')
+                time.sleep(0.3)
+                os.write(master_fd, b'scan on\n')
+
+                # Collect devices for specified duration
+                scan_end = time.time() + min(duration, 10)  # Cap at 10 seconds
+                buffer = ''
+
+                while time.time() < scan_end:
+                    readable, _, _ = select.select([master_fd], [], [], 1.0)
+                    if readable:
+                        try:
+                            data = os.read(master_fd, 4096)
+                            if not data:
+                                break
+                            buffer += data.decode('utf-8', errors='replace')
+
+                            while '\n' in buffer:
+                                line, buffer = buffer.split('\n', 1)
+                                line = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
+
+                                if 'Device' in line:
+                                    match = re.search(
+                                        r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:'
+                                        r'[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})\s*(.*)',
+                                        line
+                                    )
+                                    if match:
+                                        mac = match.group(1).upper()
+                                        name = match.group(2).strip()
+                                        # Remove RSSI from name if present
+                                        name = re.sub(r'\s*RSSI:\s*-?\d+\s*', '', name).strip()
+
+                                        if mac not in seen_macs:
+                                            seen_macs.add(mac)
+                                            devices.append({
+                                                'mac': mac,
+                                                'name': name or '[Unknown]'
+                                            })
+                        except OSError:
+                            break
+
+                # Stop scanning and cleanup
+                try:
+                    os.write(master_fd, b'scan off\n')
+                    time.sleep(0.2)
+                    os.write(master_fd, b'quit\n')
+                except OSError:
+                    pass
+
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+
+                try:
+                    os.close(master_fd)
+                except OSError:
+                    pass
+
+                logger.info(f"bluetoothctl scan found {len(devices)} devices")
+
+            except (FileNotFoundError, subprocess.SubprocessError) as e:
+                logger.warning(f"bluetoothctl scan failed: {e}")
 
     return devices
 
@@ -728,9 +774,14 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
 
     signals = []
 
-    if not shutil.which('rtl_power'):
-        logger.warning("rtl_power not found, RF scanning unavailable")
+    logger.info(f"Starting RF scan (device={sdr_device})")
+
+    rtl_power_path = shutil.which('rtl_power')
+    if not rtl_power_path:
+        logger.warning("rtl_power not found in PATH, RF scanning unavailable")
         return signals
+
+    logger.info(f"Found rtl_power at: {rtl_power_path}")
 
     # Define frequency bands to scan (in Hz) - focus on common bug frequencies
     # Format: (start_freq, end_freq, bin_size, description)
@@ -757,10 +808,12 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
             if not _sweep_running:
                 break
 
+            logger.info(f"Scanning {band_name} ({start_freq/1e6:.1f}-{end_freq/1e6:.1f} MHz)")
+
             try:
                 # Run rtl_power for a quick sweep of this band
                 cmd = [
-                    'rtl_power',
+                    rtl_power_path,
                     '-f', f'{start_freq}:{end_freq}:{bin_size}',
                     '-g', '40',           # Gain
                     '-i', '1',            # Integration interval (1 second)
@@ -768,12 +821,17 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
                     '-c', '20%',          # Crop 20% of edges
                 ] + device_arg + [tmp_path]
 
+                logger.debug(f"Running: {' '.join(cmd)}")
+
                 result = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=15
+                    timeout=30
                 )
+
+                if result.returncode != 0:
+                    logger.warning(f"rtl_power returned {result.returncode}: {result.stderr}")
 
                 # Parse the CSV output
                 if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
