@@ -2987,7 +2987,7 @@ sudo make install</code>
             }
         }
 
-        function startAirband() {
+        async function startAirband() {
             const frequency = getAirbandFrequency();
             const device = parseInt(document.getElementById('airbandDeviceSelect').value);
             const squelch = parseInt(document.getElementById('airbandSquelch').value);
@@ -3007,62 +3007,78 @@ sudo make install</code>
             document.getElementById('airbandStatus').textContent = 'STARTING...';
             document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
 
-            fetch('/listening/audio/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    frequency: frequency,
-                    modulation: 'am',  // Airband uses AM
-                    squelch: squelch,
-                    gain: 40,
-                    device: device
-                })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'started') {
-                    isAirbandPlaying = true;
+            try {
+                // Start audio on backend
+                const response = await fetch('/listening/audio/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        frequency: frequency,
+                        modulation: 'am',  // Airband uses AM
+                        squelch: squelch,
+                        gain: 40,
+                        device: device
+                    })
+                });
 
-                    // Start browser audio playback
-                    const audioPlayer = document.getElementById('airbandPlayer');
+                const data = await response.json();
+                console.log('[AIRBAND] Backend response:', data.status);
 
-                    // Stop any existing playback first
-                    audioPlayer.pause();
-                    audioPlayer.currentTime = 0;
-
-                    audioPlayer.src = '/listening/audio/stream?' + Date.now();
-
-                    // Apply current volume setting
-                    const volume = parseInt(document.getElementById('airbandVolume').value) || 80;
-                    audioPlayer.volume = volume / 100;
-
-                    // Initialize visualizer before playing
-                    initAirbandVisualizer();
-
-                    // Wait for audio to be ready before playing
-                    audioPlayer.oncanplay = function() {
-                        audioPlayer.play().catch(e => {
-                            console.warn('Audio playback issue:', e);
-                            document.getElementById('airbandStatus').textContent = 'AUDIO BLOCKED';
-                            document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
-                        });
-                        audioPlayer.oncanplay = null;
-                    };
-
-                    document.getElementById('airbandBtn').innerHTML = '<span class="airband-icon">⏹</span> STOP';
-                    document.getElementById('airbandBtn').classList.add('active');
-                    document.getElementById('airbandStatus').textContent = frequency.toFixed(3) + ' MHz';
-                    document.getElementById('airbandStatus').style.color = 'var(--accent-green)';
-                } else {
+                if (data.status !== 'started') {
                     document.getElementById('airbandStatus').textContent = 'ERROR';
                     document.getElementById('airbandStatus').style.color = 'var(--accent-red)';
                     alert('Airband Error: ' + (data.message || 'Failed to start'));
+                    return;
                 }
-            })
-            .catch(err => {
+
+                isAirbandPlaying = true;
+
+                // Wait for stream to be ready (backend needs time to start rtl_fm)
+                await new Promise(r => setTimeout(r, 300));
+
+                // Setup audio player
+                const audioPlayer = document.getElementById('airbandPlayer');
+
+                // Fully reset audio element
+                audioPlayer.oncanplay = null;
+                try { audioPlayer.pause(); } catch (e) {}
+                audioPlayer.removeAttribute('src');
+                audioPlayer.load();
+
+                // Connect to stream
+                const streamUrl = `/listening/audio/stream?t=${Date.now()}`;
+                console.log('[AIRBAND] Connecting to stream:', streamUrl);
+                audioPlayer.src = streamUrl;
+
+                // Apply current volume setting
+                const volume = parseInt(document.getElementById('airbandVolume').value) || 80;
+                audioPlayer.volume = volume / 100;
+
+                // Initialize visualizer
+                initAirbandVisualizer();
+
+                // Wait for audio to be ready then play
+                audioPlayer.oncanplay = () => {
+                    console.log('[AIRBAND] Audio can play');
+                    audioPlayer.play().catch(e => console.warn('[AIRBAND] Autoplay blocked:', e));
+                };
+
+                // Also try to play immediately (some browsers need this)
+                audioPlayer.play().catch(e => {
+                    console.log('[AIRBAND] Initial play blocked, waiting for canplay');
+                });
+
+                document.getElementById('airbandBtn').innerHTML = '<span class="airband-icon">⏹</span> STOP';
+                document.getElementById('airbandBtn').classList.add('active');
+                document.getElementById('airbandStatus').textContent = frequency.toFixed(3) + ' MHz';
+                document.getElementById('airbandStatus').style.color = 'var(--accent-green)';
+                document.getElementById('airbandVisualizerContainer').style.display = 'flex';
+
+            } catch (err) {
+                console.error('[AIRBAND] Error:', err);
                 document.getElementById('airbandStatus').textContent = 'ERROR';
                 document.getElementById('airbandStatus').style.color = 'var(--accent-red)';
-            });
+            }
         }
 
         function stopAirband() {
