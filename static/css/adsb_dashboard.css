@@ -1087,30 +1087,46 @@ body {
         display: none !important;
     }
 
-    /* Selected aircraft panel - compact on mobile */
+    /* Selected aircraft panel - allow full content */
     .selected-aircraft {
-        max-height: 200px;
+        max-height: none;
+        overflow-y: visible;
     }
 
     /* Aircraft list - scrollable with reasonable height */
     .aircraft-list {
-        max-height: 300px;
+        max-height: 250px;
     }
 
     .aircraft-list-content {
-        max-height: 250px;
+        max-height: 200px;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
     }
 
     /* Controls bar - wrap and stack */
     .controls-bar {
-        order: 3;
-        grid-column: auto;
-        grid-row: auto;
         flex-wrap: wrap;
         gap: 8px;
         padding: 10px;
+    }
+
+    /* Back link - prevent text wrapping */
+    .back-link {
+        white-space: nowrap;
+        font-size: 10px;
+        padding: 6px 8px;
+    }
+
+    /* Status bar - compact on mobile */
+    .status-bar {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Hide some status items on very small screens */
+    .datetime {
+        font-size: 10px;
     }
 
     .control-group {
@@ -1145,24 +1161,11 @@ body {
         margin-top: 8px;
     }
 
-    /* Header simplification */
-    .header {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
+    /* Stats badges - full width row */
     .stats-badges {
         order: 3;
         width: 100%;
         justify-content: center;
-    }
-
-    .status-bar {
-        gap: 10px;
-    }
-
-    .logo span {
-        display: none !important;
     }
 
     /* Telemetry grid - single column */
