@@ -906,6 +906,21 @@ body {
     flex-shrink: 0;
 }
 
+.sdr-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.sdr-label {
+    font-size: 9px;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
 .airband-controls {
     display: flex;
     align-items: center;

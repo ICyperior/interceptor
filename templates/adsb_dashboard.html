@@ -164,8 +164,17 @@
                 <input type="text" id="remoteSbsHost" placeholder="Host" style="width: 70px;">
                 <input type="number" id="remoteSbsPort" value="30003" style="width: 50px;">
             </span>
+            <span class="sdr-group" title="SDR device for ADS-B tracking (1090 MHz)">
+                <span class="sdr-label">ADS-B:</span>
+                <select id="adsbDeviceSelect" style="width: 80px;">
+                    <option value="0">Loading...</option>
+                </select>
+            </span>
             <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
             <div class="airband-divider"></div>
+            <span class="sdr-group" title="SDR device for airband listening (VHF)">
+                <span class="sdr-label">Listen:</span>
+            </span>
             <select id="airbandFreqSelect" onchange="updateAirbandFreq()" class="airband-controls" title="Airband frequency">
                 <option value="121.5">121.5 Guard</option>
                 <option value="118.0">118.0</option>
@@ -1200,6 +1209,7 @@
             if (obsLonInput) obsLonInput.value = observerLocation.lon.toFixed(4);
 
             initMap();
+            initDeviceSelectors();
             updateClock();
             setInterval(updateClock, 1000);
             setInterval(cleanupOldAircraft, 10000);
@@ -1209,6 +1219,65 @@
             // Auto-connect to gpsd if available
             autoConnectGps();
         });
+
+        // Track which device is being used for ADS-B tracking
+        let adsbActiveDevice = null;
+
+        function initDeviceSelectors() {
+            // Populate both ADS-B and airband device selectors
+            fetch('/devices')
+                .then(r => r.json())
+                .then(devices => {
+                    const adsbSelect = document.getElementById('adsbDeviceSelect');
+                    const airbandSelect = document.getElementById('airbandDeviceSelect');
+
+                    // Clear loading state
+                    adsbSelect.innerHTML = '';
+                    airbandSelect.innerHTML = '';
+
+                    if (devices.length === 0) {
+                        adsbSelect.innerHTML = '<option value="0">No SDR found</option>';
+                        airbandSelect.innerHTML = '<option value="0">No SDR found</option>';
+                        airbandSelect.disabled = true;
+                    } else {
+                        devices.forEach((dev, i) => {
+                            const idx = dev.index !== undefined ? dev.index : i;
+                            const name = dev.name || dev.type || 'RTL-SDR';
+                            const shortName = `SDR ${idx}`;
+
+                            // Add to ADS-B selector
+                            const adsbOpt = document.createElement('option');
+                            adsbOpt.value = idx;
+                            adsbOpt.textContent = shortName;
+                            adsbOpt.title = name;
+                            adsbSelect.appendChild(adsbOpt);
+
+                            // Add to Airband selector
+                            const airbandOpt = document.createElement('option');
+                            airbandOpt.value = idx;
+                            airbandOpt.textContent = shortName;
+                            airbandOpt.title = name;
+                            airbandSelect.appendChild(airbandOpt);
+                        });
+
+                        // Default: ADS-B uses first device, Airband uses second (if available)
+                        adsbSelect.value = devices[0].index !== undefined ? devices[0].index : 0;
+                        if (devices.length > 1) {
+                            airbandSelect.value = devices[1].index !== undefined ? devices[1].index : 1;
+                        }
+
+                        // Show warning if only one device
+                        if (devices.length === 1) {
+                            document.getElementById('airbandStatus').textContent = '1 SDR only';
+                            document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
+                        }
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('adsbDeviceSelect').innerHTML = '<option value="0">Error</option>';
+                    document.getElementById('airbandDeviceSelect').innerHTML = '<option value="0">Error</option>';
+                });
+        }
 
         function checkAdsbTools() {
             fetch('/adsb/tools')
@@ -1444,7 +1513,12 @@ sudo make install</code>
                 const remoteConfig = getRemoteDump1090Config();
                 if (remoteConfig === false) return;
 
-                const requestBody = {};
+                // Get selected ADS-B device
+                const adsbDevice = parseInt(document.getElementById('adsbDeviceSelect').value) || 0;
+
+                const requestBody = {
+                    device: adsbDevice
+                };
                 if (remoteConfig) {
                     requestBody.remote_sbs_host = remoteConfig.host;
                     requestBody.remote_sbs_port = remoteConfig.port;
@@ -1470,10 +1544,13 @@ sudo make install</code>
                         startEventStream();
                         drawRangeRings();
                         isTracking = true;
+                        adsbActiveDevice = adsbDevice;  // Track which device is being used
                         btn.textContent = 'STOP';
                         btn.classList.add('active');
                         document.getElementById('trackingDot').classList.remove('inactive');
                         document.getElementById('trackingStatus').textContent = 'TRACKING';
+                        // Disable ADS-B device selector while tracking
+                        document.getElementById('adsbDeviceSelect').disabled = true;
                     } else {
                         alert('Failed to start: ' + (data.message || JSON.stringify(data)));
                     }
@@ -1487,10 +1564,13 @@ sudo make install</code>
 
                 stopEventStream();
                 isTracking = false;
+                adsbActiveDevice = null;
                 btn.textContent = 'START';
                 btn.classList.remove('active');
                 document.getElementById('trackingDot').classList.add('inactive');
                 document.getElementById('trackingStatus').textContent = 'STANDBY';
+                // Re-enable ADS-B device selector
+                document.getElementById('adsbDeviceSelect').disabled = false;
             }
         }
 
@@ -2039,47 +2119,6 @@ sudo make install</code>
         }
 
         function initAirband() {
-            // Populate device selector with available SDRs
-            fetch('/devices')
-                .then(r => r.json())
-                .then(devices => {
-                    const select = document.getElementById('airbandDeviceSelect');
-                    select.innerHTML = '';
-                    if (devices.length === 0) {
-                        select.innerHTML = '<option value="0">No SDR found</option>';
-                        select.disabled = true;
-                    } else if (devices.length === 1) {
-                        // Only one device - warn user they need two
-                        const dev = devices[0];
-                        const name = dev.name || dev.type || `RTL-SDR`;
-                        const opt = document.createElement('option');
-                        opt.value = dev.index || 0;
-                        opt.textContent = `${dev.index || 0}: ${name}`;
-                        select.appendChild(opt);
-                        // Show warning about needing second SDR
-                        document.getElementById('airbandStatus').textContent = '1 SDR (need 2)';
-                        document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
-                    } else {
-                        // Multiple devices - let user choose which for airband
-                        devices.forEach((dev, i) => {
-                            const opt = document.createElement('option');
-                            const idx = dev.index !== undefined ? dev.index : i;
-                            const name = dev.name || dev.type || `RTL-SDR`;
-                            opt.value = idx;
-                            opt.textContent = `${idx}: ${name}`;
-                            select.appendChild(opt);
-                        });
-                        // Default to second device (first is likely used for ADS-B)
-                        if (devices.length > 1) {
-                            select.value = devices[1].index !== undefined ? devices[1].index : 1;
-                        }
-                    }
-                })
-                .catch(() => {
-                    const select = document.getElementById('airbandDeviceSelect');
-                    select.innerHTML = '<option value="0">No SDR</option>';
-                });
-
             // Check if audio tools are available
             fetch('/listening/tools')
                 .then(r => r.json())
@@ -2197,10 +2236,10 @@ sudo make install</code>
             const device = parseInt(document.getElementById('airbandDeviceSelect').value);
             const squelch = parseInt(document.getElementById('airbandSquelch').value);
 
-            // Check if ADS-B tracking is using this device (ADS-B uses device 0 by default)
-            if (isTracking && device === 0) {
+            // Check if ADS-B tracking is using this device
+            if (isTracking && adsbActiveDevice !== null && device === adsbActiveDevice) {
                 const useAnyway = confirm(
-                    'Warning: ADS-B tracking is using SDR device 0.\n\n' +
+                    `Warning: ADS-B tracking is using SDR ${adsbActiveDevice}.\n\n` +
                     'Using the same device for airband will stop ADS-B tracking.\n\n' +
                     'Select a different SDR device for airband listening, or click OK to stop tracking and listen.'
                 );
