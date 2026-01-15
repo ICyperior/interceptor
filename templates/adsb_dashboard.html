@@ -1392,7 +1392,24 @@ sudo make install</code>
 
             // Draw range rings after map is ready
             setTimeout(() => drawRangeRings(), 100);
+
+            // Fix map size on mobile after initialization
+            setTimeout(() => {
+                if (radarMap) radarMap.invalidateSize();
+            }, 200);
         }
+
+        // Handle window resize for map (especially important on mobile)
+        window.addEventListener('resize', function() {
+            if (radarMap) radarMap.invalidateSize();
+        });
+
+        // Handle orientation changes for mobile devices
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                if (radarMap) radarMap.invalidateSize();
+            }, 200);
+        });
 
         // ============================================
         // TRACKING CONTROL

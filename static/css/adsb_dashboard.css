@@ -1041,3 +1041,161 @@ body {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.8); }
 }
+
+/* ============== MOBILE FIXES ============== */
+@media (max-width: 767px) {
+    /* Dashboard should be scrollable, not fixed height */
+    .dashboard {
+        height: auto;
+        min-height: calc(100dvh - 60px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Main display needs explicit height on mobile */
+    .main-display {
+        width: 100%;
+        height: 50vh;
+        min-height: 300px;
+        flex-shrink: 0;
+    }
+
+    /* Map container needs full dimensions */
+    .display-container {
+        height: 100%;
+    }
+
+    #radarMap {
+        height: 100% !important;
+        min-height: 300px;
+    }
+
+    #radarScope {
+        height: 100%;
+    }
+
+    #radarCanvas {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    /* Sidebar should not be height restricted */
+    .sidebar {
+        max-height: none;
+        flex-shrink: 0;
+    }
+
+    /* Selected aircraft panel - compact on mobile */
+    .selected-aircraft {
+        max-height: 200px;
+    }
+
+    /* Aircraft list - scrollable with reasonable height */
+    .aircraft-list {
+        max-height: 300px;
+    }
+
+    .aircraft-list-content {
+        max-height: 250px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Controls bar - wrap and stack */
+    .controls-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .control-group {
+        flex-wrap: wrap;
+    }
+
+    /* Airband controls - stack on mobile */
+    .airband-controls {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .airband-divider {
+        display: none;
+    }
+
+    .airband-visualizer {
+        width: 100%;
+        justify-content: center;
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        margin-left: 0;
+        margin-top: 8px;
+        padding-top: 8px;
+    }
+
+    /* Start button full width on mobile */
+    .start-btn {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 8px;
+    }
+
+    /* Header simplification */
+    .header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .stats-badges {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .status-bar {
+        gap: 10px;
+    }
+
+    .logo span {
+        display: none !important;
+    }
+
+    /* Telemetry grid - single column */
+    .telemetry-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Aircraft details - 2 columns instead of 3 */
+    .aircraft-details {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Tablet specific adjustments */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .main-display {
+        min-height: 400px;
+    }
+
+    .sidebar {
+        max-height: 50vh;
+    }
+}
+
+/* Leaflet touch fixes for mobile */
+.leaflet-container {
+    touch-action: pan-x pan-y;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.leaflet-control-zoom a {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    line-height: 44px !important;
+    font-size: 18px !important;
+}
+
+/* Ensure panels don't overflow */
+.panel {
+    overflow: hidden;
+}
