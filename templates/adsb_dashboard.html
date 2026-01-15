@@ -1920,6 +1920,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             setInterval(cleanupOldAircraft, 10000);
             checkAdsbTools();
             checkAircraftDatabase();
+            checkDvbDriverConflict();
 
             // Auto-connect to gpsd if available
             autoConnectGps();
@@ -1988,6 +1989,107 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     document.getElementById('adsbDeviceSelect').innerHTML = '<option value="0">Error</option>';
                     document.getElementById('airbandDeviceSelect').innerHTML = '<option value="0">Error</option>';
                 });
+        }
+
+        function checkDvbDriverConflict() {
+            fetch('/settings/rtlsdr/driver-status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.issue_detected) {
+                        showDvbDriverWarning(data.loaded_modules);
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function showDvbDriverWarning(loadedModules) {
+            // Don't show if already dismissed this session
+            if (sessionStorage.getItem('dvb_warning_dismissed')) return;
+
+            const warning = document.createElement('div');
+            warning.id = 'dvbDriverWarning';
+            warning.style.cssText = `
+                position: fixed;
+                top: 70px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(239, 68, 68, 0.95);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                font-size: 13px;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                max-width: 500px;
+                text-align: center;
+            `;
+
+            warning.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 8px;">⚠️ DVB Driver Conflict Detected</div>
+                <div style="margin-bottom: 10px;">
+                    Kernel DVB drivers are claiming your RTL-SDR devices, preventing them from working properly.
+                    <br><small>Loaded modules: ${loadedModules.join(', ')}</small>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="fixDvbDrivers()" style="background: white; color: #dc2626; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                        Fix Now
+                    </button>
+                    <button onclick="dismissDvbWarning()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                        Dismiss
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(warning);
+        }
+
+        function fixDvbDrivers() {
+            const warning = document.getElementById('dvbDriverWarning');
+            if (warning) {
+                warning.innerHTML = '<div>Applying fix...</div>';
+            }
+
+            fetch('/settings/rtlsdr/blacklist-drivers', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success' || data.status === 'partial') {
+                        if (warning) {
+                            warning.style.background = 'rgba(34, 197, 94, 0.95)';
+                            warning.innerHTML = `
+                                <div style="font-weight: bold;">✓ DVB Drivers Disabled</div>
+                                <div style="margin-top: 8px;">${data.message}</div>
+                                <button onclick="this.parentElement.remove()" style="margin-top: 10px; background: white; color: #16a34a; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                                    OK
+                                </button>
+                            `;
+                        }
+                    } else {
+                        if (warning) {
+                            warning.innerHTML = `
+                                <div style="font-weight: bold;">Manual Fix Required</div>
+                                <div style="margin-top: 8px;">${data.message}</div>
+                                <button onclick="this.parentElement.remove()" style="margin-top: 10px; background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                                    Close
+                                </button>
+                            `;
+                        }
+                    }
+                })
+                .catch(err => {
+                    if (warning) {
+                        warning.innerHTML = `
+                            <div>Error: ${err.message}</div>
+                            <button onclick="this.parentElement.remove()" style="margin-top: 10px; background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                                Close
+                            </button>
+                        `;
+                    }
+                });
+        }
+
+        function dismissDvbWarning() {
+            sessionStorage.setItem('dvb_warning_dismissed', 'true');
+            const warning = document.getElementById('dvbDriverWarning');
+            if (warning) warning.remove();
         }
 
         function checkAdsbTools() {
