@@ -2092,7 +2092,6 @@
             } else if (mode === 'aprs') {
                 checkAprsTools();
                 initAprsMap();
-                refreshAprsDevices();
                 // Fix map sizing on mobile after container becomes visible
                 setTimeout(() => {
                     if (aprsMap) aprsMap.invalidateSize();
@@ -7309,30 +7308,6 @@
             }, 1000);
         }
 
-        function refreshAprsDevices() {
-            fetch('/devices')
-                .then(r => r.json())
-                .then(devices => {
-                    const select = document.getElementById('aprsDevice');
-                    select.innerHTML = '';
-                    if (devices.length === 0) {
-                        select.innerHTML = '<option value="">No SDR devices found</option>';
-                    } else {
-                        devices.forEach(dev => {
-                            const opt = document.createElement('option');
-                            opt.value = dev.index;
-                            opt.textContent = `${dev.index}: ${dev.name || 'Unknown'}`;
-                            select.appendChild(opt);
-                        });
-                    }
-                })
-                .catch(err => {
-                    console.error('Failed to refresh APRS devices:', err);
-                    const select = document.getElementById('aprsDevice');
-                    select.innerHTML = '<option value="0">Error loading devices</option>';
-                });
-        }
-
         function updateAprsStatus(state, freq) {
             const statusBar = document.getElementById('aprsStatusBar');
             const statusDot = document.getElementById('aprsStatusDot');
@@ -7361,7 +7336,7 @@
 
         function startAprs() {
             const region = document.getElementById('aprsRegion').value;
-            const device = document.getElementById('aprsDevice').value;
+            const device = getSelectedDevice();
             const gain = document.getElementById('aprsGain').value;
 
             fetch('/aprs/start', {
