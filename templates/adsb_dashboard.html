@@ -254,7 +254,11 @@
                         <option value="134.725">134.725</option>
                         <option value="custom">Custom...</option>
                     </select>
-                    <input type="number" id="airbandCustomFreq" step="0.005" placeholder="MHz" class="airband-controls" style="width: 65px; display: none;">
+                    <input type="number" id="airbandCustomFreq" step="0.025" placeholder="MHz" class="airband-controls" style="width: 65px; display: none;">
+                    <select id="airbandSpacing" class="airband-controls" title="Channel spacing" style="width: 55px; display: none;" onchange="updateAirbandSpacing()">
+                        <option value="25">25 kHz</option>
+                        <option value="8.33">8.33 kHz</option>
+                    </select>
                     <select id="airbandDeviceSelect" class="airband-controls" title="SDR for airband">
                         <option value="0">SDR 0</option>
                     </select>
@@ -3056,15 +3060,30 @@ sudo make install</code>
         function updateAirbandFreq() {
             const select = document.getElementById('airbandFreqSelect');
             const customInput = document.getElementById('airbandCustomFreq');
+            const spacingSelect = document.getElementById('airbandSpacing');
             if (select.value === 'custom') {
                 customInput.style.display = 'inline-block';
+                spacingSelect.style.display = 'inline-block';
             } else {
                 customInput.style.display = 'none';
+                spacingSelect.style.display = 'none';
                 // If audio is playing, restart on new frequency
                 if (isAirbandPlaying) {
                     stopAirband();
                     setTimeout(() => startAirband(), 300);
                 }
+            }
+        }
+
+        function updateAirbandSpacing() {
+            const spacing = document.getElementById('airbandSpacing').value;
+            const customInput = document.getElementById('airbandCustomFreq');
+            if (spacing === '8.33') {
+                // 8.33 kHz = 0.00833 MHz
+                customInput.step = '0.00833';
+            } else {
+                // 25 kHz = 0.025 MHz
+                customInput.step = '0.025';
             }
         }
 
