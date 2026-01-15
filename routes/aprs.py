@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import queue
@@ -12,6 +13,7 @@ import tempfile
 import threading
 import time
 from datetime import datetime
+from subprocess import DEVNULL, PIPE, STDOUT
 from typing import Generator, Optional
 
 from flask import Blueprint, jsonify, request, Response
@@ -33,6 +35,7 @@ aprs_bp = Blueprint('aprs', __name__, url_prefix='/aprs')
 APRS_FREQUENCIES = {
     'north_america': '144.390',
     'europe': '144.800',
+    'uk': '144.800',
     'australia': '145.175',
     'new_zealand': '144.575',
     'argentina': '144.930',
@@ -61,6 +64,11 @@ def find_multimon_ng() -> Optional[str]:
 def find_rtl_fm() -> Optional[str]:
     """Find rtl_fm binary."""
     return shutil.which('rtl_fm')
+
+
+def find_rtl_power() -> Optional[str]:
+    """Find rtl_power binary for spectrum scanning."""
+    return shutil.which('rtl_power')
 
 
 # Path to direwolf config file
@@ -268,22 +276,32 @@ def parse_weather(data: str) -> dict:
 
 
 def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subprocess.Popen) -> None:
-    """Stream decoded APRS packets to queue."""
+    """Stream decoded APRS packets to queue.
+
+    This function reads from the decoder's stdout (text mode, line-buffered).
+    The decoder's stderr is merged into stdout (STDOUT) to avoid deadlocks.
+    rtl_fm's stderr is sent to DEVNULL for the same reason.
+    """
     global aprs_packet_count, aprs_station_count, aprs_last_packet_time, aprs_stations
 
     try:
         app_module.aprs_queue.put({'type': 'status', 'status': 'started'})
 
-        for line in iter(decoder_process.stdout.readline, b''):
-            line = line.decode('utf-8', errors='replace').strip()
+        # Read line-by-line in text mode. Empty string '' signals EOF.
+        for line in iter(decoder_process.stdout.readline, ''):
+            line = line.strip()
             if not line:
                 continue
 
-            # direwolf outputs decoded packets, multimon-ng outputs "AFSK1200: ..."
+            # multimon-ng prefixes decoded packets with "AFSK1200: "
             if line.startswith('AFSK1200:'):
                 line = line[9:].strip()
 
-            # Skip non-packet lines
+            # direwolf often prefixes packets with "[0.4] " or similar audio level indicator
+            # Strip any leading bracket prefix like "[0.4] " before parsing
+            line = re.sub(r'^\[\d+\.\d+\]\s*', '', line)
+
+            # Skip non-packet lines (APRS format: CALL>PATH:DATA)
             if '>' not in line or ':' not in line:
                 continue
 
@@ -437,22 +455,27 @@ def start_aprs() -> Response:
     aprs_last_packet_time = None
     aprs_stations = {}
 
-    # Build rtl_fm command
+    # Build rtl_fm command for APRS (narrowband FM at 22050 Hz for AFSK1200)
     freq_hz = f"{float(frequency)}M"
     rtl_cmd = [
         rtl_fm_path,
         '-f', freq_hz,
-        '-M', 'fm',              # FM demodulation
-        '-s', '22050',           # Sample rate for AFSK1200
+        '-M', 'nfm',             # Narrowband FM for APRS
+        '-s', '22050',           # Sample rate matching direwolf -r 22050
+        '-E', 'dc',              # Enable DC blocking filter for cleaner audio
+        '-A', 'fast',            # Fast AGC for packet bursts
         '-d', str(device),
     ]
 
+    # Gain: 0 means auto, otherwise set specific gain
     if gain and str(gain) != '0':
         rtl_cmd.extend(['-g', str(gain)])
+
+    # PPM frequency correction
     if ppm and str(ppm) != '0':
         rtl_cmd.extend(['-p', str(ppm)])
 
-    # Explicitly output to stdout
+    # Output raw audio to stdout
     rtl_cmd.append('-')
 
     # Build decoder command
@@ -461,59 +484,90 @@ def start_aprs() -> Response:
         config_path = create_direwolf_config()
 
         # direwolf flags for receiving AFSK1200 from stdin:
-        # -c config = config file path
+        # -c config = config file path (must come before other options)
         # -n 1 = mono audio channel
-        # -r 22050 = sample rate
-        # -b 16 = 16-bit samples
+        # -r 22050 = sample rate (must match rtl_fm -s)
+        # -b 16 = 16-bit signed samples
         # -t 0 = disable text colors (for cleaner parsing)
-        # -q h = quiet mode - suppress audio level heard line (keeps packet output)
-        # - = read from stdin
-        decoder_cmd = [direwolf_path, '-c', config_path, '-n', '1', '-r', '22050', '-b', '16', '-t', '0', '-q', 'h', '-']
+        # -q h = quiet: suppress audio level heard line (keeps packet output)
+        # - = read audio from stdin (must be last argument)
+        decoder_cmd = [
+            direwolf_path,
+            '-c', config_path,
+            '-n', '1',
+            '-r', '22050',
+            '-b', '16',
+            '-t', '0',
+            '-q', 'h',
+            '-'
+        ]
         decoder_name = 'direwolf'
     else:
+        # Fallback to multimon-ng
         decoder_cmd = [multimon_path, '-t', 'raw', '-a', 'AFSK1200', '-']
         decoder_name = 'multimon-ng'
 
     logger.info(f"Starting APRS decoder: {' '.join(rtl_cmd)} | {' '.join(decoder_cmd)}")
 
     try:
-        # Start rtl_fm
+        # Start rtl_fm with stdout piped to decoder.
+        # stderr goes to DEVNULL to prevent blocking (rtl_fm logs to stderr).
+        # NOTE: RTL-SDR Blog V4 may show offset-tuned frequency in logs - this is normal.
         rtl_process = subprocess.Popen(
             rtl_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=PIPE,
+            stderr=DEVNULL,
             start_new_session=True
         )
 
-        # Start decoder with rtl_fm output
+        # Start decoder with stdin wired to rtl_fm's stdout.
+        # Use text mode with line buffering for reliable line-by-line reading.
+        # Merge stderr into stdout to avoid blocking on unbuffered stderr.
         decoder_process = subprocess.Popen(
             decoder_cmd,
             stdin=rtl_process.stdout,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=PIPE,
+            stderr=STDOUT,
+            text=True,
+            bufsize=1,
             start_new_session=True
         )
 
-        # Allow rtl_fm stdout to be consumed by decoder
+        # Close rtl_fm's stdout in parent so decoder owns it exclusively.
+        # This ensures proper EOF propagation when rtl_fm terminates.
         rtl_process.stdout.close()
 
-        # Wait briefly to check if processes started
+        # Wait briefly to check if processes started successfully
         time.sleep(PROCESS_START_WAIT)
 
         if rtl_process.poll() is not None:
-            stderr = rtl_process.stderr.read().decode('utf-8', errors='replace') if rtl_process.stderr else ''
-            error_msg = f'rtl_fm failed to start'
-            if stderr:
-                error_msg += f': {stderr[:200]}'
+            # rtl_fm exited early - something went wrong
+            error_msg = f'rtl_fm failed to start (exit code {rtl_process.returncode})'
             logger.error(error_msg)
-            decoder_process.kill()
+            try:
+                decoder_process.kill()
+            except Exception:
+                pass
             return jsonify({'status': 'error', 'message': error_msg}), 500
 
-        # Store reference to decoder process (for status checks)
+        if decoder_process.poll() is not None:
+            # Decoder exited early - capture any output
+            error_output = decoder_process.stdout.read()[:500] if decoder_process.stdout else ''
+            error_msg = f'{decoder_name} failed to start'
+            if error_output:
+                error_msg += f': {error_output}'
+            logger.error(error_msg)
+            try:
+                rtl_process.kill()
+            except Exception:
+                pass
+            return jsonify({'status': 'error', 'message': error_msg}), 500
+
+        # Store references for status checks and cleanup
         app_module.aprs_process = decoder_process
         app_module.aprs_rtl_process = rtl_process
 
-        # Start output streaming thread
+        # Start background thread to read decoder output and push to queue
         thread = threading.Thread(
             target=stream_aprs_output,
             args=(rtl_process, decoder_process),
@@ -595,3 +649,198 @@ def stream_aprs() -> Response:
 def get_frequencies() -> Response:
     """Get APRS frequencies by region."""
     return jsonify(APRS_FREQUENCIES)
+
+
+@aprs_bp.route('/spectrum', methods=['GET', 'POST'])
+def scan_aprs_spectrum() -> Response:
+    """Scan spectrum around APRS frequency for signal visibility debugging.
+
+    This endpoint runs rtl_power briefly to detect signal activity near the
+    APRS frequency. Useful for headless/remote debugging to verify antenna
+    and SDR are receiving signals.
+
+    Query params or JSON body:
+        device: SDR device index (default: 0)
+        gain: Gain in dB, 0=auto (default: 0)
+        region: Region for frequency lookup (default: europe)
+        frequency: Override frequency in MHz (optional)
+        duration: Scan duration in seconds (default: 10, max: 60)
+
+    Returns JSON with peak detection and signal analysis.
+    """
+    rtl_power_path = find_rtl_power()
+    if not rtl_power_path:
+        return jsonify({
+            'status': 'error',
+            'message': 'rtl_power not found. Install with: sudo apt install rtl-sdr'
+        }), 400
+
+    # Get parameters from JSON body or query args
+    if request.is_json:
+        data = request.json or {}
+    else:
+        data = {}
+
+    device = data.get('device', request.args.get('device', '0'))
+    gain = data.get('gain', request.args.get('gain', '0'))
+    region = data.get('region', request.args.get('region', 'europe'))
+    frequency = data.get('frequency', request.args.get('frequency'))
+    duration = data.get('duration', request.args.get('duration', '10'))
+
+    # Validate inputs
+    try:
+        device = validate_device_index(device)
+        gain = validate_gain(gain)
+        duration = min(max(int(duration), 5), 60)  # Clamp 5-60 seconds
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+    # Get center frequency
+    if frequency:
+        center_freq_mhz = float(frequency)
+    else:
+        center_freq_mhz = float(APRS_FREQUENCIES.get(region, '144.800'))
+
+    # Scan 20 kHz around center frequency (±10 kHz)
+    start_freq_mhz = center_freq_mhz - 0.010
+    end_freq_mhz = center_freq_mhz + 0.010
+    bin_size_hz = 200  # 200 Hz bins for good resolution
+
+    # Create temp file for rtl_power output
+    tmp_file = os.path.join(tempfile.gettempdir(), f'intercept_rtl_power_{os.getpid()}.csv')
+
+    try:
+        # Build rtl_power command
+        # Format: rtl_power -f start:end:bin_size -d device -g gain -i interval -e duration output_file
+        rtl_power_cmd = [
+            rtl_power_path,
+            '-f', f'{start_freq_mhz}M:{end_freq_mhz}M:{bin_size_hz}',
+            '-d', str(device),
+            '-i', '1',  # 1 second integration
+            '-e', f'{duration}s',
+        ]
+
+        # Gain: 0 means auto
+        if gain and str(gain) != '0':
+            rtl_power_cmd.extend(['-g', str(gain)])
+
+        rtl_power_cmd.append(tmp_file)
+
+        logger.info(f"Running spectrum scan: {' '.join(rtl_power_cmd)}")
+
+        # Run rtl_power with timeout
+        result = subprocess.run(
+            rtl_power_cmd,
+            capture_output=True,
+            text=True,
+            timeout=duration + 15  # Allow extra time for startup/shutdown
+        )
+
+        if result.returncode != 0:
+            error_msg = result.stderr[:200] if result.stderr else f'Exit code {result.returncode}'
+            return jsonify({
+                'status': 'error',
+                'message': f'rtl_power failed: {error_msg}'
+            }), 500
+
+        # Parse rtl_power CSV output
+        # Format: date, time, start_hz, end_hz, step_hz, samples, db1, db2, db3, ...
+        if not os.path.exists(tmp_file):
+            return jsonify({
+                'status': 'error',
+                'message': 'rtl_power did not produce output file'
+            }), 500
+
+        bins = []
+        with open(tmp_file, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) < 7:
+                    continue
+                try:
+                    row_start_hz = float(row[2])
+                    row_step_hz = float(row[4])
+                    # dB values start at column 6
+                    for i, db_str in enumerate(row[6:]):
+                        db_val = float(db_str.strip())
+                        freq_hz = row_start_hz + (i * row_step_hz)
+                        bins.append({'freq_hz': freq_hz, 'db': db_val})
+                except (ValueError, IndexError):
+                    continue
+
+        if not bins:
+            return jsonify({
+                'status': 'error',
+                'message': 'No spectrum data collected. Check SDR connection and antenna.'
+            }), 500
+
+        # Calculate statistics
+        db_values = [b['db'] for b in bins]
+        avg_db = sum(db_values) / len(db_values)
+        max_bin = max(bins, key=lambda x: x['db'])
+        min_db = min(db_values)
+
+        # Find peak near center frequency (within 5 kHz)
+        center_hz = center_freq_mhz * 1e6
+        near_center_bins = [b for b in bins if abs(b['freq_hz'] - center_hz) < 5000]
+        if near_center_bins:
+            peak_near_center = max(near_center_bins, key=lambda x: x['db'])
+        else:
+            peak_near_center = max_bin
+
+        # Signal analysis
+        peak_above_noise = peak_near_center['db'] - avg_db
+        signal_detected = peak_above_noise > 3  # 3 dB above noise floor
+
+        # Generate advice
+        if peak_above_noise < 1:
+            advice = "No signal detected near APRS frequency. Check antenna connection and orientation."
+        elif peak_above_noise < 3:
+            advice = "Weak signal detected. Consider improving antenna or reducing noise sources."
+        elif peak_above_noise < 6:
+            advice = "Moderate signal detected. Decoding should work for strong stations."
+        else:
+            advice = "Good signal detected. Decoding should work well."
+
+        return jsonify({
+            'status': 'success',
+            'scan_params': {
+                'center_freq_mhz': center_freq_mhz,
+                'start_freq_mhz': start_freq_mhz,
+                'end_freq_mhz': end_freq_mhz,
+                'bin_size_hz': bin_size_hz,
+                'duration_seconds': duration,
+                'device': device,
+                'gain': gain,
+                'region': region,
+            },
+            'results': {
+                'total_bins': len(bins),
+                'noise_floor_db': round(avg_db, 1),
+                'min_db': round(min_db, 1),
+                'peak_freq_mhz': round(max_bin['freq_hz'] / 1e6, 6),
+                'peak_db': round(max_bin['db'], 1),
+                'peak_near_aprs_freq_mhz': round(peak_near_center['freq_hz'] / 1e6, 6),
+                'peak_near_aprs_db': round(peak_near_center['db'], 1),
+                'signal_above_noise_db': round(peak_above_noise, 1),
+                'signal_detected': signal_detected,
+            },
+            'advice': advice,
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'status': 'error',
+            'message': f'Spectrum scan timed out after {duration + 15} seconds'
+        }), 500
+    except Exception as e:
+        logger.error(f"Spectrum scan error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        # Cleanup temp file
+        try:
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
+        except Exception:
+            pass
+
