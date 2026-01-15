@@ -2084,15 +2084,37 @@
             } else if (mode === 'aircraft') {
                 checkAdsbTools();
                 initAircraftRadar();
+                // Fix map sizing on mobile after container becomes visible
+                setTimeout(() => {
+                    if (aircraftMap) aircraftMap.invalidateSize();
+                }, 100);
             } else if (mode === 'aprs') {
                 checkAprsTools();
                 initAprsMap();
                 refreshAprsDevices();
+                // Fix map sizing on mobile after container becomes visible
+                setTimeout(() => {
+                    if (aprsMap) aprsMap.invalidateSize();
+                }, 100);
             } else if (mode === 'satellite') {
                 initPolarPlot();
                 initSatelliteList();
             }
         }
+
+        // Handle window resize for maps (especially important on mobile orientation change)
+        window.addEventListener('resize', function() {
+            if (aircraftMap) aircraftMap.invalidateSize();
+            if (aprsMap) aprsMap.invalidateSize();
+        });
+
+        // Also handle orientation changes explicitly for mobile
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                if (aircraftMap) aircraftMap.invalidateSize();
+                if (aprsMap) aprsMap.invalidateSize();
+            }, 200);
+        });
 
         // Track unique sensor devices
         let uniqueDevices = new Set();

@@ -369,3 +369,281 @@
 .text-min-readable {
     font-size: max(10px, var(--font-xs));
 }
+
+/* ============== MOBILE LAYOUT FIXES ============== */
+@media (max-width: 1023px) {
+    /* Fix main content to allow scrolling on mobile */
+    .main-content {
+        height: auto !important;
+        min-height: calc(100dvh - var(--header-height) - var(--nav-height));
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Container should not clip content */
+    .container {
+        overflow: visible;
+        height: auto;
+        min-height: 100dvh;
+    }
+
+    /* Layout containers need to stack vertically on mobile */
+    .wifi-layout-container,
+    .bt-layout-container {
+        flex-direction: column !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        padding: 10px !important;
+    }
+
+    /* Visual panels should be scrollable, not clipped */
+    .wifi-visuals,
+    .bt-visuals {
+        max-height: none !important;
+        overflow: visible !important;
+        margin-bottom: 15px;
+    }
+
+    /* Device lists should have reasonable height on mobile */
+    .wifi-device-list,
+    .bt-device-list {
+        max-height: 400px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Visual panels should stack in single column on mobile */
+    .wifi-visuals,
+    .bt-visuals,
+    #aircraftVisuals {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px;
+    }
+
+    .wifi-visual-panel {
+        grid-column: auto !important;
+    }
+}
+
+/* ============== MOBILE MAP FIXES ============== */
+@media (max-width: 1023px) {
+    /* Aircraft map container needs explicit height on mobile */
+    .aircraft-map-container {
+        height: 300px !important;
+        min-height: 300px !important;
+        width: 100% !important;
+    }
+
+    #aircraftMap {
+        height: 100% !important;
+        width: 100% !important;
+        min-height: 250px;
+    }
+
+    /* APRS map container */
+    #aprsMap {
+        min-height: 300px !important;
+        height: 300px !important;
+        width: 100% !important;
+    }
+
+    /* Satellite embed */
+    .satellite-dashboard-embed {
+        height: 400px !important;
+        min-height: 400px !important;
+    }
+
+    /* Map panels should be full width */
+    .wifi-visual-panel[style*="grid-column: span 2"] {
+        grid-column: auto !important;
+    }
+
+    /* Make map container full width when it has ACARS sidebar */
+    .wifi-visual-panel[style*="display: flex"][style*="gap: 0"] {
+        flex-direction: column !important;
+    }
+
+    /* ACARS sidebar should be below map on mobile */
+    .main-acars-sidebar {
+        width: 100% !important;
+        max-width: none !important;
+        border-left: none !important;
+        border-top: 1px solid var(--border-color, #1f2937) !important;
+    }
+
+    .main-acars-sidebar.collapsed {
+        width: 100% !important;
+    }
+
+    .main-acars-content {
+        max-height: 200px !important;
+    }
+}
+
+/* ============== LEAFLET MOBILE TOUCH FIXES ============== */
+.leaflet-container {
+    touch-action: pan-x pan-y;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.leaflet-control-zoom {
+    touch-action: manipulation;
+}
+
+.leaflet-control-zoom a {
+    min-width: var(--touch-min, 44px) !important;
+    min-height: var(--touch-min, 44px) !important;
+    line-height: var(--touch-min, 44px) !important;
+    font-size: 18px !important;
+}
+
+/* ============== MOBILE HEADER STATS ============== */
+@media (max-width: 1023px) {
+    .header-stats {
+        display: none !important;
+    }
+
+    /* Simplify header on mobile */
+    header h1 {
+        font-size: 16px !important;
+    }
+
+    header h1 .tagline,
+    header h1 .version-badge {
+        display: none;
+    }
+
+    header .subtitle {
+        font-size: 10px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    header .logo svg {
+        width: 30px !important;
+        height: 30px !important;
+    }
+}
+
+/* ============== MOBILE MODE PANELS ============== */
+@media (max-width: 1023px) {
+    /* Mode panel grids should be single column */
+    .data-grid,
+    .stats-grid,
+    .sensor-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Section headers should be easier to tap */
+    .section h3 {
+        min-height: var(--touch-min);
+        padding: 12px !important;
+    }
+
+    /* Tables need horizontal scroll */
+    .message-table,
+    .sensor-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Ensure messages list is scrollable */
+    #messageList,
+    #sensorGrid,
+    .aprs-list {
+        max-height: 60vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ============== WELCOME PAGE MOBILE ============== */
+@media (max-width: 767px) {
+    .welcome-container {
+        padding: 15px !important;
+        max-width: 100% !important;
+    }
+
+    .welcome-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+
+    .welcome-logo svg {
+        width: 50px;
+        height: 50px;
+    }
+
+    .welcome-title {
+        font-size: 24px !important;
+    }
+
+    .welcome-content {
+        grid-template-columns: 1fr !important;
+    }
+
+    .mode-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .mode-card {
+        padding: 12px 8px !important;
+    }
+
+    .mode-icon {
+        font-size: 20px !important;
+    }
+
+    .mode-name {
+        font-size: 11px !important;
+    }
+
+    .mode-desc {
+        font-size: 9px !important;
+    }
+
+    .changelog-release {
+        padding: 10px !important;
+    }
+}
+
+/* ============== TSCM MODE MOBILE ============== */
+@media (max-width: 1023px) {
+    .tscm-layout {
+        flex-direction: column !important;
+        height: auto !important;
+    }
+
+    .tscm-spectrum-panel,
+    .tscm-detection-panel {
+        width: 100% !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 300px;
+    }
+}
+
+/* ============== LISTENING POST MOBILE ============== */
+@media (max-width: 1023px) {
+    .radio-controls-section {
+        flex-direction: column !important;
+        gap: 15px;
+    }
+
+    .knobs-row {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .radio-module-box {
+        width: 100% !important;
+    }
+}
