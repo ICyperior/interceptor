@@ -5,13 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>iNTERCEPT // See the Invisible</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <!-- Leaflet.js for aircraft map -->
+    <!-- Leaflet.js for APRS map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <!-- Leaflet MarkerCluster for aircraft clustering -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
-    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <!-- Chart.js for signal strength graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
@@ -81,11 +77,11 @@
                             <span class="mode-name">433MHz</span>
                             <span class="mode-desc">IoT sensor monitoring</span>
                         </button>
-                        <button class="mode-card" onclick="selectMode('aircraft')">
+                        <a href="/adsb/dashboard" class="mode-card" style="text-decoration: none;">
                             <span class="mode-icon">✈️</span>
                             <span class="mode-name">Aircraft</span>
                             <span class="mode-desc">ADS-B tracking</span>
-                        </button>
+                        </a>
                         <button class="mode-card" onclick="selectMode('wifi')">
                             <span class="mode-icon">📶</span>
                             <span class="mode-name">WiFi</span>
@@ -332,31 +328,6 @@
                 </div>
             </div>
 
-            <!-- Aircraft Stats -->
-            <div class="header-stats-group" id="headerAircraftStats">
-                <div class="stat-badge">
-                    <span class="badge-icon">✈️</span>
-                    <div>
-                        <span class="badge-value" id="headerAircraftCount">0</span>
-                        <span class="badge-label">aircraft</span>
-                    </div>
-                </div>
-                <div class="stat-badge">
-                    <span class="badge-icon">📨</span>
-                    <div>
-                        <span class="badge-value" id="headerAdsbMsgCount">0</span>
-                        <span class="badge-label">messages</span>
-                    </div>
-                </div>
-                <div class="stat-badge">
-                    <span class="badge-icon">🔢</span>
-                    <div>
-                        <span class="badge-value" id="headerIcaoCount">0</span>
-                        <span class="badge-label">ICAO</span>
-                    </div>
-                </div>
-            </div>
-
             <!-- Satellite Stats -->
             <div class="header-stats-group" id="headerSatelliteStats">
                 <div class="stat-badge">
@@ -389,7 +360,7 @@
             <div class="mode-nav-dropdown-menu">
                 <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span class="nav-label">Pager</span></button>
                 <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span class="nav-label">433MHz</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('aircraft')"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></button>
+                <a href="/adsb/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></a>
                 <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon">📍</span><span class="nav-label">APRS</span></button>
                 <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span class="nav-label">Satellite</span></button>
                 <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span class="nav-label">Listening Post</span></button>
@@ -417,9 +388,6 @@
             </div>
         </div>
         <div class="mode-nav-actions">
-            <a href="/adsb/dashboard" target="_blank" class="nav-action-btn" id="adsbDashboardBtn" style="display: none;">
-                <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
-            </a>
             <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn" style="display: none;">
                 <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
             </a>
@@ -430,7 +398,7 @@
     <nav class="mobile-nav-bar" id="mobileNavBar">
         <button class="mobile-nav-btn active" data-mode="pager" onclick="switchMode('pager')">📟 Pager</button>
         <button class="mobile-nav-btn" data-mode="sensor" onclick="switchMode('sensor')">📡 433MHz</button>
-        <button class="mobile-nav-btn" data-mode="aircraft" onclick="switchMode('aircraft')">✈️ Aircraft</button>
+        <a href="/adsb/dashboard" class="mobile-nav-btn" style="text-decoration: none;">✈️ Aircraft</a>
         <button class="mobile-nav-btn" data-mode="aprs" onclick="switchMode('aprs')">📍 APRS</button>
         <button class="mobile-nav-btn" data-mode="wifi" onclick="switchMode('wifi')">📶 WiFi</button>
         <button class="mobile-nav-btn" data-mode="bluetooth" onclick="switchMode('bluetooth')">🔵 BT</button>
@@ -515,10 +483,6 @@
                     <div id="toolStatusSensor" class="info-text tool-status-section" style="display: none; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
                         <span>rtl_433:</span><span class="tool-status {{ 'ok' if tools.rtl_433 else 'missing' }}">{{ 'OK' if tools.rtl_433 else 'Missing' }}</span>
                     </div>
-                    <div id="toolStatusAircraft" class="info-text tool-status-section" style="display: none; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
-                        <span>dump1090:</span><span id="dump1090StatusSidebar" class="tool-status">Checking...</span>
-                        <span>rtl_adsb:</span><span id="rtlAdsbStatusSidebar" class="tool-status">Checking...</span>
-                    </div>
                 </div>
 
                 {% include 'partials/modes/pager.html' %}
@@ -528,8 +492,6 @@
                 {% include 'partials/modes/wifi.html' %}
 
                 {% include 'partials/modes/bluetooth.html' %}
-
-                {% include 'partials/modes/aircraft.html' %}
 
                 {% include 'partials/modes/aprs.html' %}
 
@@ -567,11 +529,6 @@
                         <div class="stats" id="btStats" style="display: none;">
                             <div title="Bluetooth Devices">🔵 <span id="btDeviceCount">0</span></div>
                             <div title="BLE Beacons">📍 <span id="btBeaconCount">0</span></div>
-                        </div>
-                        <div class="stats" id="aircraftStats" style="display: none;">
-                            <div title="Aircraft Tracked">✈️ <span id="aircraftCount">0</span></div>
-                            <div title="Messages Received">📨 <span id="adsbMsgCount">0</span></div>
-                            <div title="Unique ICAO Codes">🔢 <span id="icaoCount">0</span></div>
                         </div>
                         <div class="stats" id="satelliteStats" style="display: none;">
                             <div title="Upcoming Passes">🛰️ <span id="passCount">0</span></div>
@@ -762,125 +719,6 @@
                         <div class="wifi-device-list-content" id="btDeviceListContent">
                             <div style="color: var(--text-dim); text-align: center; padding: 30px;">
                                 Start scanning to discover Bluetooth devices
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Aircraft Visualizations - Leaflet Map -->
-                <div class="wifi-visuals" id="aircraftVisuals" style="display: none;">
-                    <!-- Map Panel with ACARS sidebar -->
-                    <div class="wifi-visual-panel" style="grid-column: span 2; display: flex; gap: 0;">
-                        <!-- Map -->
-                        <div style="flex: 1; display: flex; flex-direction: column;">
-                            <h5 style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); padding: 0 10px;">ADS-B AIRCRAFT TRACKING</h5>
-                            <div class="aircraft-map-container" style="flex: 1;">
-                                <div class="map-header">
-                                    <span id="radarTime">--:--:--</span>
-                                    <span id="radarStatus">TRACKING</span>
-                                </div>
-                                <div id="aircraftMap"></div>
-                                <div class="map-footer">
-                                    <span>AIRCRAFT: <span id="aircraftCount">0</span></span>
-                                    <span>CENTER: <span id="mapCenter">--</span></span>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- ACARS Sidebar (Collapsible) -->
-                        <div class="main-acars-sidebar" id="mainAcarsSidebar">
-                            <button class="main-acars-collapse-btn" onclick="toggleMainAcarsSidebar()" title="Toggle ACARS">
-                                <span id="mainAcarsCollapseIcon">▶</span>
-                                <span class="main-acars-collapse-label">ACARS</span>
-                            </button>
-                            <div class="main-acars-content" id="mainAcarsContent">
-                                <div style="padding: 8px; border-bottom: 1px solid var(--border-color);">
-                                    <h5 style="color: var(--accent-green); margin-bottom: 8px; font-size: 11px;">ACARS MESSAGES</h5>
-                                    <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 8px;">
-                                        <span style="color: var(--accent-yellow);">⚠</span> Requires separate SDR
-                                    </div>
-                                    <div style="display: flex; gap: 4px; margin-bottom: 5px;">
-                                        <select id="mainAcarsDevice" style="flex: 1; font-size: 9px; padding: 3px;">
-                                            <option value="0">SDR 0</option>
-                                            <option value="1">SDR 1</option>
-                                        </select>
-                                        <select id="mainAcarsRegion" style="flex: 1; font-size: 9px; padding: 3px;">
-                                            <option value="na">N.America</option>
-                                            <option value="eu">Europe</option>
-                                            <option value="ap">Asia-Pac</option>
-                                        </select>
-                                    </div>
-                                    <button id="mainAcarsToggleBtn" onclick="toggleMainAcars()" style="width: 100%; padding: 5px; font-size: 9px; background: var(--accent-green); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold;">
-                                        ▶ START
-                                    </button>
-                                    <!-- ACARS Status Indicator -->
-                                    <div id="acarsStatusBar" style="display: none; margin-top: 6px; padding: 5px; background: rgba(0,0,0,0.3); border-radius: 3px;">
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <span class="acars-status-dot" id="acarsStatusDot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);"></span>
-                                            <span id="acarsStatusText" style="font-size: 9px; font-weight: bold; letter-spacing: 0.5px;">STANDBY</span>
-                                            <span style="flex: 1;"></span>
-                                            <span style="font-size: 8px; color: var(--text-muted);">MSGS: <span id="acarsStatusCount">0</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="main-acars-messages" id="mainAcarsMessages" style="flex: 1; overflow-y: auto; font-size: 10px;">
-                                    <div style="padding: 15px; text-align: center; color: var(--text-muted);">
-                                        No ACARS messages
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Aircraft List & Details Panel -->
-                    <div class="wifi-visual-panel" style="grid-column: span 1; display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Selected Aircraft -->
-                        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 10px;">
-                            <h5 style="color: var(--accent-orange); margin-bottom: 10px;">SELECTED TARGET</h5>
-                            <div id="selectedAircraftInfo" style="font-size: 11px;">
-                                <div style="color: var(--text-muted); text-align: center; padding: 20px;">
-                                    Click an aircraft to view details
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Aircraft List -->
-                        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 10px; flex: 1; overflow-y: auto;">
-                            <h5 style="color: var(--accent-cyan); margin-bottom: 10px;">TRACKED AIRCRAFT</h5>
-                            <div id="aircraftListPanel" style="font-size: 11px; max-height: 300px; overflow-y: auto;">
-                                <div style="color: var(--text-muted); text-align: center; padding: 20px;">
-                                    No aircraft detected
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Open Full Dashboard Button -->
-                        <a href="/adsb/dashboard" target="_blank" class="preset-btn" style="display: block; text-align: center; text-decoration: none; background: var(--accent-cyan); color: #000; padding: 8px;">
-                            Open Full Dashboard
-                        </a>
-                    </div>
-                    <!-- Aircraft Image Panel -->
-                    <div class="wifi-visual-panel" style="grid-column: span 1; display: flex; flex-direction: column;">
-                        <h5 style="color: var(--accent-green); margin-bottom: 10px;">AIRCRAFT IMAGE</h5>
-                        <div id="mainAircraftPhotoContainer" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            <div id="mainAircraftPhotoPlaceholder" style="color: var(--text-muted); text-align: center; padding: 40px 20px;">
-                                <div style="font-size: 48px; opacity: 0.3; margin-bottom: 10px;">✈️</div>
-                                <div>Select an aircraft to view photo</div>
-                            </div>
-                            <div id="mainAircraftPhotoWrapper" style="display: none; width: 100%;">
-                                <a id="mainAircraftPhotoLink" href="#" target="_blank" rel="noopener">
-                                    <img id="mainAircraftPhoto" src="" alt="Aircraft photo" style="width: 100%; border-radius: 6px; border: 1px solid var(--border-color);">
-                                </a>
-                                <div id="mainAircraftPhotoCredit" style="font-size: 9px; color: var(--text-dim); margin-top: 4px; text-align: right;"></div>
-                                <div id="mainAircraftPhotoInfo" style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 10px;">
-                                    <div style="color: var(--text-dim);">REGISTRATION</div>
-                                    <div id="mainAircraftPhotoReg" style="color: var(--accent-cyan); font-size: 14px; font-weight: bold;">--</div>
-                                </div>
-                            </div>
-                            <div id="mainAircraftPhotoLoading" style="display: none; color: var(--text-muted); text-align: center; padding: 20px;">
-                                <div style="font-size: 24px; animation: pulse 1s infinite;">📷</div>
-                                <div style="margin-top: 8px;">Loading photo...</div>
-                            </div>
-                            <div id="mainAircraftPhotoNoPhoto" style="display: none; color: var(--text-muted); text-align: center; padding: 20px;">
-                                <div style="font-size: 32px; opacity: 0.5; margin-bottom: 8px;">📷</div>
-                                <div>No photo available</div>
-                                <div style="font-size: 10px; margin-top: 4px; color: var(--text-dim);">Registration not found in database</div>
                             </div>
                         </div>
                     </div>
@@ -1395,7 +1233,6 @@
         let eventSource = null;
         let isRunning = false;
         let isSensorRunning = false;
-        let isAdsbRunning = false;
         let isWifiRunning = false;
         let isBtRunning = false;
         let currentMode = 'pager';
@@ -1411,16 +1248,6 @@
             hideToneOnly: true,
             keywords: []
         };
-
-        // Aircraft (ADS-B) state
-        let adsbAircraft = {};
-        let adsbMsgCount = 0;
-        let adsbEventSource = null;
-        let aircraftTrails = {};  // ICAO -> array of positions
-        let activeSquawkAlerts = {};  // Active emergency squawk alerts
-        let alertedAircraft = {};  // Track aircraft that have already triggered alerts
-        let adsbAlertsEnabled = true;  // Toggle for audio alerts
-        let selectedMainAircraft = null;  // Selected aircraft in main tab
 
         // UTC Clock Update
         function updateHeaderClock() {
@@ -1497,27 +1324,11 @@
             document.getElementById('headerBtDeviceCount').textContent = document.getElementById('btDeviceCount')?.textContent || '0';
             document.getElementById('headerBtBeaconCount').textContent = document.getElementById('btBeaconCount')?.textContent || '0';
 
-            // Aircraft stats
-            document.getElementById('headerAircraftCount').textContent = document.getElementById('aircraftCount')?.textContent || '0';
-            document.getElementById('headerAdsbMsgCount').textContent = document.getElementById('adsbMsgCount')?.textContent || '0';
-            document.getElementById('headerIcaoCount').textContent = document.getElementById('icaoCount')?.textContent || '0';
-
             // Satellite stats
             document.getElementById('headerPassCount').textContent = document.getElementById('passCount')?.textContent || '0';
         }
         // Sync stats periodically
         setInterval(syncHeaderStats, 500);
-
-        // ADS-B Statistics tracking
-        let adsbStats = {
-            totalAircraftSeen: new Set(),  // Unique ICAO codes seen
-            maxRange: 0,                    // Max distance in nm
-            maxRangeAircraft: null,         // Aircraft that achieved max range
-            hourlyCount: {},                // Hour -> count of aircraft
-            messagesPerSecond: 0,           // Current msg/sec rate
-            messageTimestamps: [],          // Recent message timestamps for rate calc
-            sessionStart: null              // When tracking started
-        };
 
         // Observer location for distance calculations (load from localStorage or default to London)
         let observerLocation = (function() {
@@ -1530,207 +1341,11 @@
             }
             return { lat: 51.5074, lon: -0.1278 };
         })();
-        let rangeRingsLayer = null;
-        let observerMarkerAdsb = null;
 
         // GPS Dongle state
         let gpsConnected = false;
         let gpsEventSource = null;
         let gpsLastPosition = null;
-
-        // Audio alert system using Web Audio API (uses shared audioContext declared later)
-        function getAdsbAudioContext() {
-            if (!window.adsbAudioCtx) {
-                window.adsbAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            return window.adsbAudioCtx;
-        }
-
-        function playAlertSound(type) {
-            if (!adsbAlertsEnabled) return;
-            try {
-                const ctx = getAdsbAudioContext();
-                const oscillator = ctx.createOscillator();
-                const gainNode = ctx.createGain();
-
-                oscillator.connect(gainNode);
-                gainNode.connect(ctx.destination);
-
-                if (type === 'emergency') {
-                    // Urgent two-tone alert for emergencies
-                    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-                    oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
-                    oscillator.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
-                    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-                    oscillator.start(ctx.currentTime);
-                    oscillator.stop(ctx.currentTime + 0.5);
-                } else if (type === 'military') {
-                    // Single tone for military
-                    oscillator.frequency.setValueAtTime(523, ctx.currentTime);
-                    gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-                    oscillator.start(ctx.currentTime);
-                    oscillator.stop(ctx.currentTime + 0.3);
-                }
-            } catch (e) {
-                console.warn('Audio alert failed:', e);
-            }
-        }
-
-        function checkAndAlertAircraft(icao, aircraft) {
-            // Skip if already alerted for this aircraft
-            if (alertedAircraft[icao]) return;
-
-            const militaryInfo = isMilitaryAircraft(icao, aircraft.callsign);
-            const squawkInfo = checkSquawkCode(aircraft);
-
-            if (squawkInfo) {
-                alertedAircraft[icao] = 'emergency';
-                playAlertSound('emergency');
-                showAlertBanner(`⚠️ EMERGENCY: ${squawkInfo.name} - ${aircraft.callsign || icao}`, squawkInfo.color);
-            } else if (militaryInfo.military) {
-                alertedAircraft[icao] = 'military';
-                playAlertSound('military');
-                showAlertBanner(`🎖️ MILITARY: ${aircraft.callsign || icao}${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}`, '#556b2f');
-            }
-        }
-
-        function showAlertBanner(message, color) {
-            const banner = document.createElement('div');
-            banner.style.cssText = `
-                position: fixed;
-                top: 80px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: ${color};
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 14px;
-                z-index: 10000;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                animation: slideDown 0.3s ease-out;
-            `;
-            banner.textContent = message;
-            document.body.appendChild(banner);
-
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                banner.style.animation = 'fadeOut 0.3s ease-out forwards';
-                setTimeout(() => banner.remove(), 300);
-            }, 5000);
-        }
-
-        // Emergency squawk codes
-        const SQUAWK_CODES = {
-            '7500': { type: 'hijack', name: 'HIJACK', color: '#ff0000', description: 'Aircraft being hijacked' },
-            '7600': { type: 'radio', name: 'RADIO FAILURE', color: '#ff6600', description: 'Radio communications failure' },
-            '7700': { type: 'mayday', name: 'EMERGENCY', color: '#ff0000', description: 'General emergency' }
-        };
-
-        // Military ICAO hex ranges (specific military-only sub-ranges)
-        const MILITARY_RANGES = [
-            { start: 0xADF7C0, end: 0xADFFFF, country: 'US' },   // US Military
-            { start: 0xAE0000, end: 0xAEFFFF, country: 'US' },   // US Military
-            { start: 0x3F4000, end: 0x3F7FFF, country: 'FR' },   // France Military (Armee de l'Air)
-            { start: 0x43C000, end: 0x43CFFF, country: 'UK' },   // UK Military (RAF)
-            { start: 0x3D0000, end: 0x3DFFFF, country: 'DE' },   // Germany Military (Luftwaffe)
-            { start: 0x501C00, end: 0x501FFF, country: 'NATO' }, // NATO
-        ];
-
-        // Military callsign prefixes
-        const MILITARY_PREFIXES = [
-            'REACH', 'JAKE', 'DOOM', 'IRON', 'HAWK', 'VIPER', 'COBRA', 'THUNDER',
-            'SHADOW', 'NIGHT', 'STEEL', 'GRIM', 'REAPER', 'BLADE', 'STRIKE',
-            'RCH', 'CNV', 'MCH', 'EVAC', 'TOPCAT', 'ASCOT', 'RRR', 'HRK',
-            'NAVY', 'ARMY', 'USAF', 'RAF', 'RCAF', 'RAAF', 'IAF', 'PAF'
-        ];
-
-        function isMilitaryAircraft(icao, callsign) {
-            // Check ICAO hex range
-            const icaoInt = parseInt(icao, 16);
-            for (const range of MILITARY_RANGES) {
-                if (icaoInt >= range.start && icaoInt <= range.end) {
-                    return { military: true, country: range.country };
-                }
-            }
-
-            // Check callsign prefix
-            if (callsign) {
-                const upper = callsign.toUpperCase();
-                for (const prefix of MILITARY_PREFIXES) {
-                    if (upper.startsWith(prefix)) {
-                        return { military: true, type: 'callsign' };
-                    }
-                }
-            }
-
-            return { military: false };
-        }
-
-        function checkSquawkCode(aircraft) {
-            if (!aircraft.squawk) return null;
-
-            const squawkInfo = SQUAWK_CODES[aircraft.squawk];
-            if (squawkInfo) {
-                // Show alert if not already shown
-                if (!activeSquawkAlerts[aircraft.icao]) {
-                    activeSquawkAlerts[aircraft.icao] = true;
-                    showSquawkAlert(aircraft, squawkInfo);
-                }
-                return squawkInfo;
-            }
-            return null;
-        }
-
-        function showSquawkAlert(aircraft, squawkInfo) {
-            // Create banner alert
-            const banner = document.createElement('div');
-            banner.className = 'squawk-alert-banner';
-            banner.id = 'squawkBanner_' + aircraft.icao;
-            banner.innerHTML = `
-                ⚠️ ${squawkInfo.name} - ${aircraft.callsign || aircraft.icao} (${aircraft.squawk})
-                <br><small>${squawkInfo.description}</small>
-                <button onclick="this.parentElement.remove()" style="margin-left: 20px; background: transparent; border: 1px solid white; color: white; padding: 2px 10px; cursor: pointer;">✕</button>
-            `;
-            document.body.appendChild(banner);
-
-            // Auto-remove after 30 seconds
-            setTimeout(() => {
-                const el = document.getElementById('squawkBanner_' + aircraft.icao);
-                if (el) el.remove();
-            }, 30000);
-
-            // Audio alert
-            if (!muted) {
-                for (let i = 0; i < 5; i++) {
-                    setTimeout(() => playAlertSound(), i * 200);
-                }
-            }
-
-            showNotification(`⚠️ ${squawkInfo.name}`, `${aircraft.callsign || aircraft.icao} - Squawk ${aircraft.squawk}`);
-        }
-
-        function updateAircraftTrail(icao, lat, lon) {
-            if (!aircraftTrails[icao]) {
-                aircraftTrails[icao] = [];
-            }
-
-            const trail = aircraftTrails[icao];
-            const lastPos = trail[trail.length - 1];
-
-            // Only add if position changed significantly
-            if (!lastPos || Math.abs(lastPos.lat - lat) > 0.001 || Math.abs(lastPos.lon - lon) > 0.001) {
-                trail.push({ lat, lon, time: Date.now() });
-
-                // Keep only last 100 positions (about 10 minutes at 1 update/6 seconds)
-                if (trail.length > 100) {
-                    trail.shift();
-                }
-            }
-        }
 
         // Satellite state
         let satellitePasses = [];
@@ -1872,12 +1487,8 @@
             loadBiasTSetting();
 
             // Initialize observer location input fields from saved location
-            const adsbLatInput = document.getElementById('adsbObsLat');
-            const adsbLonInput = document.getElementById('adsbObsLon');
             const obsLatInput = document.getElementById('obsLat');
             const obsLonInput = document.getElementById('obsLon');
-            if (adsbLatInput) adsbLatInput.value = observerLocation.lat.toFixed(4);
-            if (adsbLonInput) adsbLonInput.value = observerLocation.lon.toFixed(4);
             if (obsLatInput) obsLatInput.value = observerLocation.lat.toFixed(4);
             if (obsLonInput) obsLonInput.value = observerLocation.lon.toFixed(4);
 
@@ -1917,7 +1528,7 @@
         function updateDropdownActiveState() {
             // Map modes to their dropdown groups
             const modeGroups = {
-                'pager': 'sdr', 'sensor': 'sdr', 'aircraft': 'sdr',
+                'pager': 'sdr', 'sensor': 'sdr',
                 'aprs': 'sdr', 'satellite': 'sdr', 'listening': 'sdr',
                 'wifi': 'wireless', 'bluetooth': 'wireless',
                 'tscm': 'security'
@@ -1948,7 +1559,6 @@
             if (isSensorRunning) stopSensorDecoding();
             if (isWifiRunning) stopWifiScan();
             if (isBtRunning) stopBtScan();
-            if (isAdsbRunning) stopAdsbScan();
             if (isAprsRunning) stopAprs();
             if (isTscmRunning) stopTscmSweep();
 
@@ -1961,7 +1571,7 @@
             // Remove active from all nav buttons, then add to the correct one
             document.querySelectorAll('.mode-nav-btn').forEach(btn => btn.classList.remove('active'));
             const modeMap = {
-                'pager': 'pager', 'sensor': '433', 'aircraft': 'aircraft',
+                'pager': 'pager', 'sensor': '433',
                 'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth',
                 'listening': 'listening', 'aprs': 'aprs', 'tscm': 'tscm'
             };
@@ -1973,7 +1583,6 @@
             });
             document.getElementById('pagerMode').classList.toggle('active', mode === 'pager');
             document.getElementById('sensorMode').classList.toggle('active', mode === 'sensor');
-            document.getElementById('aircraftMode').classList.toggle('active', mode === 'aircraft');
             document.getElementById('satelliteMode').classList.toggle('active', mode === 'satellite');
             document.getElementById('wifiMode').classList.toggle('active', mode === 'wifi');
             document.getElementById('bluetoothMode').classList.toggle('active', mode === 'bluetooth');
@@ -1982,7 +1591,6 @@
             document.getElementById('tscmMode').classList.toggle('active', mode === 'tscm');
             document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
             document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
-            document.getElementById('aircraftStats').style.display = mode === 'aircraft' ? 'flex' : 'none';
             document.getElementById('satelliteStats').style.display = mode === 'satellite' ? 'flex' : 'none';
             document.getElementById('wifiStats').style.display = mode === 'wifi' ? 'flex' : 'none';
             document.getElementById('btStats').style.display = mode === 'bluetooth' ? 'flex' : 'none';
@@ -1990,20 +1598,17 @@
             // Update header stats groups
             document.getElementById('headerPagerStats').classList.toggle('active', mode === 'pager');
             document.getElementById('headerSensorStats').classList.toggle('active', mode === 'sensor');
-            document.getElementById('headerAircraftStats').classList.toggle('active', mode === 'aircraft');
             document.getElementById('headerSatelliteStats').classList.toggle('active', mode === 'satellite');
             document.getElementById('headerWifiStats').classList.toggle('active', mode === 'wifi');
             document.getElementById('headerBtStats').classList.toggle('active', mode === 'bluetooth');
 
             // Show/hide dashboard buttons in nav bar
-            document.getElementById('adsbDashboardBtn').style.display = mode === 'aircraft' ? 'inline-flex' : 'none';
             document.getElementById('satelliteDashboardBtn').style.display = mode === 'satellite' ? 'inline-flex' : 'none';
 
             // Update active mode indicator
             const modeNames = {
                 'pager': 'PAGER',
                 'sensor': '433MHZ',
-                'aircraft': 'AIRCRAFT',
                 'satellite': 'SATELLITE',
                 'wifi': 'WIFI',
                 'bluetooth': 'BLUETOOTH',
@@ -2014,9 +1619,6 @@
             document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
             document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
             document.getElementById('btLayoutContainer').style.display = mode === 'bluetooth' ? 'flex' : 'none';
-            // Respect the "Show Radar Display" checkbox for aircraft mode
-            const showRadar = document.getElementById('adsbEnableMap').checked;
-            document.getElementById('aircraftVisuals').style.display = (mode === 'aircraft' && showRadar) ? 'grid' : 'none';
             document.getElementById('satelliteVisuals').style.display = mode === 'satellite' ? 'block' : 'none';
             document.getElementById('listeningPostVisuals').style.display = mode === 'listening' ? 'grid' : 'none';
             document.getElementById('aprsVisuals').style.display = mode === 'aprs' ? 'flex' : 'none';
@@ -2026,7 +1628,6 @@
             const titles = {
                 'pager': 'Pager Decoder',
                 'sensor': '433MHz Sensor Monitor',
-                'aircraft': 'ADS-B Aircraft Tracker',
                 'satellite': 'Satellite Monitor',
                 'wifi': 'WiFi Scanner',
                 'bluetooth': 'Bluetooth Scanner',
@@ -2045,7 +1646,7 @@
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
-            if (mode === 'satellite' || mode === 'aircraft' || mode === 'listening' || mode === 'aprs' || mode === 'tscm') {
+            if (mode === 'satellite' || mode === 'listening' || mode === 'aprs' || mode === 'tscm') {
                 document.getElementById('reconPanel').style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -2059,19 +1660,18 @@
             }
 
             // Show RTL-SDR device section for modes that use it
-            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'aircraft' || mode === 'listening' || mode === 'aprs') ? 'block' : 'none';
+            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'listening' || mode === 'aprs') ? 'block' : 'none';
 
             // Toggle mode-specific tool status displays
             document.getElementById('toolStatusPager').style.display = (mode === 'pager') ? 'grid' : 'none';
             document.getElementById('toolStatusSensor').style.display = (mode === 'sensor') ? 'grid' : 'none';
-            document.getElementById('toolStatusAircraft').style.display = (mode === 'aircraft') ? 'grid' : 'none';
 
             // Hide waterfall and output console for modes with their own visualizations
             // Pager waterfall: show only for pager mode
             document.getElementById('pagerWaterfallPanel').style.display = (mode === 'pager') ? 'block' : 'none';
             // Sensor waterfall: show only for sensor (433MHz) mode
             document.getElementById('sensorWaterfallPanel').style.display = (mode === 'sensor') ? 'block' : 'none';
-            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aircraft' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm') ? 'none' : 'block';
+            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm') ? 'none' : 'block';
             document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
 
             // Load interfaces and initialize visualizations when switching modes
@@ -2082,13 +1682,6 @@
             } else if (mode === 'bluetooth') {
                 refreshBtInterfaces();
                 initBtRadar();
-            } else if (mode === 'aircraft') {
-                checkAdsbTools();
-                initAircraftRadar();
-                // Fix map sizing on mobile after container becomes visible
-                setTimeout(() => {
-                    if (aircraftMap) aircraftMap.invalidateSize();
-                }, 100);
             } else if (mode === 'aprs') {
                 checkAprsTools();
                 initAprsMap();
@@ -2104,14 +1697,12 @@
 
         // Handle window resize for maps (especially important on mobile orientation change)
         window.addEventListener('resize', function() {
-            if (aircraftMap) aircraftMap.invalidateSize();
             if (aprsMap) aprsMap.invalidateSize();
         });
 
         // Also handle orientation changes explicitly for mobile
         window.addEventListener('orientationchange', function() {
             setTimeout(() => {
-                if (aircraftMap) aircraftMap.invalidateSize();
                 if (aprsMap) aprsMap.invalidateSize();
             }, 200);
         });
@@ -2827,7 +2418,6 @@
 
                     setRunning(false);
                     setSensorRunning(false);
-                    isAdsbRunning = false;
                     isScannerRunning = false;
                     isAudioPlaying = false;
 
@@ -6351,902 +5941,6 @@
         }
 
         // ============================================
-        // AIRCRAFT (ADS-B) MODE FUNCTIONS
-        // ============================================
-
-        function checkAdsbTools() {
-            fetch('/adsb/tools')
-                .then(r => r.json())
-                .then(data => {
-                    // Update aircraft mode panel status
-                    const dump1090Status = document.getElementById('dump1090Status');
-                    const rtlAdsbStatus = document.getElementById('rtlAdsbStatus');
-                    if (dump1090Status) {
-                        dump1090Status.textContent = data.dump1090 ? 'OK' : 'Missing';
-                        dump1090Status.className = 'tool-status ' + (data.dump1090 ? 'ok' : 'missing');
-                    }
-                    if (rtlAdsbStatus) {
-                        rtlAdsbStatus.textContent = data.rtl_adsb ? 'OK' : 'Missing';
-                        rtlAdsbStatus.className = 'tool-status ' + (data.rtl_adsb ? 'ok' : 'missing');
-                    }
-                    // Update sidebar status
-                    const dump1090Sidebar = document.getElementById('dump1090StatusSidebar');
-                    const rtlAdsbSidebar = document.getElementById('rtlAdsbStatusSidebar');
-                    if (dump1090Sidebar) {
-                        dump1090Sidebar.textContent = data.dump1090 ? 'OK' : 'Missing';
-                        dump1090Sidebar.className = 'tool-status ' + (data.dump1090 ? 'ok' : 'missing');
-                    }
-                    if (rtlAdsbSidebar) {
-                        rtlAdsbSidebar.textContent = data.rtl_adsb ? 'OK' : 'Missing';
-                        rtlAdsbSidebar.className = 'tool-status ' + (data.rtl_adsb ? 'ok' : 'missing');
-                    }
-                });
-        }
-
-        // Leaflet map for aircraft tracking
-        let aircraftMap = null;
-        let aircraftMarkers = {};
-        let aircraftClusterGroup = null;
-        let clusteringEnabled = false;
-        let mapRefreshInterval = null;
-
-        function initAircraftRadar() {
-            const mapContainer = document.getElementById('aircraftMap');
-            if (!mapContainer || aircraftMap) return;
-
-            // Use GPS position if available, otherwise use observerLocation or default
-            let initialLat = observerLocation.lat || 51.5;
-            let initialLon = observerLocation.lon || -0.1;
-
-            // Check if GPS has a recent position
-            if (gpsLastPosition && gpsLastPosition.latitude && gpsLastPosition.longitude) {
-                initialLat = gpsLastPosition.latitude;
-                initialLon = gpsLastPosition.longitude;
-                observerLocation.lat = initialLat;
-                observerLocation.lon = initialLon;
-                console.log('GPS: Initializing map with GPS position', initialLat, initialLon);
-            }
-
-            // Initialize Leaflet map
-            aircraftMap = L.map('aircraftMap', {
-                center: [initialLat, initialLon],
-                zoom: 8,
-                zoomControl: true,
-                attributionControl: true
-            });
-
-            // Add OpenStreetMap tiles (will be inverted by CSS for dark theme)
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap',
-                maxZoom: 18
-            }).addTo(aircraftMap);
-
-            // Initialize cluster group (but don't add to map yet)
-            aircraftClusterGroup = L.markerClusterGroup({
-                maxClusterRadius: 50,
-                spiderfyOnMaxZoom: true,
-                showCoverageOnHover: false,
-                iconCreateFunction: function(cluster) {
-                    const count = cluster.getChildCount();
-                    let size = 'small';
-                    if (count > 10) size = 'medium';
-                    if (count > 25) size = 'large';
-
-                    return L.divIcon({
-                        html: '<div class="marker-cluster marker-cluster-' + size + '">' + count + '</div>',
-                        className: '',
-                        iconSize: L.point(40, 40)
-                    });
-                }
-            });
-
-            // Update time display
-            updateRadarTime();
-            setInterval(updateRadarTime, 1000);
-
-            // Refresh aircraft markers every second
-            if (!mapRefreshInterval) {
-                mapRefreshInterval = setInterval(updateAircraftMarkers, 1000);
-            }
-
-            // Setup interaction tracking
-            setupMapInteraction();
-
-            // Initial update
-            updateAircraftMarkers();
-
-            // Update input fields with current position
-            const adsbLatInput = document.getElementById('adsbObsLat');
-            const adsbLonInput = document.getElementById('adsbObsLon');
-            if (adsbLatInput) adsbLatInput.value = observerLocation.lat.toFixed(4);
-            if (adsbLonInput) adsbLonInput.value = observerLocation.lon.toFixed(4);
-
-            // Draw initial range rings if GPS is connected
-            if (gpsConnected) {
-                drawRangeRings();
-            }
-        }
-
-        function toggleAircraftClustering() {
-            clusteringEnabled = document.getElementById('adsbEnableClustering').checked;
-
-            if (!aircraftMap || !aircraftClusterGroup) return;
-
-            if (clusteringEnabled) {
-                // Move all markers to cluster group
-                Object.values(aircraftMarkers).forEach(marker => {
-                    if (aircraftMap.hasLayer(marker)) {
-                        aircraftMap.removeLayer(marker);
-                    }
-                    aircraftClusterGroup.addLayer(marker);
-                });
-                aircraftMap.addLayer(aircraftClusterGroup);
-            } else {
-                // Move all markers back to map directly
-                aircraftClusterGroup.clearLayers();
-                aircraftMap.removeLayer(aircraftClusterGroup);
-                Object.values(aircraftMarkers).forEach(marker => {
-                    marker.addTo(aircraftMap);
-                });
-            }
-        }
-
-        function toggleAircraftRadar() {
-            const enabled = document.getElementById('adsbEnableMap').checked;
-            const visuals = document.getElementById('aircraftVisuals');
-            if (visuals && currentMode === 'aircraft') {
-                visuals.style.display = enabled ? 'grid' : 'none';
-            }
-        }
-
-        function applyAircraftFilter() {
-            // Clear all markers and redraw with new filter
-            Object.keys(aircraftMarkers).forEach(icao => {
-                if (clusteringEnabled && aircraftClusterGroup) {
-                    aircraftClusterGroup.removeLayer(aircraftMarkers[icao]);
-                } else if (aircraftMap) {
-                    aircraftMap.removeLayer(aircraftMarkers[icao]);
-                }
-                delete aircraftMarkers[icao];
-                delete aircraftMarkerState[icao];
-            });
-            // Trail lines should also be cleared for filtered-out aircraft
-            Object.keys(aircraftTrailLines).forEach(icao => {
-                if (aircraftMap) {
-                    aircraftMap.removeLayer(aircraftTrailLines[icao]);
-                }
-                delete aircraftTrailLines[icao];
-            });
-            updateAircraftMarkers();
-        }
-
-        function updateRadarTime() {
-            const now = new Date();
-            const time = now.toTimeString().substring(0, 8);
-            const el = document.getElementById('radarTime');
-            if (el) el.textContent = time;
-        }
-
-        function createAircraftIcon(heading, emergency, customColor) {
-            const color = customColor || (emergency ? '#ff4444' : '#00d4ff');
-            const rotation = heading || 0;
-
-            return L.divIcon({
-                className: 'aircraft-marker' + (emergency ? ' squawk-emergency' : ''),
-                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); color: ${color};">
-                    <path fill="currentColor" d="M12 2L8 10H4v2l8 4 8-4v-2h-4L12 2zm0 14l-6 3v1h12v-1l-6-3z"/>
-                </svg>`,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
-            });
-        }
-
-        let aircraftTrailLines = {};  // ICAO -> Leaflet polyline
-        let aircraftMarkerState = {};  // Cache marker state to avoid unnecessary updates
-        const MAX_AIRCRAFT_MARKERS = 150;  // Limit markers to prevent browser freeze
-
-        function buildTooltipText(aircraft, showLabels, showAltitude) {
-            if (!showLabels && !showAltitude) return '';
-            let text = '';
-            if (showLabels && aircraft.callsign) text = aircraft.callsign;
-            if (showAltitude && aircraft.altitude) {
-                if (text) text += ' ';
-                text += 'FL' + Math.round(aircraft.altitude / 100).toString().padStart(3, '0');
-            }
-            return text;
-        }
-
-        function buildPopupContent(icao) {
-            const aircraft = adsbAircraft[icao];
-            if (!aircraft) return '';
-
-            const squawkInfo = checkSquawkCode(aircraft);
-            const militaryInfo = isMilitaryAircraft(icao, aircraft.callsign);
-
-            let content = '<div class="aircraft-popup">';
-            if (militaryInfo.military) {
-                content += `<div style="background: #556b2f; color: white; padding: 2px 8px; border-radius: 3px; font-size: 10px; margin-bottom: 5px;">🎖️ MILITARY${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}</div>`;
-            }
-            if (squawkInfo) {
-                content += `<div style="background: ${squawkInfo.color}; color: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; margin-bottom: 5px; font-weight: bold;">⚠️ ${squawkInfo.name}</div>`;
-            }
-            content += `<div class="callsign">${aircraft.callsign || icao}</div>`;
-            if (aircraft.altitude) {
-                content += `<div class="data-row"><span class="label">Altitude:</span><span class="value">${aircraft.altitude.toLocaleString()} ft</span></div>`;
-            }
-            if (aircraft.speed) {
-                content += `<div class="data-row"><span class="label">Speed:</span><span class="value">${aircraft.speed} kts</span></div>`;
-            }
-            if (aircraft.heading !== undefined) {
-                content += `<div class="data-row"><span class="label">Heading:</span><span class="value">${aircraft.heading}°</span></div>`;
-            }
-            if (aircraft.squawk) {
-                const squawkStyle = squawkInfo ? `color: ${squawkInfo.color}; font-weight: bold;` : '';
-                content += `<div class="data-row"><span class="label">Squawk:</span><span class="value" style="${squawkStyle}">${aircraft.squawk}</span></div>`;
-            }
-            content += '</div>';
-            return content;
-        }
-
-        function updateAircraftMarkers() {
-            if (!aircraftMap) return;
-
-            const showLabels = document.getElementById('adsbShowLabels')?.checked;
-            const showAltitude = document.getElementById('adsbShowAltitude')?.checked;
-            const showTrails = document.getElementById('adsbShowTrails')?.checked ?? true;
-            const aircraftFilter = document.getElementById('adsbAircraftFilter')?.value || 'all';
-            const currentIds = new Set();
-
-            // Sort aircraft by altitude and limit to prevent DOM explosion
-            const sortedAircraft = Object.entries(adsbAircraft)
-                .filter(([_, a]) => a.lat != null && a.lon != null)
-                .filter(([icao, a]) => {
-                    if (aircraftFilter === 'all') return true;
-                    const militaryInfo = isMilitaryAircraft(icao, a.callsign);
-                    const squawkInfo = checkSquawkCode(a);
-                    if (aircraftFilter === 'military') return militaryInfo.military;
-                    if (aircraftFilter === 'civil') return !militaryInfo.military;
-                    if (aircraftFilter === 'emergency') return !!squawkInfo;
-                    return true;
-                })
-                .sort((a, b) => (b[1].altitude || 0) - (a[1].altitude || 0))
-                .slice(0, MAX_AIRCRAFT_MARKERS);
-
-            // Update or create markers for each aircraft
-            sortedAircraft.forEach(([icao, aircraft]) => {
-                currentIds.add(icao);
-
-                // Update trail history
-                updateAircraftTrail(icao, aircraft.lat, aircraft.lon);
-
-                // Check for emergency squawk codes
-                const squawkInfo = checkSquawkCode(aircraft);
-
-                // Check for military aircraft
-                const militaryInfo = isMilitaryAircraft(icao, aircraft.callsign);
-                aircraft.military = militaryInfo.military;
-
-                // Determine icon color
-                let iconColor = '#00d4ff';  // Default cyan
-                if (squawkInfo) iconColor = squawkInfo.color;
-                else if (militaryInfo.military) iconColor = '#556b2f';  // Olive drab
-                else if (aircraft.emergency) iconColor = '#ff4444';
-
-                // Round heading to reduce icon recreations
-                const roundedHeading = Math.round((aircraft.heading || 0) / 5) * 5;
-
-                // Check if icon state actually changed
-                const prevState = aircraftMarkerState[icao] || {};
-                const iconChanged = prevState.heading !== roundedHeading ||
-                                   prevState.color !== iconColor ||
-                                   prevState.emergency !== (squawkInfo || aircraft.emergency);
-
-                if (aircraftMarkers[icao]) {
-                    // Update existing marker - position is cheap
-                    aircraftMarkers[icao].setLatLng([aircraft.lat, aircraft.lon]);
-                    // Only update icon if it actually changed
-                    if (iconChanged) {
-                        const icon = createAircraftIcon(roundedHeading, squawkInfo || aircraft.emergency, iconColor);
-                        aircraftMarkers[icao].setIcon(icon);
-                        aircraftMarkerState[icao] = { heading: roundedHeading, color: iconColor, emergency: squawkInfo || aircraft.emergency };
-                    }
-                } else {
-                    const icon = createAircraftIcon(roundedHeading, squawkInfo || aircraft.emergency, iconColor);
-                    aircraftMarkerState[icao] = { heading: roundedHeading, color: iconColor, emergency: squawkInfo || aircraft.emergency };
-                    // Create new marker
-                    const marker = L.marker([aircraft.lat, aircraft.lon], { icon: icon });
-                    if (clusteringEnabled && aircraftClusterGroup) {
-                        aircraftClusterGroup.addLayer(marker);
-                    } else {
-                        marker.addTo(aircraftMap);
-                    }
-                    aircraftMarkers[icao] = marker;
-                }
-
-                // Draw flight trail
-                if (showTrails && aircraftTrails[icao] && aircraftTrails[icao].length > 1) {
-                    const trailCoords = aircraftTrails[icao].map(p => [p.lat, p.lon]);
-
-                    if (aircraftTrailLines[icao]) {
-                        aircraftTrailLines[icao].setLatLngs(trailCoords);
-                    } else {
-                        aircraftTrailLines[icao] = L.polyline(trailCoords, {
-                            color: militaryInfo.military ? '#556b2f' : '#00d4ff',
-                            weight: 2,
-                            opacity: 0.6,
-                            dashArray: '5, 5'
-                        }).addTo(aircraftMap);
-                    }
-                } else if (aircraftTrailLines[icao]) {
-                    aircraftMap.removeLayer(aircraftTrailLines[icao]);
-                    delete aircraftTrailLines[icao];
-                }
-
-                // Only update popup/tooltip if data changed (expensive operations)
-                const tooltipText = buildTooltipText(aircraft, showLabels, showAltitude);
-                const prevTooltip = prevState.tooltipText;
-
-                // Only rebind tooltip if content changed
-                if (tooltipText !== prevTooltip) {
-                    aircraftMarkerState[icao].tooltipText = tooltipText;
-                    aircraftMarkers[icao].unbindTooltip();
-                    if (tooltipText) {
-                        aircraftMarkers[icao].bindTooltip(tooltipText, {
-                            permanent: true,
-                            direction: 'right',
-                            className: 'aircraft-tooltip'
-                        });
-                    }
-                }
-
-                // Bind popup lazily - content is built on open, not every update
-                if (!aircraftMarkers[icao]._hasPopupBound) {
-                    aircraftMarkers[icao].bindPopup(() => buildPopupContent(icao));
-                    aircraftMarkers[icao]._hasPopupBound = true;
-                }
-            });
-
-            // Remove markers for aircraft no longer tracked
-            Object.keys(aircraftMarkers).forEach(icao => {
-                if (!currentIds.has(icao)) {
-                    if (clusteringEnabled && aircraftClusterGroup) {
-                        aircraftClusterGroup.removeLayer(aircraftMarkers[icao]);
-                    } else {
-                        aircraftMap.removeLayer(aircraftMarkers[icao]);
-                    }
-                    // Also remove trail
-                    if (aircraftTrailLines[icao]) {
-                        aircraftMap.removeLayer(aircraftTrailLines[icao]);
-                        delete aircraftTrailLines[icao];
-                    }
-                    delete aircraftTrails[icao];
-                    delete aircraftMarkers[icao];
-                    delete aircraftMarkerState[icao];
-                    delete activeSquawkAlerts[icao];
-                }
-            });
-
-            // Update status display
-            const aircraftCount = Object.keys(adsbAircraft).length;
-            document.getElementById('radarStatus').textContent = isAdsbRunning ?
-                `TRACKING ${aircraftCount}` : 'STANDBY';
-            document.getElementById('aircraftCount').textContent = aircraftCount;
-
-            // Update map center display
-            const center = aircraftMap.getCenter();
-            document.getElementById('mapCenter').textContent =
-                `${center.lat.toFixed(2)}, ${center.lng.toFixed(2)}`;
-
-            // Auto-fit bounds if we have aircraft (throttled to avoid performance issues)
-            const now = Date.now();
-            if (aircraftCount > 0 && !aircraftMap._userInteracted &&
-                (!aircraftMap._lastFitBounds || now - aircraftMap._lastFitBounds > 5000)) {
-                const bounds = [];
-                Object.values(adsbAircraft).forEach(a => {
-                    if (a.lat !== undefined && a.lon !== undefined) {
-                        bounds.push([a.lat, a.lon]);
-                    }
-                });
-                if (bounds.length > 0) {
-                    aircraftMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
-                    aircraftMap._lastFitBounds = now;
-                }
-            }
-        }
-
-        // Track user interaction to stop auto-fitting
-        function setupMapInteraction() {
-            if (aircraftMap) {
-                aircraftMap.on('dragstart zoomstart', () => {
-                    aircraftMap._userInteracted = true;
-                });
-            }
-        }
-
-        // Calculate distance between two points in nautical miles
-        function calculateDistanceNm(lat1, lon1, lat2, lon2) {
-            const R = 3440.065;  // Earth radius in nautical miles
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        // Update ADS-B statistics
-        function updateAdsbStatistics(icao, aircraft) {
-            if (!aircraft.lat || !aircraft.lon) return;
-
-            // Track unique aircraft
-            adsbStats.totalAircraftSeen.add(icao);
-
-            // Calculate distance from observer
-            const distance = calculateDistanceNm(
-                observerLocation.lat, observerLocation.lon,
-                aircraft.lat, aircraft.lon
-            );
-
-            // Update max range if this is further
-            if (distance > adsbStats.maxRange) {
-                adsbStats.maxRange = distance;
-                adsbStats.maxRangeAircraft = aircraft.callsign || icao;
-            }
-
-            // Track hourly aircraft count
-            const hour = new Date().getHours();
-            if (!adsbStats.hourlyCount[hour]) {
-                adsbStats.hourlyCount[hour] = new Set();
-            }
-            adsbStats.hourlyCount[hour].add(icao);
-
-            // Update messages per second calculation
-            const now = Date.now();
-            adsbStats.messageTimestamps.push(now);
-            // Keep only last 5 seconds of timestamps
-            adsbStats.messageTimestamps = adsbStats.messageTimestamps.filter(t => now - t < 5000);
-            adsbStats.messagesPerSecond = adsbStats.messageTimestamps.length / 5;
-
-            // Update stats display
-            updateStatsDisplay();
-        }
-
-        // Update the statistics display
-        function updateStatsDisplay() {
-            const maxRangeEl = document.getElementById('adsbMaxRange');
-            const totalSeenEl = document.getElementById('adsbTotalSeen');
-            const msgRateEl = document.getElementById('adsbMsgRate');
-            const busiestHourEl = document.getElementById('adsbBusiestHour');
-
-            if (maxRangeEl) {
-                maxRangeEl.textContent = `${adsbStats.maxRange.toFixed(1)} nm`;
-                if (adsbStats.maxRangeAircraft) {
-                    maxRangeEl.title = `Aircraft: ${adsbStats.maxRangeAircraft}`;
-                }
-            }
-            if (totalSeenEl) {
-                totalSeenEl.textContent = adsbStats.totalAircraftSeen.size;
-            }
-            if (msgRateEl) {
-                msgRateEl.textContent = `${adsbStats.messagesPerSecond.toFixed(1)}/s`;
-            }
-            if (busiestHourEl) {
-                let busiestHour = 0;
-                let maxCount = 0;
-                Object.entries(adsbStats.hourlyCount).forEach(([hour, aircraftSet]) => {
-                    if (aircraftSet.size > maxCount) {
-                        maxCount = aircraftSet.size;
-                        busiestHour = hour;
-                    }
-                });
-                busiestHourEl.textContent = maxCount > 0 ? `${busiestHour}:00 (${maxCount})` : '--';
-            }
-        }
-
-        // Draw range rings on the map
-        function drawRangeRings() {
-            if (!aircraftMap) return;
-
-            // Remove existing rings
-            if (rangeRingsLayer) {
-                aircraftMap.removeLayer(rangeRingsLayer);
-            }
-
-            const showRings = document.getElementById('adsbShowRangeRings')?.checked;
-            if (!showRings) return;
-
-            rangeRingsLayer = L.layerGroup();
-
-            // Range ring distances in nautical miles
-            const distances = [25, 50, 100, 150, 200];
-
-            distances.forEach(nm => {
-                // Convert nm to meters for Leaflet circle
-                const meters = nm * 1852;
-                const circle = L.circle([observerLocation.lat, observerLocation.lon], {
-                    radius: meters,
-                    color: '#00d4ff',
-                    fillColor: 'transparent',
-                    fillOpacity: 0,
-                    weight: 1,
-                    opacity: 0.4,
-                    dashArray: '5, 5'
-                });
-
-                // Add label
-                const labelLatLng = L.latLng(
-                    observerLocation.lat + (nm * 0.0166),  // Approx degrees per nm
-                    observerLocation.lon
-                );
-
-                const label = L.marker(labelLatLng, {
-                    icon: L.divIcon({
-                        className: 'range-ring-label',
-                        html: `<span style="color: #00d4ff; font-size: 10px; background: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 2px;">${nm} nm</span>`,
-                        iconSize: [40, 12],
-                        iconAnchor: [20, 6]
-                    })
-                });
-
-                rangeRingsLayer.addLayer(circle);
-                rangeRingsLayer.addLayer(label);
-            });
-
-            // Add observer marker
-            if (observerMarkerAdsb) {
-                aircraftMap.removeLayer(observerMarkerAdsb);
-            }
-            observerMarkerAdsb = L.marker([observerLocation.lat, observerLocation.lon], {
-                icon: L.divIcon({
-                    className: 'observer-marker',
-                    html: '<div style="width: 12px; height: 12px; background: #ff0; border: 2px solid #000; border-radius: 50%; box-shadow: 0 0 10px #ff0;"></div>',
-                    iconSize: [12, 12],
-                    iconAnchor: [6, 6]
-                })
-            }).bindPopup('Your Location').addTo(aircraftMap);
-
-            rangeRingsLayer.addTo(aircraftMap);
-        }
-
-        // Update observer location from input fields
-        function updateObserverLocation() {
-            const latInput = document.getElementById('adsbObsLat');
-            const lonInput = document.getElementById('adsbObsLon');
-
-            if (latInput && lonInput) {
-                const lat = parseFloat(latInput.value);
-                const lon = parseFloat(lonInput.value);
-
-                if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-                    observerLocation.lat = lat;
-                    observerLocation.lon = lon;
-
-                    // Save to localStorage for persistence
-                    localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
-
-                    // Center map on location
-                    if (aircraftMap) {
-                        aircraftMap.setView([observerLocation.lat, observerLocation.lon], 8);
-                        aircraftMap._userInteracted = true;
-                    }
-
-                    // Redraw range rings
-                    drawRangeRings();
-                }
-            }
-        }
-
-        // Get user's geolocation (only works on HTTPS or localhost)
-        function getAdsbGeolocation() {
-            if (!navigator.geolocation) {
-                alert('Geolocation is not supported by your browser');
-                return;
-            }
-
-            // Check if we're on a secure context
-            if (!window.isSecureContext) {
-                alert('GPS location requires HTTPS. Please enter your coordinates manually in the lat/lon fields above.');
-                return;
-            }
-
-            const btn = document.getElementById('adsbGeolocateBtn');
-            if (btn) btn.textContent = '📍 Locating...';
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    observerLocation.lat = position.coords.latitude;
-                    observerLocation.lon = position.coords.longitude;
-
-                    // Save to localStorage for persistence
-                    localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
-
-                    // Update input fields
-                    const latInput = document.getElementById('adsbObsLat');
-                    const lonInput = document.getElementById('adsbObsLon');
-                    if (latInput) latInput.value = observerLocation.lat.toFixed(4);
-                    if (lonInput) lonInput.value = observerLocation.lon.toFixed(4);
-
-                    // Center map on location
-                    if (aircraftMap) {
-                        aircraftMap.setView([observerLocation.lat, observerLocation.lon], 8);
-                        aircraftMap._userInteracted = true;
-                    }
-
-                    // Redraw range rings
-                    drawRangeRings();
-
-                    if (btn) btn.textContent = '📍 Use GPS Location';
-                    showInfo(`Location set: ${observerLocation.lat.toFixed(4)}, ${observerLocation.lon.toFixed(4)}`);
-                },
-                (error) => {
-                    if (btn) btn.textContent = '📍 Use GPS Location';
-                    alert('Unable to get location. Please enter coordinates manually.\n\nError: ' + error.message);
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        }
-
-        // Reset ADS-B statistics
-        function resetAdsbStats() {
-            adsbStats = {
-                totalAircraftSeen: new Set(),
-                maxRange: 0,
-                maxRangeAircraft: null,
-                hourlyCount: {},
-                messagesPerSecond: 0,
-                messageTimestamps: [],
-                sessionStart: Date.now()
-            };
-            updateStatsDisplay();
-        }
-
-        function startAdsbScan() {
-            const gain = document.getElementById('adsbGain').value;
-            const device = getSelectedDevice();
-            const sdr_type = getSelectedSDRType();
-
-            // Check if device is available
-            if (!checkDeviceAvailability('adsb')) {
-                return;
-            }
-
-            fetch('/adsb/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gain, device, sdr_type, bias_t: getBiasTEnabled() })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'started') {
-                    reserveDevice(parseInt(device), 'adsb');
-                    isAdsbRunning = true;
-                    document.getElementById('startAdsbBtn').style.display = 'none';
-                    document.getElementById('stopAdsbBtn').style.display = 'block';
-                    document.getElementById('statusDot').className = 'status-dot active';
-                    document.getElementById('statusText').textContent = 'ADS-B Tracking';
-                    resetAdsbStats();  // Reset statistics for new session
-                    adsbStats.sessionStart = Date.now();
-                    startAdsbStream();
-                    drawRangeRings();  // Draw range rings if enabled
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            });
-        }
-
-        function stopAdsbScan() {
-            fetch('/adsb/stop', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    releaseDevice('adsb');
-                    isAdsbRunning = false;
-                    document.getElementById('startAdsbBtn').style.display = 'block';
-                    document.getElementById('stopAdsbBtn').style.display = 'none';
-                    document.getElementById('statusDot').className = 'status-dot';
-                    document.getElementById('statusText').textContent = 'Idle';
-                    if (adsbEventSource) {
-                        adsbEventSource.close();
-                        adsbEventSource = null;
-                    }
-                });
-        }
-
-        // ============================================
-        // ACARS Output Helper (used by main sidebar)
-        // ============================================
-        function addAcarsToOutput(data) {
-            const output = document.getElementById('outputList');
-            const item = document.createElement('div');
-            item.className = 'output-item acars-message';
-
-            const flight = data.flight || 'Unknown';
-            const reg = data.reg || '';
-            const label = data.label || '';
-            const text = data.text || data.msg || '';
-
-            item.innerHTML = `
-                <span class="timestamp">${new Date().toLocaleTimeString()}</span>
-                <span class="acars-flight" style="color: var(--accent-cyan); font-weight: bold;">${flight}</span>
-                ${reg ? `<span class="acars-reg" style="color: var(--text-secondary);">[${reg}]</span>` : ''}
-                <span class="acars-label" style="color: var(--accent-green);">${label}</span>
-                <span class="acars-text">${text}</span>
-            `;
-
-            output.insertBefore(item, output.firstChild);
-
-            // Keep output manageable
-            while (output.children.length > 200) {
-                output.removeChild(output.lastChild);
-            }
-        }
-
-        // ============================================
-        // Main ACARS Sidebar (Collapsible - Aircraft Tab)
-        // ============================================
-        let mainAcarsSidebarCollapsed = localStorage.getItem('mainAcarsSidebarCollapsed') === 'true';
-        let mainAcarsEventSource = null;
-        let isMainAcarsRunning = false;
-        let mainAcarsMessageCount = 0;
-
-        // Initialize sidebar state on load
-        document.addEventListener('DOMContentLoaded', function() {
-            const sidebar = document.getElementById('mainAcarsSidebar');
-            if (sidebar && mainAcarsSidebarCollapsed) {
-                sidebar.classList.add('collapsed');
-            }
-        });
-
-        function toggleMainAcarsSidebar() {
-            const sidebar = document.getElementById('mainAcarsSidebar');
-            mainAcarsSidebarCollapsed = !mainAcarsSidebarCollapsed;
-            sidebar.classList.toggle('collapsed', mainAcarsSidebarCollapsed);
-            localStorage.setItem('mainAcarsSidebarCollapsed', mainAcarsSidebarCollapsed);
-        }
-
-        function toggleMainAcars() {
-            if (isMainAcarsRunning) {
-                stopMainAcars();
-            } else {
-                startMainAcars();
-            }
-        }
-
-        function startMainAcars() {
-            const device = document.getElementById('mainAcarsDevice').value;
-            const region = document.getElementById('mainAcarsRegion').value;
-
-            const regions = {
-                'na': ['129.125', '130.025', '130.450', '131.550'],
-                'eu': ['131.525', '131.725', '131.550'],
-                'ap': ['131.550', '131.450']
-            };
-            const frequencies = regions[region] || regions['na'];
-
-            fetch('/acars/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frequencies, device: parseInt(device), gain: 40 })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'started') {
-                    isMainAcarsRunning = true;
-                    mainAcarsMessageCount = 0;
-                    document.getElementById('mainAcarsToggleBtn').innerHTML = '■ STOP';
-                    document.getElementById('mainAcarsToggleBtn').style.background = 'var(--accent-red)';
-                    // Show status bar with listening state
-                    updateAcarsStatus('listening');
-                    startMainAcarsStream();
-                } else {
-                    alert('ACARS Error: ' + data.message);
-                    updateAcarsStatus('error');
-                }
-            })
-            .catch(err => {
-                alert('ACARS Error: ' + err);
-                updateAcarsStatus('error');
-            });
-        }
-
-        function stopMainAcars() {
-            fetch('/acars/stop', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    isMainAcarsRunning = false;
-                    document.getElementById('mainAcarsToggleBtn').innerHTML = '▶ START';
-                    document.getElementById('mainAcarsToggleBtn').style.background = 'var(--accent-green)';
-                    // Hide status bar
-                    document.getElementById('acarsStatusBar').style.display = 'none';
-                    if (mainAcarsEventSource) {
-                        mainAcarsEventSource.close();
-                        mainAcarsEventSource = null;
-                    }
-                });
-        }
-
-        function updateAcarsStatus(state) {
-            const statusBar = document.getElementById('acarsStatusBar');
-            const statusDot = document.getElementById('acarsStatusDot');
-            const statusText = document.getElementById('acarsStatusText');
-
-            statusBar.style.display = 'block';
-            statusDot.className = 'acars-status-dot ' + state;
-            statusText.textContent = state.toUpperCase();
-
-            if (state === 'listening') {
-                statusText.style.color = 'var(--accent-cyan)';
-            } else if (state === 'receiving') {
-                statusText.style.color = 'var(--accent-green)';
-            } else if (state === 'error') {
-                statusText.style.color = 'var(--accent-red)';
-            } else {
-                statusText.style.color = 'var(--text-muted)';
-            }
-        }
-
-        function startMainAcarsStream() {
-            if (mainAcarsEventSource) mainAcarsEventSource.close();
-            mainAcarsEventSource = new EventSource('/acars/stream');
-
-            mainAcarsEventSource.onmessage = function(e) {
-                const data = JSON.parse(e.data);
-                if (data.type === 'acars') {
-                    mainAcarsMessageCount++;
-                    // Update status bar
-                    document.getElementById('acarsStatusCount').textContent = mainAcarsMessageCount;
-                    const dot = document.getElementById('acarsStatusDot');
-                    if (dot && !dot.classList.contains('receiving')) {
-                        updateAcarsStatus('receiving');
-                    }
-                    addMainAcarsMessage(data);
-                    // Also add to main output if ADS-B mode is active
-                    addAcarsToOutput(data);
-                }
-            };
-
-            mainAcarsEventSource.onerror = function() {
-                console.error('Main ACARS stream error');
-                updateAcarsStatus('error');
-            };
-        }
-
-        function addMainAcarsMessage(data) {
-            const container = document.getElementById('mainAcarsMessages');
-
-            // Remove placeholder if present
-            const placeholder = container.querySelector('div[style*="text-align: center"]');
-            if (placeholder && placeholder.textContent.includes('No ACARS')) {
-                placeholder.remove();
-            }
-
-            const flight = data.flight || 'Unknown';
-            const reg = data.reg || '';
-            const text = data.text || data.msg || '';
-            const label = data.label || '';
-            const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            const msgEl = document.createElement('div');
-            msgEl.className = 'main-acars-msg';
-            msgEl.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                    <span style="color: var(--accent-cyan); font-weight: bold;">${flight}</span>
-                    <span style="color: var(--text-muted); font-size: 8px;">${time}</span>
-                </div>
-                ${reg ? `<div style="color: var(--text-secondary); font-size: 9px;">${reg}</div>` : ''}
-                ${label ? `<div style="color: var(--accent-green); font-size: 9px;">[${label}]</div>` : ''}
-                ${text ? `<div style="color: var(--text-primary); font-size: 9px; margin-top: 2px; word-break: break-word;">${text.substring(0, 100)}${text.length > 100 ? '...' : ''}</div>` : ''}
-            `;
-
-            container.insertBefore(msgEl, container.firstChild);
-
-            // Keep list manageable
-            while (container.children.length > 50) {
-                container.removeChild(container.lastChild);
-            }
-        }
-
-        // ============================================
         // APRS Functions
         // ============================================
         let aprsMap = null;
@@ -7528,288 +6222,6 @@
             }
         }
 
-        // Batching state for aircraft updates to prevent browser freeze
-        let pendingAircraftUpdate = false;
-        let pendingAircraftData = [];
-
-        function scheduleAircraftUIUpdate() {
-            if (pendingAircraftUpdate) return;
-            pendingAircraftUpdate = true;
-            requestAnimationFrame(() => {
-                updateAdsbStats();
-                updateAircraftMarkers();
-                updateAircraftListPanel();
-                updateSelectedAircraftInfo();
-                // Batch output updates - only show last 10 to prevent DOM explosion
-                const toOutput = pendingAircraftData.slice(-10);
-                pendingAircraftData = [];
-                toOutput.forEach(data => addAircraftToOutput(data));
-                pendingAircraftUpdate = false;
-            });
-        }
-
-        function startAdsbStream() {
-            if (adsbEventSource) adsbEventSource.close();
-            adsbEventSource = new EventSource('/adsb/stream');
-
-            adsbEventSource.onmessage = function(e) {
-                const data = JSON.parse(e.data);
-                if (data.type === 'aircraft') {
-                    adsbAircraft[data.icao] = {
-                        ...adsbAircraft[data.icao],
-                        ...data,
-                        lastSeen: Date.now()
-                    };
-                    adsbMsgCount++;
-                    pendingAircraftData.push(data);
-                    // Check for military/emergency aircraft and alert
-                    checkAndAlertAircraft(data.icao, adsbAircraft[data.icao]);
-                    // Update statistics
-                    updateAdsbStatistics(data.icao, adsbAircraft[data.icao]);
-                    // Use batched update instead of immediate
-                    scheduleAircraftUIUpdate();
-                }
-            };
-
-            // Periodic cleanup of stale aircraft
-            setInterval(() => {
-                const now = Date.now();
-                let needsUpdate = false;
-                Object.keys(adsbAircraft).forEach(icao => {
-                    if (now - adsbAircraft[icao].lastSeen > 60000) {
-                        delete adsbAircraft[icao];
-                        needsUpdate = true;
-                    }
-                });
-                if (needsUpdate) {
-                    scheduleAircraftUIUpdate();
-                }
-            }, 5000);
-        }
-
-        function updateAdsbStats() {
-            const count = Object.keys(adsbAircraft).length;
-            document.getElementById('aircraftCount').textContent = count;
-            document.getElementById('adsbMsgCount').textContent = adsbMsgCount;
-            document.getElementById('icaoCount').textContent = count;
-        }
-
-        // Update aircraft list panel in main tab
-        function updateAircraftListPanel() {
-            const listPanel = document.getElementById('aircraftListPanel');
-            if (!listPanel) return;
-
-            const aircraft = Object.entries(adsbAircraft)
-                .filter(([_, a]) => a.lat != null && a.lon != null)
-                .sort((a, b) => (b[1].altitude || 0) - (a[1].altitude || 0))
-                .slice(0, 20);
-
-            if (aircraft.length === 0) {
-                listPanel.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">No aircraft detected</div>';
-                return;
-            }
-
-            listPanel.innerHTML = aircraft.map(([icao, a]) => {
-                const isSelected = selectedMainAircraft === icao;
-                const militaryInfo = isMilitaryAircraft ? isMilitaryAircraft(icao, a.callsign) : { military: false };
-                const bgColor = isSelected ? 'rgba(0, 212, 255, 0.2)' : 'transparent';
-                const borderColor = isSelected ? 'var(--accent-cyan)' : 'var(--border-color)';
-                const typeColor = militaryInfo.military ? '#556b2f' : 'var(--accent-cyan)';
-
-                return `
-                    <div onclick="selectMainAircraft('${icao}')" style="padding: 8px; margin-bottom: 5px; background: ${bgColor}; border: 1px solid ${borderColor}; cursor: pointer; border-radius: 4px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: ${typeColor}; font-weight: bold;">${a.callsign || icao}</span>
-                            <span style="color: var(--text-muted); font-size: 10px;">${a.altitude ? Math.round(a.altitude).toLocaleString() + ' ft' : '--'}</span>
-                        </div>
-                        <div style="color: var(--text-dim); font-size: 10px; margin-top: 3px;">
-                            ${a.registration || ''} ${a.type || ''} ${militaryInfo.military ? '🎖️' : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Select an aircraft in main tab
-        function selectMainAircraft(icao) {
-            selectedMainAircraft = icao;
-            updateAircraftListPanel();
-            updateSelectedAircraftInfo();
-
-            // Center map on aircraft
-            const aircraft = adsbAircraft[icao];
-            if (aircraft && aircraft.lat && aircraft.lon && aircraftMap) {
-                aircraftMap.setView([aircraft.lat, aircraft.lon], 10);
-            }
-        }
-
-        // Update selected aircraft info panel
-        function updateSelectedAircraftInfo() {
-            const infoPanel = document.getElementById('selectedAircraftInfo');
-            if (!infoPanel) return;
-
-            if (!selectedMainAircraft || !adsbAircraft[selectedMainAircraft]) {
-                infoPanel.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">Click an aircraft to view details</div>';
-                showMainAircraftPhotoState('placeholder');
-                return;
-            }
-
-            const a = adsbAircraft[selectedMainAircraft];
-            const militaryInfo = isMilitaryAircraft ? isMilitaryAircraft(selectedMainAircraft, a.callsign) : { military: false };
-
-            infoPanel.innerHTML = `
-                <div style="text-align: center; margin-bottom: 10px;">
-                    <div style="font-size: 24px; color: var(--accent-cyan); font-weight: bold;">${a.callsign || selectedMainAircraft}</div>
-                    ${a.registration ? `<div style="color: var(--text-secondary);">${a.registration}</div>` : ''}
-                    ${militaryInfo.military ? '<div style="color: #556b2f; font-size: 10px;">🎖️ MILITARY</div>' : ''}
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <div style="background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
-                        <div style="color: var(--text-dim); font-size: 9px;">ALTITUDE</div>
-                        <div style="color: var(--accent-cyan);">${a.altitude ? Math.round(a.altitude).toLocaleString() + ' ft' : '--'}</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
-                        <div style="color: var(--text-dim); font-size: 9px;">SPEED</div>
-                        <div style="color: var(--accent-cyan);">${a.speed ? Math.round(a.speed) + ' kts' : '--'}</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
-                        <div style="color: var(--text-dim); font-size: 9px;">HEADING</div>
-                        <div style="color: var(--accent-cyan);">${a.heading ? Math.round(a.heading) + '°' : '--'}</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
-                        <div style="color: var(--text-dim); font-size: 9px;">SQUAWK</div>
-                        <div style="color: var(--accent-cyan);">${a.squawk || '--'}</div>
-                    </div>
-                </div>
-                ${a.type ? `<div style="margin-top: 8px; color: var(--text-dim); font-size: 10px; text-align: center;">Aircraft: ${a.type}</div>` : ''}
-                <div style="margin-top: 8px; color: var(--text-dim); font-size: 9px; text-align: center;">ICAO: ${selectedMainAircraft}</div>
-            `;
-
-            // Fetch aircraft photo if registration is available
-            if (a.registration) {
-                fetchMainAircraftPhoto(a.registration);
-            } else {
-                // No registration - show placeholder or no photo state
-                showMainAircraftPhotoState('noregistration');
-            }
-        }
-
-        // Cache for aircraft photos to avoid repeated API calls
-        const mainPhotoCache = {};
-
-        // Show different states for the aircraft photo panel
-        function showMainAircraftPhotoState(state) {
-            const placeholder = document.getElementById('mainAircraftPhotoPlaceholder');
-            const wrapper = document.getElementById('mainAircraftPhotoWrapper');
-            const loading = document.getElementById('mainAircraftPhotoLoading');
-            const noPhoto = document.getElementById('mainAircraftPhotoNoPhoto');
-
-            if (!placeholder || !wrapper || !loading || !noPhoto) return;
-
-            placeholder.style.display = state === 'placeholder' ? 'block' : 'none';
-            wrapper.style.display = state === 'photo' ? 'block' : 'none';
-            loading.style.display = state === 'loading' ? 'block' : 'none';
-            noPhoto.style.display = (state === 'nophoto' || state === 'noregistration') ? 'block' : 'none';
-
-            // Update no photo message for no registration case
-            if (state === 'noregistration' && noPhoto) {
-                noPhoto.innerHTML = `
-                    <div style="font-size: 32px; opacity: 0.5; margin-bottom: 8px;">📷</div>
-                    <div>No photo available</div>
-                    <div style="font-size: 10px; margin-top: 4px; color: var(--text-dim);">Aircraft registration unknown</div>
-                `;
-            } else if (state === 'nophoto' && noPhoto) {
-                noPhoto.innerHTML = `
-                    <div style="font-size: 32px; opacity: 0.5; margin-bottom: 8px;">📷</div>
-                    <div>No photo available</div>
-                    <div style="font-size: 10px; margin-top: 4px; color: var(--text-dim);">Registration not found in database</div>
-                `;
-            }
-        }
-
-        // Fetch aircraft photo from the API
-        async function fetchMainAircraftPhoto(registration) {
-            const img = document.getElementById('mainAircraftPhoto');
-            const link = document.getElementById('mainAircraftPhotoLink');
-            const credit = document.getElementById('mainAircraftPhotoCredit');
-            const regDisplay = document.getElementById('mainAircraftPhotoReg');
-
-            if (!img) return;
-
-            // Check cache first
-            if (mainPhotoCache[registration]) {
-                const cached = mainPhotoCache[registration];
-                if (cached.thumbnail) {
-                    img.src = cached.thumbnail;
-                    link.href = cached.link || '#';
-                    credit.textContent = cached.photographer ? `Photo: ${cached.photographer}` : '';
-                    if (regDisplay) regDisplay.textContent = registration;
-                    showMainAircraftPhotoState('photo');
-                } else {
-                    showMainAircraftPhotoState('nophoto');
-                }
-                return;
-            }
-
-            // Show loading state
-            showMainAircraftPhotoState('loading');
-
-            try {
-                const response = await fetch(`/adsb/aircraft-photo/${encodeURIComponent(registration)}`);
-                const data = await response.json();
-
-                // Cache the result
-                mainPhotoCache[registration] = data;
-
-                if (data.success && data.thumbnail) {
-                    img.src = data.thumbnail;
-                    link.href = data.link || '#';
-                    credit.textContent = data.photographer ? `Photo: ${data.photographer}` : '';
-                    if (regDisplay) regDisplay.textContent = registration;
-                    showMainAircraftPhotoState('photo');
-                } else {
-                    showMainAircraftPhotoState('nophoto');
-                }
-            } catch (err) {
-                console.debug('Failed to fetch aircraft photo:', err);
-                showMainAircraftPhotoState('nophoto');
-            }
-        }
-
-        function addAircraftToOutput(aircraft) {
-            const output = document.getElementById('output');
-            const placeholder = output.querySelector('.placeholder');
-            if (placeholder) placeholder.remove();
-
-            // Check if card for this ICAO already exists
-            let card = output.querySelector(`[data-icao="${aircraft.icao}"]`);
-            const isNew = !card;
-
-            if (isNew) {
-                card = document.createElement('div');
-                card.className = 'aircraft-card';
-                card.setAttribute('data-icao', aircraft.icao);
-            }
-
-            card.innerHTML = `
-                <div class="aircraft-icon" style="--heading: ${aircraft.heading || 0}deg;">✈️</div>
-                <div class="aircraft-info">
-                    <div class="aircraft-callsign">${aircraft.callsign || aircraft.icao}</div>
-                    <div class="aircraft-data">ICAO: <span>${aircraft.icao}</span></div>
-                    <div class="aircraft-data">Alt: <span>${aircraft.altitude ? aircraft.altitude + ' ft' : 'N/A'}</span></div>
-                    <div class="aircraft-data">Speed: <span>${aircraft.speed ? aircraft.speed + ' kts' : 'N/A'}</span></div>
-                    <div class="aircraft-data">Heading: <span>${aircraft.heading ? aircraft.heading + '°' : 'N/A'}</span></div>
-                </div>
-            `;
-
-            if (isNew) {
-                output.insertBefore(card, output.firstChild);
-                // Limit cards
-                while (output.children.length > 50) {
-                    output.removeChild(output.lastChild);
-                }
-            }
-        }
 
         // ============================================
         // SATELLITE MODE FUNCTIONS
@@ -7917,26 +6329,9 @@
             if (satLatInput) satLatInput.value = position.latitude.toFixed(4);
             if (satLonInput) satLonInput.value = position.longitude.toFixed(4);
 
-            // Update ADS-B observer location
-            const adsbLatInput = document.getElementById('adsbObsLat');
-            const adsbLonInput = document.getElementById('adsbObsLon');
-            if (adsbLatInput) adsbLatInput.value = position.latitude.toFixed(4);
-            if (adsbLonInput) adsbLonInput.value = position.longitude.toFixed(4);
-
-            // Update observerLocation for ADS-B calculations
+            // Update observerLocation
             observerLocation.lat = position.latitude;
             observerLocation.lon = position.longitude;
-
-            // Center ADS-B map on GPS location (on first fix)
-            if (typeof aircraftMap !== 'undefined' && aircraftMap && !aircraftMap._gpsInitialized) {
-                aircraftMap.setView([position.latitude, position.longitude], aircraftMap.getZoom());
-                aircraftMap._gpsInitialized = true;
-            }
-
-            // Trigger range rings update
-            if (typeof drawRangeRings === 'function') {
-                drawRangeRings();
-            }
         }
 
         function showGpsIndicator(show) {
@@ -7945,7 +6340,7 @@
                 el.style.display = show ? 'inline-flex' : 'none';
             });
             // Also target specific IDs in case class selector doesn't work
-            ['adsbGpsIndicator', 'satGpsIndicator'].forEach(id => {
+            ['satGpsIndicator'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = show ? 'inline-flex' : 'none';
             });
@@ -10286,7 +8681,6 @@
                 <button class="help-tab active" data-tab="icons" onclick="switchHelpTab('icons')">Icons</button>
                 <button class="help-tab" data-tab="modes" onclick="switchHelpTab('modes')">Modes</button>
                 <button class="help-tab" data-tab="wifi" onclick="switchHelpTab('wifi')">WiFi</button>
-                <button class="help-tab" data-tab="aircraft" onclick="switchHelpTab('aircraft')">Aircraft</button>
                 <button class="help-tab" data-tab="tips" onclick="switchHelpTab('tips')">Tips</button>
             </div>
 
@@ -10299,7 +8693,6 @@
                     <div class="icon-item"><span class="icon">📨</span><span class="desc">Total messages received</span></div>
                     <div class="icon-item"><span class="icon">🌡️</span><span class="desc">Unique sensors detected</span></div>
                     <div class="icon-item"><span class="icon">📊</span><span class="desc">Device types found</span></div>
-                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft being tracked</span></div>
                     <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellites monitored</span></div>
                     <div class="icon-item"><span class="icon">📡</span><span class="desc">WiFi Access Points</span></div>
                     <div class="icon-item"><span class="icon">👤</span><span class="desc">Connected WiFi clients</span></div>
@@ -10308,14 +8701,13 @@
                     <div class="icon-item"><span class="icon">⚠️</span><span class="desc">Rogue APs (click for details)</span></div>
                     <div class="icon-item"><span class="icon">🔵</span><span class="desc">Bluetooth devices</span></div>
                     <div class="icon-item"><span class="icon">📍</span><span class="desc">BLE beacons / APRS stations</span></div>
-                    <div class="icon-item"><span class="icon">📨</span><span class="desc">ACARS messages received</span></div>
                 </div>
 
                 <h3>Mode Tab Icons</h3>
                 <div class="icon-grid">
                     <div class="icon-item"><span class="icon">📟</span><span class="desc">Pager - POCSAG/FLEX decoder</span></div>
                     <div class="icon-item"><span class="icon">📡</span><span class="desc">433MHz - Sensor decoder</span></div>
-                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - ADS-B/ACARS tracker</span></div>
+                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - Opens ADS-B Dashboard</span></div>
                     <div class="icon-item"><span class="icon">📍</span><span class="desc">APRS - Amateur radio tracking</span></div>
                     <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellite - Pass prediction</span></div>
                     <div class="icon-item"><span class="icon">📶</span><span class="desc">WiFi - Network scanner</span></div>
@@ -10343,14 +8735,10 @@
                     <li>Device intelligence builds profiles of recurring devices</li>
                 </ul>
 
-                <h3>✈️ Aircraft Mode</h3>
+                <h3>✈️ Aircraft (Dashboard)</h3>
                 <ul class="tip-list">
-                    <li>Tracks aircraft via ADS-B using dump1090 or rtl_adsb</li>
-                    <li>Interactive map with real OpenStreetMap tiles</li>
-                    <li>Click aircraft markers to see callsign, altitude, speed, heading</li>
-                    <li>ACARS messaging sidebar decodes aircraft datalink messages</li>
-                    <li>Emergency squawk codes highlighted in red</li>
-                    <li>Open full dashboard for radar view and airband audio</li>
+                    <li>Opens the dedicated ADS-B Dashboard for aircraft tracking</li>
+                    <li>Features radar scope, map view, airband audio, and ACARS decoding</li>
                 </ul>
 
                 <h3>📍 APRS Mode</h3>
@@ -10453,50 +8841,6 @@
                     <li>Orange highlights indicate sensitive/private network names</li>
                     <li>Reveals user location history (home, work, hotels, airports)</li>
                     <li>Useful for security awareness and pen test reports</li>
-                </ul>
-            </div>
-
-            <!-- Aircraft Section -->
-            <div id="help-aircraft" class="help-section">
-                <h3>ADS-B Tracking</h3>
-                <ul class="tip-list">
-                    <li>Receives ADS-B broadcasts on 1090 MHz from aircraft transponders</li>
-                    <li>Displays position, altitude, speed, heading, and squawk code</li>
-                    <li>Interactive map and radar scope views available</li>
-                    <li>Click aircraft to see detailed telemetry and photos</li>
-                    <li>Emergency squawk codes (7500, 7600, 7700) highlighted</li>
-                </ul>
-
-                <h3>ACARS Messaging</h3>
-                <ul class="tip-list">
-                    <li>ACARS (Aircraft Communications Addressing and Reporting System)</li>
-                    <li>Decodes VHF datalink messages between aircraft and ground</li>
-                    <li>Requires a <strong>second SDR</strong> (separate from ADS-B)</li>
-                    <li>Regional frequencies vary - select N. America, Europe, or Asia-Pacific</li>
-                    <li>Messages include flight info, weather, OOOI events, and free text</li>
-                </ul>
-
-                <h3>ACARS Frequencies</h3>
-                <ul class="tip-list">
-                    <li><strong>N. America:</strong> 130.025, 130.450, 131.550 MHz</li>
-                    <li><strong>Europe:</strong> 131.525, 131.725, 131.550 MHz</li>
-                    <li><strong>Asia-Pacific:</strong> 131.550, 131.450 MHz</li>
-                </ul>
-
-                <h3>Airband Audio</h3>
-                <ul class="tip-list">
-                    <li>Listen to aviation voice communications (AM mode)</li>
-                    <li>Requires RTL-SDR or compatible SDR hardware</li>
-                    <li>Common frequencies: 118-137 MHz (civil aviation band)</li>
-                    <li>121.5 MHz is the international emergency/guard frequency</li>
-                </ul>
-
-                <h3>Full Dashboard</h3>
-                <ul class="tip-list">
-                    <li>Click "Open Full Dashboard" for expanded ADS-B view</li>
-                    <li>Toggle between map and radar scope displays</li>
-                    <li>Watchlist feature for tracking specific aircraft</li>
-                    <li>Aircraft photos fetched from JetPhotos when available</li>
                 </ul>
             </div>
 
