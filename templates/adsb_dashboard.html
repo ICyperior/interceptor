@@ -68,7 +68,7 @@
                 <span class="strip-label">SESSION</span>
             </div>
             <div class="strip-divider"></div>
-            <button type="button" class="strip-btn" id="squawkBtn" title="Squawk Code Reference">
+            <button type="button" class="strip-btn" onclick="showSquawkInfo(null)" title="Squawk Code Reference">
                 📟 Squawk
             </button>
             <button type="button" class="strip-btn" onclick="lookupSelectedFlight()" title="Lookup selected aircraft on FlightAware" id="flightLookupBtn" disabled>
@@ -1113,72 +1113,6 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         }
 
         // ============================================
-        // SQUAWK CODE REFERENCE
-        // ============================================
-        function showSquawkReference() {
-            // Remove existing modal if any
-            const existing = document.querySelector('.squawk-modal');
-            if (existing) existing.remove();
-
-            const modal = document.createElement('div');
-            modal.className = 'squawk-modal';
-            modal.innerHTML = `
-                <div class="squawk-content">
-                    <div class="squawk-header">
-                        <h2>📟 Squawk Code Reference</h2>
-                        <button class="squawk-close" type="button">×</button>
-                    </div>
-                    <div class="squawk-body">
-                        <div class="squawk-section emergency">
-                            <h3>🚨 Emergency Codes</h3>
-                            <div class="squawk-grid">
-                                <div class="squawk-item"><span class="squawk-code">7500</span><span class="squawk-name">HIJACK</span><span class="squawk-desc">Aircraft being hijacked - do not acknowledge</span></div>
-                                <div class="squawk-item"><span class="squawk-code">7600</span><span class="squawk-name">RADIO FAIL</span><span class="squawk-desc">Two-way radio communication failure</span></div>
-                                <div class="squawk-item"><span class="squawk-code">7700</span><span class="squawk-name">EMERGENCY</span><span class="squawk-desc">General emergency (mayday/pan-pan)</span></div>
-                            </div>
-                        </div>
-                        <div class="squawk-section special">
-                            <h3>⚠️ Special Codes</h3>
-                            <div class="squawk-grid">
-                                <div class="squawk-item"><span class="squawk-code">7777</span><span class="squawk-name">MIL INTERCEPT</span><span class="squawk-desc">Active military intercept operations</span></div>
-                                <div class="squawk-item"><span class="squawk-code">0000</span><span class="squawk-name">DISCRETE</span><span class="squawk-desc">Military/special operations</span></div>
-                                <div class="squawk-item"><span class="squawk-code">5000</span><span class="squawk-name">MILITARY UK</span><span class="squawk-desc">UK military low-level operations</span></div>
-                                <div class="squawk-item"><span class="squawk-code">0033</span><span class="squawk-name">PARA OPS</span><span class="squawk-desc">Parachute dropping operations</span></div>
-                            </div>
-                        </div>
-                        <div class="squawk-section standard">
-                            <h3>✈️ Standard VFR/IFR</h3>
-                            <div class="squawk-grid">
-                                <div class="squawk-item"><span class="squawk-code">1200</span><span class="squawk-name">VFR (US/CA)</span><span class="squawk-desc">Visual flight rules - North America</span></div>
-                                <div class="squawk-item"><span class="squawk-code">7000</span><span class="squawk-name">VFR (EU)</span><span class="squawk-desc">Visual flight rules - ICAO/Europe</span></div>
-                                <div class="squawk-item"><span class="squawk-code">2000</span><span class="squawk-name">CONSPICUITY</span><span class="squawk-desc">Entering airspace, no code assigned</span></div>
-                                <div class="squawk-item"><span class="squawk-code">1000</span><span class="squawk-name">IFR (EU)</span><span class="squawk-desc">Instrument flight rules, no assigned code</span></div>
-                            </div>
-                        </div>
-                        <div class="squawk-section other">
-                            <h3>📋 Other Codes</h3>
-                            <div class="squawk-grid">
-                                <div class="squawk-item"><span class="squawk-code">4000</span><span class="squawk-name">FERRY</span><span class="squawk-desc">Aircraft delivery/repositioning</span></div>
-                                <div class="squawk-item"><span class="squawk-code">7001</span><span class="squawk-name">VFR INTRUSION</span><span class="squawk-desc">VFR aircraft entering controlled space</span></div>
-                                <div class="squawk-item"><span class="squawk-code">7004</span><span class="squawk-name">AEROBATIC</span><span class="squawk-desc">Aerobatic display flight</span></div>
-                                <div class="squawk-item"><span class="squawk-code">7010</span><span class="squawk-name">RADIO EQUIPPED</span><span class="squawk-desc">IFR flight (UK zones)</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-
-            // Close button handler
-            modal.querySelector('.squawk-close').addEventListener('click', () => modal.remove());
-
-            // Click outside to close
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.remove();
-            });
-        }
-
-        // ============================================
         // FLIGHT LOOKUP
         // ============================================
         function lookupSelectedFlight() {
@@ -1989,9 +1923,6 @@ ACARS: ${r.statistics.acarsMessages} messages`;
 
             // Auto-connect to gpsd if available
             autoConnectGps();
-
-            // Squawk button event listener
-            document.getElementById('squawkBtn').addEventListener('click', showSquawkReference);
         });
 
         // Track which device is being used for ADS-B tracking
@@ -3094,6 +3025,11 @@ sudo make install</code>
 
                     // Start browser audio playback
                     const audioPlayer = document.getElementById('airbandPlayer');
+
+                    // Stop any existing playback first
+                    audioPlayer.pause();
+                    audioPlayer.currentTime = 0;
+
                     audioPlayer.src = '/listening/audio/stream?' + Date.now();
 
                     // Apply current volume setting
@@ -3103,9 +3039,15 @@ sudo make install</code>
                     // Initialize visualizer before playing
                     initAirbandVisualizer();
 
-                    audioPlayer.play().catch(e => {
-                        console.warn('Audio autoplay blocked:', e);
-                    });
+                    // Wait for audio to be ready before playing
+                    audioPlayer.oncanplay = function() {
+                        audioPlayer.play().catch(e => {
+                            console.warn('Audio playback issue:', e);
+                            document.getElementById('airbandStatus').textContent = 'AUDIO BLOCKED';
+                            document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
+                        });
+                        audioPlayer.oncanplay = null;
+                    };
 
                     document.getElementById('airbandBtn').innerHTML = '<span class="airband-icon">⏹</span> STOP';
                     document.getElementById('airbandBtn').classList.add('active');
