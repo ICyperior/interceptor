@@ -448,6 +448,53 @@ install_acarsdec_from_source_debian() {
   )
 }
 
+install_rtlsdr_blog_drivers_debian() {
+  # The RTL-SDR Blog drivers provide better support for:
+  # - RTL-SDR Blog V4 (R828D tuner)
+  # - RTL-SDR Blog V3 with bias-t improvements
+  # - Better overall compatibility with all RTL-SDR devices
+  # These drivers are backward compatible with standard RTL-SDR devices.
+
+  info "Installing RTL-SDR Blog drivers (improved V4 support)..."
+
+  # Install build dependencies
+  apt_install build-essential git cmake libusb-1.0-0-dev pkg-config
+
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning RTL-SDR Blog driver fork..."
+    git clone https://github.com/rtlsdrblog/rtl-sdr-blog.git "$tmp_dir/rtl-sdr-blog" >/dev/null 2>&1 \
+      || { warn "Failed to clone RTL-SDR Blog drivers"; exit 1; }
+
+    cd "$tmp_dir/rtl-sdr-blog"
+    mkdir -p build && cd build
+
+    info "Compiling RTL-SDR Blog drivers..."
+    if cmake .. -DINSTALL_UDEV_RULES=ON -DDETACH_KERNEL_DRIVER=ON >/dev/null 2>&1 && make >/dev/null 2>&1; then
+      $SUDO make install >/dev/null 2>&1
+      $SUDO ldconfig
+
+      # Copy udev rules if they exist
+      if [[ -f ../rtl-sdr.rules ]]; then
+        $SUDO cp ../rtl-sdr.rules /etc/udev/rules.d/20-rtlsdr-blog.rules
+        $SUDO udevadm control --reload-rules || true
+        $SUDO udevadm trigger || true
+      fi
+
+      ok "RTL-SDR Blog drivers installed successfully."
+      info "These drivers provide improved support for RTL-SDR Blog V4 and other devices."
+      warn "Unplug and replug your RTL-SDR devices for the new drivers to take effect."
+    else
+      warn "Failed to build RTL-SDR Blog drivers. Using stock drivers."
+      warn "If you have an RTL-SDR Blog V4, you may need to install drivers manually."
+      warn "See: https://github.com/rtlsdrblog/rtl-sdr-blog"
+    fi
+  )
+}
+
 setup_udev_rules_debian() {
   [[ -d /etc/udev/rules.d ]] || { warn "udev not found; skipping RTL-SDR udev rules."; return 0; }
 
@@ -500,7 +547,7 @@ install_debian_packages() {
   export DEBIAN_FRONTEND=noninteractive
   export NEEDRESTART_MODE=a
 
-  TOTAL_STEPS=17
+  TOTAL_STEPS=18
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -508,6 +555,9 @@ install_debian_packages() {
 
   progress "Installing RTL-SDR"
   apt_install rtl-sdr
+
+  progress "Installing RTL-SDR Blog drivers (V4 support)"
+  install_rtlsdr_blog_drivers_debian
 
   progress "Installing multimon-ng"
   apt_install multimon-ng
