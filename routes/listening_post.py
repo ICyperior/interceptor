@@ -442,7 +442,9 @@ def _start_audio_stream(frequency: float, modulation: str):
             # Log stderr to temp files so we can see any errors from rtl_fm and ffmpeg
             rtl_stderr_log = '/tmp/rtl_fm_stderr.log'
             ffmpeg_stderr_log = '/tmp/ffmpeg_stderr.log'
-            shell_cmd = f"{' '.join(sdr_cmd)} 2>{rtl_stderr_log} | {' '.join(encoder_cmd)} 2>{ffmpeg_stderr_log}"
+            rtl_raw_output = '/tmp/rtl_fm_raw.bin'
+            # Use tee to capture rtl_fm raw output for diagnostics while also piping to ffmpeg
+            shell_cmd = f"{' '.join(sdr_cmd)} 2>{rtl_stderr_log} | tee {rtl_raw_output} | {' '.join(encoder_cmd)} 2>{ffmpeg_stderr_log}"
             logger.info(f"Starting audio pipeline: {shell_cmd}")
 
             audio_rtl_process = None  # Not used in shell mode
@@ -943,7 +945,13 @@ def stream_audio() -> Response:
                         logger.warning(f"Audio stream: empty chunk after {bytes_sent} bytes, iterations={iterations}")
                         break
                 else:
-                    logger.warning(f"Audio stream: select timeout after {bytes_sent} bytes, iterations={iterations}, poll={audio_process.poll()}")
+                    # Check raw rtl_fm output file size
+                    raw_size = 0
+                    try:
+                        raw_size = os.path.getsize('/tmp/rtl_fm_raw.bin')
+                    except:
+                        pass
+                    logger.warning(f"Audio stream: select timeout after {bytes_sent} bytes, iterations={iterations}, poll={audio_process.poll()}, rtl_raw_size={raw_size}")
                     # Check for errors on timeout
                     try:
                         with open('/tmp/ffmpeg_stderr.log', 'r') as f:
