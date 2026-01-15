@@ -398,6 +398,8 @@ def _start_audio_stream(frequency: float, modulation: str):
             ]
             if scanner_config.get('bias_t', False):
                 sdr_cmd.append('-T')
+            # Explicitly output to stdout (some rtl_fm versions need this)
+            sdr_cmd.append('-')
         else:
             # Use SDR abstraction layer for HackRF, Airspy, LimeSDR, SDRPlay
             rx_fm_path = find_rx_fm()
