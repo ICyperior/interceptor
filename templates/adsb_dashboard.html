@@ -192,6 +192,10 @@
                 <option value="0">Loading...</option>
             </select>
             <input type="range" id="airbandSquelch" min="0" max="100" value="20" class="airband-controls" style="width: 50px;" title="Squelch">
+            <span class="airband-controls" style="display: flex; align-items: center; gap: 3px;" title="Volume">
+                <span style="font-size: 9px; color: var(--text-muted);">🔊</span>
+                <input type="range" id="airbandVolume" min="0" max="100" value="80" style="width: 50px;" oninput="updateAirbandVolume()">
+            </span>
             <button class="airband-btn" id="airbandBtn" onclick="toggleAirband()">▶ LISTEN</button>
             <span id="airbandStatus" class="airband-controls" style="color: var(--text-muted); font-size: 9px;">OFF</span>
             <audio id="airbandPlayer" style="display: none;" crossorigin="anonymous"></audio>
@@ -2271,6 +2275,10 @@ sudo make install</code>
                     const audioPlayer = document.getElementById('airbandPlayer');
                     audioPlayer.src = '/listening/audio/stream?' + Date.now();
 
+                    // Apply current volume setting
+                    const volume = parseInt(document.getElementById('airbandVolume').value) || 80;
+                    audioPlayer.volume = volume / 100;
+
                     // Initialize visualizer before playing
                     initAirbandVisualizer();
 
@@ -2313,6 +2321,14 @@ sudo make install</code>
                     document.getElementById('airbandStatus').style.color = 'var(--text-muted)';
                 })
                 .catch(() => {});
+        }
+
+        function updateAirbandVolume() {
+            const audioPlayer = document.getElementById('airbandPlayer');
+            const volume = parseInt(document.getElementById('airbandVolume').value) || 80;
+            if (audioPlayer) {
+                audioPlayer.volume = volume / 100;
+            }
         }
 
         // Initialize airband on page load
