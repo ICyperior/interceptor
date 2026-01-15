@@ -439,7 +439,9 @@ def _start_audio_stream(frequency: float, modulation: str):
 
         try:
             # Use shell pipe for reliable streaming (Python subprocess piping can be unreliable)
-            shell_cmd = f"{' '.join(sdr_cmd)} 2>/dev/null | {' '.join(encoder_cmd)}"
+            # Log stderr to a temp file so we can see any errors from rtl_fm
+            stderr_log = '/tmp/rtl_fm_stderr.log'
+            shell_cmd = f"{' '.join(sdr_cmd)} 2>{stderr_log} | {' '.join(encoder_cmd)}"
             logger.info(f"Starting audio pipeline: {shell_cmd}")
 
             audio_rtl_process = None  # Not used in shell mode
@@ -456,9 +458,24 @@ def _start_audio_stream(frequency: float, modulation: str):
             time.sleep(0.3)
 
             if audio_process.poll() is not None:
-                stderr = audio_process.stderr.read().decode() if audio_process.stderr else ''
-                logger.error(f"Audio pipeline exited immediately: {stderr}")
+                # Read rtl_fm stderr from temp file
+                rtl_stderr = ''
+                try:
+                    with open(stderr_log, 'r') as f:
+                        rtl_stderr = f.read().strip()
+                except:
+                    pass
+                logger.error(f"Audio pipeline exited immediately. rtl_fm stderr: {rtl_stderr}")
                 return
+
+            # Also check for rtl_fm errors even if process is still running
+            try:
+                with open(stderr_log, 'r') as f:
+                    rtl_stderr = f.read().strip()
+                    if rtl_stderr:
+                        logger.warning(f"rtl_fm stderr: {rtl_stderr}")
+            except:
+                pass
 
             audio_running = True
             audio_frequency = frequency
@@ -775,7 +792,7 @@ def start_audio() -> Response:
     """Start audio at specific frequency (manual mode)."""
     global scanner_running
 
-    logger.info("Audio start request received")
+    logger.info(f"Audio start request received: {request.json}")
 
     # Stop scanner if running
     if scanner_running:
@@ -823,6 +840,8 @@ def start_audio() -> Response:
     scanner_config['device'] = device
     scanner_config['sdr_type'] = sdr_type
 
+    logger.info(f"Starting audio: freq={frequency} MHz, mod={modulation}, device={device}, gain={gain}, squelch={squelch}")
+
     _start_audio_stream(frequency, modulation)
 
     if audio_running:
@@ -858,6 +877,8 @@ def audio_status() -> Response:
 @listening_post_bp.route('/audio/stream')
 def stream_audio() -> Response:
     """Stream MP3 audio."""
+    logger.info(f"Audio stream requested - running: {audio_running}, process: {audio_process is not None}")
+
     # Wait for audio to be ready (up to 2 seconds for modulation/squelch changes)
     for _ in range(40):
         if audio_running and audio_process:
@@ -865,9 +886,24 @@ def stream_audio() -> Response:
         time.sleep(0.05)
 
     if not audio_running or not audio_process:
+        logger.warning("Audio stream requested but no audio running")
         return Response(b'', mimetype='audio/mpeg', status=204)
 
+    # Check if process is still alive
+    poll_result = audio_process.poll()
+    logger.info(f"Audio process poll result: {poll_result} (None means running)")
+
+    # Check for rtl_fm errors
+    try:
+        with open('/tmp/rtl_fm_stderr.log', 'r') as f:
+            rtl_stderr = f.read().strip()
+            if rtl_stderr:
+                logger.warning(f"rtl_fm stderr (at stream request): {rtl_stderr}")
+    except:
+        pass
+
     def generate():
+        bytes_sent = 0
         try:
             while audio_running and audio_process and audio_process.poll() is None:
                 # Use select to avoid blocking forever
@@ -875,13 +911,21 @@ def stream_audio() -> Response:
                 if ready:
                     chunk = audio_process.stdout.read(4096)
                     if chunk:
+                        bytes_sent += len(chunk)
                         yield chunk
                     else:
+                        logger.warning(f"Audio stream: empty chunk after {bytes_sent} bytes")
                         break
+                else:
+                    # Timeout - check if process died
+                    if audio_process.poll() is not None:
+                        logger.warning(f"Audio process died during streaming after {bytes_sent} bytes")
+                        break
+            logger.info(f"Audio stream ended - sent {bytes_sent} bytes, running={audio_running}, poll={audio_process.poll() if audio_process else 'N/A'}")
         except GeneratorExit:
-            pass
-        except:
-            pass
+            logger.info(f"Audio stream: client disconnected after {bytes_sent} bytes")
+        except Exception as e:
+            logger.error(f"Audio stream error: {e}")
 
     return Response(
         generate(),
