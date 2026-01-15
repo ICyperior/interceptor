@@ -47,6 +47,7 @@ adsb_last_message_time = None
 adsb_bytes_received = 0
 adsb_lines_received = 0
 adsb_active_device = None  # Track which device index is being used
+_sbs_error_logged = False  # Suppress repeated connection error logs
 
 # Track ICAOs already looked up in aircraft database (avoid repeated lookups)
 _looked_up_icaos: set[str] = set()
@@ -101,7 +102,7 @@ def check_dump1090_service():
 
 def parse_sbs_stream(service_addr):
     """Parse SBS format data from dump1090 SBS port."""
-    global adsb_using_service, adsb_connected, adsb_messages_received, adsb_last_message_time, adsb_bytes_received, adsb_lines_received
+    global adsb_using_service, adsb_connected, adsb_messages_received, adsb_last_message_time, adsb_bytes_received, adsb_lines_received, _sbs_error_logged
 
     host, port = service_addr.split(':')
     port = int(port)
@@ -109,6 +110,7 @@ def parse_sbs_stream(service_addr):
     logger.info(f"SBS stream parser started, connecting to {host}:{port}")
     adsb_connected = False
     adsb_messages_received = 0
+    _sbs_error_logged = False
 
     while adsb_using_service:
         try:
@@ -116,6 +118,7 @@ def parse_sbs_stream(service_addr):
             sock.settimeout(SBS_SOCKET_TIMEOUT)
             sock.connect((host, port))
             adsb_connected = True
+            _sbs_error_logged = False  # Reset so we log next error
             logger.info("Connected to SBS stream")
 
             buffer = ""
@@ -242,7 +245,9 @@ def parse_sbs_stream(service_addr):
             adsb_connected = False
         except OSError as e:
             adsb_connected = False
-            logger.warning(f"SBS connection error: {e}, reconnecting...")
+            if not _sbs_error_logged:
+                logger.warning(f"SBS connection error: {e}, reconnecting...")
+                _sbs_error_logged = True
             time.sleep(SBS_RECONNECT_DELAY)
 
     adsb_connected = False
