@@ -50,6 +50,12 @@ aprs_station_count = 0
 aprs_last_packet_time = None
 aprs_stations = {}  # callsign -> station data
 
+# Meter rate limiting
+_last_meter_time = 0.0
+_last_meter_level = -1
+METER_MIN_INTERVAL = 0.1  # Max 10 updates/sec
+METER_MIN_CHANGE = 2  # Only send if level changes by at least this much
+
 
 def find_direwolf() -> Optional[str]:
     """Find direwolf binary."""
@@ -275,14 +281,64 @@ def parse_weather(data: str) -> dict:
     return weather
 
 
+def parse_audio_level(line: str) -> Optional[int]:
+    """Parse direwolf audio level line and return normalized level (0-100).
+
+    Direwolf outputs lines like:
+        Audio level = 34(18/16)   [NONE]   __||||||______
+        [0.4] Audio level = 57(34/32)   [NONE]   __||||||||||||______
+
+    The first number after "Audio level = " is the main level indicator.
+    We normalize it to 0-100 scale (direwolf typically outputs 0-100+).
+    """
+    # Match "Audio level = NN" pattern
+    match = re.search(r'Audio level\s*=\s*(\d+)', line, re.IGNORECASE)
+    if match:
+        raw_level = int(match.group(1))
+        # Normalize: direwolf levels are typically 0-100, but can go higher
+        # Clamp to 0-100 range
+        normalized = min(max(raw_level, 0), 100)
+        return normalized
+    return None
+
+
+def should_send_meter_update(level: int) -> bool:
+    """Rate-limit meter updates to avoid spamming SSE.
+
+    Only send if:
+    - At least METER_MIN_INTERVAL seconds have passed, OR
+    - Level changed by at least METER_MIN_CHANGE
+    """
+    global _last_meter_time, _last_meter_level
+
+    now = time.time()
+    time_ok = (now - _last_meter_time) >= METER_MIN_INTERVAL
+    change_ok = abs(level - _last_meter_level) >= METER_MIN_CHANGE
+
+    if time_ok or change_ok:
+        _last_meter_time = now
+        _last_meter_level = level
+        return True
+    return False
+
+
 def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subprocess.Popen) -> None:
-    """Stream decoded APRS packets to queue.
+    """Stream decoded APRS packets and audio level meter to queue.
 
     This function reads from the decoder's stdout (text mode, line-buffered).
     The decoder's stderr is merged into stdout (STDOUT) to avoid deadlocks.
     rtl_fm's stderr is sent to DEVNULL for the same reason.
+
+    Outputs two types of messages to the queue:
+    - type='aprs': Decoded APRS packets
+    - type='meter': Audio level meter readings (rate-limited)
     """
     global aprs_packet_count, aprs_station_count, aprs_last_packet_time, aprs_stations
+    global _last_meter_time, _last_meter_level
+
+    # Reset meter state
+    _last_meter_time = 0.0
+    _last_meter_level = -1
 
     try:
         app_module.aprs_queue.put({'type': 'status', 'status': 'started'})
@@ -292,6 +348,18 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
             line = line.strip()
             if not line:
                 continue
+
+            # Check for audio level line first (for signal meter)
+            audio_level = parse_audio_level(line)
+            if audio_level is not None:
+                if should_send_meter_update(audio_level):
+                    meter_msg = {
+                        'type': 'meter',
+                        'level': audio_level,
+                        'ts': datetime.utcnow().isoformat() + 'Z'
+                    }
+                    app_module.aprs_queue.put(meter_msg)
+                continue  # Audio level lines are not packets
 
             # multimon-ng prefixes decoded packets with "AFSK1200: "
             if line.startswith('AFSK1200:'):
@@ -489,7 +557,7 @@ def start_aprs() -> Response:
         # -r 22050 = sample rate (must match rtl_fm -s)
         # -b 16 = 16-bit signed samples
         # -t 0 = disable text colors (for cleaner parsing)
-        # -q h = quiet: suppress audio level heard line (keeps packet output)
+        # NOTE: We do NOT use -q h here so we get audio level lines for the signal meter
         # - = read audio from stdin (must be last argument)
         decoder_cmd = [
             direwolf_path,
@@ -498,7 +566,6 @@ def start_aprs() -> Response:
             '-r', '22050',
             '-b', '16',
             '-t', '0',
-            '-q', 'h',
             '-'
         ]
         decoder_name = 'direwolf'

@@ -5949,6 +5949,9 @@
         let isAprsRunning = false;
         let aprsPacketCount = 0;
         let aprsStationCount = 0;
+        let aprsMeterLastUpdate = 0;
+        let aprsMeterCheckInterval = null;
+        const APRS_METER_TIMEOUT = 5000; // 5 seconds for "no signal" state
 
         function checkAprsTools() {
             fetch('/aprs/tools')
@@ -6052,6 +6055,10 @@
                     updateAprsStatus('listening', data.frequency);
                     document.getElementById('aprsStatusStations').textContent = '0';
                     document.getElementById('aprsStatusPackets').textContent = '0';
+                    // Show signal meter
+                    document.getElementById('aprsSignalMeter').style.display = 'block';
+                    resetAprsMeter();
+                    startAprsMeterCheck();
                     startAprsStream();
                 } else {
                     alert('APRS Error: ' + data.message);
@@ -6071,10 +6078,13 @@
                     isAprsRunning = false;
                     document.getElementById('startAprsBtn').style.display = 'block';
                     document.getElementById('stopAprsBtn').style.display = 'none';
-                    // Hide sidebar status bar
+                    // Hide sidebar status bar and signal meter
                     document.getElementById('aprsStatusBar').style.display = 'none';
+                    document.getElementById('aprsSignalMeter').style.display = 'none';
                     document.getElementById('aprsMapStatus').textContent = 'STANDBY';
                     document.getElementById('aprsMapStatus').style.color = '';
+                    // Stop meter check interval
+                    stopAprsMeterCheck();
                     if (aprsEventSource) {
                         aprsEventSource.close();
                         aprsEventSource = null;
@@ -6099,6 +6109,9 @@
                         updateAprsStatus('tracking');
                     }
                     processAprsPacket(data);
+                } else if (data.type === 'meter') {
+                    // Update signal meter
+                    updateAprsMeter(data.level);
                 }
             };
 
@@ -6106,6 +6119,91 @@
                 console.error('APRS stream error');
                 updateAprsStatus('error');
             };
+        }
+
+        // Signal Meter Functions
+        function resetAprsMeter() {
+            aprsMeterLastUpdate = 0;
+            const bar = document.getElementById('aprsMeterBar');
+            const value = document.getElementById('aprsMeterValue');
+            const burst = document.getElementById('aprsMeterBurst');
+            const status = document.getElementById('aprsMeterStatus');
+            if (bar) {
+                bar.style.width = '0%';
+                bar.classList.remove('no-signal');
+            }
+            if (value) value.textContent = '--';
+            if (burst) burst.style.display = 'none';
+            if (status) {
+                status.textContent = 'Waiting for signal...';
+                status.className = 'aprs-meter-status';
+            }
+        }
+
+        function updateAprsMeter(level) {
+            aprsMeterLastUpdate = Date.now();
+            const bar = document.getElementById('aprsMeterBar');
+            const value = document.getElementById('aprsMeterValue');
+            const burst = document.getElementById('aprsMeterBurst');
+            const status = document.getElementById('aprsMeterStatus');
+
+            if (bar) {
+                bar.style.width = level + '%';
+                bar.classList.remove('no-signal');
+            }
+            if (value) value.textContent = level;
+
+            // Show burst indicator for high levels (>70)
+            if (burst) {
+                if (level > 70) {
+                    burst.style.display = 'inline';
+                    // Remove and re-add to trigger animation
+                    burst.style.animation = 'none';
+                    burst.offsetHeight; // Trigger reflow
+                    burst.style.animation = null;
+                } else {
+                    burst.style.display = 'none';
+                }
+            }
+
+            // Update status text
+            if (status) {
+                status.className = 'aprs-meter-status active';
+                if (level < 10) {
+                    status.textContent = 'Low signal / noise floor';
+                } else if (level < 30) {
+                    status.textContent = 'Weak signal detected';
+                } else if (level < 60) {
+                    status.textContent = 'Moderate signal';
+                } else {
+                    status.textContent = 'Strong signal / packet burst';
+                }
+            }
+        }
+
+        function startAprsMeterCheck() {
+            // Check for no-signal state every second
+            aprsMeterCheckInterval = setInterval(function() {
+                if (aprsMeterLastUpdate > 0 && (Date.now() - aprsMeterLastUpdate) > APRS_METER_TIMEOUT) {
+                    // No meter updates for 5 seconds - show no-signal state
+                    const bar = document.getElementById('aprsMeterBar');
+                    const status = document.getElementById('aprsMeterStatus');
+                    const burst = document.getElementById('aprsMeterBurst');
+                    if (bar) bar.classList.add('no-signal');
+                    if (burst) burst.style.display = 'none';
+                    if (status) {
+                        status.textContent = 'No RF activity / silence';
+                        status.className = 'aprs-meter-status no-signal';
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopAprsMeterCheck() {
+            if (aprsMeterCheckInterval) {
+                clearInterval(aprsMeterCheckInterval);
+                aprsMeterCheckInterval = null;
+            }
         }
 
         function processAprsPacket(packet) {
