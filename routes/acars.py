@@ -176,11 +176,12 @@ def start_acars() -> Response:
     acars_last_message_time = None
 
     # Build acarsdec command
-    # acarsdec -o 4 -g <gain> -p <ppm> -r <device> <freq1> <freq2> ...
-    # Note: -o 4 is JSON stdout, gain/ppm must come BEFORE -r
+    # acarsdec -j -g <gain> -p <ppm> -r <device> <freq1> <freq2> ...
+    # Note: -j is JSON stdout (newer forks), -o 4 was the old syntax
+    # gain/ppm must come BEFORE -r
     cmd = [
         acarsdec_path,
-        '-o', '4',               # JSON output to stdout
+        '-j',                    # JSON output to stdout
     ]
 
     # Add gain if not auto (must be before -r)
