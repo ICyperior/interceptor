@@ -883,19 +883,23 @@ def stream_audio() -> Response:
         return Response(b'', mimetype='audio/mpeg', status=204)
 
     def generate():
+        # Capture local reference to avoid race condition with stop
+        proc = audio_process
+        if not proc or not proc.stdout:
+            return
         try:
-            while audio_running and audio_process and audio_process.poll() is None:
+            while audio_running and proc.poll() is None:
                 # Use select to avoid blocking forever
-                ready, _, _ = select.select([audio_process.stdout], [], [], 2.0)
+                ready, _, _ = select.select([proc.stdout], [], [], 2.0)
                 if ready:
-                    chunk = audio_process.stdout.read(4096)
+                    chunk = proc.stdout.read(4096)
                     if chunk:
                         yield chunk
                     else:
                         break
                 else:
                     # Timeout - check if process died
-                    if audio_process.poll() is not None:
+                    if proc.poll() is not None:
                         break
         except GeneratorExit:
             pass
