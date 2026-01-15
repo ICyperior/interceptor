@@ -904,24 +904,30 @@ def stream_audio() -> Response:
 
     def generate():
         bytes_sent = 0
+        iterations = 0
+        logger.info("Audio stream generator started")
         try:
             while audio_running and audio_process and audio_process.poll() is None:
+                iterations += 1
                 # Use select to avoid blocking forever
                 ready, _, _ = select.select([audio_process.stdout], [], [], 2.0)
                 if ready:
                     chunk = audio_process.stdout.read(4096)
                     if chunk:
                         bytes_sent += len(chunk)
+                        if bytes_sent < 50000 or bytes_sent % 100000 < 4096:
+                            logger.debug(f"Audio chunk: {len(chunk)} bytes, total: {bytes_sent}")
                         yield chunk
                     else:
-                        logger.warning(f"Audio stream: empty chunk after {bytes_sent} bytes")
+                        logger.warning(f"Audio stream: empty chunk after {bytes_sent} bytes, iterations={iterations}")
                         break
                 else:
+                    logger.warning(f"Audio stream: select timeout after {bytes_sent} bytes, iterations={iterations}, poll={audio_process.poll()}")
                     # Timeout - check if process died
                     if audio_process.poll() is not None:
                         logger.warning(f"Audio process died during streaming after {bytes_sent} bytes")
                         break
-            logger.info(f"Audio stream ended - sent {bytes_sent} bytes, running={audio_running}, poll={audio_process.poll() if audio_process else 'N/A'}")
+            logger.info(f"Audio stream ended - sent {bytes_sent} bytes, iterations={iterations}, running={audio_running}, poll={audio_process.poll() if audio_process else 'N/A'}")
         except GeneratorExit:
             logger.info(f"Audio stream: client disconnected after {bytes_sent} bytes")
         except Exception as e:
