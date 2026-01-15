@@ -1604,6 +1604,8 @@ body {
 }
 
 .strip-btn {
+    position: relative;
+    z-index: 10;
     background: rgba(74, 158, 255, 0.1);
     border: 1px solid rgba(74, 158, 255, 0.2);
     color: var(--text-primary);
@@ -1654,15 +1656,15 @@ body {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: var(--accent-red);
-    box-shadow: 0 0 10px var(--accent-red);
+    background: var(--accent-green);
+    box-shadow: 0 0 10px var(--accent-green);
     animation: pulse 2s ease-in-out infinite;
     transition: all 0.3s ease;
 }
 
-.strip-status .status-dot.active {
-    background: var(--accent-green);
-    box-shadow: 0 0 10px var(--accent-green);
+.strip-status .status-dot.inactive {
+    background: var(--accent-red);
+    box-shadow: 0 0 10px var(--accent-red);
 }
 
 .strip-time {

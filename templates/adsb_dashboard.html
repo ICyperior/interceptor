@@ -68,13 +68,13 @@
                 <span class="strip-label">SESSION</span>
             </div>
             <div class="strip-divider"></div>
-            <button class="strip-btn" onclick="showSquawkReference()" title="Squawk Code Reference">
+            <button type="button" class="strip-btn" onclick="showSquawkReference()" title="Squawk Code Reference">
                 📟 Squawk
             </button>
-            <button class="strip-btn" onclick="lookupSelectedFlight()" title="Lookup selected aircraft on FlightAware" id="flightLookupBtn" disabled>
+            <button type="button" class="strip-btn" onclick="lookupSelectedFlight()" title="Lookup selected aircraft on FlightAware" id="flightLookupBtn" disabled>
                 🔗 Lookup
             </button>
-            <button class="strip-btn primary" onclick="generateReport()" title="Generate Session Report">
+            <button type="button" class="strip-btn primary" onclick="generateReport()" title="Generate Session Report">
                 📊 Report
             </button>
             <div class="strip-divider"></div>
@@ -2068,6 +2068,11 @@ sudo make install</code>
             setTimeout(() => {
                 if (radarMap) radarMap.invalidateSize();
             }, 200);
+
+            // Additional invalidateSize to ensure all tiles load
+            setTimeout(() => {
+                if (radarMap) radarMap.invalidateSize();
+            }, 500);
         }
 
         // Handle window resize for map (especially important on mobile)
