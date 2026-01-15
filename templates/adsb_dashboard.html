@@ -68,7 +68,7 @@
                 <span class="strip-label">SESSION</span>
             </div>
             <div class="strip-divider"></div>
-            <button type="button" class="strip-btn" onclick="showSquawkReference()" title="Squawk Code Reference">
+            <button type="button" class="strip-btn" id="squawkBtn" title="Squawk Code Reference">
                 📟 Squawk
             </button>
             <button type="button" class="strip-btn" onclick="lookupSelectedFlight()" title="Lookup selected aircraft on FlightAware" id="flightLookupBtn" disabled>
@@ -136,7 +136,9 @@
         <!-- Main Display (Map or Radar Scope) -->
         <div class="main-display">
             <div class="display-container">
-                <div id="radarMap"></div>
+                <div id="radarMap">
+                    <canvas id="radarOverlayCanvas"></canvas>
+                </div>
                 <div id="radarScope">
                     <canvas id="radarCanvas"></canvas>
                 </div>
@@ -188,6 +190,7 @@
                 <div class="control-group-items">
                     <label title="Show aircraft trails"><input type="checkbox" id="showTrails" onchange="toggleTrails()"> Trails</label>
                     <label title="Show range rings"><input type="checkbox" id="showRangeRings" checked onchange="drawRangeRings()"> Rings</label>
+                    <label title="Radar sweep overlay"><input type="checkbox" id="radarOverlay" onchange="toggleRadarOverlay()"> Radar</label>
                     <label title="Audio alerts"><input type="checkbox" id="alertToggle" checked onchange="toggleAlerts()"> Alerts</label>
                     <select id="aircraftFilter" onchange="applyFilter()" title="Filter aircraft">
                         <option value="all">All Aircraft</option>
@@ -259,6 +262,7 @@
                         <input type="range" id="airbandVolume" min="0" max="100" value="80" class="airband-controls" oninput="updateAirbandVolume()" title="Volume">
                     </div>
                     <button class="airband-btn" id="airbandBtn" onclick="toggleAirband()">▶ LISTEN</button>
+                    <span id="airbandStatus" class="airband-status">OFF</span>
                     <div class="airband-visualizer" id="airbandVisualizerContainer" style="display: none;">
                         <div class="signal-meter">
                             <div class="meter-bar">
@@ -1112,13 +1116,17 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         // SQUAWK CODE REFERENCE
         // ============================================
         function showSquawkReference() {
+            // Remove existing modal if any
+            const existing = document.querySelector('.squawk-modal');
+            if (existing) existing.remove();
+
             const modal = document.createElement('div');
             modal.className = 'squawk-modal';
             modal.innerHTML = `
                 <div class="squawk-content">
                     <div class="squawk-header">
                         <h2>📟 Squawk Code Reference</h2>
-                        <button class="squawk-close" onclick="this.closest('.squawk-modal').remove()">×</button>
+                        <button class="squawk-close" type="button">×</button>
                     </div>
                     <div class="squawk-body">
                         <div class="squawk-section emergency">
@@ -1160,6 +1168,14 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 </div>
             `;
             document.body.appendChild(modal);
+
+            // Close button handler
+            modal.querySelector('.squawk-close').addEventListener('click', () => modal.remove());
+
+            // Click outside to close
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
         }
 
         // ============================================
@@ -1526,6 +1542,159 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         }
 
         // ============================================
+        // RADAR OVERLAY ON MAP
+        // ============================================
+        let radarOverlayEnabled = false;
+        let radarOverlayAnimationId = null;
+        let radarOverlaySweepAngle = 0;
+
+        function toggleRadarOverlay() {
+            radarOverlayEnabled = document.getElementById('radarOverlay').checked;
+            const canvas = document.getElementById('radarOverlayCanvas');
+
+            if (radarOverlayEnabled) {
+                canvas.classList.add('active');
+                startRadarOverlayAnimation();
+            } else {
+                canvas.classList.remove('active');
+                stopRadarOverlayAnimation();
+            }
+        }
+
+        function startRadarOverlayAnimation() {
+            if (radarOverlayAnimationId) return;
+
+            const canvas = document.getElementById('radarOverlayCanvas');
+            const ctx = canvas.getContext('2d');
+
+            function animate() {
+                if (radarOverlayEnabled && currentView === 'map') {
+                    drawRadarOverlay(canvas, ctx);
+                }
+                radarOverlayAnimationId = requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        function stopRadarOverlayAnimation() {
+            if (radarOverlayAnimationId) {
+                cancelAnimationFrame(radarOverlayAnimationId);
+                radarOverlayAnimationId = null;
+            }
+        }
+
+        function drawRadarOverlay(canvas, ctx) {
+            const container = canvas.parentElement;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+
+            // Resize canvas if needed
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+            }
+
+            const centerX = w / 2;
+            const centerY = h / 2;
+            const radius = Math.min(w, h) / 2 - 20;
+
+            // Clear with transparency
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw range rings
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            const rings = [0.25, 0.5, 0.75, 1.0];
+            rings.forEach((ratio, i) => {
+                const r = radius * ratio;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Range label
+                const rangeNm = Math.round(maxRange * ratio);
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(`${rangeNm}nm`, centerX + r + 5, centerY);
+            });
+
+            // Draw compass directions
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+            ctx.font = 'bold 14px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const directions = [
+                { angle: 0, label: 'N', x: centerX, y: centerY - radius - 12 },
+                { angle: 90, label: 'E', x: centerX + radius + 12, y: centerY },
+                { angle: 180, label: 'S', x: centerX, y: centerY + radius + 12 },
+                { angle: 270, label: 'W', x: centerX - radius - 12, y: centerY }
+            ];
+            directions.forEach(d => ctx.fillText(d.label, d.x, d.y));
+
+            // Draw tick marks every 30 degrees
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+            for (let angle = 0; angle < 360; angle += 30) {
+                const rad = (angle - 90) * Math.PI / 180;
+                const inner = radius - 8;
+                const outer = radius + 3;
+                ctx.beginPath();
+                ctx.moveTo(centerX + inner * Math.cos(rad), centerY + inner * Math.sin(rad));
+                ctx.lineTo(centerX + outer * Math.cos(rad), centerY + outer * Math.sin(rad));
+                ctx.stroke();
+            }
+
+            // Draw sweep line
+            const sweepRad = (radarOverlaySweepAngle - 90) * Math.PI / 180;
+            const gradient = ctx.createLinearGradient(
+                centerX, centerY,
+                centerX + radius * Math.cos(sweepRad),
+                centerY + radius * Math.sin(sweepRad)
+            );
+            gradient.addColorStop(0, 'rgba(0, 255, 255, 0.6)');
+            gradient.addColorStop(1, 'rgba(0, 255, 255, 0.1)');
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(
+                centerX + radius * Math.cos(sweepRad),
+                centerY + radius * Math.sin(sweepRad)
+            );
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw sweep arc (afterglow)
+            const startAngle = (radarOverlaySweepAngle - 90 - 40) * Math.PI / 180;
+            const endAngle = (radarOverlaySweepAngle - 90) * Math.PI / 180;
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+            ctx.closePath();
+
+            const arcGradient = ctx.createConicGradient(startAngle, centerX, centerY);
+            arcGradient.addColorStop(0, 'rgba(0, 255, 255, 0)');
+            arcGradient.addColorStop(1, 'rgba(0, 255, 255, 0.1)');
+            ctx.fillStyle = arcGradient;
+            ctx.fill();
+
+            // Draw center point
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 0, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Update sweep angle
+            radarOverlaySweepAngle = (radarOverlaySweepAngle + 1.5) % 360;
+        }
+
+        // ============================================
         // VIEW TOGGLE
         // ============================================
         function setView(view) {
@@ -1820,6 +1989,9 @@ ACARS: ${r.statistics.acarsMessages} messages`;
 
             // Auto-connect to gpsd if available
             autoConnectGps();
+
+            // Squawk button event listener
+            document.getElementById('squawkBtn').addEventListener('click', showSquawkReference);
         });
 
         // Track which device is being used for ADS-B tracking
