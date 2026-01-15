@@ -323,6 +323,9 @@ install_macos_packages() {
     ok "multimon-ng already installed"
   fi
 
+  progress "Installing direwolf (APRS decoder)"
+  (brew_install direwolf) || warn "direwolf not available via Homebrew"
+
   progress "Installing ffmpeg"
   brew_install ffmpeg
 
@@ -508,6 +511,9 @@ install_debian_packages() {
 
   progress "Installing multimon-ng"
   apt_install multimon-ng
+
+  progress "Installing direwolf (APRS decoder)"
+  apt_install direwolf || true
 
   progress "Installing ffmpeg"
   apt_install ffmpeg
