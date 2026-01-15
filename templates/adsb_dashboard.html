@@ -257,7 +257,7 @@
                     </select>
                     <div class="airband-sliders">
                         <span title="Squelch">SQ</span>
-                        <input type="range" id="airbandSquelch" min="0" max="100" value="20" class="airband-controls" title="Squelch">
+                        <input type="range" id="airbandSquelch" min="0" max="100" value="20" class="airband-controls" title="Squelch" onchange="updateAirbandSquelch()">
                         <span title="Volume">VOL</span>
                         <input type="range" id="airbandVolume" min="0" max="100" value="80" class="airband-controls" oninput="updateAirbandVolume()" title="Volume">
                     </div>
@@ -3218,6 +3218,14 @@ sudo make install</code>
             const volume = parseInt(document.getElementById('airbandVolume').value) || 80;
             if (audioPlayer) {
                 audioPlayer.volume = volume / 100;
+            }
+        }
+
+        function updateAirbandSquelch() {
+            // If airband is playing, restart with new squelch value
+            if (isAirbandPlaying) {
+                stopAirband();
+                setTimeout(() => startAirband(), 300);
             }
         }
 
