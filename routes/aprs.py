@@ -440,10 +440,10 @@ def start_aprs() -> Response:
         # -n 1 = mono audio channel
         # -r 22050 = sample rate
         # -b 16 = 16-bit samples
-        # -t 0 = disable PTT (receive only)
-        # -q d = quiet mode (less debug output)
+        # -t 0 = disable text colors (for cleaner parsing)
+        # -q h = quiet mode - suppress audio level heard line (keeps packet output)
         # - = read from stdin
-        decoder_cmd = [direwolf_path, '-n', '1', '-r', '22050', '-b', '16', '-t', '0', '-q', 'd', '-']
+        decoder_cmd = [direwolf_path, '-n', '1', '-r', '22050', '-b', '16', '-t', '0', '-q', 'h', '-']
         decoder_name = 'direwolf'
     else:
         decoder_cmd = [multimon_path, '-t', 'raw', '-a', 'AFSK1200', '-']
