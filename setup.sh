@@ -559,10 +559,10 @@ install_grgsm_from_source_debian() {
 
   local grgsm_repo grgsm_branch
   if [[ "$gr_major" -ge 3 && "$gr_minor" -ge 10 ]]; then
-    # GNU Radio 3.10+ needs fork with pybind11 (no SWIG)
-    info "GNU Radio 3.10+ detected, using bkerler fork with pybind11 support..."
-    grgsm_repo="https://github.com/bkerler/gr-gsm.git"
-    grgsm_branch="master"
+    # GNU Radio 3.10+ needs velichkov fork with maint-3.10 branch
+    info "GNU Radio 3.10+ detected, using velichkov fork (maint-3.10 branch)..."
+    grgsm_repo="https://github.com/velichkov/gr-gsm.git"
+    grgsm_branch="maint-3.10"
 
     # Install pybind11 for GNU Radio 3.10+
     $SUDO apt-get install -y pybind11-dev python3-pybind11 || true
