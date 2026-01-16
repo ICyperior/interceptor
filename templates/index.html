@@ -8547,26 +8547,39 @@
             }
             html += `</table></div>`;
 
+            // Actions section - always show with "Add to Known Devices"
+            const deviceIdentifier = device.bssid || device.mac || (device.frequency ? device.frequency.toString() : id);
+            const deviceName = device.name || device.ssid || device.essid || (device.frequency ? device.frequency + ' MHz' : 'Unknown');
+            html += `
+                <div class="device-detail-section">
+                    <h4>Actions</h4>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            `;
+
             // Add "Listen" button for RF signals
             if (protocol === 'rf' && device.frequency) {
                 const freq = device.frequency;
                 html += `
-                    <div class="device-detail-section" style="border-bottom: none;">
-                        <h4>Actions</h4>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="tscm-action-btn" onclick="listenToRfSignal(${freq}, 'fm')">
-                                🎧 Listen (FM)
-                            </button>
-                            <button class="tscm-action-btn" onclick="listenToRfSignal(${freq}, 'am')">
-                                🎧 Listen (AM)
-                            </button>
-                        </div>
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 8px;">
-                            Opens Listening Post and tunes to this frequency
-                        </div>
-                    </div>
+                        <button class="tscm-action-btn" onclick="listenToRfSignal(${freq}, 'fm')">
+                            🎧 Listen (FM)
+                        </button>
+                        <button class="tscm-action-btn" onclick="listenToRfSignal(${freq}, 'am')">
+                            🎧 Listen (AM)
+                        </button>
                 `;
             }
+
+            // Add "Add to Known Devices" button for all device types
+            html += `
+                        <button class="tscm-action-btn" style="background: var(--accent-cyan);" onclick="tscmAddToKnownDevices('${escapeHtml(deviceIdentifier)}', '${escapeHtml(deviceName)}', '${protocol}')">
+                            ✅ Add to Known Devices
+                        </button>
+                    </div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 8px;">
+                        ${protocol === 'rf' ? 'Listen buttons open Listening Post. ' : ''}Known devices are excluded from threat scoring in future sweeps.
+                    </div>
+                </div>
+            `;
 
             // Add indicators section
             if (device.indicators && device.indicators.length > 0) {
@@ -9097,48 +9110,104 @@
 
                 if (data.status === 'success') {
                     const caps = data.capabilities;
+
+                    // Determine availability from nested structure
+                    const wifiAvailable = caps.wifi && caps.wifi.mode !== 'unavailable';
+                    const btAvailable = caps.bluetooth && caps.bluetooth.mode !== 'unavailable';
+                    const rfAvailable = caps.rf && caps.rf.available;
+
+                    // Build can/cannot detect lists based on capabilities
+                    const canDetect = [];
+                    const cannotDetect = [];
+
+                    if (wifiAvailable) {
+                        canDetect.push('WiFi access points and networks');
+                        canDetect.push('Hidden SSIDs (presence only)');
+                        if (caps.wifi.monitor_capable) {
+                            canDetect.push('WiFi client devices (probe requests)');
+                            canDetect.push('Deauthentication attacks');
+                        }
+                    } else {
+                        cannotDetect.push('WiFi networks - no adapter available');
+                    }
+
+                    if (btAvailable) {
+                        canDetect.push('Bluetooth Classic devices');
+                        canDetect.push('BLE beacons and trackers');
+                        canDetect.push('Audio-capable Bluetooth devices');
+                    } else {
+                        cannotDetect.push('Bluetooth devices - no adapter available');
+                    }
+
+                    if (rfAvailable) {
+                        const minFreq = caps.rf.frequency_range_mhz?.min || 0;
+                        const maxFreq = caps.rf.frequency_range_mhz?.max || 0;
+                        canDetect.push(`RF signals (${minFreq}-${maxFreq} MHz)`);
+                        canDetect.push('Unknown transmitters in frequency range');
+                    } else {
+                        cannotDetect.push('RF signals - no SDR device available');
+                    }
+
+                    // Always cannot detect
+                    cannotDetect.push('Wired surveillance devices');
+                    cannotDetect.push('Passive listening devices (no transmitter)');
+                    cannotDetect.push('Devices that are powered off');
+                    cannotDetect.push('Burst/store-and-forward transmitters (when idle)');
+
                     content.innerHTML = `
                         <div class="device-detail-header classification-cyan">
                             <h3>Sweep Capabilities</h3>
                         </div>
                         <div class="device-detail-section">
+                            <h4>System Information</h4>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">
+                                OS: ${escapeHtml(caps.system?.os || 'Unknown')} ${escapeHtml(caps.system?.os_version || '')} |
+                                Root: ${caps.system?.is_root ? 'Yes' : 'No'}
+                            </div>
                             <h4>Available Detection Methods</h4>
                             <div class="capabilities-grid">
-                                <div class="cap-detail-item ${caps.wifi_available ? 'available' : 'unavailable'}">
+                                <div class="cap-detail-item ${wifiAvailable ? 'available' : 'unavailable'}">
                                     <span class="cap-icon">📶</span>
                                     <span class="cap-name">WiFi Scanning</span>
-                                    <span class="cap-status">${caps.wifi_available ? 'Available' : 'Not Available'}</span>
-                                    ${caps.wifi_interface ? `<span class="cap-detail">${caps.wifi_interface}</span>` : ''}
+                                    <span class="cap-status">${wifiAvailable ? caps.wifi.mode : 'Not Available'}</span>
+                                    ${caps.wifi?.interface ? `<span class="cap-detail">${escapeHtml(caps.wifi.interface)}</span>` : ''}
                                 </div>
-                                <div class="cap-detail-item ${caps.bluetooth_available ? 'available' : 'unavailable'}">
+                                <div class="cap-detail-item ${btAvailable ? 'available' : 'unavailable'}">
                                     <span class="cap-icon">🔵</span>
                                     <span class="cap-name">Bluetooth Scanning</span>
-                                    <span class="cap-status">${caps.bluetooth_available ? 'Available' : 'Not Available'}</span>
-                                    ${caps.bt_adapter ? `<span class="cap-detail">${caps.bt_adapter}</span>` : ''}
+                                    <span class="cap-status">${btAvailable ? caps.bluetooth.mode : 'Not Available'}</span>
+                                    ${caps.bluetooth?.adapter ? `<span class="cap-detail">${escapeHtml(caps.bluetooth.adapter)}</span>` : ''}
                                 </div>
-                                <div class="cap-detail-item ${caps.sdr_available ? 'available' : 'unavailable'}">
+                                <div class="cap-detail-item ${rfAvailable ? 'available' : 'unavailable'}">
                                     <span class="cap-icon">📡</span>
                                     <span class="cap-name">RF/SDR Scanning</span>
-                                    <span class="cap-status">${caps.sdr_available ? 'Available' : 'Not Available'}</span>
-                                    ${caps.sdr_device ? `<span class="cap-detail">${caps.sdr_device}</span>` : ''}
+                                    <span class="cap-status">${rfAvailable ? 'Available' : 'Not Available'}</span>
+                                    ${caps.rf?.device_type ? `<span class="cap-detail">${escapeHtml(caps.rf.device_type)}</span>` : ''}
                                 </div>
                             </div>
                         </div>
                         <div class="device-detail-section">
                             <h4>What This Sweep CAN Detect</h4>
                             <ul class="cap-can-list">
-                                ${(caps.can_detect || []).map(item => `<li>✅ ${escapeHtml(item)}</li>`).join('')}
+                                ${canDetect.map(item => `<li>✅ ${escapeHtml(item)}</li>`).join('')}
                             </ul>
                         </div>
                         <div class="device-detail-section">
                             <h4>What This Sweep CANNOT Detect</h4>
                             <ul class="cap-cannot-list">
-                                ${(caps.cannot_detect || []).map(item => `<li>❌ ${escapeHtml(item)}</li>`).join('')}
+                                ${cannotDetect.map(item => `<li>❌ ${escapeHtml(item)}</li>`).join('')}
                             </ul>
                         </div>
+                        ${caps.all_limitations && caps.all_limitations.length > 0 ? `
+                        <div class="device-detail-section">
+                            <h4>Current Limitations</h4>
+                            <ul class="cap-cannot-list">
+                                ${caps.all_limitations.map(item => `<li>⚠️ ${escapeHtml(item)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
                         <div class="device-detail-disclaimer">
-                            <strong>Important:</strong> This tool detects wireless RF emissions only.
-                            Professional TSCM requires physical inspection, NLJD, thermal imaging, and spectrum analysis equipment.
+                            <strong>Important:</strong> ${escapeHtml(caps.disclaimer || 'This tool detects wireless RF emissions only. Professional TSCM requires physical inspection, NLJD, thermal imaging, and spectrum analysis equipment.')}
                         </div>
                     `;
                 } else {
@@ -9246,6 +9315,37 @@
                 }
             } catch (e) {
                 console.error('Failed to remove known device:', e);
+            }
+        }
+
+        async function tscmAddToKnownDevices(identifier, name, deviceType) {
+            // Ask for optional custom name
+            const customName = prompt(`Add "${name}" to known devices.\n\nEnter a friendly name (or leave blank to use default):`, name);
+            if (customName === null) return; // User cancelled
+
+            try {
+                const response = await fetch('/tscm/known-devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        identifier: identifier,
+                        name: customName || name,
+                        device_type: deviceType
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    // Show success message
+                    alert(`"${customName || name}" added to known devices.\n\nThis device will be excluded from threat scoring in future sweeps.`);
+                    // Close the device modal
+                    closeTscmDeviceModal();
+                } else {
+                    alert(data.message || 'Failed to add device');
+                }
+            } catch (e) {
+                console.error('Failed to add to known devices:', e);
+                alert('Failed to add device to known list');
             }
         }
 
