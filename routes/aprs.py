@@ -154,12 +154,20 @@ def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
             packet['weather'] = parse_weather(data)
 
         elif data.startswith(';'):
-            # Object
+            # Object format: ;OBJECTNAME*DDHHMMzPOSITION or ;OBJECTNAME_DDHHMMzPOSITION
+            # Name is exactly 9 chars, then * (live) or _ (killed), then 7-char timestamp, then position
             packet['packet_type'] = 'object'
+            obj_data = parse_object(data)
+            if obj_data:
+                packet.update(obj_data)
 
         elif data.startswith(')'):
-            # Item
+            # Item format: )ITEMNAME!POSITION or )ITEMNAME_POSITION
+            # Name is 3-9 chars, terminated by ! (live) or _ (killed), then position
             packet['packet_type'] = 'item'
+            item_data = parse_item(data)
+            if item_data:
+                packet.update(item_data)
 
         elif data.startswith('T'):
             # Telemetry
@@ -231,6 +239,114 @@ def parse_position(data: str) -> Optional[dict]:
         logger.debug(f"Failed to parse position: {e}")
 
     return None
+
+
+def parse_object(data: str) -> Optional[dict]:
+    """Parse APRS object data.
+
+    Object format: ;OBJECTNAME*DDHHMMzPOSITION or ;OBJECTNAME_DDHHMMzPOSITION
+    - ; is the object marker
+    - OBJECTNAME is exactly 9 characters (padded with spaces if needed)
+    - * means object is live, _ means object is killed/deleted
+    - DDHHMMz is the timestamp (day/hour/minute zulu) - 7 chars
+    - Position follows in standard APRS format
+
+    Some implementations have whitespace variations, so we search for the status
+    character rather than assuming exact position.
+    """
+    try:
+        if not data.startswith(';') or len(data) < 18:
+            return None
+
+        # Find the status character (* or _) which marks end of object name
+        # It should be around position 10, but allow some flexibility
+        status_pos = -1
+        for i in range(10, min(13, len(data))):
+            if data[i] in '*_':
+                status_pos = i
+                break
+
+        if status_pos == -1:
+            # Fallback: assume standard position
+            status_pos = 10
+
+        # Extract object name (chars between ; and status)
+        obj_name = data[1:status_pos].strip()
+
+        # Get status character
+        status_char = data[status_pos] if status_pos < len(data) else '*'
+        is_live = status_char == '*'
+
+        # Timestamp is 7 chars after status, position follows
+        pos_start = status_pos + 8  # status + 7 char timestamp
+        if len(data) > pos_start:
+            pos = parse_position(data[pos_start:])
+        else:
+            pos = None
+
+        result = {
+            'object_name': obj_name,
+            'object_live': is_live,
+        }
+
+        if pos:
+            result.update(pos)
+
+        return result
+
+    except Exception as e:
+        logger.debug(f"Failed to parse object: {e}")
+        return None
+
+
+def parse_item(data: str) -> Optional[dict]:
+    """Parse APRS item data.
+
+    Item format: )ITEMNAME!POSITION or )ITEMNAME_POSITION
+    - ) is the item marker
+    - ITEMNAME is 3-9 characters
+    - ! means item is live, _ means item is killed/deleted
+    - Position follows immediately in standard APRS format
+    """
+    try:
+        if not data.startswith(')') or len(data) < 5:
+            return None
+
+        # Find the status delimiter (! or _) which terminates the name
+        # Item name is 3-9 chars, so check positions 4-10 (1-based: chars 4-10 after ')')
+        status_pos = -1
+        for i in range(4, min(11, len(data))):
+            if data[i] in '!_':
+                status_pos = i
+                break
+
+        if status_pos == -1:
+            return None
+
+        # Extract item name and status
+        item_name = data[1:status_pos].strip()
+        status_char = data[status_pos]
+        is_live = status_char == '!'
+
+        # Parse position after status character
+        if len(data) > status_pos + 1:
+            pos = parse_position(data[status_pos + 1:])
+        else:
+            pos = None
+
+        result = {
+            'item_name': item_name,
+            'item_live': is_live,
+        }
+
+        if pos:
+            result.update(pos)
+
+        return result
+
+    except Exception as e:
+        logger.debug(f"Failed to parse item: {e}")
+        return None
 
 
 def parse_weather(data: str) -> dict:
