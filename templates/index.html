@@ -767,6 +767,7 @@
                                 <span class="strip-tool" id="aprsStripDirewolf" title="direwolf">DW</span>
                                 <span class="strip-tool" id="aprsStripMultimon" title="multimon-ng">MM</span>
                             </div>
+                            <span id="aprsGpsIndicator" class="gps-indicator" style="display: none;" title="GPS connected via gpsd"><span class="gps-dot"></span> GPS</span>
                             <div class="strip-divider"></div>
                             <!-- Actions -->
                             <button type="button" class="strip-btn primary" id="aprsStripStartBtn" onclick="startAprs()">
@@ -6011,6 +6012,81 @@
         let aprsMeterCheckInterval = null;
         const APRS_METER_TIMEOUT = 5000; // 5 seconds for "no signal" state
 
+        // APRS user location (from GPS)
+        let aprsUserLocation = { lat: null, lon: null };
+        let aprsUserMarker = null;
+
+        // Calculate distance in miles using Haversine formula
+        function aprsCalculateDistanceMi(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // Earth's radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Update APRS user location from GPS
+        function updateAprsUserLocation(position) {
+            if (!position || !position.latitude || !position.longitude) return;
+
+            aprsUserLocation.lat = position.latitude;
+            aprsUserLocation.lon = position.longitude;
+
+            // Update user marker on map
+            if (aprsMap) {
+                if (aprsUserMarker) {
+                    aprsUserMarker.setLatLng([position.latitude, position.longitude]);
+                } else {
+                    aprsUserMarker = L.marker([position.latitude, position.longitude], {
+                        icon: L.divIcon({
+                            className: 'aprs-user-marker',
+                            html: '<div style="width: 14px; height: 14px; background: #ff0; border: 2px solid #000; border-radius: 50%; box-shadow: 0 0 10px #ff0;"></div>',
+                            iconSize: [14, 14],
+                            iconAnchor: [7, 7]
+                        }),
+                        zIndexOffset: 1000
+                    }).bindPopup('Your Location (GPS)').addTo(aprsMap);
+                }
+
+                // Center map on first GPS fix
+                if (!aprsMap._gpsInitialized) {
+                    aprsMap.setView([position.latitude, position.longitude], 8);
+                    aprsMap._gpsInitialized = true;
+                }
+            }
+
+            // Show GPS indicator
+            const indicator = document.getElementById('aprsGpsIndicator');
+            if (indicator) indicator.style.display = 'inline-flex';
+
+            // Update distances in existing station list
+            updateAprsStationDistances();
+        }
+
+        // Update distances for all stations in the list
+        function updateAprsStationDistances() {
+            if (!aprsUserLocation.lat || !aprsUserLocation.lon) return;
+
+            // Update station list items
+            const listEl = document.getElementById('aprsStationList');
+            if (listEl) {
+                listEl.querySelectorAll('[data-callsign]').forEach(stationEl => {
+                    const lat = parseFloat(stationEl.dataset.lat);
+                    const lon = parseFloat(stationEl.dataset.lon);
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        const dist = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, lat, lon);
+                        const distSpan = stationEl.querySelector('.aprs-distance');
+                        if (distSpan) {
+                            distSpan.textContent = dist.toFixed(1) + ' mi';
+                        }
+                    }
+                });
+            }
+        }
+
         function checkAprsTools() {
             fetch('/aprs/tools')
                 .then(r => r.json())
@@ -6048,12 +6124,23 @@
             const mapContainer = document.getElementById('aprsMap');
             if (!mapContainer) return;
 
-            aprsMap = L.map('aprsMap').setView([39.8283, -98.5795], 4);
+            // Use GPS location if available, otherwise default to center of US
+            const initialLat = aprsUserLocation.lat || gpsLastPosition?.latitude || 39.8283;
+            const initialLon = aprsUserLocation.lon || gpsLastPosition?.longitude || -98.5795;
+            const initialZoom = (aprsUserLocation.lat || gpsLastPosition?.latitude) ? 8 : 4;
+
+            aprsMap = L.map('aprsMap').setView([initialLat, initialLon], initialZoom);
 
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
                 maxZoom: 19
             }).addTo(aprsMap);
+
+            // Add user marker if GPS position is already available
+            if (gpsConnected && gpsLastPosition && gpsLastPosition.latitude && gpsLastPosition.longitude) {
+                updateAprsUserLocation(gpsLastPosition);
+                aprsMap._gpsInitialized = true;
+            }
 
             // Update time display (both map header and function bar)
             setInterval(() => {
@@ -6303,9 +6390,26 @@
         function updateAprsMarker(packet) {
             const callsign = packet.callsign;
 
+            // Calculate distance if user location available
+            let distStr = '';
+            if (aprsUserLocation.lat && aprsUserLocation.lon) {
+                const dist = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, packet.lat, packet.lon);
+                distStr = `Distance: ${dist.toFixed(1)} mi<br>`;
+            }
+
             if (aprsMarkers[callsign]) {
-                // Update existing marker
+                // Update existing marker position and popup
                 aprsMarkers[callsign].setLatLng([packet.lat, packet.lon]);
+                aprsMarkers[callsign].setPopupContent(`
+                    <div style="font-family: monospace;">
+                        <strong>${callsign}</strong><br>
+                        Position: ${packet.lat.toFixed(4)}, ${packet.lon.toFixed(4)}<br>
+                        ${distStr}
+                        ${packet.altitude ? `Altitude: ${packet.altitude} ft<br>` : ''}
+                        ${packet.speed ? `Speed: ${packet.speed} kts<br>` : ''}
+                        ${packet.course ? `Course: ${packet.course}°<br>` : ''}
+                    </div>
+                `);
             } else {
                 // Create new marker
                 aprsStationCount++;
@@ -6326,6 +6430,7 @@
                     <div style="font-family: monospace;">
                         <strong>${callsign}</strong><br>
                         Position: ${packet.lat.toFixed(4)}, ${packet.lon.toFixed(4)}<br>
+                        ${distStr}
                         ${packet.altitude ? `Altitude: ${packet.altitude} ft<br>` : ''}
                         ${packet.speed ? `Speed: ${packet.speed} kts<br>` : ''}
                         ${packet.course ? `Course: ${packet.course}°<br>` : ''}
@@ -6365,13 +6470,29 @@
             const time = new Date().toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'});
             const hasPos = packet.lat && packet.lon;
 
+            // Store lat/lon in dataset for distance updates
+            if (hasPos) {
+                stationEl.dataset.lat = packet.lat;
+                stationEl.dataset.lon = packet.lon;
+            }
+
+            // Calculate distance if user location available
+            let distStr = '';
+            if (hasPos && aprsUserLocation.lat && aprsUserLocation.lon) {
+                const dist = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, packet.lat, packet.lon);
+                distStr = `<span class="aprs-distance" style="color: var(--accent-green);">${dist.toFixed(1)} mi</span>`;
+            } else if (hasPos) {
+                distStr = `<span class="aprs-distance" style="color: var(--text-muted);">-- mi</span>`;
+            }
+
             stationEl.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--accent-cyan); font-weight: bold;">${callsign}</span>
                     <span style="font-size: 9px; color: var(--text-muted);">${time}</span>
                 </div>
-                <div style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">
-                    ${packet.packet_type || 'unknown'} ${hasPos ? `| ${packet.lat.toFixed(2)}, ${packet.lon.toFixed(2)}` : ''}
+                <div style="font-size: 9px; color: var(--text-secondary); margin-top: 2px; display: flex; justify-content: space-between;">
+                    <span>${packet.packet_type || 'unknown'} ${hasPos ? `| ${packet.lat.toFixed(2)}, ${packet.lon.toFixed(2)}` : ''}</span>
+                    ${distStr}
                 </div>
             `;
 
@@ -6491,6 +6612,9 @@
             // Update observerLocation
             observerLocation.lat = position.latitude;
             observerLocation.lon = position.longitude;
+
+            // Update APRS user location
+            updateAprsUserLocation(position);
         }
 
         function showGpsIndicator(show) {
@@ -6499,7 +6623,7 @@
                 el.style.display = show ? 'inline-flex' : 'none';
             });
             // Also target specific IDs in case class selector doesn't work
-            ['satGpsIndicator'].forEach(id => {
+            ['satGpsIndicator', 'aprsGpsIndicator'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = show ? 'inline-flex' : 'none';
             });
