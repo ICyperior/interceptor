@@ -476,41 +476,12 @@ install_grgsm_from_source_debian() {
   gr_version=$(gnuradio-config-info --version 2>/dev/null || echo "0.0.0")
   info "GNU Radio version: $gr_version"
 
-  # Add Osmocom repository for libosmocore packages
-  info "Adding Osmocom repository for libosmocore..."
-  local osmocom_list="/etc/apt/sources.list.d/osmocom-latest.list"
-  local ubuntu_codename
-  ubuntu_codename=$(lsb_release -cs 2>/dev/null || echo "jammy")
-
-  # Check if repo already added
-  if [[ ! -f "$osmocom_list" ]]; then
-    # Add Osmocom GPG key
-    $SUDO apt-get install -y wget gnupg || true
-    wget -qO - https://downloads.osmocom.org/packages/osmocom:/latest/Debian_12/Release.key 2>/dev/null | \
-      $SUDO gpg --dearmor -o /etc/apt/trusted.gpg.d/osmocom.gpg 2>/dev/null || true
-
-    # Try Ubuntu repo first, fall back to Debian
-    if wget -q --spider "https://downloads.osmocom.org/packages/osmocom:/latest/xUbuntu_${ubuntu_codename}/Release" 2>/dev/null; then
-      echo "deb https://downloads.osmocom.org/packages/osmocom:/latest/xUbuntu_${ubuntu_codename}/ ./" | \
-        $SUDO tee "$osmocom_list" >/dev/null
-      info "Added Osmocom Ubuntu repository"
-    else
-      # Fall back to Debian 12 repo which often works on Ubuntu
-      echo "deb https://downloads.osmocom.org/packages/osmocom:/latest/Debian_12/ ./" | \
-        $SUDO tee "$osmocom_list" >/dev/null
-      info "Added Osmocom Debian repository (fallback)"
-    fi
-
-    $SUDO apt-get update || true
-  else
-    ok "Osmocom repository already configured"
-  fi
-
-  # Install dependencies for gr-gsm
-  info "Installing gr-gsm dependencies..."
+  # Install basic build dependencies first
+  info "Installing gr-gsm build dependencies..."
   $SUDO apt-get install -y \
     cmake \
     autoconf \
+    automake \
     libtool \
     pkg-config \
     build-essential \
@@ -522,17 +493,57 @@ install_grgsm_from_source_debian() {
     python3-scipy \
     gnuradio-dev \
     gr-osmosdr \
-    libosmocore-dev \
-    libosmocoding-dev \
-    libosmoctrl-dev \
-    libosmogsm-dev \
-    libosmovty-dev \
-    libosmocodec-dev \
-    || {
-      warn "Some gr-gsm dependencies failed to install."
-      warn "You may need to manually add the Osmocom repository."
-      warn "See: https://osmocom.org/projects/cellular-infrastructure/wiki/Osmocom_Repositories"
-    }
+    libtalloc-dev \
+    libpcsclite-dev \
+    libusb-1.0-0-dev \
+    libgnutls28-dev \
+    libmnl-dev \
+    libsctp-dev \
+    || warn "Some build dependencies failed to install."
+
+  # Check if libosmocore is available via apt
+  info "Checking for libosmocore packages..."
+  if ! $SUDO apt-get install -y libosmocore-dev 2>/dev/null; then
+    info "libosmocore not available in repos, building from source..."
+
+    # Build libosmocore from source
+    local osmo_tmp
+    osmo_tmp="$(mktemp -d)"
+
+    info "Cloning libosmocore..."
+    if git clone --depth 1 https://gitea.osmocom.org/osmocom/libosmocore.git "$osmo_tmp/libosmocore"; then
+      cd "$osmo_tmp/libosmocore"
+
+      info "Building libosmocore (this may take a few minutes)..."
+      autoreconf -fi
+      ./configure --prefix=/usr/local
+      if make -j$(nproc) && $SUDO make install && $SUDO ldconfig; then
+        ok "libosmocore built and installed successfully"
+      else
+        warn "Failed to build libosmocore from source"
+        cd /
+        rm -rf "$osmo_tmp"
+        return 1
+      fi
+
+      cd /
+      rm -rf "$osmo_tmp"
+    else
+      warn "Failed to clone libosmocore"
+      rm -rf "$osmo_tmp"
+      return 1
+    fi
+  else
+    ok "libosmocore installed from packages"
+    # Also try to install the other osmo packages
+    $SUDO apt-get install -y \
+      libosmocoding-dev \
+      libosmoctrl-dev \
+      libosmogsm-dev \
+      libosmovty-dev \
+      libosmocodec-dev \
+      2>/dev/null || true
+  fi
 
   # Build gr-gsm
   local tmp_dir
