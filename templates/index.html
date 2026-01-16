@@ -1100,6 +1100,50 @@
                         No content is intercepted or decoded. Professional verification required.
                     </div>
 
+                    <!-- Active Meeting Banner (hidden by default) -->
+                    <div id="tscmMeetingBanner" class="tscm-meeting-banner" style="display: none;">
+                        <div class="meeting-indicator">
+                            <span class="meeting-pulse"></span>
+                            <span class="meeting-text">MEETING WINDOW ACTIVE</span>
+                        </div>
+                        <div class="meeting-info">
+                            <span id="tscmMeetingBannerName"></span>
+                            <span id="tscmMeetingBannerTime"></span>
+                        </div>
+                    </div>
+
+                    <!-- Capabilities Summary Bar -->
+                    <div id="tscmCapabilitiesBar" class="tscm-capabilities-bar" style="display: none;">
+                        <div class="cap-item" id="capWifi" title="WiFi Capability">
+                            <span class="cap-icon">📶</span>
+                            <span class="cap-status" id="capWifiStatus">--</span>
+                        </div>
+                        <div class="cap-item" id="capBt" title="Bluetooth Capability">
+                            <span class="cap-icon">🔵</span>
+                            <span class="cap-status" id="capBtStatus">--</span>
+                        </div>
+                        <div class="cap-item" id="capRf" title="RF/SDR Capability">
+                            <span class="cap-icon">📡</span>
+                            <span class="cap-status" id="capRfStatus">--</span>
+                        </div>
+                        <div class="cap-item" id="capRoot" title="Privilege Level">
+                            <span class="cap-icon">🔒</span>
+                            <span class="cap-status" id="capRootStatus">--</span>
+                        </div>
+                        <div class="cap-limitations" id="capLimitations" onclick="tscmShowCapabilities()" style="cursor: pointer;">
+                            <span class="cap-warn">⚠️</span>
+                            <span id="capLimitationCount">0</span> limitations
+                        </div>
+                    </div>
+
+                    <!-- Baseline Health Indicator -->
+                    <div id="tscmBaselineHealth" class="tscm-baseline-health" style="display: none;">
+                        <span class="health-label">Baseline:</span>
+                        <span class="health-name" id="baselineHealthName">--</span>
+                        <span class="health-badge" id="baselineHealthBadge">--</span>
+                        <span class="health-age" id="baselineHealthAge"></span>
+                    </div>
+
                     <!-- Risk Summary Banner (new scoring model) - clickable cards -->
                     <div class="tscm-threat-banner">
                         <div class="threat-card critical clickable" id="tscmHighInterestCard" onclick="showDevicesByCategory('high_interest')" title="Click to view high interest devices">
@@ -8955,6 +8999,585 @@
             div.textContent = str;
             return div.innerHTML;
         }
+
+        // ========== TSCM Advanced Features ==========
+
+        // Meeting Window Management
+        let tscmActiveMeetingId = null;
+        let tscmMeetingStartTime = null;
+
+        async function tscmStartMeeting() {
+            const meetingName = document.getElementById('tscmMeetingName').value ||
+                `Meeting ${new Date().toLocaleString()}`;
+
+            try {
+                const response = await fetch('/tscm/meeting/start-tracked', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: meetingName })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmActiveMeetingId = data.meeting_id;
+                    tscmMeetingStartTime = new Date();
+
+                    // Update UI
+                    document.getElementById('tscmStartMeetingBtn').style.display = 'none';
+                    document.getElementById('tscmEndMeetingBtn').style.display = 'block';
+                    document.getElementById('tscmMeetingStatus').innerHTML =
+                        `<span style="color: #ff9933;">Meeting active: ${escapeHtml(meetingName)}</span>`;
+
+                    // Show meeting banner
+                    const banner = document.getElementById('tscmMeetingBanner');
+                    if (banner) {
+                        banner.style.display = 'flex';
+                        const nameSpan = document.getElementById('tscmMeetingName_display');
+                        if (nameSpan) nameSpan.textContent = meetingName;
+                    }
+                } else {
+                    alert(data.message || 'Failed to start meeting window');
+                }
+            } catch (e) {
+                console.error('Failed to start meeting:', e);
+                alert('Failed to start meeting window');
+            }
+        }
+
+        async function tscmEndMeeting() {
+            if (!tscmActiveMeetingId) return;
+
+            try {
+                const response = await fetch(`/tscm/meeting/${tscmActiveMeetingId}/end`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                // Update UI
+                document.getElementById('tscmStartMeetingBtn').style.display = 'block';
+                document.getElementById('tscmEndMeetingBtn').style.display = 'none';
+
+                // Hide meeting banner
+                const banner = document.getElementById('tscmMeetingBanner');
+                if (banner) banner.style.display = 'none';
+
+                if (data.status === 'success') {
+                    const duration = tscmMeetingStartTime ?
+                        Math.round((new Date() - tscmMeetingStartTime) / 60000) : 0;
+                    document.getElementById('tscmMeetingStatus').innerHTML =
+                        `<span style="color: #00ff88;">Meeting ended (${duration} min) - ${data.devices_flagged || 0} devices flagged</span>`;
+
+                    // Show export section if devices were flagged
+                    if (data.devices_flagged > 0) {
+                        document.getElementById('tscmExportSection').style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('tscmMeetingStatus').textContent = 'Meeting ended';
+                }
+
+                tscmActiveMeetingId = null;
+                tscmMeetingStartTime = null;
+            } catch (e) {
+                console.error('Failed to end meeting:', e);
+            }
+        }
+
+        // Capabilities Display
+        async function tscmShowCapabilities() {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading capabilities...</div>';
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch('/tscm/capabilities');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const caps = data.capabilities;
+                    content.innerHTML = `
+                        <div class="device-detail-header classification-cyan">
+                            <h3>Sweep Capabilities</h3>
+                        </div>
+                        <div class="device-detail-section">
+                            <h4>Available Detection Methods</h4>
+                            <div class="capabilities-grid">
+                                <div class="cap-detail-item ${caps.wifi_available ? 'available' : 'unavailable'}">
+                                    <span class="cap-icon">📶</span>
+                                    <span class="cap-name">WiFi Scanning</span>
+                                    <span class="cap-status">${caps.wifi_available ? 'Available' : 'Not Available'}</span>
+                                    ${caps.wifi_interface ? `<span class="cap-detail">${caps.wifi_interface}</span>` : ''}
+                                </div>
+                                <div class="cap-detail-item ${caps.bluetooth_available ? 'available' : 'unavailable'}">
+                                    <span class="cap-icon">🔵</span>
+                                    <span class="cap-name">Bluetooth Scanning</span>
+                                    <span class="cap-status">${caps.bluetooth_available ? 'Available' : 'Not Available'}</span>
+                                    ${caps.bt_adapter ? `<span class="cap-detail">${caps.bt_adapter}</span>` : ''}
+                                </div>
+                                <div class="cap-detail-item ${caps.sdr_available ? 'available' : 'unavailable'}">
+                                    <span class="cap-icon">📡</span>
+                                    <span class="cap-name">RF/SDR Scanning</span>
+                                    <span class="cap-status">${caps.sdr_available ? 'Available' : 'Not Available'}</span>
+                                    ${caps.sdr_device ? `<span class="cap-detail">${caps.sdr_device}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="device-detail-section">
+                            <h4>What This Sweep CAN Detect</h4>
+                            <ul class="cap-can-list">
+                                ${(caps.can_detect || []).map(item => `<li>✅ ${escapeHtml(item)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="device-detail-section">
+                            <h4>What This Sweep CANNOT Detect</h4>
+                            <ul class="cap-cannot-list">
+                                ${(caps.cannot_detect || []).map(item => `<li>❌ ${escapeHtml(item)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="device-detail-disclaimer">
+                            <strong>Important:</strong> This tool detects wireless RF emissions only.
+                            Professional TSCM requires physical inspection, NLJD, thermal imaging, and spectrum analysis equipment.
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `<div style="padding: 20px; color: #ff6666;">Failed to load capabilities: ${data.message || 'Unknown error'}</div>`;
+                }
+            } catch (e) {
+                console.error('Failed to load capabilities:', e);
+                content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load capabilities</div>';
+            }
+        }
+
+        // Known Devices Management
+        async function tscmShowKnownDevices() {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading known devices...</div>';
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch('/tscm/known-devices');
+                const data = await response.json();
+
+                const devices = data.devices || [];
+                content.innerHTML = `
+                    <div class="device-detail-header classification-green">
+                        <h3>✅ Known/Approved Devices (${devices.length})</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        <div style="margin-bottom: 12px;">
+                            <button class="preset-btn" onclick="tscmAddKnownDevice()" style="font-size: 11px;">
+                                + Add Device
+                            </button>
+                        </div>
+                        ${devices.length === 0 ?
+                            '<p style="color: var(--text-muted);">No known devices registered. Devices you mark as "known" will be excluded from threat scoring.</p>' :
+                            `<div class="known-devices-list">
+                                ${devices.map(d => `
+                                    <div class="known-device-item">
+                                        <div class="known-device-info">
+                                            <strong>${escapeHtml(d.name || d.identifier)}</strong>
+                                            <span class="known-device-id">${escapeHtml(d.identifier)}</span>
+                                            <span class="known-device-type">${d.device_type}</span>
+                                        </div>
+                                        <div class="known-device-actions">
+                                            <button class="preset-btn" onclick="tscmRemoveKnownDevice(${d.id})" style="font-size: 10px; background: #ff4444;">
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>`
+                        }
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load known devices:', e);
+                content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load known devices</div>';
+            }
+        }
+
+        async function tscmAddKnownDevice() {
+            const identifier = prompt('Enter device identifier (MAC address, BSSID, or frequency):');
+            if (!identifier) return;
+
+            const name = prompt('Enter friendly name for this device:');
+            const deviceType = prompt('Enter device type (wifi/bluetooth/rf):') || 'wifi';
+
+            try {
+                const response = await fetch('/tscm/known-devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        identifier: identifier,
+                        name: name || identifier,
+                        device_type: deviceType
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmShowKnownDevices(); // Refresh list
+                } else {
+                    alert(data.message || 'Failed to add device');
+                }
+            } catch (e) {
+                console.error('Failed to add known device:', e);
+                alert('Failed to add device');
+            }
+        }
+
+        async function tscmRemoveKnownDevice(deviceId) {
+            if (!confirm('Remove this device from known devices list?')) return;
+
+            try {
+                const response = await fetch(`/tscm/known-devices/${deviceId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmShowKnownDevices(); // Refresh list
+                } else {
+                    alert(data.message || 'Failed to remove device');
+                }
+            } catch (e) {
+                console.error('Failed to remove known device:', e);
+            }
+        }
+
+        // Cases Management
+        async function tscmShowCases() {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading cases...</div>';
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch('/tscm/cases');
+                const data = await response.json();
+
+                const cases = data.cases || [];
+                content.innerHTML = `
+                    <div class="device-detail-header classification-cyan">
+                        <h3>📁 TSCM Cases (${cases.length})</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        <div style="margin-bottom: 12px;">
+                            <button class="preset-btn" onclick="tscmCreateCase()" style="font-size: 11px;">
+                                + New Case
+                            </button>
+                        </div>
+                        ${cases.length === 0 ?
+                            '<p style="color: var(--text-muted);">No cases created. Cases help you organize sweeps and findings for specific locations or clients.</p>' :
+                            `<div class="cases-list">
+                                ${cases.map(c => `
+                                    <div class="case-item" onclick="tscmViewCase(${c.id})">
+                                        <div class="case-header">
+                                            <strong>${escapeHtml(c.name)}</strong>
+                                            <span class="case-status ${c.status}">${c.status}</span>
+                                        </div>
+                                        <div class="case-meta">
+                                            ${c.client_name ? `Client: ${escapeHtml(c.client_name)} | ` : ''}
+                                            ${c.location ? `Location: ${escapeHtml(c.location)} | ` : ''}
+                                            Sweeps: ${c.sweep_count || 0} | Threats: ${c.threat_count || 0}
+                                        </div>
+                                        <div class="case-date">
+                                            Created: ${new Date(c.created_at).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>`
+                        }
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load cases:', e);
+                content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load cases</div>';
+            }
+        }
+
+        async function tscmCreateCase() {
+            const name = prompt('Enter case name:');
+            if (!name) return;
+
+            const clientName = prompt('Enter client name (optional):');
+            const location = prompt('Enter location (optional):');
+
+            try {
+                const response = await fetch('/tscm/cases', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        client_name: clientName || null,
+                        location: location || null
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmShowCases(); // Refresh list
+                } else {
+                    alert(data.message || 'Failed to create case');
+                }
+            } catch (e) {
+                console.error('Failed to create case:', e);
+                alert('Failed to create case');
+            }
+        }
+
+        async function tscmViewCase(caseId) {
+            try {
+                const response = await fetch(`/tscm/cases/${caseId}`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const c = data.case;
+                    const content = document.getElementById('tscmDeviceModalContent');
+                    content.innerHTML = `
+                        <div class="device-detail-header classification-cyan">
+                            <h3>📁 ${escapeHtml(c.name)}</h3>
+                            <span class="case-status ${c.status}">${c.status}</span>
+                        </div>
+                        <div class="device-detail-section">
+                            <h4>Case Details</h4>
+                            <table class="device-detail-table">
+                                <tr><td>Client</td><td>${escapeHtml(c.client_name || 'N/A')}</td></tr>
+                                <tr><td>Location</td><td>${escapeHtml(c.location || 'N/A')}</td></tr>
+                                <tr><td>Created</td><td>${new Date(c.created_at).toLocaleString()}</td></tr>
+                                <tr><td>Status</td><td>${c.status}</td></tr>
+                            </table>
+                        </div>
+                        <div class="device-detail-section">
+                            <h4>Linked Sweeps (${(c.sweeps || []).length})</h4>
+                            ${(c.sweeps || []).length === 0 ?
+                                '<p style="color: var(--text-muted);">No sweeps linked to this case yet.</p>' :
+                                `<ul>${(c.sweeps || []).map(s => `<li>Sweep ${s.id} - ${new Date(s.timestamp).toLocaleString()}</li>`).join('')}</ul>`
+                            }
+                        </div>
+                        <div class="device-detail-section">
+                            <h4>Flagged Threats (${(c.threats || []).length})</h4>
+                            ${(c.threats || []).length === 0 ?
+                                '<p style="color: var(--text-muted);">No threats flagged in this case.</p>' :
+                                `<ul>${(c.threats || []).map(t => `<li>${escapeHtml(t.identifier)} - ${t.threat_type}</li>`).join('')}</ul>`
+                            }
+                        </div>
+                        <div style="margin-top: 16px;">
+                            <button class="preset-btn" onclick="tscmShowCases()">← Back to Cases</button>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.error('Failed to view case:', e);
+            }
+        }
+
+        // Playbooks Display
+        async function tscmShowPlaybooks() {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading playbooks...</div>';
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch('/tscm/playbooks');
+                const data = await response.json();
+
+                const playbooks = data.playbooks || [];
+                content.innerHTML = `
+                    <div class="device-detail-header classification-orange">
+                        <h3>📋 Operator Playbooks</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        <p style="color: var(--text-muted); margin-bottom: 16px;">
+                            Playbooks provide step-by-step guidance for investigating specific types of findings.
+                        </p>
+                        <div class="playbooks-list">
+                            ${playbooks.map(p => `
+                                <div class="playbook-item" onclick="tscmViewPlaybook('${p.id}')">
+                                    <div class="playbook-header">
+                                        <strong>${escapeHtml(p.name)}</strong>
+                                        <span class="playbook-category">${escapeHtml(p.category || 'General')}</span>
+                                    </div>
+                                    <div class="playbook-desc">
+                                        ${escapeHtml(p.description || 'No description')}
+                                    </div>
+                                    <div class="playbook-meta">
+                                        ${p.steps?.length || 0} steps | Applies to: ${(p.applies_to || ['Any']).join(', ')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load playbooks:', e);
+                content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load playbooks</div>';
+            }
+        }
+
+        async function tscmViewPlaybook(playbookId) {
+            try {
+                const response = await fetch(`/tscm/playbooks/${playbookId}`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const p = data.playbook;
+                    const content = document.getElementById('tscmDeviceModalContent');
+                    content.innerHTML = `
+                        <div class="device-detail-header classification-orange">
+                            <h3>📋 ${escapeHtml(p.name)}</h3>
+                        </div>
+                        <div class="device-detail-section">
+                            <p>${escapeHtml(p.description || '')}</p>
+                        </div>
+                        <div class="device-detail-section">
+                            <h4>Steps</h4>
+                            <ol class="playbook-steps">
+                                ${(p.steps || []).map((step, i) => `
+                                    <li class="playbook-step">
+                                        <strong>${escapeHtml(step.title || `Step ${i+1}`)}</strong>
+                                        <p>${escapeHtml(step.description || '')}</p>
+                                        ${step.warning ? `<div class="playbook-warning">⚠️ ${escapeHtml(step.warning)}</div>` : ''}
+                                    </li>
+                                `).join('')}
+                            </ol>
+                        </div>
+                        ${p.equipment_needed ? `
+                        <div class="device-detail-section">
+                            <h4>Equipment Needed</h4>
+                            <ul>
+                                ${(p.equipment_needed || []).map(e => `<li>${escapeHtml(e)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        <div style="margin-top: 16px;">
+                            <button class="preset-btn" onclick="tscmShowPlaybooks()">← Back to Playbooks</button>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.error('Failed to view playbook:', e);
+            }
+        }
+
+        // Report Downloads
+        async function tscmDownloadPdf() {
+            try {
+                const response = await fetch('/tscm/report/pdf');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `TSCM_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Failed to generate PDF');
+                }
+            } catch (e) {
+                console.error('Failed to download PDF:', e);
+                alert('Failed to download PDF report');
+            }
+        }
+
+        async function tscmDownloadAnnex(format) {
+            try {
+                const response = await fetch(`/tscm/report/annex?format=${format}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `TSCM_Annex_${new Date().toISOString().split('T')[0]}.${format}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Failed to generate annex');
+                }
+            } catch (e) {
+                console.error('Failed to download annex:', e);
+                alert('Failed to download technical annex');
+            }
+        }
+
+        // Update capabilities bar on sweep start
+        async function updateTscmCapabilitiesBar() {
+            try {
+                const response = await fetch('/tscm/capabilities');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const caps = data.capabilities;
+                    const bar = document.getElementById('tscmCapabilitiesBar');
+
+                    if (bar) {
+                        document.getElementById('capWifiStatus').textContent = caps.wifi_available ? 'ON' : 'OFF';
+                        document.getElementById('capWifi').classList.toggle('active', caps.wifi_available);
+
+                        document.getElementById('capBtStatus').textContent = caps.bluetooth_available ? 'ON' : 'OFF';
+                        document.getElementById('capBt').classList.toggle('active', caps.bluetooth_available);
+
+                        document.getElementById('capSdrStatus').textContent = caps.sdr_available ? 'ON' : 'OFF';
+                        document.getElementById('capSdr').classList.toggle('active', caps.sdr_available);
+
+                        bar.style.display = 'flex';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to update capabilities bar:', e);
+            }
+        }
+
+        // Update baseline health indicator
+        async function updateTscmBaselineHealth(baselineId) {
+            if (!baselineId) {
+                const healthDiv = document.getElementById('tscmBaselineHealth');
+                if (healthDiv) healthDiv.style.display = 'none';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/tscm/baseline/${baselineId}/health`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const healthDiv = document.getElementById('tscmBaselineHealth');
+                    const badge = document.getElementById('baselineHealthBadge');
+
+                    if (healthDiv && badge) {
+                        badge.textContent = data.health_status || 'Unknown';
+                        badge.className = `health-badge health-${(data.health_status || 'unknown').toLowerCase()}`;
+                        healthDiv.style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to update baseline health:', e);
+            }
+        }
+
+        // Listen for baseline selection changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const baselineSelect = document.getElementById('tscmBaselineSelect');
+            if (baselineSelect) {
+                baselineSelect.addEventListener('change', function() {
+                    updateTscmBaselineHealth(this.value);
+                });
+            }
+        });
     </script>
 
     <!-- Scanner/Audio code moved to static/js/modes/listening-post.js -->
