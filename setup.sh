@@ -699,14 +699,19 @@ install_debian_packages() {
   progress "Updating APT package lists"
   $SUDO apt-get update -y >/dev/null
 
+  # Fix any broken packages first
+  info "Checking for broken packages..."
+  $SUDO apt-get --fix-broken install -y 2>/dev/null || true
+  $SUDO dpkg --configure -a 2>/dev/null || true
+
   progress "Installing RTL-SDR"
   # Fix potential package conflicts between RTL-SDR Blog drivers and stock packages
   # These can conflict when switching between source-built and apt versions
-  if dpkg -l 2>/dev/null | grep -qE "librtlsdr0|librtlsdr2"; then
-    info "Cleaning up existing RTL-SDR packages to avoid conflicts..."
-    $SUDO apt-get remove -y librtlsdr0 librtlsdr2 rtl-sdr librtlsdr-dev 2>/dev/null || true
-    $SUDO apt-get autoremove -y 2>/dev/null || true
-  fi
+  info "Cleaning up existing RTL-SDR packages to avoid conflicts..."
+  $SUDO apt-get remove -y --purge librtlsdr0 librtlsdr2 rtl-sdr librtlsdr-dev 2>/dev/null || true
+  $SUDO apt-get autoremove -y 2>/dev/null || true
+  $SUDO apt-get --fix-broken install -y 2>/dev/null || true
+
   # Now install fresh
   if ! apt_install rtl-sdr; then
     warn "rtl-sdr package failed, RTL-SDR Blog drivers will provide the tools"
