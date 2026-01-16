@@ -58,90 +58,67 @@
                         </div>
                     </div>
 
-                    <!-- Collapsible Settings -->
-                    <div class="section tscm-collapsible" style="margin-top: 12px;">
-                        <div class="tscm-collapsible-header" onclick="toggleTscmSection('tscmSettingsContent')">
-                            <span>Settings</span>
-                            <span class="tscm-collapse-icon" id="tscmSettingsContentIcon">+</span>
-                        </div>
-                        <div class="tscm-collapsible-content" id="tscmSettingsContent" style="display: none;">
-                            <!-- Scan Sources -->
-                            <div style="margin-bottom: 12px;">
-                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Scan Sources</div>
-                                <div style="display: flex; flex-direction: column; gap: 6px;">
-                                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                                        <input type="checkbox" id="tscmWifiEnabled" checked style="margin: 0;">
-                                        <span>WiFi</span>
-                                        <select id="tscmWifiInterface" style="margin-left: auto; font-size: 10px; padding: 2px 4px; max-width: 120px;">
-                                            <option value="">Auto</option>
-                                        </select>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                                        <input type="checkbox" id="tscmBtEnabled" checked style="margin: 0;">
-                                        <span>Bluetooth</span>
-                                        <select id="tscmBtInterface" style="margin-left: auto; font-size: 10px; padding: 2px 4px; max-width: 120px;">
-                                            <option value="">Auto</option>
-                                        </select>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                                        <input type="checkbox" id="tscmRfEnabled" style="margin: 0;">
-                                        <span>RF/SDR</span>
-                                        <select id="tscmSdrDevice" style="margin-left: auto; font-size: 10px; padding: 2px 4px; max-width: 120px;">
-                                            <option value="">Select...</option>
-                                        </select>
-                                    </label>
-                                </div>
-                                <button class="preset-btn" onclick="refreshTscmDevices()" style="width: 100%; margin-top: 8px; font-size: 10px; padding: 4px;">
-                                    Refresh Devices
-                                </button>
-                            </div>
-                            <!-- Baseline Comparison -->
-                            <div>
-                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Compare Against</div>
-                                <select id="tscmBaselineSelect" style="width: 100%;">
-                                    <option value="">No Baseline</option>
+                    <!-- Scan Sources -->
+                    <div class="section" style="margin-top: 12px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                                <input type="checkbox" id="tscmWifiEnabled" checked style="margin: 0;">
+                                <span>WiFi</span>
+                                <select id="tscmWifiInterface" style="margin-left: auto; font-size: 10px; padding: 2px 4px; max-width: 100px;">
+                                    <option value="">Auto</option>
                                 </select>
-                            </div>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                                <input type="checkbox" id="tscmBtEnabled" checked style="margin: 0;">
+                                <span>Bluetooth</span>
+                                <select id="tscmBtInterface" style="margin-left: auto; font-size: 10px; padding: 2px 4px; max-width: 100px;">
+                                    <option value="">Auto</option>
+                                </select>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                                <input type="checkbox" id="tscmRfEnabled" style="margin: 0;">
+                                <span>RF/SDR</span>
+                                <select id="tscmSdrDevice" style="margin-left: auto; font-size: 10px; padding: 2px 4px; max-width: 100px;">
+                                    <option value="">None</option>
+                                </select>
+                            </label>
                         </div>
+                        <button class="preset-btn" onclick="refreshTscmDevices()" style="width: 100%; margin-top: 8px; font-size: 10px; padding: 4px;">
+                            Refresh Devices
+                        </button>
                     </div>
 
-                    <!-- Collapsible Advanced -->
-                    <div class="section tscm-collapsible" style="margin-top: 8px;">
-                        <div class="tscm-collapsible-header" onclick="toggleTscmSection('tscmAdvancedContent')">
-                            <span>Advanced</span>
-                            <span class="tscm-collapse-icon" id="tscmAdvancedContentIcon">+</span>
+                    <!-- Baseline -->
+                    <div class="section" style="margin-top: 8px;">
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label style="font-size: 11px;">Compare Against</label>
+                            <select id="tscmBaselineSelect" style="width: 100%;">
+                                <option value="">No Baseline</option>
+                            </select>
                         </div>
-                        <div class="tscm-collapsible-content" id="tscmAdvancedContent" style="display: none;">
-                            <!-- Baseline Recording -->
-                            <div style="margin-bottom: 12px;">
-                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Record Baseline</div>
-                                <input type="text" id="tscmBaselineName" placeholder="Baseline name..." style="width: 100%; margin-bottom: 6px;">
-                                <button class="preset-btn" id="tscmRecordBaselineBtn" onclick="tscmRecordBaseline()" style="width: 100%; font-size: 11px;">
-                                    Record New Baseline
-                                </button>
-                                <button class="stop-btn" id="tscmStopBaselineBtn" onclick="tscmStopBaseline()" style="width: 100%; display: none; font-size: 11px;">
-                                    Stop Recording
-                                </button>
-                                <div id="tscmBaselineStatus" style="margin-top: 6px; font-size: 10px; color: var(--text-muted);"></div>
-                            </div>
-                            <!-- Meeting Window -->
-                            <div id="tscmMeetingSection">
-                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Meeting Window</div>
-                                <div id="tscmMeetingStatus" style="font-size: 10px; color: var(--text-secondary); margin-bottom: 6px;">
-                                    No active meeting
-                                </div>
-                                <input type="text" id="tscmMeetingName" placeholder="Meeting name (optional)" style="width: 100%; margin-bottom: 6px;">
-                                <button class="preset-btn" id="tscmStartMeetingBtn" onclick="tscmStartMeeting()" style="width: 100%; font-size: 11px;">
-                                    Start Meeting Window
-                                </button>
-                                <button class="stop-btn" id="tscmEndMeetingBtn" onclick="tscmEndMeeting()" style="width: 100%; display: none; font-size: 11px;">
-                                    End Meeting Window
-                                </button>
-                                <div style="font-size: 9px; color: var(--text-muted); margin-top: 4px;">
-                                    Devices detected during meetings get flagged
-                                </div>
-                            </div>
+                        <input type="text" id="tscmBaselineName" placeholder="New baseline name..." style="width: 100%; margin-bottom: 6px; font-size: 11px;">
+                        <button class="preset-btn" id="tscmRecordBaselineBtn" onclick="tscmRecordBaseline()" style="width: 100%; font-size: 10px; padding: 4px;">
+                            Record Baseline
+                        </button>
+                        <button class="stop-btn" id="tscmStopBaselineBtn" onclick="tscmStopBaseline()" style="width: 100%; display: none; font-size: 10px; padding: 4px;">
+                            Stop Recording
+                        </button>
+                        <div id="tscmBaselineStatus" style="margin-top: 4px; font-size: 10px; color: var(--text-muted);"></div>
+                    </div>
+
+                    <!-- Meeting Window -->
+                    <div class="section" id="tscmMeetingSection" style="margin-top: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <span style="font-size: 11px; color: var(--text-secondary);">Meeting Window</span>
+                            <span id="tscmMeetingStatus" style="font-size: 10px; color: var(--text-muted);">Inactive</span>
                         </div>
+                        <input type="text" id="tscmMeetingName" placeholder="Meeting name (optional)" style="width: 100%; margin-bottom: 6px; font-size: 11px;">
+                        <button class="preset-btn" id="tscmStartMeetingBtn" onclick="tscmStartMeeting()" style="width: 100%; font-size: 10px; padding: 4px;">
+                            Start Meeting
+                        </button>
+                        <button class="stop-btn" id="tscmEndMeetingBtn" onclick="tscmEndMeeting()" style="width: 100%; display: none; font-size: 10px; padding: 4px;">
+                            End Meeting
+                        </button>
                     </div>
 
                     <!-- Compact Tools Row -->
