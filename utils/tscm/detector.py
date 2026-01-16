@@ -167,7 +167,11 @@ class ThreatDetector:
                 reasons.append('Matches camera device patterns')
                 classification = 'high_interest'
 
-            if not ssid and signal and int(signal) > -60:
+            try:
+                signal_val = int(signal) if signal else -100
+            except (ValueError, TypeError):
+                signal_val = -100
+            if not ssid and signal and signal_val > -60:
                 reasons.append('Hidden SSID with strong signal')
                 classification = 'high_interest'
 
@@ -233,7 +237,11 @@ class ThreatDetector:
                 classification = 'high_interest'
 
             # Strong signal from unknown device
-            if rssi and int(rssi) > -50 and not name:
+            try:
+                rssi_val = int(rssi) if rssi else -100
+            except (ValueError, TypeError):
+                rssi_val = -100
+            if rssi and rssi_val > -50 and not name:
                 reasons.append('Strong signal from unnamed device')
                 classification = 'high_interest'
 
@@ -346,7 +354,11 @@ class ThreatDetector:
             })
 
         # Check for hidden SSID with strong signal
-        if not ssid and signal and signal > -60:
+        try:
+            signal_int = int(signal) if signal else -100
+        except (ValueError, TypeError):
+            signal_int = -100
+        if not ssid and signal and signal_int > -60:
             threats.append({
                 'type': 'anomaly',
                 'severity': 'medium',
@@ -411,7 +423,11 @@ class ThreatDetector:
             })
 
         # Check for suspicious BLE beacons (unnamed, persistent)
-        if not name and rssi and rssi > -70:
+        try:
+            rssi_int = int(rssi) if rssi else -100
+        except (ValueError, TypeError):
+            rssi_int = -100
+        if not name and rssi and rssi_int > -70:
             threats.append({
                 'type': 'anomaly',
                 'severity': 'medium',
