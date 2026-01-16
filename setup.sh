@@ -699,23 +699,18 @@ install_debian_packages() {
   progress "Updating APT package lists"
   $SUDO apt-get update -y >/dev/null
 
-  # Fix any broken packages first
-  info "Checking for broken packages..."
-  $SUDO apt-get --fix-broken install -y 2>/dev/null || true
+  # Fix any broken RTL-SDR packages first (common issue with Blog drivers vs stock)
+  info "Fixing RTL-SDR package conflicts..."
+  # Force remove broken packages
+  $SUDO dpkg --remove --force-remove-reinstreq librtlsdr0 librtlsdr2 librtlsdr-dev rtl-sdr 2>/dev/null || true
+  $SUDO apt-get -f install -y 2>/dev/null || true
   $SUDO dpkg --configure -a 2>/dev/null || true
+  $SUDO apt-get autoremove -y --purge 2>/dev/null || true
 
   progress "Installing RTL-SDR"
-  # Fix potential package conflicts between RTL-SDR Blog drivers and stock packages
-  # These can conflict when switching between source-built and apt versions
-  info "Cleaning up existing RTL-SDR packages to avoid conflicts..."
-  $SUDO apt-get remove -y --purge librtlsdr0 librtlsdr2 rtl-sdr librtlsdr-dev 2>/dev/null || true
-  $SUDO apt-get autoremove -y 2>/dev/null || true
-  $SUDO apt-get --fix-broken install -y 2>/dev/null || true
-
-  # Now install fresh
-  if ! apt_install rtl-sdr; then
-    warn "rtl-sdr package failed, RTL-SDR Blog drivers will provide the tools"
-  fi
+  # Skip apt rtl-sdr package - we'll use RTL-SDR Blog drivers instead which are better
+  # The stock packages often conflict with the Blog drivers
+  info "Skipping stock rtl-sdr package (RTL-SDR Blog drivers will be used instead)"
 
   progress "Installing RTL-SDR Blog drivers (V4 support)"
   install_rtlsdr_blog_drivers_debian
