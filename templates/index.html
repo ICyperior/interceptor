@@ -198,17 +198,6 @@
             <span></span>
             <span></span>
         </button>
-        <!-- UTC Clock -->
-        <div class="header-clock hide-mobile">
-            <span class="utc-label">UTC</span>
-            <span class="utc-time" id="headerUtcTime">--:--:--</span>
-        </div>
-        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
-            <span class="icon-moon">🌙</span>
-            <span class="icon-sun">☀️</span>
-        </button>
-        <button class="help-btn" onclick="showDependencies()" title="Check Tool Dependencies" id="depsBtn" style="margin-right: 5px;">🔧</button>
-        <button class="help-btn" onclick="showHelp()" title="Help & Documentation">?</button>
         <div class="logo">
             <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Signal brackets - left side -->
@@ -391,6 +380,21 @@
             <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn" style="display: none;">
                 <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
             </a>
+        </div>
+        <div class="nav-utilities">
+            <div class="nav-clock">
+                <span class="utc-label">UTC</span>
+                <span class="utc-time" id="headerUtcTime">--:--:--</span>
+            </div>
+            <div class="nav-divider"></div>
+            <div class="nav-tools">
+                <button class="nav-tool-btn" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
+                    <span class="icon-moon">🌙</span>
+                    <span class="icon-sun">☀️</span>
+                </button>
+                <button class="nav-tool-btn" onclick="showDependencies()" title="Check Tool Dependencies" id="depsBtn">🔧</button>
+                <button class="nav-tool-btn" onclick="showHelp()" title="Help & Documentation">?</button>
+            </div>
         </div>
     </nav>
 

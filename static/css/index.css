@@ -737,6 +737,112 @@ header h1 {
     color: var(--bg-primary);
 }
 
+/* Nav Bar Utilities (clock, theme, tools) */
+.nav-utilities {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+@media (min-width: 1024px) {
+    .nav-utilities {
+        display: flex;
+    }
+}
+
+.nav-clock {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+}
+
+.nav-clock .utc-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.nav-clock .utc-time {
+    color: var(--accent-cyan);
+    font-weight: 600;
+}
+
+.nav-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color);
+}
+
+.nav-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nav-tool-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.nav-tool-btn:hover {
+    background: var(--bg-elevated);
+    border-color: var(--border-color);
+    color: var(--accent-cyan);
+}
+
+/* Theme toggle icon states in nav bar */
+.nav-tool-btn .icon-sun,
+.nav-tool-btn .icon-moon {
+    position: absolute;
+    transition: opacity 0.2s, transform 0.2s;
+    font-size: 14px;
+}
+
+.nav-tool-btn .icon-sun {
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+.nav-tool-btn .icon-moon {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+[data-theme="light"] .nav-tool-btn .icon-sun {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+[data-theme="light"] .nav-tool-btn .icon-moon {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
+/* Deps button status colors */
+#depsBtn.all-ok {
+    color: var(--accent-green);
+}
+
+#depsBtn.has-missing {
+    color: var(--accent-orange);
+}
+
 .version-badge {
     font-size: 0.6rem;
     font-weight: 500;
@@ -860,43 +966,6 @@ header h1 .tagline {
     justify-content: center;
 }
 
-/* UTC Clock in header */
-.header-clock {
-    position: static;
-    transform: none;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: auto;
-}
-
-@media (min-width: 1024px) {
-    .header-clock {
-        position: absolute;
-        top: 50%;
-        left: 20px;
-        transform: translateY(-50%);
-        font-size: 12px;
-        gap: 8px;
-        margin-left: 0;
-    }
-}
-
-.header-clock .utc-time {
-    color: var(--accent-cyan);
-    font-weight: 600;
-}
-
-.header-clock .utc-label {
-    font-size: 9px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
 /* Active mode indicator */
 .active-mode-indicator {
     display: inline-flex;
@@ -919,89 +988,6 @@ header h1 .tagline {
     background: var(--bg-primary);
     border-radius: 50%;
     animation: pulse-glow 2s infinite;
-}
-
-.help-btn {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    right: 20px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-}
-
-.help-btn:hover {
-    border-color: var(--accent-cyan);
-    color: var(--accent-cyan);
-    background: var(--bg-secondary);
-}
-
-#depsBtn {
-    right: 60px;
-}
-
-.theme-toggle {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    right: 100px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-}
-
-.theme-toggle:hover {
-    border-color: var(--accent-cyan);
-    color: var(--accent-cyan);
-    background: var(--bg-secondary);
-}
-
-.theme-toggle .icon-sun,
-.theme-toggle .icon-moon {
-    position: absolute;
-    transition: opacity 0.2s, transform 0.2s;
-}
-
-.theme-toggle .icon-sun {
-    opacity: 0;
-    transform: rotate(-90deg);
-}
-
-.theme-toggle .icon-moon {
-    opacity: 1;
-    transform: rotate(0deg);
-}
-
-[data-theme="light"] .theme-toggle .icon-sun {
-    opacity: 1;
-    transform: rotate(0deg);
-}
-
-[data-theme="light"] .theme-toggle .icon-moon {
-    opacity: 0;
-    transform: rotate(90deg);
 }
 
 .help-modal {
