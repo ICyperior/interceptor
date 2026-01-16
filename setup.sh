@@ -166,6 +166,14 @@ check_tools() {
   echo
   info "SoapySDR:"
   check_required "SoapySDRUtil" "SoapySDR CLI utility" SoapySDRUtil
+
+  echo
+  info "GSM (optional):"
+  if have_any grgsm_scanner; then
+    ok "grgsm_scanner - GSM cell scanner"
+  else
+    warn "grgsm_scanner - GSM cell scanner (optional, for ISMS GSM detection)"
+  fi
   echo
 }
 
@@ -352,6 +360,8 @@ install_macos_packages() {
 
   warn "macOS note: hcitool/hciconfig are Linux (BlueZ) utilities and often unavailable on macOS."
   info "TSCM BLE scanning uses bleak library (installed via pip) for manufacturer data detection."
+  warn "macOS note: gr-gsm (for GSM cell scanning) is not easily available on macOS."
+  info "GSM cell detection in ISMS mode requires Linux with GNU Radio."
   echo
 }
 
@@ -444,6 +454,77 @@ install_acarsdec_from_source_debian() {
       ok "acarsdec installed successfully."
     else
       warn "Failed to build acarsdec from source. ACARS decoding will not be available."
+    fi
+  )
+}
+
+install_grgsm_from_source_debian() {
+  info "Installing gr-gsm for GSM cell scanning (optional)..."
+
+  # Check if GNU Radio is available
+  if ! cmd_exists gnuradio-config-info; then
+    info "GNU Radio not found. Installing GNU Radio first..."
+    $SUDO apt-get install -y gnuradio gnuradio-dev >/dev/null 2>&1 || {
+      warn "Failed to install GNU Radio. gr-gsm requires GNU Radio 3.8+."
+      warn "GSM scanning will not be available."
+      return 1
+    }
+  fi
+
+  # Check GNU Radio version (need 3.8+)
+  local gr_version
+  gr_version=$(gnuradio-config-info --version 2>/dev/null || echo "0.0.0")
+  info "GNU Radio version: $gr_version"
+
+  # Install dependencies for gr-gsm
+  info "Installing gr-gsm dependencies..."
+  $SUDO apt-get install -y \
+    cmake \
+    autoconf \
+    libtool \
+    pkg-config \
+    build-essential \
+    python3-docutils \
+    libcppunit-dev \
+    swig \
+    doxygen \
+    liblog4cpp5-dev \
+    python3-scipy \
+    gnuradio-dev \
+    gr-osmosdr \
+    libosmocore-dev \
+    libosmocoding-dev \
+    libosmoctrl-dev \
+    libosmogsm-dev \
+    libosmovty-dev \
+    libosmocodec-dev \
+    >/dev/null 2>&1 || {
+      warn "Some gr-gsm dependencies failed to install."
+      warn "Attempting to continue anyway..."
+    }
+
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning gr-gsm..."
+    git clone --depth 1 https://github.com/ptrkrysik/gr-gsm.git "$tmp_dir/gr-gsm" >/dev/null 2>&1 \
+      || { warn "Failed to clone gr-gsm"; exit 1; }
+
+    cd "$tmp_dir/gr-gsm"
+    mkdir -p build && cd build
+
+    info "Compiling gr-gsm (this may take a few minutes)..."
+    if cmake .. >/dev/null 2>&1 && make -j$(nproc) >/dev/null 2>&1; then
+      $SUDO make install >/dev/null 2>&1
+      $SUDO ldconfig
+      ok "gr-gsm installed successfully."
+      info "grgsm_scanner should now be available for GSM cell detection."
+    else
+      warn "Failed to build gr-gsm from source."
+      warn "GSM cell scanning will not be available in ISMS mode."
+      warn "You can try installing manually from: https://github.com/ptrkrysik/gr-gsm"
     fi
   )
 }
@@ -547,7 +628,7 @@ install_debian_packages() {
   export DEBIAN_FRONTEND=noninteractive
   export NEEDRESTART_MODE=a
 
-  TOTAL_STEPS=18
+  TOTAL_STEPS=19
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -616,6 +697,13 @@ install_debian_packages() {
     apt_install acarsdec || true
   fi
   cmd_exists acarsdec || install_acarsdec_from_source_debian
+
+  progress "Installing gr-gsm (optional, for GSM cell detection)"
+  if ! cmd_exists grgsm_scanner; then
+    install_grgsm_from_source_debian || true
+  else
+    ok "grgsm_scanner already installed"
+  fi
 
   progress "Configuring udev rules"
   setup_udev_rules_debian
