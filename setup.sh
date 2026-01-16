@@ -556,19 +556,34 @@ install_debian_packages() {
   progress "Installing RTL-SDR"
   # Handle package conflict between librtlsdr0 and librtlsdr2
   # The newer librtlsdr0 (2.0.2) conflicts with older librtlsdr2 (2.0.1)
-  if dpkg -l | grep -q "^ii.*librtlsdr2"; then
+  if dpkg -l | grep -q "librtlsdr2"; then
     info "Detected librtlsdr2 conflict - upgrading to librtlsdr0..."
 
     # Remove packages that depend on librtlsdr2, then remove librtlsdr2
     # These will be reinstalled with librtlsdr0 support
-    $SUDO apt-get remove -y dump1090-mutability libgnuradio-osmosdr0.2.0t64 rtl-433 librtlsdr2 rtl-sdr >/dev/null 2>&1 || true
-    $SUDO apt-get autoremove -y >/dev/null 2>&1 || true
+    $SUDO apt-get remove -y dump1090-mutability libgnuradio-osmosdr0.2.0t64 rtl-433 librtlsdr2 rtl-sdr 2>/dev/null || true
+    $SUDO apt-get autoremove -y 2>/dev/null || true
 
     ok "Removed conflicting librtlsdr2 packages"
   fi
 
+  # If rtl-sdr is in broken state, remove it completely first
+  if dpkg -l | grep -q "^.[^i].*rtl-sdr" || ! dpkg -l rtl-sdr 2>/dev/null | grep -q "^ii"; then
+    info "Removing broken rtl-sdr package..."
+    $SUDO dpkg --remove --force-remove-reinstreq rtl-sdr 2>/dev/null || true
+    $SUDO dpkg --purge --force-remove-reinstreq rtl-sdr 2>/dev/null || true
+  fi
+
+  # Force remove librtlsdr2 if it still exists
+  if dpkg -l | grep -q "librtlsdr2"; then
+    info "Force removing librtlsdr2..."
+    $SUDO dpkg --remove --force-all librtlsdr2 2>/dev/null || true
+    $SUDO dpkg --purge --force-all librtlsdr2 2>/dev/null || true
+  fi
+
   # Clean up any partial installations
-  $SUDO dpkg --configure -a >/dev/null 2>&1 || true
+  $SUDO dpkg --configure -a 2>/dev/null || true
+  $SUDO apt-get --fix-broken install -y 2>/dev/null || true
 
   apt_install rtl-sdr
 
