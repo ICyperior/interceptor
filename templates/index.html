@@ -9402,14 +9402,14 @@
                             ${playbooks.map(p => `
                                 <div class="playbook-item" onclick="tscmViewPlaybook('${p.id}')">
                                     <div class="playbook-header">
-                                        <strong>${escapeHtml(p.name)}</strong>
-                                        <span class="playbook-category">${escapeHtml(p.category || 'General')}</span>
+                                        <strong>${escapeHtml(p.name || p.title)}</strong>
+                                        <span class="playbook-category">${escapeHtml(p.risk_level || p.category || 'General')}</span>
                                     </div>
                                     <div class="playbook-desc">
                                         ${escapeHtml(p.description || 'No description')}
                                     </div>
                                     <div class="playbook-meta">
-                                        ${p.steps?.length || 0} steps | Applies to: ${(p.applies_to || ['Any']).join(', ')}
+                                        ${p.steps?.length || 0} steps
                                     </div>
                                 </div>
                             `).join('')}
@@ -9432,7 +9432,7 @@
                     const content = document.getElementById('tscmDeviceModalContent');
                     content.innerHTML = `
                         <div class="device-detail-header classification-orange">
-                            <h3>📋 ${escapeHtml(p.name)}</h3>
+                            <h3>📋 ${escapeHtml(p.title || p.name || 'Playbook')}</h3>
                         </div>
                         <div class="device-detail-section">
                             <p>${escapeHtml(p.description || '')}</p>
@@ -9442,19 +9442,30 @@
                             <ol class="playbook-steps">
                                 ${(p.steps || []).map((step, i) => `
                                     <li class="playbook-step">
-                                        <strong>${escapeHtml(step.title || `Step ${i+1}`)}</strong>
-                                        <p>${escapeHtml(step.description || '')}</p>
-                                        ${step.warning ? `<div class="playbook-warning">⚠️ ${escapeHtml(step.warning)}</div>` : ''}
+                                        <strong>${escapeHtml(step.action || step.title || `Step ${step.step || i+1}`)}</strong>
+                                        <p>${escapeHtml(step.details || step.description || '')}</p>
+                                        ${step.safety_note ? `<div class="playbook-warning">⚠️ ${escapeHtml(step.safety_note)}</div>` : ''}
                                     </li>
                                 `).join('')}
                             </ol>
                         </div>
-                        ${p.equipment_needed ? `
+                        ${p.when_to_escalate ? `
                         <div class="device-detail-section">
-                            <h4>Equipment Needed</h4>
+                            <h4>When to Escalate</h4>
+                            <p>${escapeHtml(p.when_to_escalate)}</p>
+                        </div>
+                        ` : ''}
+                        ${p.documentation_required && p.documentation_required.length > 0 ? `
+                        <div class="device-detail-section">
+                            <h4>Documentation Required</h4>
                             <ul>
-                                ${(p.equipment_needed || []).map(e => `<li>${escapeHtml(e)}</li>`).join('')}
+                                ${p.documentation_required.map(d => `<li>${escapeHtml(d)}</li>`).join('')}
                             </ul>
+                        </div>
+                        ` : ''}
+                        ${p.disclaimer ? `
+                        <div class="device-detail-disclaimer">
+                            <strong>Disclaimer:</strong> ${escapeHtml(p.disclaimer)}
                         </div>
                         ` : ''}
                         <div style="margin-top: 16px;">

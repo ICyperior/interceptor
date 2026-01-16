@@ -3165,12 +3165,18 @@ def list_playbooks():
     try:
         from utils.tscm.advanced import PLAYBOOKS
 
+        # Return as array with id field for JavaScript compatibility
+        playbooks_list = []
+        for pid, pb in PLAYBOOKS.items():
+            pb_dict = pb.to_dict()
+            pb_dict['id'] = pid
+            pb_dict['name'] = pb_dict.get('title', pid)
+            pb_dict['category'] = pb_dict.get('risk_level', 'general')
+            playbooks_list.append(pb_dict)
+
         return jsonify({
             'status': 'success',
-            'playbooks': {
-                pid: pb.to_dict()
-                for pid, pb in PLAYBOOKS.items()
-            }
+            'playbooks': playbooks_list
         })
 
     except Exception as e:
