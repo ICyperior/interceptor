@@ -555,17 +555,16 @@ install_debian_packages() {
 
   progress "Installing RTL-SDR"
   # Handle package conflict between librtlsdr0 and librtlsdr2
-  # First fix any broken package state
-  if ! dpkg -l | grep -q "^ii.*rtl-sdr"; then
-    info "Attempting to fix broken package state..."
-    $SUDO apt-get --fix-broken install -y >/dev/null 2>&1 || true
-  fi
+  # The newer librtlsdr0 (2.0.2) conflicts with older librtlsdr2 (2.0.1)
+  if dpkg -l | grep -q "^ii.*librtlsdr2"; then
+    info "Detected librtlsdr2 conflict - upgrading to librtlsdr0..."
 
-  # Remove conflicting packages
-  if dpkg -l | grep -q librtlsdr2; then
-    info "Removing conflicting librtlsdr2 package..."
-    $SUDO apt-get remove -y librtlsdr2 rtl-sdr >/dev/null 2>&1 || true
+    # Remove packages that depend on librtlsdr2, then remove librtlsdr2
+    # These will be reinstalled with librtlsdr0 support
+    $SUDO apt-get remove -y dump1090-mutability libgnuradio-osmosdr0.2.0t64 rtl-433 librtlsdr2 rtl-sdr >/dev/null 2>&1 || true
     $SUDO apt-get autoremove -y >/dev/null 2>&1 || true
+
+    ok "Removed conflicting librtlsdr2 packages"
   fi
 
   # Clean up any partial installations
