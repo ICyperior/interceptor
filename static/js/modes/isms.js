@@ -147,13 +147,13 @@ function ismsUseGPS() {
                 ismsLocation.lat = data.position.latitude;
                 ismsLocation.lon = data.position.longitude;
                 updateIsmsLocationDisplay();
-                showNotification('ISMS', 'GPS location acquired');
+                ismsNotify('ISMS', 'GPS location acquired');
             } else {
-                showNotification('ISMS', 'GPS not available. Connect GPS first.');
+                ismsNotify('ISMS', 'GPS not available. Connect GPS first.');
             }
         })
         .catch(() => {
-            showNotification('ISMS', 'Failed to get GPS position');
+            ismsNotify('ISMS', 'Failed to get GPS position');
         });
 }
 
@@ -242,10 +242,10 @@ async function ismsStartScan() {
             ismsPeaks = [];
             updateIsmsFindingsBadges();
         } else {
-            showNotification('ISMS Error', data.message || 'Failed to start scan');
+            ismsNotify('ISMS Error', data.message || 'Failed to start scan');
         }
     } catch (e) {
-        showNotification('ISMS Error', 'Failed to start scan: ' + e.message);
+        ismsNotify('ISMS Error', 'Failed to start scan: ' + e.message);
     }
 }
 
@@ -521,7 +521,7 @@ function updateIsmsStatus(data) {
         updateIsmsUI('stopped');
 
         if (data.state === 'error') {
-            showNotification('ISMS Error', data.message || 'Scan error');
+            ismsNotify('ISMS Error', data.message || 'Scan error');
         }
     }
 }
@@ -530,7 +530,7 @@ function updateIsmsStatus(data) {
 
 async function ismsRefreshTowers() {
     if (!ismsLocation.lat || !ismsLocation.lon) {
-        showNotification('ISMS', 'Set location first to query towers');
+        ismsNotify('ISMS', 'Set location first to query towers');
         return;
     }
 
@@ -544,7 +544,7 @@ async function ismsRefreshTowers() {
         if (data.status === 'error') {
             if (towerCountEl) towerCountEl.textContent = data.message;
             if (data.config_required) {
-                showNotification('ISMS', 'OpenCelliD token required. Set OPENCELLID_TOKEN environment variable.');
+                ismsNotify('ISMS', 'OpenCelliD token required. Set OPENCELLID_TOKEN environment variable.');
             }
             return;
         }
@@ -689,10 +689,10 @@ async function ismsStartBaselineRecording() {
             }
             if (status) status.style.display = 'block';
 
-            showNotification('ISMS', 'Baseline recording started');
+            ismsNotify('ISMS', 'Baseline recording started');
         }
     } catch (e) {
-        showNotification('ISMS Error', 'Failed to start recording');
+        ismsNotify('ISMS Error', 'Failed to start recording');
     }
 }
 
@@ -725,11 +725,11 @@ async function ismsStopBaselineRecording() {
             }
             if (status) status.style.display = 'none';
 
-            showNotification('ISMS', `Baseline saved: ${data.summary.bands} bands, ${data.summary.towers} towers`);
+            ismsNotify('ISMS', `Baseline saved: ${data.summary.bands} bands, ${data.summary.towers} towers`);
             ismsRefreshBaselines();
         }
     } catch (e) {
-        showNotification('ISMS Error', 'Failed to save baseline');
+        ismsNotify('ISMS Error', 'Failed to save baseline');
     }
 }
 
@@ -748,10 +748,10 @@ function ismsToggleBaselinePanel() {
 
 // ============== UTILITY ==============
 
-function showNotification(title, message) {
-    // Use existing notification system if available
-    if (typeof window.showNotification === 'function') {
-        window.showNotification(title, message);
+function ismsNotify(title, message) {
+    // Use existing notification system if available (defined in audio.js)
+    if (typeof showNotification === 'function' && showNotification !== ismsNotify) {
+        showNotification(title, message);
     } else {
         console.log(`[${title}] ${message}`);
     }
@@ -796,12 +796,12 @@ async function ismsStartGsmScan() {
                 connectIsmsStream();
             }
 
-            showNotification('ISMS', `GSM scan started on ${band}`);
+            ismsNotify('ISMS', `GSM scan started on ${band}`);
         } else {
-            showNotification('ISMS Error', data.message || 'Failed to start GSM scan');
+            ismsNotify('ISMS Error', data.message || 'Failed to start GSM scan');
         }
     } catch (e) {
-        showNotification('ISMS Error', 'Failed to start GSM scan: ' + e.message);
+        ismsNotify('ISMS Error', 'Failed to start GSM scan: ' + e.message);
     }
 }
 
@@ -879,7 +879,7 @@ function handleGsmScanComplete(data) {
         countEl.textContent = data.cell_count || ismsGsmCells.length;
     }
 
-    showNotification('ISMS', `GSM scan complete: ${data.cell_count} cells found`);
+    ismsNotify('ISMS', `GSM scan complete: ${data.cell_count} cells found`);
 }
 
 function handleGsmStatus(data) {
@@ -904,7 +904,7 @@ function handleGsmStatus(data) {
             statusText.textContent = 'Error';
             statusText.style.color = 'var(--accent-red)';
         }
-        showNotification('ISMS Error', data.message || 'GSM scan error');
+        ismsNotify('ISMS Error', data.message || 'GSM scan error');
     }
 }
 
@@ -957,7 +957,7 @@ function getOperatorName(plmn) {
 
 async function ismsSetGsmBaseline() {
     if (ismsGsmCells.length === 0) {
-        showNotification('ISMS', 'No GSM cells to save. Run a scan first.');
+        ismsNotify('ISMS', 'No GSM cells to save. Run a scan first.');
         return;
     }
 
@@ -970,12 +970,12 @@ async function ismsSetGsmBaseline() {
         const data = await response.json();
 
         if (data.status === 'saved') {
-            showNotification('ISMS', `GSM baseline saved: ${data.cell_count} cells`);
+            ismsNotify('ISMS', `GSM baseline saved: ${data.cell_count} cells`);
         } else {
-            showNotification('ISMS Error', data.message || 'Failed to save baseline');
+            ismsNotify('ISMS Error', data.message || 'Failed to save baseline');
         }
     } catch (e) {
-        showNotification('ISMS Error', 'Failed to save GSM baseline');
+        ismsNotify('ISMS Error', 'Failed to save GSM baseline');
     }
 }
 
