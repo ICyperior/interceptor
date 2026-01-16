@@ -36,7 +36,11 @@ from utils.database import (
     set_active_tscm_baseline,
     update_tscm_sweep,
 )
-from utils.tscm.baseline import BaselineComparator, BaselineRecorder
+from utils.tscm.baseline import (
+    BaselineComparator,
+    BaselineRecorder,
+    get_comparison_for_active_baseline,
+)
 from utils.tscm.correlation import (
     CorrelationEngine,
     get_correlation_engine,
@@ -1447,6 +1451,20 @@ def _run_sweep(
             correlations = correlation.correlate_devices()
             findings = correlation.get_all_findings()
 
+            # Run baseline comparison if a baseline was provided
+            baseline_comparison = None
+            if baseline:
+                comparator = BaselineComparator(baseline)
+                baseline_comparison = comparator.compare_all(
+                    wifi_devices=list(all_wifi.values()),
+                    bt_devices=list(all_bt.values()),
+                    rf_signals=all_rf
+                )
+                logger.info(
+                    f"Baseline comparison: {baseline_comparison['total_new']} new, "
+                    f"{baseline_comparison['total_missing']} missing"
+                )
+
             # Finalize identity engine and get MAC-randomization resistant clusters
             identity_engine.finalize_all_sessions()
             identity_summary = identity_engine.get_summary()
@@ -1462,6 +1480,7 @@ def _run_sweep(
                     'severity_counts': severity_counts,
                     'correlation_summary': findings.get('summary', {}),
                     'identity_summary': identity_summary.get('statistics', {}),
+                    'baseline_comparison': baseline_comparison,
                 },
                 threats_found=threats_found,
                 completed=True
@@ -1473,6 +1492,18 @@ def _run_sweep(
                 'high_interest_count': findings['summary'].get('high_interest', 0),
                 'needs_review_count': findings['summary'].get('needs_review', 0),
             })
+
+            # Emit baseline comparison if a baseline was used
+            if baseline_comparison:
+                _emit_event('baseline_comparison', {
+                    'baseline_id': baseline.get('id'),
+                    'baseline_name': baseline.get('name'),
+                    'total_new': baseline_comparison['total_new'],
+                    'total_missing': baseline_comparison['total_missing'],
+                    'wifi': baseline_comparison.get('wifi'),
+                    'bluetooth': baseline_comparison.get('bluetooth'),
+                    'rf': baseline_comparison.get('rf'),
+                })
 
             # Emit device identity cluster findings (MAC-randomization resistant)
             _emit_event('identity_clusters', {
@@ -1494,6 +1525,8 @@ def _run_sweep(
                 'needs_review_devices': findings['summary'].get('needs_review', 0),
                 'correlations_found': len(correlations),
                 'identity_clusters': identity_summary['statistics'].get('total_clusters', 0),
+                'baseline_new_devices': baseline_comparison['total_new'] if baseline_comparison else 0,
+                'baseline_missing_devices': baseline_comparison['total_missing'] if baseline_comparison else 0,
             })
 
     except Exception as e:
@@ -1623,6 +1656,43 @@ def get_active_baseline():
         return jsonify({'status': 'success', 'baseline': None})
 
     return jsonify({'status': 'success', 'baseline': baseline})
+
+
+@tscm_bp.route('/baseline/compare', methods=['POST'])
+def compare_against_baseline():
+    """
+    Compare provided device data against the active baseline.
+
+    Expects JSON body with:
+    - wifi_devices: list of WiFi devices (optional)
+    - bt_devices: list of Bluetooth devices (optional)
+    - rf_signals: list of RF signals (optional)
+
+    Returns comparison showing new, missing, and matching devices.
+    """
+    data = request.get_json() or {}
+
+    wifi_devices = data.get('wifi_devices')
+    bt_devices = data.get('bt_devices')
+    rf_signals = data.get('rf_signals')
+
+    # Use the convenience function that gets active baseline
+    comparison = get_comparison_for_active_baseline(
+        wifi_devices=wifi_devices,
+        bt_devices=bt_devices,
+        rf_signals=rf_signals
+    )
+
+    if comparison is None:
+        return jsonify({
+            'status': 'error',
+            'message': 'No active baseline set'
+        }), 400
+
+    return jsonify({
+        'status': 'success',
+        'comparison': comparison
+    })
 
 
 # =============================================================================

@@ -194,7 +194,8 @@
                     <label title="Show aircraft trails"><input type="checkbox" id="showTrails" onchange="toggleTrails()"> Trails</label>
                     <label title="Show range rings"><input type="checkbox" id="showRangeRings" checked onchange="drawRangeRings()"> Rings</label>
                     <label title="Radar sweep overlay"><input type="checkbox" id="radarOverlay" onchange="toggleRadarOverlay()"> Radar</label>
-                    <label title="Audio alerts"><input type="checkbox" id="alertToggle" checked onchange="toggleAlerts()"> Alerts</label>
+                    <label title="Audio alerts for military/emergency"><input type="checkbox" id="alertToggle" checked onchange="toggleAlerts()"> Alerts</label>
+                    <label title="Sound when new aircraft detected"><input type="checkbox" id="detectionSoundToggle" onchange="toggleDetectionSound()"> Ping</label>
                     <select id="aircraftFilter" onchange="applyFilter()" title="Filter aircraft">
                         <option value="all">All Aircraft</option>
                         <option value="military">Military</option>
@@ -298,6 +299,8 @@
         let currentFilter = 'all';
         let alertedAircraft = {};
         let alertsEnabled = true;
+        let detectionSoundEnabled = localStorage.getItem('adsb_detectionSound') !== 'false';  // Default on
+        let soundedAircraft = {};  // Track aircraft we've played detection sound for
         let currentView = 'map';  // 'map' or 'radar'
 
         // Watchlist - persisted to localStorage
@@ -574,6 +577,31 @@
 
         function toggleAlerts() {
             alertsEnabled = document.getElementById('alertToggle').checked;
+        }
+
+        function toggleDetectionSound() {
+            detectionSoundEnabled = document.getElementById('detectionSoundToggle').checked;
+            localStorage.setItem('adsb_detectionSound', detectionSoundEnabled);
+        }
+
+        function playDetectionSound() {
+            if (!detectionSoundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const oscillator = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                // Soft, quick ping - 1000Hz for 100ms
+                oscillator.frequency.setValueAtTime(1000, ctx.currentTime);
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                oscillator.start(ctx.currentTime);
+                oscillator.stop(ctx.currentTime + 0.1);
+            } catch (e) {
+                console.warn('Detection sound failed:', e);
+            }
         }
 
         // ============================================
@@ -1920,6 +1948,10 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             if (obsLatInput) obsLatInput.value = observerLocation.lat.toFixed(4);
             if (obsLonInput) obsLonInput.value = observerLocation.lon.toFixed(4);
 
+            // Initialize detection sound toggle from localStorage
+            const detectionToggle = document.getElementById('detectionSoundToggle');
+            if (detectionToggle) detectionToggle.checked = detectionSoundEnabled;
+
             initMap();
             initDeviceSelectors();
             updateClock();
@@ -2484,6 +2516,13 @@ sudo make install</code>
         function updateAircraft(data) {
             const icao = data.icao;
             if (!icao) return;
+
+            // Check if this is a new aircraft we haven't seen this session
+            const isNewAircraft = !soundedAircraft[icao];
+            if (isNewAircraft) {
+                soundedAircraft[icao] = true;
+                playDetectionSound();
+            }
 
             aircraft[icao] = {
                 ...aircraft[icao],
