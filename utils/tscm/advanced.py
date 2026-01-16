@@ -189,16 +189,49 @@ def _detect_wifi_capabilities(caps: SweepCapabilities, interface: str) -> None:
     caps.wifi_interface = interface
 
     if platform.system() == 'Darwin':
-        # macOS: Check airport utility
+        # macOS: Check for WiFi capability using multiple methods
+        wifi_available = False
+
+        # Method 1: Check airport utility (older macOS)
         airport_path = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
         if os.path.exists(airport_path):
+            wifi_available = True
+
+        # Method 2: Check for WiFi interface using networksetup (works on all macOS)
+        if not wifi_available:
+            try:
+                result = subprocess.run(
+                    ['networksetup', '-listallhardwareports'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if 'Wi-Fi' in result.stdout or 'AirPort' in result.stdout:
+                    wifi_available = True
+            except Exception:
+                pass
+
+        # Method 3: Check if en0 exists (common WiFi interface on macOS)
+        if not wifi_available:
+            try:
+                result = subprocess.run(
+                    ['ifconfig', 'en0'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    wifi_available = True
+            except Exception:
+                pass
+
+        if wifi_available:
             caps.wifi_mode = WifiMode.MANAGED
             caps.wifi_driver = 'apple80211'
             caps.wifi_monitor_capable = False
             caps.wifi_limitations = [
-                "Passive WiFi frame analysis is not available in this sweep.",
                 "macOS WiFi operates in managed mode only.",
-                "Cannot capture probe requests, deauthentication frames, or raw 802.11 headers.",
+                "Cannot capture probe requests or deauthentication frames.",
                 "Evil twin detection limited to SSID/BSSID comparison only.",
             ]
         else:
