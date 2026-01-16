@@ -476,6 +476,36 @@ install_grgsm_from_source_debian() {
   gr_version=$(gnuradio-config-info --version 2>/dev/null || echo "0.0.0")
   info "GNU Radio version: $gr_version"
 
+  # Add Osmocom repository for libosmocore packages
+  info "Adding Osmocom repository for libosmocore..."
+  local osmocom_list="/etc/apt/sources.list.d/osmocom-latest.list"
+  local ubuntu_codename
+  ubuntu_codename=$(lsb_release -cs 2>/dev/null || echo "jammy")
+
+  # Check if repo already added
+  if [[ ! -f "$osmocom_list" ]]; then
+    # Add Osmocom GPG key
+    $SUDO apt-get install -y wget gnupg || true
+    wget -qO - https://downloads.osmocom.org/packages/osmocom:/latest/Debian_12/Release.key 2>/dev/null | \
+      $SUDO gpg --dearmor -o /etc/apt/trusted.gpg.d/osmocom.gpg 2>/dev/null || true
+
+    # Try Ubuntu repo first, fall back to Debian
+    if wget -q --spider "https://downloads.osmocom.org/packages/osmocom:/latest/xUbuntu_${ubuntu_codename}/Release" 2>/dev/null; then
+      echo "deb https://downloads.osmocom.org/packages/osmocom:/latest/xUbuntu_${ubuntu_codename}/ ./" | \
+        $SUDO tee "$osmocom_list" >/dev/null
+      info "Added Osmocom Ubuntu repository"
+    else
+      # Fall back to Debian 12 repo which often works on Ubuntu
+      echo "deb https://downloads.osmocom.org/packages/osmocom:/latest/Debian_12/ ./" | \
+        $SUDO tee "$osmocom_list" >/dev/null
+      info "Added Osmocom Debian repository (fallback)"
+    fi
+
+    $SUDO apt-get update || true
+  else
+    ok "Osmocom repository already configured"
+  fi
+
   # Install dependencies for gr-gsm
   info "Installing gr-gsm dependencies..."
   $SUDO apt-get install -y \
@@ -500,7 +530,8 @@ install_grgsm_from_source_debian() {
     libosmocodec-dev \
     || {
       warn "Some gr-gsm dependencies failed to install."
-      warn "Attempting to continue anyway..."
+      warn "You may need to manually add the Osmocom repository."
+      warn "See: https://osmocom.org/projects/cellular-infrastructure/wiki/Osmocom_Repositories"
     }
 
   # Build gr-gsm
