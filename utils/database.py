@@ -178,6 +178,123 @@ def init_db() -> None:
             )
         ''')
 
+        # TSCM Device Timelines - Periodic observations per device
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_device_timelines (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_identifier TEXT NOT NULL,
+                protocol TEXT NOT NULL,
+                sweep_id INTEGER,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                rssi INTEGER,
+                presence BOOLEAN DEFAULT 1,
+                channel INTEGER,
+                frequency REAL,
+                attributes TEXT,
+                FOREIGN KEY (sweep_id) REFERENCES tscm_sweeps(id)
+            )
+        ''')
+
+        # TSCM Known-Good Registry - Whitelist of expected devices
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_known_devices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                identifier TEXT NOT NULL UNIQUE,
+                protocol TEXT NOT NULL,
+                name TEXT,
+                description TEXT,
+                location TEXT,
+                scope TEXT DEFAULT 'global',
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                added_by TEXT,
+                last_verified TIMESTAMP,
+                score_modifier INTEGER DEFAULT -2,
+                metadata TEXT
+            )
+        ''')
+
+        # TSCM Cases - Grouping sweeps, threats, and notes
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                location TEXT,
+                status TEXT DEFAULT 'open',
+                priority TEXT DEFAULT 'normal',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                closed_at TIMESTAMP,
+                created_by TEXT,
+                assigned_to TEXT,
+                notes TEXT,
+                metadata TEXT
+            )
+        ''')
+
+        # TSCM Case Sweeps - Link sweeps to cases
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_case_sweeps (
+                case_id INTEGER,
+                sweep_id INTEGER,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (case_id, sweep_id),
+                FOREIGN KEY (case_id) REFERENCES tscm_cases(id),
+                FOREIGN KEY (sweep_id) REFERENCES tscm_sweeps(id)
+            )
+        ''')
+
+        # TSCM Case Threats - Link threats to cases
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_case_threats (
+                case_id INTEGER,
+                threat_id INTEGER,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (case_id, threat_id),
+                FOREIGN KEY (case_id) REFERENCES tscm_cases(id),
+                FOREIGN KEY (threat_id) REFERENCES tscm_threats(id)
+            )
+        ''')
+
+        # TSCM Case Notes - Notes attached to cases
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_case_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id INTEGER,
+                content TEXT NOT NULL,
+                note_type TEXT DEFAULT 'general',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by TEXT,
+                FOREIGN KEY (case_id) REFERENCES tscm_cases(id)
+            )
+        ''')
+
+        # TSCM Meeting Windows - Track sensitive periods
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_meeting_windows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sweep_id INTEGER,
+                name TEXT,
+                start_time TIMESTAMP NOT NULL,
+                end_time TIMESTAMP,
+                location TEXT,
+                notes TEXT,
+                FOREIGN KEY (sweep_id) REFERENCES tscm_sweeps(id)
+            )
+        ''')
+
+        # TSCM Sweep Capabilities - Store sweep capability snapshot
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tscm_sweep_capabilities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sweep_id INTEGER UNIQUE,
+                capabilities TEXT NOT NULL,
+                limitations TEXT,
+                recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (sweep_id) REFERENCES tscm_sweeps(id)
+            )
+        ''')
+
         # TSCM indexes for performance
         conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_tscm_threats_sweep
@@ -192,6 +309,21 @@ def init_db() -> None:
         conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_tscm_sweeps_baseline
             ON tscm_sweeps(baseline_id)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tscm_timelines_device
+            ON tscm_device_timelines(device_identifier, timestamp)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tscm_known_devices_identifier
+            ON tscm_known_devices(identifier)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tscm_cases_status
+            ON tscm_cases(status, created_at)
         ''')
 
         logger.info("Database initialized successfully")
@@ -793,3 +925,507 @@ def get_tscm_threat_summary() -> dict:
             summary['total'] += row['count']
 
         return summary
+
+
+# =============================================================================
+# TSCM Device Timeline Functions
+# =============================================================================
+
+def add_device_timeline_entry(
+    device_identifier: str,
+    protocol: str,
+    sweep_id: int | None = None,
+    rssi: int | None = None,
+    presence: bool = True,
+    channel: int | None = None,
+    frequency: float | None = None,
+    attributes: dict | None = None
+) -> int:
+    """Add a device timeline observation entry."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_device_timelines
+            (device_identifier, protocol, sweep_id, rssi, presence, channel, frequency, attributes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            device_identifier, protocol, sweep_id, rssi, presence,
+            channel, frequency, json.dumps(attributes) if attributes else None
+        ))
+        return cursor.lastrowid
+
+
+def get_device_timeline(
+    device_identifier: str,
+    limit: int = 100,
+    since_hours: int = 24
+) -> list[dict]:
+    """Get timeline entries for a device."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT * FROM tscm_device_timelines
+            WHERE device_identifier = ?
+              AND timestamp > datetime('now', ?)
+            ORDER BY timestamp DESC
+            LIMIT ?
+        ''', (device_identifier, f'-{since_hours} hours', limit))
+
+        results = []
+        for row in cursor:
+            results.append({
+                'id': row['id'],
+                'device_identifier': row['device_identifier'],
+                'protocol': row['protocol'],
+                'sweep_id': row['sweep_id'],
+                'timestamp': row['timestamp'],
+                'rssi': row['rssi'],
+                'presence': bool(row['presence']),
+                'channel': row['channel'],
+                'frequency': row['frequency'],
+                'attributes': json.loads(row['attributes']) if row['attributes'] else None
+            })
+        return list(reversed(results))
+
+
+def cleanup_old_timeline_entries(max_age_hours: int = 72) -> int:
+    """Remove old timeline entries."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM tscm_device_timelines
+            WHERE timestamp < datetime('now', ?)
+        ''', (f'-{max_age_hours} hours',))
+        return cursor.rowcount
+
+
+# =============================================================================
+# TSCM Known-Good Registry Functions
+# =============================================================================
+
+def add_known_device(
+    identifier: str,
+    protocol: str,
+    name: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
+    scope: str = 'global',
+    added_by: str | None = None,
+    score_modifier: int = -2,
+    metadata: dict | None = None
+) -> int:
+    """Add a device to the known-good registry."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_known_devices
+            (identifier, protocol, name, description, location, scope, added_by, score_modifier, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(identifier) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                location = excluded.location,
+                scope = excluded.scope,
+                score_modifier = excluded.score_modifier,
+                metadata = excluded.metadata,
+                last_verified = CURRENT_TIMESTAMP
+        ''', (
+            identifier.upper(), protocol, name, description, location,
+            scope, added_by, score_modifier, json.dumps(metadata) if metadata else None
+        ))
+        return cursor.lastrowid
+
+
+def get_known_device(identifier: str) -> dict | None:
+    """Get a known device by identifier."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'SELECT * FROM tscm_known_devices WHERE identifier = ?',
+            (identifier.upper(),)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            'id': row['id'],
+            'identifier': row['identifier'],
+            'protocol': row['protocol'],
+            'name': row['name'],
+            'description': row['description'],
+            'location': row['location'],
+            'scope': row['scope'],
+            'added_at': row['added_at'],
+            'added_by': row['added_by'],
+            'last_verified': row['last_verified'],
+            'score_modifier': row['score_modifier'],
+            'metadata': json.loads(row['metadata']) if row['metadata'] else None
+        }
+
+
+def get_all_known_devices(
+    location: str | None = None,
+    scope: str | None = None
+) -> list[dict]:
+    """Get all known devices, optionally filtered by location or scope."""
+    conditions = []
+    params = []
+
+    if location:
+        conditions.append('(location = ? OR scope = ?)')
+        params.extend([location, 'global'])
+    if scope:
+        conditions.append('scope = ?')
+        params.append(scope)
+
+    where_clause = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+
+    with get_db() as conn:
+        cursor = conn.execute(f'''
+            SELECT * FROM tscm_known_devices
+            {where_clause}
+            ORDER BY added_at DESC
+        ''', params)
+
+        return [
+            {
+                'id': row['id'],
+                'identifier': row['identifier'],
+                'protocol': row['protocol'],
+                'name': row['name'],
+                'description': row['description'],
+                'location': row['location'],
+                'scope': row['scope'],
+                'added_at': row['added_at'],
+                'added_by': row['added_by'],
+                'last_verified': row['last_verified'],
+                'score_modifier': row['score_modifier'],
+                'metadata': json.loads(row['metadata']) if row['metadata'] else None
+            }
+            for row in cursor
+        ]
+
+
+def delete_known_device(identifier: str) -> bool:
+    """Remove a device from the known-good registry."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'DELETE FROM tscm_known_devices WHERE identifier = ?',
+            (identifier.upper(),)
+        )
+        return cursor.rowcount > 0
+
+
+def is_known_good_device(identifier: str, location: str | None = None) -> dict | None:
+    """Check if a device is in the known-good registry for a location."""
+    with get_db() as conn:
+        if location:
+            cursor = conn.execute('''
+                SELECT * FROM tscm_known_devices
+                WHERE identifier = ? AND (location = ? OR scope = 'global')
+            ''', (identifier.upper(), location))
+        else:
+            cursor = conn.execute(
+                'SELECT * FROM tscm_known_devices WHERE identifier = ?',
+                (identifier.upper(),)
+            )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            'identifier': row['identifier'],
+            'name': row['name'],
+            'score_modifier': row['score_modifier'],
+            'scope': row['scope']
+        }
+
+
+# =============================================================================
+# TSCM Case Functions
+# =============================================================================
+
+def create_tscm_case(
+    name: str,
+    description: str | None = None,
+    location: str | None = None,
+    priority: str = 'normal',
+    created_by: str | None = None,
+    metadata: dict | None = None
+) -> int:
+    """Create a new TSCM case."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_cases
+            (name, description, location, priority, created_by, metadata)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (name, description, location, priority, created_by,
+              json.dumps(metadata) if metadata else None))
+        return cursor.lastrowid
+
+
+def get_tscm_case(case_id: int) -> dict | None:
+    """Get a TSCM case by ID."""
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM tscm_cases WHERE id = ?', (case_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        case = {
+            'id': row['id'],
+            'name': row['name'],
+            'description': row['description'],
+            'location': row['location'],
+            'status': row['status'],
+            'priority': row['priority'],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at'],
+            'closed_at': row['closed_at'],
+            'created_by': row['created_by'],
+            'assigned_to': row['assigned_to'],
+            'notes': row['notes'],
+            'metadata': json.loads(row['metadata']) if row['metadata'] else None,
+            'sweeps': [],
+            'threats': [],
+            'case_notes': []
+        }
+
+        # Get linked sweeps
+        cursor = conn.execute('''
+            SELECT s.* FROM tscm_sweeps s
+            JOIN tscm_case_sweeps cs ON s.id = cs.sweep_id
+            WHERE cs.case_id = ?
+            ORDER BY s.started_at DESC
+        ''', (case_id,))
+        case['sweeps'] = [dict(row) for row in cursor]
+
+        # Get linked threats
+        cursor = conn.execute('''
+            SELECT t.* FROM tscm_threats t
+            JOIN tscm_case_threats ct ON t.id = ct.threat_id
+            WHERE ct.case_id = ?
+            ORDER BY t.detected_at DESC
+        ''', (case_id,))
+        case['threats'] = [dict(row) for row in cursor]
+
+        # Get case notes
+        cursor = conn.execute('''
+            SELECT * FROM tscm_case_notes
+            WHERE case_id = ?
+            ORDER BY created_at DESC
+        ''', (case_id,))
+        case['case_notes'] = [dict(row) for row in cursor]
+
+        return case
+
+
+def get_all_tscm_cases(
+    status: str | None = None,
+    limit: int = 50
+) -> list[dict]:
+    """Get all TSCM cases."""
+    conditions = []
+    params = []
+
+    if status:
+        conditions.append('status = ?')
+        params.append(status)
+
+    where_clause = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+    params.append(limit)
+
+    with get_db() as conn:
+        cursor = conn.execute(f'''
+            SELECT * FROM tscm_cases
+            {where_clause}
+            ORDER BY updated_at DESC
+            LIMIT ?
+        ''', params)
+        return [dict(row) for row in cursor]
+
+
+def update_tscm_case(
+    case_id: int,
+    status: str | None = None,
+    priority: str | None = None,
+    assigned_to: str | None = None,
+    notes: str | None = None
+) -> bool:
+    """Update a TSCM case."""
+    updates = ['updated_at = CURRENT_TIMESTAMP']
+    params = []
+
+    if status:
+        updates.append('status = ?')
+        params.append(status)
+        if status == 'closed':
+            updates.append('closed_at = CURRENT_TIMESTAMP')
+    if priority:
+        updates.append('priority = ?')
+        params.append(priority)
+    if assigned_to is not None:
+        updates.append('assigned_to = ?')
+        params.append(assigned_to)
+    if notes is not None:
+        updates.append('notes = ?')
+        params.append(notes)
+
+    params.append(case_id)
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            f'UPDATE tscm_cases SET {", ".join(updates)} WHERE id = ?',
+            params
+        )
+        return cursor.rowcount > 0
+
+
+def add_sweep_to_case(case_id: int, sweep_id: int) -> bool:
+    """Link a sweep to a case."""
+    with get_db() as conn:
+        try:
+            conn.execute('''
+                INSERT INTO tscm_case_sweeps (case_id, sweep_id)
+                VALUES (?, ?)
+            ''', (case_id, sweep_id))
+            conn.execute(
+                'UPDATE tscm_cases SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                (case_id,)
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+
+def add_threat_to_case(case_id: int, threat_id: int) -> bool:
+    """Link a threat to a case."""
+    with get_db() as conn:
+        try:
+            conn.execute('''
+                INSERT INTO tscm_case_threats (case_id, threat_id)
+                VALUES (?, ?)
+            ''', (case_id, threat_id))
+            conn.execute(
+                'UPDATE tscm_cases SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                (case_id,)
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+
+def add_case_note(
+    case_id: int,
+    content: str,
+    note_type: str = 'general',
+    created_by: str | None = None
+) -> int:
+    """Add a note to a case."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_case_notes (case_id, content, note_type, created_by)
+            VALUES (?, ?, ?, ?)
+        ''', (case_id, content, note_type, created_by))
+        conn.execute(
+            'UPDATE tscm_cases SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            (case_id,)
+        )
+        return cursor.lastrowid
+
+
+# =============================================================================
+# TSCM Meeting Window Functions
+# =============================================================================
+
+def start_meeting_window(
+    sweep_id: int | None = None,
+    name: str | None = None,
+    location: str | None = None,
+    notes: str | None = None
+) -> int:
+    """Start a meeting window."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_meeting_windows (sweep_id, name, start_time, location, notes)
+            VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?)
+        ''', (sweep_id, name, location, notes))
+        return cursor.lastrowid
+
+
+def end_meeting_window(meeting_id: int) -> bool:
+    """End a meeting window."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            UPDATE tscm_meeting_windows
+            SET end_time = CURRENT_TIMESTAMP
+            WHERE id = ? AND end_time IS NULL
+        ''', (meeting_id,))
+        return cursor.rowcount > 0
+
+
+def get_active_meeting_window(sweep_id: int | None = None) -> dict | None:
+    """Get currently active meeting window."""
+    with get_db() as conn:
+        if sweep_id:
+            cursor = conn.execute('''
+                SELECT * FROM tscm_meeting_windows
+                WHERE sweep_id = ? AND end_time IS NULL
+                ORDER BY start_time DESC LIMIT 1
+            ''', (sweep_id,))
+        else:
+            cursor = conn.execute('''
+                SELECT * FROM tscm_meeting_windows
+                WHERE end_time IS NULL
+                ORDER BY start_time DESC LIMIT 1
+            ''')
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+        return None
+
+
+def get_meeting_windows(sweep_id: int) -> list[dict]:
+    """Get all meeting windows for a sweep."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT * FROM tscm_meeting_windows
+            WHERE sweep_id = ?
+            ORDER BY start_time
+        ''', (sweep_id,))
+        return [dict(row) for row in cursor]
+
+
+# =============================================================================
+# TSCM Sweep Capabilities Functions
+# =============================================================================
+
+def save_sweep_capabilities(
+    sweep_id: int,
+    capabilities: dict,
+    limitations: list[str] | None = None
+) -> int:
+    """Save sweep capabilities snapshot."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_sweep_capabilities (sweep_id, capabilities, limitations)
+            VALUES (?, ?, ?)
+            ON CONFLICT(sweep_id) DO UPDATE SET
+                capabilities = excluded.capabilities,
+                limitations = excluded.limitations,
+                recorded_at = CURRENT_TIMESTAMP
+        ''', (sweep_id, json.dumps(capabilities),
+              json.dumps(limitations) if limitations else None))
+        return cursor.lastrowid
+
+
+def get_sweep_capabilities(sweep_id: int) -> dict | None:
+    """Get capabilities for a sweep."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'SELECT * FROM tscm_sweep_capabilities WHERE sweep_id = ?',
+            (sweep_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            'sweep_id': row['sweep_id'],
+            'capabilities': json.loads(row['capabilities']),
+            'limitations': json.loads(row['limitations']) if row['limitations'] else [],
+            'recorded_at': row['recorded_at']
+        }
