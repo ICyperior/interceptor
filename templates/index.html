@@ -9274,7 +9274,7 @@
             if (!identifier) return;
 
             const name = prompt('Enter friendly name for this device:');
-            const deviceType = prompt('Enter device type (wifi/bluetooth/rf):') || 'wifi';
+            const protocol = prompt('Enter protocol type (wifi/bluetooth/rf):') || 'wifi';
 
             try {
                 const response = await fetch('/tscm/known-devices', {
@@ -9282,8 +9282,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         identifier: identifier,
-                        name: name || identifier,
-                        device_type: deviceType
+                        protocol: protocol,
+                        name: name || identifier
                     })
                 });
 
@@ -9318,7 +9318,7 @@
             }
         }
 
-        async function tscmAddToKnownDevices(identifier, name, deviceType) {
+        async function tscmAddToKnownDevices(identifier, name, protocol) {
             // Ask for optional custom name
             const customName = prompt(`Add "${name}" to known devices.\n\nEnter a friendly name (or leave blank to use default):`, name);
             if (customName === null) return; // User cancelled
@@ -9329,8 +9329,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         identifier: identifier,
-                        name: customName || name,
-                        device_type: deviceType
+                        protocol: protocol,
+                        name: customName || name
                     })
                 });
 
