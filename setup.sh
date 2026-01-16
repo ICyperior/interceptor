@@ -491,6 +491,7 @@ install_grgsm_from_source_debian() {
     doxygen \
     liblog4cpp5-dev \
     python3-scipy \
+    python3-numpy \
     gnuradio-dev \
     gr-osmosdr \
     libtalloc-dev \
@@ -499,6 +500,8 @@ install_grgsm_from_source_debian() {
     libgnutls28-dev \
     libmnl-dev \
     libsctp-dev \
+    pybind11-dev \
+    python3-pybind11 \
     || warn "Some build dependencies failed to install."
 
   # Check if libosmocore is available via apt
@@ -549,8 +552,29 @@ install_grgsm_from_source_debian() {
   local tmp_dir
   tmp_dir="$(mktemp -d)"
 
-  info "Cloning gr-gsm..."
-  if ! git clone --depth 1 https://github.com/ptrkrysik/gr-gsm.git "$tmp_dir/gr-gsm"; then
+  # Check GNU Radio version to select correct gr-gsm fork
+  local gr_major gr_minor
+  gr_major=$(gnuradio-config-info --version 2>/dev/null | cut -d. -f1 || echo "3")
+  gr_minor=$(gnuradio-config-info --version 2>/dev/null | cut -d. -f2 || echo "8")
+
+  local grgsm_repo grgsm_branch
+  if [[ "$gr_major" -ge 3 && "$gr_minor" -ge 10 ]]; then
+    # GNU Radio 3.10+ needs fork with pybind11 (no SWIG)
+    info "GNU Radio 3.10+ detected, using bkerler fork with pybind11 support..."
+    grgsm_repo="https://github.com/bkerler/gr-gsm.git"
+    grgsm_branch="master"
+
+    # Install pybind11 for GNU Radio 3.10+
+    $SUDO apt-get install -y pybind11-dev python3-pybind11 || true
+  else
+    # Older GNU Radio versions use original repo with SWIG
+    info "GNU Radio < 3.10 detected, using original gr-gsm..."
+    grgsm_repo="https://github.com/ptrkrysik/gr-gsm.git"
+    grgsm_branch="master"
+  fi
+
+  info "Cloning gr-gsm from $grgsm_repo..."
+  if ! git clone --depth 1 -b "$grgsm_branch" "$grgsm_repo" "$tmp_dir/gr-gsm"; then
     warn "Failed to clone gr-gsm repository"
     rm -rf "$tmp_dir"
     return 1
@@ -560,7 +584,8 @@ install_grgsm_from_source_debian() {
   mkdir -p build && cd build
 
   info "Configuring gr-gsm..."
-  if ! cmake ..; then
+  # Include /usr/local in CMAKE_PREFIX_PATH for source-built libosmocore
+  if ! cmake -DCMAKE_PREFIX_PATH="/usr/local;/usr" -DCMAKE_INSTALL_PREFIX=/usr/local ..; then
     warn "Failed to configure gr-gsm (cmake failed)"
     warn "Check that all dependencies are installed"
     cd /
