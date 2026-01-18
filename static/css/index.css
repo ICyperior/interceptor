@@ -743,6 +743,7 @@ header h1 {
     align-items: center;
     gap: 12px;
     margin-left: auto;
+    flex-shrink: 0;
 }
 
 @media (min-width: 1024px) {
@@ -757,6 +758,8 @@ header h1 {
     gap: 6px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .nav-clock .utc-label {
@@ -781,6 +784,7 @@ header h1 {
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-shrink: 0;
 }
 
 .nav-tool-btn {

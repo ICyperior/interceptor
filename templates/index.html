@@ -924,8 +924,17 @@
                                     <option value="europe">Europe (144.800)</option>
                                     <option value="uk">UK (144.800)</option>
                                     <option value="australia">Australia (145.175)</option>
+                                    <option value="new_zealand">New Zealand (144.575)</option>
+                                    <option value="argentina">Argentina (144.930)</option>
+                                    <option value="brazil">Brazil (145.570)</option>
                                     <option value="japan">Japan (144.640)</option>
+                                    <option value="china">China (144.640)</option>
+                                    <option value="custom">Custom Frequency</option>
                                 </select>
+                            </div>
+                            <div class="strip-control" id="aprsStripCustomFreqControl" style="display: none;">
+                                <span class="strip-input-label">FREQ (MHz)</span>
+                                <input type="number" id="aprsStripCustomFreq" class="strip-input" placeholder="144.390" step="0.001" min="144" max="146">
                             </div>
                             <div class="strip-control">
                                 <span class="strip-input-label">GAIN</span>
@@ -6512,43 +6521,62 @@
             const device = getSelectedDevice();
             const gain = document.getElementById('aprsStripGain').value;
 
+            // Build request body
+            const requestBody = {
+                region,
+                device: parseInt(device),
+                gain: parseInt(gain)
+            };
+
+            // Add custom frequency if selected
+            if (region === 'custom') {
+                const customFreq = document.getElementById('aprsStripCustomFreq').value;
+                if (!customFreq) {
+                    alert('Please enter a custom frequency');
+                    return;
+                }
+                requestBody.frequency = customFreq;
+            }
+
             fetch('/aprs/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ region, device: parseInt(device), gain: parseInt(gain) })
+                body: JSON.stringify(requestBody)
             })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.status === 'started') {
-                        isAprsRunning = true;
-                        aprsPacketCount = 0;
-                        aprsStationCount = 0;
-                        // Update function bar buttons
-                        document.getElementById('aprsStripStartBtn').style.display = 'none';
-                        document.getElementById('aprsStripStopBtn').style.display = 'inline-block';
-                        // Update map status
-                        document.getElementById('aprsMapStatus').textContent = 'TRACKING';
-                        document.getElementById('aprsMapStatus').style.color = 'var(--accent-green)';
-                        // Update function bar status
-                        updateAprsStatus('listening', data.frequency);
-                        // Reset function bar stats
-                        document.getElementById('aprsStripStations').textContent = '0';
-                        document.getElementById('aprsStripPackets').textContent = '0';
-                        document.getElementById('aprsStripSignal').textContent = '--';
-                        // Disable controls while running
-                        document.getElementById('aprsStripRegion').disabled = true;
-                        document.getElementById('aprsStripGain').disabled = true;
-                        startAprsMeterCheck();
-                        startAprsStream();
-                    } else {
-                        alert('APRS Error: ' + data.message);
-                        updateAprsStatus('error');
-                    }
-                })
-                .catch(err => {
-                    alert('APRS Error: ' + err);
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    isAprsRunning = true;
+                    aprsPacketCount = 0;
+                    aprsStationCount = 0;
+                    // Update function bar buttons
+                    document.getElementById('aprsStripStartBtn').style.display = 'none';
+                    document.getElementById('aprsStripStopBtn').style.display = 'inline-block';
+                    // Update map status
+                    document.getElementById('aprsMapStatus').textContent = 'TRACKING';
+                    document.getElementById('aprsMapStatus').style.color = 'var(--accent-green)';
+                    // Update function bar status
+                    updateAprsStatus('listening', data.frequency);
+                    // Reset function bar stats
+                    document.getElementById('aprsStripStations').textContent = '0';
+                    document.getElementById('aprsStripPackets').textContent = '0';
+                    document.getElementById('aprsStripSignal').textContent = '--';
+                    // Disable controls while running
+                    document.getElementById('aprsStripRegion').disabled = true;
+                    document.getElementById('aprsStripGain').disabled = true;
+                    const customFreqInput = document.getElementById('aprsStripCustomFreq');
+                    if (customFreqInput) customFreqInput.disabled = true;
+                    startAprsMeterCheck();
+                    startAprsStream();
+                } else {
+                    alert('APRS Error: ' + data.message);
                     updateAprsStatus('error');
-                });
+                }
+            })
+            .catch(err => {
+                alert('APRS Error: ' + err);
+                updateAprsStatus('error');
+            });
         }
 
         function stopAprs() {
@@ -6569,6 +6597,8 @@
                     // Re-enable controls
                     document.getElementById('aprsStripRegion').disabled = false;
                     document.getElementById('aprsStripGain').disabled = false;
+                    const customFreqInput = document.getElementById('aprsStripCustomFreq');
+                    if (customFreqInput) customFreqInput.disabled = false;
                     // Remove signal quality class
                     const signalStat = document.getElementById('aprsStripSignalStat');
                     if (signalStat) {
@@ -6676,6 +6706,22 @@
                 aprsMeterCheckInterval = null;
             }
         }
+
+        // Handle region selection changes to show/hide custom frequency input
+        document.addEventListener('DOMContentLoaded', function() {
+            const regionSelect = document.getElementById('aprsStripRegion');
+            const customFreqControl = document.getElementById('aprsStripCustomFreqControl');
+
+            if (regionSelect && customFreqControl) {
+                regionSelect.addEventListener('change', function() {
+                    if (this.value === 'custom') {
+                        customFreqControl.style.display = 'flex';
+                    } else {
+                        customFreqControl.style.display = 'none';
+                    }
+                });
+            }
+        });
 
         function processAprsPacket(packet) {
             // Update packet log
