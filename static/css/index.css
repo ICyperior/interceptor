@@ -600,7 +600,9 @@ header h1 {
 }
 
 .mode-nav-actions {
-    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .nav-action-btn {
@@ -741,8 +743,8 @@ header h1 {
 .nav-utilities {
     display: none;
     align-items: center;
-    gap: 12px;
-    margin-left: 16px;
+    gap: 16px;
+    margin-left: auto;
     flex-shrink: 0;
 }
 
@@ -783,7 +785,7 @@ header h1 {
 .nav-tools {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     flex-shrink: 0;
 }
 
