@@ -61,7 +61,7 @@ docker compose up -d
 
 ### Open the Interface
 
-After starting, open **http://localhost:5050** in your browser.
+After starting, open **http://localhost:5050** in your browser. The username and password is admin:admin 
 
 ---
 
@@ -134,6 +134,7 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
 [Celestrak](https://celestrak.org/)
+
 
 
 
