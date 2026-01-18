@@ -9,6 +9,8 @@ from __future__ import annotations
 import sys
 import site
 
+from utils.database import get_db
+
 # Ensure user site-packages is available (may be disabled when running as root/sudo)
 if not site.ENABLE_USER_SITE:
     user_site = site.getusersitepackages()
@@ -23,8 +25,8 @@ import subprocess
 
 from typing import Any
 
-from flask import Flask, render_template, jsonify, send_file, Response, request
-
+from flask import Flask, render_template, jsonify, send_file, Response, request,redirect, url_for, flash, session
+from werkzeug.security import check_password_hash
 from config import VERSION, CHANGELOG
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
 from utils.process import cleanup_stale_processes
@@ -36,14 +38,15 @@ from utils.constants import (
     MAX_BT_DEVICE_AGE_SECONDS,
     QUEUE_MAX_SIZE,
 )
-
+import logging
 # Track application start time for uptime calculation
 import time as _time
 _app_start_time = _time.time()
-
+logger = logging.getLogger('intercept.database')
 
 # Create Flask app
 app = Flask(__name__)
+app.secret_key = "signals_intelligence_secret" # Required for flash messages
 
 # Disable Werkzeug debugger PIN (not needed for local development tool)
 os.environ['WERKZEUG_DEBUG_PIN'] = 'off'
@@ -155,6 +158,49 @@ cleanup_manager.register(adsb_aircraft)
 # ============================================
 # MAIN ROUTES
 # ============================================
+
+@app.before_request
+def require_login():
+    # Routes that don't require login (to avoid infinite redirect loop)
+    allowed_routes = ['login', 'static', 'favicon', 'health']
+
+    # If user is not logged in and the current route is not allowed...
+    if 'logged_in' not in session and request.endpoint not in allowed_routes:
+        return redirect(url_for('login'))
+    
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # Connect to DB and find user
+        with get_db() as conn:
+            cursor = conn.execute(
+                'SELECT password_hash, role FROM users WHERE username = ?',
+                (username,)
+            )
+            user = cursor.fetchone()
+
+        # Verify user exists and password is correct
+        if user and check_password_hash(user['password_hash'], password):
+            # Store data in session
+            session['logged_in'] = True
+            session['username'] = username
+            session['role'] = user['role']
+            
+            logger.info(f"User '{username}' logged in successfully.")
+            return redirect(url_for('index'))
+        else:
+            logger.warning(f"Failed login attempt for username: {username}")
+            flash("ACCESS DENIED: INVALID CREDENTIALS", "error")
+            
+    return render_template('login.html', version=VERSION)
 
 @app.route('/')
 def index() -> str:

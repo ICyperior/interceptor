@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>iNTERCEPT // See the Invisible</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <!-- Leaflet.js for APRS map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <!-- Chart.js for signal strength graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -16,6 +17,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/aprs.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/tscm.css') }}">
 </head>
+
 <body>
     <!-- Welcome Page -->
     <div class="welcome-overlay" id="welcomePage">
@@ -24,16 +26,22 @@
             <div class="welcome-header">
                 <div class="welcome-logo">
                     <svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1"/>
-                        <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2"/>
-                        <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" class="signal-wave signal-wave-3"/>
-                        <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1"/>
-                        <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2"/>
-                        <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" class="signal-wave signal-wave-3"/>
-                        <circle cx="50" cy="22" r="6" fill="#00ff88" class="logo-dot"/>
-                        <rect x="44" y="35" width="12" height="45" rx="2" fill="#00d4ff"/>
-                        <rect x="38" y="35" width="24" height="4" rx="1" fill="#00d4ff"/>
-                        <rect x="38" y="76" width="24" height="4" rx="1" fill="#00d4ff"/>
+                        <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="3" fill="none"
+                            stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1" />
+                        <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="2.5" fill="none"
+                            stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2" />
+                        <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="2" fill="none"
+                            stroke-linecap="round" class="signal-wave signal-wave-3" />
+                        <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="3" fill="none"
+                            stroke-linecap="round" opacity="0.5" class="signal-wave signal-wave-1" />
+                        <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="2.5" fill="none"
+                            stroke-linecap="round" opacity="0.7" class="signal-wave signal-wave-2" />
+                        <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="2" fill="none"
+                            stroke-linecap="round" class="signal-wave signal-wave-3" />
+                        <circle cx="50" cy="22" r="6" fill="#00ff88" class="logo-dot" />
+                        <rect x="44" y="35" width="12" height="45" rx="2" fill="#00d4ff" />
+                        <rect x="38" y="35" width="24" height="4" rx="1" fill="#00d4ff" />
+                        <rect x="38" y="76" width="24" height="4" rx="1" fill="#00d4ff" />
                     </svg>
                 </div>
                 <div class="welcome-title-block">
@@ -130,13 +138,17 @@
             <div class="warning-icon">⚠️</div>
             <h2>DISCLAIMER</h2>
             <p>
-                <strong>iNTERCEPT</strong> is a signal intelligence tool designed for <strong>educational purposes only</strong>.
+                <strong>iNTERCEPT</strong> is a signal intelligence tool designed for <strong>educational purposes
+                    only</strong>.
             </p>
             <p>By using this software, you acknowledge and agree that:</p>
             <ul>
-                <li>This tool is intended for use by <strong>cyber security professionals</strong> and researchers only</li>
-                <li>You will only use this software in a <strong>controlled environment</strong> with proper authorization</li>
-                <li>Intercepting communications without consent may be <strong>illegal</strong> in your jurisdiction</li>
+                <li>This tool is intended for use by <strong>cyber security professionals</strong> and researchers only
+                </li>
+                <li>You will only use this software in a <strong>controlled environment</strong> with proper
+                    authorization</li>
+                <li>Intercepting communications without consent may be <strong>illegal</strong> in your jurisdiction
+                </li>
                 <li>You are solely responsible for ensuring compliance with all applicable laws and regulations</li>
                 <li>The developers assume no liability for misuse of this software</li>
             </ul>
@@ -145,13 +157,15 @@
             </p>
             <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
                 <button class="accept-btn" onclick="acceptDisclaimer()">I UNDERSTAND & ACCEPT</button>
-                <button class="accept-btn" onclick="declineDisclaimer()" style="background: transparent; border: 1px solid var(--accent-red); color: var(--accent-red);">DECLINE</button>
+                <button class="accept-btn" onclick="declineDisclaimer()"
+                    style="background: transparent; border: 1px solid var(--accent-red); color: var(--accent-red);">DECLINE</button>
             </div>
         </div>
     </div>
 
     <!-- TSCM Device Details Modal -->
-    <div class="tscm-modal-overlay" id="tscmDeviceModal" style="display: none;" onclick="if(event.target === this) closeTscmDeviceModal()">
+    <div class="tscm-modal-overlay" id="tscmDeviceModal" style="display: none;"
+        onclick="if(event.target === this) closeTscmDeviceModal()">
         <div class="tscm-modal">
             <button class="tscm-modal-close" onclick="closeTscmDeviceModal()">&times;</button>
             <div id="tscmDeviceModalContent"></div>
@@ -161,7 +175,8 @@
     <!-- Rejection Page -->
     <div class="disclaimer-overlay disclaimer-hidden" id="rejectionPage">
         <div class="disclaimer-modal" style="max-width: 600px;">
-            <pre style="color: var(--accent-red); font-size: 9px; line-height: 1.1; margin-bottom: 20px; text-align: center;">
+            <pre
+                style="color: var(--accent-red); font-size: 9px; line-height: 1.1; margin-bottom: 20px; text-align: center;">
  █████╗  ██████╗ ██████╗███████╗███████╗███████╗
 ██╔══██╗██╔════╝██╔════╝██╔════╝██╔════╝██╔════╝
 ███████║██║     ██║     █████╗  ███████╗███████╗
@@ -175,8 +190,10 @@
 ██████╔╝███████╗██║ ╚████║██║███████╗██████╔╝
 ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝╚══════╝╚═════╝</pre>
             <div style="margin: 25px 0; padding: 15px; background: #0a0a0a; border-left: 3px solid var(--accent-red);">
-                <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-align: left; margin: 0;">
-                    <span style="color: var(--accent-red);">root@intercepted:</span><span style="color: var(--accent-cyan);">~#</span> sudo access --grant-permission<br>
+                <p
+                    style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-align: left; margin: 0;">
+                    <span style="color: var(--accent-red);">root@intercepted:</span><span
+                        style="color: var(--accent-cyan);">~#</span> sudo access --grant-permission<br>
                     <span style="color: #666;">[sudo] password for user: ********</span><br>
                     <span style="color: var(--accent-red);">Error:</span> User is not in the sudoers file.<br>
                     <span style="color: var(--accent-orange);">This incident will be reported.</span>
@@ -186,7 +203,8 @@
                 "In a world of locked doors, the man with the key is king.<br>
                 And you, my friend, just threw away the key."
             </p>
-            <button class="accept-btn" onclick="location.reload()" style="margin-top: 20px; background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan);">
+            <button class="accept-btn" onclick="location.reload()"
+                style="margin-top: 20px; background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan);">
                 TRY AGAIN
             </button>
         </div>
@@ -201,26 +219,32 @@
         <div class="logo">
             <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Signal brackets - left side -->
-                <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5"/>
-                <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
-                <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round"
+                    opacity="0.5" />
+                <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round"
+                    opacity="0.7" />
+                <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" />
                 <!-- Signal brackets - right side -->
-                <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5"/>
-                <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
-                <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round"
+                    opacity="0.5" />
+                <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round"
+                    opacity="0.7" />
+                <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="2" fill="none" stroke-linecap="round" />
                 <!-- The 'i' letter -->
                 <!-- dot of i -->
-                <circle cx="50" cy="22" r="6" fill="#00ff88"/>
+                <circle cx="50" cy="22" r="6" fill="#00ff88" />
                 <!-- stem of i with styled terminals -->
-                <rect x="44" y="35" width="12" height="45" rx="2" fill="#00d4ff"/>
+                <rect x="44" y="35" width="12" height="45" rx="2" fill="#00d4ff" />
                 <!-- top terminal bar -->
-                <rect x="38" y="35" width="24" height="4" rx="1" fill="#00d4ff"/>
+                <rect x="38" y="35" width="24" height="4" rx="1" fill="#00d4ff" />
                 <!-- bottom terminal bar -->
-                <rect x="38" y="76" width="24" height="4" rx="1" fill="#00d4ff"/>
+                <rect x="38" y="76" width="24" height="4" rx="1" fill="#00d4ff" />
             </svg>
         </div>
-        <h1>iNTERCEPT <span class="tagline">// See the Invisible</span> <span class="version-badge">v{{ version }}</span></h1>
-        <p class="subtitle">Signal Intelligence & Counter Surveillance Platform <span class="active-mode-indicator" id="activeModeIndicator"><span class="pulse-dot"></span>PAGER</span></p>
+        <h1>iNTERCEPT <span class="tagline">// See the Invisible</span> <span class="version-badge">v{{ version
+                }}</span></h1>
+        <p class="subtitle">Signal Intelligence & Counter Surveillance Platform <span class="active-mode-indicator"
+                id="activeModeIndicator"><span class="pulse-dot"></span>PAGER</span></p>
 
         <!-- Header Stats (mode-specific) -->
         <div class="header-stats">
@@ -347,12 +371,18 @@
                 <span class="dropdown-arrow">▼</span>
             </button>
             <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span class="nav-label">Pager</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span class="nav-label">433MHz</span></button>
-                <a href="/adsb/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></a>
-                <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon">📍</span><span class="nav-label">APRS</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span class="nav-label">Satellite</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span class="nav-label">Listening Post</span></button>
+                <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span
+                        class="nav-label">Pager</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span
+                        class="nav-label">433MHz</span></button>
+                <a href="/adsb/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span
+                        class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></a>
+                <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon">📍</span><span
+                        class="nav-label">APRS</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span
+                        class="nav-label">Satellite</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span
+                        class="nav-label">Listening Post</span></button>
             </div>
         </div>
         <div class="mode-nav-dropdown" data-group="wireless">
@@ -362,8 +392,10 @@
                 <span class="dropdown-arrow">▼</span>
             </button>
             <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon">📶</span><span class="nav-label">WiFi</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon">🔵</span><span class="nav-label">Bluetooth</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon">📶</span><span
+                        class="nav-label">WiFi</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon">🔵</span><span
+                        class="nav-label">Bluetooth</span></button>
             </div>
         </div>
         <div class="mode-nav-dropdown" data-group="security">
@@ -373,11 +405,13 @@
                 <span class="dropdown-arrow">▼</span>
             </button>
             <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon">🔍</span><span class="nav-label">TSCM</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon">🔍</span><span
+                        class="nav-label">TSCM</span></button>
             </div>
         </div>
         <div class="mode-nav-actions">
-            <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn" style="display: none;">
+            <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn"
+                style="display: none;">
                 <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
             </a>
         </div>
@@ -392,8 +426,12 @@
                     <span class="icon-moon">🌙</span>
                     <span class="icon-sun">☀️</span>
                 </button>
-                <button class="nav-tool-btn" onclick="showDependencies()" title="Check Tool Dependencies" id="depsBtn">🔧</button>
+                <button class="nav-tool-btn" onclick="showDependencies()" title="Check Tool Dependencies"
+                    id="depsBtn">🔧</button>
                 <button class="nav-tool-btn" onclick="showHelp()" title="Help & Documentation">?</button>
+                <button class="nav-tool-btn" onclick="logout(event)" title="Logout">
+                    <span class="power-icon">⏻</span>
+                </button>
             </div>
         </div>
     </nav>
@@ -432,25 +470,31 @@
                         <label style="font-size: 11px; color: #888; margin-bottom: 4px;">Device</label>
                         <select id="deviceSelect">
                             {% if devices %}
-                                {% for device in devices %}
-                                <option value="{{ device.index }}" data-sdr-type="{{ device.sdr_type | default('rtlsdr') }}">{{ device.index }}: {{ device.name }}</option>
-                                {% endfor %}
+                            {% for device in devices %}
+                            <option value="{{ device.index }}"
+                                data-sdr-type="{{ device.sdr_type | default('rtlsdr') }}">{{ device.index }}: {{
+                                device.name }}</option>
+                            {% endfor %}
                             {% else %}
-                                <option value="0">No devices found</option>
+                            <option value="0">No devices found</option>
                             {% endif %}
                         </select>
                     </div>
-                    <div id="deviceCapabilities" class="info-text" style="font-size: 11px; margin-bottom: 8px; padding: 6px; background: #0a0a1a; border-radius: 4px;">
+                    <div id="deviceCapabilities" class="info-text"
+                        style="font-size: 11px; margin-bottom: 8px; padding: 6px; background: #0a0a1a; border-radius: 4px;">
                         <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px;">
                             <span style="color: #888;">Freq:</span><span id="capFreqRange">24-1766 MHz</span>
                             <span style="color: #888;">Gain:</span><span id="capGainRange">0-50 dB</span>
                         </div>
                     </div>
                     <!-- Bias-T Power Toggle - Prominent Location -->
-                    <div style="display: flex; align-items: center; gap: 10px; padding: 8px; margin-bottom: 8px; background: linear-gradient(90deg, rgba(255,100,0,0.2), rgba(255,100,0,0.05)); border: 1px solid var(--accent-orange); border-radius: 4px;">
-                        <input type="checkbox" id="biasT" onchange="saveBiasTSetting()" style="width: 18px; height: 18px; accent-color: var(--accent-orange);">
+                    <div
+                        style="display: flex; align-items: center; gap: 10px; padding: 8px; margin-bottom: 8px; background: linear-gradient(90deg, rgba(255,100,0,0.2), rgba(255,100,0,0.05)); border: 1px solid var(--accent-orange); border-radius: 4px;">
+                        <input type="checkbox" id="biasT" onchange="saveBiasTSetting()"
+                            style="width: 18px; height: 18px; accent-color: var(--accent-orange);">
                         <div>
-                            <div style="color: var(--accent-orange); font-weight: bold; font-size: 12px;">⚡ Bias-T Power</div>
+                            <div style="color: var(--accent-orange); font-weight: bold; font-size: 12px;">⚡ Bias-T Power
+                            </div>
                             <div style="color: #888; font-size: 9px;">Powers external LNA/preamp</div>
                         </div>
                     </div>
@@ -480,12 +524,18 @@
                         </div>
                     </div>
 
-                    <div id="toolStatusPager" class="info-text tool-status-section" style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
-                        <span>rtl_fm:</span><span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK' if tools.rtl_fm else 'Missing' }}</span>
-                        <span>multimon-ng:</span><span class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon else 'Missing' }}</span>
+                    <div id="toolStatusPager" class="info-text tool-status-section"
+                        style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                        <span>rtl_fm:</span><span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK'
+                            if tools.rtl_fm else 'Missing' }}</span>
+                        <span>multimon-ng:</span><span
+                            class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon
+                            else 'Missing' }}</span>
                     </div>
-                    <div id="toolStatusSensor" class="info-text tool-status-section" style="display: none; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
-                        <span>rtl_433:</span><span class="tool-status {{ 'ok' if tools.rtl_433 else 'missing' }}">{{ 'OK' if tools.rtl_433 else 'Missing' }}</span>
+                    <div id="toolStatusSensor" class="info-text tool-status-section"
+                        style="display: none; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                        <span>rtl_433:</span><span class="tool-status {{ 'ok' if tools.rtl_433 else 'missing' }}">{{
+                            'OK' if tools.rtl_433 else 'Missing' }}</span>
                     </div>
                 </div>
 
@@ -505,7 +555,8 @@
 
                 {% include 'partials/modes/tscm.html' %}
 
-                <button class="preset-btn" onclick="killAll()" style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
+                <button class="preset-btn" onclick="killAll()"
+                    style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
                     Kill All Processes
                 </button>
             </div>
@@ -526,9 +577,12 @@
                         <div class="stats" id="wifiStats" style="display: none;">
                             <div title="Access Points">📡 <span id="apCount">0</span></div>
                             <div title="Connected Clients">👤 <span id="clientCount">0</span></div>
-                            <div title="Captured Handshakes" style="color: var(--accent-green);">🤝 <span id="handshakeCount">0</span></div>
-                            <div style="color: var(--accent-orange); cursor: pointer;" onclick="showDroneDetails()" title="Click: Drone details">🚁 <span id="droneCount">0</span></div>
-                            <div style="color: var(--accent-red); cursor: pointer;" onclick="showRogueApDetails()" title="Click: Rogue AP details">⚠️ <span id="rogueApCount">0</span></div>
+                            <div title="Captured Handshakes" style="color: var(--accent-green);">🤝 <span
+                                    id="handshakeCount">0</span></div>
+                            <div style="color: var(--accent-orange); cursor: pointer;" onclick="showDroneDetails()"
+                                title="Click: Drone details">🚁 <span id="droneCount">0</span></div>
+                            <div style="color: var(--accent-red); cursor: pointer;" onclick="showRogueApDetails()"
+                                title="Click: Rogue AP details">⚠️ <span id="rogueApCount">0</span></div>
                         </div>
                         <div class="stats" id="btStats" style="display: none;">
                             <div title="Bluetooth Devices">🔵 <span id="btDeviceCount">0</span></div>
@@ -548,106 +602,198 @@
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
                             <h5>📋 Selected Device</h5>
                             <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
-                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network or client to view details</div>
+                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network
+                                    or client to view details</div>
                             </div>
                         </div>
-                    <!-- Row 1: Network Radar + Security Overview -->
-                    <div class="wifi-visual-panel">
-                        <h5>Network Radar</h5>
-                        <div class="radar-container">
-                            <canvas id="radarCanvas" width="150" height="150"></canvas>
-                        </div>
-                    </div>
-                    <div class="wifi-visual-panel">
-                        <h5>Security Overview</h5>
-                        <div class="security-container">
-                            <div class="security-donut">
-                                <canvas id="securityCanvas" width="80" height="80"></canvas>
-                            </div>
-                            <div class="security-legend">
-                                <div class="security-legend-item"><div class="security-legend-dot wpa3"></div>WPA3: <span id="wpa3Count">0</span></div>
-                                <div class="security-legend-item"><div class="security-legend-dot wpa2"></div>WPA2: <span id="wpa2Count">0</span></div>
-                                <div class="security-legend-item"><div class="security-legend-dot wep"></div>WEP: <span id="wepCount">0</span></div>
-                                <div class="security-legend-item"><div class="security-legend-dot open"></div>Open: <span id="openCount">0</span></div>
+                        <!-- Row 1: Network Radar + Security Overview -->
+                        <div class="wifi-visual-panel">
+                            <h5>Network Radar</h5>
+                            <div class="radar-container">
+                                <canvas id="radarCanvas" width="150" height="150"></canvas>
                             </div>
                         </div>
-                    </div>
-                    <!-- Row 2: Channel Utilization (2.4 GHz + 5 GHz side by side) -->
-                    <div class="wifi-visual-panel">
-                        <h5>Channel Utilization (2.4 GHz)</h5>
-                        <div class="channel-graph" id="channelGraph">
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">1</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">2</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">3</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">4</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">5</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">6</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">7</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">8</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">9</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">10</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">11</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">12</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">13</span></div>
+                        <div class="wifi-visual-panel">
+                            <h5>Security Overview</h5>
+                            <div class="security-container">
+                                <div class="security-donut">
+                                    <canvas id="securityCanvas" width="80" height="80"></canvas>
+                                </div>
+                                <div class="security-legend">
+                                    <div class="security-legend-item">
+                                        <div class="security-legend-dot wpa3"></div>WPA3: <span id="wpa3Count">0</span>
+                                    </div>
+                                    <div class="security-legend-item">
+                                        <div class="security-legend-dot wpa2"></div>WPA2: <span id="wpa2Count">0</span>
+                                    </div>
+                                    <div class="security-legend-item">
+                                        <div class="security-legend-dot wep"></div>WEP: <span id="wepCount">0</span>
+                                    </div>
+                                    <div class="security-legend-item">
+                                        <div class="security-legend-dot open"></div>Open: <span id="openCount">0</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="wifi-visual-panel">
-                        <h5>Channel Utilization (5 GHz)</h5>
-                        <div class="channel-graph" id="channelGraph5g" style="font-size: 7px;">
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">36</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">40</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">44</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">48</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">52</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">56</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">60</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">64</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">100</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">149</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">153</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">157</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">161</span></div>
-                            <div class="channel-bar-wrapper"><div class="channel-bar" style="height: 2px;"></div><span class="channel-label">165</span></div>
+                        <!-- Row 2: Channel Utilization (2.4 GHz + 5 GHz side by side) -->
+                        <div class="wifi-visual-panel">
+                            <h5>Channel Utilization (2.4 GHz)</h5>
+                            <div class="channel-graph" id="channelGraph">
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">1</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">2</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">3</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">4</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">5</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">6</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">7</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">8</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">9</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">10</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">11</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">12</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">13</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Row 3: Channel Recommendation -->
-                    <div class="wifi-visual-panel channel-recommendation" id="channelRecommendation">
-                        <h4>💡 Channel Recommendation</h4>
-                        <div class="rec-text">
-                            <strong>2.4 GHz:</strong> Use channel <span class="rec-channel" id="rec24Channel">--</span>
-                            <span id="rec24Reason" style="font-size: 10px; color: var(--text-dim);"></span>
+                        <div class="wifi-visual-panel">
+                            <h5>Channel Utilization (5 GHz)</h5>
+                            <div class="channel-graph" id="channelGraph5g" style="font-size: 7px;">
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">36</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">40</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">44</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">48</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">52</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">56</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">60</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">64</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">100</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">149</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">153</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">157</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">161</span>
+                                </div>
+                                <div class="channel-bar-wrapper">
+                                    <div class="channel-bar" style="height: 2px;"></div><span
+                                        class="channel-label">165</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="rec-text" style="margin-top: 5px;">
-                            <strong>5 GHz:</strong> Use channel <span class="rec-channel" id="rec5Channel">--</span>
-                            <span id="rec5Reason" style="font-size: 10px; color: var(--text-dim);"></span>
+                        <!-- Row 3: Channel Recommendation -->
+                        <div class="wifi-visual-panel channel-recommendation" id="channelRecommendation">
+                            <h4>💡 Channel Recommendation</h4>
+                            <div class="rec-text">
+                                <strong>2.4 GHz:</strong> Use channel <span class="rec-channel"
+                                    id="rec24Channel">--</span>
+                                <span id="rec24Reason" style="font-size: 10px; color: var(--text-dim);"></span>
+                            </div>
+                            <div class="rec-text" style="margin-top: 5px;">
+                                <strong>5 GHz:</strong> Use channel <span class="rec-channel" id="rec5Channel">--</span>
+                                <span id="rec5Reason" style="font-size: 10px; color: var(--text-dim);"></span>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Device Correlation -->
-                    <div class="wifi-visual-panel" id="correlationPanel">
-                        <h5>🔗 Device Correlation</h5>
-                        <div id="correlationList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
-                            <div style="color: var(--text-dim);">Analyzing WiFi/BT device patterns...</div>
+                        <!-- Device Correlation -->
+                        <div class="wifi-visual-panel" id="correlationPanel">
+                            <h5>🔗 Device Correlation</h5>
+                            <div id="correlationList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
+                                <div style="color: var(--text-dim);">Analyzing WiFi/BT device patterns...</div>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Hidden SSID Revealer -->
-                    <div class="wifi-visual-panel" id="hiddenSsidPanel">
-                        <h5>👁️ Hidden SSIDs Revealed</h5>
-                        <div id="hiddenSsidList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
-                            <div style="color: var(--text-dim);">Monitoring probe requests...</div>
+                        <!-- Hidden SSID Revealer -->
+                        <div class="wifi-visual-panel" id="hiddenSsidPanel">
+                            <h5>👁️ Hidden SSIDs Revealed</h5>
+                            <div id="hiddenSsidList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
+                                <div style="color: var(--text-dim);">Monitoring probe requests...</div>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Client Probe Analysis -->
-                    <div class="wifi-visual-panel" id="probeAnalysisPanel" style="grid-column: span 2;">
-                        <h5>📡 Client Probe Analysis</h5>
-                        <div style="display: flex; gap: 10px; margin-bottom: 8px; font-size: 10px;">
-                            <span>Clients: <strong id="probeClientCount">0</strong></span>
-                            <span>Unique SSIDs: <strong id="probeSSIDCount">0</strong></span>
-                            <span>Privacy Leaks: <strong id="probePrivacyCount" style="color: var(--accent-orange);">0</strong></span>
+                        <!-- Client Probe Analysis -->
+                        <div class="wifi-visual-panel" id="probeAnalysisPanel" style="grid-column: span 2;">
+                            <h5>📡 Client Probe Analysis</h5>
+                            <div style="display: flex; gap: 10px; margin-bottom: 8px; font-size: 10px;">
+                                <span>Clients: <strong id="probeClientCount">0</strong></span>
+                                <span>Unique SSIDs: <strong id="probeSSIDCount">0</strong></span>
+                                <span>Privacy Leaks: <strong id="probePrivacyCount"
+                                        style="color: var(--accent-orange);">0</strong></span>
+                            </div>
+                            <div id="probeAnalysisList" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
+                                <div style="color: var(--text-dim);">Waiting for client probe requests...</div>
+                            </div>
                         </div>
-                        <div id="probeAnalysisList" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
-                            <div style="color: var(--text-dim);">Waiting for client probe requests...</div>
-                        </div>
-                    </div>
                     </div>
                     <!-- Right: WiFi Device Cards -->
                     <div class="wifi-device-list" id="wifiDeviceList">
@@ -671,7 +817,8 @@
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
                             <h5>📋 Selected Device</h5>
                             <div id="btSelectedDevice" style="font-size: 11px; min-height: 100px;">
-                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device to view details</div>
+                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device
+                                    to view details</div>
                             </div>
                         </div>
                         <!-- Row 1: Bluetooth Radar + Device Types -->
@@ -684,33 +831,52 @@
                         <div class="wifi-visual-panel">
                             <h5>Device Types</h5>
                             <div class="bt-type-overview" id="btTypeOverview">
-                                <div class="bt-type-item"><span class="bt-type-icon">📱</span> Phones: <strong id="btPhoneCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">💻</span> Computers: <strong id="btComputerCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">🎧</span> Audio: <strong id="btAudioCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">⌚</span> Wearables: <strong id="btWearableCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">🔵</span> Other: <strong id="btOtherCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">📱</span> Phones: <strong
+                                        id="btPhoneCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">💻</span> Computers: <strong
+                                        id="btComputerCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">🎧</span> Audio: <strong
+                                        id="btAudioCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">⌚</span> Wearables: <strong
+                                        id="btWearableCount">0</strong></div>
+                                <div class="bt-type-item"><span class="bt-type-icon">🔵</span> Other: <strong
+                                        id="btOtherCount">0</strong></div>
                             </div>
                         </div>
                         <!-- Row 2: Tracker Detection + Signal Analysis -->
                         <div class="wifi-visual-panel">
                             <h5>📍 Tracker Detection</h5>
                             <div id="btTrackerList" style="max-height: 120px; overflow-y: auto; font-size: 11px;">
-                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles...</div>
+                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for
+                                    AirTags, Tiles...</div>
                             </div>
                         </div>
                         <div class="wifi-visual-panel">
                             <h5>📶 Signal Distribution</h5>
                             <div class="bt-signal-dist" id="btSignalDist">
-                                <div class="signal-range"><span>Strong (-50+)</span><div class="signal-bar-bg"><div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div></div><span id="btSignalStrongCount">0</span></div>
-                                <div class="signal-range"><span>Medium (-70)</span><div class="signal-bar-bg"><div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div></div><span id="btSignalMediumCount">0</span></div>
-                                <div class="signal-range"><span>Weak (-90)</span><div class="signal-bar-bg"><div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div></div><span id="btSignalWeakCount">0</span></div>
+                                <div class="signal-range"><span>Strong (-50+)</span>
+                                    <div class="signal-bar-bg">
+                                        <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
+                                    </div><span id="btSignalStrongCount">0</span>
+                                </div>
+                                <div class="signal-range"><span>Medium (-70)</span>
+                                    <div class="signal-bar-bg">
+                                        <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
+                                    </div><span id="btSignalMediumCount">0</span>
+                                </div>
+                                <div class="signal-range"><span>Weak (-90)</span>
+                                    <div class="signal-bar-bg">
+                                        <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
+                                    </div><span id="btSignalWeakCount">0</span>
+                                </div>
                             </div>
                         </div>
                         <!-- Row 3: FindMy Detection -->
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
                             <h5>🍎 Apple FindMy Network</h5>
                             <div id="btFindMyList" style="max-height: 100px; overflow-y: auto; font-size: 11px;">
-                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for FindMy-compatible devices...</div>
+                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for
+                                    FindMy-compatible devices...</div>
                             </div>
                         </div>
                     </div>
@@ -771,13 +937,16 @@
                                 <span class="strip-tool" id="aprsStripDirewolf" title="direwolf">DW</span>
                                 <span class="strip-tool" id="aprsStripMultimon" title="multimon-ng">MM</span>
                             </div>
-                            <span id="aprsGpsIndicator" class="gps-indicator" style="display: none;" title="GPS connected via gpsd"><span class="gps-dot"></span> GPS</span>
+                            <span id="aprsGpsIndicator" class="gps-indicator" style="display: none;"
+                                title="GPS connected via gpsd"><span class="gps-dot"></span> GPS</span>
                             <div class="strip-divider"></div>
                             <!-- Actions -->
-                            <button type="button" class="strip-btn primary" id="aprsStripStartBtn" onclick="startAprs()">
+                            <button type="button" class="strip-btn primary" id="aprsStripStartBtn"
+                                onclick="startAprs()">
                                 ▶ START
                             </button>
-                            <button type="button" class="strip-btn stop" id="aprsStripStopBtn" onclick="stopAprs()" style="display: none;">
+                            <button type="button" class="strip-btn stop" id="aprsStripStopBtn" onclick="stopAprs()"
+                                style="display: none;">
                                 ◼ STOP
                             </button>
                             <!-- Status -->
@@ -791,8 +960,11 @@
                     <!-- Top row: Map and Station List side by side -->
                     <div style="display: flex; gap: 10px; flex: 1; min-height: 0;">
                         <!-- Map Panel (larger) -->
-                        <div class="wifi-visual-panel" style="flex: 2; display: flex; flex-direction: column; min-width: 0;">
-                            <h5 style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); padding: 0 10px; margin-bottom: 8px;">APRS STATION MAP</h5>
+                        <div class="wifi-visual-panel"
+                            style="flex: 2; display: flex; flex-direction: column; min-width: 0;">
+                            <h5
+                                style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); padding: 0 10px; margin-bottom: 8px;">
+                                APRS STATION MAP</h5>
                             <div class="aircraft-map-container" style="flex: 1; display: flex; flex-direction: column;">
                                 <div class="map-header">
                                     <span id="aprsMapTime">--:--:--</span>
@@ -807,8 +979,11 @@
                         </div>
 
                         <!-- Station List Panel -->
-                        <div class="wifi-visual-panel" style="flex: 1; min-width: 280px; max-width: 350px; display: flex; flex-direction: column;">
-                            <h5 style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); margin-bottom: 8px;">STATION LIST</h5>
+                        <div class="wifi-visual-panel"
+                            style="flex: 1; min-width: 280px; max-width: 350px; display: flex; flex-direction: column;">
+                            <h5
+                                style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); margin-bottom: 8px;">
+                                STATION LIST</h5>
                             <div id="aprsStationList" style="flex: 1; overflow-y: auto; font-size: 11px;">
                                 <div style="padding: 20px; text-align: center; color: var(--text-muted);">
                                     No stations received yet
@@ -819,8 +994,11 @@
 
                     <!-- Bottom row: Packet Log -->
                     <div class="wifi-visual-panel" style="display: flex; flex-direction: column; max-height: 200px;">
-                        <h5 style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange); margin-bottom: 8px;">PACKET LOG</h5>
-                        <div id="aprsPacketLog" style="flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
+                        <h5
+                            style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange); margin-bottom: 8px;">
+                            PACKET LOG</h5>
+                        <div id="aprsPacketLog"
+                            style="flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
                             <div style="color: var(--text-muted);">Waiting for packets...</div>
                         </div>
                     </div>
@@ -833,23 +1011,35 @@
                     <div class="radio-module-box scanner-main" style="grid-column: span 4; padding: 12px;">
                         <div style="display: flex; gap: 15px; align-items: stretch;">
                             <!-- Main Frequency Display -->
-                            <div style="flex: 1; text-align: center; padding: 15px 20px; background: rgba(0,0,0,0.6); border-radius: 6px; border: 1px solid var(--border-color);">
-                                <div class="freq-status" id="mainScannerModeLabel" style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 3px;">STOPPED</div>
+                            <div
+                                style="flex: 1; text-align: center; padding: 15px 20px; background: rgba(0,0,0,0.6); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <div class="freq-status" id="mainScannerModeLabel"
+                                    style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 3px;">
+                                    STOPPED</div>
                                 <div style="display: flex; justify-content: center; align-items: baseline; gap: 8px;">
-                                    <div class="freq-digits" id="mainScannerFreq" style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: 'JetBrains Mono', monospace; letter-spacing: 3px;">118.000</div>
-                                    <span class="freq-unit" style="font-size: 20px; color: var(--text-secondary); font-weight: 500;">MHz</span>
+                                    <div class="freq-digits" id="mainScannerFreq"
+                                        style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: 'JetBrains Mono', monospace; letter-spacing: 3px;">
+                                        118.000</div>
+                                    <span class="freq-unit"
+                                        style="font-size: 20px; color: var(--text-secondary); font-weight: 500;">MHz</span>
                                 </div>
-                                <div style="display: flex; justify-content: center; align-items: center; margin-top: 6px;">
-                                    <span class="freq-mode-badge" id="mainScannerMod" style="background: var(--accent-cyan); color: #000; padding: 3px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;">AM</span>
+                                <div
+                                    style="display: flex; justify-content: center; align-items: center; margin-top: 6px;">
+                                    <span class="freq-mode-badge" id="mainScannerMod"
+                                        style="background: var(--accent-cyan); color: #000; padding: 3px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;">AM</span>
                                 </div>
                                 <!-- Progress bar -->
                                 <div id="mainScannerProgress" style="display: none; margin-top: 12px;">
-                                    <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-bottom: 3px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-bottom: 3px;">
                                         <span id="mainRangeStart">--</span>
                                         <span id="mainRangeEnd">--</span>
                                     </div>
-                                    <div style="height: 6px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden;">
-                                        <div class="scan-bar" id="mainProgressBar" style="height: 100%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green)); width: 0%; transition: width 0.1s;"></div>
+                                    <div
+                                        style="height: 6px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden;">
+                                        <div class="scan-bar" id="mainProgressBar"
+                                            style="height: 100%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green)); width: 0%; transition: width 0.1s;">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -857,27 +1047,42 @@
                             <!-- Synthesizer + Audio Output Panel -->
                             <div style="width: 320px; display: flex; flex-direction: column; gap: 8px;">
                                 <!-- Synthesizer Display -->
-                                <div style="flex: 1; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 6px; border: 1px solid var(--border-color);">
-                                    <div style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Synthesizer</div>
-                                    <canvas id="synthesizerCanvas" style="width: 100%; height: 60px; background: rgba(0,0,0,0.4); border-radius: 4px;"></canvas>
+                                <div
+                                    style="flex: 1; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <div
+                                        style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                                        Synthesizer</div>
+                                    <canvas id="synthesizerCanvas"
+                                        style="width: 100%; height: 60px; background: rgba(0,0,0,0.4); border-radius: 4px;"></canvas>
                                 </div>
                                 <!-- Audio Output -->
-                                <div style="padding: 10px; background: rgba(0,0,0,0.4); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <div
+                                    style="padding: 10px; background: rgba(0,0,0,0.4); border-radius: 6px; border: 1px solid var(--border-color);">
                                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                                        <div style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Audio Output</div>
+                                        <div
+                                            style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">
+                                            Audio Output</div>
                                     </div>
                                     <audio id="scannerAudioPlayer" style="width: 100%; height: 28px;" controls></audio>
                                     <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
                                         <span style="font-size: 7px; color: var(--text-muted);">LEVEL</span>
-                                        <div style="flex: 1; height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden;">
-                                            <div id="audioSignalBar" style="height: 100%; background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan), var(--accent-orange), var(--accent-red)); width: 0%; transition: width 0.1s;"></div>
+                                        <div
+                                            style="flex: 1; height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden;">
+                                            <div id="audioSignalBar"
+                                                style="height: 100%; background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan), var(--accent-orange), var(--accent-red)); width: 0%; transition: width 0.1s;">
+                                            </div>
                                         </div>
-                                        <span id="audioSignalDb" style="font-size: 8px; color: var(--text-muted); min-width: 40px; text-align: right;">-- dB</span>
+                                        <span id="audioSignalDb"
+                                            style="font-size: 8px; color: var(--text-muted); min-width: 40px; text-align: right;">--
+                                            dB</span>
                                     </div>
                                     <!-- Signal Alert inline -->
-                                    <div id="mainSignalAlert" style="display: none; background: rgba(0, 255, 100, 0.2); border: 1px solid var(--accent-green); border-radius: 4px; padding: 5px; text-align: center; margin-top: 8px;">
-                                        <span style="font-size: 9px; color: var(--accent-green); font-weight: bold;">● SIGNAL</span>
-                                        <button class="tune-btn" onclick="skipSignal()" style="margin-left: 8px; padding: 2px 8px; font-size: 8px;">Skip</button>
+                                    <div id="mainSignalAlert"
+                                        style="display: none; background: rgba(0, 255, 100, 0.2); border: 1px solid var(--accent-green); border-radius: 4px; padding: 5px; text-align: center; margin-top: 8px;">
+                                        <span style="font-size: 9px; color: var(--accent-green); font-weight: bold;">●
+                                            SIGNAL</span>
+                                        <button class="tune-btn" onclick="skipSignal()"
+                                            style="margin-left: 8px; padding: 2px 8px; font-size: 8px;">Skip</button>
                                     </div>
                                 </div>
                             </div>
@@ -889,24 +1094,32 @@
                         <div style="display: flex; gap: 15px; align-items: stretch;">
 
                             <!-- LEFT: Tuning Section -->
-                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 20px; padding: 10px 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--border-color);">
+                            <div
+                                style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 20px; padding: 10px 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--border-color);">
 
                                 <!-- Fine Tune Buttons (Left of dial) -->
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <button class="tune-btn" onclick="tuneFreq(-1)" style="padding: 8px 12px; font-size: 11px;">-1</button>
-                                    <button class="tune-btn" onclick="tuneFreq(-0.1)" style="padding: 8px 12px; font-size: 11px;">-.1</button>
+                                    <button class="tune-btn" onclick="tuneFreq(-1)"
+                                        style="padding: 8px 12px; font-size: 11px;">-1</button>
+                                    <button class="tune-btn" onclick="tuneFreq(-0.1)"
+                                        style="padding: 8px 12px; font-size: 11px;">-.1</button>
                                 </div>
 
                                 <!-- Main Tuning Dial -->
                                 <div style="display: flex; flex-direction: column; align-items: center;">
-                                    <div class="tuning-dial" id="mainTuningDial" data-value="118" data-min="24" data-max="1800" data-step="0.1" style="width: 100px; height: 100px;"></div>
-                                    <div style="font-size: 9px; color: var(--text-muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">Tune</div>
+                                    <div class="tuning-dial" id="mainTuningDial" data-value="118" data-min="24"
+                                        data-max="1800" data-step="0.1" style="width: 100px; height: 100px;"></div>
+                                    <div
+                                        style="font-size: 9px; color: var(--text-muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">
+                                        Tune</div>
                                 </div>
 
                                 <!-- Fine Tune Buttons (Right of dial) -->
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <button class="tune-btn" onclick="tuneFreq(0.1)" style="padding: 8px 12px; font-size: 11px;">+.1</button>
-                                    <button class="tune-btn" onclick="tuneFreq(1)" style="padding: 8px 12px; font-size: 11px;">+1</button>
+                                    <button class="tune-btn" onclick="tuneFreq(0.1)"
+                                        style="padding: 8px 12px; font-size: 11px;">+.1</button>
+                                    <button class="tune-btn" onclick="tuneFreq(1)"
+                                        style="padding: 8px 12px; font-size: 11px;">+1</button>
                                 </div>
 
                                 <!-- Divider -->
@@ -914,9 +1127,11 @@
 
                                 <!-- Settings: Step & Dwell -->
                                 <div style="display: flex; flex-direction: column; gap: 8px; min-width: 90px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
                                         <span style="color: var(--text-muted);">Step</span>
-                                        <select id="radioScanStep" style="background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 3px 5px; border-radius: 3px; font-size: 9px;">
+                                        <select id="radioScanStep"
+                                            style="background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 3px 5px; border-radius: 3px; font-size: 9px;">
                                             <option value="8.33">8.33k</option>
                                             <option value="12.5">12.5k</option>
                                             <option value="25" selected>25k</option>
@@ -924,9 +1139,11 @@
                                             <option value="100">100k</option>
                                         </select>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
                                         <span style="color: var(--text-muted);">Dwell</span>
-                                        <select id="radioScanDwell" style="background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 3px 5px; border-radius: 3px; font-size: 9px;">
+                                        <select id="radioScanDwell"
+                                            style="background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 3px 5px; border-radius: 3px; font-size: 9px;">
                                             <option value="2">2s</option>
                                             <option value="5">5s</option>
                                             <option value="10" selected>10s</option>
@@ -941,17 +1158,20 @@
                                 <!-- SQL, Gain, Vol Knobs -->
                                 <div style="display: flex; gap: 15px;">
                                     <div class="knob-container">
-                                        <div class="radio-knob" id="radioSquelchKnob" data-value="30" data-min="0" data-max="100" data-step="1"></div>
+                                        <div class="radio-knob" id="radioSquelchKnob" data-value="30" data-min="0"
+                                            data-max="100" data-step="1"></div>
                                         <div class="knob-label">SQL</div>
                                         <div class="knob-value" id="radioSquelchValue">30</div>
                                     </div>
                                     <div class="knob-container">
-                                        <div class="radio-knob" id="radioGainKnob" data-value="40" data-min="0" data-max="50" data-step="1"></div>
+                                        <div class="radio-knob" id="radioGainKnob" data-value="40" data-min="0"
+                                            data-max="50" data-step="1"></div>
                                         <div class="knob-label">GAIN</div>
                                         <div class="knob-value" id="radioGainValue">40</div>
                                     </div>
                                     <div class="knob-container">
-                                        <div class="radio-knob" id="radioVolumeKnob" data-value="80" data-min="0" data-max="100" data-step="1"></div>
+                                        <div class="radio-knob" id="radioVolumeKnob" data-value="80" data-min="0"
+                                            data-max="100" data-step="1"></div>
                                         <div class="knob-label">VOL</div>
                                         <div class="knob-value" id="radioVolumeValue">80</div>
                                     </div>
@@ -959,25 +1179,43 @@
                             </div>
 
                             <!-- CENTER: Mode & Band (Stacked) -->
-                            <div style="width: 130px; display: flex; flex-direction: column; gap: 10px; justify-content: center;">
+                            <div
+                                style="width: 130px; display: flex; flex-direction: column; gap: 10px; justify-content: center;">
                                 <div>
-                                    <div style="font-size: 8px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;">Modulation</div>
-                                    <div class="radio-button-bank compact" id="modBtnBank" style="flex-wrap: wrap; gap: 2px;">
-                                        <button class="radio-btn active" data-mod="am" onclick="setModulation('am')" style="padding: 6px 10px; font-size: 10px;">AM</button>
-                                        <button class="radio-btn" data-mod="fm" onclick="setModulation('fm')" style="padding: 6px 10px; font-size: 10px;">NFM</button>
-                                        <button class="radio-btn" data-mod="wfm" onclick="setModulation('wfm')" style="padding: 6px 10px; font-size: 10px;">WFM</button>
-                                        <button class="radio-btn" data-mod="usb" onclick="setModulation('usb')" style="padding: 6px 10px; font-size: 10px;">USB</button>
-                                        <button class="radio-btn" data-mod="lsb" onclick="setModulation('lsb')" style="padding: 6px 10px; font-size: 10px;">LSB</button>
+                                    <div
+                                        style="font-size: 8px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;">
+                                        Modulation</div>
+                                    <div class="radio-button-bank compact" id="modBtnBank"
+                                        style="flex-wrap: wrap; gap: 2px;">
+                                        <button class="radio-btn active" data-mod="am" onclick="setModulation('am')"
+                                            style="padding: 6px 10px; font-size: 10px;">AM</button>
+                                        <button class="radio-btn" data-mod="fm" onclick="setModulation('fm')"
+                                            style="padding: 6px 10px; font-size: 10px;">NFM</button>
+                                        <button class="radio-btn" data-mod="wfm" onclick="setModulation('wfm')"
+                                            style="padding: 6px 10px; font-size: 10px;">WFM</button>
+                                        <button class="radio-btn" data-mod="usb" onclick="setModulation('usb')"
+                                            style="padding: 6px 10px; font-size: 10px;">USB</button>
+                                        <button class="radio-btn" data-mod="lsb" onclick="setModulation('lsb')"
+                                            style="padding: 6px 10px; font-size: 10px;">LSB</button>
                                     </div>
                                 </div>
                                 <div>
-                                    <div style="font-size: 8px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;">Band</div>
-                                    <div class="radio-button-bank compact" id="bandBtnBank" style="flex-wrap: wrap; gap: 2px;">
-                                        <button class="radio-btn" data-band="fm" onclick="setBand('fm')" style="padding: 6px 10px; font-size: 10px;">FM</button>
-                                        <button class="radio-btn active" data-band="air" onclick="setBand('air')" style="padding: 6px 10px; font-size: 10px;">AIR</button>
-                                        <button class="radio-btn" data-band="marine" onclick="setBand('marine')" style="padding: 6px 10px; font-size: 10px;">MAR</button>
-                                        <button class="radio-btn" data-band="amateur2m" onclick="setBand('amateur2m')" style="padding: 6px 10px; font-size: 10px;">2M</button>
-                                        <button class="radio-btn" data-band="amateur70cm" onclick="setBand('amateur70cm')" style="padding: 6px 10px; font-size: 10px;">70CM</button>
+                                    <div
+                                        style="font-size: 8px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;">
+                                        Band</div>
+                                    <div class="radio-button-bank compact" id="bandBtnBank"
+                                        style="flex-wrap: wrap; gap: 2px;">
+                                        <button class="radio-btn" data-band="fm" onclick="setBand('fm')"
+                                            style="padding: 6px 10px; font-size: 10px;">FM</button>
+                                        <button class="radio-btn active" data-band="air" onclick="setBand('air')"
+                                            style="padding: 6px 10px; font-size: 10px;">AIR</button>
+                                        <button class="radio-btn" data-band="marine" onclick="setBand('marine')"
+                                            style="padding: 6px 10px; font-size: 10px;">MAR</button>
+                                        <button class="radio-btn" data-band="amateur2m" onclick="setBand('amateur2m')"
+                                            style="padding: 6px 10px; font-size: 10px;">2M</button>
+                                        <button class="radio-btn" data-band="amateur70cm"
+                                            onclick="setBand('amateur70cm')"
+                                            style="padding: 6px 10px; font-size: 10px;">70CM</button>
                                     </div>
                                 </div>
                             </div>
@@ -985,23 +1223,37 @@
                             <!-- RIGHT: Scan Range + Action Buttons -->
                             <div style="width: 175px; display: flex; flex-direction: column; gap: 8px;">
                                 <!-- Frequency Range - Prominent -->
-                                <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
-                                    <div style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; text-align: center;">Scan Range (MHz)</div>
+                                <div
+                                    style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px;">
+                                    <div
+                                        style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; text-align: center;">
+                                        Scan Range (MHz)</div>
                                     <div style="display: flex; align-items: center; gap: 6px;">
                                         <div style="flex: 1;">
-                                            <div style="font-size: 7px; color: var(--text-muted); margin-bottom: 2px;">START</div>
-                                            <input type="number" id="radioScanStart" value="118" step="0.1" class="radio-input" style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
+                                            <div style="font-size: 7px; color: var(--text-muted); margin-bottom: 2px;">
+                                                START</div>
+                                            <input type="number" id="radioScanStart" value="118" step="0.1"
+                                                class="radio-input"
+                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
                                         </div>
-                                        <span style="color: var(--text-muted); font-size: 16px; padding-top: 12px;">→</span>
+                                        <span
+                                            style="color: var(--text-muted); font-size: 16px; padding-top: 12px;">→</span>
                                         <div style="flex: 1;">
-                                            <div style="font-size: 7px; color: var(--text-muted); margin-bottom: 2px;">END</div>
-                                            <input type="number" id="radioScanEnd" value="137" step="0.1" class="radio-input" style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
+                                            <div style="font-size: 7px; color: var(--text-muted); margin-bottom: 2px;">
+                                                END</div>
+                                            <input type="number" id="radioScanEnd" value="137" step="0.1"
+                                                class="radio-input"
+                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
                                         </div>
                                     </div>
                                 </div>
                                 <!-- Action Buttons -->
-                                <button class="radio-action-btn scan" id="radioScanBtn" onclick="toggleScanner()" style="padding: 12px; font-size: 13px; width: 100%; font-weight: bold;">📡 SCAN</button>
-                                <button class="radio-action-btn" id="radioListenBtn" onclick="toggleDirectListen()" style="padding: 10px; font-size: 12px; width: 100%; background: var(--accent-green); border: none; color: #fff;">🎧 LISTEN</button>
+                                <button class="radio-action-btn scan" id="radioScanBtn" onclick="toggleScanner()"
+                                    style="padding: 12px; font-size: 13px; width: 100%; font-weight: bold;">📡
+                                    SCAN</button>
+                                <button class="radio-action-btn" id="radioListenBtn" onclick="toggleDirectListen()"
+                                    style="padding: 10px; font-size: 12px; width: 100%; background: var(--accent-green); border: none; color: #fff;">🎧
+                                    LISTEN</button>
                             </div>
                         </div>
                     </div>
@@ -1009,7 +1261,9 @@
                     <!-- QUICK TUNE BAR -->
                     <div class="radio-module-box" style="grid-column: span 4; padding: 8px 12px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Quick Tune:</span>
+                            <span
+                                style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Quick
+                                Tune:</span>
                             <button class="preset-freq-btn" onclick="quickTune(121.5, 'am')">121.5 GUARD</button>
                             <button class="preset-freq-btn" onclick="quickTune(156.8, 'fm')">156.8 CH16</button>
                             <button class="preset-freq-btn" onclick="quickTune(145.5, 'fm')">145.5 2M</button>
@@ -1021,9 +1275,12 @@
 
                     <!-- SIGNAL HITS -->
                     <div class="radio-module-box" style="grid-column: span 2; padding: 10px;">
-                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px;">
+                        <div class="module-header"
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px;">
                             <span>SIGNAL HITS</span>
-                            <span style="font-size: 10px; color: var(--accent-cyan); background: rgba(0,212,255,0.1); padding: 2px 8px; border-radius: 3px;" id="scannerHitCount">0 signals</span>
+                            <span
+                                style="font-size: 10px; color: var(--accent-cyan); background: rgba(0,212,255,0.1); padding: 2px 8px; border-radius: 3px;"
+                                id="scannerHitCount">0 signals</span>
                         </div>
                         <div id="scannerHitsList" style="overflow-y: auto; max-height: 100px;">
                             <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
@@ -1037,7 +1294,8 @@
                                 </thead>
                                 <tbody id="scannerHitsBody">
                                     <tr style="color: var(--text-muted);">
-                                        <td colspan="4" style="padding: 15px; text-align: center; font-size: 10px;">No signals detected</td>
+                                        <td colspan="4" style="padding: 15px; text-align: center; font-size: 10px;">No
+                                            signals detected</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1052,29 +1310,39 @@
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">SIGNALS</span>
-                                <span style="color: var(--accent-green); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;" id="mainSignalCount">0</span>
+                                <span
+                                    style="color: var(--accent-green); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    id="mainSignalCount">0</span>
                             </div>
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">SCANNED</span>
-                                <span style="color: var(--accent-cyan); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;" id="mainFreqsScanned">0</span>
+                                <span
+                                    style="color: var(--accent-cyan); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    id="mainFreqsScanned">0</span>
                             </div>
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">CYCLES</span>
-                                <span style="color: var(--accent-orange); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;" id="mainScanCycles">0</span>
+                                <span
+                                    style="color: var(--accent-orange); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    id="mainScanCycles">0</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- ACTIVITY LOG -->
                     <div class="radio-module-box" style="grid-column: span 1; padding: 10px;">
-                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px;">
+                        <div class="module-header"
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px;">
                             <span>LOG</span>
                             <div style="display: flex; gap: 4px;">
-                                <button class="tune-btn" onclick="exportScannerLog()" style="padding: 2px 6px; font-size: 8px;">Export</button>
-                                <button class="tune-btn" onclick="clearScannerLog()" style="padding: 2px 6px; font-size: 8px;">Clear</button>
+                                <button class="tune-btn" onclick="exportScannerLog()"
+                                    style="padding: 2px 6px; font-size: 8px;">Export</button>
+                                <button class="tune-btn" onclick="clearScannerLog()"
+                                    style="padding: 2px 6px; font-size: 8px;">Clear</button>
                             </div>
                         </div>
-                        <div class="log-content" id="scannerActivityLog" style="max-height: 100px; overflow-y: auto; font-size: 9px; background: rgba(0,0,0,0.2); border-radius: 3px; padding: 6px;">
+                        <div class="log-content" id="scannerActivityLog"
+                            style="max-height: 100px; overflow-y: auto; font-size: 9px; background: rgba(0,0,0,0.2); border-radius: 3px; padding: 6px;">
                             <div class="scanner-log-entry" style="color: var(--text-muted);">Ready</div>
                         </div>
                     </div>
@@ -1082,10 +1350,7 @@
 
                 <!-- Satellite Dashboard (Embedded) -->
                 <div id="satelliteVisuals" class="satellite-dashboard-embed" style="display: none;">
-                    <iframe
-                        id="satelliteDashboardFrame"
-                        src="/satellite/dashboard?embedded=true"
-                        frameborder="0"
+                    <iframe id="satelliteDashboardFrame" src="/satellite/dashboard?embedded=true" frameborder="0"
                         style="width: 100%; height: 100%; min-height: 700px; border: none; border-radius: 8px;"
                         allowfullscreen>
                     </iframe>
@@ -1094,7 +1359,8 @@
                 <!-- TSCM Dashboard -->
                 <div id="tscmVisuals" class="tscm-dashboard" style="display: none; padding: 16px;">
                     <!-- Legal Disclaimer Banner -->
-                    <div class="tscm-legal-banner" style="margin-bottom: 12px; padding: 8px 12px; background: rgba(74, 158, 255, 0.1); border: 1px solid rgba(74, 158, 255, 0.3); border-radius: 4px; font-size: 10px; color: #ffffff;">
+                    <div class="tscm-legal-banner"
+                        style="margin-bottom: 12px; padding: 8px 12px; background: rgba(74, 158, 255, 0.1); border: 1px solid rgba(74, 158, 255, 0.3); border-radius: 4px; font-size: 10px; color: #ffffff;">
                         <strong>TSCM Screening Tool:</strong> This system identifies wireless and RF anomalies.
                         Findings are indicators, NOT confirmed surveillance devices.
                         No content is intercepted or decoded. Professional verification required.
@@ -1130,7 +1396,8 @@
                             <span class="cap-icon">🔒</span>
                             <span class="cap-status" id="capRootStatus">--</span>
                         </div>
-                        <div class="cap-limitations" id="capLimitations" onclick="tscmShowCapabilities()" style="cursor: pointer;">
+                        <div class="cap-limitations" id="capLimitations" onclick="tscmShowCapabilities()"
+                            style="cursor: pointer;">
                             <span class="cap-warn">⚠️</span>
                             <span id="capLimitationCount">0</span> limitations
                         </div>
@@ -1146,19 +1413,25 @@
 
                     <!-- Risk Summary Banner (new scoring model) - clickable cards -->
                     <div class="tscm-threat-banner">
-                        <div class="threat-card critical clickable" id="tscmHighInterestCard" onclick="showDevicesByCategory('high_interest')" title="Click to view high interest devices">
+                        <div class="threat-card critical clickable" id="tscmHighInterestCard"
+                            onclick="showDevicesByCategory('high_interest')"
+                            title="Click to view high interest devices">
                             <span class="count" id="tscmHighInterestCount">0</span>
                             <span class="label">High Interest</span>
                         </div>
-                        <div class="threat-card high clickable" id="tscmNeedsReviewCard" onclick="showDevicesByCategory('review')" title="Click to view devices needing review">
+                        <div class="threat-card high clickable" id="tscmNeedsReviewCard"
+                            onclick="showDevicesByCategory('review')" title="Click to view devices needing review">
                             <span class="count" id="tscmNeedsReviewCount">0</span>
                             <span class="label">Needs Review</span>
                         </div>
-                        <div class="threat-card low clickable" id="tscmInformationalCard" onclick="showDevicesByCategory('informational')" title="Click to view informational devices">
+                        <div class="threat-card low clickable" id="tscmInformationalCard"
+                            onclick="showDevicesByCategory('informational')"
+                            title="Click to view informational devices">
                             <span class="count" id="tscmInformationalCount">0</span>
                             <span class="label">Informational</span>
                         </div>
-                        <div class="threat-card medium clickable" id="tscmCorrelationsCard" onclick="showDevicesByCategory('correlations')" title="Click to view correlations">
+                        <div class="threat-card medium clickable" id="tscmCorrelationsCard"
+                            onclick="showDevicesByCategory('correlations')" title="Click to view correlations">
                             <span class="count" id="tscmCorrelationsCount">0</span>
                             <span class="label">Correlations</span>
                         </div>
@@ -1271,13 +1544,15 @@
                             <span class="control-group-label">Mode</span>
                             <button id="reconBtn" class="recon-toggle" onclick="toggleRecon()">RECON</button>
                             <button id="muteBtn" class="control-btn" onclick="toggleMute()">🔊</button>
-                            <button id="autoScrollBtn" class="control-btn active" onclick="toggleAutoScroll()">⬇ AUTO</button>
+                            <button id="autoScrollBtn" class="control-btn active" onclick="toggleAutoScroll()">⬇
+                                AUTO</button>
                         </div>
                         <div class="control-group">
                             <span class="control-group-label">Export</span>
                             <button class="control-btn" onclick="exportCSV()">CSV</button>
                             <button class="control-btn" onclick="exportJSON()">JSON</button>
-                            <button class="control-btn" onclick="exportDeviceDB()" title="Export Device Intelligence">INTEL</button>
+                            <button class="control-btn" onclick="exportDeviceDB()"
+                                title="Export Device Intelligence">INTEL</button>
                         </div>
                         <button class="clear-btn" onclick="clearMessages()">Clear</button>
                     </div>
@@ -1438,13 +1713,13 @@
         setInterval(syncHeaderStats, 500);
 
         // Observer location for distance calculations (load from localStorage or default to London)
-        let observerLocation = (function() {
+        let observerLocation = (function () {
             const saved = localStorage.getItem('observerLocation');
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
                     if (parsed.lat && parsed.lon) return parsed;
-                } catch (e) {}
+                } catch (e) { }
             }
             return { lat: 51.5074, lon: -0.1278 };
         })();
@@ -1575,9 +1850,9 @@
         }
 
         // Make sections collapsible
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.section h3').forEach(h3 => {
-                h3.addEventListener('click', function() {
+                h3.addEventListener('click', function () {
                     this.parentElement.classList.toggle('collapsed');
                 });
             });
@@ -1653,7 +1928,7 @@
         }
 
         // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (!e.target.closest('.mode-nav-dropdown')) {
                 closeAllDropdowns();
             }
@@ -1803,12 +2078,12 @@
         }
 
         // Handle window resize for maps (especially important on mobile orientation change)
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', function () {
             if (aprsMap) aprsMap.invalidateSize();
         });
 
         // Also handle orientation changes explicitly for mobile
-        window.addEventListener('orientationchange', function() {
+        window.addEventListener('orientationchange', function () {
             setTimeout(() => {
                 if (aprsMap) aprsMap.invalidateSize();
             }, 200);
@@ -1821,7 +2096,7 @@
         function setSensorFreq(freq) {
             document.getElementById('sensorFrequency').value = freq;
             if (isSensorRunning) {
-                fetch('/stop_sensor', {method: 'POST'})
+                fetch('/stop_sensor', { method: 'POST' })
                     .then(() => setTimeout(() => startSensorDecoding(), 500));
             }
         }
@@ -1859,23 +2134,23 @@
 
             fetch('/start_sensor', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
             }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'started') {
-                      reserveDevice(parseInt(device), 'sensor');
-                      setSensorRunning(true);
-                      startSensorStream();
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              });
+                .then(data => {
+                    if (data.status === 'started') {
+                        reserveDevice(parseInt(device), 'sensor');
+                        setSensorRunning(true);
+                        startSensorStream();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                });
         }
 
         // Stop sensor decoding
         function stopSensorDecoding() {
-            fetch('/stop_sensor', {method: 'POST'})
+            fetch('/stop_sensor', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     releaseDevice('sensor');
@@ -1902,11 +2177,11 @@
 
             eventSource = new EventSource('/stream_sensor');
 
-            eventSource.onopen = function() {
+            eventSource.onopen = function () {
                 showInfo('Sensor stream connected...');
             };
 
-            eventSource.onmessage = function(e) {
+            eventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
                 if (data.type === 'sensor') {
                     addSensorReading(data);
@@ -1919,7 +2194,7 @@
                 }
             };
 
-            eventSource.onerror = function(e) {
+            eventSource.onerror = function (e) {
                 console.error('Sensor stream error');
             };
         }
@@ -1970,8 +2245,8 @@
 
             card.innerHTML =
                 '<div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">' +
-                    '<span class="device-name">' + (data.model || 'Unknown Device') + '</span>' +
-                    '<span class="msg-time" data-timestamp="' + (data.time || '') + '" style="color: #444; font-size: 10px;">' + relTime + '</span>' +
+                '<span class="device-name">' + (data.model || 'Unknown Device') + '</span>' +
+                '<span class="msg-time" data-timestamp="' + (data.time || '') + '" style="color: #444; font-size: 10px;">' + relTime + '</span>' +
                 '</div>' +
                 '<div class="sensor-data">' + dataItems + '</div>';
 
@@ -1987,8 +2262,8 @@
             const enabled = document.getElementById('sensorLogging').checked;
             fetch('/logging', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({enabled: enabled, log_file: 'sensor_data.log'})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: enabled, log_file: 'sensor_data.log' })
             });
         }
 
@@ -2221,7 +2496,7 @@
             document.getElementById('frequency').value = freq;
             // Auto-restart decoder with new frequency if currently running
             if (isRunning) {
-                fetch('/stop', {method: 'POST'})
+                fetch('/stop', { method: 'POST' })
                     .then(() => {
                         setTimeout(() => startDecoding(), 500);
                     });
@@ -2485,25 +2760,25 @@
 
             fetch('/start', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
             }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'started') {
-                      reserveDevice(parseInt(device), 'pager');
-                      setRunning(true);
-                      startStream();
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              })
-              .catch(err => {
-                  console.error('Start error:', err);
-              });
+                .then(data => {
+                    if (data.status === 'started') {
+                        reserveDevice(parseInt(device), 'pager');
+                        setRunning(true);
+                        startStream();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('Start error:', err);
+                });
         }
 
         function stopDecoding() {
-            fetch('/stop', {method: 'POST'})
+            fetch('/stop', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     releaseDevice('pager');
@@ -2516,7 +2791,7 @@
         }
 
         function killAll() {
-            fetch('/killall', {method: 'POST'})
+            fetch('/killall', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     // Release all devices
@@ -2560,12 +2835,12 @@
             const logFile = document.getElementById('logFilePath').value;
             fetch('/logging', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({enabled: enabled, log_file: logFile})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: enabled, log_file: logFile })
             }).then(r => r.json())
-              .then(data => {
-                  showInfo(data.logging ? 'Logging enabled: ' + data.log_file : 'Logging disabled');
-              });
+                .then(data => {
+                    showInfo(data.logging ? 'Logging enabled: ' + data.log_file : 'Logging disabled');
+                });
         }
 
         function setRunning(running) {
@@ -2583,11 +2858,11 @@
 
             eventSource = new EventSource('/stream');
 
-            eventSource.onopen = function() {
+            eventSource.onopen = function () {
                 showInfo('Stream connected...');
             };
 
-            eventSource.onmessage = function(e) {
+            eventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
 
                 if (data.type === 'message') {
@@ -2605,7 +2880,7 @@
                 }
             };
 
-            eventSource.onerror = function(e) {
+            eventSource.onerror = function (e) {
                 checkStatus();
             };
         }
@@ -2814,7 +3089,7 @@
             // Calculate intervals between transmissions
             const intervals = [];
             for (let i = 1; i < profile.transmissions.length; i++) {
-                intervals.push(profile.transmissions[i] - profile.transmissions[i-1]);
+                intervals.push(profile.transmissions[i] - profile.transmissions[i - 1]);
             }
 
             // Calculate average and standard deviation
@@ -2830,7 +3105,7 @@
                 anomalies.push({
                     type: 'burst',
                     severity: 'medium',
-                    message: 'Burst transmission detected - interval ' + Math.round(lastInterval/1000) + 's vs avg ' + Math.round(avg/1000) + 's'
+                    message: 'Burst transmission detected - interval ' + Math.round(lastInterval / 1000) + 's vs avg ' + Math.round(avg / 1000) + 's'
                 });
             }
 
@@ -2839,7 +3114,7 @@
                 anomalies.push({
                     type: 'silence_break',
                     severity: 'low',
-                    message: 'Device resumed after ' + Math.round(lastInterval/60000) + ' min silence'
+                    message: 'Device resumed after ' + Math.round(lastInterval / 60000) + ' min silence'
                 });
             }
 
@@ -3008,7 +3283,7 @@
                     </div>
                     <div class="device-id">
                         First: ${firstSeenStr} | Last: ${lastSeenStr} | TX: ${profile.transmissionCount}
-                        ${profile.avgInterval ? ' | Interval: ' + Math.round(profile.avgInterval/1000) + 's' : ''}
+                        ${profile.avgInterval ? ' | Interval: ' + Math.round(profile.avgInterval / 1000) + 's' : ''}
                     </div>
                 </div>
                 <div class="device-meta ${encClass}">${encStatus}</div>
@@ -3061,13 +3336,13 @@
 
         // Hook into existing message handlers to track devices
         const originalAddMessage = addMessage;
-        addMessage = function(msg) {
+        addMessage = function (msg) {
             originalAddMessage(msg);
             trackDevice(msg);
         };
 
         const originalAddSensorReading = addSensorReading;
-        addSensorReading = function(data) {
+        addSensorReading = function (data) {
             originalAddSensorReading(data);
             trackDevice(data);
         };
@@ -3578,7 +3853,7 @@
             if (networks.length === 0) {
                 ctx.fillStyle = '#444';
                 ctx.font = '12px sans-serif';
-                ctx.fillText('Start scanning to see network topology', width/2 - 100, height/2);
+                ctx.fillText('Start scanning to see network topology', width / 2 - 100, height / 2);
                 return;
             }
 
@@ -3770,7 +4045,7 @@
             list.innerHTML = deviceCorrelations.slice(0, 10).map(c => {
                 const confidence = Math.round((c.confidence || 0.5) * 100);
                 const confidenceColor = confidence >= 70 ? 'var(--accent-green)' :
-                                       confidence >= 50 ? 'var(--accent-orange)' : 'var(--text-dim)';
+                    confidence >= 50 ? 'var(--accent-orange)' : 'var(--text-dim)';
                 return `
                     <div style="padding: 4px 0; border-bottom: 1px solid var(--border-color);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -3911,46 +4186,46 @@
 
             fetch('/wifi/monitor', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({interface: iface, action: 'start', kill_processes: killProcesses})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ interface: iface, action: 'start', kill_processes: killProcesses })
             }).then(r => r.json())
-              .then(data => {
-                  btn.textContent = originalText;
-                  btn.disabled = false;
+                .then(data => {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
 
-                  if (data.status === 'success') {
-                      monitorInterface = data.monitor_interface;
-                      updateMonitorStatus(true);
-                      showInfo('Monitor mode enabled on ' + monitorInterface + ' - Ready to scan!');
+                    if (data.status === 'success') {
+                        monitorInterface = data.monitor_interface;
+                        updateMonitorStatus(true);
+                        showInfo('Monitor mode enabled on ' + monitorInterface + ' - Ready to scan!');
 
-                      // Refresh interface list and auto-select the monitor interface
-                      fetch('/wifi/interfaces')
-                          .then(r => r.json())
-                          .then(ifaceData => {
-                              const select = document.getElementById('wifiInterfaceSelect');
-                              if (ifaceData.interfaces.length > 0) {
-                                  select.innerHTML = ifaceData.interfaces.map(i => {
-                                      let label = i.name;
-                                      let details = [];
-                                      if (i.chipset) details.push(i.chipset);
-                                      else if (i.driver) details.push(i.driver);
-                                      if (i.mac) details.push(i.mac.substring(0, 8) + '...');
-                                      if (details.length > 0) label += ' - ' + details.join(' | ');
-                                      label += ` (${i.type})`;
-                                      if (i.monitor_capable) label += ' [Monitor OK]';
-                                      return `<option value="${i.name}" ${i.name === monitorInterface ? 'selected' : ''}>${label}</option>`;
-                                  }).join('');
-                              }
-                          });
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              })
-              .catch(err => {
-                  btn.textContent = originalText;
-                  btn.disabled = false;
-                  alert('Error: ' + err.message);
-              });
+                        // Refresh interface list and auto-select the monitor interface
+                        fetch('/wifi/interfaces')
+                            .then(r => r.json())
+                            .then(ifaceData => {
+                                const select = document.getElementById('wifiInterfaceSelect');
+                                if (ifaceData.interfaces.length > 0) {
+                                    select.innerHTML = ifaceData.interfaces.map(i => {
+                                        let label = i.name;
+                                        let details = [];
+                                        if (i.chipset) details.push(i.chipset);
+                                        else if (i.driver) details.push(i.driver);
+                                        if (i.mac) details.push(i.mac.substring(0, 8) + '...');
+                                        if (details.length > 0) label += ' - ' + details.join(' | ');
+                                        label += ` (${i.type})`;
+                                        if (i.monitor_capable) label += ' [Monitor OK]';
+                                        return `<option value="${i.name}" ${i.name === monitorInterface ? 'selected' : ''}>${label}</option>`;
+                                    }).join('');
+                                }
+                            });
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    alert('Error: ' + err.message);
+                });
         }
 
         // Disable monitor mode
@@ -3959,18 +4234,18 @@
 
             fetch('/wifi/monitor', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({interface: iface, action: 'stop'})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ interface: iface, action: 'stop' })
             }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'success') {
-                      monitorInterface = null;
-                      updateMonitorStatus(false);
-                      showInfo('Monitor mode disabled');
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              });
+                .then(data => {
+                    if (data.status === 'success') {
+                        monitorInterface = null;
+                        updateMonitorStatus(false);
+                        showInfo('Monitor mode disabled');
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                });
         }
 
         function updateMonitorStatus(enabled) {
@@ -4009,8 +4284,8 @@
 
                     const monitorResp = await fetch('/wifi/monitor', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({interface: iface, action: 'start', kill_processes: killProcesses})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ interface: iface, action: 'start', kill_processes: killProcesses })
                     });
                     const monitorData = await monitorResp.json();
                     console.log('Monitor response:', monitorData);
@@ -4043,7 +4318,7 @@
             try {
                 const scanResp = await fetch('/wifi/scan/start', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         interface: monitorInterface,
                         band: band,
@@ -4074,7 +4349,7 @@
 
         // Stop WiFi scan
         function stopWifiScan() {
-            fetch('/wifi/scan/stop', {method: 'POST'})
+            fetch('/wifi/scan/stop', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     setWifiRunning(false);
@@ -4135,7 +4410,7 @@
 
             wifiEventSource = new EventSource('/wifi/stream');
 
-            wifiEventSource.onmessage = function(e) {
+            wifiEventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
 
                 if (data.type === 'network') {
@@ -4155,7 +4430,7 @@
                 }
             };
 
-            wifiEventSource.onerror = function() {
+            wifiEventSource.onerror = function () {
                 console.error('WiFi stream error');
             };
         }
@@ -4489,8 +4764,8 @@
                 card.id = 'wifi_' + net.bssid.replace(/:/g, '');
                 card.className = 'sensor-card wifi-network-card';
                 card.style.borderLeftColor = net.privacy.includes('WPA') ? 'var(--accent-orange)' :
-                                             net.privacy.includes('WEP') ? 'var(--accent-red)' :
-                                             'var(--accent-green)';
+                    net.privacy.includes('WEP') ? 'var(--accent-red)' :
+                        'var(--accent-green)';
                 card.style.cursor = 'pointer';
                 card.onclick = () => selectWifiDevice(net.bssid, 'network');
                 deviceList.insertBefore(card, deviceList.firstChild);
@@ -4537,7 +4812,7 @@
                     </div>
                     <div class="data-item">
                         <div class="data-label">Signal</div>
-                        <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5-signalBars)}</div>
+                        <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5 - signalBars)}</div>
                     </div>
                     <div class="data-item">
                         <div class="data-label">Beacons</div>
@@ -4613,7 +4888,7 @@
                     </div>
                     <div class="data-item">
                         <div class="data-label">Signal</div>
-                        <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5-signalBars)}</div>
+                        <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5 - signalBars)}</div>
                     </div>
                     <div class="data-item">
                         <div class="data-label">Probes</div>
@@ -4646,7 +4921,7 @@
             if (isWifiRunning) {
                 showInfo('Stopping current scan...');
                 try {
-                    await fetch('/wifi/scan/stop', {method: 'POST'});
+                    await fetch('/wifi/scan/stop', { method: 'POST' });
                     if (wifiEventSource) {
                         wifiEventSource.close();
                         wifiEventSource = null;
@@ -4662,8 +4937,8 @@
             try {
                 const response = await fetch('/wifi/handshake/capture', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({bssid: bssid, channel: channel, interface: iface})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bssid: bssid, channel: channel, interface: iface })
                 });
                 const data = await response.json();
 
@@ -4711,65 +4986,65 @@
 
             fetch('/wifi/handshake/status', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({file: activeCapture.file, bssid: activeCapture.bssid})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file: activeCapture.file, bssid: activeCapture.bssid })
             }).then(r => r.json())
-              .then(data => {
-                  const statusSpan = document.getElementById('captureStatus');
-                  const elapsed = Math.round((Date.now() - activeCapture.startTime) / 1000);
-                  const elapsedStr = elapsed < 60 ? elapsed + 's' : Math.floor(elapsed/60) + 'm ' + (elapsed%60) + 's';
+                .then(data => {
+                    const statusSpan = document.getElementById('captureStatus');
+                    const elapsed = Math.round((Date.now() - activeCapture.startTime) / 1000);
+                    const elapsedStr = elapsed < 60 ? elapsed + 's' : Math.floor(elapsed / 60) + 'm ' + (elapsed % 60) + 's';
 
-                  if (data.handshake_found) {
-                      // Handshake captured!
-                      statusSpan.textContent = '✓ HANDSHAKE CAPTURED!';
-                      statusSpan.style.color = 'var(--accent-green)';
-                      handshakeCount++;
-                      document.getElementById('handshakeCount').textContent = handshakeCount;
-                      playAlert();
-                      showInfo('🎉 Handshake captured for ' + activeCapture.bssid + '! File: ' + data.file);
-                      showNotification('🤝 Handshake Captured!', `Target: ${activeCapture.bssid}`);
+                    if (data.handshake_found) {
+                        // Handshake captured!
+                        statusSpan.textContent = '✓ HANDSHAKE CAPTURED!';
+                        statusSpan.style.color = 'var(--accent-green)';
+                        handshakeCount++;
+                        document.getElementById('handshakeCount').textContent = handshakeCount;
+                        playAlert();
+                        showInfo('🎉 Handshake captured for ' + activeCapture.bssid + '! File: ' + data.file);
+                        showNotification('🤝 Handshake Captured!', `Target: ${activeCapture.bssid}`);
 
-                      // Stop polling
-                      if (activeCapture.pollInterval) {
-                          clearInterval(activeCapture.pollInterval);
-                      }
-                      document.getElementById('handshakeCount').style.animation = '';
+                        // Stop polling
+                        if (activeCapture.pollInterval) {
+                            clearInterval(activeCapture.pollInterval);
+                        }
+                        document.getElementById('handshakeCount').style.animation = '';
 
-                      // Show crack button in the capture panel
-                      const panel = document.getElementById('captureStatusPanel');
-                      const existingCrackBtn = panel.querySelector('.crack-btn');
-                      if (!existingCrackBtn) {
-                          const crackDiv = document.createElement('div');
-                          crackDiv.style.marginTop = '10px';
-                          crackDiv.innerHTML = `
+                        // Show crack button in the capture panel
+                        const panel = document.getElementById('captureStatusPanel');
+                        const existingCrackBtn = panel.querySelector('.crack-btn');
+                        if (!existingCrackBtn) {
+                            const crackDiv = document.createElement('div');
+                            crackDiv.style.marginTop = '10px';
+                            crackDiv.innerHTML = `
                               <button class="preset-btn crack-btn" onclick="crackHandshake('${data.file}', '${activeCapture.bssid}')" style="width: 100%; background: var(--accent-green); border-color: var(--accent-green); color: #000; font-weight: bold;">
                                   🔓 Crack with Aircrack-ng
                               </button>
                           `;
-                          panel.querySelector('.section') ? panel.querySelector('.section').appendChild(crackDiv) : panel.appendChild(crackDiv);
-                      }
+                            panel.querySelector('.section') ? panel.querySelector('.section').appendChild(crackDiv) : panel.appendChild(crackDiv);
+                        }
 
-                      // Store the captured file for later use
-                      activeCapture.captured = true;
-                      activeCapture.capturedFile = data.file;
-                  } else if (data.file_exists) {
-                      const sizeKB = (data.file_size / 1024).toFixed(1);
-                      statusSpan.textContent = 'Capturing... (' + sizeKB + ' KB, ' + elapsedStr + ')';
-                      statusSpan.style.color = 'var(--accent-orange)';
-                  } else if (data.status === 'stopped') {
-                      statusSpan.textContent = 'Capture stopped';
-                      statusSpan.style.color = 'var(--text-dim)';
-                      if (activeCapture.pollInterval) {
-                          clearInterval(activeCapture.pollInterval);
-                      }
-                  } else {
-                      statusSpan.textContent = 'Waiting for data... (' + elapsedStr + ')';
-                      statusSpan.style.color = 'var(--accent-orange)';
-                  }
-              })
-              .catch(err => {
-                  console.error('Capture status check failed:', err);
-              });
+                        // Store the captured file for later use
+                        activeCapture.captured = true;
+                        activeCapture.capturedFile = data.file;
+                    } else if (data.file_exists) {
+                        const sizeKB = (data.file_size / 1024).toFixed(1);
+                        statusSpan.textContent = 'Capturing... (' + sizeKB + ' KB, ' + elapsedStr + ')';
+                        statusSpan.style.color = 'var(--accent-orange)';
+                    } else if (data.status === 'stopped') {
+                        statusSpan.textContent = 'Capture stopped';
+                        statusSpan.style.color = 'var(--text-dim)';
+                        if (activeCapture.pollInterval) {
+                            clearInterval(activeCapture.pollInterval);
+                        }
+                    } else {
+                        statusSpan.textContent = 'Waiting for data... (' + elapsedStr + ')';
+                        statusSpan.style.color = 'var(--accent-orange)';
+                    }
+                })
+                .catch(err => {
+                    console.error('Capture status check failed:', err);
+                });
         }
 
         // Stop handshake capture
@@ -4811,25 +5086,25 @@
                     wordlist: wordlist
                 })
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success' && data.password) {
-                    showInfo('🎉 PASSWORD FOUND: ' + data.password);
-                    showNotification('🔓 Password Cracked!', data.password);
-                    alert('Password found!\n\n' + data.password + '\n\nThis has been logged.');
-                } else if (data.status === 'not_found') {
-                    showInfo('Password not found in wordlist. Try a different wordlist.');
-                    alert('Password not found in wordlist.\n\nTry using a larger or different wordlist.');
-                } else if (data.status === 'running') {
-                    showInfo('Aircrack-ng is running in background. Check terminal for progress.');
-                } else {
-                    showError('Crack failed: ' + (data.message || 'Unknown error'));
-                }
-            })
-            .catch(err => {
-                showError('Crack error: ' + err.message);
-                console.error('Crack error:', err);
-            });
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success' && data.password) {
+                        showInfo('🎉 PASSWORD FOUND: ' + data.password);
+                        showNotification('🔓 Password Cracked!', data.password);
+                        alert('Password found!\n\n' + data.password + '\n\nThis has been logged.');
+                    } else if (data.status === 'not_found') {
+                        showInfo('Password not found in wordlist. Try a different wordlist.');
+                        alert('Password not found in wordlist.\n\nTry using a larger or different wordlist.');
+                    } else if (data.status === 'running') {
+                        showInfo('Aircrack-ng is running in background. Check terminal for progress.');
+                    } else {
+                        showError('Crack failed: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(err => {
+                    showError('Crack error: ' + err.message);
+                    console.error('Crack error:', err);
+                });
         }
 
         // Beacon Flood Detection
@@ -4885,16 +5160,16 @@
 
             fetch('/wifi/deauth', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({bssid: bssid, client: client, count: parseInt(count)})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bssid: bssid, client: client, count: parseInt(count) })
             }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'success') {
-                      showInfo(data.message);
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              });
+                .then(data => {
+                    if (data.status === 'success') {
+                        showInfo(data.message);
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                });
         }
 
         // ============== WIFI VISUALIZATIONS ==============
@@ -5202,7 +5477,7 @@
 
         // Hook into handleWifiNetworkImmediate to update visualizations
         const originalHandleWifiNetworkImmediate = handleWifiNetworkImmediate;
-        handleWifiNetworkImmediate = function(net) {
+        handleWifiNetworkImmediate = function (net) {
             originalHandleWifiNetworkImmediate(net);
 
             // Update radar
@@ -5220,7 +5495,7 @@
 
         // Update targetNetwork to also set signal meter
         const originalTargetNetwork = targetNetwork;
-        targetNetwork = function(bssid, channel) {
+        targetNetwork = function (bssid, channel) {
             originalTargetNetwork(bssid, channel);
 
             const net = wifiNetworks[bssid];
@@ -5273,7 +5548,7 @@
 
             fetch('/bt/scan/start', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     mode: scanMode,
                     interface: iface,
@@ -5282,19 +5557,19 @@
                     scan_classic: scanClassic
                 })
             }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'started') {
-                      setBtRunning(true);
-                      startBtStream();
-                  } else {
-                      alert('Error: ' + data.message);
-                  }
-              });
+                .then(data => {
+                    if (data.status === 'started') {
+                        setBtRunning(true);
+                        startBtStream();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                });
         }
 
         // Stop Bluetooth scan
         function stopBtScan() {
-            fetch('/bt/scan/stop', {method: 'POST'})
+            fetch('/bt/scan/stop', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     setBtRunning(false);
@@ -5309,23 +5584,23 @@
             const iface = document.getElementById('btInterfaceSelect')?.value || 'hci0';
             fetch('/bt/reset', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({interface: iface})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ interface: iface })
             }).then(r => r.json())
-              .then(data => {
-                  setBtRunning(false);
-                  if (btEventSource) {
-                      btEventSource.close();
-                      btEventSource = null;
-                  }
-                  if (data.status === 'success') {
-                      showInfo('Bluetooth adapter reset. Status: ' + (data.is_up ? 'UP' : 'DOWN'));
-                      // Refresh interface list
-                      if (typeof refreshBtInterfaces === 'function') refreshBtInterfaces();
-                  } else {
-                      showError('Reset failed: ' + data.message);
-                  }
-              });
+                .then(data => {
+                    setBtRunning(false);
+                    if (btEventSource) {
+                        btEventSource.close();
+                        btEventSource = null;
+                    }
+                    if (data.status === 'success') {
+                        showInfo('Bluetooth adapter reset. Status: ' + (data.is_up ? 'UP' : 'DOWN'));
+                        // Refresh interface list
+                        if (typeof refreshBtInterfaces === 'function') refreshBtInterfaces();
+                    } else {
+                        showError('Reset failed: ' + data.message);
+                    }
+                });
         }
 
         function setBtRunning(running) {
@@ -5367,7 +5642,7 @@
 
             btEventSource = new EventSource('/bt/stream');
 
-            btEventSource.onmessage = function(e) {
+            btEventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
 
                 if (data.type === 'device') {
@@ -5384,7 +5659,7 @@
                 }
             };
 
-            btEventSource.onerror = function() {
+            btEventSource.onerror = function () {
                 console.error('BT stream error');
             };
         }
@@ -5604,12 +5879,12 @@
                 }[d.device_type || d.type] || '📶';
 
                 const rssiColor = d.rssi > -50 ? 'var(--accent-green)' :
-                                  d.rssi > -70 ? 'var(--accent-cyan)' :
-                                  d.rssi > -85 ? 'var(--accent-orange)' : 'var(--accent-red)';
+                    d.rssi > -70 ? 'var(--accent-cyan)' :
+                        d.rssi > -85 ? 'var(--accent-orange)' : 'var(--accent-red)';
 
                 const isSelected = selectedBtDevice === d.mac;
                 const trackerBadge = d.findmy ? `<span style="color:#007aff;font-size:9px;">FindMy</span>` :
-                                     d.tracker ? `<span style="color:var(--accent-red);font-size:9px;">Tracker</span>` : '';
+                    d.tracker ? `<span style="color:var(--accent-red);font-size:9px;">Tracker</span>` : '';
 
                 return `
                     <div onclick="selectBtDevice('${d.mac}')" style="
@@ -5654,8 +5929,8 @@
             }[device.device_type || device.type] || '📶';
 
             const rssiColor = device.rssi > -50 ? 'var(--accent-green)' :
-                              device.rssi > -70 ? 'var(--accent-cyan)' :
-                              device.rssi > -85 ? 'var(--accent-orange)' : 'var(--accent-red)';
+                device.rssi > -70 ? 'var(--accent-cyan)' :
+                    device.rssi > -85 ? 'var(--accent-orange)' : 'var(--accent-red)';
 
             const signalBars = Math.max(1, Math.min(5, Math.floor((device.rssi + 100) / 10)));
             const barsHtml = Array(5).fill(0).map((_, i) =>
@@ -5770,8 +6045,8 @@
                     card = document.createElement('div');
                     card.id = 'btcard_' + device.mac.replace(/:/g, '');
                     card.className = 'sensor-card bt-device-card' +
-                                     (device.findmy ? ' findmy' : '') +
-                                     (device.tracker && !device.findmy ? ' tracker' : '');
+                        (device.findmy ? ' findmy' : '') +
+                        (device.tracker && !device.findmy ? ' tracker' : '');
                     card.style.cursor = 'pointer';
                     card.onclick = () => selectBtDevice(device.mac);
                     deviceList.insertBefore(card, deviceList.firstChild);
@@ -5815,7 +6090,7 @@
                         </div>
                         <div class="data-item">
                             <div class="data-label">Signal</div>
-                            <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5-signalBars)}</div>
+                            <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5 - signalBars)}</div>
                         </div>
                     </div>
                     <div style="margin-top: 8px; display: flex; gap: 5px;">
@@ -5933,22 +6208,22 @@
 
             fetch('/bt/enum', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({mac: mac})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mac: mac })
             }).then(r => r.json())
-              .then(data => {
-                  if (data.status === 'success') {
-                      let msg = 'Services for ' + mac + ': ';
-                      if (data.services.length === 0) {
-                          msg += 'None found';
-                      } else {
-                          msg += data.services.map(s => s.name).join(', ');
-                      }
-                      showInfo(msg);
-                  } else {
-                      showInfo('Error: ' + data.message);
-                  }
-              });
+                .then(data => {
+                    if (data.status === 'success') {
+                        let msg = 'Services for ' + mac + ': ';
+                        if (data.services.length === 0) {
+                            msg += 'None found';
+                        } else {
+                            msg += data.services.map(s => s.name).join(', ');
+                        }
+                        showInfo(msg);
+                    } else {
+                        showInfo('Error: ' + data.message);
+                    }
+                });
         }
 
         // Initialize Bluetooth radar
@@ -6069,10 +6344,10 @@
             const R = 3958.8; // Earth's radius in miles
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
 
@@ -6194,7 +6469,7 @@
             // Update time display (both map header and function bar)
             setInterval(() => {
                 const now = new Date();
-                const timeStr = now.toLocaleTimeString('en-US', {hour12: false});
+                const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
                 const utcStr = now.toUTCString().slice(17, 25) + ' UTC';
 
                 const timeEl = document.getElementById('aprsMapTime');
@@ -6242,38 +6517,38 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ region, device: parseInt(device), gain: parseInt(gain) })
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'started') {
-                    isAprsRunning = true;
-                    aprsPacketCount = 0;
-                    aprsStationCount = 0;
-                    // Update function bar buttons
-                    document.getElementById('aprsStripStartBtn').style.display = 'none';
-                    document.getElementById('aprsStripStopBtn').style.display = 'inline-block';
-                    // Update map status
-                    document.getElementById('aprsMapStatus').textContent = 'TRACKING';
-                    document.getElementById('aprsMapStatus').style.color = 'var(--accent-green)';
-                    // Update function bar status
-                    updateAprsStatus('listening', data.frequency);
-                    // Reset function bar stats
-                    document.getElementById('aprsStripStations').textContent = '0';
-                    document.getElementById('aprsStripPackets').textContent = '0';
-                    document.getElementById('aprsStripSignal').textContent = '--';
-                    // Disable controls while running
-                    document.getElementById('aprsStripRegion').disabled = true;
-                    document.getElementById('aprsStripGain').disabled = true;
-                    startAprsMeterCheck();
-                    startAprsStream();
-                } else {
-                    alert('APRS Error: ' + data.message);
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'started') {
+                        isAprsRunning = true;
+                        aprsPacketCount = 0;
+                        aprsStationCount = 0;
+                        // Update function bar buttons
+                        document.getElementById('aprsStripStartBtn').style.display = 'none';
+                        document.getElementById('aprsStripStopBtn').style.display = 'inline-block';
+                        // Update map status
+                        document.getElementById('aprsMapStatus').textContent = 'TRACKING';
+                        document.getElementById('aprsMapStatus').style.color = 'var(--accent-green)';
+                        // Update function bar status
+                        updateAprsStatus('listening', data.frequency);
+                        // Reset function bar stats
+                        document.getElementById('aprsStripStations').textContent = '0';
+                        document.getElementById('aprsStripPackets').textContent = '0';
+                        document.getElementById('aprsStripSignal').textContent = '--';
+                        // Disable controls while running
+                        document.getElementById('aprsStripRegion').disabled = true;
+                        document.getElementById('aprsStripGain').disabled = true;
+                        startAprsMeterCheck();
+                        startAprsStream();
+                    } else {
+                        alert('APRS Error: ' + data.message);
+                        updateAprsStatus('error');
+                    }
+                })
+                .catch(err => {
+                    alert('APRS Error: ' + err);
                     updateAprsStatus('error');
-                }
-            })
-            .catch(err => {
-                alert('APRS Error: ' + err);
-                updateAprsStatus('error');
-            });
+                });
         }
 
         function stopAprs() {
@@ -6312,7 +6587,7 @@
             if (aprsEventSource) aprsEventSource.close();
             aprsEventSource = new EventSource('/aprs/stream');
 
-            aprsEventSource.onmessage = function(e) {
+            aprsEventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
                 if (data.type === 'aprs') {
                     aprsPacketCount++;
@@ -6331,7 +6606,7 @@
                 }
             };
 
-            aprsEventSource.onerror = function() {
+            aprsEventSource.onerror = function () {
                 console.error('APRS stream error');
                 updateAprsStatus('error');
             };
@@ -6381,7 +6656,7 @@
 
         function startAprsMeterCheck() {
             // Check for no-signal state every second
-            aprsMeterCheckInterval = setInterval(function() {
+            aprsMeterCheckInterval = setInterval(function () {
                 if (aprsMeterLastUpdate > 0 && (Date.now() - aprsMeterLastUpdate) > APRS_METER_TIMEOUT) {
                     // No meter updates for 5 seconds - show no-signal state
                     const signalEl = document.getElementById('aprsStripSignal');
@@ -6408,7 +6683,7 @@
             const logEntry = document.createElement('div');
             logEntry.style.cssText = 'padding: 3px 0; border-bottom: 1px solid var(--border-color);';
 
-            const time = new Date().toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'});
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const callsign = packet.callsign || 'UNKNOWN';
             const packetType = packet.packet_type || 'unknown';
 
@@ -6516,7 +6791,7 @@
                 listEl.insertBefore(stationEl, listEl.firstChild);
             }
 
-            const time = new Date().toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'});
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
             const hasPos = packet.lat && packet.lon;
 
             // Store lat/lon in dataset for distance updates
@@ -6809,24 +7084,24 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ lat, lon, hours, minEl, satellites })
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    satellitePasses = data.passes;
-                    renderPassList();
-                    document.getElementById('passCount').textContent = data.passes.length;
-                    if (data.passes.length > 0) {
-                        selectPass(0);
-                        document.getElementById('satelliteCountdown').style.display = 'block';
-                        updateSatelliteCountdown();
-                        startCountdownTimer();
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        satellitePasses = data.passes;
+                        renderPassList();
+                        document.getElementById('passCount').textContent = data.passes.length;
+                        if (data.passes.length > 0) {
+                            selectPass(0);
+                            document.getElementById('satelliteCountdown').style.display = 'block';
+                            updateSatelliteCountdown();
+                            startCountdownTimer();
+                        } else {
+                            document.getElementById('satelliteCountdown').style.display = 'none';
+                        }
                     } else {
-                        document.getElementById('satelliteCountdown').style.display = 'none';
+                        alert('Error: ' + data.message);
                     }
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            });
+                });
         }
 
         function renderPassList() {
@@ -7027,12 +7302,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ lat, lon, satellites, includeTrack: true })
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success' && data.positions) {
-                    updateRealTimeIndicators(data.positions);
-                }
-            });
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success' && data.positions) {
+                        updateRealTimeIndicators(data.positions);
+                    }
+                });
         }
 
         let orbitTrackLine = null;
@@ -7359,7 +7634,7 @@
         }
 
         // Load saved theme on page load
-        (function() {
+        (function () {
             // First apply localStorage theme for instant load (no flash)
             const localTheme = localStorage.getItem('intercept-theme');
             if (localTheme === 'light') {
@@ -7383,7 +7658,7 @@
                         }
                     }
                 })
-                .catch(() => {}); // Ignore errors, localStorage is fallback
+                .catch(() => { }); // Ignore errors, localStorage is fallback
         })();
 
         // Help modal functions
@@ -7405,7 +7680,7 @@
         }
 
         // Keyboard shortcuts for help
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') hideHelp();
             // Open help with F1 or ? key (when not typing in an input)
             if ((e.key === 'F1' || (e.key === '?' && !e.target.matches('input, textarea, select'))) && !document.getElementById('helpModal').classList.contains('active')) {
@@ -7658,9 +7933,9 @@
 
             // Categorize devices by classification
             const allDevices = [
-                ...tscmWifiDevices.map(d => ({...d, protocol: 'WiFi'})),
-                ...tscmBtDevices.map(d => ({...d, protocol: 'Bluetooth'})),
-                ...tscmRfSignals.map(d => ({...d, protocol: 'RF'}))
+                ...tscmWifiDevices.map(d => ({ ...d, protocol: 'WiFi' })),
+                ...tscmBtDevices.map(d => ({ ...d, protocol: 'Bluetooth' })),
+                ...tscmRfSignals.map(d => ({ ...d, protocol: 'RF' }))
             ];
 
             const highInterest = allDevices.filter(d => d.classification === 'high_interest' || d.score >= 6);
@@ -8188,7 +8463,7 @@
 
             tscmEventSource = new EventSource('/tscm/sweep/stream');
 
-            tscmEventSource.onmessage = function(event) {
+            tscmEventSource.onmessage = function (event) {
                 try {
                     const data = JSON.parse(event.data);
                     handleTscmEvent(data);
@@ -8197,7 +8472,7 @@
                 }
             };
 
-            tscmEventSource.onerror = function() {
+            tscmEventSource.onerror = function () {
                 console.warn('TSCM SSE connection error');
             };
         }
@@ -8478,9 +8753,9 @@
         // Store all devices for lookup
         function getAllTscmDevices() {
             const devices = {};
-            tscmWifiDevices.forEach(d => { devices[`wifi:${d.bssid}`] = {...d, protocol: 'wifi'}; });
-            tscmBtDevices.forEach(d => { devices[`bluetooth:${d.mac}`] = {...d, protocol: 'bluetooth'}; });
-            tscmRfSignals.forEach(d => { devices[`rf:${d.frequency}`] = {...d, protocol: 'rf'}; });
+            tscmWifiDevices.forEach(d => { devices[`wifi:${d.bssid}`] = { ...d, protocol: 'wifi' }; });
+            tscmBtDevices.forEach(d => { devices[`bluetooth:${d.mac}`] = { ...d, protocol: 'bluetooth' }; });
+            tscmRfSignals.forEach(d => { devices[`rf:${d.frequency}`] = { ...d, protocol: 'rf' }; });
             return devices;
         }
 
@@ -8694,9 +8969,9 @@
 
             // Filter devices by classification
             const allDevices = [
-                ...tscmWifiDevices.map(d => ({...d, protocol: 'wifi', id: d.bssid})),
-                ...tscmBtDevices.map(d => ({...d, protocol: 'bluetooth', id: d.mac})),
-                ...tscmRfSignals.map(d => ({...d, protocol: 'rf', id: d.frequency}))
+                ...tscmWifiDevices.map(d => ({ ...d, protocol: 'wifi', id: d.bssid })),
+                ...tscmBtDevices.map(d => ({ ...d, protocol: 'bluetooth', id: d.mac })),
+                ...tscmRfSignals.map(d => ({ ...d, protocol: 'rf', id: d.frequency }))
             ];
 
             if (category === 'high_interest') {
@@ -8957,7 +9232,7 @@
 
         async function tscmRecordBaseline() {
             const name = document.getElementById('tscmBaselineName').value ||
-                         `Baseline ${new Date().toLocaleString()}`;
+                `Baseline ${new Date().toLocaleString()}`;
 
             try {
                 const response = await fetch('/tscm/baseline/record', {
@@ -9243,8 +9518,8 @@
                             </button>
                         </div>
                         ${devices.length === 0 ?
-                            '<p style="color: var(--text-muted);">No known devices registered. Devices you mark as "known" will be excluded from threat scoring.</p>' :
-                            `<div class="known-devices-list">
+                        '<p style="color: var(--text-muted);">No known devices registered. Devices you mark as "known" will be excluded from threat scoring.</p>' :
+                        `<div class="known-devices-list">
                                 ${devices.map(d => `
                                     <div class="known-device-item">
                                         <div class="known-device-info">
@@ -9260,7 +9535,7 @@
                                     </div>
                                 `).join('')}
                             </div>`
-                        }
+                    }
                     </div>
                 `;
             } catch (e) {
@@ -9373,8 +9648,8 @@
                             </button>
                         </div>
                         ${cases.length === 0 ?
-                            '<p style="color: var(--text-muted);">No cases created. Cases help you organize sweeps and findings for specific locations or clients.</p>' :
-                            `<div class="cases-list">
+                        '<p style="color: var(--text-muted);">No cases created. Cases help you organize sweeps and findings for specific locations or clients.</p>' :
+                        `<div class="cases-list">
                                 ${cases.map(c => `
                                     <div class="case-item" onclick="tscmViewCase(${c.id})">
                                         <div class="case-header">
@@ -9392,7 +9667,7 @@
                                     </div>
                                 `).join('')}
                             </div>`
-                        }
+                    }
                     </div>
                 `;
             } catch (e) {
@@ -9456,16 +9731,16 @@
                         <div class="device-detail-section">
                             <h4>Linked Sweeps (${(c.sweeps || []).length})</h4>
                             ${(c.sweeps || []).length === 0 ?
-                                '<p style="color: var(--text-muted);">No sweeps linked to this case yet.</p>' :
-                                `<ul>${(c.sweeps || []).map(s => `<li>Sweep ${s.id} - ${new Date(s.timestamp).toLocaleString()}</li>`).join('')}</ul>`
-                            }
+                            '<p style="color: var(--text-muted);">No sweeps linked to this case yet.</p>' :
+                            `<ul>${(c.sweeps || []).map(s => `<li>Sweep ${s.id} - ${new Date(s.timestamp).toLocaleString()}</li>`).join('')}</ul>`
+                        }
                         </div>
                         <div class="device-detail-section">
                             <h4>Flagged Threats (${(c.threats || []).length})</h4>
                             ${(c.threats || []).length === 0 ?
-                                '<p style="color: var(--text-muted);">No threats flagged in this case.</p>' :
-                                `<ul>${(c.threats || []).map(t => `<li>${escapeHtml(t.identifier)} - ${t.threat_type}</li>`).join('')}</ul>`
-                            }
+                            '<p style="color: var(--text-muted);">No threats flagged in this case.</p>' :
+                            `<ul>${(c.threats || []).map(t => `<li>${escapeHtml(t.identifier)} - ${t.threat_type}</li>`).join('')}</ul>`
+                        }
                         </div>
                         <div style="margin-top: 16px;">
                             <button class="preset-btn" onclick="tscmShowCases()">← Back to Cases</button>
@@ -9542,7 +9817,7 @@
                             <ol class="playbook-steps">
                                 ${(p.steps || []).map((step, i) => `
                                     <li class="playbook-step">
-                                        <strong>${escapeHtml(step.action || step.title || `Step ${step.step || i+1}`)}</strong>
+                                        <strong>${escapeHtml(step.action || step.title || `Step ${step.step || i + 1}`)}</strong>
                                         <p>${escapeHtml(step.details || step.description || '')}</p>
                                         ${step.safety_note ? `<div class="playbook-warning">⚠️ ${escapeHtml(step.safety_note)}</div>` : ''}
                                     </li>
@@ -9681,10 +9956,10 @@
         }
 
         // Listen for baseline selection changes
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const baselineSelect = document.getElementById('tscmBaselineSelect');
             if (baselineSelect) {
-                baselineSelect.addEventListener('change', function() {
+                baselineSelect.addEventListener('change', function () {
                     updateTscmBaselineHealth(this.value);
                 });
             }
@@ -9710,32 +9985,53 @@
             <div id="help-icons" class="help-section active">
                 <h3>Stats Bar Icons</h3>
                 <div class="icon-grid">
-                    <div class="icon-item"><span class="icon">📟</span><span class="desc">POCSAG messages decoded</span></div>
-                    <div class="icon-item"><span class="icon">📠</span><span class="desc">FLEX messages decoded</span></div>
-                    <div class="icon-item"><span class="icon">📨</span><span class="desc">Total messages received</span></div>
-                    <div class="icon-item"><span class="icon">🌡️</span><span class="desc">Unique sensors detected</span></div>
-                    <div class="icon-item"><span class="icon">📊</span><span class="desc">Device types found</span></div>
-                    <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellites monitored</span></div>
-                    <div class="icon-item"><span class="icon">📡</span><span class="desc">WiFi Access Points</span></div>
-                    <div class="icon-item"><span class="icon">👤</span><span class="desc">Connected WiFi clients</span></div>
-                    <div class="icon-item"><span class="icon">🤝</span><span class="desc">Captured handshakes</span></div>
-                    <div class="icon-item"><span class="icon">🚁</span><span class="desc">Detected drones (click for details)</span></div>
-                    <div class="icon-item"><span class="icon">⚠️</span><span class="desc">Rogue APs (click for details)</span></div>
+                    <div class="icon-item"><span class="icon">📟</span><span class="desc">POCSAG messages decoded</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">📠</span><span class="desc">FLEX messages decoded</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">📨</span><span class="desc">Total messages received</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">🌡️</span><span class="desc">Unique sensors
+                            detected</span></div>
+                    <div class="icon-item"><span class="icon">📊</span><span class="desc">Device types found</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellites monitored</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">📡</span><span class="desc">WiFi Access Points</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">👤</span><span class="desc">Connected WiFi clients</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">🤝</span><span class="desc">Captured handshakes</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">🚁</span><span class="desc">Detected drones (click for
+                            details)</span></div>
+                    <div class="icon-item"><span class="icon">⚠️</span><span class="desc">Rogue APs (click for
+                            details)</span></div>
                     <div class="icon-item"><span class="icon">🔵</span><span class="desc">Bluetooth devices</span></div>
-                    <div class="icon-item"><span class="icon">📍</span><span class="desc">BLE beacons / APRS stations</span></div>
+                    <div class="icon-item"><span class="icon">📍</span><span class="desc">BLE beacons / APRS
+                            stations</span></div>
                 </div>
 
                 <h3>Mode Tab Icons</h3>
                 <div class="icon-grid">
-                    <div class="icon-item"><span class="icon">📟</span><span class="desc">Pager - POCSAG/FLEX decoder</span></div>
-                    <div class="icon-item"><span class="icon">📡</span><span class="desc">433MHz - Sensor decoder</span></div>
-                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - Opens ADS-B Dashboard</span></div>
-                    <div class="icon-item"><span class="icon">📍</span><span class="desc">APRS - Amateur radio tracking</span></div>
-                    <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellite - Pass prediction</span></div>
-                    <div class="icon-item"><span class="icon">📶</span><span class="desc">WiFi - Network scanner</span></div>
-                    <div class="icon-item"><span class="icon">🔵</span><span class="desc">Bluetooth - BT/BLE scanner</span></div>
-                    <div class="icon-item"><span class="icon">📻</span><span class="desc">Listening Post - SDR scanner</span></div>
-                    <div class="icon-item"><span class="icon">🔍</span><span class="desc">TSCM - Counter-surveillance</span></div>
+                    <div class="icon-item"><span class="icon">📟</span><span class="desc">Pager - POCSAG/FLEX
+                            decoder</span></div>
+                    <div class="icon-item"><span class="icon">📡</span><span class="desc">433MHz - Sensor decoder</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - Opens ADS-B
+                            Dashboard</span></div>
+                    <div class="icon-item"><span class="icon">📍</span><span class="desc">APRS - Amateur radio
+                            tracking</span></div>
+                    <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellite - Pass
+                            prediction</span></div>
+                    <div class="icon-item"><span class="icon">📶</span><span class="desc">WiFi - Network scanner</span>
+                    </div>
+                    <div class="icon-item"><span class="icon">🔵</span><span class="desc">Bluetooth - BT/BLE
+                            scanner</span></div>
+                    <div class="icon-item"><span class="icon">📻</span><span class="desc">Listening Post - SDR
+                            scanner</span></div>
+                    <div class="icon-item"><span class="icon">🔍</span><span class="desc">TSCM -
+                            Counter-surveillance</span></div>
                 </div>
             </div>
 
@@ -9823,7 +10119,8 @@
                 <h3>Monitor Mode</h3>
                 <ul class="tip-list">
                     <li><strong>Enable Monitor:</strong> Puts WiFi adapter in monitor mode for passive scanning</li>
-                    <li><strong>Kill Processes:</strong> Optional - stops NetworkManager/wpa_supplicant (may drop other connections)</li>
+                    <li><strong>Kill Processes:</strong> Optional - stops NetworkManager/wpa_supplicant (may drop other
+                        connections)</li>
                     <li>Some adapters rename when entering monitor mode (e.g., wlan0 → wlan0mon)</li>
                 </ul>
 
@@ -9914,7 +10211,9 @@
         <div class="help-content" style="max-width: 800px;">
             <button class="help-close" onclick="hideDependencies()">×</button>
             <h2>🔧 Tool Dependencies</h2>
-            <p style="color: var(--text-dim); margin-bottom: 15px;">Check which tools are installed for each mode. <span style="color: var(--accent-green);">●</span> = Installed, <span style="color: var(--accent-red);">●</span> = Missing</p>
+            <p style="color: var(--text-dim); margin-bottom: 15px;">Check which tools are installed for each mode. <span
+                    style="color: var(--accent-green);">●</span> = Installed, <span
+                    style="color: var(--accent-red);">●</span> = Missing</p>
             <div id="depsContent" style="max-height: 60vh; overflow-y: auto;">
                 <div style="text-align: center; padding: 40px; color: var(--text-dim);">
                     Loading dependencies...
@@ -9922,13 +10221,18 @@
             </div>
             <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
                 <h3 style="margin-bottom: 10px;">Quick Install (Debian/Ubuntu)</h3>
-                <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; overflow-x: auto;">
-                    <div>sudo apt install rtl-sdr multimon-ng rtl-433 aircrack-ng bluez dump1090-mutability hcxdumptool hcxtools</div>
+                <div
+                    style="background: var(--bg-tertiary); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; overflow-x: auto;">
+                    <div>sudo apt install rtl-sdr multimon-ng rtl-433 aircrack-ng bluez dump1090-mutability hcxdumptool
+                        hcxtools</div>
                     <div style="margin-top: 5px;">pip install skyfield flask</div>
                 </div>
                 <div style="margin-top: 10px; font-size: 11px; color: var(--text-dim);">
-                    <strong>Note:</strong> ACARS decoding requires <code>acarsdec</code> which must be built from source.
-                    See <a href="https://github.com/TLeconte/acarsdec" target="_blank" style="color: var(--accent-cyan);">github.com/TLeconte/acarsdec</a> or run <code>./setup.sh</code> for automated installation.
+                    <strong>Note:</strong> ACARS decoding requires <code>acarsdec</code> which must be built from
+                    source.
+                    See <a href="https://github.com/TLeconte/acarsdec" target="_blank"
+                        style="color: var(--accent-cyan);">github.com/TLeconte/acarsdec</a> or run
+                    <code>./setup.sh</code> for automated installation.
                 </div>
             </div>
         </div>
@@ -9941,9 +10245,12 @@
             <h2>Add Satellites</h2>
 
             <!-- Tabs -->
-            <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                <button class="sat-modal-tab preset-btn active" onclick="switchSatModalTab('tle')" style="flex: 1;">Manual TLE</button>
-                <button class="sat-modal-tab preset-btn" onclick="switchSatModalTab('celestrak')" style="flex: 1;">Celestrak</button>
+            <div
+                style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <button class="sat-modal-tab preset-btn active" onclick="switchSatModalTab('tle')"
+                    style="flex: 1;">Manual TLE</button>
+                <button class="sat-modal-tab preset-btn" onclick="switchSatModalTab('celestrak')"
+                    style="flex: 1;">Celestrak</button>
             </div>
 
             <!-- TLE Section -->
@@ -9955,7 +10262,8 @@
 1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9002
 2 25544  51.6400 208.9163 0006703 296.5855  63.4606 15.49995465478450"
                     style="width: 100%; height: 150px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; resize: vertical;"></textarea>
-                <button class="preset-btn" onclick="addFromTLE()" style="margin-top: 10px; width: 100%;">Add Satellite</button>
+                <button class="preset-btn" onclick="addFromTLE()" style="margin-top: 10px; width: 100%;">Add
+                    Satellite</button>
             </div>
 
             <!-- Celestrak Section -->
@@ -9965,7 +10273,8 @@
                 </p>
                 <div id="celestrakStatus" style="margin-bottom: 10px; font-size: 11px; min-height: 20px;"></div>
 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 300px; overflow-y: auto;">
+                <div
+                    style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 300px; overflow-y: auto;">
                     <button class="preset-btn" onclick="fetchCelestrakCategory('stations')">Space Stations</button>
                     <button class="preset-btn" onclick="fetchCelestrakCategory('weather')">Weather</button>
                     <button class="preset-btn" onclick="fetchCelestrakCategory('noaa')">NOAA</button>
@@ -9981,7 +10290,8 @@
                 </div>
 
                 <p style="color: var(--text-muted); font-size: 10px; margin-top: 10px;">
-                    Data from <a href="https://celestrak.org" target="_blank" style="color: var(--accent-cyan);">celestrak.org</a>.
+                    Data from <a href="https://celestrak.org" target="_blank"
+                        style="color: var(--accent-cyan);">celestrak.org</a>.
                     Note: Some categories (Starlink, OneWeb) contain many satellites.
                 </p>
             </div>
@@ -10089,7 +10399,7 @@
         }
 
         // Check dependencies on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Check if user dismissed the startup check
             const dismissed = localStorage.getItem('depsCheckDismissed');
 
@@ -10183,6 +10493,27 @@
                 modal.remove();
             }
         }
+
+        function logout(event) {
+            // We use event.currentTarget to ensure we select the button even if the icon was clicked
+            const btn = event.currentTarget;
+
+            // 1. Visual Feedback: Change color to red and add a "glow"
+            btn.style.color = "#ff4d4d";
+            btn.style.borderColor = "#ff4d4d";
+            btn.style.textShadow = "0 0 10px #ff4d4d"; // Glow effect
+            btn.style.transform = "scale(0.95)";      // Slight press effect
+
+            // 2. Disable the button to prevent double clicks
+            btn.style.pointerEvents = "none";
+
+            // 3. Logic execution
+            setTimeout(() => {
+                localStorage.removeItem('user_session');
+                window.location.href = '/login';
+            }, 600); // 600ms is enough for the user to perceive the color change
+        }
     </script>
 </body>
+
 </html>

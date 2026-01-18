@@ -990,6 +990,93 @@ header h1 .tagline {
     animation: pulse-glow 2s infinite;
 }
 
+.help-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 20px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.help-btn:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: var(--bg-secondary);
+}
+
+#depsBtn {
+    right: 5.5em;
+}
+
+#helpBtn {
+    right: 3.5em;
+}
+
+.theme-toggle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 8em;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.theme-toggle:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: var(--bg-secondary);
+}
+
+.theme-toggle .icon-sun,
+.theme-toggle .icon-moon {
+    position: absolute;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.theme-toggle .icon-sun {
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+.theme-toggle .icon-moon {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+[data-theme="light"] .theme-toggle .icon-sun {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+[data-theme="light"] .theme-toggle .icon-moon {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
 .help-modal {
     display: none;
     position: fixed;

@@ -15,6 +15,7 @@ venv/
 .eggs/
 *.egg-info/
 *.egg
+.uv
 
 # IDE
 .idea/
