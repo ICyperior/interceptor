@@ -1025,13 +1025,6 @@ header h1 .tagline {
     background: var(--bg-secondary);
 }
 
-#depsBtn {
-    right: 5.5em;
-}
-
-#helpBtn {
-    right: 3.5em;
-}
 
 .theme-toggle {
     position: absolute;
