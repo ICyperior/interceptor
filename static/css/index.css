@@ -743,7 +743,7 @@ header h1 {
 .nav-utilities {
     display: none;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     margin-left: auto;
     flex-shrink: 0;
 }
@@ -785,7 +785,7 @@ header h1 {
 .nav-tools {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
     flex-shrink: 0;
 }
 
