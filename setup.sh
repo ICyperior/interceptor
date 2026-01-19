@@ -230,9 +230,9 @@ install_python_deps() {
   if ! python -m pip install -r requirements.txt 2>/dev/null; then
     warn "Some pip packages failed - checking if apt packages cover them..."
     # Verify critical packages are available
-    python -c "import flask; import requests" 2>/dev/null || {
-      fail "Critical Python packages (flask, requests) not installed"
-      echo "Try: sudo apt install python3-flask python3-requests"
+    python -c "import flask; import requests; from flask_limiter import Limiter" 2>/dev/null || {
+      fail "Critical Python packages (flask, requests, flask-limiter) not installed"
+      echo "Try: pip install flask requests flask-limiter"
       exit 1
     }
     ok "Core Python dependencies available"
