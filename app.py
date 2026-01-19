@@ -39,6 +39,8 @@ from utils.constants import (
     QUEUE_MAX_SIZE,
 )
 import logging
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 # Track application start time for uptime calculation
 import time as _time
 _app_start_time = _time.time()
@@ -48,9 +50,24 @@ logger = logging.getLogger('intercept.database')
 app = Flask(__name__)
 app.secret_key = "signals_intelligence_secret" # Required for flash messages
 
+# Set up rate limiting
+limiter = Limiter(
+    key_func=get_remote_address, # Identifies the user by their IP
+    app=app,
+    storage_uri="memory://", # Use RAM memory (change to redis:// etc. for distributed setups)
+)
+
 # Disable Werkzeug debugger PIN (not needed for local development tool)
 os.environ['WERKZEUG_DEBUG_PIN'] = 'off'
 
+# ============================================
+# ERROR HANDLERS    
+# ============================================
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    logger.warning(f"Rate limit exceeded for IP: {request.remote_addr}")
+    flash("Too many login attempts. Please wait one minute before trying again.", "error")
+    return render_template('login.html', version=VERSION), 429
 
 # ============================================
 # SECURITY HEADERS
@@ -174,6 +191,7 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # Limit to 5 login attempts per minute per IP
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
