@@ -201,7 +201,7 @@ function switchMode(mode) {
         (mode === 'satellite' || mode === 'listening' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth') ? 'none' : 'block';
     document.getElementById('output').style.display =
         (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth') ? 'none' : 'block';
-    document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
+    document.querySelector('.status-bar').style.display = (mode === 'satellite' || mode === 'tscm') ? 'none' : 'flex';
 
     // Load interfaces and initialize visualizations when switching modes
     if (mode === 'wifi') {
