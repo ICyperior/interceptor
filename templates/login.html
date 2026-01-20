@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>iNTERCEPT // Restricted Access</title>
+    <script src="{{ url_for('static', filename='js/core/login.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}" />
   </head>
@@ -48,7 +49,7 @@
             <input type="text" name="username" placeholder="OPERATOR ID" class="form-input" required autofocus autocomplete="off" />
             <input type="password" name="password" placeholder="ENCRYPTION KEY" class="form-input" required />
 
-            <button type="submit" class="landing-enter-btn">
+            <button type="submit" class="landing-enter-btn"  onclick="login(event)">
               <span class="btn-text">INITIALIZE SESSION</span>
             </button>
           </form>
