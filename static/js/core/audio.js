@@ -211,7 +211,7 @@ function isMuted() {
 function updateMuteButton() {
     const btn = document.getElementById('muteBtn');
     if (btn) {
-        btn.innerHTML = audioMuted ? '🔇 UNMUTE' : '🔊 MUTE';
+        btn.innerHTML = audioMuted ? Icons.volumeOff('icon--sm') + ' UNMUTE' : Icons.volumeOn('icon--sm') + ' MUTE';
         btn.classList.toggle('muted', audioMuted);
     }
 }
@@ -226,7 +226,7 @@ function requestNotificationPermission() {
         Notification.requestPermission().then(permission => {
             notificationsEnabled = permission === 'granted';
             if (notificationsEnabled && typeof showInfo === 'function') {
-                showInfo('🔔 Desktop notifications enabled');
+                showInfo('Desktop notifications enabled');
             }
         });
     }

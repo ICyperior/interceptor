@@ -9,7 +9,7 @@
                             </select>
                         </div>
                         <button class="preset-btn" onclick="refreshWifiInterfaces()" style="width: 100%;">
-                            🔄 Refresh Devices
+                            <span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span> Refresh Devices
                         </button>
                         <div class="info-text" style="margin-top: 8px; display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;" id="wifiToolStatus">
                             <span>airmon-ng:</span><span class="tool-status missing">Checking...</span>
@@ -71,7 +71,7 @@
                     <div class="section">
                         <h3>Attack Options</h3>
                         <div class="info-text" style="color: var(--accent-red); margin-bottom: 10px;">
-                            ⚠ Only use on authorized networks
+                            <span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Only use on authorized networks
                         </div>
                         <div class="form-group">
                             <label>Target BSSID</label>
@@ -92,7 +92,7 @@
 
                     <!-- Handshake Capture Status Panel -->
                     <div class="section" id="captureStatusPanel" style="display: none; border: 1px solid var(--accent-orange); border-radius: 4px; padding: 10px; background: rgba(255, 165, 0, 0.1);">
-                        <h3 style="color: var(--accent-orange); margin: 0 0 8px 0;">🎯 Handshake Capture</h3>
+                        <h3 style="color: var(--accent-orange); margin: 0 0 8px 0;"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span> Handshake Capture</h3>
                         <div style="font-size: 11px;">
                             <div style="margin-bottom: 4px;">
                                 <span style="color: var(--text-dim);">Target:</span>
@@ -123,7 +123,7 @@
 
                     <!-- Beacon Flood Alert Panel -->
                     <div id="beaconFloodAlert" class="beacon-flood-alert" style="display: none;">
-                        <h4 style="color: #ff4444; margin: 0 0 8px 0;">⚠️ BEACON FLOOD DETECTED</h4>
+                        <h4 style="color: #ff4444; margin: 0 0 8px 0;"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> BEACON FLOOD DETECTED</h4>
                         <div style="font-size: 11px;">
                             <div id="beaconFloodDetails">Multiple beacon frames detected from same channel</div>
                             <div style="margin-top: 8px;">

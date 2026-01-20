@@ -730,16 +730,17 @@ const SignalTimeline = (function() {
 
         container.style.display = 'block';
         container.innerHTML = recentAnnotations.map(ann => {
-            const icons = {
-                new: '🆕',
-                burst: '⚡',
-                pattern: '🔄',
-                flagged: '🚩',
-                gone: '📴'
+            const iconFuncs = {
+                new: () => Icons.newBadge('icon--sm'),
+                burst: () => Icons.meter('icon--sm'),
+                pattern: () => Icons.refresh('icon--sm'),
+                flagged: () => Icons.flag('icon--sm'),
+                gone: () => Icons.offline('icon--sm')
             };
+            const iconHtml = iconFuncs[ann.type] ? iconFuncs[ann.type]() : Icons.sensor('icon--sm');
             return `
                 <div class="signal-timeline-annotation" data-type="${ann.type}">
-                    <span class="signal-timeline-annotation-icon">${icons[ann.type] || '📡'}</span>
+                    <span class="signal-timeline-annotation-icon">${iconHtml}</span>
                     <span>${ann.message}</span>
                     <span style="margin-left: auto; opacity: 0.6;">${formatTimeAgo(ann.timestamp)}</span>
                 </div>

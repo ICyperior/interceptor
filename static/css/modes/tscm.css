@@ -1354,6 +1354,28 @@
     color: var(--text-secondary);
 }
 
+/* Classification Dots - replaces emoji circles for risk levels */
+.classification-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.classification-dot.high {
+    background-color: var(--accent-red);
+}
+
+.classification-dot.review {
+    background-color: var(--accent-orange);
+}
+
+.classification-dot.info {
+    background-color: var(--accent-green);
+}
+
 /* Device Indicators with Icons */
 .device-indicator-icon {
     display: inline-flex;

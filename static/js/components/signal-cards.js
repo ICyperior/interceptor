@@ -1072,22 +1072,19 @@ const SignalCards = (function() {
         const stats = getAddressStats('meter', msg.id);
         const seenCount = stats ? stats.count : 1;
 
-        // Determine meter type icon and color
-        let meterIcon = '⚡';
+        // Determine meter type color
         let meterTypeClass = 'electric';
         const meterType = (msg.type || '').toLowerCase();
         if (meterType.includes('gas')) {
-            meterIcon = '🔥';
             meterTypeClass = 'gas';
         } else if (meterType.includes('water')) {
-            meterIcon = '💧';
             meterTypeClass = 'water';
         }
 
         card.innerHTML = `
             <div class="signal-card-header">
                 <div class="signal-card-badges">
-                    <span class="signal-proto-badge meter ${meterTypeClass}">${meterIcon} ${escapeHtml(msg.type || 'Meter')}</span>
+                    <span class="signal-proto-badge meter ${meterTypeClass}">${escapeHtml(msg.type || 'Meter')}</span>
                     <span class="signal-freq-badge">ID: ${escapeHtml(msg.id || 'N/A')}</span>
                 </div>
                 ${status !== 'baseline' ? `

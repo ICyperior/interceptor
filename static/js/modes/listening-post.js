@@ -216,7 +216,7 @@ function startScanner() {
             // Update radio scan button to show STOP
             const radioScanBtn = document.getElementById('radioScanBtn');
             if (radioScanBtn) {
-                radioScanBtn.innerHTML = '⏹ STOP';
+                radioScanBtn.innerHTML = Icons.stop('icon--sm') + ' STOP';
                 radioScanBtn.style.background = 'var(--accent-red)';
                 radioScanBtn.style.borderColor = 'var(--accent-red)';
             }
@@ -268,7 +268,7 @@ function stopScanner() {
             const pauseBtn = document.getElementById('scannerPauseBtn');
             if (pauseBtn) {
                 pauseBtn.disabled = true;
-                pauseBtn.textContent = '⏸ Pause';
+                pauseBtn.innerHTML = Icons.pause('icon--sm') + ' Pause';
             }
 
             // Update radio scan button
@@ -338,7 +338,7 @@ function pauseScanner() {
         .then(data => {
             isScannerPaused = !isScannerPaused;
             const pauseBtn = document.getElementById('scannerPauseBtn');
-            if (pauseBtn) pauseBtn.textContent = isScannerPaused ? '▶ Resume' : '⏸ Pause';
+            if (pauseBtn) pauseBtn.innerHTML = isScannerPaused ? Icons.play('icon--sm') + ' Resume' : Icons.pause('icon--sm') + ' Pause';
             const statusText = document.getElementById('scannerStatusText');
             if (statusText) {
                 statusText.textContent = isScannerPaused ? 'PAUSED' : 'SCANNING';
@@ -873,7 +873,7 @@ function startAudio() {
         }
     });
 
-    document.getElementById('audioStartBtn').textContent = '⏹ Stop Audio';
+    document.getElementById('audioStartBtn').innerHTML = Icons.stop('icon--sm') + ' Stop Audio';
     document.getElementById('audioStartBtn').classList.add('active');
     document.getElementById('audioTunedFreq').textContent = frequency.toFixed(2) + ' MHz (' + modulation.toUpperCase() + ')';
     document.getElementById('audioDeviceStatus').textContent = 'SDR ' + device;
@@ -896,7 +896,7 @@ async function stopAudio() {
         await fetch('/listening/audio/stop', { method: 'POST' });
         if (typeof releaseDevice === 'function') releaseDevice('audio');
         isAudioPlaying = false;
-        document.getElementById('audioStartBtn').textContent = '▶ Play Audio';
+        document.getElementById('audioStartBtn').innerHTML = Icons.play('icon--sm') + ' Play Audio';
         document.getElementById('audioStartBtn').classList.remove('active');
         document.getElementById('audioStatus').textContent = 'STOPPED';
         document.getElementById('audioStatus').style.color = 'var(--text-muted)';
@@ -1741,7 +1741,7 @@ async function _startDirectListenInternal() {
 
         const listenBtn = document.getElementById('radioListenBtn');
         if (listenBtn) {
-            listenBtn.innerHTML = '⏳ TUNING...';
+            listenBtn.innerHTML = Icons.loader('icon--sm') + ' TUNING...';
             listenBtn.style.background = 'var(--accent-orange)';
             listenBtn.style.borderColor = 'var(--accent-orange)';
         }
@@ -1879,11 +1879,11 @@ function updateDirectListenUI(isPlaying, freq) {
 
     if (listenBtn) {
         if (isPlaying) {
-            listenBtn.innerHTML = '⏹ STOP';
+            listenBtn.innerHTML = Icons.stop('icon--sm') + ' STOP';
             listenBtn.style.background = 'var(--accent-red)';
             listenBtn.style.borderColor = 'var(--accent-red)';
         } else {
-            listenBtn.innerHTML = '🎧 LISTEN';
+            listenBtn.innerHTML = Icons.headphones('icon--sm') + ' LISTEN';
             listenBtn.style.background = 'var(--accent-purple)';
             listenBtn.style.borderColor = 'var(--accent-purple)';
         }

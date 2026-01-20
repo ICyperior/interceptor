@@ -78,47 +78,47 @@
                     <h2>Select Mode</h2>
                     <div class="mode-grid">
                         <button class="mode-card" onclick="selectMode('pager')">
-                            <span class="mode-icon">📟</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span>
                             <span class="mode-name">Pager</span>
                             <span class="mode-desc">POCSAG/FLEX decoding</span>
                         </button>
                         <button class="mode-card" onclick="selectMode('sensor')">
-                            <span class="mode-icon">📡</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                             <span class="mode-name">433MHz</span>
                             <span class="mode-desc">IoT sensor monitoring</span>
                         </button>
                         <a href="/adsb/dashboard" class="mode-card" style="text-decoration: none;">
-                            <span class="mode-icon">✈️</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span>
                             <span class="mode-name">Aircraft</span>
                             <span class="mode-desc">ADS-B tracking</span>
                         </a>
                         <button class="mode-card" onclick="selectMode('wifi')">
-                            <span class="mode-icon">📶</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span>
                             <span class="mode-name">WiFi</span>
                             <span class="mode-desc">Network reconnaissance</span>
                         </button>
                         <button class="mode-card" onclick="selectMode('bluetooth')">
-                            <span class="mode-icon">🔵</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span>
                             <span class="mode-name">Bluetooth</span>
                             <span class="mode-desc">Device discovery</span>
                         </button>
                         <button class="mode-card" onclick="selectMode('tscm')">
-                            <span class="mode-icon">🔍</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                             <span class="mode-name">TSCM</span>
                             <span class="mode-desc">Counter-surveillance</span>
                         </button>
                         <button class="mode-card" onclick="selectMode('satellite')">
-                            <span class="mode-icon">🛰️</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></span>
                             <span class="mode-name">Satellite</span>
                             <span class="mode-desc">Pass prediction</span>
                         </button>
                         <button class="mode-card" onclick="selectMode('listening')">
-                            <span class="mode-icon">📻</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span>
                             <span class="mode-name">Scanner</span>
                             <span class="mode-desc">Frequency scanning</span>
                         </button>
                         <button class="mode-card" onclick="selectMode('aprs')">
-                            <span class="mode-icon">📍</span>
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
                             <span class="mode-name">APRS</span>
                             <span class="mode-desc">Amateur radio</span>
                         </button>
@@ -137,7 +137,7 @@
     <!-- Disclaimer Modal -->
     <div class="disclaimer-overlay" id="disclaimerModal" style="display: none;">
         <div class="disclaimer-modal">
-            <div class="warning-icon">⚠️</div>
+            <div class="warning-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
             <h2>DISCLAIMER</h2>
             <p>
                 <strong>iNTERCEPT</strong> is a signal intelligence tool designed for <strong>educational purposes
@@ -253,21 +253,21 @@
             <!-- Pager Stats -->
             <div class="header-stats-group active" id="headerPagerStats">
                 <div class="stat-badge">
-                    <span class="badge-icon">📨</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerMsgCount">0</span>
                         <span class="badge-label">messages</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">📟</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerPocsagCount">0</span>
                         <span class="badge-label">POCSAG</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">📠</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerFlexCount">0</span>
                         <span class="badge-label">FLEX</span>
@@ -278,14 +278,14 @@
             <!-- 433MHz Sensor Stats -->
             <div class="header-stats-group" id="headerSensorStats">
                 <div class="stat-badge">
-                    <span class="badge-icon">🌡️</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerSensorCount">0</span>
                         <span class="badge-label">sensors</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">📊</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerDeviceTypeCount">0</span>
                         <span class="badge-label">types</span>
@@ -296,28 +296,28 @@
             <!-- WiFi Stats -->
             <div class="header-stats-group" id="headerWifiStats">
                 <div class="stat-badge">
-                    <span class="badge-icon">📡</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerApCount">0</span>
                         <span class="badge-label">networks</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">👤</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerClientCount">0</span>
                         <span class="badge-label">clients</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">🤝</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg></span>
                     <div>
                         <span class="badge-value highlight" id="headerHandshakeCount">0</span>
                         <span class="badge-label">handshakes</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">🚁</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M3 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M3 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M9 9l-4 -1"/><path d="M15 9l4 -1"/><path d="M9 15l-4 1"/><path d="M15 15l4 1"/></svg></span>
                     <div>
                         <span class="badge-value warning" id="headerDroneCount">0</span>
                         <span class="badge-label">drones</span>
@@ -328,14 +328,14 @@
             <!-- Bluetooth Stats -->
             <div class="header-stats-group" id="headerBtStats">
                 <div class="stat-badge">
-                    <span class="badge-icon">🔵</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerBtDeviceCount">0</span>
                         <span class="badge-label">devices</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">📍</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerBtBeaconCount">0</span>
                         <span class="badge-label">beacons</span>
@@ -346,14 +346,14 @@
             <!-- Satellite Stats -->
             <div class="header-stats-group" id="headerSatelliteStats">
                 <div class="stat-badge">
-                    <span class="badge-icon">🛰️</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerPassCount">0</span>
                         <span class="badge-label">passes</span>
                     </div>
                 </div>
                 <div class="stat-badge">
-                    <span class="badge-icon">📡</span>
+                    <span class="badge-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                     <div>
                         <span class="badge-value" id="headerBurstCount">0</span>
                         <span class="badge-label">bursts</span>
@@ -368,55 +368,45 @@
     <nav class="mode-nav">
         <div class="mode-nav-dropdown" data-group="sdr">
             <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('sdr')">
-                <span class="nav-icon">📡</span>
+                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                 <span class="nav-label">SDR / RF</span>
-                <span class="dropdown-arrow">▼</span>
+                <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
             </button>
             <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon">📟</span><span
-                        class="nav-label">Pager</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon">📡</span><span
-                        class="nav-label">433MHz</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('rtlamr')"><span class="nav-icon">⚡</span><span
-                        class="nav-label">Meters</span></button>
-                <a href="/adsb/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span
-                        class="nav-icon">✈️</span><span class="nav-label">Aircraft</span></a>
-                <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon">📍</span><span
-                        class="nav-label">APRS</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon">🛰️</span><span
-                        class="nav-label">Satellite</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon">📻</span><span
-                        class="nav-label">Listening Post</span></button>
+                <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span><span class="nav-label">Pager</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span><span class="nav-label">433MHz</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('rtlamr')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="nav-label">Meters</span></button>
+                <a href="/adsb/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span><span class="nav-label">Aircraft</span></a>
+                <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><span class="nav-label">APRS</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></span><span class="nav-label">Satellite</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span><span class="nav-label">Listening Post</span></button>
             </div>
         </div>
         <div class="mode-nav-dropdown" data-group="wireless">
             <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('wireless')">
-                <span class="nav-icon">📶</span>
+                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span>
                 <span class="nav-label">Wireless</span>
-                <span class="dropdown-arrow">▼</span>
+                <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
             </button>
             <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon">📶</span><span
-                        class="nav-label">WiFi</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon">🔵</span><span
-                        class="nav-label">Bluetooth</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">WiFi</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span><span class="nav-label">Bluetooth</span></button>
             </div>
         </div>
         <div class="mode-nav-dropdown" data-group="security">
             <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('security')">
-                <span class="nav-icon">🔍</span>
+                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                 <span class="nav-label">Security</span>
-                <span class="dropdown-arrow">▼</span>
+                <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
             </button>
             <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon">🔍</span><span
-                        class="nav-label">TSCM</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><span class="nav-label">TSCM</span></button>
             </div>
         </div>
         <div class="mode-nav-actions">
             <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn"
                 style="display: none;">
-                <span class="nav-icon">🖥️</span><span class="nav-label">Full Dashboard</span>
+                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="nav-label">Full Dashboard</span>
             </a>
         </div>
         <div class="nav-utilities">
@@ -427,14 +417,14 @@
             <div class="nav-divider"></div>
             <div class="nav-tools">
                 <button class="nav-tool-btn" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
-                    <span class="icon-moon">🌙</span>
-                    <span class="icon-sun">☀️</span>
+                    <span class="icon-moon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="icon-sun icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
                 </button>
                 <button class="nav-tool-btn" onclick="showDependencies()" title="Check Tool Dependencies"
-                    id="depsBtn">🔧</button>
+                    id="depsBtn"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
                 <button class="nav-tool-btn" onclick="showHelp()" title="Help & Documentation">?</button>
                 <button class="nav-tool-btn" onclick="logout(event)" title="Logout">
-                    <span class="power-icon">⏻</span>
+                    <span class="power-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
                 </button>
             </div>
         </div>
@@ -442,16 +432,16 @@
 
     <!-- Mobile Navigation Bar (simplified mode switching) -->
     <nav class="mobile-nav-bar" id="mobileNavBar">
-        <button class="mobile-nav-btn active" data-mode="pager" onclick="switchMode('pager')">📟 Pager</button>
-        <button class="mobile-nav-btn" data-mode="sensor" onclick="switchMode('sensor')">📡 433MHz</button>
-        <button class="mobile-nav-btn" data-mode="rtlamr" onclick="switchMode('rtlamr')">⚡ Meters</button>
-        <a href="/adsb/dashboard" class="mobile-nav-btn" style="text-decoration: none;">✈️ Aircraft</a>
-        <button class="mobile-nav-btn" data-mode="aprs" onclick="switchMode('aprs')">📍 APRS</button>
-        <button class="mobile-nav-btn" data-mode="wifi" onclick="switchMode('wifi')">📶 WiFi</button>
-        <button class="mobile-nav-btn" data-mode="bluetooth" onclick="switchMode('bluetooth')">🔵 BT</button>
-        <button class="mobile-nav-btn" data-mode="tscm" onclick="switchMode('tscm')">🔍 TSCM</button>
-        <button class="mobile-nav-btn" data-mode="satellite" onclick="switchMode('satellite')">🛰️ Sat</button>
-        <button class="mobile-nav-btn" data-mode="listening" onclick="switchMode('listening')">📻 Scanner</button>
+        <button class="mobile-nav-btn active" data-mode="pager" onclick="switchMode('pager')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> Pager</button>
+        <button class="mobile-nav-btn" data-mode="sensor" onclick="switchMode('sensor')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span> 433MHz</button>
+        <button class="mobile-nav-btn" data-mode="rtlamr" onclick="switchMode('rtlamr')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Meters</button>
+        <a href="/adsb/dashboard" class="mobile-nav-btn" style="text-decoration: none;"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span> Aircraft</a>
+        <button class="mobile-nav-btn" data-mode="aprs" onclick="switchMode('aprs')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span> APRS</button>
+        <button class="mobile-nav-btn" data-mode="wifi" onclick="switchMode('wifi')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span> WiFi</button>
+        <button class="mobile-nav-btn" data-mode="bluetooth" onclick="switchMode('bluetooth')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span> BT</button>
+        <button class="mobile-nav-btn" data-mode="tscm" onclick="switchMode('tscm')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span> TSCM</button>
+        <button class="mobile-nav-btn" data-mode="satellite" onclick="switchMode('satellite')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> Sat</button>
+        <button class="mobile-nav-btn" data-mode="listening" onclick="switchMode('listening')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> Scanner</button>
     </nav>
 
     <!-- Mobile Drawer Overlay -->
@@ -498,7 +488,7 @@
                         <input type="checkbox" id="biasT" onchange="saveBiasTSetting()"
                             style="width: 18px; height: 18px; accent-color: var(--accent-orange);">
                         <div>
-                            <div style="color: var(--accent-orange); font-weight: bold; font-size: 12px;">⚡ Bias-T Power
+                            <div style="color: var(--accent-orange); font-weight: bold; font-size: 12px;">Bias-T Power
                             </div>
                             <div style="color: #888; font-size: 9px;">Powers external LNA/preamp</div>
                         </div>
@@ -573,30 +563,29 @@
                     <h3 id="outputTitle">Pager Decoder</h3>
                     <div class="header-controls">
                         <div class="stats" id="pagerStats">
-                            <div title="Total Messages">📨 <span id="msgCount">0</span></div>
-                            <div title="POCSAG Messages">📟 <span id="pocsagCount">0</span></div>
-                            <div title="FLEX Messages">📠 <span id="flexCount">0</span></div>
+                            <div title="Total Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span> <span id="msgCount">0</span></div>
+                            <div title="POCSAG Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> <span id="pocsagCount">0</span></div>
+                            <div title="FLEX Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> <span id="flexCount">0</span></div>
                         </div>
                         <div class="stats" id="sensorStats" style="display: none;">
-                            <div title="Unique Sensors">🌡️ <span id="sensorCount">0</span></div>
-                            <div title="Device Types">📊 <span id="deviceCount">0</span></div>
+                            <div title="Unique Sensors"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span> <span id="sensorCount">0</span></div>
+                            <div title="Device Types"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> <span id="deviceCount">0</span></div>
                         </div>
                         <div class="stats" id="wifiStats" style="display: none;">
-                            <div title="Access Points">📡 <span id="apCount">0</span></div>
-                            <div title="Connected Clients">👤 <span id="clientCount">0</span></div>
-                            <div title="Captured Handshakes" style="color: var(--accent-green);">🤝 <span
-                                    id="handshakeCount">0</span></div>
+                            <div title="Access Points"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span> <span id="apCount">0</span></div>
+                            <div title="Connected Clients"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> <span id="clientCount">0</span></div>
+                            <div title="Captured Handshakes" style="color: var(--accent-green);"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg></span> <span id="handshakeCount">0</span></div>
                             <div style="color: var(--accent-orange); cursor: pointer;" onclick="showDroneDetails()"
-                                title="Click: Drone details">🚁 <span id="droneCount">0</span></div>
+                                title="Click: Drone details"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M3 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M3 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M9 9l-4 -1"/><path d="M15 9l4 -1"/><path d="M9 15l-4 1"/><path d="M15 15l4 1"/></svg></span> <span id="droneCount">0</span></div>
                             <div style="color: var(--accent-red); cursor: pointer;" onclick="showRogueApDetails()"
-                                title="Click: Rogue AP details">⚠️ <span id="rogueApCount">0</span></div>
+                                title="Click: Rogue AP details"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> <span id="rogueApCount">0</span></div>
                         </div>
                         <div class="stats" id="btStats" style="display: none;">
-                            <div title="Bluetooth Devices">🔵 <span id="btDeviceCount">0</span></div>
-                            <div title="BLE Beacons">📍 <span id="btBeaconCount">0</span></div>
+                            <div title="Bluetooth Devices"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span> <span id="btDeviceCount">0</span></div>
+                            <div title="BLE Beacons"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span> <span id="btBeaconCount">0</span></div>
                         </div>
                         <div class="stats" id="satelliteStats" style="display: none;">
-                            <div title="Upcoming Passes">🛰️ <span id="passCount">0</span></div>
+                            <div title="Upcoming Passes"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> <span id="passCount">0</span></div>
                         </div>
                     </div>
                 </div>
@@ -607,7 +596,7 @@
                     <div class="wifi-visuals" id="wifiVisuals">
                         <!-- Selected WiFi Device Info - at top for visibility -->
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>📋 Selected Device</h5>
+                            <h5>Selected Device</h5>
                             <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
                                 <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network
                                     or client to view details</div>
@@ -763,7 +752,7 @@
                         </div>
                         <!-- Row 3: Channel Recommendation -->
                         <div class="wifi-visual-panel channel-recommendation" id="channelRecommendation">
-                            <h4>💡 Channel Recommendation</h4>
+                            <h4>Channel Recommendation</h4>
                             <div class="rec-text">
                                 <strong>2.4 GHz:</strong> Use channel <span class="rec-channel"
                                     id="rec24Channel">--</span>
@@ -776,21 +765,21 @@
                         </div>
                         <!-- Device Correlation -->
                         <div class="wifi-visual-panel" id="correlationPanel">
-                            <h5>🔗 Device Correlation</h5>
+                            <h5>Device Correlation</h5>
                             <div id="correlationList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
                                 <div style="color: var(--text-dim);">Analyzing WiFi/BT device patterns...</div>
                             </div>
                         </div>
                         <!-- Hidden SSID Revealer -->
                         <div class="wifi-visual-panel" id="hiddenSsidPanel">
-                            <h5>👁️ Hidden SSIDs Revealed</h5>
+                            <h5>Hidden SSIDs Revealed</h5>
                             <div id="hiddenSsidList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
                                 <div style="color: var(--text-dim);">Monitoring probe requests...</div>
                             </div>
                         </div>
                         <!-- Client Probe Analysis -->
                         <div class="wifi-visual-panel" id="probeAnalysisPanel" style="grid-column: span 2;">
-                            <h5>📡 Client Probe Analysis</h5>
+                            <h5>Client Probe Analysis</h5>
                             <div style="display: flex; gap: 10px; margin-bottom: 8px; font-size: 10px;">
                                 <span>Clients: <strong id="probeClientCount">0</strong></span>
                                 <span>Unique SSIDs: <strong id="probeSSIDCount">0</strong></span>
@@ -805,7 +794,7 @@
                     <!-- Right: WiFi Device Cards -->
                     <div class="wifi-device-list" id="wifiDeviceList">
                         <div class="wifi-device-list-header">
-                            <h5>📡 Discovered Networks</h5>
+                            <h5>Discovered Networks</h5>
                             <span class="device-count">(<span id="wifiDeviceListCount">0</span>)</span>
                         </div>
                         <div class="wifi-device-list-content" id="wifiDeviceListContent">
@@ -822,7 +811,7 @@
                     <div class="wifi-visuals" id="btVisuals">
                         <!-- Selected Bluetooth Device Info - at top for visibility -->
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>📋 Selected Device</h5>
+                            <h5>Selected Device</h5>
                             <div id="btSelectedDevice" style="font-size: 11px; min-height: 100px;">
                                 <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device
                                     to view details</div>
@@ -838,28 +827,23 @@
                         <div class="wifi-visual-panel">
                             <h5>Device Types</h5>
                             <div class="bt-type-overview" id="btTypeOverview">
-                                <div class="bt-type-item"><span class="bt-type-icon">📱</span> Phones: <strong
-                                        id="btPhoneCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">💻</span> Computers: <strong
-                                        id="btComputerCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">🎧</span> Audio: <strong
-                                        id="btAudioCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">⌚</span> Wearables: <strong
-                                        id="btWearableCount">0</strong></div>
-                                <div class="bt-type-item"><span class="bt-type-icon">🔵</span> Other: <strong
-                                        id="btOtherCount">0</strong></div>
+                                <div class="bt-type-item">Phones: <strong id="btPhoneCount">0</strong></div>
+                                <div class="bt-type-item">Computers: <strong id="btComputerCount">0</strong></div>
+                                <div class="bt-type-item">Audio: <strong id="btAudioCount">0</strong></div>
+                                <div class="bt-type-item">Wearables: <strong id="btWearableCount">0</strong></div>
+                                <div class="bt-type-item">Other: <strong id="btOtherCount">0</strong></div>
                             </div>
                         </div>
                         <!-- Row 2: Tracker Detection + Signal Analysis -->
                         <div class="wifi-visual-panel">
-                            <h5>📍 Tracker Detection</h5>
+                            <h5>Tracker Detection</h5>
                             <div id="btTrackerList" style="max-height: 120px; overflow-y: auto; font-size: 11px;">
                                 <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for
                                     AirTags, Tiles...</div>
                             </div>
                         </div>
                         <div class="wifi-visual-panel">
-                            <h5>📶 Signal Distribution</h5>
+                            <h5>Signal Distribution</h5>
                             <div class="bt-signal-dist" id="btSignalDist">
                                 <div class="signal-range"><span>Strong (-50+)</span>
                                     <div class="signal-bar-bg">
@@ -880,7 +864,7 @@
                         </div>
                         <!-- Row 3: FindMy Detection -->
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>🍎 Apple FindMy Network</h5>
+                            <h5>Apple FindMy Network</h5>
                             <div id="btFindMyList" style="max-height: 100px; overflow-y: auto; font-size: 11px;">
                                 <div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for
                                     FindMy-compatible devices...</div>
@@ -890,7 +874,7 @@
                     <!-- Right: Bluetooth Device Cards -->
                     <div class="wifi-device-list bt-device-list" id="btDeviceListPanel">
                         <div class="wifi-device-list-header">
-                            <h5>🔵 Bluetooth Devices</h5>
+                            <h5>Bluetooth Devices</h5>
                             <span class="device-count">(<span id="btDeviceListCount">0</span>)</span>
                         </div>
                         <div class="wifi-device-list-content" id="btDeviceListContent">
@@ -1266,11 +1250,9 @@
                                 </div>
                                 <!-- Action Buttons -->
                                 <button class="radio-action-btn scan" id="radioScanBtn" onclick="toggleScanner()"
-                                    style="padding: 12px; font-size: 13px; width: 100%; font-weight: bold;">📡
-                                    SCAN</button>
+                                    style="padding: 12px; font-size: 13px; width: 100%; font-weight: bold;"><span class="icon icon--sm" style="margin-right: 4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>SCAN</button>
                                 <button class="radio-action-btn" id="radioListenBtn" onclick="toggleDirectListen()"
-                                    style="padding: 10px; font-size: 12px; width: 100%; background: var(--accent-green); border: none; color: #fff;">🎧
-                                    LISTEN</button>
+                                    style="padding: 10px; font-size: 12px; width: 100%; background: var(--accent-green); border: none; color: #fff;"><span class="icon icon--sm" style="margin-right: 4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>LISTEN</button>
                             </div>
                         </div>
                     </div>
@@ -1410,12 +1392,12 @@
                             <span class="cap-status" id="capRfStatus">--</span>
                         </div>
                         <div class="cap-item" id="capRoot" title="Privilege Level">
-                            <span class="cap-icon">🔒</span>
+                            <span class="cap-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
                             <span class="cap-status" id="capRootStatus">--</span>
                         </div>
                         <div class="cap-limitations" id="capLimitations" onclick="tscmShowCapabilities()"
                             style="cursor: pointer;">
-                            <span class="cap-warn">⚠️</span>
+                            <span class="cap-warn icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                             <span id="capLimitationCount">0</span> limitations
                         </div>
                     </div>
@@ -1572,9 +1554,8 @@
                         <div class="control-group">
                             <span class="control-group-label">Mode</span>
                             <button id="reconBtn" class="recon-toggle" onclick="toggleRecon()">RECON</button>
-                            <button id="muteBtn" class="control-btn" onclick="toggleMute()">🔊</button>
-                            <button id="autoScrollBtn" class="control-btn active" onclick="toggleAutoScroll()">⬇
-                                AUTO</button>
+                            <button id="muteBtn" class="control-btn" onclick="toggleMute()"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span> MUTE</button>
+                            <button id="autoScrollBtn" class="control-btn active" onclick="toggleAutoScroll()"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></span> AUTO</button>
                         </div>
                         <div class="control-group">
                             <span class="control-group-label">Export</span>
@@ -1821,7 +1802,7 @@
                 document.getElementById('countdownMaxEl' + suffix).textContent = selectedPass.maxEl + '°';
                 document.getElementById('countdownDirection' + suffix).textContent = selectedPass.direction || 'Pass';
 
-                document.getElementById('countdownStatus' + suffix).textContent = '🟢 SATELLITE CURRENTLY VISIBLE';
+                document.getElementById('countdownStatus' + suffix).textContent = 'SATELLITE CURRENTLY VISIBLE';
                 document.getElementById('countdownStatus' + suffix).className = 'countdown-status visible';
 
             } else if (startTime > now) {
@@ -1849,7 +1830,7 @@
                 document.getElementById('countdownDirection' + suffix).textContent = selectedPass.direction || 'Pass';
 
                 if (secsToPass < 300) {
-                    document.getElementById('countdownStatus' + suffix).textContent = '🟡 PASS STARTING SOON';
+                    document.getElementById('countdownStatus' + suffix).textContent = 'PASS STARTING SOON';
                     document.getElementById('countdownStatus' + suffix).className = 'countdown-status upcoming';
                 } else {
                     document.getElementById('countdownStatus' + suffix).textContent = 'Selected pass';
@@ -3770,7 +3751,7 @@
             const alertDiv = document.createElement('div');
             alertDiv.className = 'drone-alert';
             alertDiv.innerHTML = `
-                <div style="font-weight: bold; color: var(--accent-orange); font-size: 16px;">🚁 DRONE DETECTED</div>
+                <div style="font-weight: bold; color: var(--accent-orange); font-size: 16px;">DRONE DETECTED</div>
                 <div style="margin: 10px 0;">
                     <div><strong>SSID:</strong> ${escapeHtml(ssid || 'Unknown')}</div>
                     <div><strong>BSSID:</strong> ${bssid}</div>
@@ -3916,8 +3897,8 @@
 
                 // Get the BSSIDs to show in alert
                 const bssidList = rogueApDetails[ssid].map(e => e.bssid).join(', ');
-                showInfo(`⚠ Rogue AP: "${ssid}" has ${ouis.size} different vendors: ${bssidList}`);
-                showNotification('⚠️ Rogue AP Detected!', `"${ssid}" has different vendor BSSIDs`);
+                showInfo(`Rogue AP: "${ssid}" has ${ouis.size} different vendors: ${bssidList}`);
+                showNotification('Rogue AP Detected!', `"${ssid}" has different vendor BSSIDs`);
 
                 // Update all network cards with this SSID to show rogue indicator
                 ssidToBssids[ssid].forEach(rogueBssid => {
@@ -3951,7 +3932,7 @@
                 const aps = rogueApDetails[ssid];
                 html += `<div style="margin-bottom: 12px;">
                     <div style="color: var(--accent-red); font-weight: bold; margin-bottom: 4px;">
-                        📡 "${ssid}" (${aps.length} BSSIDs)
+                        "${ssid}" (${aps.length} BSSIDs)
                     </div>
                     <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
                         <tr style="color: var(--text-dim);">
@@ -3972,7 +3953,7 @@
                 html += '</table></div>';
             });
             html += '</div>';
-            html += '<div style="margin-top: 8px; font-size: 9px; color: var(--text-dim);">⚠ Multiple BSSIDs for same SSID may indicate rogue AP or legitimate multi-AP setup</div>';
+            html += '<div style="margin-top: 8px; font-size: 9px; color: var(--text-dim);">Multiple BSSIDs for same SSID may indicate rogue AP or legitimate multi-AP setup</div>';
 
             // Create popup
             const popup = document.createElement('div');
@@ -3993,7 +3974,7 @@
             `;
             popup.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <span style="font-weight: bold; color: var(--accent-red);">🚨 Rogue AP Details</span>
+                    <span style="font-weight: bold; color: var(--accent-red);">Rogue AP Details</span>
                     <button onclick="this.parentElement.parentElement.remove()"
                             style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px;">✕</button>
                 </div>
@@ -4066,7 +4047,7 @@
             `;
             popup.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <span style="font-weight: bold; color: var(--accent-orange);">🚁 Detected Drones (${drones.length})</span>
+                    <span style="font-weight: bold; color: var(--accent-orange);">Detected Drones (${drones.length})</span>
                     <button onclick="this.parentElement.parentElement.remove()"
                             style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px;">✕</button>
                 </div>
@@ -4321,11 +4302,11 @@
                 return `
                     <div style="padding: 4px 0; border-bottom: 1px solid var(--border-color);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: var(--accent-cyan);">📶 ${c.wifi_name || c.wifi_mac}</span>
+                            <span style="color: var(--accent-cyan);">${c.wifi_name || c.wifi_mac}</span>
                             <span class="correlation-badge" style="background: ${confidenceColor};">${confidence}%</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: #6495ED;">🔵 ${c.bt_name || c.bt_mac}</span>
+                            <span style="color: #6495ED;">${c.bt_name || c.bt_mac}</span>
                             <span style="font-size: 9px; color: var(--text-dim);">${c.reason || ''}</span>
                         </div>
                     </div>
@@ -4746,7 +4727,7 @@
                 const droneCheck = isDrone(net.essid, net.bssid);
                 if (droneCheck.isDrone) {
                     handleDroneDetection(net, droneCheck);
-                    showNotification('🚁 Drone Detected!', `${droneCheck.brand}: ${net.essid}`);
+                    showNotification('Drone Detected', `${droneCheck.brand}: ${net.essid}`);
                 }
             }
 
@@ -4934,7 +4915,7 @@
                 const isRogue = rogueBssids.has(net.bssid);
 
                 panel.innerHTML = `
-                    ${isRogue ? '<div class="rogue-indicator" style="margin: -10px -10px 10px -10px; padding: 8px;">⚠️ SUSPECTED ROGUE ACCESS POINT</div>' : ''}
+                    ${isRogue ? '<div class="rogue-indicator" style="margin: -10px -10px 10px -10px; padding: 8px;">SUSPECTED ROGUE ACCESS POINT</div>' : ''}
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div style="grid-column: span 2; text-align: center; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
                             <div style="font-size: 18px; color: ${isRogue ? 'var(--accent-red)' : 'var(--accent-cyan)'}; font-weight: bold;">${escapeHtml(net.essid || '[Hidden]')}</div>
@@ -5058,7 +5039,7 @@
             const wpsEnabled = net.wps === '1' || net.wps === 'Yes' || (net.privacy || '').includes('WPS');
             const wpsHtml = wpsEnabled ? '<span class="wps-enabled">WPS</span>' : '';
             const isRogue = rogueBssids.has(net.bssid);
-            const rogueHtml = isRogue ? '<div class="rogue-indicator">⚠️ SUSPECTED ROGUE AP</div>' : '';
+            const rogueHtml = isRogue ? '<div class="rogue-indicator">SUSPECTED ROGUE AP</div>' : '';
 
             // Update card border for rogue APs
             if (isRogue) {
@@ -5146,7 +5127,7 @@
 
             card.innerHTML = `
                 <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span class="device-name" style="color: var(--accent-purple);">📱 ${escapeHtml(client.vendor || 'Client')}</span>
+                    <span class="device-name" style="color: var(--accent-purple);">${escapeHtml(client.vendor || 'Client')}</span>
                     <span style="font-size: 10px; color: var(--text-dim);">CLIENT</span>
                 </div>
                 <div class="sensor-data">
@@ -5215,7 +5196,7 @@
                 const data = await response.json();
 
                 if (data.status === 'started') {
-                    showInfo('🎯 Capturing handshakes for ' + bssid);
+                    showInfo('Capturing handshakes for ' + bssid);
                     setWifiRunning(true);
 
                     // Update handshake indicator to show active capture
@@ -5273,8 +5254,8 @@
                         handshakeCount++;
                         document.getElementById('handshakeCount').textContent = handshakeCount;
                         playAlert();
-                        showInfo('🎉 Handshake captured for ' + activeCapture.bssid + '! File: ' + data.file);
-                        showNotification('🤝 Handshake Captured!', `Target: ${activeCapture.bssid}`);
+                        showInfo('Handshake captured for ' + activeCapture.bssid + '. File: ' + data.file);
+                        showNotification('Handshake Captured!', `Target: ${activeCapture.bssid}`);
 
                         // Stop polling
                         if (activeCapture.pollInterval) {
@@ -5290,7 +5271,7 @@
                             crackDiv.style.marginTop = '10px';
                             crackDiv.innerHTML = `
                               <button class="preset-btn crack-btn" onclick="crackHandshake('${data.file}', '${activeCapture.bssid}')" style="width: 100%; background: var(--accent-green); border-color: var(--accent-green); color: #000; font-weight: bold;">
-                                  🔓 Crack with Aircrack-ng
+                                  Crack with Aircrack-ng
                               </button>
                           `;
                             panel.querySelector('.section') ? panel.querySelector('.section').appendChild(crackDiv) : panel.appendChild(crackDiv);
@@ -5361,8 +5342,8 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.status === 'success' && data.password) {
-                        showInfo('🎉 PASSWORD FOUND: ' + data.password);
-                        showNotification('🔓 Password Cracked!', data.password);
+                        showInfo('PASSWORD FOUND: ' + data.password);
+                        showNotification('Password Cracked', data.password);
                         alert('Password found!\n\n' + data.password + '\n\nThis has been logged.');
                     } else if (data.status === 'not_found') {
                         showInfo('Password not found in wordlist. Try a different wordlist.');
@@ -5975,11 +5956,11 @@
             for (const [network, patterns] of Object.entries(FINDMY_PATTERNS)) {
                 // Check MAC prefix
                 if (patterns.prefixes && patterns.prefixes.some(p => mac.startsWith(p))) {
-                    return { network: network, type: 'Find My Network', icon: '📍' };
+                    return { network: network, type: 'Find My Network' };
                 }
                 // Check name patterns
                 if (patterns.names && patterns.names.some(n => name.includes(n.toLowerCase()))) {
-                    return { network: network, type: 'Find My Network', icon: '📍' };
+                    return { network: network, type: 'Find My Network' };
                 }
             }
 
@@ -5989,7 +5970,7 @@
                 if (mfgData.includes('4c00') || mfgData.includes('004c')) {
                     // Check for Find My payload (manufacturer specific data type 0x12)
                     if (mfgData.includes('12') || mfgData.length > 40) {
-                        return { network: 'apple', type: 'Apple Find My', icon: '🍎' };
+                        return { network: 'apple', type: 'Apple Find My' };
                     }
                 }
             }
@@ -6032,7 +6013,7 @@
 
             alertDiv.style.display = 'block';
             alertDiv.innerHTML = `
-                <h4>⚠️ POSSIBLE TRACKING DETECTED</h4>
+                <h4>POSSIBLE TRACKING DETECTED</h4>
                 <div style="font-size: 12px;">
                     <div><strong>Device:</strong> ${escapeHtml(tracker.name)}</div>
                     <div><strong>MAC:</strong> ${escapeHtml(mac)}</div>
@@ -6055,7 +6036,7 @@
                 }
             }
 
-            showNotification('⚠️ Tracking Alert', `${tracker.name} detected for ${durationMinutes} min`);
+            showNotification('Tracking Alert', `${tracker.name} detected for ${durationMinutes} min`);
         }
 
         function dismissTrackerAlert(mac) {
@@ -6145,10 +6126,7 @@
             devices.sort((a, b) => (b.rssi || -100) - (a.rssi || -100));
 
             listEl.innerHTML = devices.map(d => {
-                const typeIcon = {
-                    'phone': '📱', 'audio': '🎧', 'wearable': '⌚', 'tracker': '📍',
-                    'computer': '💻', 'input': '⌨️', 'other': '📶'
-                }[d.device_type || d.type] || '📶';
+                const deviceType = d.device_type || d.type || 'device';
 
                 const rssiColor = d.rssi > -50 ? 'var(--accent-green)' :
                     d.rssi > -70 ? 'var(--accent-cyan)' :
@@ -6167,7 +6145,7 @@
                         border-left: 2px solid ${isSelected ? 'var(--accent-cyan)' : 'transparent'};
                     " onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isSelected ? 'rgba(0,212,255,0.1)' : 'transparent'}'">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <span>${typeIcon} ${escapeHtml(d.name || 'Unknown')}</span>
+                            <span>${escapeHtml(d.name || 'Unknown')}</span>
                             <span style="color:${rssiColor};font-weight:bold;">${d.rssi || '--'} dBm</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;color:var(--text-dim);font-size:10px;margin-top:2px;">
@@ -6195,10 +6173,7 @@
             const panel = document.getElementById('btSelectedDevice');
             if (!panel || !device) return;
 
-            const typeIcon = {
-                'phone': '📱', 'audio': '🎧', 'wearable': '⌚', 'tracker': '📍',
-                'computer': '💻', 'input': '⌨️', 'other': '📶'
-            }[device.device_type || device.type] || '📶';
+            const deviceType = (device.device_type || device.type || 'unknown').toUpperCase();
 
             const rssiColor = device.rssi > -50 ? 'var(--accent-green)' :
                 device.rssi > -70 ? 'var(--accent-cyan)' :
@@ -6213,13 +6188,13 @@
             if (device.findmy) {
                 trackerInfo = `
                     <div style="background:rgba(0,122,255,0.15);border:1px solid #007aff;border-radius:6px;padding:8px;margin-top:8px;">
-                        <div style="color:#007aff;font-weight:bold;">🍎 ${escapeHtml(device.findmy.type)}</div>
+                        <div style="color:#007aff;font-weight:bold;">${escapeHtml(device.findmy.type)}</div>
                         <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">${escapeHtml(device.findmy.network)} Network Device</div>
                     </div>`;
             } else if (device.tracker) {
                 trackerInfo = `
                     <div style="background:rgba(255,100,100,0.15);border:1px solid var(--accent-red);border-radius:6px;padding:8px;margin-top:8px;">
-                        <div style="color:var(--accent-red);font-weight:bold;">📍 ${escapeHtml(device.tracker.name)}</div>
+                        <div style="color:var(--accent-red);font-weight:bold;">${escapeHtml(device.tracker.name)}</div>
                         <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">Tracking Device Detected</div>
                     </div>`;
             }
@@ -6227,7 +6202,7 @@
             panel.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
                     <div>
-                        <div style="font-size:16px;font-weight:bold;color:var(--accent-cyan);">${typeIcon} ${escapeHtml(device.name || 'Unknown Device')}</div>
+                        <div style="font-size:16px;font-weight:bold;color:var(--accent-cyan);">${escapeHtml(device.name || 'Unknown Device')}</div>
                         <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">${escapeHtml((device.device_type || device.type || 'unknown').toUpperCase())}</div>
                     </div>
                     <div style="text-align:right;">
@@ -6283,14 +6258,13 @@
             }
 
             listEl.innerHTML = trackers.map(d => {
-                const icon = d.findmy ? '🍎' : '📍';
                 const type = d.findmy ? d.findmy.type : (d.tracker ? d.tracker.name : 'Unknown');
                 const color = d.findmy ? '#007aff' : 'var(--accent-red)';
 
                 return `
                     <div style="padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.05);">
                         <div style="display:flex;justify-content:space-between;">
-                            <span style="color:${color};">${icon} ${escapeHtml(type)}</span>
+                            <span style="color:${color};">${escapeHtml(type)}</span>
                             <span style="color:var(--text-dim);">${d.rssi || '--'} dBm</span>
                         </div>
                         <div style="color:var(--text-dim);font-size:10px;">${escapeHtml(d.mac)}</div>
@@ -6328,10 +6302,7 @@
                     if (countEl) countEl.textContent = Object.keys(btDevices).length;
                 }
 
-                const typeIcon = {
-                    'phone': '📱', 'audio': '🎧', 'wearable': '⌚', 'tracker': '📍',
-                    'computer': '💻', 'input': '⌨️', 'other': '📶'
-                }[devType] || '📶';
+                const deviceType = devType.toUpperCase();
 
                 // Handle signal strength
                 const rssi = device.rssi || -100;
@@ -6348,8 +6319,8 @@
 
                 card.innerHTML = `
                     <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span class="device-name" style="color: var(--accent-purple);">${typeIcon} ${escapeHtml(device.name || 'Unknown')}${findMyBadge}${trackerBadge}</span>
-                        <span style="font-size: 10px; color: var(--text-dim);">${escapeHtml(devType.toUpperCase())}</span>
+                        <span class="device-name" style="color: var(--accent-purple);">${escapeHtml(device.name || 'Unknown')}${findMyBadge}${trackerBadge}</span>
+                        <span style="font-size: 10px; color: var(--text-dim);">${deviceType}</span>
                     </div>
                     <div class="sensor-data">
                         <div class="data-item">
@@ -6453,7 +6424,7 @@
 
             listEl.innerHTML = findMyDevices.map(d => `
                 <div style="display: flex; justify-content: space-between; padding: 5px 8px; background: rgba(0,122,255,0.1); border-radius: 3px; margin-bottom: 4px; cursor: pointer;" onclick="selectBtDevice('${escapeAttr(d.mac)}')">
-                    <span>${d.findmy.icon || '📍'} ${escapeHtml(d.name || d.findmy.type)}</span>
+                    <span>${escapeHtml(d.name || d.findmy.type)}</span>
                     <span style="color: #007aff;">${d.rssi || '--'} dBm</span>
                 </div>
             `).join('');
@@ -8612,8 +8583,8 @@
 </head>
 <body>
     <div class="report-actions">
-        <button class="report-btn save" onclick="saveReport()">💾 Save Report</button>
-        <button class="report-btn" onclick="window.print()">🖨️ Print Report</button>
+        <button class="report-btn save" onclick="saveReport()">Save Report</button>
+        <button class="report-btn" onclick="window.print()">Print Report</button>
     </div>
 
     <div class="report-container">
@@ -8642,7 +8613,7 @@
         </div>
 
         <div class="section">
-            <div class="section-title">📊 Executive Summary</div>
+            <div class="section-title">Executive Summary</div>
             <div class="summary-grid">
                 <div class="summary-card high-interest">
                     <div class="count">${highInterest.length}</div>
@@ -8668,7 +8639,7 @@
 
         ${highInterest.length > 0 ? `
         <div class="section">
-            <div class="section-title">🔴 High Interest Items</div>
+            <div class="section-title">High Interest Items</div>
             <div class="category-section">
                 <table>
                     <thead>
@@ -8692,7 +8663,7 @@
 
         ${needsReview.length > 0 ? `
         <div class="section">
-            <div class="section-title">🟡 Items Requiring Review</div>
+            <div class="section-title">Items Requiring Review</div>
             <div class="category-section">
                 <table>
                     <thead>
@@ -8716,7 +8687,7 @@
 
         ${informational.length > 0 ? `
         <div class="section">
-            <div class="section-title">🟢 Informational Items</div>
+            <div class="section-title">Informational Items</div>
             <div class="category-section">
                 <table>
                     <thead>
@@ -8747,7 +8718,7 @@
         ` : ''}
 
         <div class="section">
-            <div class="section-title">📋 Recommendations</div>
+            <div class="section-title">Recommendations</div>
             <div class="recommendations">
                 <ul>
                     ${highInterest.length > 0 ? `
@@ -8766,7 +8737,7 @@
         </div>
 
         <div class="section">
-            <div class="section-title">⚠️ Disclaimer</div>
+            <div class="section-title">Disclaimer</div>
             <div class="disclaimer">
                 <h4>Important Notice</h4>
                 <p>This report is generated by automated wireless spectrum analysis software. The findings presented are <strong>indicators only</strong> and do not constitute confirmation of surveillance activity. Many legitimate devices may trigger alerts due to their wireless characteristics.</p>
@@ -8958,7 +8929,7 @@
 
             if (tscmRfSignals.length === 0) {
                 if (tscmRfStatusMessage) {
-                    rfList.innerHTML = `<div class="tscm-status-message"><span class="status-icon">⚠️</span> ${escapeHtml(tscmRfStatusMessage)}</div>`;
+                    rfList.innerHTML = `<div class="tscm-status-message">${escapeHtml(tscmRfStatusMessage)}</div>`;
                 } else {
                     rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
                 }
@@ -9087,11 +9058,12 @@
         }
 
         function getClassificationIcon(classification) {
+            // Returns CSS class name for colored dot styling instead of emojis
             switch (classification) {
-                case 'high_interest': return '🔴';
-                case 'review': return '🟡';
-                case 'informational': return '🟢';
-                default: return '🟡';
+                case 'high_interest': return '<span class="classification-dot high"></span>';
+                case 'review': return '<span class="classification-dot review"></span>';
+                case 'informational': return '<span class="classification-dot info"></span>';
+                default: return '<span class="classification-dot review"></span>';
             }
         }
 
@@ -9194,10 +9166,10 @@
                 const freq = device.frequency;
                 html += `
                         <button class="tscm-action-btn" onclick="listenToRfSignal(${freq}, 'fm')">
-                            🎧 Listen (FM)
+                            Listen (FM)
                         </button>
                         <button class="tscm-action-btn" onclick="listenToRfSignal(${freq}, 'am')">
-                            🎧 Listen (AM)
+                            Listen (AM)
                         </button>
                 `;
             }
@@ -9205,7 +9177,7 @@
             // Add "Add to Known Devices" button for all device types
             html += `
                         <button class="tscm-action-btn" style="background: var(--accent-cyan);" onclick="tscmAddToKnownDevices('${escapeHtml(deviceIdentifier)}', '${escapeHtml(deviceName)}', '${protocol}')">
-                            ✅ Add to Known Devices
+                            Add to Known Devices
                         </button>
                     </div>
                     <div style="font-size: 10px; color: var(--text-secondary); margin-top: 8px;">
@@ -9427,7 +9399,7 @@
                             <div class="tscm-device-name">
                                 <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
                                 ${escapeHtml(d.name || 'Unknown')}
-                                ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">🎤</span>' : ''}
+                                ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">AUDIO</span>' : ''}
                             </div>
                             ${getScoreBadge(d.score)}
                         </div>
@@ -9447,7 +9419,7 @@
             const rfList = document.getElementById('tscmRfList');
             if (tscmRfSignals.length === 0) {
                 if (tscmRfStatusMessage) {
-                    rfList.innerHTML = `<div class="tscm-status-message"><span class="status-icon">⚠️</span> ${escapeHtml(tscmRfStatusMessage)}</div>`;
+                    rfList.innerHTML = `<div class="tscm-status-message">${escapeHtml(tscmRfStatusMessage)}</div>`;
                 } else {
                     rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
                 }
@@ -9997,7 +9969,7 @@
                 const cases = data.cases || [];
                 content.innerHTML = `
                     <div class="device-detail-header classification-cyan">
-                        <h3>📁 TSCM Cases (${cases.length})</h3>
+                        <h3>TSCM Cases (${cases.length})</h3>
                     </div>
                     <div class="device-detail-section">
                         <div style="margin-bottom: 12px;">
@@ -10074,7 +10046,7 @@
                     const content = document.getElementById('tscmDeviceModalContent');
                     content.innerHTML = `
                         <div class="device-detail-header classification-cyan">
-                            <h3>📁 ${escapeHtml(c.name)}</h3>
+                            <h3>${escapeHtml(c.name)}</h3>
                             <span class="case-status ${c.status}">${c.status}</span>
                         </div>
                         <div class="device-detail-section">
@@ -10125,7 +10097,7 @@
                 const playbooks = data.playbooks || [];
                 content.innerHTML = `
                     <div class="device-detail-header classification-orange">
-                        <h3>📋 Operator Playbooks</h3>
+                        <h3>Operator Playbooks</h3>
                     </div>
                     <div class="device-detail-section">
                         <p style="color: var(--text-muted); margin-bottom: 16px;">
@@ -10165,7 +10137,7 @@
                     const content = document.getElementById('tscmDeviceModalContent');
                     content.innerHTML = `
                         <div class="device-detail-header classification-orange">
-                            <h3>📋 ${escapeHtml(p.title || p.name || 'Playbook')}</h3>
+                            <h3>${escapeHtml(p.title || p.name || 'Playbook')}</h3>
                         </div>
                         <div class="device-detail-section">
                             <p>${escapeHtml(p.description || '')}</p>
@@ -10177,7 +10149,7 @@
                                     <li class="playbook-step">
                                         <strong>${escapeHtml(step.action || step.title || `Step ${step.step || i + 1}`)}</strong>
                                         <p>${escapeHtml(step.details || step.description || '')}</p>
-                                        ${step.safety_note ? `<div class="playbook-warning">⚠️ ${escapeHtml(step.safety_note)}</div>` : ''}
+                                        ${step.safety_note ? `<div class="playbook-warning">${escapeHtml(step.safety_note)}</div>` : ''}
                                     </li>
                                 `).join('')}
                             </ol>
@@ -10330,7 +10302,7 @@
     <div id="helpModal" class="help-modal" onclick="if(event.target === this) hideHelp()">
         <div class="help-content">
             <button class="help-close" onclick="hideHelp()">×</button>
-            <h2>📡 iNTERCEPT Help</h2>
+            <h2>iNTERCEPT Help</h2>
 
             <div class="help-tabs">
                 <button class="help-tab active" data-tab="icons" onclick="switchHelpTab('icons')">Icons</button>
@@ -10397,7 +10369,7 @@
 
             <!-- Modes Section -->
             <div id="help-modes" class="help-section">
-                <h3>📟 Pager Mode</h3>
+                <h3>Pager Mode</h3>
                 <ul class="tip-list">
                     <li>Decodes POCSAG and FLEX pager signals using RTL-SDR</li>
                     <li>Set frequency to local pager frequencies (common: 152-158 MHz)</li>
@@ -10405,7 +10377,7 @@
                     <li>Use presets for common pager frequencies</li>
                 </ul>
 
-                <h3>📡 433MHz Sensor Mode</h3>
+                <h3>433MHz Sensor Mode</h3>
                 <ul class="tip-list">
                     <li>Decodes wireless sensors on 433.92 MHz ISM band</li>
                     <li>Detects temperature, humidity, weather stations, tire pressure monitors</li>
@@ -10413,7 +10385,7 @@
                     <li>Device intelligence builds profiles of recurring devices</li>
                 </ul>
 
-                <h3>⚡ Utility Meter Mode</h3>
+                <h3>Utility Meter Mode</h3>
                 <ul class="tip-list">
                     <li>Decodes utility meter transmissions (water, gas, electric) using rtlamr</li>
                     <li>Supports ERT protocol on 912 MHz (North America) or 868 MHz (Europe)</li>
@@ -10421,13 +10393,13 @@
                     <li>Supports SCM, SCM+, IDM, NetIDM, and R900 message types</li>
                 </ul>
 
-                <h3>✈️ Aircraft (Dashboard)</h3>
+                <h3>Aircraft (Dashboard)</h3>
                 <ul class="tip-list">
                     <li>Opens the dedicated ADS-B Dashboard for aircraft tracking</li>
                     <li>Features radar scope, map view, airband audio, and ACARS decoding</li>
                 </ul>
 
-                <h3>📍 APRS Mode</h3>
+                <h3>APRS Mode</h3>
                 <ul class="tip-list">
                     <li>Decodes APRS (Automatic Packet Reporting System) on VHF</li>
                     <li>Tracks amateur radio operators transmitting position data</li>
@@ -10436,7 +10408,7 @@
                     <li>Interactive map shows station positions in real-time</li>
                 </ul>
 
-                <h3>🛰️ Satellite Mode</h3>
+                <h3>Satellite Mode</h3>
                 <ul class="tip-list">
                     <li>Track satellites using TLE (Two-Line Element) data</li>
                     <li>Add satellites manually or fetch from Celestrak by category</li>
@@ -10444,7 +10416,7 @@
                     <li>View next pass predictions with elevation and duration</li>
                 </ul>
 
-                <h3>📶 WiFi Mode</h3>
+                <h3>WiFi Mode</h3>
                 <ul class="tip-list">
                     <li>Requires a WiFi adapter capable of monitor mode</li>
                     <li>Click "Enable Monitor" to put adapter in monitor mode</li>
@@ -10454,7 +10426,7 @@
                     <li>Click network rows to target for deauth or handshake capture</li>
                 </ul>
 
-                <h3>🔵 Bluetooth Mode</h3>
+                <h3>Bluetooth Mode</h3>
                 <ul class="tip-list">
                     <li>Scans for classic Bluetooth and BLE devices</li>
                     <li>Shows device names, addresses, and signal strength</li>
@@ -10462,7 +10434,7 @@
                     <li>Radar visualization shows device proximity</li>
                 </ul>
 
-                <h3>📻 Listening Post Mode</h3>
+                <h3>Listening Post Mode</h3>
                 <ul class="tip-list">
                     <li>Wideband SDR scanner with spectrum visualization</li>
                     <li>Tune to any frequency supported by your SDR hardware</li>
@@ -10471,7 +10443,7 @@
                     <li>Quick tune presets for emergency and marine channels</li>
                 </ul>
 
-                <h3>🔍 TSCM Mode</h3>
+                <h3>TSCM Mode</h3>
                 <ul class="tip-list">
                     <li>Technical Surveillance Countermeasures sweep</li>
                     <li>Scans for unknown RF transmitters, WiFi devices, Bluetooth</li>
@@ -10539,7 +10511,7 @@
                     <li><strong>Sound alerts:</strong> Toggle sound on/off in settings for each mode</li>
                     <li><strong>Export data:</strong> Use export buttons to save captured data as JSON</li>
                     <li><strong>Device Intelligence:</strong> Tracks device patterns over time</li>
-                    <li><strong>Theme toggle:</strong> Click 🌙/☀️ button in header to switch dark/light mode</li>
+                    <li><strong>Theme toggle:</strong> Click the theme button in header to switch dark/light mode</li>
                 </ul>
 
                 <h3>Keyboard Shortcuts</h3>
@@ -10579,7 +10551,7 @@
     <div id="depsModal" class="help-modal" onclick="if(event.target === this) hideDependencies()">
         <div class="help-content" style="max-width: 800px;">
             <button class="help-close" onclick="hideDependencies()">×</button>
-            <h2>🔧 Tool Dependencies</h2>
+            <h2>Tool Dependencies</h2>
             <p style="color: var(--text-dim); margin-bottom: 15px;">Check which tools are installed for each mode. <span
                     style="color: var(--accent-green);">●</span> = Installed, <span
                     style="color: var(--accent-red);">●</span> = Missing</p>
@@ -10832,7 +10804,7 @@
                 <div style="padding: 15px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h3 style="margin: 0; color: var(--accent-orange); font-size: 14px; display: flex; align-items: center; gap: 8px;">
-                            <span>🔧</span> Missing Dependencies
+                            Missing Dependencies
                         </h3>
                         <button onclick="closeStartupDeps()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 0; line-height: 1;">&times;</button>
                     </div>
