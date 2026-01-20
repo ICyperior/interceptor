@@ -7,12 +7,31 @@
 const SignalCards = (function() {
     'use strict';
 
+    // Address tracking for new/repeated detection
+    const addressHistory = {
+        pager: new Map(),      // address -> { count, firstSeen, lastSeen }
+        aprs: new Map(),       // callsign -> { count, firstSeen, lastSeen }
+        sensor: new Map(),     // id -> { count, firstSeen, lastSeen }
+        acars: new Map(),      // flight -> { count, firstSeen, lastSeen }
+        ais: new Map(),        // mmsi -> { count, firstSeen, lastSeen }
+        meter: new Map()       // meter id -> { count, firstSeen, lastSeen }
+    };
+
+    // Threshold for "repeated" status (messages from same source)
+    const REPEATED_THRESHOLD = 3;
+
+    // Time window for "burst" detection (ms)
+    const BURST_WINDOW = 60000; // 1 minute
+    const BURST_THRESHOLD = 5;  // 5+ messages in window = burst
+
     // Store for managing cards and state
     const state = {
         cards: new Map(),
         filters: {
             status: 'all',
-            type: 'all'
+            protocol: 'all',
+            msgType: 'all',
+            search: ''
         },
         counts: {
             all: 0,
@@ -50,27 +69,123 @@ const SignalCards = (function() {
     }
 
     /**
-     * Determine signal status based on message data
+     * Track an address/identifier and return its status
      */
-    function determineStatus(msg) {
-        // Check for emergency indicators
+    function trackAddress(type, identifier) {
+        const history = addressHistory[type];
+        if (!history) return { isNew: true, count: 1 };
+
+        const now = Date.now();
+        const existing = history.get(identifier);
+
+        if (!existing) {
+            // First time seeing this address
+            history.set(identifier, {
+                count: 1,
+                firstSeen: now,
+                lastSeen: now,
+                recentTimestamps: [now]
+            });
+            return { isNew: true, count: 1, isBurst: false };
+        }
+
+        // Update existing record
+        existing.count++;
+        existing.lastSeen = now;
+
+        // Track recent timestamps for burst detection
+        existing.recentTimestamps = existing.recentTimestamps || [];
+        existing.recentTimestamps.push(now);
+
+        // Clean old timestamps outside burst window
+        existing.recentTimestamps = existing.recentTimestamps.filter(
+            ts => (now - ts) < BURST_WINDOW
+        );
+
+        const isBurst = existing.recentTimestamps.length >= BURST_THRESHOLD;
+        const isRepeated = existing.count >= REPEATED_THRESHOLD;
+
+        return {
+            isNew: false,
+            count: existing.count,
+            isBurst: isBurst,
+            isRepeated: isRepeated,
+            firstSeen: existing.firstSeen
+        };
+    }
+
+    /**
+     * Get address stats without updating
+     */
+    function getAddressStats(type, identifier) {
+        const history = addressHistory[type];
+        if (!history) return null;
+        return history.get(identifier) || null;
+    }
+
+    /**
+     * Clear address history (e.g., on session reset)
+     */
+    function clearAddressHistory(type) {
+        if (type) {
+            if (addressHistory[type]) {
+                addressHistory[type].clear();
+            }
+        } else {
+            Object.keys(addressHistory).forEach(key => {
+                addressHistory[key].clear();
+            });
+        }
+    }
+
+    /**
+     * Determine signal status based on message data and tracking
+     */
+    function determineStatus(msg, trackingType = 'pager') {
+        // Check for emergency indicators first
         if (msg.emergency ||
-            (msg.message && /emergency|distress|mayday|sos/i.test(msg.message))) {
+            (msg.message && /emergency|distress|mayday|sos|911|help/i.test(msg.message))) {
             return 'emergency';
         }
-        // Check if it's a new/first-seen signal
-        if (msg.isNew || msg.firstSeen) {
+
+        // Get identifier based on message type
+        let identifier;
+        switch (trackingType) {
+            case 'pager':
+                identifier = msg.address;
+                break;
+            case 'aprs':
+                identifier = msg.callsign || msg.source;
+                break;
+            case 'sensor':
+                identifier = msg.id || msg.sensor_id;
+                break;
+            case 'acars':
+                identifier = msg.flight || msg.tail;
+                break;
+            case 'ais':
+                identifier = msg.mmsi;
+                break;
+            default:
+                identifier = msg.address || msg.id;
+        }
+
+        if (!identifier) {
+            return 'baseline';
+        }
+
+        // Track and get status
+        const stats = trackAddress(trackingType, identifier);
+
+        if (stats.isNew) {
             return 'new';
         }
-        // Check for burst activity
-        if (msg.burst || msg.spike) {
+        if (stats.isBurst) {
             return 'burst';
         }
-        // Check for repeated pattern
-        if (msg.repeated || msg.count > 5) {
+        if (stats.isRepeated) {
             return 'repeated';
         }
-        // Default to baseline
         return 'baseline';
     }
 
@@ -97,23 +212,38 @@ const SignalCards = (function() {
     }
 
     /**
+     * Get message type label
+     */
+    function getMsgTypeLabel(msg) {
+        if (msg.msg_type) return msg.msg_type;
+        if (msg.message === '[Tone Only]') return 'Tone';
+        if (isNumericContent(msg.message)) return 'Numeric';
+        return 'Alpha';
+    }
+
+    /**
      * Create a pager message card
      */
     function createPagerCard(msg, options = {}) {
-        const status = options.status || determineStatus(msg);
+        const status = options.status || determineStatus(msg, 'pager');
         const protoClass = getProtoClass(msg.protocol);
         const isNumeric = isNumericContent(msg.message);
         const relativeTime = formatRelativeTime(msg.timestamp);
         const isToneOnly = msg.message === '[Tone Only]' || msg.msg_type === 'Tone';
+        const msgType = getMsgTypeLabel(msg);
 
         const card = document.createElement('article');
         card.className = 'signal-card';
         card.dataset.status = status;
         card.dataset.type = 'message';
         card.dataset.protocol = protoClass;
+        card.dataset.msgType = msgType.toLowerCase();
         if (msg.address) card.dataset.address = msg.address;
 
-        // Build card HTML
+        // Get address stats for display
+        const stats = getAddressStats('pager', msg.address);
+        const seenCount = stats ? stats.count : 1;
+
         card.innerHTML = `
             <div class="signal-card-header">
                 <div class="signal-card-badges">
@@ -129,7 +259,8 @@ const SignalCards = (function() {
             </div>
             <div class="signal-card-body">
                 <div class="signal-meta-row">
-                    ${msg.msg_type ? `<span class="signal-msg-type">${escapeHtml(msg.msg_type)}</span>` : ''}
+                    <span class="signal-msg-type">${escapeHtml(msgType)}</span>
+                    ${seenCount > 1 ? `<span class="signal-seen-count" title="Messages from this address">×${seenCount}</span>` : ''}
                     <span class="signal-timestamp" data-timestamp="${escapeHtml(msg.timestamp)}" title="${escapeHtml(msg.timestamp)}">${escapeHtml(relativeTime)}</span>
                 </div>
                 <div class="signal-message ${isNumeric ? 'numeric' : ''} ${isToneOnly ? 'tone-only' : ''}">${escapeHtml(msg.message || '[No content]')}</div>
@@ -166,12 +297,14 @@ const SignalCards = (function() {
                                     <span class="signal-advanced-value">${escapeHtml(msg.function)}</span>
                                 </div>
                                 ` : ''}
-                                ${msg.msg_type ? `
                                 <div class="signal-advanced-item">
                                     <span class="signal-advanced-label">Type</span>
-                                    <span class="signal-advanced-value">${escapeHtml(msg.msg_type)}</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msgType)}</span>
                                 </div>
-                                ` : ''}
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Seen</span>
+                                    <span class="signal-advanced-value">${seenCount} time${seenCount > 1 ? 's' : ''}</span>
+                                </div>
                                 <div class="signal-advanced-item">
                                     <span class="signal-advanced-label">Timestamp</span>
                                     <span class="signal-advanced-value">${escapeHtml(msg.timestamp)}</span>
@@ -184,6 +317,501 @@ const SignalCards = (function() {
                             <div class="signal-raw-data">${escapeHtml(msg.raw)}</div>
                         </div>
                         ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return card;
+    }
+
+    /**
+     * Create an APRS message card
+     */
+    function createAprsCard(msg, options = {}) {
+        const status = options.status || determineStatus(msg, 'aprs');
+        const relativeTime = formatRelativeTime(msg.timestamp);
+        const hasPosition = msg.latitude && msg.longitude;
+
+        const card = document.createElement('article');
+        card.className = 'signal-card';
+        if (options.compact) card.classList.add('signal-card-compact');
+        card.dataset.status = status;
+        card.dataset.type = 'aprs';
+        card.dataset.protocol = 'aprs';
+        if (msg.callsign) card.dataset.callsign = msg.callsign;
+
+        // Determine APRS message type from packet_type or message content
+        let aprsType = msg.packet_type || 'position';
+        if (msg.weather) aprsType = 'weather';
+        else if (msg.telemetry) aprsType = 'telemetry';
+        else if (msg.message) aprsType = 'message';
+        else if (msg.status) aprsType = 'status';
+        card.dataset.packetType = aprsType.toLowerCase();
+
+        // Get stats
+        const stats = getAddressStats('aprs', msg.callsign);
+        const seenCount = stats ? stats.count : 1;
+
+        card.innerHTML = `
+            <div class="signal-card-header">
+                <div class="signal-card-badges">
+                    <span class="signal-proto-badge aprs">APRS</span>
+                    <span class="signal-freq-badge">${escapeHtml(msg.callsign || 'Unknown')}</span>
+                </div>
+                ${status !== 'baseline' ? `
+                <span class="signal-status-pill" data-status="${status}">
+                    <span class="status-dot"></span>
+                    ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+                ` : ''}
+            </div>
+            <div class="signal-card-body">
+                <div class="signal-meta-row">
+                    <span class="signal-msg-type">${aprsType.charAt(0).toUpperCase() + aprsType.slice(1)}</span>
+                    ${msg.symbol ? `<span class="signal-aprs-symbol" title="APRS Symbol">${escapeHtml(msg.symbol)}</span>` : ''}
+                    ${msg.distance !== null && msg.distance !== undefined ? `<span class="signal-distance">${msg.distance.toFixed(1)} mi</span>` : ''}
+                    ${seenCount > 1 ? `<span class="signal-seen-count">×${seenCount}</span>` : ''}
+                    <span class="signal-timestamp" data-timestamp="${escapeHtml(msg.timestamp)}">${escapeHtml(relativeTime)}</span>
+                </div>
+                ${msg.comment || msg.status || msg.message ? `
+                <div class="signal-message">${escapeHtml(msg.comment || msg.status || msg.message)}</div>
+                ` : ''}
+                ${msg.weather ? `
+                <div class="signal-message">
+                    ${msg.weather.temp ? `Temp: ${msg.weather.temp}°F ` : ''}
+                    ${msg.weather.humidity ? `Humidity: ${msg.weather.humidity}% ` : ''}
+                    ${msg.weather.wind_speed ? `Wind: ${msg.weather.wind_speed}mph ` : ''}
+                    ${msg.weather.wind_dir ? `from ${msg.weather.wind_dir}° ` : ''}
+                </div>
+                ` : ''}
+                ${hasPosition ? `
+                <div class="signal-mini-map" onclick="SignalCards.showOnMap(${msg.latitude}, ${msg.longitude}, '${escapeHtml(msg.callsign)}')">
+                    <div class="signal-map-pin"></div>
+                    <span class="signal-map-coords">${msg.latitude.toFixed(4)}°, ${msg.longitude.toFixed(4)}°</span>
+                </div>
+                ` : ''}
+            </div>
+            <div class="signal-card-footer">
+                <button class="signal-advanced-toggle" onclick="SignalCards.toggleAdvanced(this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                    Details
+                </button>
+                <div class="signal-card-actions">
+                    ${hasPosition ? `<button class="signal-action-btn primary" onclick="SignalCards.showOnMap(${msg.latitude}, ${msg.longitude}, '${escapeHtml(msg.callsign)}')">Map</button>` : ''}
+                    <button class="signal-action-btn" onclick="SignalCards.muteAddress('${escapeHtml(msg.callsign)}')">Mute</button>
+                </div>
+            </div>
+            <div class="signal-advanced-panel">
+                <div class="signal-advanced-inner">
+                    <div class="signal-advanced-content">
+                        <div class="signal-advanced-section">
+                            <div class="signal-advanced-title">Station Details</div>
+                            <div class="signal-advanced-grid">
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Callsign</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.callsign)}</span>
+                                </div>
+                                ${msg.path ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Path</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.path)}</span>
+                                </div>
+                                ` : ''}
+                                ${hasPosition ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Position</span>
+                                    <span class="signal-advanced-value">${msg.latitude.toFixed(5)}°, ${msg.longitude.toFixed(5)}°</span>
+                                </div>
+                                ` : ''}
+                                ${msg.altitude ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Altitude</span>
+                                    <span class="signal-advanced-value">${msg.altitude} ft</span>
+                                </div>
+                                ` : ''}
+                                ${msg.speed ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Speed</span>
+                                    <span class="signal-advanced-value">${msg.speed} mph</span>
+                                </div>
+                                ` : ''}
+                                ${msg.course ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Course</span>
+                                    <span class="signal-advanced-value">${msg.course}°</span>
+                                </div>
+                                ` : ''}
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Seen</span>
+                                    <span class="signal-advanced-value">${seenCount} time${seenCount > 1 ? 's' : ''}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${msg.raw ? `
+                        <div class="signal-advanced-section">
+                            <div class="signal-advanced-title">Raw Packet</div>
+                            <div class="signal-raw-data">${escapeHtml(msg.raw)}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return card;
+    }
+
+    /**
+     * Create a sensor (433MHz) message card
+     */
+    function createSensorCard(msg, options = {}) {
+        const status = options.status || determineStatus(msg, 'sensor');
+        const relativeTime = formatRelativeTime(msg.timestamp);
+
+        const card = document.createElement('article');
+        card.className = 'signal-card';
+        card.dataset.status = status;
+        card.dataset.type = 'sensor';
+        card.dataset.protocol = msg.model || 'unknown';
+        if (msg.id) card.dataset.sensorId = msg.id;
+
+        // Get stats
+        const stats = getAddressStats('sensor', msg.id);
+        const seenCount = stats ? stats.count : 1;
+
+        // Determine sensor type icon
+        let sensorIcon = '📡';
+        const model = (msg.model || '').toLowerCase();
+        if (model.includes('weather') || msg.temperature !== undefined) sensorIcon = '🌡️';
+        else if (model.includes('door') || model.includes('window')) sensorIcon = '🚪';
+        else if (model.includes('motion') || model.includes('pir')) sensorIcon = '🚶';
+        else if (model.includes('smoke') || model.includes('fire')) sensorIcon = '🔥';
+        else if (model.includes('water') || model.includes('leak')) sensorIcon = '💧';
+        else if (model.includes('car') || model.includes('tire') || model.includes('tpms')) sensorIcon = '🚗';
+
+        card.innerHTML = `
+            <div class="signal-card-header">
+                <div class="signal-card-badges">
+                    <span class="signal-proto-badge sensor">${sensorIcon} ${escapeHtml(msg.model || 'Unknown')}</span>
+                    <span class="signal-freq-badge">ID: ${escapeHtml(msg.id || 'N/A')}</span>
+                </div>
+                ${status !== 'baseline' ? `
+                <span class="signal-status-pill" data-status="${status}">
+                    <span class="status-dot"></span>
+                    ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+                ` : ''}
+            </div>
+            <div class="signal-card-body">
+                <div class="signal-meta-row">
+                    ${msg.channel ? `<span class="signal-msg-type">Ch ${msg.channel}</span>` : ''}
+                    ${seenCount > 1 ? `<span class="signal-seen-count">×${seenCount}</span>` : ''}
+                    <span class="signal-timestamp" data-timestamp="${escapeHtml(msg.timestamp)}">${escapeHtml(relativeTime)}</span>
+                </div>
+                <div class="signal-sensor-data">
+                    ${msg.temperature !== undefined ? `
+                    <div class="signal-sensor-reading">
+                        <span class="sensor-label">Temp</span>
+                        <span class="sensor-value">${msg.temperature}°${msg.temperature_unit || 'F'}</span>
+                    </div>
+                    ` : ''}
+                    ${msg.humidity !== undefined ? `
+                    <div class="signal-sensor-reading">
+                        <span class="sensor-label">Humidity</span>
+                        <span class="sensor-value">${msg.humidity}%</span>
+                    </div>
+                    ` : ''}
+                    ${msg.battery !== undefined ? `
+                    <div class="signal-sensor-reading">
+                        <span class="sensor-label">Battery</span>
+                        <span class="sensor-value ${msg.battery === 'LOW' ? 'low-battery' : ''}">${msg.battery}</span>
+                    </div>
+                    ` : ''}
+                    ${msg.pressure !== undefined ? `
+                    <div class="signal-sensor-reading">
+                        <span class="sensor-label">Pressure</span>
+                        <span class="sensor-value">${msg.pressure} ${msg.pressure_unit || 'hPa'}</span>
+                    </div>
+                    ` : ''}
+                    ${msg.wind_speed !== undefined ? `
+                    <div class="signal-sensor-reading">
+                        <span class="sensor-label">Wind</span>
+                        <span class="sensor-value">${msg.wind_speed} ${msg.wind_unit || 'mph'}</span>
+                    </div>
+                    ` : ''}
+                    ${msg.rain !== undefined ? `
+                    <div class="signal-sensor-reading">
+                        <span class="sensor-label">Rain</span>
+                        <span class="sensor-value">${msg.rain} ${msg.rain_unit || 'mm'}</span>
+                    </div>
+                    ` : ''}
+                    ${msg.state !== undefined ? `
+                    <div class="signal-sensor-reading">
+                        <span class="sensor-label">State</span>
+                        <span class="sensor-value">${escapeHtml(msg.state)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="signal-card-footer">
+                <button class="signal-advanced-toggle" onclick="SignalCards.toggleAdvanced(this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                    Details
+                </button>
+                <div class="signal-card-actions">
+                    <button class="signal-action-btn" onclick="SignalCards.muteAddress('${escapeHtml(msg.id)}')">Mute</button>
+                </div>
+            </div>
+            <div class="signal-advanced-panel">
+                <div class="signal-advanced-inner">
+                    <div class="signal-advanced-content">
+                        <div class="signal-advanced-section">
+                            <div class="signal-advanced-title">Sensor Details</div>
+                            <div class="signal-advanced-grid">
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Model</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.model || 'Unknown')}</span>
+                                </div>
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">ID</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.id || 'N/A')}</span>
+                                </div>
+                                ${msg.channel ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Channel</span>
+                                    <span class="signal-advanced-value">${msg.channel}</span>
+                                </div>
+                                ` : ''}
+                                ${msg.frequency ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Frequency</span>
+                                    <span class="signal-advanced-value">${msg.frequency} MHz</span>
+                                </div>
+                                ` : ''}
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Seen</span>
+                                    <span class="signal-advanced-value">${seenCount} time${seenCount > 1 ? 's' : ''}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${msg.raw ? `
+                        <div class="signal-advanced-section">
+                            <div class="signal-advanced-title">Raw Data</div>
+                            <div class="signal-raw-data">${escapeHtml(typeof msg.raw === 'object' ? JSON.stringify(msg.raw, null, 2) : msg.raw)}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return card;
+    }
+
+    /**
+     * Create an ACARS message card
+     */
+    function createAcarsCard(msg, options = {}) {
+        const status = options.status || determineStatus(msg, 'acars');
+        const relativeTime = formatRelativeTime(msg.timestamp);
+
+        const card = document.createElement('article');
+        card.className = 'signal-card';
+        card.dataset.status = status;
+        card.dataset.type = 'acars';
+        card.dataset.protocol = 'acars';
+        if (msg.flight) card.dataset.flight = msg.flight;
+
+        // Get stats
+        const stats = getAddressStats('acars', msg.flight || msg.tail);
+        const seenCount = stats ? stats.count : 1;
+
+        card.innerHTML = `
+            <div class="signal-card-header">
+                <div class="signal-card-badges">
+                    <span class="signal-proto-badge acars">ACARS</span>
+                    <span class="signal-freq-badge">${escapeHtml(msg.flight || msg.tail || 'Unknown')}</span>
+                </div>
+                ${status !== 'baseline' ? `
+                <span class="signal-status-pill" data-status="${status}">
+                    <span class="status-dot"></span>
+                    ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+                ` : ''}
+            </div>
+            <div class="signal-card-body">
+                <div class="signal-meta-row">
+                    ${msg.label ? `<span class="signal-msg-type">${escapeHtml(msg.label)}</span>` : ''}
+                    ${seenCount > 1 ? `<span class="signal-seen-count">×${seenCount}</span>` : ''}
+                    <span class="signal-timestamp" data-timestamp="${escapeHtml(msg.timestamp)}">${escapeHtml(relativeTime)}</span>
+                </div>
+                ${msg.text ? `
+                <div class="signal-message">${escapeHtml(msg.text)}</div>
+                ` : ''}
+            </div>
+            <div class="signal-card-footer">
+                <button class="signal-advanced-toggle" onclick="SignalCards.toggleAdvanced(this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                    Details
+                </button>
+                <div class="signal-card-actions">
+                    <button class="signal-action-btn" onclick="SignalCards.copyMessage(this)">Copy</button>
+                </div>
+            </div>
+            <div class="signal-advanced-panel">
+                <div class="signal-advanced-inner">
+                    <div class="signal-advanced-content">
+                        <div class="signal-advanced-section">
+                            <div class="signal-advanced-title">Flight Details</div>
+                            <div class="signal-advanced-grid">
+                                ${msg.flight ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Flight</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.flight)}</span>
+                                </div>
+                                ` : ''}
+                                ${msg.tail ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Tail #</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.tail)}</span>
+                                </div>
+                                ` : ''}
+                                ${msg.label ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Label</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.label)}</span>
+                                </div>
+                                ` : ''}
+                                ${msg.mode ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Mode</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.mode)}</span>
+                                </div>
+                                ` : ''}
+                                ${msg.frequency ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Frequency</span>
+                                    <span class="signal-advanced-value">${msg.frequency} MHz</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return card;
+    }
+
+    /**
+     * Create a utility meter (rtlamr) card
+     */
+    function createMeterCard(msg, options = {}) {
+        const status = options.status || determineStatus(msg, 'meter');
+        const relativeTime = formatRelativeTime(msg.timestamp);
+
+        const card = document.createElement('article');
+        card.className = 'signal-card';
+        card.dataset.status = status;
+        card.dataset.type = 'meter';
+        card.dataset.protocol = msg.type || 'unknown';
+        if (msg.id) card.dataset.meterId = msg.id;
+
+        // Get stats
+        const stats = getAddressStats('meter', msg.id);
+        const seenCount = stats ? stats.count : 1;
+
+        // Determine meter type icon and color
+        let meterIcon = '⚡';
+        let meterTypeClass = 'electric';
+        const meterType = (msg.type || '').toLowerCase();
+        if (meterType.includes('gas')) {
+            meterIcon = '🔥';
+            meterTypeClass = 'gas';
+        } else if (meterType.includes('water')) {
+            meterIcon = '💧';
+            meterTypeClass = 'water';
+        }
+
+        card.innerHTML = `
+            <div class="signal-card-header">
+                <div class="signal-card-badges">
+                    <span class="signal-proto-badge meter ${meterTypeClass}">${meterIcon} ${escapeHtml(msg.type || 'Meter')}</span>
+                    <span class="signal-freq-badge">ID: ${escapeHtml(msg.id || 'N/A')}</span>
+                </div>
+                ${status !== 'baseline' ? `
+                <span class="signal-status-pill" data-status="${status}">
+                    <span class="status-dot"></span>
+                    ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+                ` : ''}
+            </div>
+            <div class="signal-card-body">
+                <div class="signal-meta-row">
+                    ${msg.endpoint_type ? `<span class="signal-msg-type">${escapeHtml(msg.endpoint_type)}</span>` : ''}
+                    ${seenCount > 1 ? `<span class="signal-seen-count">×${seenCount}</span>` : ''}
+                    <span class="signal-timestamp" data-timestamp="${escapeHtml(msg.timestamp)}">${escapeHtml(relativeTime)}</span>
+                </div>
+                <div class="signal-meter-data">
+                    ${msg.consumption !== undefined ? `
+                    <div class="signal-meter-reading">
+                        <span class="meter-label">Consumption</span>
+                        <span class="meter-value">${msg.consumption.toLocaleString()} ${msg.unit || 'units'}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="signal-card-footer">
+                <button class="signal-advanced-toggle" onclick="SignalCards.toggleAdvanced(this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                    Details
+                </button>
+                <div class="signal-card-actions">
+                    <button class="signal-action-btn" onclick="SignalCards.muteAddress('${escapeHtml(msg.id)}')">Mute</button>
+                </div>
+            </div>
+            <div class="signal-advanced-panel">
+                <div class="signal-advanced-inner">
+                    <div class="signal-advanced-content">
+                        <div class="signal-advanced-section">
+                            <div class="signal-advanced-title">Meter Details</div>
+                            <div class="signal-advanced-grid">
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Meter ID</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.id || 'N/A')}</span>
+                                </div>
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Type</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.type || 'Unknown')}</span>
+                                </div>
+                                ${msg.endpoint_type ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Endpoint</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.endpoint_type)}</span>
+                                </div>
+                                ` : ''}
+                                ${msg.endpoint_id ? `
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Endpoint ID</span>
+                                    <span class="signal-advanced-value">${escapeHtml(msg.endpoint_id)}</span>
+                                </div>
+                                ` : ''}
+                                <div class="signal-advanced-item">
+                                    <span class="signal-advanced-label">Seen</span>
+                                    <span class="signal-advanced-value">${seenCount} time${seenCount > 1 ? 's' : ''}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -221,7 +849,6 @@ const SignalCards = (function() {
      * Mute an address (add to filter list)
      */
     function muteAddress(address) {
-        // Store muted addresses in localStorage
         const muted = JSON.parse(localStorage.getItem('mutedAddresses') || '[]');
         if (!muted.includes(address)) {
             muted.push(address);
@@ -229,7 +856,7 @@ const SignalCards = (function() {
             showToast(`Address ${address} muted`);
 
             // Hide existing cards with this address
-            document.querySelectorAll(`.signal-card[data-address="${address}"]`).forEach(card => {
+            document.querySelectorAll(`.signal-card[data-address="${address}"], .signal-card[data-callsign="${address}"], .signal-card[data-sensor-id="${address}"]`).forEach(card => {
                 card.style.opacity = '0';
                 card.style.transform = 'scale(0.95)';
                 setTimeout(() => card.remove(), 200);
@@ -246,6 +873,18 @@ const SignalCards = (function() {
     }
 
     /**
+     * Show location on map (for APRS)
+     */
+    function showOnMap(lat, lon, label) {
+        // Trigger custom event that map components can listen to
+        const event = new CustomEvent('showOnMap', {
+            detail: { lat, lon, label }
+        });
+        document.dispatchEvent(event);
+        showToast(`Showing ${label} on map`);
+    }
+
+    /**
      * Show toast notification
      */
     function showToast(message, type = 'success') {
@@ -259,9 +898,7 @@ const SignalCards = (function() {
 
         toast.textContent = message;
         toast.className = 'signal-toast ' + type;
-
-        // Force reflow for animation
-        toast.offsetHeight;
+        toast.offsetHeight; // Force reflow
         toast.classList.add('show');
 
         setTimeout(() => {
@@ -270,70 +907,148 @@ const SignalCards = (function() {
     }
 
     /**
-     * Initialize filter bar
+     * Create pager filter bar with protocol and message type filters
      */
-    function initFilterBar(container, options = {}) {
+    function createPagerFilterBar(outputContainer, options = {}) {
         const filterBar = document.createElement('div');
         filterBar.className = 'signal-filter-bar';
+        filterBar.id = 'pagerFilterBar';
+
         filterBar.innerHTML = `
-            <span class="signal-filter-label">Filter</span>
-            <button class="signal-filter-btn active" data-filter="all">
+            <span class="signal-filter-label">Status</span>
+            <button class="signal-filter-btn active" data-filter="status" data-value="all">
                 <span class="filter-dot"></span>
                 All
                 <span class="signal-filter-count" data-count="all">0</span>
             </button>
-            ${options.showEmergency !== false ? `
-            <button class="signal-filter-btn" data-filter="emergency">
-                <span class="filter-dot"></span>
-                Emergency
-                <span class="signal-filter-count" data-count="emergency">0</span>
-            </button>
-            ` : ''}
-            <button class="signal-filter-btn" data-filter="new">
+            <button class="signal-filter-btn" data-filter="status" data-value="new">
                 <span class="filter-dot"></span>
                 New
                 <span class="signal-filter-count" data-count="new">0</span>
             </button>
-            <button class="signal-filter-btn" data-filter="repeated">
+            <button class="signal-filter-btn" data-filter="status" data-value="repeated">
                 <span class="filter-dot"></span>
                 Repeated
                 <span class="signal-filter-count" data-count="repeated">0</span>
             </button>
-            <button class="signal-filter-btn" data-filter="baseline">
+            <button class="signal-filter-btn" data-filter="status" data-value="burst">
                 <span class="filter-dot"></span>
-                Baseline
-                <span class="signal-filter-count" data-count="baseline">0</span>
+                Burst
+                <span class="signal-filter-count" data-count="burst">0</span>
             </button>
+
+            <span class="signal-filter-divider"></span>
+
+            <span class="signal-filter-label">Protocol</span>
+            <button class="signal-filter-btn protocol-btn active" data-filter="protocol" data-value="all">All</button>
+            <button class="signal-filter-btn protocol-btn" data-filter="protocol" data-value="pocsag">POCSAG</button>
+            <button class="signal-filter-btn protocol-btn" data-filter="protocol" data-value="flex">FLEX</button>
+
+            <span class="signal-filter-divider"></span>
+
+            <span class="signal-filter-label">Type</span>
+            <button class="signal-filter-btn type-btn active" data-filter="msgType" data-value="all">All</button>
+            <button class="signal-filter-btn type-btn" data-filter="msgType" data-value="alpha">Alpha</button>
+            <button class="signal-filter-btn type-btn" data-filter="msgType" data-value="numeric">Numeric</button>
+            <button class="signal-filter-btn type-btn" data-filter="msgType" data-value="tone">Tone</button>
+
+            <span class="signal-filter-divider"></span>
+
+            <div class="signal-search-container">
+                <input type="text" class="signal-search-input" id="pagerSearchInput" placeholder="Search address or content..." />
+            </div>
         `;
 
-        // Add click handlers
-        filterBar.querySelectorAll('.signal-filter-btn').forEach(btn => {
+        // Add click handlers for filter buttons
+        filterBar.querySelectorAll('.signal-filter-btn[data-filter="status"]').forEach(btn => {
             btn.addEventListener('click', () => {
-                filterBar.querySelectorAll('.signal-filter-btn').forEach(b => b.classList.remove('active'));
+                filterBar.querySelectorAll('.signal-filter-btn[data-filter="status"]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                state.filters.status = btn.dataset.filter;
-                applyFilters(container);
+                state.filters.status = btn.dataset.value;
+                applyAllFilters(outputContainer);
             });
+        });
+
+        filterBar.querySelectorAll('.signal-filter-btn[data-filter="protocol"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBar.querySelectorAll('.signal-filter-btn[data-filter="protocol"]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.filters.protocol = btn.dataset.value;
+                applyAllFilters(outputContainer);
+            });
+        });
+
+        filterBar.querySelectorAll('.signal-filter-btn[data-filter="msgType"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBar.querySelectorAll('.signal-filter-btn[data-filter="msgType"]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.filters.msgType = btn.dataset.value;
+                applyAllFilters(outputContainer);
+            });
+        });
+
+        // Add search handler with debounce
+        const searchInput = filterBar.querySelector('#pagerSearchInput');
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                state.filters.search = e.target.value.toLowerCase();
+                applyAllFilters(outputContainer);
+            }, 200);
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Only when not typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.key === '/') {
+                e.preventDefault();
+                searchInput.focus();
+            }
         });
 
         return filterBar;
     }
 
     /**
-     * Apply current filters to cards
+     * Apply all filters (status, protocol, msgType, search)
      */
-    function applyFilters(container) {
+    function applyAllFilters(container) {
         const cards = container.querySelectorAll('.signal-card');
         let visibleCount = 0;
+        const counts = {
+            all: 0,
+            new: 0,
+            repeated: 0,
+            burst: 0,
+            baseline: 0,
+            emergency: 0
+        };
 
         cards.forEach(card => {
             const cardStatus = card.dataset.status;
-            const cardType = card.dataset.type;
+            const cardProtocol = card.dataset.protocol;
+            const cardMsgType = card.dataset.msgType;
+            const cardAddress = card.dataset.address || '';
+            const cardContent = card.querySelector('.signal-message')?.textContent || '';
 
+            // Count all cards by status
+            counts.all++;
+            if (counts.hasOwnProperty(cardStatus)) {
+                counts[cardStatus]++;
+            }
+
+            // Check all filters
             const statusMatch = state.filters.status === 'all' || cardStatus === state.filters.status;
-            const typeMatch = state.filters.type === 'all' || cardType === state.filters.type;
+            const protocolMatch = state.filters.protocol === 'all' || cardProtocol === state.filters.protocol;
+            const typeMatch = state.filters.msgType === 'all' || cardMsgType === state.filters.msgType;
+            const searchMatch = !state.filters.search ||
+                cardAddress.toLowerCase().includes(state.filters.search) ||
+                cardContent.toLowerCase().includes(state.filters.search);
 
-            if (statusMatch && typeMatch) {
+            if (statusMatch && protocolMatch && typeMatch && searchMatch) {
                 card.classList.remove('hidden');
                 visibleCount++;
             } else {
@@ -341,45 +1056,259 @@ const SignalCards = (function() {
             }
         });
 
+        // Update count badges
+        const filterBar = document.getElementById('pagerFilterBar');
+        if (filterBar) {
+            Object.keys(counts).forEach(key => {
+                const badge = filterBar.querySelector(`[data-count="${key}"]`);
+                if (badge) {
+                    badge.textContent = counts[key];
+                }
+            });
+        }
+
         // Show/hide empty state
         const emptyState = container.querySelector('.signal-empty-state');
         if (emptyState) {
-            emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+            emptyState.style.display = visibleCount === 0 && cards.length > 0 ? 'block' : 'none';
         }
+
+        state.counts = counts;
+    }
+
+    /**
+     * Initialize filter bar (legacy support)
+     */
+    function initFilterBar(container, options = {}) {
+        return createPagerFilterBar(container, options);
+    }
+
+    /**
+     * Apply current filters to cards (legacy support)
+     */
+    function applyFilters(container) {
+        applyAllFilters(container);
     }
 
     /**
      * Update filter counts
      */
     function updateCounts(container) {
-        const cards = container.querySelectorAll('.signal-card');
-        const counts = {
-            all: 0,
-            emergency: 0,
-            new: 0,
-            burst: 0,
-            repeated: 0,
-            baseline: 0
+        applyAllFilters(container);
+        return state.counts;
+    }
+
+    /**
+     * Create APRS filter bar with status and packet type filters
+     */
+    function createAprsFilterBar(outputContainer, options = {}) {
+        const filterBar = document.createElement('div');
+        filterBar.className = 'signal-filter-bar signal-filter-bar-compact';
+        filterBar.id = 'aprsFilterBar';
+
+        filterBar.innerHTML = `
+            <button class="signal-filter-btn active" data-filter="status" data-value="all">
+                <span class="filter-dot"></span>
+                All
+                <span class="signal-filter-count" data-count="all">0</span>
+            </button>
+            <button class="signal-filter-btn" data-filter="status" data-value="new">
+                <span class="filter-dot"></span>
+                New
+                <span class="signal-filter-count" data-count="new">0</span>
+            </button>
+            <button class="signal-filter-btn" data-filter="status" data-value="repeated">
+                <span class="filter-dot"></span>
+                Repeated
+                <span class="signal-filter-count" data-count="repeated">0</span>
+            </button>
+
+            <span class="signal-filter-divider"></span>
+
+            <span class="signal-filter-label">Type</span>
+            <button class="signal-filter-btn type-btn active" data-filter="packetType" data-value="all">All</button>
+            <button class="signal-filter-btn type-btn" data-filter="packetType" data-value="position">Position</button>
+            <button class="signal-filter-btn type-btn" data-filter="packetType" data-value="weather">Weather</button>
+            <button class="signal-filter-btn type-btn" data-filter="packetType" data-value="message">Message</button>
+
+            <div class="signal-search-container">
+                <input type="text" class="signal-search-input" id="aprsSearchInput" placeholder="Search callsign..." />
+            </div>
+        `;
+
+        // Store filter state specific to APRS
+        const aprsFilters = { status: 'all', packetType: 'all', search: '' };
+
+        // Apply filters function for APRS
+        const applyAprsFilters = () => {
+            const cards = outputContainer.querySelectorAll('.signal-card');
+            let visibleCount = 0;
+            const counts = { all: 0, new: 0, repeated: 0, burst: 0, baseline: 0, emergency: 0 };
+
+            cards.forEach(card => {
+                const cardStatus = card.dataset.status;
+                const cardType = card.dataset.packetType || card.querySelector('.signal-msg-type')?.textContent?.toLowerCase() || '';
+                const cardCallsign = card.dataset.callsign || '';
+
+                counts.all++;
+                if (counts.hasOwnProperty(cardStatus)) counts[cardStatus]++;
+
+                const statusMatch = aprsFilters.status === 'all' || cardStatus === aprsFilters.status;
+                const typeMatch = aprsFilters.packetType === 'all' || cardType.includes(aprsFilters.packetType);
+                const searchMatch = !aprsFilters.search || cardCallsign.toLowerCase().includes(aprsFilters.search);
+
+                if (statusMatch && typeMatch && searchMatch) {
+                    card.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            // Update count badges
+            Object.keys(counts).forEach(key => {
+                const badge = filterBar.querySelector(`[data-count="${key}"]`);
+                if (badge) badge.textContent = counts[key];
+            });
         };
 
-        cards.forEach(card => {
-            counts.all++;
-            const status = card.dataset.status;
-            if (counts.hasOwnProperty(status)) {
-                counts[status]++;
-            }
+        // Status filter handlers
+        filterBar.querySelectorAll('.signal-filter-btn[data-filter="status"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBar.querySelectorAll('.signal-filter-btn[data-filter="status"]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                aprsFilters.status = btn.dataset.value;
+                applyAprsFilters();
+            });
         });
 
-        // Update count badges
-        Object.keys(counts).forEach(key => {
-            const badge = container.querySelector(`[data-count="${key}"]`);
-            if (badge) {
-                badge.textContent = counts[key];
-            }
+        // Packet type filter handlers
+        filterBar.querySelectorAll('.signal-filter-btn[data-filter="packetType"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBar.querySelectorAll('.signal-filter-btn[data-filter="packetType"]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                aprsFilters.packetType = btn.dataset.value;
+                applyAprsFilters();
+            });
         });
 
-        state.counts = counts;
-        return counts;
+        // Search handler with debounce
+        const searchInput = filterBar.querySelector('#aprsSearchInput');
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                aprsFilters.search = e.target.value.toLowerCase();
+                applyAprsFilters();
+            }, 200);
+        });
+
+        // Store applyFilters reference for external calls
+        filterBar.applyFilters = applyAprsFilters;
+
+        return filterBar;
+    }
+
+    /**
+     * Create Sensor (433MHz) filter bar
+     */
+    function createSensorFilterBar(outputContainer, options = {}) {
+        const filterBar = document.createElement('div');
+        filterBar.className = 'signal-filter-bar';
+        filterBar.id = 'sensorFilterBar';
+
+        filterBar.innerHTML = `
+            <span class="signal-filter-label">Status</span>
+            <button class="signal-filter-btn active" data-filter="status" data-value="all">
+                <span class="filter-dot"></span>
+                All
+                <span class="signal-filter-count" data-count="all">0</span>
+            </button>
+            <button class="signal-filter-btn" data-filter="status" data-value="new">
+                <span class="filter-dot"></span>
+                New
+                <span class="signal-filter-count" data-count="new">0</span>
+            </button>
+            <button class="signal-filter-btn" data-filter="status" data-value="repeated">
+                <span class="filter-dot"></span>
+                Repeated
+                <span class="signal-filter-count" data-count="repeated">0</span>
+            </button>
+            <button class="signal-filter-btn" data-filter="status" data-value="burst">
+                <span class="filter-dot"></span>
+                Burst
+                <span class="signal-filter-count" data-count="burst">0</span>
+            </button>
+
+            <span class="signal-filter-divider"></span>
+
+            <div class="signal-search-container">
+                <input type="text" class="signal-search-input" id="sensorSearchInput" placeholder="Search model or ID..." />
+            </div>
+        `;
+
+        // Store filter state for sensors
+        const sensorFilters = { status: 'all', search: '' };
+
+        // Apply filters function for sensors
+        const applySensorFilters = () => {
+            const cards = outputContainer.querySelectorAll('.signal-card');
+            let visibleCount = 0;
+            const counts = { all: 0, new: 0, repeated: 0, burst: 0, baseline: 0, emergency: 0 };
+
+            cards.forEach(card => {
+                const cardStatus = card.dataset.status;
+                const cardProtocol = card.dataset.protocol || '';
+                const cardSensorId = card.dataset.sensorId || '';
+
+                counts.all++;
+                if (counts.hasOwnProperty(cardStatus)) counts[cardStatus]++;
+
+                const statusMatch = sensorFilters.status === 'all' || cardStatus === sensorFilters.status;
+                const searchMatch = !sensorFilters.search ||
+                    cardProtocol.toLowerCase().includes(sensorFilters.search) ||
+                    cardSensorId.toLowerCase().includes(sensorFilters.search);
+
+                if (statusMatch && searchMatch) {
+                    card.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            // Update count badges
+            Object.keys(counts).forEach(key => {
+                const badge = filterBar.querySelector(`[data-count="${key}"]`);
+                if (badge) badge.textContent = counts[key];
+            });
+        };
+
+        // Status filter handlers
+        filterBar.querySelectorAll('.signal-filter-btn[data-filter="status"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBar.querySelectorAll('.signal-filter-btn[data-filter="status"]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sensorFilters.status = btn.dataset.value;
+                applySensorFilters();
+            });
+        });
+
+        // Search handler with debounce
+        const searchInput = filterBar.querySelector('#sensorSearchInput');
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                sensorFilters.search = e.target.value.toLowerCase();
+                applySensorFilters();
+            }, 200);
+        });
+
+        // Store applyFilters reference for external calls
+        filterBar.applyFilters = applySensorFilters;
+
+        return filterBar;
     }
 
     /**
@@ -396,21 +1325,45 @@ const SignalCards = (function() {
 
     // Public API
     return {
+        // Card creators
         createPagerCard,
+        createAprsCard,
+        createSensorCard,
+        createAcarsCard,
+        createMeterCard,
+
+        // UI interactions
         toggleAdvanced,
         copyMessage,
         muteAddress,
         isAddressMuted,
+        showOnMap,
         showToast,
+
+        // Filter bar
+        createPagerFilterBar,
+        createAprsFilterBar,
+        createSensorFilterBar,
         initFilterBar,
         applyFilters,
+        applyAllFilters,
         updateCounts,
         updateTimestamps,
+
+        // Address tracking
+        trackAddress,
+        getAddressStats,
+        clearAddressHistory,
+
+        // Utilities
         escapeHtml,
         formatRelativeTime,
         determineStatus,
         getProtoClass,
-        state
+
+        // State
+        state,
+        addressHistory
     };
 })();
 

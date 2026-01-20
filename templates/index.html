@@ -995,12 +995,13 @@
 
                         <!-- Station List Panel -->
                         <div class="wifi-visual-panel"
-                            style="flex: 1; min-width: 280px; max-width: 350px; display: flex; flex-direction: column;">
+                            style="flex: 1; min-width: 300px; max-width: 400px; display: flex; flex-direction: column;">
                             <h5
                                 style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); margin-bottom: 8px;">
                                 STATION LIST</h5>
-                            <div id="aprsStationList" style="flex: 1; overflow-y: auto; font-size: 11px;">
-                                <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                            <div id="aprsFilterBarContainer"></div>
+                            <div id="aprsStationList" class="signal-cards-container" style="flex: 1; overflow-y: auto; font-size: 11px; gap: 8px;">
+                                <div class="signal-cards-placeholder" style="padding: 20px; text-align: center; color: var(--text-muted);">
                                     No stations received yet
                                 </div>
                             </div>
@@ -1522,6 +1523,9 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Filter Bar Container (populated by JavaScript based on active mode) -->
+                <div id="filterBarContainer" style="display: none;"></div>
 
                 <div class="output-content signal-feed" id="output">
                     <div class="placeholder signal-empty-state">
@@ -2172,6 +2176,22 @@
                         reserveDevice(parseInt(device), 'sensor');
                         setSensorRunning(true);
                         startSensorStream();
+
+                        // Initialize sensor filter bar
+                        const filterContainer = document.getElementById('filterBarContainer');
+                        const output = document.getElementById('output');
+                        if (filterContainer) {
+                            filterContainer.innerHTML = '';
+                            const filterBar = SignalCards.createSensorFilterBar(output);
+                            filterContainer.appendChild(filterBar);
+                            filterContainer.style.display = 'block';
+                        }
+
+                        // Clear address history for fresh session
+                        SignalCards.clearAddressHistory('sensor');
+
+                        // Clear existing output
+                        output.innerHTML = '<div class="placeholder signal-empty-state" style="display: none;"></div>';
                     } else {
                         alert('Error: ' + data.message);
                     }
@@ -2250,40 +2270,51 @@
                 document.getElementById('deviceCount').textContent = uniqueDevices.size;
             }
 
-            const card = document.createElement('div');
-            card.className = 'sensor-card';
+            // Convert rtl_433 data format to our card format
+            const msg = {
+                model: data.model || 'Unknown',
+                id: data.id || data.channel || 'N/A',
+                channel: data.channel,
+                timestamp: data.time || new Date().toISOString(),
+                raw: data.raw,
+                frequency: data.freq
+            };
 
-            let dataItems = '';
-            const skipKeys = ['type', 'time', 'model', 'raw'];
-            for (const [key, value] of Object.entries(data)) {
-                if (!skipKeys.includes(key) && value !== null && value !== undefined) {
-                    const label = key.replace(/_/g, ' ');
-                    let displayValue = value;
-                    if (key === 'temperature_C') displayValue = value + ' °C';
-                    else if (key === 'temperature_F') displayValue = value + ' °F';
-                    else if (key === 'humidity') displayValue = value + ' %';
-                    else if (key === 'pressure_hPa') displayValue = value + ' hPa';
-                    else if (key === 'wind_avg_km_h') displayValue = value + ' km/h';
-                    else if (key === 'rain_mm') displayValue = value + ' mm';
-                    else if (key === 'battery_ok') displayValue = value ? 'OK' : 'Low';
-
-                    dataItems += '<div class="data-item"><div class="data-label">' + label + '</div><div class="data-value">' + displayValue + '</div></div>';
-                }
+            // Map common sensor fields
+            if (data.temperature_C !== undefined) {
+                msg.temperature = data.temperature_C;
+                msg.temperature_unit = 'C';
+            } else if (data.temperature_F !== undefined) {
+                msg.temperature = data.temperature_F;
+                msg.temperature_unit = 'F';
+            }
+            if (data.humidity !== undefined) msg.humidity = data.humidity;
+            if (data.battery_ok !== undefined) msg.battery = data.battery_ok ? 'OK' : 'LOW';
+            if (data.pressure_hPa !== undefined) {
+                msg.pressure = data.pressure_hPa;
+                msg.pressure_unit = 'hPa';
+            }
+            if (data.wind_avg_km_h !== undefined) {
+                msg.wind_speed = data.wind_avg_km_h;
+                msg.wind_unit = 'km/h';
+            }
+            if (data.rain_mm !== undefined) {
+                msg.rain = data.rain_mm;
+                msg.rain_unit = 'mm';
             }
 
-            const relTime = data.time ? getRelativeTime(data.time.split(' ')[1] || data.time) : 'now';
-
-            card.innerHTML =
-                '<div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">' +
-                '<span class="device-name">' + (data.model || 'Unknown Device') + '</span>' +
-                '<span class="msg-time" data-timestamp="' + (data.time || '') + '" style="color: #444; font-size: 10px;">' + relTime + '</span>' +
-                '</div>' +
-                '<div class="sensor-data">' + dataItems + '</div>';
-
+            // Create card using SignalCards component
+            const card = SignalCards.createSensorCard(msg);
             output.insertBefore(card, output.firstChild);
 
+            // Update filter counts
+            SignalCards.updateCounts(output);
+
             if (autoScroll) output.scrollTop = 0;
-            while (output.children.length > 100) {
+
+            // Keep list manageable
+            const cards = output.querySelectorAll('.signal-card');
+            while (cards.length > 100) {
                 output.removeChild(output.lastChild);
             }
         }
@@ -2341,6 +2372,25 @@
                         reserveDevice(parseInt(device), 'rtlamr');
                         setRtlamrRunning(true);
                         startRtlamrStream();
+
+                        // Initialize meter filter bar (reuse sensor filter bar since same structure)
+                        const filterContainer = document.getElementById('filterBarContainer');
+                        const output = document.getElementById('output');
+                        if (filterContainer) {
+                            filterContainer.innerHTML = '';
+                            const filterBar = SignalCards.createSensorFilterBar(output);
+                            filterBar.id = 'meterFilterBar';
+                            filterBar.querySelector('#sensorSearchInput').id = 'meterSearchInput';
+                            filterBar.querySelector('#meterSearchInput').placeholder = 'Search meter ID...';
+                            filterContainer.appendChild(filterBar);
+                            filterContainer.style.display = 'block';
+                        }
+
+                        // Clear address history for fresh session
+                        SignalCards.clearAddressHistory('meter');
+
+                        // Clear existing output
+                        output.innerHTML = '<div class="placeholder signal-empty-state" style="display: none;"></div>';
                     } else {
                         alert('Error: ' + data.message);
                     }
@@ -2419,7 +2469,8 @@
             document.getElementById('sensorCount').textContent = sensorCount;
 
             // Track unique meters by ID
-            const meterId = data.Message?.ID || 'Unknown';
+            const msgData = data.Message || {};
+            const meterId = msgData.ID || 'Unknown';
             if (meterId !== 'Unknown') {
                 const deviceKey = 'METER_' + meterId;
                 if (!uniqueDevices.has(deviceKey)) {
@@ -2428,35 +2479,27 @@
                 }
             }
 
-            const card = document.createElement('div');
-            card.className = 'sensor-card';
+            // Convert rtlamr data to our card format
+            const msg = {
+                id: String(meterId),
+                type: data.Type || 'Unknown',
+                consumption: msgData.Consumption,
+                unit: 'units',
+                endpoint_type: msgData.EndpointType,
+                endpoint_id: msgData.EndpointID,
+                timestamp: new Date().toISOString()
+            };
 
-            let dataItems = '';
-            const msg = data.Message || {};
-            
-            // Build display from message data
-            for (const [key, value] of Object.entries(msg)) {
-                if (value !== null && value !== undefined) {
-                    const label = key.replace(/_/g, ' ');
-                    let displayValue = value;
-                    if (key === 'Consumption') displayValue = value + ' units';
-                    dataItems += `<div class="sensor-item"><span class="sensor-label">${label}:</span> <span class="sensor-value">${displayValue}</span></div>`;
-                }
-            }
-
-            const timestamp = new Date().toLocaleTimeString();
-            card.innerHTML = `
-                <div class="sensor-header">
-                    <span class="sensor-model">${data.Type || 'Meter'}</span>
-                    <span class="sensor-time">${timestamp}</span>
-                </div>
-                <div class="sensor-data">${dataItems}</div>
-            `;
-
+            // Create card using SignalCards component
+            const card = SignalCards.createMeterCard(msg);
             output.insertBefore(card, output.firstChild);
 
+            // Update filter counts
+            SignalCards.updateCounts(output);
+
             // Limit output to 50 cards
-            while (output.children.length > 50) {
+            const cards = output.querySelectorAll('.signal-card');
+            while (cards.length > 50) {
                 output.removeChild(output.lastChild);
             }
         }
@@ -2975,6 +3018,20 @@
                         reserveDevice(parseInt(device), 'pager');
                         setRunning(true);
                         startStream();
+
+                        // Initialize filter bar
+                        const filterContainer = document.getElementById('filterBarContainer');
+                        const output = document.getElementById('output');
+                        if (filterContainer) {
+                            // Clear any existing filter bar and create pager filter
+                            filterContainer.innerHTML = '';
+                            const filterBar = SignalCards.createPagerFilterBar(output);
+                            filterContainer.appendChild(filterBar);
+                            filterContainer.style.display = 'block';
+                        }
+
+                        // Clear address history for fresh session
+                        SignalCards.clearAddressHistory('pager');
                     } else {
                         alert('Error: ' + data.message);
                     }
@@ -3140,21 +3197,23 @@
             // Add to waterfall
             addWaterfallPoint(Date.now(), 0.8);
 
-            // Use SignalCards component to create the message card
-            const msgEl = SignalCards.createPagerCard(msg, {
-                status: 'baseline' // Default status, can be enhanced with detection logic
-            });
+            // Use SignalCards component to create the message card (auto-detects status)
+            const msgEl = SignalCards.createPagerCard(msg);
 
             output.insertBefore(msgEl, output.firstChild);
+
+            // Update filter counts
+            SignalCards.updateCounts(output);
 
             // Auto-scroll to top (newest messages)
             if (autoScroll) {
                 output.scrollTop = 0;
             }
 
-            // Limit messages displayed
-            while (output.children.length > 100) {
-                output.removeChild(output.lastChild);
+            // Limit messages displayed (keep placeholder/empty-state)
+            const cards = output.querySelectorAll('.signal-card');
+            while (cards.length > 100) {
+                output.removeChild(cards[cards.length - 1]);
             }
         }
 
@@ -6741,6 +6800,19 @@
                     isAprsRunning = true;
                     aprsPacketCount = 0;
                     aprsStationCount = 0;
+
+                    // Initialize APRS filter bar and clear history
+                    const filterContainer = document.getElementById('aprsFilterBarContainer');
+                    const stationList = document.getElementById('aprsStationList');
+                    if (filterContainer && !document.getElementById('aprsFilterBar')) {
+                        const filterBar = SignalCards.createAprsFilterBar(stationList);
+                        filterContainer.appendChild(filterBar);
+                    }
+                    SignalCards.clearAddressHistory('aprs');
+
+                    // Clear existing station cards
+                    stationList.innerHTML = '<div class="signal-cards-placeholder" style="padding: 20px; text-align: center; color: var(--text-muted);">Waiting for stations...</div>';
+
                     // Update function bar buttons
                     document.getElementById('aprsStripStartBtn').style.display = 'none';
                     document.getElementById('aprsStripStopBtn').style.display = 'inline-block';
@@ -7008,60 +7080,76 @@
             const callsign = packet.callsign;
 
             // Remove placeholder if present
-            const placeholder = listEl.querySelector('div[style*="text-align: center"]');
-            if (placeholder && placeholder.textContent.includes('No stations')) {
+            const placeholder = listEl.querySelector('.signal-cards-placeholder');
+            if (placeholder) {
                 placeholder.remove();
+            }
+
+            // Calculate distance if user location available
+            let distance = null;
+            const hasPos = packet.lat && packet.lon;
+            if (hasPos && aprsUserLocation.lat && aprsUserLocation.lon) {
+                distance = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, packet.lat, packet.lon);
             }
 
             // Check if station already exists
             let stationEl = listEl.querySelector(`[data-callsign="${callsign}"]`);
+            const isExisting = !!stationEl;
 
-            if (!stationEl) {
-                stationEl = document.createElement('div');
-                stationEl.dataset.callsign = callsign;
-                stationEl.style.cssText = 'padding: 6px 8px; border-bottom: 1px solid var(--border-color); cursor: pointer;';
-                stationEl.onclick = () => {
-                    if (aprsMarkers[callsign] && aprsMap) {
-                        aprsMap.setView(aprsMarkers[callsign].getLatLng(), 10);
-                        aprsMarkers[callsign].openPopup();
-                    }
-                };
-                listEl.insertBefore(stationEl, listEl.firstChild);
-            }
+            // Prepare message object for card creation
+            const msg = {
+                callsign: callsign,
+                packet_type: packet.packet_type || 'unknown',
+                latitude: packet.lat,
+                longitude: packet.lon,
+                altitude: packet.altitude,
+                speed: packet.speed,
+                course: packet.course,
+                comment: packet.comment,
+                symbol: packet.symbol,
+                path: packet.path,
+                raw: packet.raw,
+                timestamp: new Date().toISOString(),
+                distance: distance
+            };
 
-            const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-            const hasPos = packet.lat && packet.lon;
+            // Create or update the card
+            const newCard = SignalCards.createAprsCard(msg, { compact: true });
+            newCard.dataset.callsign = callsign;
 
-            // Store lat/lon in dataset for distance updates
+            // Store position for distance updates
             if (hasPos) {
-                stationEl.dataset.lat = packet.lat;
-                stationEl.dataset.lon = packet.lon;
+                newCard.dataset.lat = packet.lat;
+                newCard.dataset.lon = packet.lon;
             }
 
-            // Calculate distance if user location available
-            let distStr = '';
-            if (hasPos && aprsUserLocation.lat && aprsUserLocation.lon) {
-                const dist = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, packet.lat, packet.lon);
-                distStr = `<span class="aprs-distance" style="color: var(--accent-green);">${dist.toFixed(1)} mi</span>`;
-            } else if (hasPos) {
-                distStr = `<span class="aprs-distance" style="color: var(--text-muted);">-- mi</span>`;
-            }
+            // Add click handler to focus map
+            newCard.style.cursor = 'pointer';
+            newCard.addEventListener('click', (e) => {
+                // Don't trigger if clicking on buttons
+                if (e.target.closest('button')) return;
+                if (aprsMarkers[callsign] && aprsMap) {
+                    aprsMap.setView(aprsMarkers[callsign].getLatLng(), 10);
+                    aprsMarkers[callsign].openPopup();
+                }
+            });
 
-            stationEl.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="color: var(--accent-cyan); font-weight: bold;">${callsign}</span>
-                    <span style="font-size: 9px; color: var(--text-muted);">${time}</span>
-                </div>
-                <div style="font-size: 9px; color: var(--text-secondary); margin-top: 2px; display: flex; justify-content: space-between;">
-                    <span>${packet.packet_type || 'unknown'} ${hasPos ? `| ${packet.lat.toFixed(2)}, ${packet.lon.toFixed(2)}` : ''}</span>
-                    ${distStr}
-                </div>
-            `;
+            if (isExisting) {
+                // Replace existing card
+                stationEl.replaceWith(newCard);
+            } else {
+                // Insert new card at top
+                listEl.insertBefore(newCard, listEl.firstChild);
+            }
 
             // Keep list manageable
-            while (listEl.children.length > 50) {
+            const cards = listEl.querySelectorAll('.signal-card');
+            while (cards.length > 50) {
                 listEl.removeChild(listEl.lastChild);
             }
+
+            // Update filter counts if filter bar exists
+            SignalCards.updateCounts(listEl);
         }
 
 
