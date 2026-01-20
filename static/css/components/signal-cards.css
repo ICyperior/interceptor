@@ -1158,6 +1158,13 @@
     border: none;
 }
 
+.signal-strength-indicator.no-data {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.5;
+}
+
 .signal-strength-bars {
     display: inline-block;
     vertical-align: middle;

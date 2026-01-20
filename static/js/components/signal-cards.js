@@ -827,9 +827,11 @@ const SignalCards = (function() {
         const stats = getAddressStats('sensor', msg.id);
         const seenCount = stats ? stats.count : 1;
 
-        // Get signal strength if available
-        const rssi = msg.rssi || msg.signal_strength || msg.snr || null;
-        const signalIndicator = createSignalIndicator(rssi, { compact: true });
+        // Get signal strength if available (rtl_433 uses 'snr' for signal-to-noise ratio)
+        const rssi = msg.rssi || msg.signal_strength || msg.snr || msg.noise || null;
+        const signalIndicator = rssi !== null
+            ? createSignalIndicator(rssi, { compact: true })
+            : '<span class="signal-strength-indicator compact no-data" title="No signal data available">--</span>';
 
         // Determine sensor type icon
         let sensorIcon = '📡';
