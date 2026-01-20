@@ -61,7 +61,9 @@ docker compose up -d
 
 ### Open the Interface
 
-After starting, open **http://localhost:5050** in your browser. The username and password is admin:admin 
+After starting, open **http://localhost:5050** in your browser. The username and password is <b>admin</b>:<b>admin</b> 
+
+The credentials can be change in the ADMIN_USERNAME & ADMIN_PASSWORD variables in config.py
 
 ---
 
