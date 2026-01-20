@@ -205,7 +205,7 @@ cleanup_manager.register(dsc_messages)
 @app.before_request
 def require_login():
     # Routes that don't require login (to avoid infinite redirect loop)
-    allowed_routes = ['login', 'static', 'favicon', 'health']
+    allowed_routes = ['login', 'static', 'favicon', 'health', 'health_check']
 
     # If user is not logged in and the current route is not allowed...
     if 'logged_in' not in session and request.endpoint not in allowed_routes:
