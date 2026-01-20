@@ -1269,3 +1269,219 @@
     color: var(--text-dim);
     font-style: italic;
 }
+
+/* ============================================
+   Clickable Station Badge (APRS)
+   ============================================ */
+
+.signal-station-clickable {
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.signal-station-clickable:hover {
+    background: var(--accent-purple);
+    color: #000;
+    transform: scale(1.05);
+    box-shadow: 0 0 8px rgba(138, 43, 226, 0.4);
+}
+
+.signal-station-clickable:active {
+    transform: scale(0.98);
+}
+
+.signal-station-clickable::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background: var(--accent-purple);
+    transition: width 0.2s ease;
+}
+
+.signal-station-clickable:hover::after {
+    width: 80%;
+}
+
+/* ============================================
+   Station Raw Data Modal
+   ============================================ */
+
+.station-raw-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.station-raw-modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.station-raw-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+}
+
+.station-raw-modal-content {
+    position: relative;
+    background: var(--panel-bg, #1a1a2e);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+}
+
+.station-raw-modal.show .station-raw-modal-content {
+    transform: scale(1);
+}
+
+.station-raw-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color, #333);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px 8px 0 0;
+}
+
+.station-raw-modal-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-cyan, #00d4ff);
+}
+
+.station-raw-modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted, #888);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.15s ease;
+}
+
+.station-raw-modal-close:hover {
+    color: var(--accent-red, #ff4444);
+}
+
+.station-raw-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.station-raw-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted, #888);
+    margin-bottom: 8px;
+}
+
+.station-raw-data-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--accent-green, #00ff88);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 4px;
+    padding: 12px;
+    word-break: break-all;
+    white-space: pre-wrap;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.station-raw-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color, #333);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 8px 8px;
+}
+
+.station-raw-copy-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 16px;
+    background: var(--accent-purple, #8a2be2);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.station-raw-copy-btn:hover {
+    background: var(--accent-cyan, #00d4ff);
+    color: #000;
+}
+
+/* ============================================
+   SIGNAL GUESS INTEGRATION
+   ============================================ */
+
+/* Signal guess badge in card header */
+.signal-card-badges .signal-guess-badge {
+    margin-left: 4px;
+}
+
+/* Signal guess section in advanced panel */
+.signal-guess-section {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.signal-guess-section .signal-guess-container {
+    margin-top: 8px;
+}
+
+/* Adjust guess label colors for dark theme */
+.signal-guess-section .signal-guess-label {
+    color: var(--text-primary, #e0e0e0);
+}
+
+.signal-guess-section .signal-guess-tag {
+    background: var(--bg-tertiary, #2a2a2a);
+    color: var(--text-secondary, #888);
+}
+
+.signal-guess-section .signal-guess-alt-item {
+    color: var(--text-secondary, #999);
+}
+
+.signal-guess-section .signal-guess-popup-explanation {
+    color: var(--text-secondary, #aaa);
+}

@@ -26,8 +26,8 @@ const SignalCards = (function() {
         STRENGTH_INFO: {
             minimal: {
                 label: 'Minimal',
-                description: 'At detection threshold',
-                interpretation: 'may be ambient noise or distant source',
+                description: 'Near minimum observable level',
+                interpretation: 'may represent background activity or a distant source',
                 confidence: 'low',
                 color: '#888888',
                 icon: 'signal-0',
@@ -35,8 +35,8 @@ const SignalCards = (function() {
             },
             weak: {
                 label: 'Weak',
-                description: 'Detectable signal',
-                interpretation: 'potentially distant or obstructed',
+                description: 'Low-level signal present',
+                interpretation: 'possibly distant or partially obstructed',
                 confidence: 'low',
                 color: '#6baed6',
                 icon: 'signal-1',
@@ -44,7 +44,7 @@ const SignalCards = (function() {
             },
             moderate: {
                 label: 'Moderate',
-                description: 'Consistent presence',
+                description: 'Consistent signal presence',
                 interpretation: 'likely in proximity',
                 confidence: 'medium',
                 color: '#3182bd',
@@ -53,8 +53,8 @@ const SignalCards = (function() {
             },
             strong: {
                 label: 'Strong',
-                description: 'Clear signal',
-                interpretation: 'probable close proximity',
+                description: 'Clear, consistent signal',
+                interpretation: 'suggests relatively close proximity',
                 confidence: 'medium',
                 color: '#fd8d3c',
                 icon: 'signal-3',
@@ -62,8 +62,8 @@ const SignalCards = (function() {
             },
             very_strong: {
                 label: 'Very Strong',
-                description: 'High signal level',
-                interpretation: 'indicates likely nearby source',
+                description: 'Elevated signal level',
+                interpretation: 'consistent with a nearby source',
                 confidence: 'high',
                 color: '#e6550d',
                 icon: 'signal-4',
@@ -82,23 +82,23 @@ const SignalCards = (function() {
         DURATION_INFO: {
             transient: {
                 label: 'Transient',
-                modifier: 'briefly observed',
-                confidence_impact: 'reduces confidence'
+                modifier: 'observed briefly',
+                confidence_impact: 'limits assessment confidence'
             },
             short: {
                 label: 'Short-duration',
                 modifier: 'observed for a short period',
-                confidence_impact: 'limited confidence'
+                confidence_impact: 'provides limited confidence'
             },
             sustained: {
                 label: 'Sustained',
                 modifier: 'observed over sustained period',
-                confidence_impact: 'supports confidence'
+                confidence_impact: 'supports assessment confidence'
             },
             persistent: {
                 label: 'Persistent',
                 modifier: 'continuously observed',
-                confidence_impact: 'increases confidence'
+                confidence_impact: 'strengthens assessment confidence'
             }
         },
 
@@ -190,11 +190,11 @@ const SignalCards = (function() {
             const confidence = this.calculateConfidence(rssi, durationSeconds, observationCount);
 
             if (confidence === 'high') {
-                return `${strengthInfo.label}, ${durationInfo.label.toLowerCase()} signal with characteristics that suggest device presence in proximity`;
+                return `${strengthInfo.label}, ${durationInfo.label.toLowerCase()} signal with characteristics that suggest a transmitting device may be nearby`;
             } else if (confidence === 'medium') {
-                return `${strengthInfo.label}, ${durationInfo.label.toLowerCase()} signal that may indicate device activity`;
+                return `${strengthInfo.label}, ${durationInfo.label.toLowerCase()} signal that may indicate nearby device activity`;
             } else {
-                return `${durationInfo.modifier.charAt(0).toUpperCase() + durationInfo.modifier.slice(1)} ${strengthInfo.label.toLowerCase()} signal consistent with possible device presence`;
+                return `${durationInfo.modifier.charAt(0).toUpperCase() + durationInfo.modifier.slice(1)} ${strengthInfo.label.toLowerCase()} signal consistent with possible nearby device activity`;
             }
         },
 
@@ -207,11 +207,11 @@ const SignalCards = (function() {
             const base = strengthInfo.interpretation;
 
             if (confidence === 'high') {
-                return `Observed signal characteristics suggest ${base}`;
+                return `Signal characteristics suggest ${base}`;
             } else if (confidence === 'medium') {
-                return `Signal pattern may indicate ${base}`;
+                return `Observed pattern may indicate ${base}`;
             } else {
-                return `Limited data; signal could represent ${base} or environmental factors`;
+                return `With limited data, this signal may represent ${base} or environmental factors`;
             }
         },
 
@@ -246,7 +246,7 @@ const SignalCards = (function() {
                 estimate,
                 rangeMin,
                 rangeMax,
-                disclaimer: 'Range estimates are approximate and affected by walls, interference, and transmit power'
+                disclaimer: 'Range estimates are approximate and influenced by physical obstructions, interference, and transmitter power'
             };
         }
     };
@@ -702,7 +702,7 @@ const SignalCards = (function() {
             <div class="signal-card-header">
                 <div class="signal-card-badges">
                     <span class="signal-proto-badge aprs">APRS</span>
-                    <span class="signal-freq-badge">${escapeHtml(msg.callsign || 'Unknown')}</span>
+                    <span class="signal-freq-badge signal-station-clickable" data-callsign="${escapeHtml(msg.callsign || 'Unknown')}" data-raw="${msg.raw ? escapeHtml(msg.raw) : ''}" onclick="SignalCards.showStationRawData(this)" title="Click to view raw data">${escapeHtml(msg.callsign || 'Unknown')}</span>
                 </div>
                 ${status !== 'baseline' ? `
                 <span class="signal-status-pill" data-status="${status}">
@@ -833,12 +833,44 @@ const SignalCards = (function() {
             ? createSignalIndicator(rssi, { compact: true })
             : '<span class="signal-strength-indicator compact no-data" title="No signal data available">--</span>';
 
+        // Signal type guessing based on frequency
+        let signalGuess = null;
+        let signalGuessBadge = '';
+        let signalGuessSection = '';
+        if (msg.frequency && typeof SignalGuess !== 'undefined') {
+            const frequencyHz = parseFloat(msg.frequency) * 1_000_000; // Convert MHz to Hz
+            signalGuess = SignalGuess.guessSignalType({
+                frequency_hz: frequencyHz,
+                modulation: msg.modulation || null,
+                bandwidth_hz: msg.bandwidth ? parseFloat(msg.bandwidth) * 1000 : null,
+                rssi_dbm: rssi,
+                region: 'UK/EU'
+            });
+
+            // Create compact badge for header
+            if (signalGuess && signalGuess.primary_label !== 'Unknown Signal') {
+                signalGuessBadge = SignalGuess.createCompactBadge(signalGuess).outerHTML;
+            }
+
+            // Create detailed section for advanced panel
+            if (signalGuess) {
+                const guessElement = SignalGuess.createGuessElement(signalGuess, { showAlternatives: true, compact: false });
+                signalGuessSection = `
+                    <div class="signal-advanced-section signal-guess-section">
+                        <div class="signal-advanced-title">Signal Identification</div>
+                        <div class="signal-guess-content"></div>
+                    </div>
+                `;
+            }
+        }
+
         card.innerHTML = `
             <div class="signal-card-header">
                 <div class="signal-card-badges">
                     <span class="signal-proto-badge sensor">${escapeHtml(msg.model || 'Unknown')}</span>
                     <span class="signal-freq-badge">ID: ${escapeHtml(msg.id || 'N/A')}</span>
                     ${signalIndicator}
+                    ${signalGuessBadge}
                 </div>
                 ${status !== 'baseline' ? `
                 <span class="signal-status-pill" data-status="${status}">
@@ -913,6 +945,7 @@ const SignalCards = (function() {
                 <div class="signal-advanced-inner">
                     <div class="signal-advanced-content">
                         ${rssi !== null ? createSignalAssessmentPanel(rssi, stats?.lastSeen ? (Date.now() - stats.firstSeen) / 1000 : null, seenCount) : ''}
+                        ${signalGuessSection}
                         <div class="signal-advanced-section">
                             <div class="signal-advanced-title">Sensor Details</div>
                             <div class="signal-advanced-grid">
@@ -952,6 +985,15 @@ const SignalCards = (function() {
                 </div>
             </div>
         `;
+
+        // Populate signal guess content if available
+        if (signalGuess) {
+            const guessContentDiv = card.querySelector('.signal-guess-content');
+            if (guessContentDiv) {
+                const guessElement = SignalGuess.createGuessElement(signalGuess, { showAlternatives: true, compact: false });
+                guessContentDiv.appendChild(guessElement);
+            }
+        }
 
         return card;
     }
@@ -1178,9 +1220,9 @@ const SignalCards = (function() {
         const message = card.querySelector('.signal-message');
         if (message) {
             navigator.clipboard.writeText(message.textContent).then(() => {
-                showToast('Message copied to clipboard');
+                showToast('Content copied');
             }).catch(() => {
-                showToast('Failed to copy', 'error');
+                showToast('Unable to copy content', 'error');
             });
         }
     }
@@ -1193,7 +1235,7 @@ const SignalCards = (function() {
         if (!muted.includes(address)) {
             muted.push(address);
             localStorage.setItem('mutedAddresses', JSON.stringify(muted));
-            showToast(`Address ${address} muted`);
+            showToast(`Source ${address} hidden from view`);
 
             // Hide existing cards with this address
             document.querySelectorAll(`.signal-card[data-address="${address}"], .signal-card[data-callsign="${address}"], .signal-card[data-sensor-id="${address}"]`).forEach(card => {
@@ -1221,7 +1263,62 @@ const SignalCards = (function() {
             detail: { lat, lon, label }
         });
         document.dispatchEvent(event);
-        showToast(`Showing ${label} on map`);
+        showToast(`Displaying ${label} location`);
+    }
+
+    /**
+     * Show raw data modal for a station
+     */
+    function showStationRawData(element) {
+        const callsign = element.dataset.callsign || 'Unknown';
+        const rawData = element.dataset.raw || '';
+        // Create or reuse modal
+        let modal = document.getElementById('stationRawDataModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'stationRawDataModal';
+            modal.className = 'station-raw-modal';
+            modal.innerHTML = `
+                <div class="station-raw-modal-backdrop"></div>
+                <div class="station-raw-modal-content">
+                    <div class="station-raw-modal-header">
+                        <span class="station-raw-modal-title"></span>
+                        <button class="station-raw-modal-close">&times;</button>
+                    </div>
+                    <div class="station-raw-modal-body">
+                        <div class="station-raw-label">Raw Packet Data</div>
+                        <pre class="station-raw-data-display"></pre>
+                    </div>
+                    <div class="station-raw-modal-footer">
+                        <button class="station-raw-copy-btn">Copy to Clipboard</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Close handlers
+            modal.querySelector('.station-raw-modal-backdrop').addEventListener('click', () => {
+                modal.classList.remove('show');
+            });
+            modal.querySelector('.station-raw-modal-close').addEventListener('click', () => {
+                modal.classList.remove('show');
+            });
+            modal.querySelector('.station-raw-copy-btn').addEventListener('click', () => {
+                const rawText = modal.querySelector('.station-raw-data-display').textContent;
+                navigator.clipboard.writeText(rawText).then(() => {
+                    showToast('Raw data copied to clipboard');
+                }).catch(() => {
+                    showToast('Failed to copy', 'error');
+                });
+            });
+        }
+
+        // Populate modal
+        modal.querySelector('.station-raw-modal-title').textContent = `Station: ${callsign}`;
+        modal.querySelector('.station-raw-data-display').textContent = rawData || 'No raw data available';
+
+        // Show modal
+        modal.classList.add('show');
     }
 
     /**
@@ -1687,6 +1784,7 @@ const SignalCards = (function() {
         muteAddress,
         isAddressMuted,
         showOnMap,
+        showStationRawData,
         showToast,
 
         // Filter bar

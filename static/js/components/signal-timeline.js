@@ -61,15 +61,15 @@ const SignalTimeline = (function() {
      */
     function categorizeFrequency(freq) {
         const f = parseFloat(freq);
-        if (f >= 2400 && f <= 2500) return 'Wi-Fi 2.4GHz';
-        if (f >= 5150 && f <= 5850) return 'Wi-Fi 5GHz';
-        if (f >= 433 && f <= 434) return '433MHz ISM';
-        if (f >= 868 && f <= 869) return '868MHz ISM';
-        if (f >= 902 && f <= 928) return '915MHz ISM';
+        if (f >= 2400 && f <= 2500) return '2.4 GHz wireless band';
+        if (f >= 5150 && f <= 5850) return '5 GHz wireless band';
+        if (f >= 433 && f <= 434) return '433 MHz low-power band';
+        if (f >= 868 && f <= 869) return '868 MHz low-power band';
+        if (f >= 902 && f <= 928) return '915 MHz low-power band';
         if (f >= 315 && f <= 316) return '315MHz';
-        if (f >= 2402 && f <= 2480) return 'Bluetooth';
-        if (f >= 144 && f <= 148) return 'VHF Ham';
-        if (f >= 420 && f <= 450) return 'UHF Ham';
+        if (f >= 2402 && f <= 2480) return 'Bluetooth band';
+        if (f >= 144 && f <= 148) return 'VHF amateur band';
+        if (f >= 420 && f <= 450) return 'UHF amateur band';
         return `${freq} MHz`;
     }
 
@@ -86,7 +86,7 @@ const SignalTimeline = (function() {
             state.signals.set(frequency, signal);
 
             // Add annotation for new signal
-            addAnnotation('new', `New signal detected: ${signal.name}`, now);
+            addAnnotation('new', `New signal observed: ${signal.name}`, now);
         }
 
         // Add event
@@ -152,7 +152,7 @@ const SignalTimeline = (function() {
             if (signal.status !== 'burst') {
                 signal.status = 'burst';
                 addAnnotation('burst',
-                    `Burst: ${recentEvents.length} transmissions in ${config.burstWindow/1000}s - ${signal.name}`,
+                    `Activity cluster: ${recentEvents.length} events in ${config.burstWindow/1000}s - ${signal.name}`,
                     now
                 );
             }
@@ -200,7 +200,7 @@ const SignalTimeline = (function() {
                     if (signal.pattern !== patternStr) {
                         signal.pattern = patternStr;
                         addAnnotation('pattern',
-                            `Pattern detected: ${patternStr} - ${signal.name}`,
+                            `Repeating pattern observed: ${patternStr} - ${signal.name}`,
                             Date.now()
                         );
                     }
@@ -235,8 +235,8 @@ const SignalTimeline = (function() {
             signal.status = signal.flagged ? 'flagged' : 'new';
             addAnnotation('flagged',
                 signal.flagged
-                    ? `Flagged for investigation: ${signal.name}`
-                    : `Unflagged: ${signal.name}`,
+                    ? `Marked for review: ${signal.name}`
+                    : `Review mark removed: ${signal.name}`,
                 Date.now()
             );
         }
@@ -249,7 +249,7 @@ const SignalTimeline = (function() {
         const signal = state.signals.get(frequency);
         if (signal && signal.status !== 'gone') {
             signal.status = 'gone';
-            addAnnotation('gone', `Signal disappeared: ${signal.name}`, Date.now());
+            addAnnotation('gone', `Signal no longer observed: ${signal.name}`, Date.now());
         }
     }
 
@@ -313,8 +313,8 @@ const SignalTimeline = (function() {
                 <div class="signal-timeline-lanes" id="timelineLanes">
                     <div class="signal-timeline-empty">
                         <div class="signal-timeline-empty-icon">📡</div>
-                        <div>No signals recorded yet</div>
-                        <div style="margin-top: 4px; font-size: 9px;">Signals will appear as they are detected</div>
+                        <div>No signal activity recorded</div>
+                        <div style="margin-top: 4px; font-size: 9px;">Activity will appear here as signals are observed</div>
                     </div>
                 </div>
                 <div class="signal-timeline-annotations" id="timelineAnnotations" style="display: none;"></div>
@@ -548,8 +548,8 @@ const SignalTimeline = (function() {
             lanesContainer.innerHTML = `
                 <div class="signal-timeline-empty">
                     <div class="signal-timeline-empty-icon">📡</div>
-                    <div>No signals recorded yet</div>
-                    <div style="margin-top: 4px; font-size: 9px;">Signals will appear as they are detected</div>
+                    <div>No signal activity recorded</div>
+                    <div style="margin-top: 4px; font-size: 9px;">Activity will appear here as signals are observed</div>
                 </div>
             `;
         } else {

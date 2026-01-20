@@ -179,15 +179,15 @@ const ActivityTimeline = (function() {
         if (mode === 'rf' || mode === 'tscm' || mode === 'listening-post') {
             const f = parseFloat(id);
             if (!isNaN(f)) {
-                if (f >= 2400 && f <= 2500) return 'Wi-Fi 2.4GHz';
-                if (f >= 5150 && f <= 5850) return 'Wi-Fi 5GHz';
-                if (f >= 433 && f <= 434) return '433MHz ISM';
-                if (f >= 868 && f <= 869) return '868MHz ISM';
-                if (f >= 902 && f <= 928) return '915MHz ISM';
+                if (f >= 2400 && f <= 2500) return '2.4 GHz wireless band';
+                if (f >= 5150 && f <= 5850) return '5 GHz wireless band';
+                if (f >= 433 && f <= 434) return '433 MHz low-power band';
+                if (f >= 868 && f <= 869) return '868 MHz low-power band';
+                if (f >= 902 && f <= 928) return '915 MHz low-power band';
                 if (f >= 315 && f <= 316) return '315MHz';
-                if (f >= 2402 && f <= 2480) return 'Bluetooth';
-                if (f >= 144 && f <= 148) return 'VHF Ham';
-                if (f >= 420 && f <= 450) return 'UHF Ham';
+                if (f >= 2402 && f <= 2480) return 'Bluetooth band';
+                if (f >= 144 && f <= 148) return 'VHF amateur band';
+                if (f >= 420 && f <= 450) return 'UHF amateur band';
                 return `${f.toFixed(3)} MHz`;
             }
         }
@@ -231,7 +231,7 @@ const ActivityTimeline = (function() {
             item.firstSeen = now;
             state.items.set(id, item);
 
-            addAnnotation(state, 'new', `New: ${item.label}`, now);
+            addAnnotation(state, 'new', `New activity: ${item.label}`, now);
         }
 
         // Add event
@@ -341,7 +341,7 @@ const ActivityTimeline = (function() {
 
                     if (item.pattern !== patternStr) {
                         item.pattern = patternStr;
-                        addAnnotation(state, 'pattern', `Pattern: ${patternStr} - ${item.label}`, Date.now());
+                        addAnnotation(state, 'pattern', `Repeating pattern observed: ${patternStr} - ${item.label}`, Date.now());
                     }
                 }
             }
@@ -376,7 +376,7 @@ const ActivityTimeline = (function() {
             item.status = item.flagged ? 'flagged' : 'new';
             addAnnotation(state,
                 'flagged',
-                item.flagged ? `Flagged: ${item.label}` : `Unflagged: ${item.label}`,
+                item.flagged ? `Marked for review: ${item.label}` : `Review mark removed: ${item.label}`,
                 Date.now()
             );
 
@@ -398,7 +398,7 @@ const ActivityTimeline = (function() {
         const item = state.items.get(id);
         if (item && item.status !== 'gone') {
             item.status = 'gone';
-            addAnnotation(state, 'gone', `Inactive: ${item.label}`, Date.now());
+            addAnnotation(state, 'gone', `No longer active: ${item.label}`, Date.now());
         }
     }
 
@@ -479,7 +479,7 @@ const ActivityTimeline = (function() {
                     <div class="activity-timeline-empty">
                         <div class="activity-timeline-empty-icon">◯</div>
                         <div>No activity recorded</div>
-                        <div style="margin-top: 4px; font-size: 9px;">Events will appear as they are detected</div>
+                        <div style="margin-top: 4px; font-size: 9px;">Activity will appear here as events are observed</div>
                     </div>
                 </div>
                 <div class="activity-timeline-annotations" style="display: none;"></div>
@@ -737,7 +737,7 @@ const ActivityTimeline = (function() {
                 <div class="activity-timeline-empty">
                     <div class="activity-timeline-empty-icon">◯</div>
                     <div>No activity recorded</div>
-                    <div style="margin-top: 4px; font-size: 9px;">Events will appear as they are detected</div>
+                    <div style="margin-top: 4px; font-size: 9px;">Activity will appear here as events are observed</div>
                 </div>
             `;
         } else {
