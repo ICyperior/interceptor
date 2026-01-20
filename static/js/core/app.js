@@ -78,37 +78,6 @@ function updateHeaderClock() {
     document.getElementById('headerUtcTime').textContent = utc;
 }
 
-// ============== HEADER STATS SYNC ==============
-
-function syncHeaderStats() {
-    // Pager stats
-    document.getElementById('headerMsgCount').textContent = msgCount;
-    document.getElementById('headerPocsagCount').textContent = pocsagCount;
-    document.getElementById('headerFlexCount').textContent = flexCount;
-
-    // Sensor stats
-    document.getElementById('headerSensorCount').textContent = document.getElementById('sensorCount')?.textContent || '0';
-    document.getElementById('headerDeviceTypeCount').textContent = document.getElementById('deviceCount')?.textContent || '0';
-
-    // WiFi stats
-    document.getElementById('headerApCount').textContent = document.getElementById('apCount')?.textContent || '0';
-    document.getElementById('headerClientCount').textContent = document.getElementById('clientCount')?.textContent || '0';
-    document.getElementById('headerHandshakeCount').textContent = document.getElementById('handshakeCount')?.textContent || '0';
-    document.getElementById('headerDroneCount').textContent = document.getElementById('droneCount')?.textContent || '0';
-
-    // Bluetooth stats
-    document.getElementById('headerBtDeviceCount').textContent = document.getElementById('btDeviceCount')?.textContent || '0';
-    document.getElementById('headerBtBeaconCount').textContent = document.getElementById('btBeaconCount')?.textContent || '0';
-
-    // Aircraft stats
-    document.getElementById('headerAircraftCount').textContent = document.getElementById('aircraftCount')?.textContent || '0';
-    document.getElementById('headerAdsbMsgCount').textContent = document.getElementById('adsbMsgCount')?.textContent || '0';
-    document.getElementById('headerIcaoCount').textContent = document.getElementById('icaoCount')?.textContent || '0';
-
-    // Satellite stats
-    document.getElementById('headerPassCount').textContent = document.getElementById('passCount')?.textContent || '0';
-}
-
 // ============== MODE SWITCHING ==============
 
 function switchMode(mode) {
@@ -154,14 +123,6 @@ function switchMode(mode) {
 
     // Hide signal meter - individual panels show signal strength where needed
     document.getElementById('signalMeter').style.display = 'none';
-
-    // Update header stats groups
-    document.getElementById('headerPagerStats').classList.toggle('active', mode === 'pager');
-    document.getElementById('headerSensorStats').classList.toggle('active', mode === 'sensor');
-    document.getElementById('headerAircraftStats').classList.toggle('active', mode === 'aircraft');
-    document.getElementById('headerSatelliteStats').classList.toggle('active', mode === 'satellite');
-    document.getElementById('headerWifiStats').classList.toggle('active', mode === 'wifi');
-    document.getElementById('headerBtStats').classList.toggle('active', mode === 'bluetooth');
 
     // Show/hide dashboard buttons in nav bar
     document.getElementById('adsbDashboardBtn').style.display = mode === 'aircraft' ? 'inline-flex' : 'none';
@@ -578,9 +539,6 @@ function initApp() {
     // Start clock
     updateHeaderClock();
     setInterval(updateHeaderClock, 1000);
-
-    // Start stats sync
-    setInterval(syncHeaderStats, 500);
 
     // Load bias-T setting
     loadBiasTSetting();
