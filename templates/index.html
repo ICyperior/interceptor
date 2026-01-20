@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/aprs.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/tscm.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
 </head>
 
 <body>
@@ -1456,6 +1457,9 @@
                     <!-- Sweep Summary (shown after sweep completes) -->
                     <div id="tscmSweepSummary" style="display: none; margin-bottom: 16px;"></div>
 
+                    <!-- Signal Activity Timeline -->
+                    <div id="tscmTimelineContainer" style="margin-bottom: 16px;"></div>
+
                     <!-- Cross-Protocol Correlations (shown when correlations found) -->
                     <div id="tscmCorrelationsContainer" style="display: none;"></div>
 
@@ -1588,6 +1592,7 @@
     <script src="{{ url_for('static', filename='js/core/audio.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/radio-knob.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-cards.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/signal-timeline.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/listening-post.js') }}"></script>
 
     <script>
@@ -2057,6 +2062,10 @@
             if (mode === 'tscm') {
                 loadTscmBaselines();
                 refreshTscmDevices();
+                // Initialize signal timeline if not already created
+                if (!document.getElementById('signalTimeline')) {
+                    SignalTimeline.create('tscmTimelineContainer');
+                }
             }
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
@@ -7782,7 +7791,7 @@
         ];
 
         function renderSatelliteList() {
-            const list = document.getElementById('satelliteList');
+            const list = document.getElementById('satTrackingList');
             if (!list) return;
 
             list.innerHTML = trackedSatellites.map((sat, idx) => `
@@ -7894,14 +7903,15 @@
                     if (data.status === 'success' && data.satellites) {
                         let added = 0;
                         data.satellites.forEach(sat => {
-                            if (!trackedSatellites.find(s => s.norad === sat.norad)) {
+                            const noradStr = String(sat.norad);
+                            if (!trackedSatellites.find(s => s.norad === noradStr)) {
                                 trackedSatellites.push({
-                                    id: sat.id,
+                                    id: sat.name.replace(/[^a-zA-Z0-9-]/g, '-'),
                                     name: sat.name,
-                                    norad: sat.norad,
+                                    norad: noradStr,
                                     builtin: false,
                                     checked: false, // Don't auto-select
-                                    tle: sat.tle
+                                    tle: [sat.name, sat.tle1, sat.tle2]
                                 });
                                 added++;
                             }
@@ -8171,6 +8181,9 @@
                     document.getElementById('startTscmBtn').style.display = 'none';
                     document.getElementById('stopTscmBtn').style.display = 'block';
                     document.getElementById('tscmProgress').style.display = 'flex';
+
+                    // Clear and reset the signal timeline for new sweep
+                    SignalTimeline.clear();
                     document.getElementById('tscmReportBtn').style.display = 'none';
 
                     // Show warnings if any devices unavailable
@@ -8864,6 +8877,10 @@
                         body: JSON.stringify(device)
                     }).catch(e => console.error('Baseline feed error:', e));
                 }
+                // Add to signal timeline
+                const freq = device.channel <= 14 ? '2400' : '5000';
+                const strength = Math.min(5, Math.max(1, Math.ceil((device.signal + 100) / 20)));
+                SignalTimeline.addEvent(freq, strength, 2000, device.ssid || 'Hidden WiFi');
             }
         }
 
@@ -8886,6 +8903,9 @@
                         body: JSON.stringify(device)
                     }).catch(e => console.error('Baseline feed error:', e));
                 }
+                // Add to signal timeline
+                const strength = device.rssi ? Math.min(5, Math.max(1, Math.ceil((device.rssi + 100) / 20))) : 3;
+                SignalTimeline.addEvent('2450', strength, 1500, device.name || 'Bluetooth Device');
             }
         }
 
@@ -8913,6 +8933,13 @@
                         body: JSON.stringify(signal)
                     }).catch(e => console.error('Baseline feed error:', e));
                 }
+                // Add to signal timeline
+                const strength = signal.power_dbm ? Math.min(5, Math.max(1, Math.ceil((signal.power_dbm + 60) / 15))) : 3;
+                SignalTimeline.addEvent(String(signal.frequency), strength, 1000, signal.classification || 'RF Signal');
+            } else {
+                // Update existing signal on timeline (show recurring transmission)
+                const strength = signal.power_dbm ? Math.min(5, Math.max(1, Math.ceil((signal.power_dbm + 60) / 15))) : 3;
+                SignalTimeline.addEvent(String(signal.frequency), strength, 500, signal.classification || 'RF Signal');
             }
         }
 
