@@ -443,8 +443,7 @@ install_macos_packages() {
   if ! cmd_exists rtlamr; then
     echo
     info "rtlamr is used for utility meter monitoring (electric/gas/water meters)."
-    read -r -p "Do you want to install rtlamr? [y/N] " install_rtlamr
-    if [[ "$install_rtlamr" =~ ^[Yy]$ ]]; then
+    if ask_yes_no "Do you want to install rtlamr?"; then
       install_rtlamr_from_source
     else
       warn "Skipping rtlamr installation. You can install it later if needed."
@@ -762,8 +761,7 @@ install_debian_packages() {
   if ! cmd_exists rtlamr; then
     echo
     info "rtlamr is used for utility meter monitoring (electric/gas/water meters)."
-    read -r -p "Do you want to install rtlamr? [y/N] " install_rtlamr
-    if [[ "$install_rtlamr" =~ ^[Yy]$ ]]; then
+    if ask_yes_no "Do you want to install rtlamr?"; then
       install_rtlamr_from_source
     else
       warn "Skipping rtlamr installation. You can install it later if needed."
