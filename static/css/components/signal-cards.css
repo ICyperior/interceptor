@@ -1136,3 +1136,129 @@
         flex: 1;
     }
 }
+
+/* ============================================
+   SIGNAL STRENGTH INDICATOR
+   Classification-based signal display
+   ============================================ */
+.signal-strength-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.signal-strength-indicator.compact {
+    padding: 2px 4px;
+    gap: 0;
+    background: transparent;
+    border: none;
+}
+
+.signal-strength-bars {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.signal-strength-bars rect {
+    transition: fill 0.2s ease;
+}
+
+.signal-strength-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Confidence-based styling */
+.signal-confidence-low {
+    opacity: 0.7;
+}
+
+.signal-confidence-medium {
+    opacity: 0.85;
+}
+
+.signal-confidence-high {
+    opacity: 1;
+}
+
+.signal-advanced-value.signal-confidence-low {
+    color: var(--text-dim);
+}
+
+.signal-advanced-value.signal-confidence-medium {
+    color: var(--accent-amber);
+}
+
+.signal-advanced-value.signal-confidence-high {
+    color: var(--accent-green);
+}
+
+/* ============================================
+   SIGNAL ASSESSMENT PANEL
+   Detailed signal analysis in advanced panel
+   ============================================ */
+.signal-assessment {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.signal-assessment-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.signal-assessment-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    flex: 1;
+}
+
+.signal-assessment-caveat {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-color);
+    line-height: 1.4;
+}
+
+/* Signal assessment confidence badges */
+.signal-assessment .signal-advanced-grid {
+    margin-top: 8px;
+}
+
+/* Range estimate styling */
+.signal-range-estimate {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+}
+
+.signal-range-estimate .range-value {
+    color: var(--accent-cyan);
+    font-weight: 500;
+}
+
+.signal-range-estimate .range-disclaimer {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-style: italic;
+}

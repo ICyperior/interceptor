@@ -20,6 +20,11 @@ from data.tscm_frequencies import (
     is_known_tracker,
     is_potential_camera,
 )
+from utils.tscm.signal_classification import (
+    classify_signal_strength,
+    get_signal_strength_info,
+    SignalStrength,
+)
 
 logger = logging.getLogger('intercept.tscm.detector')
 
@@ -171,8 +176,11 @@ class ThreatDetector:
                 signal_val = int(signal) if signal else -100
             except (ValueError, TypeError):
                 signal_val = -100
-            if not ssid and signal and signal_val > -60:
-                reasons.append('Hidden SSID with strong signal')
+
+            # Use standardized signal classification
+            signal_info = get_signal_strength_info(signal_val)
+            if not ssid and signal_info['strength'] in ('strong', 'very_strong'):
+                reasons.append(f"Hidden SSID with {signal_info['label'].lower()} signal")
                 classification = 'high_interest'
 
             # Repeat detections across scans
@@ -181,11 +189,17 @@ class ThreatDetector:
                 if classification != 'high_interest':
                     classification = 'high_interest'
 
+        # Include standardized signal classification
+        signal_info = get_signal_strength_info(signal_val)
+
         return {
             'classification': classification,
             'reasons': reasons,
             'in_baseline': in_baseline,
             'times_seen': times_seen,
+            'signal_strength': signal_info['strength'],
+            'signal_label': signal_info['label'],
+            'signal_confidence': signal_info['confidence'],
         }
 
     def classify_bt_device(self, device: dict) -> dict:
@@ -236,13 +250,15 @@ class ThreatDetector:
                 reasons.append('Audio-capable BLE device')
                 classification = 'high_interest'
 
-            # Strong signal from unknown device
+            # Strong signal from unknown device - use standardized classification
             try:
                 rssi_val = int(rssi) if rssi else -100
             except (ValueError, TypeError):
                 rssi_val = -100
-            if rssi and rssi_val > -50 and not name:
-                reasons.append('Strong signal from unnamed device')
+
+            signal_info = get_signal_strength_info(rssi_val)
+            if signal_info['strength'] in ('strong', 'very_strong') and not name:
+                reasons.append(f"{signal_info['label']} signal from unnamed device")
                 classification = 'high_interest'
 
             # Repeat detections across scans
@@ -251,6 +267,9 @@ class ThreatDetector:
                 if classification != 'high_interest':
                     classification = 'high_interest'
 
+        # Include standardized signal classification
+        signal_info = get_signal_strength_info(rssi_val)
+
         return {
             'classification': classification,
             'reasons': reasons,
@@ -258,6 +277,9 @@ class ThreatDetector:
             'times_seen': times_seen,
             'is_tracker': tracker_info is not None,
             'is_audio_capable': _is_audio_capable_ble(name, device_type),
+            'signal_strength': signal_info['strength'],
+            'signal_label': signal_info['label'],
+            'signal_confidence': signal_info['confidence'],
         }
 
     def classify_rf_signal(self, signal: dict) -> dict:
@@ -301,15 +323,24 @@ class ThreatDetector:
                 reasons.append(f'High-risk surveillance band: {band_name}')
                 classification = 'high_interest'
 
-            # Strong persistent signal
-            if power and float(power) > -40:
-                reasons.append('Strong persistent transmitter')
-                classification = 'high_interest'
+            # Strong persistent signal - use standardized classification
+            if power:
+                power_info = get_signal_strength_info(float(power))
+                if power_info['strength'] in ('strong', 'very_strong'):
+                    reasons.append(f"{power_info['label']} persistent transmitter")
+                    classification = 'high_interest'
 
             # Repeat detections (persistent transmitter)
             if times_seen >= 2:
                 reasons.append(f'Persistent transmitter ({times_seen} detections)')
                 classification = 'high_interest'
+
+        # Include standardized signal classification
+        try:
+            power_val = float(power) if power else -100
+        except (ValueError, TypeError):
+            power_val = -100
+        signal_info = get_signal_strength_info(power_val)
 
         return {
             'classification': classification,
@@ -318,6 +349,9 @@ class ThreatDetector:
             'times_seen': times_seen,
             'risk_level': risk,
             'band_name': band_name,
+            'signal_strength': signal_info['strength'],
+            'signal_label': signal_info['label'],
+            'signal_confidence': signal_info['confidence'],
         }
 
     def analyze_wifi_device(self, device: dict) -> dict | None:
@@ -353,16 +387,18 @@ class ThreatDetector:
                 'reason': 'Device matches WiFi camera patterns',
             })
 
-        # Check for hidden SSID with strong signal
+        # Check for hidden SSID with strong signal - use standardized classification
         try:
             signal_int = int(signal) if signal else -100
         except (ValueError, TypeError):
             signal_int = -100
-        if not ssid and signal and signal_int > -60:
+
+        signal_info = get_signal_strength_info(signal_int)
+        if not ssid and signal_info['strength'] in ('strong', 'very_strong'):
             threats.append({
                 'type': 'anomaly',
                 'severity': 'medium',
-                'reason': 'Hidden SSID with strong signal',
+                'reason': f"Hidden SSID with {signal_info['label'].lower()} signal",
             })
 
         if not threats:
@@ -422,16 +458,18 @@ class ThreatDetector:
                 'tracker_type': tracker_info.get('name'),
             })
 
-        # Check for suspicious BLE beacons (unnamed, persistent)
+        # Check for suspicious BLE beacons (unnamed, persistent) - use standardized classification
         try:
             rssi_int = int(rssi) if rssi else -100
         except (ValueError, TypeError):
             rssi_int = -100
-        if not name and rssi and rssi_int > -70:
+
+        signal_info = get_signal_strength_info(rssi_int)
+        if not name and signal_info['strength'] in ('moderate', 'strong', 'very_strong'):
             threats.append({
                 'type': 'anomaly',
                 'severity': 'medium',
-                'reason': 'Unnamed BLE device with strong signal',
+                'reason': f"Unnamed BLE device with {signal_info['label'].lower()} signal",
             })
 
         if not threats:

@@ -7,6 +7,250 @@
 const SignalCards = (function() {
     'use strict';
 
+    // ==========================================================================
+    // Signal Strength Classification
+    // Translates RSSI values to confidence-safe, client-facing language
+    // ==========================================================================
+
+    const SignalClassification = {
+        // RSSI thresholds (dBm) - upper bounds
+        THRESHOLDS: {
+            MINIMAL: -85,
+            WEAK: -70,
+            MODERATE: -55,
+            STRONG: -40
+            // VERY_STRONG: > -40
+        },
+
+        // Signal strength metadata
+        STRENGTH_INFO: {
+            minimal: {
+                label: 'Minimal',
+                description: 'At detection threshold',
+                interpretation: 'may be ambient noise or distant source',
+                confidence: 'low',
+                color: '#888888',
+                icon: 'signal-0',
+                bars: 1
+            },
+            weak: {
+                label: 'Weak',
+                description: 'Detectable signal',
+                interpretation: 'potentially distant or obstructed',
+                confidence: 'low',
+                color: '#6baed6',
+                icon: 'signal-1',
+                bars: 2
+            },
+            moderate: {
+                label: 'Moderate',
+                description: 'Consistent presence',
+                interpretation: 'likely in proximity',
+                confidence: 'medium',
+                color: '#3182bd',
+                icon: 'signal-2',
+                bars: 3
+            },
+            strong: {
+                label: 'Strong',
+                description: 'Clear signal',
+                interpretation: 'probable close proximity',
+                confidence: 'medium',
+                color: '#fd8d3c',
+                icon: 'signal-3',
+                bars: 4
+            },
+            very_strong: {
+                label: 'Very Strong',
+                description: 'High signal level',
+                interpretation: 'indicates likely nearby source',
+                confidence: 'high',
+                color: '#e6550d',
+                icon: 'signal-4',
+                bars: 5
+            }
+        },
+
+        // Duration thresholds (seconds)
+        DURATION_THRESHOLDS: {
+            TRANSIENT: 5,
+            SHORT: 30,
+            SUSTAINED: 120
+            // PERSISTENT: > 120
+        },
+
+        DURATION_INFO: {
+            transient: {
+                label: 'Transient',
+                modifier: 'briefly observed',
+                confidence_impact: 'reduces confidence'
+            },
+            short: {
+                label: 'Short-duration',
+                modifier: 'observed for a short period',
+                confidence_impact: 'limited confidence'
+            },
+            sustained: {
+                label: 'Sustained',
+                modifier: 'observed over sustained period',
+                confidence_impact: 'supports confidence'
+            },
+            persistent: {
+                label: 'Persistent',
+                modifier: 'continuously observed',
+                confidence_impact: 'increases confidence'
+            }
+        },
+
+        /**
+         * Classify RSSI value into qualitative signal strength
+         */
+        classifyStrength(rssi) {
+            if (rssi === null || rssi === undefined || isNaN(rssi)) {
+                return 'minimal';
+            }
+            const val = parseFloat(rssi);
+            if (val <= -85) return 'minimal';
+            if (val <= -70) return 'weak';
+            if (val <= -55) return 'moderate';
+            if (val <= -40) return 'strong';
+            return 'very_strong';
+        },
+
+        /**
+         * Classify detection duration
+         */
+        classifyDuration(seconds) {
+            if (seconds === null || seconds === undefined || seconds < 0) {
+                return 'transient';
+            }
+            const val = parseFloat(seconds);
+            if (val < 5) return 'transient';
+            if (val < 30) return 'short';
+            if (val < 120) return 'sustained';
+            return 'persistent';
+        },
+
+        /**
+         * Get full signal strength info
+         */
+        getStrengthInfo(rssi) {
+            const strength = this.classifyStrength(rssi);
+            return {
+                strength,
+                rssi,
+                ...this.STRENGTH_INFO[strength]
+            };
+        },
+
+        /**
+         * Get full duration info
+         */
+        getDurationInfo(seconds) {
+            const duration = this.classifyDuration(seconds);
+            return {
+                duration,
+                seconds,
+                ...this.DURATION_INFO[duration]
+            };
+        },
+
+        /**
+         * Calculate overall confidence from signal + duration + observations
+         */
+        calculateConfidence(rssi, durationSeconds, observationCount = 1) {
+            let score = 0;
+            const strength = this.classifyStrength(rssi);
+            const duration = this.classifyDuration(durationSeconds);
+
+            // Signal strength contribution
+            if (strength === 'strong' || strength === 'very_strong') score += 2;
+            else if (strength === 'moderate') score += 1;
+
+            // Duration contribution
+            if (duration === 'persistent') score += 2;
+            else if (duration === 'sustained') score += 1;
+
+            // Observation count contribution
+            if (observationCount >= 5) score += 2;
+            else if (observationCount >= 3) score += 1;
+
+            // Map to confidence level
+            if (score >= 5) return 'high';
+            if (score >= 3) return 'medium';
+            return 'low';
+        },
+
+        /**
+         * Generate hedged summary statement
+         */
+        generateSummary(rssi, durationSeconds, observationCount = 1) {
+            const strengthInfo = this.getStrengthInfo(rssi);
+            const durationInfo = this.getDurationInfo(durationSeconds);
+            const confidence = this.calculateConfidence(rssi, durationSeconds, observationCount);
+
+            if (confidence === 'high') {
+                return `${strengthInfo.label}, ${durationInfo.label.toLowerCase()} signal with characteristics that suggest device presence in proximity`;
+            } else if (confidence === 'medium') {
+                return `${strengthInfo.label}, ${durationInfo.label.toLowerCase()} signal that may indicate device activity`;
+            } else {
+                return `${durationInfo.modifier.charAt(0).toUpperCase() + durationInfo.modifier.slice(1)} ${strengthInfo.label.toLowerCase()} signal consistent with possible device presence`;
+            }
+        },
+
+        /**
+         * Generate interpretation with hedging
+         */
+        generateInterpretation(rssi, durationSeconds, observationCount = 1) {
+            const strengthInfo = this.getStrengthInfo(rssi);
+            const confidence = this.calculateConfidence(rssi, durationSeconds, observationCount);
+            const base = strengthInfo.interpretation;
+
+            if (confidence === 'high') {
+                return `Observed signal characteristics suggest ${base}`;
+            } else if (confidence === 'medium') {
+                return `Signal pattern may indicate ${base}`;
+            } else {
+                return `Limited data; signal could represent ${base} or environmental factors`;
+            }
+        },
+
+        /**
+         * Estimate range from RSSI (with heavy caveats)
+         */
+        estimateRange(rssi) {
+            if (rssi === null || rssi === undefined) {
+                return { estimate: 'Unknown', disclaimer: 'Insufficient signal data' };
+            }
+            const val = parseFloat(rssi);
+            let estimate, rangeMin, rangeMax;
+
+            if (val > -40) {
+                estimate = '< 3 meters';
+                rangeMin = 0; rangeMax = 3;
+            } else if (val > -55) {
+                estimate = '3-10 meters';
+                rangeMin = 3; rangeMax = 10;
+            } else if (val > -70) {
+                estimate = '5-20 meters';
+                rangeMin = 5; rangeMax = 20;
+            } else if (val > -85) {
+                estimate = '10-50 meters';
+                rangeMin = 10; rangeMax = 50;
+            } else {
+                estimate = '> 30 meters or heavily obstructed';
+                rangeMin = 30; rangeMax = null;
+            }
+
+            return {
+                estimate,
+                rangeMin,
+                rangeMax,
+                disclaimer: 'Range estimates are approximate and affected by walls, interference, and transmit power'
+            };
+        }
+    };
+
     // Address tracking for new/repeated detection
     const addressHistory = {
         pager: new Map(),      // address -> { count, firstSeen, lastSeen }
@@ -209,6 +453,107 @@ const SignalCards = (function() {
     function isNumericContent(message) {
         if (!message) return false;
         return /^[0-9\s\-\*\#U]+$/.test(message);
+    }
+
+    /**
+     * Create signal strength indicator HTML
+     * Shows bars + label + optional tooltip with interpretation
+     */
+    function createSignalIndicator(rssi, options = {}) {
+        if (rssi === null || rssi === undefined) return '';
+
+        const info = SignalClassification.getStrengthInfo(rssi);
+        const showLabel = options.showLabel !== false;
+        const showTooltip = options.showTooltip !== false;
+        const compact = options.compact === true;
+
+        // Create signal bars SVG
+        const bars = info.bars;
+        const barsSvg = `
+            <svg class="signal-strength-bars" viewBox="0 0 20 16" width="${compact ? 16 : 20}" height="${compact ? 12 : 16}">
+                <rect x="0" y="12" width="3" height="4" fill="${bars >= 1 ? info.color : '#444'}"/>
+                <rect x="4" y="9" width="3" height="7" fill="${bars >= 2 ? info.color : '#444'}"/>
+                <rect x="8" y="6" width="3" height="10" fill="${bars >= 3 ? info.color : '#444'}"/>
+                <rect x="12" y="3" width="3" height="13" fill="${bars >= 4 ? info.color : '#444'}"/>
+                <rect x="16" y="0" width="3" height="16" fill="${bars >= 5 ? info.color : '#444'}"/>
+            </svg>
+        `;
+
+        // Build tooltip content
+        let tooltipContent = '';
+        if (showTooltip) {
+            const rangeEst = SignalClassification.estimateRange(rssi);
+            tooltipContent = `
+                ${info.label} signal (${rssi} dBm)
+                ${info.description}
+                Est. range: ${rangeEst.estimate}
+                Confidence: ${info.confidence}
+            `.trim();
+        }
+
+        // Determine CSS class based on confidence
+        const confidenceClass = `signal-confidence-${info.confidence}`;
+
+        if (compact) {
+            return `
+                <span class="signal-strength-indicator compact ${confidenceClass}"
+                      ${showTooltip ? `title="${escapeHtml(tooltipContent)}"` : ''}>
+                    ${barsSvg}
+                </span>
+            `;
+        }
+
+        return `
+            <span class="signal-strength-indicator ${confidenceClass}"
+                  ${showTooltip ? `title="${escapeHtml(tooltipContent)}"` : ''}>
+                ${barsSvg}
+                ${showLabel ? `<span class="signal-strength-label" style="color: ${info.color}">${info.label}</span>` : ''}
+            </span>
+        `;
+    }
+
+    /**
+     * Create detailed signal assessment panel for advanced details
+     */
+    function createSignalAssessmentPanel(rssi, durationSeconds, observationCount = 1) {
+        if (rssi === null || rssi === undefined) return '';
+
+        const strengthInfo = SignalClassification.getStrengthInfo(rssi);
+        const durationInfo = SignalClassification.getDurationInfo(durationSeconds);
+        const confidence = SignalClassification.calculateConfidence(rssi, durationSeconds, observationCount);
+        const rangeEst = SignalClassification.estimateRange(rssi);
+        const interpretation = SignalClassification.generateInterpretation(rssi, durationSeconds, observationCount);
+
+        return `
+            <div class="signal-advanced-section signal-assessment">
+                <div class="signal-advanced-title">Signal Assessment</div>
+                <div class="signal-assessment-summary">
+                    ${createSignalIndicator(rssi, { compact: false, showTooltip: false })}
+                    <span class="signal-assessment-text">${escapeHtml(interpretation)}</span>
+                </div>
+                <div class="signal-advanced-grid">
+                    <div class="signal-advanced-item">
+                        <span class="signal-advanced-label">Signal Strength</span>
+                        <span class="signal-advanced-value">${strengthInfo.label} (${rssi} dBm)</span>
+                    </div>
+                    <div class="signal-advanced-item">
+                        <span class="signal-advanced-label">Detection</span>
+                        <span class="signal-advanced-value">${durationInfo.label}</span>
+                    </div>
+                    <div class="signal-advanced-item">
+                        <span class="signal-advanced-label">Est. Range</span>
+                        <span class="signal-advanced-value">${rangeEst.estimate}</span>
+                    </div>
+                    <div class="signal-advanced-item">
+                        <span class="signal-advanced-label">Confidence</span>
+                        <span class="signal-advanced-value signal-confidence-${confidence}">${confidence.charAt(0).toUpperCase() + confidence.slice(1)}</span>
+                    </div>
+                </div>
+                <div class="signal-assessment-caveat">
+                    Note: ${rangeEst.disclaimer}
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -482,6 +827,10 @@ const SignalCards = (function() {
         const stats = getAddressStats('sensor', msg.id);
         const seenCount = stats ? stats.count : 1;
 
+        // Get signal strength if available
+        const rssi = msg.rssi || msg.signal_strength || msg.snr || null;
+        const signalIndicator = createSignalIndicator(rssi, { compact: true });
+
         // Determine sensor type icon
         let sensorIcon = '📡';
         const model = (msg.model || '').toLowerCase();
@@ -497,6 +846,7 @@ const SignalCards = (function() {
                 <div class="signal-card-badges">
                     <span class="signal-proto-badge sensor">${sensorIcon} ${escapeHtml(msg.model || 'Unknown')}</span>
                     <span class="signal-freq-badge">ID: ${escapeHtml(msg.id || 'N/A')}</span>
+                    ${signalIndicator}
                 </div>
                 ${status !== 'baseline' ? `
                 <span class="signal-status-pill" data-status="${status}">
@@ -570,6 +920,7 @@ const SignalCards = (function() {
             <div class="signal-advanced-panel">
                 <div class="signal-advanced-inner">
                     <div class="signal-advanced-content">
+                        ${rssi !== null ? createSignalAssessmentPanel(rssi, stats?.lastSeen ? (Date.now() - stats.firstSeen) / 1000 : null, seenCount) : ''}
                         <div class="signal-advanced-section">
                             <div class="signal-advanced-title">Sensor Details</div>
                             <div class="signal-advanced-grid">
@@ -1335,6 +1686,11 @@ const SignalCards = (function() {
         createSensorCard,
         createAcarsCard,
         createMeterCard,
+
+        // Signal classification
+        SignalClassification,
+        createSignalIndicator,
+        createSignalAssessmentPanel,
 
         // UI interactions
         toggleAdvanced,
