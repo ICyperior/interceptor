@@ -1416,6 +1416,10 @@
                 <!-- Filter Bar Container (populated by JavaScript based on active mode) -->
                 <div id="filterBarContainer" style="display: none;"></div>
 
+                <!-- Mode-specific Timeline Containers -->
+                <div id="pagerTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
+                <div id="sensorTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
+
                 <div class="output-content signal-feed" id="output">
                     <div class="placeholder signal-empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1497,6 +1501,28 @@
             if (modeTimelines[mode]) return;
 
             const configs = {
+                'pager': {
+                    container: 'pagerTimelineContainer',
+                    config: {
+                        title: 'Pager Activity',
+                        mode: 'pager',
+                        visualMode: 'enriched',
+                        collapsed: false,
+                        timeWindows: ['5m', '15m', '30m', '1h'],
+                        defaultTimeWindow: '15m'
+                    }
+                },
+                'sensor': {
+                    container: 'sensorTimelineContainer',
+                    config: {
+                        title: 'Sensor Activity',
+                        mode: 'sensor',
+                        visualMode: 'enriched',
+                        collapsed: false,
+                        timeWindows: ['5m', '15m', '30m', '1h'],
+                        defaultTimeWindow: '15m'
+                    }
+                },
                 'tscm': {
                     container: 'tscmTimelineContainer',
                     config: typeof RFTimelineAdapter !== 'undefined' ? RFTimelineAdapter.getTscmConfig() : {
@@ -2012,6 +2038,10 @@
             document.getElementById('aprsVisuals').style.display = mode === 'aprs' ? 'flex' : 'none';
             document.getElementById('tscmVisuals').style.display = mode === 'tscm' ? 'flex' : 'none';
 
+            // Show/hide mode-specific timeline containers
+            document.getElementById('pagerTimelineContainer').style.display = mode === 'pager' ? 'block' : 'none';
+            document.getElementById('sensorTimelineContainer').style.display = mode === 'sensor' ? 'block' : 'none';
+
             // Update output panel title based on mode
             const titles = {
                 'pager': 'Pager Decoder',
@@ -2282,6 +2312,18 @@
             // Create card using SignalCards component
             const card = SignalCards.createSensorCard(msg);
             output.insertBefore(card, output.firstChild);
+
+            // Add to activity timeline
+            if (typeof addTimelineEvent === 'function') {
+                addTimelineEvent('sensor', {
+                    id: `${msg.model}-${msg.sensor_id}-${msg.timestamp}`,
+                    label: msg.model || 'Unknown Sensor',
+                    sublabel: msg.sensor_id ? `ID: ${msg.sensor_id}` : '',
+                    timestamp: msg.timestamp || Date.now(),
+                    type: 'sensor',
+                    status: card.dataset.status || 'new'
+                });
+            }
 
             // Update filter counts
             SignalCards.updateCounts(output);
@@ -3177,6 +3219,18 @@
             const msgEl = SignalCards.createPagerCard(msg);
 
             output.insertBefore(msgEl, output.firstChild);
+
+            // Add to activity timeline
+            if (typeof addTimelineEvent === 'function') {
+                addTimelineEvent('pager', {
+                    id: `${msg.address}-${msg.timestamp}`,
+                    label: msg.address,
+                    sublabel: msg.protocol,
+                    timestamp: msg.timestamp || Date.now(),
+                    type: 'pager',
+                    status: msgEl.dataset.status || 'new'
+                });
+            }
 
             // Update filter counts
             SignalCards.updateCounts(output);
