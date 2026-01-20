@@ -1710,26 +1710,38 @@
         // Sync header stats with output panel stats
         function syncHeaderStats() {
             // Pager stats
-            document.getElementById('headerMsgCount').textContent = msgCount;
-            document.getElementById('headerPocsagCount').textContent = pocsagCount;
-            document.getElementById('headerFlexCount').textContent = flexCount;
+            const headerMsgCount = document.getElementById('headerMsgCount');
+            const headerPocsagCount = document.getElementById('headerPocsagCount');
+            const headerFlexCount = document.getElementById('headerFlexCount');
+            if (headerMsgCount) headerMsgCount.textContent = msgCount;
+            if (headerPocsagCount) headerPocsagCount.textContent = pocsagCount;
+            if (headerFlexCount) headerFlexCount.textContent = flexCount;
 
             // Sensor stats
-            document.getElementById('headerSensorCount').textContent = document.getElementById('sensorCount')?.textContent || '0';
-            document.getElementById('headerDeviceTypeCount').textContent = document.getElementById('deviceCount')?.textContent || '0';
+            const headerSensorCount = document.getElementById('headerSensorCount');
+            const headerDeviceTypeCount = document.getElementById('headerDeviceTypeCount');
+            if (headerSensorCount) headerSensorCount.textContent = document.getElementById('sensorCount')?.textContent || '0';
+            if (headerDeviceTypeCount) headerDeviceTypeCount.textContent = document.getElementById('deviceCount')?.textContent || '0';
 
             // WiFi stats
-            document.getElementById('headerApCount').textContent = document.getElementById('apCount')?.textContent || '0';
-            document.getElementById('headerClientCount').textContent = document.getElementById('clientCount')?.textContent || '0';
-            document.getElementById('headerHandshakeCount').textContent = document.getElementById('handshakeCount')?.textContent || '0';
-            document.getElementById('headerDroneCount').textContent = document.getElementById('droneCount')?.textContent || '0';
+            const headerApCount = document.getElementById('headerApCount');
+            const headerClientCount = document.getElementById('headerClientCount');
+            const headerHandshakeCount = document.getElementById('headerHandshakeCount');
+            const headerDroneCount = document.getElementById('headerDroneCount');
+            if (headerApCount) headerApCount.textContent = document.getElementById('apCount')?.textContent || '0';
+            if (headerClientCount) headerClientCount.textContent = document.getElementById('clientCount')?.textContent || '0';
+            if (headerHandshakeCount) headerHandshakeCount.textContent = document.getElementById('handshakeCount')?.textContent || '0';
+            if (headerDroneCount) headerDroneCount.textContent = document.getElementById('droneCount')?.textContent || '0';
 
             // Bluetooth stats
-            document.getElementById('headerBtDeviceCount').textContent = document.getElementById('btDeviceCount')?.textContent || '0';
-            document.getElementById('headerBtBeaconCount').textContent = document.getElementById('btBeaconCount')?.textContent || '0';
+            const headerBtDeviceCount = document.getElementById('headerBtDeviceCount');
+            const headerBtBeaconCount = document.getElementById('headerBtBeaconCount');
+            if (headerBtDeviceCount) headerBtDeviceCount.textContent = document.getElementById('btDeviceCount')?.textContent || '0';
+            if (headerBtBeaconCount) headerBtBeaconCount.textContent = document.getElementById('btBeaconCount')?.textContent || '0';
 
             // Satellite stats
-            document.getElementById('headerPassCount').textContent = document.getElementById('passCount')?.textContent || '0';
+            const headerPassCount = document.getElementById('headerPassCount');
+            if (headerPassCount) headerPassCount.textContent = document.getElementById('passCount')?.textContent || '0';
         }
         // Sync stats periodically
         setInterval(syncHeaderStats, 500);
@@ -1993,30 +2005,36 @@
                     btn.classList.add('active');
                 }
             });
-            document.getElementById('pagerMode').classList.toggle('active', mode === 'pager');
-            document.getElementById('sensorMode').classList.toggle('active', mode === 'sensor');
-            document.getElementById('rtlamrMode').classList.toggle('active', mode === 'rtlamr');
-            document.getElementById('satelliteMode').classList.toggle('active', mode === 'satellite');
-            document.getElementById('wifiMode').classList.toggle('active', mode === 'wifi');
-            document.getElementById('bluetoothMode').classList.toggle('active', mode === 'bluetooth');
-            document.getElementById('listeningPostMode').classList.toggle('active', mode === 'listening');
-            document.getElementById('aprsMode').classList.toggle('active', mode === 'aprs');
-            document.getElementById('tscmMode').classList.toggle('active', mode === 'tscm');
-            document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
-            document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
-            document.getElementById('satelliteStats').style.display = mode === 'satellite' ? 'flex' : 'none';
-            document.getElementById('wifiStats').style.display = mode === 'wifi' ? 'flex' : 'none';
-            document.getElementById('btStats').style.display = mode === 'bluetooth' ? 'flex' : 'none';
+            document.getElementById('pagerMode')?.classList.toggle('active', mode === 'pager');
+            document.getElementById('sensorMode')?.classList.toggle('active', mode === 'sensor');
+            document.getElementById('rtlamrMode')?.classList.toggle('active', mode === 'rtlamr');
+            document.getElementById('satelliteMode')?.classList.toggle('active', mode === 'satellite');
+            document.getElementById('wifiMode')?.classList.toggle('active', mode === 'wifi');
+            document.getElementById('bluetoothMode')?.classList.toggle('active', mode === 'bluetooth');
+            document.getElementById('listeningPostMode')?.classList.toggle('active', mode === 'listening');
+            document.getElementById('aprsMode')?.classList.toggle('active', mode === 'aprs');
+            document.getElementById('tscmMode')?.classList.toggle('active', mode === 'tscm');
+            const pagerStats = document.getElementById('pagerStats');
+            const sensorStats = document.getElementById('sensorStats');
+            const satelliteStats = document.getElementById('satelliteStats');
+            const wifiStats = document.getElementById('wifiStats');
+            const btStats = document.getElementById('btStats');
+            if (pagerStats) pagerStats.style.display = mode === 'pager' ? 'flex' : 'none';
+            if (sensorStats) sensorStats.style.display = mode === 'sensor' ? 'flex' : 'none';
+            if (satelliteStats) satelliteStats.style.display = mode === 'satellite' ? 'flex' : 'none';
+            if (wifiStats) wifiStats.style.display = mode === 'wifi' ? 'flex' : 'none';
+            if (btStats) btStats.style.display = mode === 'bluetooth' ? 'flex' : 'none';
 
             // Update header stats groups
-            document.getElementById('headerPagerStats').classList.toggle('active', mode === 'pager');
-            document.getElementById('headerSensorStats').classList.toggle('active', mode === 'sensor');
-            document.getElementById('headerSatelliteStats').classList.toggle('active', mode === 'satellite');
-            document.getElementById('headerWifiStats').classList.toggle('active', mode === 'wifi');
-            document.getElementById('headerBtStats').classList.toggle('active', mode === 'bluetooth');
+            document.getElementById('headerPagerStats')?.classList.toggle('active', mode === 'pager');
+            document.getElementById('headerSensorStats')?.classList.toggle('active', mode === 'sensor');
+            document.getElementById('headerSatelliteStats')?.classList.toggle('active', mode === 'satellite');
+            document.getElementById('headerWifiStats')?.classList.toggle('active', mode === 'wifi');
+            document.getElementById('headerBtStats')?.classList.toggle('active', mode === 'bluetooth');
 
             // Show/hide dashboard buttons in nav bar
-            document.getElementById('satelliteDashboardBtn').style.display = mode === 'satellite' ? 'inline-flex' : 'none';
+            const satelliteDashboardBtn = document.getElementById('satelliteDashboardBtn');
+            if (satelliteDashboardBtn) satelliteDashboardBtn.style.display = mode === 'satellite' ? 'inline-flex' : 'none';
 
             // Update active mode indicator
             const modeNames = {
@@ -2030,17 +2048,26 @@
                 'aprs': 'APRS',
                 'tscm': 'TSCM'
             };
-            document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>' + modeNames[mode];
-            document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
-            document.getElementById('btLayoutContainer').style.display = mode === 'bluetooth' ? 'flex' : 'none';
-            document.getElementById('satelliteVisuals').style.display = mode === 'satellite' ? 'block' : 'none';
-            document.getElementById('listeningPostVisuals').style.display = mode === 'listening' ? 'grid' : 'none';
-            document.getElementById('aprsVisuals').style.display = mode === 'aprs' ? 'flex' : 'none';
-            document.getElementById('tscmVisuals').style.display = mode === 'tscm' ? 'flex' : 'none';
+            const activeModeIndicator = document.getElementById('activeModeIndicator');
+            if (activeModeIndicator) activeModeIndicator.innerHTML = '<span class="pulse-dot"></span>' + (modeNames[mode] || mode.toUpperCase());
+            const wifiLayoutContainer = document.getElementById('wifiLayoutContainer');
+            const btLayoutContainer = document.getElementById('btLayoutContainer');
+            const satelliteVisuals = document.getElementById('satelliteVisuals');
+            const listeningPostVisuals = document.getElementById('listeningPostVisuals');
+            const aprsVisuals = document.getElementById('aprsVisuals');
+            const tscmVisuals = document.getElementById('tscmVisuals');
+            if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
+            if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
+            if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
+            if (listeningPostVisuals) listeningPostVisuals.style.display = mode === 'listening' ? 'grid' : 'none';
+            if (aprsVisuals) aprsVisuals.style.display = mode === 'aprs' ? 'flex' : 'none';
+            if (tscmVisuals) tscmVisuals.style.display = mode === 'tscm' ? 'flex' : 'none';
 
             // Show/hide mode-specific timeline containers
-            document.getElementById('pagerTimelineContainer').style.display = mode === 'pager' ? 'block' : 'none';
-            document.getElementById('sensorTimelineContainer').style.display = mode === 'sensor' ? 'block' : 'none';
+            const pagerTimelineContainer = document.getElementById('pagerTimelineContainer');
+            const sensorTimelineContainer = document.getElementById('sensorTimelineContainer');
+            if (pagerTimelineContainer) pagerTimelineContainer.style.display = mode === 'pager' ? 'block' : 'none';
+            if (sensorTimelineContainer) sensorTimelineContainer.style.display = mode === 'sensor' ? 'block' : 'none';
 
             // Update output panel title based on mode
             const titles = {
@@ -2054,7 +2081,8 @@
                 'aprs': 'APRS Tracker',
                 'tscm': 'TSCM Counter-Surveillance'
             };
-            document.getElementById('outputTitle').textContent = titles[mode] || 'Signal Monitor';
+            const outputTitle = document.getElementById('outputTitle');
+            if (outputTitle) outputTitle.textContent = titles[mode] || 'Signal Monitor';
 
             // Initialize mode-specific timelines
             initializeModeTimeline(mode);
@@ -2068,33 +2096,41 @@
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
+            const reconPanel = document.getElementById('reconPanel');
             if (mode === 'satellite' || mode === 'listening' || mode === 'aprs' || mode === 'tscm') {
-                document.getElementById('reconPanel').style.display = 'none';
+                if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
             } else {
                 if (reconBtn) reconBtn.style.display = 'inline-block';
                 if (intelBtn) intelBtn.style.display = 'inline-block';
                 // Restore panel visibility based on reconEnabled state
-                if (reconEnabled) {
-                    document.getElementById('reconPanel').style.display = 'block';
+                if (reconEnabled && reconPanel) {
+                    reconPanel.style.display = 'block';
                 }
             }
 
             // Show RTL-SDR device section for modes that use it
-            document.getElementById('rtlDeviceSection').style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs') ? 'block' : 'none';
+            const rtlDeviceSection = document.getElementById('rtlDeviceSection');
+            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs') ? 'block' : 'none';
 
             // Toggle mode-specific tool status displays
-            document.getElementById('toolStatusPager').style.display = (mode === 'pager') ? 'grid' : 'none';
-            document.getElementById('toolStatusSensor').style.display = (mode === 'sensor') ? 'grid' : 'none';
+            const toolStatusPager = document.getElementById('toolStatusPager');
+            const toolStatusSensor = document.getElementById('toolStatusSensor');
+            if (toolStatusPager) toolStatusPager.style.display = (mode === 'pager') ? 'grid' : 'none';
+            if (toolStatusSensor) toolStatusSensor.style.display = (mode === 'sensor') ? 'grid' : 'none';
 
             // Hide waterfall and output console for modes with their own visualizations
             // Pager waterfall: show only for pager mode
-            document.getElementById('pagerWaterfallPanel').style.display = (mode === 'pager') ? 'block' : 'none';
+            const pagerWaterfallPanel = document.getElementById('pagerWaterfallPanel');
+            const sensorWaterfallPanel = document.getElementById('sensorWaterfallPanel');
+            const outputEl = document.getElementById('output');
+            const statusBar = document.querySelector('.status-bar');
+            if (pagerWaterfallPanel) pagerWaterfallPanel.style.display = (mode === 'pager') ? 'block' : 'none';
             // Sensor waterfall: show only for sensor (433MHz) mode
-            document.getElementById('sensorWaterfallPanel').style.display = (mode === 'sensor') ? 'block' : 'none';
-            document.getElementById('output').style.display = (mode === 'satellite' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm') ? 'none' : 'block';
-            document.querySelector('.status-bar').style.display = (mode === 'satellite') ? 'none' : 'flex';
+            if (sensorWaterfallPanel) sensorWaterfallPanel.style.display = (mode === 'sensor') ? 'block' : 'none';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm') ? 'none' : 'block';
+            if (statusBar) statusBar.style.display = (mode === 'satellite') ? 'none' : 'flex';
 
             // Load interfaces and initialize visualizations when switching modes
             if (mode === 'wifi') {
