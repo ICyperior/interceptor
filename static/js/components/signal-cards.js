@@ -1056,16 +1056,20 @@ const SignalCards = (function() {
             }
         });
 
-        // Update count badges
-        const filterBar = document.getElementById('pagerFilterBar');
-        if (filterBar) {
+        // Update count badges - find filter bar in multiple possible locations
+        const filterBars = [
+            document.getElementById('filterBarContainer')?.querySelector('.signal-filter-bar'),
+            document.getElementById('aprsFilterBarContainer')?.querySelector('.signal-filter-bar')
+        ].filter(Boolean);
+
+        filterBars.forEach(filterBar => {
             Object.keys(counts).forEach(key => {
                 const badge = filterBar.querySelector(`[data-count="${key}"]`);
                 if (badge) {
                     badge.textContent = counts[key];
                 }
             });
-        }
+        });
 
         // Show/hide empty state
         const emptyState = container.querySelector('.signal-empty-state');
