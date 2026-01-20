@@ -331,6 +331,10 @@ body {
     box-shadow: 0 4px 20px rgba(0, 212, 255, 0.15);
 }
 
+.mode-card:hover .mode-icon {
+    color: var(--accent-cyan);
+}
+
 .mode-card:active {
     transform: translateY(0);
 }
@@ -338,6 +342,12 @@ body {
 .mode-card .mode-icon {
     font-size: 1.5rem;
     margin-bottom: 6px;
+    color: var(--text-secondary);
+}
+
+.mode-card .mode-icon svg {
+    width: 24px;
+    height: 24px;
 }
 
 .mode-card .mode-name {
