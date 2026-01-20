@@ -120,7 +120,7 @@ def start_rtlamr() -> Response:
                     )
                     
                     # Wait a moment for rtl_tcp to start
-                    time.sleep(1)
+                    time.sleep(3)
                     
                     logger.info(f"rtl_tcp started: {' '.join(rtl_tcp_cmd)}")
                     app_module.rtlamr_queue.put({'type': 'info', 'text': f'rtl_tcp: {" ".join(rtl_tcp_cmd)}'})
