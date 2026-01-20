@@ -311,6 +311,7 @@ def start_sweep():
     wifi_enabled = data.get('wifi', True)
     bt_enabled = data.get('bluetooth', True)
     rf_enabled = data.get('rf', True)
+    verbose_results = bool(data.get('verbose_results', False))
 
     # Get interface selections
     wifi_interface = data.get('wifi_interface', '')
@@ -351,7 +352,7 @@ def start_sweep():
     _sweep_thread = threading.Thread(
         target=_run_sweep,
         args=(sweep_type, baseline_id, wifi_enabled, bt_enabled, rf_enabled,
-              wifi_interface, bt_interface, sdr_device),
+              wifi_interface, bt_interface, sdr_device, verbose_results),
         daemon=True
     )
     _sweep_thread.start()
@@ -1201,7 +1202,8 @@ def _run_sweep(
     rf_enabled: bool,
     wifi_interface: str = '',
     bt_interface: str = '',
-    sdr_device: int | None = None
+    sdr_device: int | None = None,
+    verbose_results: bool = False
 ) -> None:
     """
     Run the TSCM sweep in a background thread.
@@ -1470,17 +1472,57 @@ def _run_sweep(
             identity_summary = identity_engine.get_summary()
             identity_clusters = [c.to_dict() for c in identity_engine.get_clusters()]
 
+            if verbose_results:
+                wifi_payload = list(all_wifi.values())
+                bt_payload = list(all_bt.values())
+                rf_payload = list(all_rf)
+            else:
+                wifi_payload = [
+                    {
+                        'bssid': d.get('bssid') or d.get('mac'),
+                        'essid': d.get('essid') or d.get('ssid'),
+                        'ssid': d.get('ssid') or d.get('essid'),
+                        'channel': d.get('channel'),
+                        'power': d.get('power', d.get('signal')),
+                        'privacy': d.get('privacy', d.get('encryption')),
+                        'encryption': d.get('encryption', d.get('privacy')),
+                    }
+                    for d in all_wifi.values()
+                ]
+                bt_payload = [
+                    {
+                        'mac': d.get('mac') or d.get('address'),
+                        'name': d.get('name'),
+                        'rssi': d.get('rssi'),
+                        'manufacturer': d.get('manufacturer', d.get('manufacturer_name')),
+                    }
+                    for d in all_bt.values()
+                ]
+                rf_payload = [
+                    {
+                        'frequency': s.get('frequency'),
+                        'power': s.get('power', s.get('level')),
+                        'modulation': s.get('modulation'),
+                        'band': s.get('band'),
+                    }
+                    for s in all_rf
+                ]
+
             update_tscm_sweep(
                 _current_sweep_id,
                 status='completed',
                 results={
-                    'wifi_devices': len(all_wifi),
-                    'bt_devices': len(all_bt),
-                    'rf_signals': len(all_rf),
+                    'wifi_devices': wifi_payload,
+                    'bt_devices': bt_payload,
+                    'rf_signals': rf_payload,
+                    'wifi_count': len(all_wifi),
+                    'bt_count': len(all_bt),
+                    'rf_count': len(all_rf),
                     'severity_counts': severity_counts,
                     'correlation_summary': findings.get('summary', {}),
                     'identity_summary': identity_summary.get('statistics', {}),
                     'baseline_comparison': baseline_comparison,
+                    'results_detail_level': 'full' if verbose_results else 'compact',
                 },
                 threats_found=threats_found,
                 completed=True
@@ -1507,10 +1549,10 @@ def _run_sweep(
 
             # Emit device identity cluster findings (MAC-randomization resistant)
             _emit_event('identity_clusters', {
-                'total_clusters': identity_summary['statistics'].get('total_clusters', 0),
-                'high_risk_count': identity_summary['statistics'].get('high_risk_count', 0),
-                'medium_risk_count': identity_summary['statistics'].get('medium_risk_count', 0),
-                'unique_fingerprints': identity_summary['statistics'].get('unique_fingerprints', 0),
+                'total_clusters': identity_summary.get('statistics', {}).get('total_clusters', 0),
+                'high_risk_count': identity_summary.get('statistics', {}).get('high_risk_count', 0),
+                'medium_risk_count': identity_summary.get('statistics', {}).get('medium_risk_count', 0),
+                'unique_fingerprints': identity_summary.get('statistics', {}).get('unique_fingerprints', 0),
                 'clusters': identity_clusters,
             })
 
@@ -2423,9 +2465,9 @@ def get_baseline_diff(baseline_id: int, sweep_id: int):
             import json
             results = json.loads(results)
 
-        current_wifi = results.get('wifi', [])
-        current_bt = results.get('bluetooth', [])
-        current_rf = results.get('rf', [])
+        current_wifi = results.get('wifi_devices', [])
+        current_bt = results.get('bt_devices', [])
+        current_rf = results.get('rf_signals', [])
 
         diff = calculate_baseline_diff(
             baseline=baseline,

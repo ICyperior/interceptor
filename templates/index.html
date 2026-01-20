@@ -7860,6 +7860,7 @@
             const wifiInterface = document.getElementById('tscmWifiInterface').value;
             const btInterface = document.getElementById('tscmBtInterface').value;
             const sdrDevice = document.getElementById('tscmSdrDevice').value;
+            const verboseResults = document.getElementById('tscmVerboseResults').checked;
 
             // Clear any previous warnings
             document.getElementById('tscmDeviceWarnings').style.display = 'none';
@@ -7877,7 +7878,8 @@
                         rf: rfEnabled,
                         wifi_interface: wifiInterface,
                         bt_interface: btInterface,
-                        sdr_device: sdrDevice ? parseInt(sdrDevice) : null
+                        sdr_device: sdrDevice ? parseInt(sdrDevice) : null,
+                        verbose_results: verboseResults
                     })
                 });
 

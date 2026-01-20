@@ -763,10 +763,22 @@ def generate_report(
 
     # Statistics
     results = sweep_data.get('results', {})
+    wifi_count = results.get('wifi_count')
+    if wifi_count is None:
+        wifi_count = len(results.get('wifi_devices', results.get('wifi', [])))
+
+    bt_count = results.get('bt_count')
+    if bt_count is None:
+        bt_count = len(results.get('bt_devices', results.get('bluetooth', [])))
+
+    rf_count = results.get('rf_count')
+    if rf_count is None:
+        rf_count = len(results.get('rf_signals', results.get('rf', [])))
+
     builder.add_statistics(
-        wifi=len(results.get('wifi', [])),
-        bluetooth=len(results.get('bluetooth', [])),
-        rf=len(results.get('rf', [])),
+        wifi=wifi_count,
+        bluetooth=bt_count,
+        rf=rf_count,
         new=baseline_diff.get('summary', {}).get('new_devices', 0) if baseline_diff else 0,
         missing=baseline_diff.get('summary', {}).get('missing_devices', 0) if baseline_diff else 0,
     )

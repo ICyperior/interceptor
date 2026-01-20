@@ -69,11 +69,49 @@ echo
 # ----------------------------
 # Helpers
 # ----------------------------
+NON_INTERACTIVE=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --non-interactive)
+      NON_INTERACTIVE=true
+      ;;
+    *)
+      ;;
+  esac
+done
+
 cmd_exists() {
   local c="$1"
   command -v "$c" >/dev/null 2>&1 && return 0
   [[ -x "/usr/sbin/$c" || -x "/sbin/$c" || -x "/usr/local/sbin/$c" || -x "/opt/homebrew/sbin/$c" ]] && return 0
   return 1
+}
+
+ask_yes_no() {
+  local prompt="$1"
+  local default="${2:-n}"  # default to no for safety
+  local response
+
+  if $NON_INTERACTIVE; then
+    info "Non-interactive mode: defaulting to ${default} for prompt: ${prompt}"
+    [[ "$default" == "y" ]]
+    return
+  fi
+
+  if [[ ! -t 0 ]]; then
+    warn "No TTY available for prompt: ${prompt}"
+    [[ "$default" == "y" ]]
+    return
+  fi
+
+  if [[ "$default" == "y" ]]; then
+    read -r -p "$prompt [Y/n]: " response
+    [[ -z "$response" || "$response" =~ ^[Yy] ]]
+  else
+    read -r -p "$prompt [y/N]: " response
+    [[ "$response" =~ ^[Yy] ]]
+  fi
 }
 
 have_any() {
@@ -109,6 +147,18 @@ detect_os() {
   fi
   info "Detected OS: ${OS}"
   [[ "$OS" != "unknown" ]] || { fail "Unsupported OS (macOS + Debian/Ubuntu only)."; exit 1; }
+}
+
+detect_dragonos() {
+  IS_DRAGONOS=false
+  # Check for DragonOS markers
+  if [[ -f /etc/dragonos-release ]] || \
+     [[ -d /usr/share/dragonos ]] || \
+     grep -qi "dragonos" /etc/os-release 2>/dev/null; then
+    IS_DRAGONOS=true
+    warn "DragonOS detected! This distro has many tools pre-installed."
+    warn "The script will prompt before making system changes."
+  fi
 }
 
 # ----------------------------
@@ -382,6 +432,15 @@ apt_try_install_any() {
   return 1
 }
 
+apt_install_if_missing() {
+  local pkg="$1"
+  if dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
+    ok "apt: ${pkg} already installed"
+    return 0
+  fi
+  apt_install "$pkg"
+}
+
 install_dump1090_from_source_debian() {
   info "dump1090 not available via APT. Building from source (required)..."
 
@@ -543,9 +602,17 @@ EOF
 install_debian_packages() {
   need_sudo
 
-  # Suppress needrestart prompts (Ubuntu Server 22.04+)
-  export DEBIAN_FRONTEND=noninteractive
-  export NEEDRESTART_MODE=a
+  # Keep APT interactive when a TTY is available.
+  if $NON_INTERACTIVE; then
+    export DEBIAN_FRONTEND=noninteractive
+    export NEEDRESTART_MODE=a
+  elif [[ -t 0 ]]; then
+    export DEBIAN_FRONTEND=readline
+    export NEEDRESTART_MODE=a
+  else
+    export DEBIAN_FRONTEND=noninteractive
+    export NEEDRESTART_MODE=a
+  fi
 
   TOTAL_STEPS=18
   CURRENT_STEP=0
@@ -554,41 +621,58 @@ install_debian_packages() {
   $SUDO apt-get update -y >/dev/null
 
   progress "Installing RTL-SDR"
-  # Handle package conflict between librtlsdr0 and librtlsdr2
-  # The newer librtlsdr0 (2.0.2) conflicts with older librtlsdr2 (2.0.1)
-  if dpkg -l | grep -q "librtlsdr2"; then
-    info "Detected librtlsdr2 conflict - upgrading to librtlsdr0..."
+  if ! $IS_DRAGONOS; then
+    # Handle package conflict between librtlsdr0 and librtlsdr2
+    # The newer librtlsdr0 (2.0.2) conflicts with older librtlsdr2 (2.0.1)
+    if dpkg -l | grep -q "librtlsdr2"; then
+      info "Detected librtlsdr2 conflict - upgrading to librtlsdr0..."
 
-    # Remove packages that depend on librtlsdr2, then remove librtlsdr2
-    # These will be reinstalled with librtlsdr0 support
-    $SUDO apt-get remove -y dump1090-mutability libgnuradio-osmosdr0.2.0t64 rtl-433 librtlsdr2 rtl-sdr 2>/dev/null || true
-    $SUDO apt-get autoremove -y 2>/dev/null || true
+      # Remove packages that depend on librtlsdr2, then remove librtlsdr2
+      # These will be reinstalled with librtlsdr0 support
+      $SUDO apt-get remove -y dump1090-mutability libgnuradio-osmosdr0.2.0t64 rtl-433 librtlsdr2 rtl-sdr 2>/dev/null || true
+      $SUDO apt-get autoremove -y 2>/dev/null || true
 
-    ok "Removed conflicting librtlsdr2 packages"
+      ok "Removed conflicting librtlsdr2 packages"
+    fi
+
+    # If rtl-sdr is in broken state, remove it completely first
+    if dpkg -l | grep -q "^.[^i].*rtl-sdr" || ! dpkg -l rtl-sdr 2>/dev/null | grep -q "^ii"; then
+      info "Removing broken rtl-sdr package..."
+      $SUDO dpkg --remove --force-remove-reinstreq rtl-sdr 2>/dev/null || true
+      $SUDO dpkg --purge --force-remove-reinstreq rtl-sdr 2>/dev/null || true
+    fi
+
+    # Force remove librtlsdr2 if it still exists
+    if dpkg -l | grep -q "librtlsdr2"; then
+      info "Force removing librtlsdr2..."
+      $SUDO dpkg --remove --force-all librtlsdr2 2>/dev/null || true
+      $SUDO dpkg --purge --force-all librtlsdr2 2>/dev/null || true
+    fi
+
+    # Clean up any partial installations
+    $SUDO dpkg --configure -a 2>/dev/null || true
+    $SUDO apt-get --fix-broken install -y 2>/dev/null || true
   fi
 
-  # If rtl-sdr is in broken state, remove it completely first
-  if dpkg -l | grep -q "^.[^i].*rtl-sdr" || ! dpkg -l rtl-sdr 2>/dev/null | grep -q "^ii"; then
-    info "Removing broken rtl-sdr package..."
-    $SUDO dpkg --remove --force-remove-reinstreq rtl-sdr 2>/dev/null || true
-    $SUDO dpkg --purge --force-remove-reinstreq rtl-sdr 2>/dev/null || true
+  apt_install_if_missing rtl-sdr
+
+  progress "RTL-SDR Blog drivers"
+  if cmd_exists rtl_test; then
+    info "RTL-SDR tools already installed."
+    if $IS_DRAGONOS; then
+      info "Skipping RTL-SDR Blog driver installation (DragonOS has working drivers)."
+    else
+      echo "RTL-SDR Blog drivers provide improved support for V4 dongles."
+      echo "Installing these will REPLACE your current RTL-SDR drivers."
+      if ask_yes_no "Install RTL-SDR Blog drivers?"; then
+        install_rtlsdr_blog_drivers_debian
+      else
+        ok "Keeping existing RTL-SDR drivers."
+      fi
+    fi
+  else
+    install_rtlsdr_blog_drivers_debian
   fi
-
-  # Force remove librtlsdr2 if it still exists
-  if dpkg -l | grep -q "librtlsdr2"; then
-    info "Force removing librtlsdr2..."
-    $SUDO dpkg --remove --force-all librtlsdr2 2>/dev/null || true
-    $SUDO dpkg --purge --force-all librtlsdr2 2>/dev/null || true
-  fi
-
-  # Clean up any partial installations
-  $SUDO dpkg --configure -a 2>/dev/null || true
-  $SUDO apt-get --fix-broken install -y 2>/dev/null || true
-
-  apt_install rtl-sdr
-
-  progress "Installing RTL-SDR Blog drivers (V4 support)"
-  install_rtlsdr_blog_drivers_debian
 
   progress "Installing multimon-ng"
   apt_install multimon-ng
@@ -650,8 +734,20 @@ install_debian_packages() {
   progress "Configuring udev rules"
   setup_udev_rules_debian
 
-  progress "Blacklisting conflicting kernel drivers"
-  blacklist_kernel_drivers_debian
+  progress "Kernel driver configuration"
+  echo
+  if $IS_DRAGONOS; then
+    info "DragonOS already has RTL-SDR drivers configured correctly."
+    info "Skipping kernel driver blacklist (not needed)."
+  else
+    echo "The DVB-T kernel drivers conflict with RTL-SDR userspace access."
+    echo "Blacklisting them allows rtl_sdr tools to access the device."
+    if ask_yes_no "Blacklist conflicting kernel drivers?"; then
+      blacklist_kernel_drivers_debian
+    else
+      warn "Skipped kernel driver blacklist. RTL-SDR may not work without manual config."
+    fi
+  fi
 }
 
 # ----------------------------
@@ -686,10 +782,41 @@ final_summary_and_hard_fail() {
 }
 
 # ----------------------------
+# Pre-flight summary
+# ----------------------------
+show_install_summary() {
+  info "Installation Summary:"
+  echo
+  echo "  OS: $OS"
+  $IS_DRAGONOS && echo "  DragonOS: Yes (safe mode enabled)"
+  echo
+  echo "  This script will:"
+  echo "    - Install missing SDR tools (rtl-sdr, multimon-ng, etc.)"
+  echo "    - Install Python dependencies in a virtual environment"
+  echo
+  if ! $IS_DRAGONOS; then
+    echo "  You will be prompted before:"
+    echo "    - Installing RTL-SDR Blog drivers (replaces existing)"
+    echo "    - Blacklisting kernel DVB drivers"
+  fi
+  echo
+  if $NON_INTERACTIVE; then
+    info "Non-interactive mode: continuing without prompt."
+    return
+  fi
+  if ! ask_yes_no "Continue with installation?" "y"; then
+    info "Installation cancelled."
+    exit 0
+  fi
+}
+
+# ----------------------------
 # MAIN
 # ----------------------------
 main() {
   detect_os
+  detect_dragonos
+  show_install_summary
 
   if [[ "$OS" == "macos" ]]; then
     install_macos_packages
@@ -702,4 +829,3 @@ main() {
 }
 
 main "$@"
-
