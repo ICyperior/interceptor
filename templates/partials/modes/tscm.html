@@ -24,40 +24,38 @@
                         </div>
 
                         <div class="form-group">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" id="tscmVerboseResults" style="margin: 0;">
-                                <label for="tscmVerboseResults" style="flex: 1; margin: 0; font-size: 12px;">
-                                    Verbose results (store full device details)
-                                </label>
-                            </div>
+                            <label class="inline-checkbox">
+                                <input type="checkbox" id="tscmVerboseResults">
+                                Verbose results (store full device details)
+                            </label>
                         </div>
 
                         <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px;">
                             <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 8px; color: var(--text-secondary);">Scan Sources</label>
                             <div class="form-group" style="margin-bottom: 8px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="tscmWifiEnabled" checked style="margin: 0;">
-                                    <label for="tscmWifiEnabled" style="flex: 1; margin: 0; font-size: 12px;">WiFi</label>
-                                </div>
-                                <select id="tscmWifiInterface" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <label class="inline-checkbox">
+                                    <input type="checkbox" id="tscmWifiEnabled" checked>
+                                    WiFi
+                                </label>
+                                <select id="tscmWifiInterface" style="margin-top: 4px;">
                                     <option value="">Select WiFi interface...</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 8px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="tscmBtEnabled" checked style="margin: 0;">
-                                    <label for="tscmBtEnabled" style="flex: 1; margin: 0; font-size: 12px;">Bluetooth</label>
-                                </div>
-                                <select id="tscmBtInterface" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <label class="inline-checkbox">
+                                    <input type="checkbox" id="tscmBtEnabled" checked>
+                                    Bluetooth
+                                </label>
+                                <select id="tscmBtInterface" style="margin-top: 4px;">
                                     <option value="">Select Bluetooth adapter...</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin-bottom: 8px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="tscmRfEnabled" style="margin: 0;">
-                                    <label for="tscmRfEnabled" style="flex: 1; margin: 0; font-size: 12px;">RF/SDR</label>
-                                </div>
-                                <select id="tscmSdrDevice" style="width: 100%; margin-top: 4px; font-size: 11px;">
+                                <label class="inline-checkbox">
+                                    <input type="checkbox" id="tscmRfEnabled">
+                                    RF/SDR
+                                </label>
+                                <select id="tscmSdrDevice" style="margin-top: 4px;">
                                     <option value="">Select SDR device...</option>
                                 </select>
                             </div>

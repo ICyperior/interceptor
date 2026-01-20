@@ -691,6 +691,25 @@ function addSignalHit(data) {
 
     const hitCount = document.getElementById('scannerHitCount');
     if (hitCount) hitCount.textContent = `${tbody.children.length} signals found`;
+
+    // Feed to activity timeline if available
+    if (typeof addTimelineEvent === 'function') {
+        const normalized = typeof RFTimelineAdapter !== 'undefined'
+            ? RFTimelineAdapter.normalizeSignal({
+                frequency: data.frequency,
+                rssi: data.rssi || data.signal_strength,
+                duration: data.duration || 2000,
+                modulation: data.modulation
+            })
+            : {
+                id: String(data.frequency),
+                label: `${data.frequency.toFixed(3)} MHz`,
+                strength: 3,
+                duration: 2000,
+                type: 'rf'
+            };
+        addTimelineEvent('listening', normalized);
+    }
 }
 
 function clearScannerLog() {
@@ -699,6 +718,12 @@ function clearScannerLog() {
     scannerFreqsScanned = 0;
     scannerCycles = 0;
     recentSignalHits.clear();
+
+    // Clear the timeline if available
+    const timeline = typeof getTimeline === 'function' ? getTimeline('listening') : null;
+    if (timeline) {
+        timeline.clear();
+    }
 
     const signalCount = document.getElementById('scannerSignalCount');
     if (signalCount) signalCount.textContent = '0';

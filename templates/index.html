@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/tscm.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
 </head>
 
 <body>
@@ -790,6 +791,10 @@
                                 <div style="color: var(--text-dim);">Waiting for client probe requests...</div>
                             </div>
                         </div>
+                        <!-- Network Activity Timeline -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <div id="wifiTimelineContainer"></div>
+                        </div>
                     </div>
                     <!-- Right: WiFi Device Cards -->
                     <div class="wifi-device-list" id="wifiDeviceList">
@@ -869,6 +874,10 @@
                                 <div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for
                                     FindMy-compatible devices...</div>
                             </div>
+                        </div>
+                        <!-- Device Activity Timeline -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <div id="bluetoothTimelineContainer"></div>
                         </div>
                     </div>
                     <!-- Right: Bluetooth Device Cards -->
@@ -1345,6 +1354,11 @@
                             <div class="scanner-log-entry" style="color: var(--text-muted);">Ready</div>
                         </div>
                     </div>
+
+                    <!-- SIGNAL ACTIVITY TIMELINE -->
+                    <div class="radio-module-box" style="grid-column: span 4; padding: 10px;">
+                        <div id="listeningPostTimelineContainer"></div>
+                    </div>
                 </div>
 
                 <!-- Satellite Dashboard (Embedded) -->
@@ -1577,9 +1591,93 @@
     <script src="{{ url_for('static', filename='js/components/radio-knob.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-cards.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-timeline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/activity-timeline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/timeline-adapters/rf-adapter.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/timeline-adapters/bluetooth-adapter.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/timeline-adapters/wifi-adapter.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/listening-post.js') }}"></script>
 
     <script>
+        // ============================================
+        // ACTIVITY TIMELINE MANAGEMENT
+        // ============================================
+        const modeTimelines = {};
+
+        /**
+         * Initialize timeline for a specific mode
+         */
+        function initializeModeTimeline(mode) {
+            // Skip if already initialized
+            if (modeTimelines[mode]) return;
+
+            const configs = {
+                'tscm': {
+                    container: 'tscmTimelineContainer',
+                    config: typeof RFTimelineAdapter !== 'undefined' ? RFTimelineAdapter.getTscmConfig() : {
+                        title: 'Signal Activity Timeline',
+                        mode: 'tscm',
+                        visualMode: 'enriched',
+                        collapsed: true
+                    }
+                },
+                'listening': {
+                    container: 'listeningPostTimelineContainer',
+                    config: typeof RFTimelineAdapter !== 'undefined' ? RFTimelineAdapter.getListeningPostConfig() : {
+                        title: 'Signal Activity',
+                        mode: 'listening-post',
+                        visualMode: 'enriched',
+                        collapsed: false
+                    }
+                },
+                'bluetooth': {
+                    container: 'bluetoothTimelineContainer',
+                    config: typeof BluetoothTimelineAdapter !== 'undefined' ? BluetoothTimelineAdapter.getBluetoothConfig() : {
+                        title: 'Device Activity',
+                        mode: 'bluetooth',
+                        visualMode: 'enriched',
+                        collapsed: false
+                    }
+                },
+                'wifi': {
+                    container: 'wifiTimelineContainer',
+                    config: typeof WiFiTimelineAdapter !== 'undefined' ? WiFiTimelineAdapter.getWiFiConfig() : {
+                        title: 'Network Activity',
+                        mode: 'wifi',
+                        visualMode: 'enriched',
+                        collapsed: false
+                    }
+                }
+            };
+
+            const modeConfig = configs[mode];
+            if (!modeConfig) return;
+
+            const container = document.getElementById(modeConfig.container);
+            if (!container) return;
+
+            // Create timeline using new ActivityTimeline
+            if (typeof ActivityTimeline !== 'undefined') {
+                modeTimelines[mode] = ActivityTimeline.create(modeConfig.container, modeConfig.config);
+            }
+        }
+
+        /**
+         * Add event to a mode's timeline
+         */
+        function addTimelineEvent(mode, eventData) {
+            const timeline = modeTimelines[mode];
+            if (timeline) {
+                timeline.addEvent(eventData);
+            }
+        }
+
+        /**
+         * Get timeline instance for a mode
+         */
+        function getTimeline(mode) {
+            return modeTimelines[mode] || null;
+        }
+
         // Selected mode from welcome screen
         let selectedStartMode = 'pager';
 
@@ -2042,14 +2140,13 @@
             };
             document.getElementById('outputTitle').textContent = titles[mode] || 'Signal Monitor';
 
+            // Initialize mode-specific timelines
+            initializeModeTimeline(mode);
+
             // Initialize TSCM mode when selected
             if (mode === 'tscm') {
                 loadTscmBaselines();
                 refreshTscmDevices();
-                // Initialize signal timeline if not already created
-                if (!document.getElementById('signalTimeline')) {
-                    SignalTimeline.create('tscmTimelineContainer');
-                }
             }
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
@@ -5079,6 +5176,26 @@
             `;
 
             if (autoScroll) output.scrollTop = 0;
+
+            // Feed to activity timeline if it's a new network
+            if (isNew && typeof addTimelineEvent === 'function') {
+                const normalized = typeof WiFiTimelineAdapter !== 'undefined'
+                    ? WiFiTimelineAdapter.normalizeNetwork({
+                        ssid: net.essid,
+                        bssid: net.bssid,
+                        channel: net.channel,
+                        rssi: signalStrength,
+                        security: net.privacy
+                    })
+                    : {
+                        id: net.bssid,
+                        label: net.essid || '[Hidden]',
+                        strength: signalBars || 3,
+                        duration: 1500,
+                        type: 'wifi'
+                    };
+                addTimelineEvent('wifi', normalized);
+            }
         }
 
         // Add WiFi client card to device list
@@ -6345,6 +6462,20 @@
 
             // Update statistics panels
             updateBtStatsPanels();
+
+            // Feed to activity timeline if it's a new detection
+            if (isNew && typeof addTimelineEvent === 'function') {
+                const normalized = typeof BluetoothTimelineAdapter !== 'undefined'
+                    ? BluetoothTimelineAdapter.normalizeDevice(device)
+                    : {
+                        id: device.mac,
+                        label: device.name || device.mac.substring(0, 8) + '...',
+                        strength: device.rssi ? Math.min(5, Math.max(1, Math.ceil((device.rssi + 100) / 20))) : 3,
+                        duration: 1500,
+                        type: 'bluetooth'
+                    };
+                addTimelineEvent('bluetooth', normalized);
+            }
         }
 
         // Select a Bluetooth device
