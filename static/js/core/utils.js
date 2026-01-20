@@ -271,3 +271,125 @@ function clamp(num, min, max) {
 function mapRange(value, inMin, inMax, outMin, outMax) {
     return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
 }
+
+// ============== ICON SYSTEM ==============
+// Minimal SVG icons. Each returns HTML string.
+// Designed for screenshot legibility - standard symbols only.
+
+const Icons = {
+    /**
+     * WiFi icon - standard arc/fan shape
+     */
+    wifi: function(className) {
+        return `<span class="icon icon-wifi ${className || ''}" aria-label="WiFi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Bluetooth icon - standard rune
+     */
+    bluetooth: function(className) {
+        return `<span class="icon icon-bluetooth ${className || ''}" aria-label="Bluetooth">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Cellular icon - ascending bars
+     */
+    cellular: function(className) {
+        return `<span class="icon icon-cellular ${className || ''}" aria-label="Cellular">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <rect x="2" y="16" width="4" height="6" rx="1"/>
+                <rect x="8" y="12" width="4" height="10" rx="1"/>
+                <rect x="14" y="8" width="4" height="14" rx="1"/>
+                <rect x="20" y="4" width="4" height="18" rx="1" opacity="0.3"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Unknown/RF signal - generic wave
+     */
+    signalUnknown: function(className) {
+        return `<span class="icon icon-signal-unknown ${className || ''}" aria-label="Unknown signal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M2 12c0-3 2-6 5-6s4 3 5 6c1 3 2 6 5 6s5-3 5-6"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Recording indicator - filled circle
+     */
+    recording: function(className) {
+        return `<span class="icon icon-recording ${className || ''}" aria-label="Recording">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="8"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Anomaly indicator - filled circle (amber by default via CSS)
+     */
+    anomaly: function(className) {
+        return `<span class="icon icon-anomaly ${className || ''}" aria-label="Anomaly">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="6"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Export icon - arrow out of box
+     */
+    export: function(className) {
+        return `<span class="icon icon-export ${className || ''}" aria-label="Export">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Refresh icon - circular arrows
+     */
+    refresh: function(className) {
+        return `<span class="icon icon-refresh ${className || ''}" aria-label="Refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+        </span>`;
+    },
+
+    /**
+     * Get icon by signal type
+     * Maps protocol names to appropriate icons
+     */
+    forSignalType: function(type, className) {
+        const t = (type || '').toLowerCase();
+        if (t.includes('wifi') || t.includes('802.11')) {
+            return this.wifi(className);
+        }
+        if (t.includes('bluetooth') || t.includes('bt') || t.includes('ble')) {
+            return this.bluetooth(className);
+        }
+        if (t.includes('cellular') || t.includes('lte') || t.includes('gsm') || t.includes('5g')) {
+            return this.cellular(className);
+        }
+        return this.signalUnknown(className);
+    }
+};

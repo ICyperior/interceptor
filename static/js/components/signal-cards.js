@@ -833,20 +833,10 @@ const SignalCards = (function() {
             ? createSignalIndicator(rssi, { compact: true })
             : '<span class="signal-strength-indicator compact no-data" title="No signal data available">--</span>';
 
-        // Determine sensor type icon
-        let sensorIcon = '📡';
-        const model = (msg.model || '').toLowerCase();
-        if (model.includes('weather') || msg.temperature !== undefined) sensorIcon = '🌡️';
-        else if (model.includes('door') || model.includes('window')) sensorIcon = '🚪';
-        else if (model.includes('motion') || model.includes('pir')) sensorIcon = '🚶';
-        else if (model.includes('smoke') || model.includes('fire')) sensorIcon = '🔥';
-        else if (model.includes('water') || model.includes('leak')) sensorIcon = '💧';
-        else if (model.includes('car') || model.includes('tire') || model.includes('tpms')) sensorIcon = '🚗';
-
         card.innerHTML = `
             <div class="signal-card-header">
                 <div class="signal-card-badges">
-                    <span class="signal-proto-badge sensor">${sensorIcon} ${escapeHtml(msg.model || 'Unknown')}</span>
+                    <span class="signal-proto-badge sensor">${escapeHtml(msg.model || 'Unknown')}</span>
                     <span class="signal-freq-badge">ID: ${escapeHtml(msg.id || 'N/A')}</span>
                     ${signalIndicator}
                 </div>

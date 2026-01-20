@@ -631,6 +631,18 @@
     color: var(--text-muted);
     font-size: 12px;
 }
+.tscm-empty-primary {
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+.tscm-empty-secondary {
+    font-size: 10px;
+    color: var(--text-muted);
+    max-width: 280px;
+    margin: 0 auto;
+    line-height: 1.4;
+}
 
 /* Futuristic Scanner Progress */
 .tscm-scanner-progress {
@@ -795,6 +807,17 @@
 }
 .cap-icon {
     font-size: 14px;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.cap-icon svg {
+    width: 100%;
+    height: 100%;
+    stroke: currentColor;
+    fill: none;
 }
 .cap-status {
     color: var(--text-muted);
@@ -1164,6 +1187,14 @@
     font-size: 24px;
     display: block;
     margin-bottom: 8px;
+    width: 24px;
+    height: 24px;
+}
+.cap-detail-item .cap-icon svg {
+    width: 100%;
+    height: 100%;
+    stroke: currentColor;
+    fill: none;
 }
 .cap-detail-item .cap-name {
     font-weight: 600;
@@ -1255,4 +1286,157 @@
     color: #4a9eff;
     border-radius: 3px;
     margin-left: 8px;
+}
+
+/* ==========================================================================
+   Icon System
+   Minimal, functional icons that replace words. No decoration.
+   Designed for screenshot legibility in reports.
+   ========================================================================== */
+
+.icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+}
+
+.icon--sm {
+    width: 12px;
+    height: 12px;
+}
+
+.icon--lg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Signal Type Icons */
+.icon-wifi svg,
+.icon-bluetooth svg,
+.icon-cellular svg,
+.icon-signal-unknown svg {
+    fill: var(--text-secondary);
+}
+
+/* Recording State */
+.icon-recording {
+    color: #ff3366;
+}
+
+.icon-recording.active svg {
+    animation: recording-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Anomaly Indicator */
+.icon-anomaly {
+    color: #ff9933;
+}
+
+.icon-anomaly.critical {
+    color: #ff3366;
+}
+
+/* Export Icon */
+.icon-export {
+    color: var(--text-secondary);
+}
+
+/* Device Indicators with Icons */
+.device-indicator-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    opacity: 0.3;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.device-indicator-icon.active {
+    opacity: 1;
+    animation: device-pulse 1.5s ease-in-out infinite;
+}
+
+.device-indicator-icon.inactive {
+    opacity: 0.2;
+}
+
+.device-indicator-icon .icon {
+    width: 18px;
+    height: 18px;
+}
+
+/* Protocol badge with icon */
+.protocol-icon-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.protocol-icon-badge .icon {
+    width: 12px;
+    height: 12px;
+}
+
+/* Recording status indicator */
+.recording-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.recording-status .icon-recording {
+    width: 10px;
+    height: 10px;
+}
+
+.recording-status.active {
+    color: #ff3366;
+    font-weight: 600;
+}
+
+/* Anomaly flag in device items */
+.anomaly-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.anomaly-flag.needs-review {
+    background: rgba(255, 153, 51, 0.2);
+    color: #ff9933;
+}
+
+.anomaly-flag.high-interest {
+    background: rgba(255, 51, 51, 0.2);
+    color: #ff3333;
+}
+
+.anomaly-flag .icon {
+    width: 10px;
+    height: 10px;
 }
