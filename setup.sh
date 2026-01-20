@@ -128,6 +128,17 @@ check_required() {
   fi
 }
 
+check_optional() {
+  local label="$1"; shift
+  local desc="$1"; shift
+
+  if have_any "$@"; then
+    ok "${label} - ${desc}"
+  else
+    warn "${label} - ${desc} (missing, optional)"
+  fi
+}
+
 check_tools() {
   info "Checking required tools..."
   missing_required=()
@@ -139,7 +150,7 @@ check_tools() {
   check_required "rtl_tcp"     "RTL-SDR TCP server" rtl_tcp
   check_required "multimon-ng" "Pager decoder" multimon-ng
   check_required "rtl_433"     "433MHz sensor decoder" rtl_433 rtl433
-  check_required "rtlamr"      "Utility meter decoder" rtlamr
+  check_optional "rtlamr"      "Utility meter decoder (requires Go)" rtlamr
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
 
@@ -276,6 +287,49 @@ brew_install() {
   fi
 }
 
+install_rtlamr_from_source() {
+  info "Installing rtlamr from source (requires Go)..."
+
+  # Check if Go is installed, install if needed
+  if ! cmd_exists go; then
+    if [[ "$OS" == "macos" ]]; then
+      info "Installing Go via Homebrew..."
+      brew_install go || { warn "Failed to install Go. Cannot install rtlamr."; return 1; }
+    else
+      info "Installing Go via apt..."
+      $SUDO apt-get install -y golang >/dev/null 2>&1 || { warn "Failed to install Go. Cannot install rtlamr."; return 1; }
+    fi
+  fi
+
+  # Set up Go environment
+  export GOPATH="${GOPATH:-$HOME/go}"
+  export PATH="$GOPATH/bin:$PATH"
+  mkdir -p "$GOPATH/bin"
+
+  info "Building rtlamr..."
+  if go install github.com/bemasher/rtlamr@latest 2>/dev/null; then
+    # Link to system path
+    if [[ -f "$GOPATH/bin/rtlamr" ]]; then
+      if [[ "$OS" == "macos" ]]; then
+        if [[ -w /usr/local/bin ]]; then
+          ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
+        else
+          sudo ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
+        fi
+      else
+        $SUDO ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
+      fi
+      ok "rtlamr installed successfully"
+    else
+      warn "rtlamr binary not found after build"
+      return 1
+    fi
+  else
+    warn "Failed to build rtlamr"
+    return 1
+  fi
+}
+
 install_multimon_ng_from_source_macos() {
   info "multimon-ng not available via Homebrew. Building from source..."
 
@@ -334,19 +388,16 @@ install_macos_packages() {
   progress "Installing rtl_433"
   brew_install rtl_433
 
-  progress "Installing rtlamr"
-  # rtlamr needs to be installed via go or binary
+  progress "Installing rtlamr (optional)"
+  # rtlamr is optional - used for utility meter monitoring
   if ! cmd_exists rtlamr; then
-    if [[ -f "/home/rose/Compiled/rtlamr/rtlamr" ]]; then
-      info "Found rtlamr binary, linking to /usr/local/bin..."
-      if [[ -w /usr/local/bin ]]; then
-        ln -sf /home/rose/Compiled/rtlamr/rtlamr /usr/local/bin/rtlamr
-      else
-        sudo ln -sf /home/rose/Compiled/rtlamr/rtlamr /usr/local/bin/rtlamr
-      fi
-      ok "rtlamr linked successfully"
+    echo
+    info "rtlamr is used for utility meter monitoring (electric/gas/water meters)."
+    read -r -p "Do you want to install rtlamr? [y/N] " install_rtlamr
+    if [[ "$install_rtlamr" =~ ^[Yy]$ ]]; then
+      install_rtlamr_from_source
     else
-      warn "rtlamr not found. Download from https://github.com/bemasher/rtlamr"
+      warn "Skipping rtlamr installation. You can install it later if needed."
     fi
   else
     ok "rtlamr already installed"
@@ -622,15 +673,16 @@ install_debian_packages() {
   progress "Installing rtl_433"
   apt_try_install_any rtl-433 rtl433 || warn "rtl-433 not available"
 
-  progress "Installing rtlamr"
-  # rtlamr needs to be installed via go or binary
+  progress "Installing rtlamr (optional)"
+  # rtlamr is optional - used for utility meter monitoring
   if ! cmd_exists rtlamr; then
-    if [[ -f "/home/rose/Compiled/rtlamr/rtlamr" ]]; then
-      info "Found rtlamr binary, installing to /usr/local/bin..."
-      $SUDO install -m 0755 /home/rose/Compiled/rtlamr/rtlamr /usr/local/bin/rtlamr
-      ok "rtlamr installed successfully"
+    echo
+    info "rtlamr is used for utility meter monitoring (electric/gas/water meters)."
+    read -r -p "Do you want to install rtlamr? [y/N] " install_rtlamr
+    if [[ "$install_rtlamr" =~ ^[Yy]$ ]]; then
+      install_rtlamr_from_source
     else
-      warn "rtlamr not found. Download from https://github.com/bemasher/rtlamr"
+      warn "Skipping rtlamr installation. You can install it later if needed."
     fi
   else
     ok "rtlamr already installed"
