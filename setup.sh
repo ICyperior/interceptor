@@ -178,6 +178,17 @@ check_required() {
   fi
 }
 
+check_optional() {
+  local label="$1"; shift
+  local desc="$1"; shift
+
+  if have_any "$@"; then
+    ok "${label} - ${desc}"
+  else
+    warn "${label} - ${desc} (missing, optional)"
+  fi
+}
+
 check_tools() {
   info "Checking required tools..."
   missing_required=()
@@ -186,8 +197,10 @@ check_tools() {
   info "Core SDR:"
   check_required "rtl_fm"      "RTL-SDR FM demodulator" rtl_fm
   check_required "rtl_test"    "RTL-SDR device detection" rtl_test
+  check_required "rtl_tcp"     "RTL-SDR TCP server" rtl_tcp
   check_required "multimon-ng" "Pager decoder" multimon-ng
   check_required "rtl_433"     "433MHz sensor decoder" rtl_433 rtl433
+  check_optional "rtlamr"      "Utility meter decoder (requires Go)" rtlamr
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
 
@@ -280,9 +293,9 @@ install_python_deps() {
   if ! python -m pip install -r requirements.txt 2>/dev/null; then
     warn "Some pip packages failed - checking if apt packages cover them..."
     # Verify critical packages are available
-    python -c "import flask; import requests" 2>/dev/null || {
-      fail "Critical Python packages (flask, requests) not installed"
-      echo "Try: sudo apt install python3-flask python3-requests"
+    python -c "import flask; import requests; from flask_limiter import Limiter" 2>/dev/null || {
+      fail "Critical Python packages (flask, requests, flask-limiter) not installed"
+      echo "Try: pip install flask requests flask-limiter"
       exit 1
     }
     ok "Core Python dependencies available"
@@ -320,6 +333,49 @@ brew_install() {
     ok "brew: installed ${pkg}"
     return 0
   else
+    return 1
+  fi
+}
+
+install_rtlamr_from_source() {
+  info "Installing rtlamr from source (requires Go)..."
+
+  # Check if Go is installed, install if needed
+  if ! cmd_exists go; then
+    if [[ "$OS" == "macos" ]]; then
+      info "Installing Go via Homebrew..."
+      brew_install go || { warn "Failed to install Go. Cannot install rtlamr."; return 1; }
+    else
+      info "Installing Go via apt..."
+      $SUDO apt-get install -y golang >/dev/null 2>&1 || { warn "Failed to install Go. Cannot install rtlamr."; return 1; }
+    fi
+  fi
+
+  # Set up Go environment
+  export GOPATH="${GOPATH:-$HOME/go}"
+  export PATH="$GOPATH/bin:$PATH"
+  mkdir -p "$GOPATH/bin"
+
+  info "Building rtlamr..."
+  if go install github.com/bemasher/rtlamr@latest 2>/dev/null; then
+    # Link to system path
+    if [[ -f "$GOPATH/bin/rtlamr" ]]; then
+      if [[ "$OS" == "macos" ]]; then
+        if [[ -w /usr/local/bin ]]; then
+          ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
+        else
+          sudo ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
+        fi
+      else
+        $SUDO ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
+      fi
+      ok "rtlamr installed successfully"
+    else
+      warn "rtlamr binary not found after build"
+      return 1
+    fi
+  else
+    warn "Failed to build rtlamr"
     return 1
   fi
 }
@@ -381,6 +437,21 @@ install_macos_packages() {
 
   progress "Installing rtl_433"
   brew_install rtl_433
+
+  progress "Installing rtlamr (optional)"
+  # rtlamr is optional - used for utility meter monitoring
+  if ! cmd_exists rtlamr; then
+    echo
+    info "rtlamr is used for utility meter monitoring (electric/gas/water meters)."
+    read -r -p "Do you want to install rtlamr? [y/N] " install_rtlamr
+    if [[ "$install_rtlamr" =~ ^[Yy]$ ]]; then
+      install_rtlamr_from_source
+    else
+      warn "Skipping rtlamr installation. You can install it later if needed."
+    fi
+  else
+    ok "rtlamr already installed"
+  fi
 
   progress "Installing dump1090"
   (brew_install dump1090-mutability) || warn "dump1090 not available via Homebrew"
@@ -685,6 +756,21 @@ install_debian_packages() {
 
   progress "Installing rtl_433"
   apt_try_install_any rtl-433 rtl433 || warn "rtl-433 not available"
+
+  progress "Installing rtlamr (optional)"
+  # rtlamr is optional - used for utility meter monitoring
+  if ! cmd_exists rtlamr; then
+    echo
+    info "rtlamr is used for utility meter monitoring (electric/gas/water meters)."
+    read -r -p "Do you want to install rtlamr? [y/N] " install_rtlamr
+    if [[ "$install_rtlamr" =~ ^[Yy]$ ]]; then
+      install_rtlamr_from_source
+    else
+      warn "Skipping rtlamr installation. You can install it later if needed."
+    fi
+  else
+    ok "rtlamr already installed"
+  fi
 
   progress "Installing aircrack-ng"
   apt_install aircrack-ng || true
