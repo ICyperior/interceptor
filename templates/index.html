@@ -2352,8 +2352,11 @@
                 });
             }
 
-            // Update filter counts
-            SignalCards.updateCounts(output);
+            // Update filter counts using sensor-specific filter bar
+            const sensorFilterBar = document.getElementById('sensorFilterBar');
+            if (sensorFilterBar && sensorFilterBar.applyFilters) {
+                sensorFilterBar.applyFilters();
+            }
 
             if (autoScroll) output.scrollTop = 0;
 
