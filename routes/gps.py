@@ -161,32 +161,6 @@ def get_position():
             })
 
 
-@gps_bp.route('/debug')
-def debug_gps():
-    """Debug endpoint showing GPS client state."""
-    reader = get_gps_reader()
-
-    if not reader:
-        return jsonify({
-            'reader': None,
-            'message': 'No GPS client initialized'
-        })
-
-    position = reader.position
-    return jsonify({
-        'running': reader.is_running,
-        'source': 'gpsd',
-        'device': reader.device_path,
-        'host': reader.host,
-        'port': reader.port,
-        'has_position': position is not None,
-        'position': position.to_dict() if position else None,
-        'last_update': reader.last_update.isoformat() if reader.last_update else None,
-        'error': reader.error,
-        'callbacks_registered': len(reader._callbacks),
-    })
-
-
 @gps_bp.route('/stream')
 def stream_gps():
     """SSE stream of GPS position updates."""
