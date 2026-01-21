@@ -421,6 +421,25 @@ section h2 {
     color: var(--text-muted);
 }
 
+.platform-note {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+}
+
+.platform-note p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.platform-note strong {
+    color: var(--text-primary);
+}
+
 .post-install {
     text-align: center;
     padding: 32px;
