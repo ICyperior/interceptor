@@ -28,7 +28,7 @@ const BluetoothMode = (function() {
         startBtn = document.getElementById('startBtBtn');
         stopBtn = document.getElementById('stopBtBtn');
         messageContainer = document.getElementById('btMessageContainer');
-        deviceContainer = document.getElementById('output');
+        deviceContainer = document.getElementById('btDeviceListContent');
         adapterSelect = document.getElementById('btAdapterSelect');
         scanModeSelect = document.getElementById('btScanMode');
         transportSelect = document.getElementById('btTransport');
@@ -213,6 +213,14 @@ const BluetoothMode = (function() {
         if (startBtn) startBtn.style.display = scanning ? 'none' : 'block';
         if (stopBtn) stopBtn.style.display = scanning ? 'block' : 'none';
 
+        // Clear placeholder when starting scan
+        if (scanning && deviceContainer) {
+            const placeholder = deviceContainer.querySelector('div[style*="text-align: center"]');
+            if (placeholder && placeholder.textContent.includes('Start scanning')) {
+                deviceContainer.innerHTML = '';
+            }
+        }
+
         // Update global status if available
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
@@ -288,6 +296,17 @@ const BluetoothMode = (function() {
         console.log('[BT] Device update received:', device);
         devices.set(device.device_id, device);
         renderDevice(device);
+        updateDeviceCount();
+    }
+
+    /**
+     * Update device count display
+     */
+    function updateDeviceCount() {
+        const countEl = document.getElementById('btDeviceListCount');
+        if (countEl) {
+            countEl.textContent = devices.size;
+        }
     }
 
     /**
@@ -298,7 +317,7 @@ const BluetoothMode = (function() {
         if (!deviceContainer) {
             console.warn('[BT] No device container found!');
             // Try to find it again
-            deviceContainer = document.getElementById('output');
+            deviceContainer = document.getElementById('btDeviceListContent');
             if (!deviceContainer) {
                 console.error('[BT] Still no container - cannot render');
                 return;
