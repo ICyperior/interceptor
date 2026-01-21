@@ -327,21 +327,19 @@ const BluetoothMode = (function() {
         const existingCard = deviceContainer.querySelector(`[data-device-id="${device.device_id}"]`);
 
         if (typeof DeviceCard !== 'undefined') {
-            const cardHtml = DeviceCard.createDeviceCard(device);
+            // DeviceCard.createDeviceCard returns a DOM element
+            const cardElement = DeviceCard.createDeviceCard(device);
 
             if (existingCard) {
-                existingCard.outerHTML = cardHtml;
+                existingCard.replaceWith(cardElement);
             } else {
-                deviceContainer.insertAdjacentHTML('afterbegin', cardHtml);
+                deviceContainer.prepend(cardElement);
             }
 
-            // Re-attach click handler
-            const newCard = deviceContainer.querySelector(`[data-device-id="${device.device_id}"]`);
-            if (newCard) {
-                newCard.addEventListener('click', () => showDeviceDetails(device.device_id));
-            }
+            // Attach click handler
+            cardElement.addEventListener('click', () => showDeviceDetails(device.device_id));
         } else {
-            // Fallback simple rendering
+            // Fallback simple rendering (returns HTML string)
             const cardHtml = createSimpleDeviceCard(device);
 
             if (existingCard) {
