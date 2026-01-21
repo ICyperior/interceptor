@@ -163,7 +163,7 @@ const BluetoothMode = (function() {
                 </div>
                 <div style="background:#141428;padding:14px;border-radius:6px;">
                     <div style="font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px;">Manufacturer ID</div>
-                    <div style="font-family:monospace;font-size:13px;color:#e0e0e0;">${device.manufacturer_id !== null ? '0x' + device.manufacturer_id.toString(16).toUpperCase().padStart(4, '0') : '--'}</div>
+                    <div style="font-family:monospace;font-size:13px;color:#e0e0e0;">${device.manufacturer_id != null ? '0x' + device.manufacturer_id.toString(16).toUpperCase().padStart(4, '0') : '--'}</div>
                 </div>
             </div>
 
