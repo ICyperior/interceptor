@@ -346,7 +346,7 @@ class TestTSCMIntegration:
         mock_scanner.get_devices.return_value = [sample_device]
 
         with patch('routes.bluetooth_v2.get_bluetooth_scanner', return_value=mock_scanner):
-            devices = get_tscm_bluetooth_snapshot('hci0', duration=8)
+            devices = get_tscm_bluetooth_snapshot(duration=8)
 
         assert len(devices) == 1
         device = devices[0]
@@ -361,7 +361,7 @@ class TestTSCMIntegration:
         mock_scanner.get_devices.return_value = []
 
         with patch('routes.bluetooth_v2.get_bluetooth_scanner', return_value=mock_scanner):
-            devices = get_tscm_bluetooth_snapshot('hci0')
+            devices = get_tscm_bluetooth_snapshot()
 
         assert devices == []
 

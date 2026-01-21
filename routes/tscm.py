@@ -1331,7 +1331,7 @@ def _run_sweep(
                 try:
                     # Use unified Bluetooth scanner if available
                     if _USE_UNIFIED_BT_SCANNER:
-                        bt_devices = get_tscm_bluetooth_snapshot(bt_interface, duration=8)
+                        bt_devices = get_tscm_bluetooth_snapshot(duration=8)
                     else:
                         bt_devices = _scan_bluetooth_devices(bt_interface, duration=8)
                     for device in bt_devices:
