@@ -5796,13 +5796,22 @@
         let btRadarAnimFrame = null;
         let btRadarDevices = [];
 
-        // Refresh Bluetooth interfaces
+        // Refresh Bluetooth interfaces (legacy - now handled by BluetoothMode.init())
         function refreshBtInterfaces() {
+            // New Bluetooth mode uses /api/bluetooth/capabilities instead
+            // This function is kept for backwards compatibility but uses new API
+            if (typeof BluetoothMode !== 'undefined') {
+                BluetoothMode.checkCapabilities();
+                return;
+            }
+            // Legacy fallback (shouldn't be needed)
+            const select = document.getElementById('btInterfaceSelect') || document.getElementById('btAdapterSelect');
+            if (!select) return;
+
             fetch('/bt/interfaces')
                 .then(r => r.json())
                 .then(data => {
-                    const select = document.getElementById('btInterfaceSelect');
-                    if (data.interfaces.length === 0) {
+                    if (!data.interfaces || data.interfaces.length === 0) {
                         select.innerHTML = '<option value="">No BT interfaces found</option>';
                     } else {
                         select.innerHTML = data.interfaces.map(i =>
@@ -5810,13 +5819,16 @@
                         ).join('');
                     }
 
-                    // Update tool status
+                    // Update tool status (if element exists)
                     const statusDiv = document.getElementById('btToolStatus');
-                    statusDiv.innerHTML = `
-                        <span>hcitool:</span><span class="tool-status ${data.tools.hcitool ? 'ok' : 'missing'}">${data.tools.hcitool ? 'OK' : 'Missing'}</span>
-                        <span>bluetoothctl:</span><span class="tool-status ${data.tools.bluetoothctl ? 'ok' : 'missing'}">${data.tools.bluetoothctl ? 'OK' : 'Missing'}</span>
-                    `;
-                });
+                    if (statusDiv) {
+                        statusDiv.innerHTML = `
+                            <span>hcitool:</span><span class="tool-status ${data.tools.hcitool ? 'ok' : 'missing'}">${data.tools.hcitool ? 'OK' : 'Missing'}</span>
+                            <span>bluetoothctl:</span><span class="tool-status ${data.tools.bluetoothctl ? 'ok' : 'missing'}">${data.tools.bluetoothctl ? 'OK' : 'Missing'}</span>
+                        `;
+                    }
+                })
+                .catch(err => console.warn('Legacy BT interface check failed:', err));
         }
 
         // Start Bluetooth scan

@@ -164,7 +164,7 @@ class BleakScanner:
             manufacturer_data=manufacturer_data,
             service_uuids=list(adv_data.service_uuids) if adv_data.service_uuids else [],
             service_data=service_data,
-            is_connectable=device.metadata.get('connectable', True) if hasattr(device, 'metadata') else True,
+            is_connectable=getattr(adv_data, 'connectable', True) if adv_data else True,
         )
 
 
