@@ -492,10 +492,31 @@
                                     or client to view details</div>
                             </div>
                         </div>
-                        <!-- Row 1: Network Radar + Security Overview -->
+                        <!-- Row 1: Proximity Radar (v2) + Security Overview -->
                         <div class="wifi-visual-panel">
-                            <h5>Network Radar</h5>
-                            <div class="radar-container">
+                            <h5>Proximity Radar</h5>
+                            <div id="wifiProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
+                            <div id="wifiRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
+                                <button data-filter="all" class="wifi-radar-filter-btn active" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">All</button>
+                                <button data-filter="hidden" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Hidden</button>
+                                <button data-filter="open" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Open</button>
+                            </div>
+                            <div id="wifiZoneSummary" style="display: flex; justify-content: center; gap: 16px; margin-top: 10px; font-size: 10px;">
+                                <div style="text-align: center;">
+                                    <span id="wifiZoneImmediate" style="font-size: 16px; font-weight: 600; color: #22c55e;">0</span>
+                                    <div style="color: #666;">Near</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span id="wifiZoneNear" style="font-size: 16px; font-weight: 600; color: #eab308;">0</span>
+                                    <div style="color: #666;">Mid</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span id="wifiZoneFar" style="font-size: 16px; font-weight: 600; color: #ef4444;">0</span>
+                                    <div style="color: #666;">Far</div>
+                                </div>
+                            </div>
+                            <!-- Legacy radar canvas (hidden, for backwards compat) -->
+                            <div style="display: none;">
                                 <canvas id="radarCanvas" width="150" height="150"></canvas>
                             </div>
                         </div>
@@ -521,124 +542,17 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Row 2: Channel Utilization (2.4 GHz + 5 GHz side by side) -->
-                        <div class="wifi-visual-panel">
-                            <h5>Channel Utilization (2.4 GHz)</h5>
-                            <div class="channel-graph" id="channelGraph">
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">1</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">2</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">3</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">4</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">5</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">6</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">7</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">8</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">9</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">10</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">11</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">12</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">13</span>
-                                </div>
+                        <!-- Row 2: Channel Analysis (v2) -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <h5>Channel Analysis</h5>
+                            <div id="wifiChannelBandTabs" style="display: flex; gap: 4px; margin-bottom: 8px;">
+                                <button data-band="2.4" class="channel-band-tab active" style="padding: 4px 12px; font-size: 10px; background: var(--accent-cyan); color: #000; border: none; border-radius: 4px; cursor: pointer;">2.4 GHz</button>
+                                <button data-band="5" class="channel-band-tab" style="padding: 4px 12px; font-size: 10px; background: var(--bg-tertiary); color: #888; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">5 GHz</button>
                             </div>
-                        </div>
-                        <div class="wifi-visual-panel">
-                            <h5>Channel Utilization (5 GHz)</h5>
-                            <div class="channel-graph" id="channelGraph5g" style="font-size: 7px;">
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">36</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">40</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">44</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">48</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">52</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">56</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">60</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">64</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">100</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">149</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">153</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">157</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">161</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">165</span>
-                                </div>
-                            </div>
+                            <div id="wifiChannelChart"></div>
+                            <!-- Legacy channel graphs (hidden, for backwards compat) -->
+                            <div id="channelGraph" style="display: none;"></div>
+                            <div id="channelGraph5g" style="display: none;"></div>
                         </div>
                         <!-- Row 3: Channel Recommendation -->
                         <div class="wifi-visual-panel channel-recommendation" id="channelRecommendation">
@@ -683,40 +597,6 @@
                         <!-- Network Activity Timeline -->
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
                             <div id="wifiTimelineContainer"></div>
-                        </div>
-                        <!-- v2 Proximity Radar -->
-                        <div class="wifi-visual-panel wifi-v2-radar-panel">
-                            <h5>Proximity Radar</h5>
-                            <div id="wifiProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
-                            <div id="wifiRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
-                                <button data-filter="all" class="wifi-radar-filter-btn active" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">All</button>
-                                <button data-filter="hidden" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Hidden</button>
-                                <button data-filter="open" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Open</button>
-                                <button data-filter="strong" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Strong</button>
-                            </div>
-                            <div id="wifiZoneSummary" style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 11px;">
-                                <div style="text-align: center;">
-                                    <span id="wifiZoneImmediate" style="font-size: 20px; font-weight: 600; color: #22c55e;">0</span>
-                                    <div style="color: #666;">Immediate</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span id="wifiZoneNear" style="font-size: 20px; font-weight: 600; color: #eab308;">0</span>
-                                    <div style="color: #666;">Near</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span id="wifiZoneFar" style="font-size: 20px; font-weight: 600; color: #ef4444;">0</span>
-                                    <div style="color: #666;">Far</div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- v2 Channel Analysis -->
-                        <div class="wifi-visual-panel wifi-v2-channel-panel">
-                            <h5>Channel Analysis (v2)</h5>
-                            <div id="wifiChannelBandTabs" style="display: flex; gap: 4px; margin-bottom: 8px;">
-                                <button data-band="2.4" class="channel-band-tab active" style="padding: 4px 12px; font-size: 10px; background: var(--accent-cyan); color: #000; border: none; border-radius: 4px; cursor: pointer;">2.4 GHz</button>
-                                <button data-band="5" class="channel-band-tab" style="padding: 4px 12px; font-size: 10px; background: var(--bg-tertiary); color: #888; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">5 GHz</button>
-                            </div>
-                            <div id="wifiChannelChart"></div>
                         </div>
                     </div>
                     <!-- Right: WiFi Device Cards -->
