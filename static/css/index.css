@@ -3368,21 +3368,22 @@ header h1 .tagline {
     overflow: hidden;
 }
 
-.signal-bar {
+.bt-signal-dist .signal-bar {
+    width: auto;
     height: 100%;
     border-radius: 4px;
     transition: width 0.3s ease;
 }
 
-.signal-bar.strong {
+.bt-signal-dist .signal-bar.strong {
     background: linear-gradient(90deg, #22c55e, #16a34a);
 }
 
-.signal-bar.medium {
+.bt-signal-dist .signal-bar.medium {
     background: linear-gradient(90deg, #eab308, #ca8a04);
 }
 
-.signal-bar.weak {
+.bt-signal-dist .signal-bar.weak {
     background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
