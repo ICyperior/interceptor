@@ -287,182 +287,155 @@ const BluetoothMode = (function() {
         if (farEl) farEl.textContent = zoneCounts.far;
     }
 
+    // Currently selected device
+    let selectedDeviceId = null;
+
     /**
-     * Show device detail modal
+     * Show device detail panel
      */
-    function showModal(deviceId) {
+    function showDeviceDetail(deviceId) {
         const device = devices.get(deviceId);
         if (!device) return;
 
-        const modal = document.getElementById('btDeviceModal');
-        const title = document.getElementById('btModalTitle');
-        const body = document.getElementById('btModalBody');
-
-        if (!modal || !body) return;
+        selectedDeviceId = deviceId;
+        const panel = document.getElementById('btDetailPanel');
+        if (!panel) return;
 
         const rssi = device.rssi_current;
         const rssiColor = getRssiColor(rssi);
+        const rssiPercent = rssi != null ? Math.max(0, Math.min(100, ((rssi + 100) / 70) * 100)) : 0;
         const flags = device.heuristic_flags || [];
         const protocol = device.protocol || 'ble';
 
-        title.textContent = device.name || formatDeviceId(device.address);
+        // Update panel elements
+        document.getElementById('btDetailName').textContent = device.name || formatDeviceId(device.address);
+        document.getElementById('btDetailAddress').textContent = device.address;
+        document.getElementById('btDetailAddress').style.color = '#00d4ff';
 
-        body.innerHTML = `
-            <!-- RSSI Display -->
-            <div class="bt-modal-rssi">
-                <div class="bt-modal-rssi-value" style="color: ${rssiColor};">
-                    ${rssi != null ? rssi : '--'} <span style="font-size: 14px; color: #666;">dBm</span>
-                </div>
-                <div class="bt-modal-rssi-label">${device.range_band || 'Unknown'} Range</div>
-            </div>
+        // RSSI section
+        const rssiEl = document.getElementById('btDetailRssi');
+        rssiEl.textContent = rssi != null ? rssi : '--';
+        rssiEl.style.color = rssiColor;
 
-            <!-- Badges -->
-            <div class="bt-modal-section">
-                <span class="bt-modal-badge ${protocol}">${protocol.toUpperCase()}</span>
-                <span class="bt-modal-badge ${device.in_baseline ? 'baseline' : 'new'}">${device.in_baseline ? '✓ BASELINE' : '● NEW'}</span>
-                ${flags.map(f => `<span class="bt-modal-badge flag">${f.replace('_', ' ').toUpperCase()}</span>`).join('')}
-            </div>
+        const rssiBar = document.getElementById('btDetailRssiBar');
+        rssiBar.style.width = rssiPercent + '%';
+        rssiBar.style.background = rssiColor;
 
-            <!-- Address Info -->
-            <div class="bt-modal-section">
-                <div class="bt-modal-section-title">Address</div>
-                <div style="font-family: monospace; font-size: 14px; color: #00d4ff; margin-bottom: 4px;">
-                    ${escapeHtml(device.address)}
-                </div>
-                <div style="font-size: 11px; color: #666;">Type: ${device.address_type || 'unknown'}</div>
-            </div>
+        document.getElementById('btDetailRange').textContent = (device.range_band || 'Unknown') + ' Range';
 
-            <!-- Stats Grid -->
-            <div class="bt-modal-section">
-                <div class="bt-modal-section-title">Device Information</div>
-                <div class="bt-modal-grid">
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Manufacturer</div>
-                        <div class="bt-modal-stat-value">${escapeHtml(device.manufacturer_name || 'Unknown')}</div>
-                    </div>
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Manufacturer ID</div>
-                        <div class="bt-modal-stat-value">${device.manufacturer_id != null ? '0x' + device.manufacturer_id.toString(16).toUpperCase().padStart(4, '0') : '--'}</div>
-                    </div>
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Seen Count</div>
-                        <div class="bt-modal-stat-value">${device.seen_count || 0} times</div>
-                    </div>
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Confidence</div>
-                        <div class="bt-modal-stat-value">${device.rssi_confidence ? Math.round(device.rssi_confidence * 100) + '%' : '--'}</div>
-                    </div>
-                </div>
-            </div>
+        // Badges
+        const badgesEl = document.getElementById('btDetailBadges');
+        let badgesHtml = `<span class="bt-detail-badge ${protocol}">${protocol.toUpperCase()}</span>`;
+        badgesHtml += `<span class="bt-detail-badge ${device.in_baseline ? 'baseline' : 'new'}">${device.in_baseline ? '✓ KNOWN' : '● NEW'}</span>`;
+        flags.forEach(f => {
+            badgesHtml += `<span class="bt-detail-badge flag">${f.replace(/_/g, ' ').toUpperCase()}</span>`;
+        });
+        badgesEl.innerHTML = badgesHtml;
 
-            <!-- Signal Stats -->
-            <div class="bt-modal-section">
-                <div class="bt-modal-section-title">Signal Statistics</div>
-                <div class="bt-modal-grid">
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Minimum</div>
-                        <div class="bt-modal-stat-value" style="color: #ef4444;">${device.rssi_min != null ? device.rssi_min + ' dBm' : '--'}</div>
-                    </div>
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Maximum</div>
-                        <div class="bt-modal-stat-value" style="color: #22c55e;">${device.rssi_max != null ? device.rssi_max + ' dBm' : '--'}</div>
-                    </div>
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Median</div>
-                        <div class="bt-modal-stat-value" style="color: #eab308;">${device.rssi_median != null ? Math.round(device.rssi_median) + ' dBm' : '--'}</div>
-                    </div>
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Current</div>
-                        <div class="bt-modal-stat-value" style="color: ${rssiColor};">${rssi != null ? rssi + ' dBm' : '--'}</div>
-                    </div>
-                </div>
-            </div>
+        // Stats grid
+        document.getElementById('btDetailMfr').textContent = device.manufacturer_name || 'Unknown';
+        document.getElementById('btDetailMfrId').textContent = device.manufacturer_id != null
+            ? '0x' + device.manufacturer_id.toString(16).toUpperCase().padStart(4, '0')
+            : '--';
+        document.getElementById('btDetailAddrType').textContent = device.address_type || 'unknown';
+        document.getElementById('btDetailSeen').textContent = (device.seen_count || 0) + '×';
 
-            <!-- Service UUIDs -->
-            ${device.service_uuids && device.service_uuids.length > 0 ? `
-            <div class="bt-modal-section">
-                <div class="bt-modal-section-title">Service UUIDs (${device.service_uuids.length})</div>
-                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                    ${device.service_uuids.map(uuid => `<span style="font-family: monospace; font-size: 10px; background: var(--bg-tertiary); padding: 4px 8px; border-radius: 4px; color: #888;">${uuid}</span>`).join('')}
-                </div>
-            </div>
-            ` : ''}
+        const rssiMinEl = document.getElementById('btDetailRssiMin');
+        rssiMinEl.textContent = device.rssi_min != null ? device.rssi_min + ' dBm' : '--';
+        rssiMinEl.style.color = '#ef4444';
 
-            <!-- Timestamps -->
-            <div class="bt-modal-section">
-                <div class="bt-modal-section-title">Timestamps</div>
-                <div class="bt-modal-grid">
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">First Seen</div>
-                        <div class="bt-modal-stat-value">${device.first_seen ? new Date(device.first_seen).toLocaleTimeString() : '--'}</div>
-                    </div>
-                    <div class="bt-modal-stat">
-                        <div class="bt-modal-stat-label">Last Seen</div>
-                        <div class="bt-modal-stat-value">${device.last_seen ? new Date(device.last_seen).toLocaleTimeString() : '--'}</div>
-                    </div>
-                </div>
-            </div>
+        const rssiMaxEl = document.getElementById('btDetailRssiMax');
+        rssiMaxEl.textContent = device.rssi_max != null ? device.rssi_max + ' dBm' : '--';
+        rssiMaxEl.style.color = '#22c55e';
 
-            <!-- Actions -->
-            <div class="bt-modal-actions">
-                <button class="bt-modal-btn-primary" onclick="BluetoothMode.copyAddress('${device.address}')">
-                    Copy Address
-                </button>
-                <button class="bt-modal-btn-secondary" onclick="BluetoothMode.closeModal()">
-                    Close
-                </button>
-            </div>
-        `;
+        document.getElementById('btDetailFirstSeen').textContent = device.first_seen
+            ? new Date(device.first_seen).toLocaleTimeString()
+            : '--';
+        document.getElementById('btDetailLastSeen').textContent = device.last_seen
+            ? new Date(device.last_seen).toLocaleTimeString()
+            : '--';
 
-        modal.style.display = 'flex';
+        // Services
+        const servicesContainer = document.getElementById('btDetailServices');
+        const servicesList = document.getElementById('btDetailServicesList');
+        if (device.service_uuids && device.service_uuids.length > 0) {
+            servicesContainer.style.display = 'block';
+            servicesList.innerHTML = device.service_uuids.map(uuid =>
+                `<span class="bt-detail-service">${uuid}</span>`
+            ).join('');
+        } else {
+            servicesContainer.style.display = 'none';
+        }
 
-        // Close on overlay click
-        modal.onclick = (e) => {
-            if (e.target === modal) closeModal();
-        };
+        // Show panel
+        panel.style.display = 'block';
 
-        // Close on Escape key
-        document.addEventListener('keydown', handleModalKeydown);
+        // Highlight selected device in list
+        highlightSelectedDevice(deviceId);
     }
 
     /**
-     * Close device detail modal
+     * Clear device selection
      */
-    function closeModal() {
-        const modal = document.getElementById('btDeviceModal');
-        if (modal) modal.style.display = 'none';
-        document.removeEventListener('keydown', handleModalKeydown);
+    function clearSelection() {
+        selectedDeviceId = null;
+        const panel = document.getElementById('btDetailPanel');
+        if (panel) panel.style.display = 'none';
+
+        // Remove highlight from device list
+        if (deviceContainer) {
+            deviceContainer.querySelectorAll('.bt-device-row.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+        }
     }
 
     /**
-     * Handle keydown for modal
+     * Highlight selected device in the list
      */
-    function handleModalKeydown(e) {
-        if (e.key === 'Escape') closeModal();
+    function highlightSelectedDevice(deviceId) {
+        if (!deviceContainer) return;
+
+        // Remove existing highlights
+        deviceContainer.querySelectorAll('.bt-device-row.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+
+        // Add highlight to selected device
+        const escapedId = CSS.escape(deviceId);
+        const card = deviceContainer.querySelector(`[data-bt-device-id="${escapedId}"]`);
+        if (card) {
+            card.classList.add('selected');
+        }
+    }
+
+    /**
+     * Copy selected device address to clipboard
+     */
+    function copyAddress() {
+        if (!selectedDeviceId) return;
+        const device = devices.get(selectedDeviceId);
+        if (!device) return;
+
+        navigator.clipboard.writeText(device.address).then(() => {
+            const btn = document.querySelector('.bt-detail-btn');
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = '#22c55e';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 1500);
+            }
+        });
     }
 
     /**
      * Select a device - opens modal with details
      */
     function selectDevice(deviceId) {
-        showModal(deviceId);
-    }
-
-    /**
-     * Copy address to clipboard
-     */
-    function copyAddress(address) {
-        navigator.clipboard.writeText(address).then(() => {
-            // Brief visual feedback
-            const btn = event.target;
-            const originalText = btn.textContent;
-            btn.textContent = 'Copied!';
-            btn.style.background = '#22c55e';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.background = '#252538';
-            }, 1500);
-        });
+        showDeviceDetail(deviceId);
     }
 
     /**
@@ -910,8 +883,7 @@ const BluetoothMode = (function() {
         clearBaseline,
         exportData,
         selectDevice,
-        showModal,
-        closeModal,
+        clearSelection,
         copyAddress,
         getDevices: () => Array.from(devices.values()),
         isScanning: () => isScanning
