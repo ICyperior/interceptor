@@ -6315,6 +6315,11 @@
 
         // Add Bluetooth device card to device list panel
         function addBtDeviceCard(device, isNew) {
+            // Skip if new BluetoothMode is handling rendering
+            if (typeof BluetoothMode !== 'undefined' && BluetoothMode.isScanning()) {
+                return;
+            }
+
             // Add to new device list panel
             const deviceList = document.getElementById('btDeviceListContent');
             if (deviceList) {

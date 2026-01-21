@@ -213,12 +213,10 @@ const BluetoothMode = (function() {
         if (startBtn) startBtn.style.display = scanning ? 'none' : 'block';
         if (stopBtn) stopBtn.style.display = scanning ? 'block' : 'none';
 
-        // Clear placeholder when starting scan
+        // Clear container when starting scan (removes legacy cards and placeholder)
         if (scanning && deviceContainer) {
-            const placeholder = deviceContainer.querySelector('div[style*="text-align: center"]');
-            if (placeholder && placeholder.textContent.includes('Start scanning')) {
-                deviceContainer.innerHTML = '';
-            }
+            deviceContainer.innerHTML = '';
+            devices.clear();  // Also clear our device map
         }
 
         // Update global status if available

@@ -560,28 +560,52 @@
 #btDeviceListContent {
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    grid-auto-rows: auto !important;
     gap: 12px !important;
     padding: 12px !important;
+    align-items: start !important;
 }
 
-#btDeviceListContent .device-card {
+#btDeviceListContent > * {
+    min-height: auto !important;
+    height: auto !important;
+}
+
+#btDeviceListContent .device-card,
+#btDeviceListContent .signal-card {
     margin: 0;
-    height: fit-content;
+    height: auto !important;
+    min-height: auto !important;
 }
 
 /* Ensure card body is visible */
-.device-card .signal-card-body {
+.device-card .signal-card-body,
+.signal-card .signal-card-body {
     display: flex !important;
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: column !important;
+    gap: 8px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    overflow: visible !important;
 }
 
-.device-card .device-identity {
+.device-card .device-identity,
+.signal-card .device-identity {
     display: block !important;
+    visibility: visible !important;
 }
 
-.device-card .device-signal-row {
+.device-card .device-signal-row,
+.signal-card .device-signal-row {
     display: flex !important;
+    visibility: visible !important;
+}
+
+.device-card .device-meta-row,
+.signal-card .device-meta-row {
+    display: flex !important;
+    visibility: visible !important;
 }
 
 /* ============================================
