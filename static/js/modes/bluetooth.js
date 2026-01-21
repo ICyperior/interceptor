@@ -311,76 +311,93 @@ const BluetoothMode = (function() {
      * Render a device card
      */
     function renderDevice(device) {
-        console.log('[BT] Rendering device:', device.device_id, 'Container:', deviceContainer);
+        console.log('[BT] Rendering device:', device.device_id, device);
         if (!deviceContainer) {
-            console.warn('[BT] No device container found!');
-            // Try to find it again
             deviceContainer = document.getElementById('btDeviceListContent');
             if (!deviceContainer) {
-                console.error('[BT] Still no container - cannot render');
+                console.error('[BT] No container - cannot render');
                 return;
             }
         }
 
-        const existingCard = deviceContainer.querySelector(`[data-device-id="${device.device_id}"]`);
+        // Use simple inline rendering with NO CSS classes to avoid any interference
+        const escapedId = CSS.escape(device.device_id);
+        const existingCard = deviceContainer.querySelector('[data-bt-device-id="' + escapedId + '"]');
+        const cardHtml = createSimpleDeviceCard(device);
 
-        if (typeof DeviceCard !== 'undefined') {
-            // DeviceCard.createDeviceCard returns a DOM element
-            const cardElement = DeviceCard.createDeviceCard(device);
+        console.log('[BT] Card HTML length:', cardHtml.length, 'existing:', !!existingCard);
 
-            if (existingCard) {
-                existingCard.replaceWith(cardElement);
-            } else {
-                deviceContainer.prepend(cardElement);
-            }
-
-            // Attach click handler
-            cardElement.addEventListener('click', () => showDeviceDetails(device.device_id));
+        if (existingCard) {
+            existingCard.outerHTML = cardHtml;
         } else {
-            // Fallback simple rendering (returns HTML string)
-            const cardHtml = createSimpleDeviceCard(device);
-
-            if (existingCard) {
-                existingCard.outerHTML = cardHtml;
-            } else {
-                deviceContainer.insertAdjacentHTML('afterbegin', cardHtml);
-            }
+            deviceContainer.insertAdjacentHTML('afterbegin', cardHtml);
         }
+
+        // Log container state
+        console.log('[BT] Container now has', deviceContainer.children.length, 'children');
     }
 
     /**
-     * Simple device card fallback
+     * Simple device card - pure inline rendering with NO CSS classes
+     * This avoids any CSS conflicts by using only inline styles
      */
     function createSimpleDeviceCard(device) {
-        const protoBadge = device.protocol === 'ble'
-            ? '<span class="signal-proto-badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3);">BLE</span>'
-            : '<span class="signal-proto-badge" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3);">CLASSIC</span>';
+        const protocol = device.protocol || 'ble';
+        const protoBadge = protocol === 'ble'
+            ? '<span style="display:inline-block;background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;">BLE</span>'
+            : '<span style="display:inline-block;background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;">CLASSIC</span>';
 
-        const badges = [];
-        if (device.is_new) badges.push('<span class="device-heuristic-badge new">New</span>');
-        if (device.is_persistent) badges.push('<span class="device-heuristic-badge persistent">Persistent</span>');
-        if (device.is_beacon_like) badges.push('<span class="device-heuristic-badge beacon">Beacon-like</span>');
+        const flags = device.heuristic_flags || [];
+        let badgesHtml = '';
+        if (flags.includes('random_address')) {
+            badgesHtml += '<span style="display:inline-block;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.3);padding:2px 6px;border-radius:3px;font-size:9px;margin-left:4px;">RANDOM</span>';
+        }
+        if (flags.includes('persistent')) {
+            badgesHtml += '<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:2px 6px;border-radius:3px;font-size:9px;margin-left:4px;">PERSISTENT</span>';
+        }
 
-        const rssiColor = getRssiColor(device.rssi_current);
+        const name = escapeHtml(device.name || device.device_id || 'Unknown');
+        const addr = escapeHtml(device.address || 'Unknown');
+        const addrType = escapeHtml(device.address_type || 'unknown');
+        const rssi = device.rssi_current;
+        const rssiStr = (rssi !== null && rssi !== undefined) ? rssi + ' dBm' : '--';
+        const rssiColor = getRssiColor(rssi);
+        const mfr = device.manufacturer_name ? escapeHtml(device.manufacturer_name) : '';
+        const seenCount = device.seen_count || 0;
+        const rangeBand = device.range_band || 'unknown';
+        const inBaseline = device.in_baseline || false;
 
-        return `
-            <div class="signal-card device-card" data-device-id="${device.device_id}">
-                <div class="signal-card-header">
-                    <div class="signal-card-badges">
-                        ${protoBadge}
-                        ${badges.join('')}
-                    </div>
-                </div>
-                <div class="signal-card-body">
-                    <div class="device-name">${escapeHtml(device.name || 'Unknown Device')}</div>
-                    <div class="device-address">${escapeHtml(device.address)} (${device.address_type || 'unknown'})</div>
-                    <div class="rssi-display">
-                        <span class="rssi-current" style="color: ${rssiColor}">${device.rssi_current !== null ? device.rssi_current + ' dBm' : '--'}</span>
-                    </div>
-                    ${device.manufacturer_name ? `<div class="device-manufacturer">${escapeHtml(device.manufacturer_name)}</div>` : ''}
-                </div>
-            </div>
-        `;
+        // Use a div with NO classes at all - pure inline styles to avoid any CSS interference
+        const cardStyle = 'display:block;background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:14px;margin-bottom:10px;box-sizing:border-box;overflow:visible;';
+        const headerStyle = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;';
+        const nameStyle = 'font-size:15px;font-weight:600;color:#e0e0e0;margin-bottom:4px;';
+        const addrStyle = 'font-family:monospace;font-size:12px;color:#00d4ff;';
+        const rssiRowStyle = 'display:flex;justify-content:space-between;align-items:center;background:#141428;padding:12px;border-radius:6px;margin:10px 0;';
+        const rssiValueStyle = 'font-family:monospace;font-size:18px;font-weight:700;color:' + rssiColor + ';';
+        const rangeBandStyle = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;';
+        const mfrStyle = 'font-size:11px;color:#888;margin-bottom:8px;';
+        const metaStyle = 'display:flex;justify-content:space-between;font-size:10px;color:#666;';
+        const statusPillStyle = 'background:' + (inBaseline ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)') + ';color:' + (inBaseline ? '#22c55e' : '#3b82f6') + ';padding:3px 10px;border-radius:12px;font-size:10px;font-weight:500;';
+
+        return '<div data-bt-device-id="' + escapeHtml(device.device_id) + '" style="' + cardStyle + '">' +
+            '<div style="' + headerStyle + '">' +
+                '<div>' + protoBadge + badgesHtml + '</div>' +
+                '<span style="' + statusPillStyle + '">' + (inBaseline ? '✓ Known' : '● New') + '</span>' +
+            '</div>' +
+            '<div style="margin-bottom:10px;">' +
+                '<div style="' + nameStyle + '">' + name + '</div>' +
+                '<div style="' + addrStyle + '">' + addr + ' <span style="color:#666;font-size:10px;">(' + addrType + ')</span></div>' +
+            '</div>' +
+            '<div style="' + rssiRowStyle + '">' +
+                '<span style="' + rssiValueStyle + '">' + rssiStr + '</span>' +
+                '<span style="' + rangeBandStyle + '">' + rangeBand + '</span>' +
+            '</div>' +
+            (mfr ? '<div style="' + mfrStyle + '">Manufacturer: ' + mfr + '</div>' : '') +
+            '<div style="' + metaStyle + '">' +
+                '<span>Seen: ' + seenCount + ' times</span>' +
+                '<span>Just now</span>' +
+            '</div>' +
+        '</div>';
     }
 
     /**
