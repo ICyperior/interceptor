@@ -3387,29 +3387,130 @@ header h1 .tagline {
     background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
-/* Bluetooth Device Cards */
-.bt-device-card {
-    margin-bottom: 8px;
-    padding: 10px !important;
-    border-left-color: var(--accent-purple) !important;
+/* Bluetooth Device Row - Compact Design */
+.bt-device-row {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid #666;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
 }
 
-.bt-device-card .header {
-    font-size: 12px;
+.bt-device-row:hover {
+    background: rgba(0, 212, 255, 0.05);
+    border-color: var(--accent-cyan);
 }
 
-.bt-device-card .sensor-data {
+.bt-row-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.bt-row-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.bt-row-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.bt-proto-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+
+.bt-proto-badge.ble {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.bt-proto-badge.classic {
+    background: rgba(139, 92, 246, 0.2);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.bt-device-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bt-rssi-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bt-rssi-bar-bg {
+    width: 50px;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.bt-rssi-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.bt-rssi-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 28px;
+    text-align: right;
+}
+
+.bt-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.bt-status-dot.new {
+    background: #3b82f6;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+}
+
+.bt-status-dot.known {
+    background: #22c55e;
+}
+
+.bt-row-secondary {
     font-size: 10px;
-}
-
-.bt-device-card.tracker {
-    border-left-color: var(--accent-orange) !important;
-    background: rgba(255, 165, 0, 0.05);
-}
-
-.bt-device-card.findmy {
-    border-left-color: #007aff !important;
-    background: rgba(0, 122, 255, 0.05);
+    color: var(--text-dim);
+    margin-top: 4px;
+    padding-left: 42px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Bluetooth Device Modal */

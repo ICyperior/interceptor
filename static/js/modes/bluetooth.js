@@ -783,64 +783,54 @@ const BluetoothMode = (function() {
 
     function createSimpleDeviceCard(device) {
         const protocol = device.protocol || 'ble';
-        const protoBadge = protocol === 'ble'
-            ? '<span style="display:inline-block;background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;">BLE</span>'
-            : '<span style="display:inline-block;background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;">CLASSIC</span>';
+        const rssi = device.rssi_current;
+        const rssiColor = getRssiColor(rssi);
+        const inBaseline = device.in_baseline || false;
+        const isNew = !inBaseline;
+        const hasName = !!device.name;
 
-        const flags = device.heuristic_flags || [];
-        let badgesHtml = '';
-        if (flags.includes('random_address')) {
-            badgesHtml += '<span style="display:inline-block;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.3);padding:2px 6px;border-radius:3px;font-size:9px;margin-left:4px;">RANDOM</span>';
-        }
-        if (flags.includes('persistent')) {
-            badgesHtml += '<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:2px 6px;border-radius:3px;font-size:9px;margin-left:4px;">PERSISTENT</span>';
-        }
+        // Calculate RSSI bar width (0-100%)
+        // RSSI typically ranges from -100 (weak) to -30 (very strong)
+        const rssiPercent = rssi != null ? Math.max(0, Math.min(100, ((rssi + 100) / 70) * 100)) : 0;
 
         const displayName = device.name || formatDeviceId(device.address);
         const name = escapeHtml(displayName);
         const addr = escapeHtml(device.address || 'Unknown');
-        const addrType = escapeHtml(device.address_type || 'unknown');
-        const rssi = device.rssi_current;
-        const rssiStr = (rssi != null) ? rssi + ' dBm' : '--';
-        const rssiColor = getRssiColor(rssi);
         const mfr = device.manufacturer_name ? escapeHtml(device.manufacturer_name) : '';
         const seenCount = device.seen_count || 0;
-        const rangeBand = device.range_band || 'unknown';
-        const inBaseline = device.in_baseline || false;
-
-        const cardStyle = 'display:block;background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s;';
-        const headerStyle = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;';
-        const nameStyle = 'font-size:14px;font-weight:600;color:#e0e0e0;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-        const addrStyle = 'font-family:monospace;font-size:11px;color:#00d4ff;';
-        const rssiRowStyle = 'display:flex;justify-content:space-between;align-items:center;background:#141428;padding:10px;border-radius:6px;margin:10px 0;';
-        const rssiValueStyle = 'font-family:monospace;font-size:16px;font-weight:700;color:' + rssiColor + ';';
-        const rangeBandStyle = 'font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;';
-        const mfrStyle = 'font-size:11px;color:#888;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-        const metaStyle = 'display:flex;justify-content:space-between;font-size:10px;color:#666;';
-        const statusPillStyle = 'background:' + (inBaseline ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)') + ';color:' + (inBaseline ? '#22c55e' : '#3b82f6') + ';padding:3px 10px;border-radius:12px;font-size:10px;font-weight:500;';
-
         const deviceIdEscaped = escapeHtml(device.device_id).replace(/'/g, "\\'");
-        const isNew = !inBaseline;
-        const hasName = !!device.name;
 
-        return '<div data-bt-device-id="' + escapeHtml(device.device_id) + '" data-is-new="' + isNew + '" data-has-name="' + hasName + '" data-rssi="' + (rssi || -100) + '" style="' + cardStyle + '" onclick="BluetoothMode.selectDevice(\'' + deviceIdEscaped + '\')" onmouseover="this.style.borderColor=\'#00d4ff\'" onmouseout="this.style.borderColor=\'#444\'">' +
-            '<div style="' + headerStyle + '">' +
-                '<div>' + protoBadge + badgesHtml + '</div>' +
-                '<span style="' + statusPillStyle + '">' + (inBaseline ? '✓ Known' : '● New') + '</span>' +
+        // Protocol badge - compact
+        const protoBadge = protocol === 'ble'
+            ? '<span class="bt-proto-badge ble">BLE</span>'
+            : '<span class="bt-proto-badge classic">CLASSIC</span>';
+
+        // Status indicator
+        const statusDot = isNew
+            ? '<span class="bt-status-dot new"></span>'
+            : '<span class="bt-status-dot known"></span>';
+
+        // Build secondary info line
+        let secondaryParts = [addr];
+        if (mfr) secondaryParts.push(mfr);
+        secondaryParts.push('Seen ' + seenCount + '×');
+        const secondaryInfo = secondaryParts.join(' · ');
+
+        return '<div class="bt-device-row" data-bt-device-id="' + escapeHtml(device.device_id) + '" data-is-new="' + isNew + '" data-has-name="' + hasName + '" data-rssi="' + (rssi || -100) + '" onclick="BluetoothMode.selectDevice(\'' + deviceIdEscaped + '\')" style="border-left-color:' + rssiColor + ';">' +
+            '<div class="bt-row-main">' +
+                '<div class="bt-row-left">' +
+                    protoBadge +
+                    '<span class="bt-device-name">' + name + '</span>' +
+                '</div>' +
+                '<div class="bt-row-right">' +
+                    '<div class="bt-rssi-container">' +
+                        '<div class="bt-rssi-bar-bg"><div class="bt-rssi-bar" style="width:' + rssiPercent + '%;background:' + rssiColor + ';"></div></div>' +
+                        '<span class="bt-rssi-value" style="color:' + rssiColor + ';">' + (rssi != null ? rssi : '--') + '</span>' +
+                    '</div>' +
+                    statusDot +
+                '</div>' +
             '</div>' +
-            '<div style="margin-bottom:10px;">' +
-                '<div style="' + nameStyle + '">' + name + '</div>' +
-                '<div style="' + addrStyle + '">' + addr + ' <span style="color:#666;font-size:10px;">(' + addrType + ')</span></div>' +
-            '</div>' +
-            '<div style="' + rssiRowStyle + '">' +
-                '<span style="' + rssiValueStyle + '">' + rssiStr + '</span>' +
-                '<span style="' + rangeBandStyle + '">' + rangeBand + '</span>' +
-            '</div>' +
-            (mfr ? '<div style="' + mfrStyle + '">' + mfr + '</div>' : '') +
-            '<div style="' + metaStyle + '">' +
-                '<span>Seen ' + seenCount + '×</span>' +
-                '<span>Just now</span>' +
-            '</div>' +
+            '<div class="bt-row-secondary">' + secondaryInfo + '</div>' +
         '</div>';
     }
 
