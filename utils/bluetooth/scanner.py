@@ -106,15 +106,17 @@ class BluetoothScanner:
             # Select and start backend
             started = False
             backend_used = None
+            original_mode = mode
 
             if mode == 'auto':
-                mode = self._capabilities.recommended_backend
+                mode = self._capabilities.recommended_backend or 'bleak'
 
-            if mode == 'dbus' or (mode == 'auto' and self._capabilities.has_dbus):
+            if mode == 'dbus':
                 started, backend_used = self._start_dbus(adapter, transport, rssi_threshold)
 
-            if not started and mode in ('bleak', 'hcitool', 'bluetoothctl', 'auto'):
-                started, backend_used = self._start_fallback(adapter, mode)
+            # Fallback: try non-DBus methods if DBus failed or wasn't requested
+            if not started and (original_mode == 'auto' or mode in ('bleak', 'hcitool', 'bluetoothctl')):
+                started, backend_used = self._start_fallback(adapter, original_mode)
 
             if not started:
                 self._status.error = f"Failed to start scanner with mode '{mode}'"
