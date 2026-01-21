@@ -731,7 +731,6 @@ const WiFiMode = (function() {
                     <span class="security-badge ${securityClass}">${escapeHtml(network.security)}</span>
                 </td>
                 <td class="col-clients">${network.client_count || 0}</td>
-                <td class="col-vendor">${escapeHtml(network.vendor || '-')}</td>
             </tr>
         `;
     }

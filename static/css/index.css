@@ -3154,6 +3154,8 @@ header h1 .tagline {
     border: 1px solid var(--border-color);
     height: calc(100vh - 200px);
     min-height: 400px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 /* WiFi Status Bar */
@@ -3201,11 +3203,11 @@ header h1 .tagline {
 /* WiFi Main Content - 3 columns */
 .wifi-main-content {
     display: grid;
-    grid-template-columns: 1fr 280px 280px;
+    grid-template-columns: 1fr minmax(240px, 280px) minmax(240px, 280px);
     gap: 10px;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow: auto;
 }
 
 /* WiFi Networks Panel (LEFT) */
@@ -3435,6 +3437,8 @@ header h1 .tagline {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .wifi-channel-section,
@@ -3488,6 +3492,8 @@ header h1 .tagline {
 
 .wifi-channel-chart {
     min-height: 120px;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .wifi-security-stats {

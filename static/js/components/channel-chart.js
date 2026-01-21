@@ -13,10 +13,10 @@ const ChannelChart = (function() {
     // ==========================================================================
 
     const CONFIG = {
-        height: 150,
-        barWidth: 20,
-        barSpacing: 4,
-        padding: { top: 20, right: 20, bottom: 30, left: 40 },
+        height: 120,
+        barWidth: 14,
+        barSpacing: 2,
+        padding: { top: 15, right: 10, bottom: 25, left: 30 },
         colors: {
             low: '#22c55e',      // Green - low utilization
             medium: '#eab308',   // Yellow - medium
@@ -108,9 +108,9 @@ const ChannelChart = (function() {
             if (s.ap_count > maxApCount) maxApCount = s.ap_count;
         });
 
-        // Build SVG
+        // Build SVG with viewBox for responsive scaling
         let svg = `
-            <svg width="${width}" height="${height}" class="channel-chart-svg">
+            <svg viewBox="0 0 ${width} ${height}" class="channel-chart-svg" style="width: 100%; height: auto; max-height: ${height}px;">
                 <defs>
                     <linearGradient id="utilGradientLow" x1="0%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0%" style="stop-color:${CONFIG.colors.low};stop-opacity:0.9" />
