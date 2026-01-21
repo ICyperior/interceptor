@@ -336,6 +336,8 @@ class SystemCapabilities:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
+            'available': self.can_scan,  # Alias for frontend compatibility
+            'can_scan': self.can_scan,
             'has_dbus': self.has_dbus,
             'has_bluez': self.has_bluez,
             'bluez_version': self.bluez_version,
@@ -349,7 +351,7 @@ class SystemCapabilities:
             'has_hcitool': self.has_hcitool,
             'has_bluetoothctl': self.has_bluetoothctl,
             'has_btmgmt': self.has_btmgmt,
+            'preferred_backend': self.recommended_backend,  # Alias for frontend
             'recommended_backend': self.recommended_backend,
-            'can_scan': self.can_scan,
             'issues': self.issues,
         }

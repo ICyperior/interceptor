@@ -130,6 +130,7 @@ def _check_adapters(caps: SystemCapabilities) -> None:
             if 'org.bluez.Adapter1' in interfaces:
                 adapter_props = interfaces['org.bluez.Adapter1']
                 adapter_info = {
+                    'id': str(path),  # Alias for frontend
                     'path': str(path),
                     'name': str(adapter_props.get('Name', 'Unknown')),
                     'address': str(adapter_props.get('Address', 'Unknown')),
@@ -168,9 +169,11 @@ def _check_adapters_hciconfig(caps: SystemCapabilities) -> None:
                 # Match adapter line (e.g., "hci0:	Type: Primary  Bus: USB")
                 adapter_match = re.match(r'^(hci\d+):', line)
                 if adapter_match:
+                    adapter_name = adapter_match.group(1)
                     current_adapter = {
-                        'path': f'/org/bluez/{adapter_match.group(1)}',
-                        'name': adapter_match.group(1),
+                        'id': adapter_name,  # Alias for frontend
+                        'path': f'/org/bluez/{adapter_name}',
+                        'name': adapter_name,
                         'address': 'Unknown',
                         'powered': False,
                         'discovering': False,
