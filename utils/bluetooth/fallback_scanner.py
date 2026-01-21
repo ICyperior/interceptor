@@ -144,14 +144,35 @@ class BleakScanner:
         if adv_data.manufacturer_data:
             for mid, mdata in adv_data.manufacturer_data.items():
                 manufacturer_id = mid
-                manufacturer_data = bytes(mdata)
+                # Handle various data types safely
+                try:
+                    if isinstance(mdata, (bytes, bytearray)):
+                        manufacturer_data = bytes(mdata)
+                    elif isinstance(mdata, (list, tuple)):
+                        manufacturer_data = bytes(mdata)
+                    elif isinstance(mdata, str):
+                        manufacturer_data = bytes.fromhex(mdata)
+                    else:
+                        manufacturer_data = bytes(mdata)
+                except (TypeError, ValueError) as e:
+                    logger.debug(f"Could not convert manufacturer data: {e}")
                 break
 
         # Extract service data
         service_data = {}
         if adv_data.service_data:
             for uuid, data in adv_data.service_data.items():
-                service_data[str(uuid)] = bytes(data)
+                try:
+                    if isinstance(data, (bytes, bytearray)):
+                        service_data[str(uuid)] = bytes(data)
+                    elif isinstance(data, (list, tuple)):
+                        service_data[str(uuid)] = bytes(data)
+                    elif isinstance(data, str):
+                        service_data[str(uuid)] = bytes.fromhex(data)
+                    else:
+                        service_data[str(uuid)] = bytes(data)
+                except (TypeError, ValueError) as e:
+                    logger.debug(f"Could not convert service data for {uuid}: {e}")
 
         return BTObservation(
             timestamp=datetime.now(),
