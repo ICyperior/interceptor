@@ -707,67 +707,69 @@
                 <div class="bt-layout-container" id="btLayoutContainer" style="display: none;">
                     <!-- Left: Bluetooth Visualizations -->
                     <div class="bt-visuals-column" id="btVisuals">
-                        <!-- Device Detail Panel (shown when device selected) -->
-                        <div class="bt-detail-panel" id="btDetailPanel" style="display: none;">
+                        <!-- Device Detail Panel (always visible) -->
+                        <div class="bt-detail-panel" id="btDetailPanel">
                             <div class="bt-detail-header">
-                                <div class="bt-detail-title-row">
-                                    <h5 id="btDetailName">Device Name</h5>
-                                    <button class="bt-detail-close" onclick="BluetoothMode.clearSelection()" title="Close">&times;</button>
-                                </div>
-                                <div class="bt-detail-address" id="btDetailAddress">00:00:00:00:00:00</div>
+                                <h5>Device Details</h5>
                             </div>
                             <div class="bt-detail-body">
-                                <div class="bt-detail-rssi-section">
-                                    <div class="bt-detail-rssi-main">
-                                        <span class="bt-detail-rssi-value" id="btDetailRssi">--</span>
-                                        <span class="bt-detail-rssi-unit">dBm</span>
-                                    </div>
-                                    <div class="bt-detail-rssi-bar-container">
-                                        <div class="bt-detail-rssi-bar" id="btDetailRssiBar"></div>
-                                    </div>
-                                    <div class="bt-detail-rssi-range" id="btDetailRange">Unknown Range</div>
+                                <!-- Placeholder shown when no device selected -->
+                                <div class="bt-detail-placeholder" id="btDetailPlaceholder">
+                                    <span>Select a device to view details</span>
                                 </div>
-                                <div class="bt-detail-badges" id="btDetailBadges"></div>
-                                <div class="bt-detail-grid">
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">Manufacturer</span>
-                                        <span class="bt-detail-stat-value" id="btDetailMfr">Unknown</span>
+                                <!-- Content shown when device is selected -->
+                                <div class="bt-detail-content" id="btDetailContent" style="display: none;">
+                                    <div class="bt-detail-top-row">
+                                        <div class="bt-detail-identity">
+                                            <div class="bt-detail-name" id="btDetailName">Device Name</div>
+                                            <div class="bt-detail-address" id="btDetailAddress">00:00:00:00:00:00</div>
+                                        </div>
+                                        <div class="bt-detail-rssi-display">
+                                            <span class="bt-detail-rssi-value" id="btDetailRssi">--</span>
+                                            <span class="bt-detail-rssi-unit">dBm</span>
+                                        </div>
                                     </div>
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">Mfr ID</span>
-                                        <span class="bt-detail-stat-value" id="btDetailMfrId">--</span>
+                                    <div class="bt-detail-badges" id="btDetailBadges"></div>
+                                    <div class="bt-detail-grid">
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Manufacturer</span>
+                                            <span class="bt-detail-stat-value" id="btDetailMfr">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Type</span>
+                                            <span class="bt-detail-stat-value" id="btDetailAddrType">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Seen</span>
+                                            <span class="bt-detail-stat-value" id="btDetailSeen">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Range</span>
+                                            <span class="bt-detail-stat-value" id="btDetailRange">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Min/Max</span>
+                                            <span class="bt-detail-stat-value" id="btDetailRssiRange">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">First Seen</span>
+                                            <span class="bt-detail-stat-value" id="btDetailFirstSeen">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Last Seen</span>
+                                            <span class="bt-detail-stat-value" id="btDetailLastSeen">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Mfr ID</span>
+                                            <span class="bt-detail-stat-value" id="btDetailMfrId">--</span>
+                                        </div>
                                     </div>
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">Type</span>
-                                        <span class="bt-detail-stat-value" id="btDetailAddrType">--</span>
+                                    <div class="bt-detail-bottom-row">
+                                        <div class="bt-detail-services" id="btDetailServices" style="display: none;">
+                                            <span class="bt-detail-services-list" id="btDetailServicesList"></span>
+                                        </div>
+                                        <button class="bt-detail-btn" onclick="BluetoothMode.copyAddress()">Copy</button>
                                     </div>
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">Seen</span>
-                                        <span class="bt-detail-stat-value" id="btDetailSeen">0×</span>
-                                    </div>
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">Min RSSI</span>
-                                        <span class="bt-detail-stat-value" id="btDetailRssiMin">--</span>
-                                    </div>
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">Max RSSI</span>
-                                        <span class="bt-detail-stat-value" id="btDetailRssiMax">--</span>
-                                    </div>
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">First Seen</span>
-                                        <span class="bt-detail-stat-value" id="btDetailFirstSeen">--</span>
-                                    </div>
-                                    <div class="bt-detail-stat">
-                                        <span class="bt-detail-stat-label">Last Seen</span>
-                                        <span class="bt-detail-stat-value" id="btDetailLastSeen">--</span>
-                                    </div>
-                                </div>
-                                <div class="bt-detail-services" id="btDetailServices" style="display: none;">
-                                    <span class="bt-detail-stat-label">Services</span>
-                                    <div class="bt-detail-services-list" id="btDetailServicesList"></div>
-                                </div>
-                                <div class="bt-detail-actions">
-                                    <button class="bt-detail-btn" onclick="BluetoothMode.copyAddress()">Copy Address</button>
                                 </div>
                             </div>
                         </div>

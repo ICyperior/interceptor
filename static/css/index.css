@@ -3296,116 +3296,103 @@ header h1 .tagline {
 /* Bluetooth Device Detail Panel */
 .bt-detail-panel {
     background: var(--bg-tertiary);
-    border: 1px solid var(--accent-cyan);
-    border-radius: 8px;
-    margin-bottom: 12px;
-    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
     flex-shrink: 0;
+    height: 140px;
+    overflow: hidden;
 }
 
-.bt-detail-header {
-    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(139, 92, 246, 0.1));
-    padding: 12px 14px;
+.bt-detail-panel .bt-detail-header {
+    padding: 6px 10px;
     border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
 }
 
-.bt-detail-title-row {
+.bt-detail-panel .bt-detail-header h5 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bt-detail-body {
+    padding: 8px 10px;
+    height: calc(100% - 30px);
+}
+
+.bt-detail-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-dim);
+    font-size: 11px;
+}
+
+.bt-detail-content {
+    height: 100%;
+}
+
+.bt-detail-top-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    margin-bottom: 6px;
 }
 
-.bt-detail-title-row h5 {
-    margin: 0;
-    font-size: 14px;
+.bt-detail-identity {
+    min-width: 0;
+    flex: 1;
+}
+
+.bt-detail-name {
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
-}
-
-.bt-detail-close {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    font-size: 20px;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    transition: color 0.2s;
-}
-
-.bt-detail-close:hover {
-    color: var(--accent-red);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .bt-detail-address {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    margin-top: 4px;
+    font-size: 10px;
+    color: #00d4ff;
 }
 
-.bt-detail-body {
-    padding: 12px 14px;
-}
-
-.bt-detail-rssi-section {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding: 10px;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-}
-
-.bt-detail-rssi-main {
+.bt-detail-rssi-display {
     display: flex;
     align-items: baseline;
-    gap: 4px;
+    gap: 2px;
+    flex-shrink: 0;
+    margin-left: 12px;
 }
 
 .bt-detail-rssi-value {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 28px;
+    font-size: 20px;
     font-weight: 700;
 }
 
 .bt-detail-rssi-unit {
-    font-size: 12px;
-    color: var(--text-dim);
-}
-
-.bt-detail-rssi-bar-container {
-    flex: 1;
-    height: 10px;
-    background: var(--bg-tertiary);
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-.bt-detail-rssi-bar {
-    height: 100%;
-    border-radius: 5px;
-    transition: width 0.3s ease;
-}
-
-.bt-detail-rssi-range {
     font-size: 10px;
     color: var(--text-dim);
-    text-transform: uppercase;
-    white-space: nowrap;
 }
 
 .bt-detail-badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 12px;
+    gap: 4px;
+    margin-bottom: 6px;
 }
 
 .bt-detail-badge {
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 8px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -3414,57 +3401,52 @@ header h1 .tagline {
 .bt-detail-badge.ble {
     background: rgba(59, 130, 246, 0.2);
     color: #3b82f6;
-    border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .bt-detail-badge.classic {
     background: rgba(139, 92, 246, 0.2);
     color: #8b5cf6;
-    border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 .bt-detail-badge.new {
     background: rgba(59, 130, 246, 0.2);
     color: #3b82f6;
-    border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .bt-detail-badge.baseline {
     background: rgba(34, 197, 94, 0.2);
     color: #22c55e;
-    border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .bt-detail-badge.flag {
     background: rgba(107, 114, 128, 0.2);
     color: #9ca3af;
-    border: 1px solid rgba(107, 114, 128, 0.3);
 }
 
 .bt-detail-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 4px;
+    margin-bottom: 6px;
 }
 
 .bt-detail-stat {
     background: var(--bg-secondary);
-    padding: 8px 10px;
-    border-radius: 4px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    min-width: 0;
 }
 
 .bt-detail-stat-label {
     display: block;
-    font-size: 9px;
+    font-size: 8px;
     color: var(--text-dim);
     text-transform: uppercase;
-    margin-bottom: 2px;
 }
 
 .bt-detail-stat-value {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
@@ -3472,40 +3454,37 @@ header h1 .tagline {
     text-overflow: ellipsis;
 }
 
+.bt-detail-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .bt-detail-services {
-    margin-bottom: 12px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .bt-detail-services-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
-}
-
-.bt-detail-service {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    background: var(--bg-secondary);
-    padding: 4px 8px;
-    border-radius: 4px;
+    font-size: 8px;
     color: var(--text-dim);
-}
-
-.bt-detail-actions {
-    display: flex;
-    gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .bt-detail-btn {
-    padding: 6px 14px;
-    font-size: 11px;
+    padding: 4px 10px;
+    font-size: 10px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 3px;
     color: var(--text-primary);
     cursor: pointer;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .bt-detail-btn:hover {

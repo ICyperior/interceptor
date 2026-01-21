@@ -298,30 +298,24 @@ const BluetoothMode = (function() {
         if (!device) return;
 
         selectedDeviceId = deviceId;
-        const panel = document.getElementById('btDetailPanel');
-        if (!panel) return;
+
+        const placeholder = document.getElementById('btDetailPlaceholder');
+        const content = document.getElementById('btDetailContent');
+        if (!placeholder || !content) return;
 
         const rssi = device.rssi_current;
         const rssiColor = getRssiColor(rssi);
-        const rssiPercent = rssi != null ? Math.max(0, Math.min(100, ((rssi + 100) / 70) * 100)) : 0;
         const flags = device.heuristic_flags || [];
         const protocol = device.protocol || 'ble';
 
         // Update panel elements
         document.getElementById('btDetailName').textContent = device.name || formatDeviceId(device.address);
         document.getElementById('btDetailAddress').textContent = device.address;
-        document.getElementById('btDetailAddress').style.color = '#00d4ff';
 
-        // RSSI section
+        // RSSI
         const rssiEl = document.getElementById('btDetailRssi');
         rssiEl.textContent = rssi != null ? rssi : '--';
         rssiEl.style.color = rssiColor;
-
-        const rssiBar = document.getElementById('btDetailRssiBar');
-        rssiBar.style.width = rssiPercent + '%';
-        rssiBar.style.background = rssiColor;
-
-        document.getElementById('btDetailRange').textContent = (device.range_band || 'Unknown') + ' Range';
 
         // Badges
         const badgesEl = document.getElementById('btDetailBadges');
@@ -333,20 +327,21 @@ const BluetoothMode = (function() {
         badgesEl.innerHTML = badgesHtml;
 
         // Stats grid
-        document.getElementById('btDetailMfr').textContent = device.manufacturer_name || 'Unknown';
+        document.getElementById('btDetailMfr').textContent = device.manufacturer_name || '--';
         document.getElementById('btDetailMfrId').textContent = device.manufacturer_id != null
             ? '0x' + device.manufacturer_id.toString(16).toUpperCase().padStart(4, '0')
             : '--';
-        document.getElementById('btDetailAddrType').textContent = device.address_type || 'unknown';
+        document.getElementById('btDetailAddrType').textContent = device.address_type || '--';
         document.getElementById('btDetailSeen').textContent = (device.seen_count || 0) + '×';
+        document.getElementById('btDetailRange').textContent = device.range_band || '--';
 
-        const rssiMinEl = document.getElementById('btDetailRssiMin');
-        rssiMinEl.textContent = device.rssi_min != null ? device.rssi_min + ' dBm' : '--';
-        rssiMinEl.style.color = '#ef4444';
-
-        const rssiMaxEl = document.getElementById('btDetailRssiMax');
-        rssiMaxEl.textContent = device.rssi_max != null ? device.rssi_max + ' dBm' : '--';
-        rssiMaxEl.style.color = '#22c55e';
+        // Min/Max combined
+        const minMax = [];
+        if (device.rssi_min != null) minMax.push(device.rssi_min);
+        if (device.rssi_max != null) minMax.push(device.rssi_max);
+        document.getElementById('btDetailRssiRange').textContent = minMax.length === 2
+            ? minMax[0] + '/' + minMax[1]
+            : '--';
 
         document.getElementById('btDetailFirstSeen').textContent = device.first_seen
             ? new Date(device.first_seen).toLocaleTimeString()
@@ -360,15 +355,14 @@ const BluetoothMode = (function() {
         const servicesList = document.getElementById('btDetailServicesList');
         if (device.service_uuids && device.service_uuids.length > 0) {
             servicesContainer.style.display = 'block';
-            servicesList.innerHTML = device.service_uuids.map(uuid =>
-                `<span class="bt-detail-service">${uuid}</span>`
-            ).join('');
+            servicesList.textContent = device.service_uuids.join(', ');
         } else {
             servicesContainer.style.display = 'none';
         }
 
-        // Show panel
-        panel.style.display = 'block';
+        // Show content, hide placeholder
+        placeholder.style.display = 'none';
+        content.style.display = 'block';
 
         // Highlight selected device in list
         highlightSelectedDevice(deviceId);
@@ -379,8 +373,11 @@ const BluetoothMode = (function() {
      */
     function clearSelection() {
         selectedDeviceId = null;
-        const panel = document.getElementById('btDetailPanel');
-        if (panel) panel.style.display = 'none';
+
+        const placeholder = document.getElementById('btDetailPlaceholder');
+        const content = document.getElementById('btDetailContent');
+        if (placeholder) placeholder.style.display = 'flex';
+        if (content) content.style.display = 'none';
 
         // Remove highlight from device list
         if (deviceContainer) {
