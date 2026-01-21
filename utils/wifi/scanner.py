@@ -265,6 +265,36 @@ class UnifiedWiFiScanner:
             pass
         return False
 
+    def _is_monitor_mode_interface(self, interface: str) -> bool:
+        """
+        Check if interface is currently in monitor mode.
+
+        Returns True if:
+        - Interface name ends with 'mon' (common convention)
+        - iw reports type as 'monitor'
+        """
+        # Quick check by name convention
+        if interface.endswith('mon'):
+            return True
+
+        # Check actual mode via iw
+        if shutil.which('iw'):
+            try:
+                result = subprocess.run(
+                    ['iw', interface, 'info'],
+                    capture_output=True,
+                    text=True,
+                    timeout=TOOL_TIMEOUT_DETECT,
+                )
+                if result.returncode == 0:
+                    # Look for "type monitor" in output
+                    if re.search(r'type\s+monitor', result.stdout, re.IGNORECASE):
+                        return True
+            except Exception:
+                pass
+
+        return False
+
     # =========================================================================
     # Quick Scan
     # =========================================================================
@@ -298,6 +328,17 @@ class UnifiedWiFiScanner:
             return result
 
         result.interface = iface
+
+        # Check if interface is in monitor mode (can't use quick scan tools on monitor interfaces)
+        if self._is_monitor_mode_interface(iface):
+            result.error = (
+                f"Interface '{iface}' appears to be in monitor mode. "
+                "Quick scan requires a managed mode interface. "
+                "Either use a different interface, disable monitor mode, or use deep_scan() with airodump-ng."
+            )
+            result.is_complete = True
+            result.warnings.append("Monitor mode interfaces don't support standard WiFi scanning")
+            return result
 
         # Select and run parser based on platform/tools
         # Try multiple tools with fallback on Linux

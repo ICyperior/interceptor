@@ -305,8 +305,18 @@ class DBusScanner:
                 if mfr_data:
                     for mid, mdata in mfr_data.items():
                         manufacturer_id = int(mid)
-                        if isinstance(mdata, dbus.Array):
-                            manufacturer_data = bytes(mdata)
+                        # Handle various DBus data types safely
+                        try:
+                            if isinstance(mdata, (bytes, bytearray)):
+                                manufacturer_data = bytes(mdata)
+                            elif isinstance(mdata, dbus.Array):
+                                manufacturer_data = bytes(mdata)
+                            elif isinstance(mdata, (list, tuple)):
+                                manufacturer_data = bytes(mdata)
+                            elif isinstance(mdata, str):
+                                manufacturer_data = bytes.fromhex(mdata)
+                        except (TypeError, ValueError) as e:
+                            logger.debug(f"Could not convert manufacturer data: {e}")
                         break
 
             # Extract service UUIDs
@@ -319,8 +329,17 @@ class DBusScanner:
             service_data = {}
             if 'ServiceData' in props:
                 for uuid, data in props['ServiceData'].items():
-                    if isinstance(data, dbus.Array):
-                        service_data[str(uuid)] = bytes(data)
+                    try:
+                        if isinstance(data, (bytes, bytearray)):
+                            service_data[str(uuid)] = bytes(data)
+                        elif isinstance(data, dbus.Array):
+                            service_data[str(uuid)] = bytes(data)
+                        elif isinstance(data, (list, tuple)):
+                            service_data[str(uuid)] = bytes(data)
+                        elif isinstance(data, str):
+                            service_data[str(uuid)] = bytes.fromhex(data)
+                    except (TypeError, ValueError) as e:
+                        logger.debug(f"Could not convert service data for {uuid}: {e}")
 
             # Extract Class of Device (Classic BT)
             class_of_device = None
