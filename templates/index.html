@@ -4401,6 +4401,48 @@
 
         // NOTE: Browser Notifications code moved to static/js/core/audio.js
 
+        // Sync legacy WiFi data to v2 channel chart
+        function syncLegacyToChannelChart() {
+            if (typeof ChannelChart === 'undefined') return;
+
+            const networksList = Object.values(wifiNetworks);
+            if (networksList.length === 0) return;
+
+            // Calculate channel stats from legacy networks
+            const stats = {};
+
+            // Initialize 2.4 GHz channels
+            for (let ch = 1; ch <= 11; ch++) {
+                stats[ch] = { channel: ch, band: '2.4GHz', ap_count: 0, utilization_score: 0 };
+            }
+            // Initialize 5 GHz channels
+            [36, 40, 44, 48, 149, 153, 157, 161, 165].forEach(ch => {
+                stats[ch] = { channel: ch, band: '5GHz', ap_count: 0, utilization_score: 0 };
+            });
+
+            // Count APs per channel
+            networksList.forEach(net => {
+                const ch = parseInt(net.channel);
+                if (stats[ch]) {
+                    stats[ch].ap_count++;
+                }
+            });
+
+            // Calculate utilization (0-1)
+            const maxAPs = Math.max(1, ...Object.values(stats).map(s => s.ap_count));
+            Object.values(stats).forEach(s => {
+                s.utilization_score = s.ap_count / maxAPs;
+            });
+
+            // Get active band from tab
+            const activeTab = document.querySelector('.channel-band-tab.active');
+            const band = activeTab ? activeTab.dataset.band : '2.4';
+            const bandFilter = band === '2.4' ? '2.4GHz' : '5GHz';
+
+            const filteredStats = Object.values(stats).filter(s => s.band === bandFilter);
+            ChannelChart.update(filteredStats, []);
+        }
+
         // Update visualizations periodically
         setInterval(() => {
             if (currentMode === 'wifi') {
@@ -4408,6 +4450,7 @@
                 correlateDevices();
                 updateHiddenSsidDisplay();
                 updateProbeAnalysis();
+                syncLegacyToChannelChart();
             }
         }, 2000);
 

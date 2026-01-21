@@ -461,9 +461,14 @@ const WiFiMode = (function() {
             networks.set(ap.bssid, ap);
         });
 
-        // Update channel stats
+        // Update channel stats (calculate from networks if not provided by API)
         channelStats = result.channel_stats || [];
         recommendations = result.recommendations || [];
+
+        // If no channel stats from API, calculate from networks
+        if (channelStats.length === 0 && networks.size > 0) {
+            channelStats = calculateChannelStats();
+        }
 
         // Update UI
         updateNetworkTable();
@@ -933,8 +938,46 @@ const WiFiMode = (function() {
         }
     }
 
+    function calculateChannelStats() {
+        // Calculate channel stats from current networks
+        const stats = {};
+        const networksList = Array.from(networks.values());
+
+        // Initialize all channels
+        // 2.4 GHz: channels 1-13
+        for (let ch = 1; ch <= 13; ch++) {
+            stats[ch] = { channel: ch, band: '2.4GHz', ap_count: 0, client_count: 0, utilization_score: 0 };
+        }
+        // 5 GHz: common channels
+        [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165].forEach(ch => {
+            stats[ch] = { channel: ch, band: '5GHz', ap_count: 0, client_count: 0, utilization_score: 0 };
+        });
+
+        // Count APs per channel
+        networksList.forEach(net => {
+            const ch = parseInt(net.channel);
+            if (stats[ch]) {
+                stats[ch].ap_count++;
+                stats[ch].client_count += (net.client_count || 0);
+            }
+        });
+
+        // Calculate utilization score (0-1)
+        const maxAPs = Math.max(1, ...Object.values(stats).map(s => s.ap_count));
+        Object.values(stats).forEach(s => {
+            s.utilization_score = s.ap_count / maxAPs;
+        });
+
+        return Object.values(stats).filter(s => s.ap_count > 0 || [1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161, 165].includes(s.channel));
+    }
+
     function updateChannelChart(band = '2.4') {
         if (typeof ChannelChart === 'undefined') return;
+
+        // Recalculate channel stats from networks if needed
+        if (channelStats.length === 0 && networks.size > 0) {
+            channelStats = calculateChannelStats();
+        }
 
         // Filter stats by band
         const bandFilter = band === '2.4' ? '2.4GHz' : band === '5' ? '5GHz' : '6GHz';
