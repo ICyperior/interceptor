@@ -1300,7 +1300,8 @@ def _run_sweep(
                             })
                     last_bt_scan = current_time
                 except Exception as e:
-                    logger.error(f"Bluetooth scan error: {e}")
+                    import traceback
+                    logger.error(f"Bluetooth scan error: {e}\n{traceback.format_exc()}")
 
             # Perform RF scan using SDR
             if rf_enabled and (current_time - last_rf_scan) >= rf_scan_interval:
