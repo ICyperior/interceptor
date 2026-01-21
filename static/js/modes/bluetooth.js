@@ -22,6 +22,8 @@ const BluetoothMode = (function() {
      * Initialize the Bluetooth mode
      */
     function init() {
+        console.log('[BT] Initializing BluetoothMode');
+
         // Cache DOM elements
         startBtn = document.getElementById('startBtBtn');
         stopBtn = document.getElementById('stopBtBtn');
@@ -34,6 +36,13 @@ const BluetoothMode = (function() {
         minRssiInput = document.getElementById('btMinRssi');
         baselineStatusEl = document.getElementById('btBaselineStatus');
         capabilityStatusEl = document.getElementById('btCapabilityStatus');
+
+        console.log('[BT] DOM elements:', {
+            startBtn: !!startBtn,
+            stopBtn: !!stopBtn,
+            deviceContainer: !!deviceContainer,
+            adapterSelect: !!adapterSelect
+        });
 
         // Check capabilities on load
         checkCapabilities();
@@ -218,8 +227,10 @@ const BluetoothMode = (function() {
         if (eventSource) eventSource.close();
 
         eventSource = new EventSource('/api/bluetooth/stream');
+        console.log('[BT] SSE stream connected');
 
         eventSource.addEventListener('device_update', (e) => {
+            console.log('[BT] SSE device_update event:', e.data);
             try {
                 const device = JSON.parse(e.data);
                 handleDeviceUpdate(device);
@@ -227,6 +238,11 @@ const BluetoothMode = (function() {
                 console.error('Failed to parse device update:', err);
             }
         });
+
+        // Also listen for generic messages as fallback
+        eventSource.onmessage = (e) => {
+            console.log('[BT] SSE generic message:', e.data);
+        };
 
         eventSource.addEventListener('scan_started', (e) => {
             const data = JSON.parse(e.data);
@@ -269,6 +285,7 @@ const BluetoothMode = (function() {
      * Handle device update from SSE
      */
     function handleDeviceUpdate(device) {
+        console.log('[BT] Device update received:', device);
         devices.set(device.device_id, device);
         renderDevice(device);
     }
@@ -277,7 +294,16 @@ const BluetoothMode = (function() {
      * Render a device card
      */
     function renderDevice(device) {
-        if (!deviceContainer) return;
+        console.log('[BT] Rendering device:', device.device_id, 'Container:', deviceContainer);
+        if (!deviceContainer) {
+            console.warn('[BT] No device container found!');
+            // Try to find it again
+            deviceContainer = document.getElementById('output');
+            if (!deviceContainer) {
+                console.error('[BT] Still no container - cannot render');
+                return;
+            }
+        }
 
         const existingCard = deviceContainer.querySelector(`[data-device-id="${device.device_id}"]`);
 
