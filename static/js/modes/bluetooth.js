@@ -33,8 +33,13 @@ const BluetoothMode = (function() {
         findmy: []
     };
 
-    // Heatmap state
-    let heatmapData = [];
+    // Proximity visualization state
+    let devicePositions = new Map(); // Persistent positions for smooth visualization
+    let lastVisualizationUpdate = 0;
+    let visualizationTimer = null;
+    const VISUALIZATION_UPDATE_INTERVAL = 100; // ms
+    const VISUALIZATION_REFRESH_INTERVAL = 1000; // 1 second refresh for fading
+    const DEVICE_STALE_THRESHOLD = 30000; // 30 seconds before device fades
 
     /**
      * Initialize the Bluetooth mode
@@ -61,8 +66,11 @@ const BluetoothMode = (function() {
         // Check scan status (in case page was reloaded during scan)
         checkScanStatus();
 
-        // Initialize heatmap
+        // Initialize proximity visualization
         initHeatmap();
+
+        // Start visualization refresh timer
+        startVisualizationTimer();
 
         // Initialize timeline as collapsed
         initTimeline();
@@ -72,23 +80,23 @@ const BluetoothMode = (function() {
     }
 
     /**
-     * Initialize the heatmap canvas
+     * Initialize the proximity visualization
      */
     function initHeatmap() {
         const canvas = document.getElementById('btRadarCanvas');
         if (!canvas) return;
 
-        // Make canvas larger for better heatmap
-        canvas.width = 150;
-        canvas.height = 150;
+        // Set canvas size for crisp rendering
+        canvas.width = 180;
+        canvas.height = 180;
 
-        drawHeatmap();
+        drawProximityVisualization();
     }
 
     /**
-     * Draw heatmap visualization
+     * Draw clean zone-based proximity visualization
      */
-    function drawHeatmap() {
+    function drawProximityVisualization() {
         const canvas = document.getElementById('btRadarCanvas');
         if (!canvas) return;
 
@@ -97,95 +105,198 @@ const BluetoothMode = (function() {
         const height = canvas.height;
         const centerX = width / 2;
         const centerY = height / 2;
-        const maxRadius = Math.min(width, height) / 2 - 5;
+        const maxRadius = Math.min(width, height) / 2 - 10;
 
         // Clear canvas
         ctx.clearRect(0, 0, width, height);
 
-        // Draw background circles (range indicators)
-        ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
-        ctx.lineWidth = 1;
-        for (let i = 1; i <= 4; i++) {
+        // Define zones with colors
+        const zones = [
+            { name: 'VERY CLOSE', minRssi: -40, radius: 0.25, color: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.4)' },
+            { name: 'CLOSE', minRssi: -55, radius: 0.5, color: 'rgba(132, 204, 22, 0.06)', borderColor: 'rgba(132, 204, 22, 0.3)' },
+            { name: 'NEARBY', minRssi: -70, radius: 0.75, color: 'rgba(234, 179, 8, 0.05)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+            { name: 'FAR', minRssi: -100, radius: 1.0, color: 'rgba(239, 68, 68, 0.04)', borderColor: 'rgba(239, 68, 68, 0.2)' }
+        ];
+
+        // Draw zones from outside in (so inner zones overlay)
+        for (let i = zones.length - 1; i >= 0; i--) {
+            const zone = zones[i];
+            const r = maxRadius * zone.radius;
+
+            // Fill zone
             ctx.beginPath();
-            ctx.arc(centerX, centerY, maxRadius * i / 4, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+            ctx.fillStyle = zone.color;
+            ctx.fill();
+
+            // Draw zone border
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+            ctx.strokeStyle = zone.borderColor;
+            ctx.lineWidth = 1;
             ctx.stroke();
         }
 
-        // Draw range labels
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.font = '8px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('CLOSE', centerX, centerY - maxRadius * 0.25 + 3);
-        ctx.fillText('FAR', centerX, centerY - maxRadius * 0.85 + 3);
+        // Count devices in each zone
+        const zoneCounts = [0, 0, 0, 0]; // very close, close, nearby, far
+        const now = Date.now();
 
-        // If no devices, show message
-        if (devices.size === 0) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('No devices', centerX, centerY);
-            return;
-        }
-
-        // Build heatmap data from devices
-        heatmapData = [];
-        devices.forEach(device => {
+        // Update device positions and count per zone
+        devices.forEach((device, deviceId) => {
             const rssi = device.rssi_current;
-            if (rssi === null || rssi === undefined) return;
+            if (rssi == null) return;
 
-            // Convert RSSI to radius (stronger = closer to center)
-            // RSSI: -30 (very close) to -100 (far)
-            const normalizedRssi = Math.max(0, Math.min(1, (rssi + 100) / 70));
-            const radius = maxRadius * (1 - normalizedRssi * 0.9); // Keep some margin
+            // Determine zone
+            let zoneIndex = 3; // far by default
+            if (rssi >= -40) zoneIndex = 0;
+            else if (rssi >= -55) zoneIndex = 1;
+            else if (rssi >= -70) zoneIndex = 2;
 
-            // Distribute devices in a spiral pattern for visibility
-            const index = heatmapData.length;
-            const angle = (index * 137.5 * Math.PI / 180); // Golden angle for distribution
+            zoneCounts[zoneIndex]++;
 
-            heatmapData.push({
-                x: centerX + Math.cos(angle) * radius,
-                y: centerY + Math.sin(angle) * radius,
-                rssi: rssi,
-                intensity: normalizedRssi
-            });
+            // Get or create position for this device
+            let pos = devicePositions.get(deviceId);
+            if (!pos) {
+                // Assign new position with random angle
+                const angle = Math.random() * Math.PI * 2;
+                pos = { angle, lastSeen: now, rssi };
+                devicePositions.set(deviceId, pos);
+            } else {
+                pos.lastSeen = now;
+                pos.rssi = rssi;
+            }
         });
 
-        // Draw heatmap points with gradient
-        heatmapData.forEach(point => {
-            const gradient = ctx.createRadialGradient(
-                point.x, point.y, 0,
-                point.x, point.y, 20
-            );
+        // Clean up stale device positions
+        devicePositions.forEach((pos, deviceId) => {
+            if (now - pos.lastSeen > DEVICE_STALE_THRESHOLD) {
+                devicePositions.delete(deviceId);
+            }
+        });
 
-            // Color based on signal strength
-            const color = getRssiColorRgb(point.rssi);
-            gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`);
-            gradient.addColorStop(0.4, `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
+        // Draw device dots
+        devicePositions.forEach((pos, deviceId) => {
+            const device = devices.get(deviceId);
+            const rssi = pos.rssi;
+            if (rssi == null) return;
+
+            // Calculate radius based on RSSI (stronger = closer to center)
+            const normalizedRssi = Math.max(0, Math.min(1, (rssi + 100) / 70));
+            const radius = maxRadius * (1 - normalizedRssi * 0.85 + 0.1); // Keep some margin from center
+
+            // Calculate position
+            const x = centerX + Math.cos(pos.angle) * radius;
+            const y = centerY + Math.sin(pos.angle) * radius;
+
+            // Calculate opacity based on staleness
+            const age = now - pos.lastSeen;
+            const opacity = age < 5000 ? 1.0 : Math.max(0.3, 1 - (age - 5000) / DEVICE_STALE_THRESHOLD);
+
+            // Get color
+            const color = getRssiColorRgb(rssi);
+
+            // Draw glow
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, 12);
+            gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${0.4 * opacity})`);
             gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
-
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(point.x, point.y, 20, 0, Math.PI * 2);
+            ctx.arc(x, y, 12, 0, Math.PI * 2);
             ctx.fill();
 
-            // Draw center dot
-            ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
+            // Draw dot
+            ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
             ctx.beginPath();
-            ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
             ctx.fill();
+
+            // Draw border
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.5 * opacity})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
         });
 
         // Draw center point (user position)
         ctx.fillStyle = '#00d4ff';
+        ctx.shadowColor = '#00d4ff';
+        ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
 
-        // Device count
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        // Draw "YOU" label
+        ctx.fillStyle = 'rgba(0, 212, 255, 0.8)';
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('YOU', centerX, centerY + 14);
+
+        // Draw zone counts on the right side
+        const countX = width - 8;
+        ctx.textAlign = 'right';
         ctx.font = '9px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${devices.size} devices`, 5, height - 5);
+
+        const countLabels = [
+            { count: zoneCounts[0], color: '#22c55e', y: centerY - 45 },
+            { count: zoneCounts[1], color: '#84cc16', y: centerY - 15 },
+            { count: zoneCounts[2], color: '#eab308', y: centerY + 15 },
+            { count: zoneCounts[3], color: '#ef4444', y: centerY + 45 }
+        ];
+
+        countLabels.forEach(item => {
+            if (item.count > 0) {
+                ctx.fillStyle = item.color;
+                ctx.fillText(item.count.toString(), countX, item.y);
+            }
+        });
+
+        // Draw total count at bottom
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${devices.size} devices`, centerX, height - 4);
+
+        // If no devices and not scanning, show message
+        if (devices.size === 0 && !isScanning) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Start scan to', centerX, centerY - 8);
+            ctx.fillText('detect devices', centerX, centerY + 8);
+        }
+    }
+
+    /**
+     * Schedule visualization update (throttled)
+     */
+    function scheduleVisualizationUpdate() {
+        const now = Date.now();
+        if (now - lastVisualizationUpdate >= VISUALIZATION_UPDATE_INTERVAL) {
+            lastVisualizationUpdate = now;
+            drawProximityVisualization();
+        }
+    }
+
+    /**
+     * Start periodic visualization refresh for smooth fading
+     */
+    function startVisualizationTimer() {
+        if (visualizationTimer) clearInterval(visualizationTimer);
+        visualizationTimer = setInterval(() => {
+            if (devicePositions.size > 0 || isScanning) {
+                drawProximityVisualization();
+            }
+        }, VISUALIZATION_REFRESH_INTERVAL);
+    }
+
+    /**
+     * Stop visualization timer
+     */
+    function stopVisualizationTimer() {
+        if (visualizationTimer) {
+            clearInterval(visualizationTimer);
+            visualizationTimer = null;
+        }
     }
 
     /**
@@ -193,11 +304,11 @@ const BluetoothMode = (function() {
      */
     function getRssiColorRgb(rssi) {
         if (rssi === null || rssi === undefined) return { r: 102, g: 102, b: 102 };
-        if (rssi >= -50) return { r: 34, g: 197, b: 94 };   // Green
-        if (rssi >= -60) return { r: 132, g: 204, b: 22 };  // Lime
-        if (rssi >= -70) return { r: 234, g: 179, b: 8 };   // Yellow
-        if (rssi >= -80) return { r: 249, g: 115, b: 22 };  // Orange
-        return { r: 239, g: 68, b: 68 };                     // Red
+        if (rssi >= -40) return { r: 34, g: 197, b: 94 };   // Green - very close
+        if (rssi >= -55) return { r: 132, g: 204, b: 22 };  // Lime - close
+        if (rssi >= -70) return { r: 234, g: 179, b: 8 };   // Yellow - nearby
+        if (rssi >= -85) return { r: 249, g: 115, b: 22 };  // Orange
+        return { r: 239, g: 68, b: 68 };                     // Red - far
     }
 
     /**
@@ -557,8 +668,9 @@ const BluetoothMode = (function() {
             trackers: [],
             findmy: []
         };
+        devicePositions.clear(); // Clear visualization positions
         updateVisualizationPanels();
-        drawHeatmap();
+        drawProximityVisualization();
     }
 
     function startEventStream() {
@@ -601,7 +713,7 @@ const BluetoothMode = (function() {
         updateDeviceCount();
         updateStatsFromDevices();
         updateVisualizationPanels();
-        drawHeatmap();
+        scheduleVisualizationUpdate(); // Throttled visualization update
 
         // Update selected device panel if this device is selected
         if (selectedDeviceId === device.device_id) {
