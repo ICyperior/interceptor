@@ -684,6 +684,40 @@
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
                             <div id="wifiTimelineContainer"></div>
                         </div>
+                        <!-- v2 Proximity Radar -->
+                        <div class="wifi-visual-panel wifi-v2-radar-panel">
+                            <h5>Proximity Radar</h5>
+                            <div id="wifiProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
+                            <div id="wifiRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
+                                <button data-filter="all" class="wifi-radar-filter-btn active" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">All</button>
+                                <button data-filter="hidden" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Hidden</button>
+                                <button data-filter="open" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Open</button>
+                                <button data-filter="strong" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Strong</button>
+                            </div>
+                            <div id="wifiZoneSummary" style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 11px;">
+                                <div style="text-align: center;">
+                                    <span id="wifiZoneImmediate" style="font-size: 20px; font-weight: 600; color: #22c55e;">0</span>
+                                    <div style="color: #666;">Immediate</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span id="wifiZoneNear" style="font-size: 20px; font-weight: 600; color: #eab308;">0</span>
+                                    <div style="color: #666;">Near</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span id="wifiZoneFar" style="font-size: 20px; font-weight: 600; color: #ef4444;">0</span>
+                                    <div style="color: #666;">Far</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- v2 Channel Analysis -->
+                        <div class="wifi-visual-panel wifi-v2-channel-panel">
+                            <h5>Channel Analysis (v2)</h5>
+                            <div id="wifiChannelBandTabs" style="display: flex; gap: 4px; margin-bottom: 8px;">
+                                <button data-band="2.4" class="channel-band-tab active" style="padding: 4px 12px; font-size: 10px; background: var(--accent-cyan); color: #000; border: none; border-radius: 4px; cursor: pointer;">2.4 GHz</button>
+                                <button data-band="5" class="channel-band-tab" style="padding: 4px 12px; font-size: 10px; background: var(--bg-tertiary); color: #888; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">5 GHz</button>
+                            </div>
+                            <div id="wifiChannelChart"></div>
+                        </div>
                     </div>
                     <!-- Right: WiFi Device Cards -->
                     <div class="wifi-device-list" id="wifiDeviceList">
@@ -2210,6 +2244,10 @@
                 refreshWifiInterfaces();
                 initRadar();
                 initWatchList();
+                // Initialize v2 WiFi components
+                if (typeof WiFiMode !== 'undefined') {
+                    WiFiMode.init();
+                }
             } else if (mode === 'bluetooth') {
                 refreshBtInterfaces();
                 initBtRadar();
