@@ -154,11 +154,14 @@ const DeviceCard = (function() {
      * Create a Bluetooth device card
      */
     function createDeviceCard(device, options = {}) {
+        // Debug: log received device data
+        console.log('[DeviceCard] Creating card for:', device.address, device);
+
         const card = document.createElement('article');
         card.className = 'signal-card device-card';
-        card.dataset.deviceId = device.device_id;
-        card.dataset.protocol = device.protocol;
-        card.dataset.address = device.address;
+        card.dataset.deviceId = device.device_id || '';
+        card.dataset.protocol = device.protocol || 'ble';
+        card.dataset.address = device.address || '';
 
         // Add status classes
         if (device.heuristic_flags && device.heuristic_flags.includes('new')) {
@@ -168,13 +171,26 @@ const DeviceCard = (function() {
         }
 
         // Store full device data for details modal
-        card.dataset.deviceData = JSON.stringify(device);
+        try {
+            card.dataset.deviceData = JSON.stringify(device);
+        } catch (e) {
+            card.dataset.deviceData = '{}';
+        }
 
-        const relativeTime = formatRelativeTime(device.last_seen);
-        const sparkline = createSparkline(device.rssi_history);
-        const heuristicBadges = createHeuristicBadges(device.heuristic_flags);
-        const rangeBand = createRangeBand(device.range_band, device.range_confidence);
-        const protocolBadge = createProtocolBadge(device.protocol);
+        const relativeTime = formatRelativeTime(device.last_seen) || 'Unknown';
+        const sparkline = createSparkline(device.rssi_history) || '';
+        const heuristicBadges = createHeuristicBadges(device.heuristic_flags) || '';
+        const rangeBand = createRangeBand(device.range_band, device.range_confidence) || '';
+        const protocolBadge = createProtocolBadge(device.protocol) || '';
+
+        // Build card with explicit defaults for all values
+        const deviceName = device.name || 'Unknown Device';
+        const deviceAddress = device.address || 'Unknown';
+        const addressType = device.address_type || 'unknown';
+        const rssiDisplay = device.rssi_current !== null && device.rssi_current !== undefined
+            ? device.rssi_current + ' dBm' : '--';
+        const seenCount = device.seen_count || 0;
+        const inBaseline = device.in_baseline || false;
 
         card.innerHTML = `
             <div class="signal-card-header">
@@ -182,24 +198,22 @@ const DeviceCard = (function() {
                     ${protocolBadge}
                     ${heuristicBadges}
                 </div>
-                <span class="signal-status-pill" data-status="${device.in_baseline ? 'baseline' : 'new'}">
+                <span class="signal-status-pill" data-status="${inBaseline ? 'baseline' : 'new'}">
                     <span class="status-dot"></span>
-                    ${device.in_baseline ? 'Known' : 'New'}
+                    ${inBaseline ? 'Known' : 'New'}
                 </span>
             </div>
             <div class="signal-card-body">
                 <div class="device-identity">
-                    <div class="device-name">${escapeHtml(device.name || 'Unknown Device')}</div>
+                    <div class="device-name">${escapeHtml(deviceName)}</div>
                     <div class="device-address">
-                        <span class="address-value">${escapeHtml(device.address)}</span>
-                        <span class="address-type">(${escapeHtml(device.address_type)})</span>
+                        <span class="address-value">${escapeHtml(deviceAddress)}</span>
+                        <span class="address-type">(${escapeHtml(addressType)})</span>
                     </div>
                 </div>
                 <div class="device-signal-row">
                     <div class="rssi-display">
-                        <span class="rssi-current" title="Current RSSI">
-                            ${device.rssi_current !== null ? device.rssi_current + ' dBm' : '--'}
-                        </span>
+                        <span class="rssi-current" title="Current RSSI">${rssiDisplay}</span>
                         ${sparkline}
                     </div>
                     ${rangeBand}
@@ -213,9 +227,9 @@ const DeviceCard = (function() {
                 <div class="device-meta-row">
                     <span class="device-seen-count" title="Observation count">
                         <span class="seen-icon">👁</span>
-                        ${device.seen_count}×
+                        ${seenCount}×
                     </span>
-                    <span class="device-timestamp" data-timestamp="${escapeHtml(device.last_seen)}">
+                    <span class="device-timestamp" data-timestamp="${escapeHtml(device.last_seen || '')}">
                         ${escapeHtml(relativeTime)}
                     </span>
                 </div>

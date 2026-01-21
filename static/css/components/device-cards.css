@@ -557,16 +557,31 @@
 /* ============================================
    DEVICE CARD GRID LAYOUT
    ============================================ */
-.bt-device-list .wifi-device-list-content {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-    padding: 12px;
+#btDeviceListContent {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: 12px !important;
+    padding: 12px !important;
 }
 
-.bt-device-list .device-card {
+#btDeviceListContent .device-card {
     margin: 0;
     height: fit-content;
+}
+
+/* Ensure card body is visible */
+.device-card .signal-card-body {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.device-card .device-identity {
+    display: block !important;
+}
+
+.device-card .device-signal-row {
+    display: flex !important;
 }
 
 /* ============================================
