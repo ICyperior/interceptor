@@ -23,8 +23,7 @@ const BluetoothMode = (function() {
         strong: 0,
         medium: 0,
         weak: 0,
-        trackers: [],
-        findmy: []
+        trackers: []
     };
 
     // Zone counts for proximity display
@@ -32,7 +31,6 @@ const BluetoothMode = (function() {
 
     // New visualization components
     let radarInitialized = false;
-    let heatmapInitialized = false;
     let radarPaused = false;
 
     /**
@@ -60,15 +58,11 @@ const BluetoothMode = (function() {
         // Check scan status (in case page was reloaded during scan)
         checkScanStatus();
 
-        // Initialize proximity visualization (new radar + heatmap)
+        // Initialize proximity visualization
         initProximityRadar();
-        initTimelineHeatmap();
 
         // Initialize legacy heatmap (zone counts)
         initHeatmap();
-
-        // Initialize timeline as collapsed
-        initTimeline();
 
         // Set initial panel states
         updateVisualizationPanels();
@@ -131,30 +125,6 @@ const BluetoothMode = (function() {
                 pauseBtn.textContent = radarPaused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('active', radarPaused);
             });
-        }
-    }
-
-    /**
-     * Initialize the timeline heatmap component
-     */
-    function initTimelineHeatmap() {
-        const heatmapContainer = document.getElementById('btTimelineHeatmap');
-        if (!heatmapContainer) return;
-
-        if (typeof TimelineHeatmap !== 'undefined') {
-            TimelineHeatmap.init('btTimelineHeatmap', {
-                windowMinutes: 10,
-                bucketSeconds: 10,
-                sortBy: 'recency',
-                onDeviceSelect: (deviceKey, device) => {
-                    // Find device and show modal
-                    const fullDevice = Array.from(devices.values()).find(d => d.device_key === deviceKey);
-                    if (fullDevice) {
-                        selectDevice(fullDevice.device_id);
-                    }
-                }
-            });
-            heatmapInitialized = true;
         }
     }
 
@@ -392,41 +362,6 @@ const BluetoothMode = (function() {
     }
 
     /**
-     * Initialize timeline as collapsed
-     */
-    function initTimeline() {
-        const timelineContainer = document.getElementById('bluetoothTimelineContainer');
-        if (!timelineContainer) return;
-
-        // Check if ActivityTimeline exists and initialize it collapsed
-        if (typeof ActivityTimeline !== 'undefined') {
-            // Timeline will be initialized by the main app, but we'll collapse it
-            setTimeout(() => {
-                const timeline = timelineContainer.querySelector('.activity-timeline');
-                if (timeline) {
-                    const content = timeline.querySelector('.activity-timeline-content');
-                    const toggleBtn = timeline.querySelector('.activity-timeline-toggle');
-                    if (content) content.style.display = 'none';
-                    if (toggleBtn) toggleBtn.textContent = '▶';
-                }
-            }, 500);
-        } else {
-            // Create a simple placeholder
-            timelineContainer.innerHTML = `
-                <div style="background: var(--bg-tertiary, #1a1a1a); border: 1px solid var(--border-color, #333); border-radius: 6px; overflow: hidden;">
-                    <div style="padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: var(--bg-secondary, #252525);" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('span:last-child').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';">
-                        <span style="font-size: 12px; color: var(--text-primary, #e0e0e0);">Device Activity</span>
-                        <span style="font-size: 10px; color: var(--text-dim, #666);">▶</span>
-                    </div>
-                    <div id="btActivityContent" style="display: none; padding: 12px; color: var(--text-dim, #666); font-size: 11px; text-align: center;">
-                        Activity timeline will appear here during scanning
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    /**
      * Select a device - opens modal with details
      */
     function selectDevice(deviceId) {
@@ -604,16 +539,10 @@ const BluetoothMode = (function() {
 
     function resetStats() {
         deviceStats = {
-            phones: 0,
-            computers: 0,
-            audio: 0,
-            wearables: 0,
-            other: 0,
             strong: 0,
             medium: 0,
             weak: 0,
-            trackers: [],
-            findmy: []
+            trackers: []
         };
         updateVisualizationPanels();
         updateProximityZones();
@@ -668,51 +597,6 @@ const BluetoothMode = (function() {
 
         // Update new proximity radar
         updateRadar();
-
-        // Feed to activity timeline
-        addToTimeline(device);
-    }
-
-    /**
-     * Add device event to timeline
-     */
-    function addToTimeline(device) {
-        if (typeof addTimelineEvent === 'function') {
-            const normalized = {
-                id: device.device_id,
-                label: device.name || formatDeviceId(device.address),
-                strength: device.rssi_current ? Math.min(5, Math.max(1, Math.ceil((device.rssi_current + 100) / 20))) : 3,
-                duration: 1500,
-                type: 'bluetooth'
-            };
-            addTimelineEvent('bluetooth', normalized);
-        }
-
-        // Also update our simple timeline if it exists
-        const activityContent = document.getElementById('btActivityContent');
-        if (activityContent) {
-            const time = new Date().toLocaleTimeString();
-            const existing = activityContent.querySelector('.bt-activity-list');
-
-            if (!existing) {
-                activityContent.innerHTML = '<div class="bt-activity-list" style="max-height: 150px; overflow-y: auto;"></div>';
-            }
-
-            const list = activityContent.querySelector('.bt-activity-list');
-            const entry = document.createElement('div');
-            entry.style.cssText = 'padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 10px;';
-            entry.innerHTML = `
-                <span style="color: #666;">${time}</span>
-                <span style="color: #00d4ff; margin-left: 8px;">${escapeHtml(device.name || formatDeviceId(device.address))}</span>
-                <span style="color: ${getRssiColor(device.rssi_current)}; margin-left: 8px;">${device.rssi_current || '--'} dBm</span>
-            `;
-            list.insertBefore(entry, list.firstChild);
-
-            // Keep only last 50 entries
-            while (list.children.length > 50) {
-                list.removeChild(list.lastChild);
-            }
-        }
     }
 
     /**
@@ -724,13 +608,10 @@ const BluetoothMode = (function() {
         deviceStats.medium = 0;
         deviceStats.weak = 0;
         deviceStats.trackers = [];
-        deviceStats.findmy = [];
 
         devices.forEach(d => {
-            const mfr = (d.manufacturer_name || '').toLowerCase();
             const name = (d.name || '').toLowerCase();
             const rssi = d.rssi_current;
-            const flags = d.heuristic_flags || [];
 
             // Signal strength classification
             if (rssi != null) {
@@ -747,17 +628,6 @@ const BluetoothMode = (function() {
             if (isTracker) {
                 if (!deviceStats.trackers.find(t => t.address === d.address)) {
                     deviceStats.trackers.push(d);
-                }
-            }
-
-            // FindMy detection - Apple devices with specific characteristics
-            // Apple manufacturer ID is 0x004C (76)
-            const isApple = mfr.includes('apple') || d.manufacturer_id === 76;
-            const hasBeaconBehavior = flags.includes('beacon_like') || flags.includes('persistent');
-
-            if (isApple && hasBeaconBehavior) {
-                if (!deviceStats.findmy.find(t => t.address === d.address)) {
-                    deviceStats.findmy.push(d);
                 }
             }
         });
@@ -803,25 +673,6 @@ const BluetoothMode = (function() {
             }
         }
 
-        // FindMy Detection
-        const findmyList = document.getElementById('btFindMyList');
-        if (findmyList) {
-            if (devices.size === 0) {
-                findmyList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;font-size:11px;">Start scanning to detect FindMy devices</div>';
-            } else if (deviceStats.findmy.length === 0) {
-                findmyList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;font-size:11px;">No FindMy-compatible devices detected</div>';
-            } else {
-                findmyList.innerHTML = deviceStats.findmy.map(t => `
-                    <div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" onclick="BluetoothMode.selectDevice('${t.device_id}')">
-                        <div style="display:flex;justify-content:space-between;">
-                            <span style="color:#007aff;font-size:11px;">${escapeHtml(t.name || 'Apple Device')}</span>
-                            <span style="color:#666;font-size:10px;">${t.rssi_current || '--'} dBm</span>
-                        </div>
-                        <div style="font-size:9px;color:#666;font-family:monospace;">${t.address}</div>
-                    </div>
-                `).join('');
-            }
-        }
     }
 
     function updateDeviceCount() {
