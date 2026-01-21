@@ -614,9 +614,11 @@ def get_tscm_bluetooth_snapshot(duration: int = 8) -> list[dict]:
         tscm_devices.append({
             'mac': device.address,
             'address_type': device.address_type,
+            'device_key': device.device_key,
             'name': device.name or 'Unknown',
             'rssi': device.rssi_current or -100,
             'rssi_median': device.rssi_median,
+            'rssi_ema': round(device.rssi_ema, 1) if device.rssi_ema else None,
             'type': _classify_device_type(device),
             'manufacturer': device.manufacturer_name,
             'protocol': device.protocol,
@@ -624,6 +626,11 @@ def get_tscm_bluetooth_snapshot(duration: int = 8) -> list[dict]:
             'last_seen': device.last_seen.isoformat(),
             'seen_count': device.seen_count,
             'range_band': device.range_band,
+            'proximity_band': device.proximity_band,
+            'estimated_distance_m': round(device.estimated_distance_m, 2) if device.estimated_distance_m else None,
+            'distance_confidence': round(device.distance_confidence, 2),
+            'is_randomized_mac': device.is_randomized_mac,
+            'threat_tags': device.threat_tags,
             'heuristics': {
                 'is_new': device.is_new,
                 'is_persistent': device.is_persistent,
@@ -635,6 +642,171 @@ def get_tscm_bluetooth_snapshot(duration: int = 8) -> list[dict]:
         })
 
     return tscm_devices
+
+
+# =============================================================================
+# PROXIMITY & HEATMAP ENDPOINTS
+# =============================================================================
+
+
+@bluetooth_v2_bp.route('/proximity/snapshot', methods=['GET'])
+def get_proximity_snapshot():
+    """
+    Get proximity snapshot for radar visualization.
+
+    All active devices with proximity data including estimated distance,
+    proximity band, and confidence scores.
+
+    Query parameters:
+        - max_age: Maximum age in seconds (default: 60)
+        - min_confidence: Minimum distance confidence (default: 0)
+
+    Returns:
+        JSON with proximity data for all active devices.
+    """
+    scanner = get_bluetooth_scanner()
+    max_age = request.args.get('max_age', 60, type=float)
+    min_confidence = request.args.get('min_confidence', 0.0, type=float)
+
+    devices = scanner.get_devices(max_age_seconds=max_age)
+
+    # Filter by confidence if specified
+    if min_confidence > 0:
+        devices = [d for d in devices if d.distance_confidence >= min_confidence]
+
+    # Build proximity snapshot
+    snapshot = {
+        'timestamp': datetime.now().isoformat(),
+        'device_count': len(devices),
+        'zone_counts': {
+            'immediate': 0,
+            'near': 0,
+            'far': 0,
+            'unknown': 0,
+        },
+        'devices': [],
+    }
+
+    for device in devices:
+        # Count by zone
+        band = device.proximity_band or 'unknown'
+        if band in snapshot['zone_counts']:
+            snapshot['zone_counts'][band] += 1
+        else:
+            snapshot['zone_counts']['unknown'] += 1
+
+        snapshot['devices'].append({
+            'device_key': device.device_key,
+            'device_id': device.device_id,
+            'name': device.name,
+            'address': device.address,
+            'rssi_current': device.rssi_current,
+            'rssi_ema': round(device.rssi_ema, 1) if device.rssi_ema else None,
+            'estimated_distance_m': round(device.estimated_distance_m, 2) if device.estimated_distance_m else None,
+            'proximity_band': device.proximity_band,
+            'distance_confidence': round(device.distance_confidence, 2),
+            'is_new': device.is_new,
+            'is_randomized_mac': device.is_randomized_mac,
+            'in_baseline': device.in_baseline,
+            'heuristic_flags': device.heuristic_flags,
+            'last_seen': device.last_seen.isoformat(),
+            'age_seconds': round(device.age_seconds, 1),
+        })
+
+    return jsonify(snapshot)
+
+
+@bluetooth_v2_bp.route('/heatmap/data', methods=['GET'])
+def get_heatmap_data():
+    """
+    Get heatmap data for timeline visualization.
+
+    Returns top N devices with downsampled RSSI timeseries.
+
+    Query parameters:
+        - top_n: Number of devices (default: 20)
+        - window_minutes: Time window (default: 10)
+        - bucket_seconds: Bucket size for downsampling (default: 10)
+        - sort_by: Sort method - 'recency', 'strength', 'activity' (default: 'recency')
+
+    Returns:
+        JSON with device timeseries data for heatmap.
+    """
+    scanner = get_bluetooth_scanner()
+
+    top_n = request.args.get('top_n', 20, type=int)
+    window_minutes = request.args.get('window_minutes', 10, type=int)
+    bucket_seconds = request.args.get('bucket_seconds', 10, type=int)
+    sort_by = request.args.get('sort_by', 'recency')
+
+    # Validate sort_by
+    if sort_by not in ('recency', 'strength', 'activity'):
+        sort_by = 'recency'
+
+    # Get heatmap data from aggregator
+    heatmap_data = scanner._aggregator.get_heatmap_data(
+        top_n=top_n,
+        window_minutes=window_minutes,
+        bucket_seconds=bucket_seconds,
+        sort_by=sort_by,
+    )
+
+    return jsonify(heatmap_data)
+
+
+@bluetooth_v2_bp.route('/devices/<path:device_key>/timeseries', methods=['GET'])
+def get_device_timeseries(device_key: str):
+    """
+    Get timeseries data for a specific device.
+
+    Path parameters:
+        - device_key: Stable device identifier
+
+    Query parameters:
+        - window_minutes: Time window (default: 30)
+        - bucket_seconds: Bucket size for downsampling (default: 10)
+
+    Returns:
+        JSON with device timeseries data.
+    """
+    scanner = get_bluetooth_scanner()
+
+    window_minutes = request.args.get('window_minutes', 30, type=int)
+    bucket_seconds = request.args.get('bucket_seconds', 10, type=int)
+
+    # URL decode device key
+    from urllib.parse import unquote
+    device_key = unquote(device_key)
+
+    # Get device info
+    device = scanner._aggregator.get_device_by_key(device_key)
+
+    # Get timeseries data
+    timeseries = scanner._aggregator.get_timeseries(
+        device_key=device_key,
+        window_minutes=window_minutes,
+        downsample_seconds=bucket_seconds,
+    )
+
+    result = {
+        'device_key': device_key,
+        'window_minutes': window_minutes,
+        'bucket_seconds': bucket_seconds,
+        'observation_count': len(timeseries),
+        'timeseries': timeseries,
+    }
+
+    if device:
+        result.update({
+            'name': device.name,
+            'address': device.address,
+            'rssi_current': device.rssi_current,
+            'rssi_ema': round(device.rssi_ema, 1) if device.rssi_ema else None,
+            'proximity_band': device.proximity_band,
+            'estimated_distance_m': round(device.estimated_distance_m, 2) if device.estimated_distance_m else None,
+        })
+
+    return jsonify(result)
 
 
 def _classify_device_type(device: BTDeviceAggregate) -> str:

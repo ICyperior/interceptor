@@ -121,6 +121,63 @@ RANGE_FAR = 'far'
 RANGE_UNKNOWN = 'unknown'
 
 # =============================================================================
+# PROXIMITY BANDS (new visualization system)
+# =============================================================================
+
+PROXIMITY_IMMEDIATE = 'immediate'  # < 1m
+PROXIMITY_NEAR = 'near'           # 1-3m
+PROXIMITY_FAR = 'far'             # 3-10m
+PROXIMITY_UNKNOWN = 'unknown'
+
+# RSSI thresholds for proximity band classification (dBm)
+PROXIMITY_RSSI_IMMEDIATE = -40  # >= -40 dBm -> immediate
+PROXIMITY_RSSI_NEAR = -55       # >= -55 dBm -> near
+PROXIMITY_RSSI_FAR = -75        # >= -75 dBm -> far
+
+# =============================================================================
+# DISTANCE ESTIMATION SETTINGS
+# =============================================================================
+
+# Path-loss exponent for indoor environments (typical range: 2-4)
+DISTANCE_PATH_LOSS_EXPONENT = 2.5
+
+# Reference RSSI at 1 meter (typical BLE value)
+DISTANCE_RSSI_AT_1M = -59
+
+# EMA smoothing alpha (higher = more responsive, lower = smoother)
+DISTANCE_EMA_ALPHA = 0.3
+
+# Variance thresholds for confidence scoring (dBm^2)
+DISTANCE_LOW_VARIANCE = 25.0    # High confidence
+DISTANCE_HIGH_VARIANCE = 100.0  # Low confidence
+
+# =============================================================================
+# RING BUFFER SETTINGS
+# =============================================================================
+
+# Observation retention period (minutes)
+RING_BUFFER_RETENTION_MINUTES = 30
+
+# Minimum interval between observations per device (seconds)
+RING_BUFFER_MIN_INTERVAL_SECONDS = 2.0
+
+# Maximum observations stored per device
+RING_BUFFER_MAX_OBSERVATIONS = 1000
+
+# =============================================================================
+# HEATMAP SETTINGS
+# =============================================================================
+
+# Default time window for heatmap (minutes)
+HEATMAP_DEFAULT_WINDOW_MINUTES = 10
+
+# Default bucket size for downsampling (seconds)
+HEATMAP_DEFAULT_BUCKET_SECONDS = 10
+
+# Maximum devices to show in heatmap
+HEATMAP_MAX_DEVICES = 50
+
+# =============================================================================
 # COMMON MANUFACTURER IDS (OUI -> Name mapping for common vendors)
 # =============================================================================
 

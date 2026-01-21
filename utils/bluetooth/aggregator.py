@@ -36,6 +36,9 @@ from .constants import (
     PROTOCOL_CLASSIC,
 )
 from .models import BTObservation, BTDeviceAggregate
+from .device_key import generate_device_key, is_randomized_mac
+from .distance import DistanceEstimator, get_distance_estimator
+from .ring_buffer import RingBuffer, get_ring_buffer
 
 
 class DeviceAggregator:
@@ -52,6 +55,13 @@ class DeviceAggregator:
         self._max_rssi_samples = max_rssi_samples
         self._baseline_device_ids: set[str] = set()
         self._baseline_set_time: Optional[datetime] = None
+
+        # Proximity estimation components
+        self._distance_estimator = get_distance_estimator()
+        self._ring_buffer = get_ring_buffer()
+
+        # Device key mapping (device_id -> device_key)
+        self._device_keys: dict[str, str] = {}
 
     def ingest(self, observation: BTObservation) -> BTDeviceAggregate:
         """
@@ -118,6 +128,43 @@ class DeviceAggregator:
             # Check baseline status
             device.in_baseline = device_id in self._baseline_device_ids
             device.is_new = not device.in_baseline and self._baseline_set_time is not None
+
+            # Generate stable device key
+            device_key = generate_device_key(
+                address=observation.address,
+                address_type=observation.address_type,
+                name=device.name,
+                manufacturer_id=device.manufacturer_id,
+                service_uuids=device.service_uuids if device.service_uuids else None,
+            )
+            device.device_key = device_key
+            self._device_keys[device_id] = device_key
+
+            # Check if randomized MAC
+            device.is_randomized_mac = is_randomized_mac(observation.address_type)
+
+            # Apply EMA smoothing to RSSI
+            if observation.rssi is not None:
+                device.rssi_ema = self._distance_estimator.apply_ema_smoothing(
+                    current=observation.rssi,
+                    prev_ema=device.rssi_ema,
+                )
+
+                # Get 60-second min/max
+                device.rssi_60s_min, device.rssi_60s_max = self._distance_estimator.get_rssi_60s_window(
+                    device.rssi_samples,
+                    window_seconds=60,
+                )
+
+                # Store in ring buffer for heatmap
+                self._ring_buffer.ingest(
+                    device_key=device_key,
+                    rssi=observation.rssi,
+                    timestamp=observation.timestamp,
+                )
+
+            # Estimate distance and proximity band
+            self._update_proximity(device)
 
             return device
 
@@ -218,6 +265,31 @@ class DeviceAggregator:
         else:
             device.range_band = RANGE_UNKNOWN
             device.range_confidence = confidence * 0.5  # Reduced confidence for unknown
+
+    def _update_proximity(self, device: BTDeviceAggregate) -> None:
+        """Update proximity estimation for a device."""
+        if device.rssi_ema is None:
+            device.proximity_band = 'unknown'
+            device.estimated_distance_m = None
+            device.distance_confidence = 0.0
+            return
+
+        # Estimate distance
+        distance, confidence = self._distance_estimator.estimate_distance(
+            rssi=device.rssi_ema,
+            tx_power=device.tx_power,
+            variance=device.rssi_variance,
+        )
+
+        device.estimated_distance_m = distance
+        device.distance_confidence = confidence
+
+        # Classify proximity band
+        band = self._distance_estimator.classify_proximity_band(
+            distance_m=distance,
+            rssi_ema=device.rssi_ema,
+        )
+        device.proximity_band = str(band)
 
     def _merge_device_info(self, device: BTDeviceAggregate, observation: BTObservation) -> None:
         """Merge observation data into device aggregate (prefer non-None values)."""
@@ -345,3 +417,107 @@ class DeviceAggregator:
     def has_baseline(self) -> bool:
         """Whether a baseline is set."""
         return self._baseline_set_time is not None
+
+    @property
+    def ring_buffer(self) -> RingBuffer:
+        """Access the ring buffer for timeseries data."""
+        return self._ring_buffer
+
+    def get_device_by_key(self, device_key: str) -> Optional[BTDeviceAggregate]:
+        """Get a device by its stable device key."""
+        with self._lock:
+            # Find device_id from device_key
+            for device_id, key in self._device_keys.items():
+                if key == device_key:
+                    return self._devices.get(device_id)
+            return None
+
+    def get_timeseries(
+        self,
+        device_key: str,
+        window_minutes: int = 30,
+        downsample_seconds: int = 10,
+    ) -> list[dict]:
+        """
+        Get timeseries data for a device.
+
+        Args:
+            device_key: Stable device identifier.
+            window_minutes: Time window in minutes.
+            downsample_seconds: Bucket size for downsampling.
+
+        Returns:
+            List of {timestamp, rssi} dicts.
+        """
+        return self._ring_buffer.get_timeseries(
+            device_key=device_key,
+            window_minutes=window_minutes,
+            downsample_seconds=downsample_seconds,
+        )
+
+    def get_heatmap_data(
+        self,
+        top_n: int = 20,
+        window_minutes: int = 10,
+        bucket_seconds: int = 10,
+        sort_by: str = 'recency',
+    ) -> dict:
+        """
+        Get heatmap data for visualization.
+
+        Args:
+            top_n: Number of devices to include.
+            window_minutes: Time window.
+            bucket_seconds: Bucket size for downsampling.
+            sort_by: Sort method ('recency', 'strength', 'activity').
+
+        Returns:
+            Dict with device timeseries and metadata.
+        """
+        # Get timeseries data from ring buffer
+        timeseries = self._ring_buffer.get_all_timeseries(
+            window_minutes=window_minutes,
+            downsample_seconds=bucket_seconds,
+            top_n=top_n,
+            sort_by=sort_by,
+        )
+
+        # Enrich with device metadata
+        result = {
+            'window_minutes': window_minutes,
+            'bucket_seconds': bucket_seconds,
+            'devices': [],
+        }
+
+        with self._lock:
+            for device_key, ts_data in timeseries.items():
+                device = self.get_device_by_key(device_key)
+                device_info = {
+                    'device_key': device_key,
+                    'timeseries': ts_data,
+                }
+
+                if device:
+                    device_info.update({
+                        'name': device.name,
+                        'address': device.address,
+                        'rssi_current': device.rssi_current,
+                        'rssi_ema': round(device.rssi_ema, 1) if device.rssi_ema else None,
+                        'proximity_band': device.proximity_band,
+                    })
+                else:
+                    device_info.update({
+                        'name': None,
+                        'address': None,
+                        'rssi_current': None,
+                        'rssi_ema': None,
+                        'proximity_band': 'unknown',
+                    })
+
+                result['devices'].append(device_info)
+
+        return result
+
+    def prune_ring_buffer(self) -> int:
+        """Prune old observations from ring buffer."""
+        return self._ring_buffer.prune_old()

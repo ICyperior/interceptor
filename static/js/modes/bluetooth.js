@@ -35,6 +35,11 @@ const BluetoothMode = (function() {
     // Zone counts for proximity display
     let zoneCounts = { veryClose: 0, close: 0, nearby: 0, far: 0 };
 
+    // New visualization components
+    let radarInitialized = false;
+    let heatmapInitialized = false;
+    let radarPaused = false;
+
     /**
      * Initialize the Bluetooth mode
      */
@@ -60,7 +65,11 @@ const BluetoothMode = (function() {
         // Check scan status (in case page was reloaded during scan)
         checkScanStatus();
 
-        // Initialize proximity visualization
+        // Initialize proximity visualization (new radar + heatmap)
+        initProximityRadar();
+        initTimelineHeatmap();
+
+        // Initialize legacy heatmap (zone counts)
         initHeatmap();
 
         // Initialize timeline as collapsed
@@ -68,6 +77,134 @@ const BluetoothMode = (function() {
 
         // Set initial panel states
         updateVisualizationPanels();
+    }
+
+    /**
+     * Initialize the new proximity radar component
+     */
+    function initProximityRadar() {
+        const radarContainer = document.getElementById('btProximityRadar');
+        if (!radarContainer) return;
+
+        if (typeof ProximityRadar !== 'undefined') {
+            ProximityRadar.init('btProximityRadar', {
+                onDeviceClick: (deviceKey) => {
+                    // Find device by key and show modal
+                    const device = Array.from(devices.values()).find(d => d.device_key === deviceKey);
+                    if (device) {
+                        selectDevice(device.device_id);
+                    }
+                }
+            });
+            radarInitialized = true;
+
+            // Setup radar controls
+            setupRadarControls();
+        }
+    }
+
+    /**
+     * Setup radar control button handlers
+     */
+    function setupRadarControls() {
+        // Filter buttons
+        document.querySelectorAll('#btRadarControls button[data-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filter = btn.getAttribute('data-filter');
+                if (typeof ProximityRadar !== 'undefined') {
+                    ProximityRadar.setFilter(filter);
+
+                    // Update button states
+                    document.querySelectorAll('#btRadarControls button[data-filter]').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    if (ProximityRadar.getFilter() === filter) {
+                        btn.classList.add('active');
+                    }
+                }
+            });
+        });
+
+        // Pause button
+        const pauseBtn = document.getElementById('btRadarPauseBtn');
+        if (pauseBtn) {
+            pauseBtn.addEventListener('click', () => {
+                radarPaused = !radarPaused;
+                if (typeof ProximityRadar !== 'undefined') {
+                    ProximityRadar.setPaused(radarPaused);
+                }
+                pauseBtn.textContent = radarPaused ? 'Resume' : 'Pause';
+                pauseBtn.classList.toggle('active', radarPaused);
+            });
+        }
+    }
+
+    /**
+     * Initialize the timeline heatmap component
+     */
+    function initTimelineHeatmap() {
+        const heatmapContainer = document.getElementById('btTimelineHeatmap');
+        if (!heatmapContainer) return;
+
+        if (typeof TimelineHeatmap !== 'undefined') {
+            TimelineHeatmap.init('btTimelineHeatmap', {
+                windowMinutes: 10,
+                bucketSeconds: 10,
+                sortBy: 'recency',
+                onDeviceSelect: (deviceKey, device) => {
+                    // Find device and show modal
+                    const fullDevice = Array.from(devices.values()).find(d => d.device_key === deviceKey);
+                    if (fullDevice) {
+                        selectDevice(fullDevice.device_id);
+                    }
+                }
+            });
+            heatmapInitialized = true;
+        }
+    }
+
+    /**
+     * Update the proximity radar with current devices
+     */
+    function updateRadar() {
+        if (!radarInitialized || typeof ProximityRadar === 'undefined') return;
+
+        // Convert devices map to array for radar
+        const deviceList = Array.from(devices.values()).map(d => ({
+            device_key: d.device_key || d.device_id,
+            device_id: d.device_id,
+            name: d.name,
+            address: d.address,
+            rssi_current: d.rssi_current,
+            rssi_ema: d.rssi_ema,
+            estimated_distance_m: d.estimated_distance_m,
+            proximity_band: d.proximity_band || 'unknown',
+            distance_confidence: d.distance_confidence || 0.5,
+            is_new: d.is_new || !d.in_baseline,
+            is_randomized_mac: d.is_randomized_mac,
+            in_baseline: d.in_baseline,
+            heuristic_flags: d.heuristic_flags || [],
+            age_seconds: d.age_seconds || 0,
+        }));
+
+        ProximityRadar.updateDevices(deviceList);
+
+        // Update zone counts from radar
+        const counts = ProximityRadar.getZoneCounts();
+        updateProximityZoneCounts(counts);
+    }
+
+    /**
+     * Update proximity zone counts display (new system)
+     */
+    function updateProximityZoneCounts(counts) {
+        const immediateEl = document.getElementById('btZoneImmediate');
+        const nearEl = document.getElementById('btZoneNear');
+        const farEl = document.getElementById('btZoneFar');
+
+        if (immediateEl) immediateEl.textContent = counts.immediate || 0;
+        if (nearEl) nearEl.textContent = counts.near || 0;
+        if (farEl) farEl.textContent = counts.far || 0;
     }
 
     /**
@@ -485,6 +622,11 @@ const BluetoothMode = (function() {
         };
         updateVisualizationPanels();
         updateProximityZones();
+
+        // Clear radar
+        if (radarInitialized && typeof ProximityRadar !== 'undefined') {
+            ProximityRadar.clear();
+        }
     }
 
     function startEventStream() {
@@ -528,6 +670,9 @@ const BluetoothMode = (function() {
         updateStatsFromDevices();
         updateVisualizationPanels();
         updateProximityZones();
+
+        // Update new proximity radar
+        updateRadar();
 
         // Feed to activity timeline
         addToTimeline(device);

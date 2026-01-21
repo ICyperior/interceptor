@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/device-cards.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/proximity-viz.css') }}">
 </head>
 
 <body>
@@ -706,29 +707,28 @@
                 <div class="bt-layout-container" id="btLayoutContainer" style="display: none;">
                     <!-- Left: Bluetooth Visualizations -->
                     <div class="wifi-visuals" id="btVisuals">
-                        <!-- Row 1: Proximity Zones + Device Types -->
-                        <div class="wifi-visual-panel">
-                            <h5>Proximity Zones</h5>
-                            <div id="btProximityZones" style="display: flex; flex-direction: column; gap: 6px; padding: 8px 0;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e;"></div>
-                                    <span style="flex: 1; font-size: 11px; color: #888;">Very Close</span>
-                                    <span id="btZoneVeryClose" style="font-size: 14px; font-weight: 600; color: #22c55e;">0</span>
+                        <!-- Row 1: Proximity Radar + Device Types -->
+                        <div class="wifi-visual-panel" style="grid-row: span 2;">
+                            <h5>Proximity Radar</h5>
+                            <div id="btProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
+                            <div id="btRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
+                                <button data-filter="newOnly" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">New Only</button>
+                                <button data-filter="strongest" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Strongest</button>
+                                <button data-filter="unapproved" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Unapproved</button>
+                                <button id="btRadarPauseBtn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Pause</button>
+                            </div>
+                            <div id="btZoneSummary" style="display: flex; justify-content: center; gap: 16px; margin-top: 12px; font-size: 11px;">
+                                <div style="text-align: center;">
+                                    <span id="btZoneImmediate" style="font-size: 18px; font-weight: 600; color: #22c55e;">0</span>
+                                    <div style="color: #666;">Immediate</div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #84cc16;"></div>
-                                    <span style="flex: 1; font-size: 11px; color: #888;">Close</span>
-                                    <span id="btZoneClose" style="font-size: 14px; font-weight: 600; color: #84cc16;">0</span>
+                                <div style="text-align: center;">
+                                    <span id="btZoneNear" style="font-size: 18px; font-weight: 600; color: #eab308;">0</span>
+                                    <div style="color: #666;">Near</div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #eab308;"></div>
-                                    <span style="flex: 1; font-size: 11px; color: #888;">Nearby</span>
-                                    <span id="btZoneNearby" style="font-size: 14px; font-weight: 600; color: #eab308;">0</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
-                                    <span style="flex: 1; font-size: 11px; color: #888;">Far</span>
-                                    <span id="btZoneFar" style="font-size: 14px; font-weight: 600; color: #ef4444;">0</span>
+                                <div style="text-align: center;">
+                                    <span id="btZoneFar" style="font-size: 18px; font-weight: 600; color: #ef4444;">0</span>
+                                    <div style="color: #666;">Far</div>
                                 </div>
                             </div>
                         </div>
@@ -778,7 +778,12 @@
                                     FindMy-compatible devices...</div>
                             </div>
                         </div>
-                        <!-- Device Activity Timeline -->
+                        <!-- Signal History Heatmap -->
+                        <div class="wifi-visual-panel" style="grid-column: span 2;">
+                            <h5>Signal History</h5>
+                            <div id="btTimelineHeatmap"></div>
+                        </div>
+                        <!-- Device Activity Timeline (legacy) -->
                         <div class="wifi-visual-panel" style="grid-column: span 2;">
                             <div id="bluetoothTimelineContainer"></div>
                         </div>
@@ -1512,6 +1517,8 @@
     <script src="{{ url_for('static', filename='js/components/rssi-sparkline.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/message-card.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/device-card.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/proximity-radar.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/timeline-heatmap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/bluetooth.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/listening-post.js') }}"></script>
 

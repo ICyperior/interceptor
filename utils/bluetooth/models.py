@@ -11,8 +11,13 @@ from typing import Optional
 from .constants import (
     MANUFACTURER_NAMES,
     ADDRESS_TYPE_PUBLIC,
+    ADDRESS_TYPE_RANDOM,
+    ADDRESS_TYPE_RANDOM_STATIC,
+    ADDRESS_TYPE_RPA,
+    ADDRESS_TYPE_NRPA,
     RANGE_UNKNOWN,
     PROTOCOL_BLE,
+    PROXIMITY_UNKNOWN,
 )
 
 
@@ -100,9 +105,20 @@ class BTDeviceAggregate:
     rssi_variance: Optional[float] = None
     rssi_confidence: float = 0.0  # 0.0-1.0
 
-    # Range band (very_close/close/nearby/far/unknown)
+    # Range band (very_close/close/nearby/far/unknown) - legacy
     range_band: str = RANGE_UNKNOWN
     range_confidence: float = 0.0
+
+    # Proximity band (new system: immediate/near/far/unknown)
+    device_key: Optional[str] = None
+    proximity_band: str = PROXIMITY_UNKNOWN
+    estimated_distance_m: Optional[float] = None
+    distance_confidence: float = 0.0
+    rssi_ema: Optional[float] = None
+    rssi_60s_min: Optional[int] = None
+    rssi_60s_max: Optional[int] = None
+    is_randomized_mac: bool = False
+    threat_tags: list[str] = field(default_factory=list)
 
     # Device info (merged from observations)
     name: Optional[str] = None
@@ -193,9 +209,20 @@ class BTDeviceAggregate:
             'rssi_confidence': round(self.rssi_confidence, 2),
             'rssi_history': self.get_rssi_history(),
 
-            # Range
+            # Range (legacy)
             'range_band': self.range_band,
             'range_confidence': round(self.range_confidence, 2),
+
+            # Proximity (new system)
+            'device_key': self.device_key,
+            'proximity_band': self.proximity_band,
+            'estimated_distance_m': round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
+            'distance_confidence': round(self.distance_confidence, 2),
+            'rssi_ema': round(self.rssi_ema, 1) if self.rssi_ema else None,
+            'rssi_60s_min': self.rssi_60s_min,
+            'rssi_60s_max': self.rssi_60s_max,
+            'is_randomized_mac': self.is_randomized_mac,
+            'threat_tags': self.threat_tags,
 
             # Device info
             'name': self.name,
@@ -231,6 +258,7 @@ class BTDeviceAggregate:
         """Compact dictionary for list views."""
         return {
             'device_id': self.device_id,
+            'device_key': self.device_key,
             'address': self.address,
             'address_type': self.address_type,
             'protocol': self.protocol,
@@ -238,7 +266,12 @@ class BTDeviceAggregate:
             'manufacturer_name': self.manufacturer_name,
             'rssi_current': self.rssi_current,
             'rssi_median': round(self.rssi_median, 1) if self.rssi_median else None,
+            'rssi_ema': round(self.rssi_ema, 1) if self.rssi_ema else None,
             'range_band': self.range_band,
+            'proximity_band': self.proximity_band,
+            'estimated_distance_m': round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
+            'distance_confidence': round(self.distance_confidence, 2),
+            'is_randomized_mac': self.is_randomized_mac,
             'last_seen': self.last_seen.isoformat(),
             'age_seconds': self.age_seconds,
             'seen_count': self.seen_count,
