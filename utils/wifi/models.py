@@ -441,6 +441,7 @@ class ChannelRecommendation:
     score: float  # Lower is better
     reason: str
     is_dfs: bool = False
+    recommendation_rank: Optional[int] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -450,6 +451,7 @@ class ChannelRecommendation:
             'score': round(self.score, 3),
             'reason': self.reason,
             'is_dfs': self.is_dfs,
+            'rank': self.recommendation_rank,
         }
 
 
