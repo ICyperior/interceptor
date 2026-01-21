@@ -7,9 +7,8 @@ from unittest.mock import MagicMock, patch
 from utils.bluetooth.aggregator import DeviceAggregator
 from utils.bluetooth.models import BTObservation, BTDeviceAggregate
 from utils.bluetooth.constants import (
-    RSSI_RANGE_BANDS,
     MAX_RSSI_SAMPLES,
-    DEVICE_STALE_SECONDS,
+    DEVICE_STALE_TIMEOUT as DEVICE_STALE_SECONDS,
 )
 
 

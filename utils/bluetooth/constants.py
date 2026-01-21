@@ -89,6 +89,9 @@ BLUETOOTHCTL_TIMEOUT = 10.0
 # btmgmt command timeout
 BTMGMT_TIMEOUT = 10.0
 
+# Generic subprocess timeout (short operations)
+SUBPROCESS_TIMEOUT_SHORT = 5.0
+
 # =============================================================================
 # ADDRESS TYPE CLASSIFICATIONS
 # =============================================================================
