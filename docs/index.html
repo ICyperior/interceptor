@@ -34,8 +34,8 @@
             </div>
             <div class="hero-stats">
                 <div class="stat">
-                    <span class="stat-value">8+</span>
-                    <span class="stat-label">SDR Modes</span>
+                    <span class="stat-value">10+</span>
+                    <span class="stat-label">Modes</span>
                 </div>
                 <div class="stat">
                     <span class="stat-value">200+</span>
@@ -104,6 +104,12 @@
                     <div class="feature-icon">🛡️</div>
                     <h3>TSCM</h3>
                     <p>Counter-surveillance with baseline recording, threat detection, device correlation, and risk scoring.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Meter Reading</h3>
+                    <p>Intercept smart utility meters via rtl_amr. Monitor electricity, gas, and water meter transmissions.</p>
                 </div>
             </div>
         </div>
@@ -238,5 +244,44 @@ docker compose up -d</code></pre>
             </div>
         </div>
     </footer>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="lightbox">
+        <span class="lightbox-close">&times;</span>
+        <img class="lightbox-img" id="lightbox-img" src="" alt="">
+        <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+
+    <script>
+        // Lightbox functionality
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const lightboxCaption = document.getElementById('lightbox-caption');
+        const closeBtn = document.querySelector('.lightbox-close');
+
+        document.querySelectorAll('.screenshot-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const img = item.querySelector('img');
+                const label = item.querySelector('.screenshot-label');
+                lightbox.classList.add('active');
+                lightboxImg.src = img.src;
+                lightboxCaption.textContent = label.textContent;
+                document.body.style.overflow = 'hidden';
+            });
+        });
+
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        closeBtn.addEventListener('click', closeLightbox);
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) closeLightbox();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeLightbox();
+        });
+    </script>
 </body>
 </html>
