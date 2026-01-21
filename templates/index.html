@@ -4250,21 +4250,26 @@
                 }
             });
 
-            // Update UI with more context
-            document.getElementById('rec24Channel').textContent = best24;
+            // Update UI with more context (with null checks for v2 layout)
+            const rec24El = document.getElementById('rec24Channel');
+            const rec24ReasonEl = document.getElementById('rec24Reason');
+            const rec5El = document.getElementById('rec5Channel');
+            const rec5ReasonEl = document.getElementById('rec5Reason');
+
+            if (rec24El) rec24El.textContent = best24;
             if (totalNetworks === 0) {
-                document.getElementById('rec24Reason').textContent = '(no networks detected)';
+                if (rec24ReasonEl) rec24ReasonEl.textContent = '(no networks detected)';
             } else {
                 const usage = channelUsage24.map(c => `CH${c.channel}:${Math.round(c.count)}`).join(', ');
-                document.getElementById('rec24Reason').textContent =
+                if (rec24ReasonEl) rec24ReasonEl.textContent =
                     minCount24 === 0 ? '(clear)' : `(${Math.round(minCount24)} interference) [${usage}]`;
             }
 
-            document.getElementById('rec5Channel').textContent = best5;
+            if (rec5El) rec5El.textContent = best5;
             if (totalNetworks === 0) {
-                document.getElementById('rec5Reason').textContent = '(no networks detected)';
+                if (rec5ReasonEl) rec5ReasonEl.textContent = '(no networks detected)';
             } else {
-                document.getElementById('rec5Reason').textContent =
+                if (rec5ReasonEl) rec5ReasonEl.textContent =
                     minCount5 === 0 ? `(clear, ${channels5g.length - used5g} unused)` : `(${minCount5} networks)`;
             }
         }
@@ -4864,10 +4869,13 @@
                 });
             });
 
-            // Update counters
-            document.getElementById('probeClientCount').textContent = clientsWithProbes.length;
-            document.getElementById('probeSSIDCount').textContent = allProbes.size;
-            document.getElementById('probePrivacyCount').textContent = privacyLeaks;
+            // Update counters (with null checks for v2 layout)
+            const probeClientEl = document.getElementById('probeClientCount');
+            const probeSSIDEl = document.getElementById('probeSSIDCount');
+            const probePrivacyEl = document.getElementById('probePrivacyCount');
+            if (probeClientEl) probeClientEl.textContent = clientsWithProbes.length;
+            if (probeSSIDEl) probeSSIDEl.textContent = allProbes.size;
+            if (probePrivacyEl) probePrivacyEl.textContent = privacyLeaks;
 
             if (clientsWithProbes.length === 0) {
                 list.innerHTML = '<div style="color: var(--text-dim);">Waiting for client probe requests...</div>';
