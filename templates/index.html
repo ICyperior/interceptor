@@ -474,10 +474,6 @@
                             <div style="color: var(--accent-red); cursor: pointer;" onclick="showRogueApDetails()"
                                 title="Click: Rogue AP details"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> <span id="rogueApCount">0</span></div>
                         </div>
-                        <div class="stats" id="btStats" style="display: none;">
-                            <div title="Bluetooth Devices"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span> <span id="btDeviceCount">0</span></div>
-                            <div title="BLE Beacons"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span> <span id="btBeaconCount">0</span></div>
-                        </div>
                         <div class="stats" id="satelliteStats" style="display: none;">
                             <div title="Upcoming Passes"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> <span id="passCount">0</span></div>
                         </div>
@@ -1817,12 +1813,6 @@
             if (headerHandshakeCount) headerHandshakeCount.textContent = document.getElementById('handshakeCount')?.textContent || '0';
             if (headerDroneCount) headerDroneCount.textContent = document.getElementById('droneCount')?.textContent || '0';
 
-            // Bluetooth stats
-            const headerBtDeviceCount = document.getElementById('headerBtDeviceCount');
-            const headerBtBeaconCount = document.getElementById('headerBtBeaconCount');
-            if (headerBtDeviceCount) headerBtDeviceCount.textContent = document.getElementById('btDeviceCount')?.textContent || '0';
-            if (headerBtBeaconCount) headerBtBeaconCount.textContent = document.getElementById('btBeaconCount')?.textContent || '0';
-
             // Satellite stats
             const headerPassCount = document.getElementById('headerPassCount');
             if (headerPassCount) headerPassCount.textContent = document.getElementById('passCount')?.textContent || '0';
@@ -2102,19 +2092,16 @@
             const sensorStats = document.getElementById('sensorStats');
             const satelliteStats = document.getElementById('satelliteStats');
             const wifiStats = document.getElementById('wifiStats');
-            const btStats = document.getElementById('btStats');
             if (pagerStats) pagerStats.style.display = mode === 'pager' ? 'flex' : 'none';
             if (sensorStats) sensorStats.style.display = mode === 'sensor' ? 'flex' : 'none';
             if (satelliteStats) satelliteStats.style.display = mode === 'satellite' ? 'flex' : 'none';
             if (wifiStats) wifiStats.style.display = mode === 'wifi' ? 'flex' : 'none';
-            if (btStats) btStats.style.display = mode === 'bluetooth' ? 'flex' : 'none';
 
             // Update header stats groups
             document.getElementById('headerPagerStats')?.classList.toggle('active', mode === 'pager');
             document.getElementById('headerSensorStats')?.classList.toggle('active', mode === 'sensor');
             document.getElementById('headerSatelliteStats')?.classList.toggle('active', mode === 'satellite');
             document.getElementById('headerWifiStats')?.classList.toggle('active', mode === 'wifi');
-            document.getElementById('headerBtStats')?.classList.toggle('active', mode === 'bluetooth');
 
             // Show/hide dashboard buttons in nav bar
             const satelliteDashboardBtn = document.getElementById('satelliteDashboardBtn');
@@ -6193,7 +6180,6 @@
 
             if (isNew) {
                 btDeviceCount++;
-                document.getElementById('btDeviceCount').textContent = btDeviceCount;
                 playAlert();
                 pulseSignal();
             }
