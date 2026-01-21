@@ -3281,27 +3281,6 @@ header h1 .tagline {
     color: var(--accent-purple);
 }
 
-/* Bluetooth Device Type Overview */
-.bt-type-overview {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 11px;
-}
-
-.bt-type-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 3px;
-}
-
-.bt-type-icon {
-    font-size: 14px;
-}
-
 /* Bluetooth Signal Distribution */
 .bt-signal-dist {
     display: flex;

@@ -20,11 +20,6 @@ const BluetoothMode = (function() {
 
     // Stats tracking
     let deviceStats = {
-        phones: 0,
-        computers: 0,
-        audio: 0,
-        wearables: 0,
-        other: 0,
         strong: 0,
         medium: 0,
         weak: 0,
@@ -725,11 +720,6 @@ const BluetoothMode = (function() {
      */
     function updateStatsFromDevices() {
         // Reset counts
-        deviceStats.phones = 0;
-        deviceStats.computers = 0;
-        deviceStats.audio = 0;
-        deviceStats.wearables = 0;
-        deviceStats.other = 0;
         deviceStats.strong = 0;
         deviceStats.medium = 0;
         deviceStats.weak = 0;
@@ -741,51 +731,6 @@ const BluetoothMode = (function() {
             const name = (d.name || '').toLowerCase();
             const rssi = d.rssi_current;
             const flags = d.heuristic_flags || [];
-
-            // Device type classification - more lenient matching
-            let classified = false;
-
-            // Phones
-            if (name.includes('iphone') || name.includes('phone') || name.includes('pixel') ||
-                name.includes('galaxy') || name.includes('android') || name.includes('samsung') ||
-                name.includes('oneplus') || name.includes('huawei') || name.includes('xiaomi')) {
-                deviceStats.phones++;
-                classified = true;
-            }
-            // Computers
-            else if (name.includes('macbook') || name.includes('laptop') || name.includes('pc') ||
-                     name.includes('computer') || name.includes('imac') || name.includes('mac mini') ||
-                     name.includes('thinkpad') || name.includes('surface') || name.includes('dell') ||
-                     name.includes('hp ') || name.includes('lenovo')) {
-                deviceStats.computers++;
-                classified = true;
-            }
-            // Audio devices
-            else if (name.includes('airpod') || name.includes('headphone') || name.includes('speaker') ||
-                     name.includes('buds') || name.includes('audio') || name.includes('beats') ||
-                     name.includes('bose') || name.includes('sony wh') || name.includes('sony wf') ||
-                     name.includes('jbl') || name.includes('soundbar') || name.includes('earbuds') ||
-                     name.includes('jabra') || name.includes('soundcore')) {
-                deviceStats.audio++;
-                classified = true;
-            }
-            // Wearables
-            else if (name.includes('watch') || name.includes('band') || name.includes('fitbit') ||
-                     name.includes('garmin') || name.includes('whoop') || name.includes('oura') ||
-                     name.includes('mi band') || name.includes('amazfit')) {
-                deviceStats.wearables++;
-                classified = true;
-            }
-
-            // If not classified by name, try manufacturer
-            if (!classified) {
-                if (mfr.includes('apple')) {
-                    // Could be various Apple devices - count as other
-                    deviceStats.other++;
-                } else {
-                    deviceStats.other++;
-                }
-            }
 
             // Signal strength classification
             if (rssi != null) {
@@ -822,19 +767,6 @@ const BluetoothMode = (function() {
      * Update visualization panels
      */
     function updateVisualizationPanels() {
-        // Device Types
-        const phoneCount = document.getElementById('btPhoneCount');
-        const computerCount = document.getElementById('btComputerCount');
-        const audioCount = document.getElementById('btAudioCount');
-        const wearableCount = document.getElementById('btWearableCount');
-        const otherCount = document.getElementById('btOtherCount');
-
-        if (phoneCount) phoneCount.textContent = deviceStats.phones;
-        if (computerCount) computerCount.textContent = deviceStats.computers;
-        if (audioCount) audioCount.textContent = deviceStats.audio;
-        if (wearableCount) wearableCount.textContent = deviceStats.wearables;
-        if (otherCount) otherCount.textContent = deviceStats.other;
-
         // Signal Distribution
         const total = devices.size || 1;
         const strongBar = document.getElementById('btSignalStrong');
