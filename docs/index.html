@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INTERCEPT - Signal Intelligence Platform</title>
+    <meta name="description" content="A web-based interface for software-defined radio tools. Pager decoding, ADS-B tracking, WiFi scanning, and more.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo">INTERCEPT</a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#screenshots">Screenshots</a>
+                <a href="#installation">Install</a>
+                <a href="https://github.com/smittix/intercept" class="nav-btn" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">Open Source SIGINT Platform</div>
+            <h1>INTERCEPT</h1>
+            <p class="hero-subtitle">A unified web interface for software-defined radio tools. Monitor pagers, track aircraft, scan WiFi networks, and more — all from your browser.</p>
+            <div class="hero-buttons">
+                <a href="#installation" class="btn btn-primary">Get Started</a>
+                <a href="https://github.com/smittix/intercept" class="btn btn-secondary" target="_blank">View on GitHub</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-value">8+</span>
+                    <span class="stat-label">SDR Modes</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">200+</span>
+                    <span class="stat-label">Protocols</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">$25</span>
+                    <span class="stat-label">Min Hardware</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-image">
+            <img src="images/intercept-main.png" alt="INTERCEPT Dashboard">
+        </div>
+    </header>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Capabilities</h2>
+            <p class="section-subtitle">Everything you need for signal intelligence in one interface</p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📟</div>
+                    <h3>Pager Decoding</h3>
+                    <p>Decode POCSAG and FLEX pager messages using rtl_fm and multimon-ng. Monitor emergency services and legacy paging systems.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">✈️</div>
+                    <h3>Aircraft Tracking</h3>
+                    <p>Real-time ADS-B tracking with interactive maps, aircraft photos, emergency squawk detection, and range visualization.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📡</div>
+                    <h3>433MHz Sensors</h3>
+                    <p>Decode 200+ protocols including weather stations, TPMS, smart home devices, and IoT sensors via rtl_433.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📻</div>
+                    <h3>Listening Post</h3>
+                    <p>Frequency scanner with real-time audio monitoring, fine-tuning controls, and customizable frequency presets.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🛰️</div>
+                    <h3>Satellite Tracking</h3>
+                    <p>Track satellites with TLE data, sky plots, ground track visualization, and pass predictions for your location.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📶</div>
+                    <h3>WiFi Scanning</h3>
+                    <p>Monitor mode reconnaissance via aircrack-ng. Network discovery, client tracking, and handshake capture.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔵</div>
+                    <h3>Bluetooth Scanning</h3>
+                    <p>Device discovery with tracker detection for AirTags, Tile, Samsung SmartTag, and other Bluetooth devices.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>TSCM</h3>
+                    <p>Counter-surveillance with baseline recording, threat detection, device correlation, and risk scoring.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="screenshots" class="screenshots">
+        <div class="container">
+            <h2>See It In Action</h2>
+            <p class="section-subtitle">A clean, modern interface for complex RF operations</p>
+
+            <div class="screenshot-grid">
+                <div class="screenshot-card main">
+                    <img src="images/intercept-main.png" alt="Main Dashboard">
+                    <span class="screenshot-label">Dashboard</span>
+                </div>
+                <div class="screenshot-card">
+                    <img src="images/screenshot_radar.png" alt="Aircraft Radar">
+                    <span class="screenshot-label">Aircraft Radar</span>
+                </div>
+                <div class="screenshot-card">
+                    <img src="images/screenshot_sat.png" alt="Satellite Tracking">
+                    <span class="screenshot-label">Satellite Tracking</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="installation" class="installation">
+        <div class="container">
+            <h2>Quick Start</h2>
+            <p class="section-subtitle">Get up and running in minutes</p>
+
+            <div class="install-options">
+                <div class="install-card">
+                    <h3>Standard Installation</h3>
+                    <div class="code-block">
+                        <pre><code>git clone https://github.com/smittix/intercept.git
+cd intercept
+./setup.sh
+sudo -E venv/bin/python intercept.py</code></pre>
+                    </div>
+                    <p class="install-note">Requires Python 3.9+ and RTL-SDR drivers</p>
+                </div>
+
+                <div class="install-card">
+                    <h3>Docker</h3>
+                    <div class="code-block">
+                        <pre><code>git clone https://github.com/smittix/intercept.git
+cd intercept
+docker compose up -d</code></pre>
+                    </div>
+                    <p class="install-note">Requires privileged mode for USB SDR access</p>
+                </div>
+            </div>
+
+            <div class="post-install">
+                <p>After starting, open <code>http://localhost:5050</code> in your browser.</p>
+                <p>Default credentials: <code>admin</code> / <code>admin</code></p>
+            </div>
+        </div>
+    </section>
+
+    <section class="hardware">
+        <div class="container">
+            <h2>Hardware</h2>
+            <p class="section-subtitle">Minimal hardware, maximum capability</p>
+
+            <div class="hardware-grid">
+                <div class="hardware-card required">
+                    <div class="hardware-tag">Required</div>
+                    <h3>RTL-SDR</h3>
+                    <p>Core SDR functionality for all radio features</p>
+                    <span class="price">~$25-35</span>
+                </div>
+                <div class="hardware-card optional">
+                    <div class="hardware-tag">Optional</div>
+                    <h3>WiFi Adapter</h3>
+                    <p>Monitor mode support for WiFi scanning</p>
+                    <span class="price">~$20-40</span>
+                </div>
+                <div class="hardware-card optional">
+                    <div class="hardware-tag">Optional</div>
+                    <h3>GPS Receiver</h3>
+                    <p>Real-time location for mapping features</p>
+                    <span class="price">~$10</span>
+                </div>
+            </div>
+
+            <p class="hardware-note">INTERCEPT also supports HackRF, LimeSDR, Airspy, and SDRplay via SoapySDR</p>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to start intercepting?</h2>
+            <p>Join the community and start exploring the RF spectrum</p>
+            <div class="cta-buttons">
+                <a href="https://github.com/smittix/intercept" class="btn btn-primary" target="_blank">Get INTERCEPT</a>
+                <a href="https://discord.gg/EyeksEJmWE" class="btn btn-secondary" target="_blank">Join Discord</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="footer-logo">INTERCEPT</span>
+                    <p>Signal Intelligence Platform</p>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/smittix/intercept" target="_blank">GitHub</a>
+                    <a href="https://discord.gg/EyeksEJmWE" target="_blank">Discord</a>
+                    <a href="USAGE.html">Documentation</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>Created by <a href="https://github.com/smittix" target="_blank">smittix</a> · MIT License</p>
+                <p class="disclaimer">For educational and authorized testing purposes only.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
