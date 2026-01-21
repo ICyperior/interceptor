@@ -33,6 +33,9 @@ const BluetoothMode = (function() {
         findmy: []
     };
 
+    // Heatmap state
+    let heatmapData = [];
+
     /**
      * Initialize the Bluetooth mode
      */
@@ -52,167 +55,318 @@ const BluetoothMode = (function() {
         baselineStatusEl = document.getElementById('btBaselineStatus');
         capabilityStatusEl = document.getElementById('btCapabilityStatus');
 
-        // Create modal if it doesn't exist
-        createModal();
-
         // Check capabilities on load
         checkCapabilities();
 
         // Check scan status (in case page was reloaded during scan)
         checkScanStatus();
 
-        // Initialize radar canvas
-        initRadar();
+        // Initialize heatmap
+        initHeatmap();
+
+        // Initialize timeline as collapsed
+        initTimeline();
+
+        // Set initial panel states
+        updateVisualizationPanels();
     }
 
     /**
-     * Create the device details modal
+     * Initialize the heatmap canvas
      */
-    function createModal() {
-        if (document.getElementById('btDeviceModal')) return;
+    function initHeatmap() {
+        const canvas = document.getElementById('btRadarCanvas');
+        if (!canvas) return;
 
-        const modal = document.createElement('div');
-        modal.id = 'btDeviceModal';
-        modal.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10000;align-items:center;justify-content:center;';
-        modal.innerHTML = `
-            <div id="btDeviceModalContent" style="background:#1a1a2e;border:1px solid #444;border-radius:12px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto;position:relative;">
-                <div style="position:sticky;top:0;background:#1a1a2e;padding:16px 20px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;">
-                    <h3 id="btModalTitle" style="margin:0;color:#e0e0e0;font-size:18px;">Device Details</h3>
-                    <button onclick="BluetoothMode.closeModal()" style="background:none;border:none;color:#888;font-size:24px;cursor:pointer;padding:0;line-height:1;">&times;</button>
+        // Make canvas larger for better heatmap
+        canvas.width = 150;
+        canvas.height = 150;
+
+        drawHeatmap();
+    }
+
+    /**
+     * Draw heatmap visualization
+     */
+    function drawHeatmap() {
+        const canvas = document.getElementById('btRadarCanvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const maxRadius = Math.min(width, height) / 2 - 5;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw background circles (range indicators)
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= 4; i++) {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, maxRadius * i / 4, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Draw range labels
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('CLOSE', centerX, centerY - maxRadius * 0.25 + 3);
+        ctx.fillText('FAR', centerX, centerY - maxRadius * 0.85 + 3);
+
+        // If no devices, show message
+        if (devices.size === 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('No devices', centerX, centerY);
+            return;
+        }
+
+        // Build heatmap data from devices
+        heatmapData = [];
+        devices.forEach(device => {
+            const rssi = device.rssi_current;
+            if (rssi === null || rssi === undefined) return;
+
+            // Convert RSSI to radius (stronger = closer to center)
+            // RSSI: -30 (very close) to -100 (far)
+            const normalizedRssi = Math.max(0, Math.min(1, (rssi + 100) / 70));
+            const radius = maxRadius * (1 - normalizedRssi * 0.9); // Keep some margin
+
+            // Distribute devices in a spiral pattern for visibility
+            const index = heatmapData.length;
+            const angle = (index * 137.5 * Math.PI / 180); // Golden angle for distribution
+
+            heatmapData.push({
+                x: centerX + Math.cos(angle) * radius,
+                y: centerY + Math.sin(angle) * radius,
+                rssi: rssi,
+                intensity: normalizedRssi
+            });
+        });
+
+        // Draw heatmap points with gradient
+        heatmapData.forEach(point => {
+            const gradient = ctx.createRadialGradient(
+                point.x, point.y, 0,
+                point.x, point.y, 20
+            );
+
+            // Color based on signal strength
+            const color = getRssiColorRgb(point.rssi);
+            gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`);
+            gradient.addColorStop(0.4, `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
+            gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw center dot
+            ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Draw center point (user position)
+        ctx.fillStyle = '#00d4ff';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Device count
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${devices.size} devices`, 5, height - 5);
+    }
+
+    /**
+     * Get RSSI color as RGB object
+     */
+    function getRssiColorRgb(rssi) {
+        if (rssi === null || rssi === undefined) return { r: 102, g: 102, b: 102 };
+        if (rssi >= -50) return { r: 34, g: 197, b: 94 };   // Green
+        if (rssi >= -60) return { r: 132, g: 204, b: 22 };  // Lime
+        if (rssi >= -70) return { r: 234, g: 179, b: 8 };   // Yellow
+        if (rssi >= -80) return { r: 249, g: 115, b: 22 };  // Orange
+        return { r: 239, g: 68, b: 68 };                     // Red
+    }
+
+    /**
+     * Initialize timeline as collapsed
+     */
+    function initTimeline() {
+        const timelineContainer = document.getElementById('bluetoothTimelineContainer');
+        if (!timelineContainer) return;
+
+        // Check if ActivityTimeline exists and initialize it collapsed
+        if (typeof ActivityTimeline !== 'undefined') {
+            // Timeline will be initialized by the main app, but we'll collapse it
+            setTimeout(() => {
+                const timeline = timelineContainer.querySelector('.activity-timeline');
+                if (timeline) {
+                    const content = timeline.querySelector('.activity-timeline-content');
+                    const toggleBtn = timeline.querySelector('.activity-timeline-toggle');
+                    if (content) content.style.display = 'none';
+                    if (toggleBtn) toggleBtn.textContent = '▶';
+                }
+            }, 500);
+        } else {
+            // Create a simple placeholder
+            timelineContainer.innerHTML = `
+                <div style="background: var(--bg-tertiary, #1a1a1a); border: 1px solid var(--border-color, #333); border-radius: 6px; overflow: hidden;">
+                    <div style="padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: var(--bg-secondary, #252525);" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('span:last-child').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';">
+                        <span style="font-size: 12px; color: var(--text-primary, #e0e0e0);">Device Activity</span>
+                        <span style="font-size: 10px; color: var(--text-dim, #666);">▶</span>
+                    </div>
+                    <div id="btActivityContent" style="display: none; padding: 12px; color: var(--text-dim, #666); font-size: 11px; text-align: center;">
+                        Activity timeline will appear here during scanning
+                    </div>
                 </div>
-                <div id="btModalBody" style="padding:20px;"></div>
-            </div>
-        `;
-        modal.onclick = (e) => {
-            if (e.target === modal) closeModal();
-        };
-        document.body.appendChild(modal);
+            `;
+        }
     }
 
     /**
-     * Show device details modal
+     * Select a device and show in Selected Device panel
      */
-    function showModal(deviceId) {
+    function selectDevice(deviceId) {
         const device = devices.get(deviceId);
         if (!device) return;
 
         selectedDeviceId = deviceId;
-        const modal = document.getElementById('btDeviceModal');
-        const title = document.getElementById('btModalTitle');
-        const body = document.getElementById('btModalBody');
 
-        title.textContent = device.name || formatDeviceId(device.address);
+        // Update selected device panel
+        const panel = document.getElementById('btSelectedDevice');
+        if (!panel) return;
 
         const rssi = device.rssi_current;
         const rssiColor = getRssiColor(rssi);
         const flags = device.heuristic_flags || [];
 
-        body.innerHTML = `
-            <!-- Header badges -->
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
-                <span style="display:inline-block;background:${device.protocol === 'ble' ? 'rgba(59,130,246,0.15)' : 'rgba(139,92,246,0.15)'};color:${device.protocol === 'ble' ? '#3b82f6' : '#8b5cf6'};border:1px solid ${device.protocol === 'ble' ? 'rgba(59,130,246,0.3)' : 'rgba(139,92,246,0.3)'};padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;">${(device.protocol || 'ble').toUpperCase()}</span>
-                ${flags.map(f => `<span style="display:inline-block;background:rgba(107,114,128,0.15);color:#9ca3af;border:1px solid rgba(107,114,128,0.3);padding:4px 10px;border-radius:4px;font-size:11px;">${f.replace('_', ' ').toUpperCase()}</span>`).join('')}
-                <span style="display:inline-block;background:${device.in_baseline ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)'};color:${device.in_baseline ? '#22c55e' : '#3b82f6'};padding:4px 10px;border-radius:4px;font-size:11px;">${device.in_baseline ? '✓ In Baseline' : '● New Device'}</span>
-            </div>
-
-            <!-- Signal strength display -->
-            <div style="background:#141428;border-radius:8px;padding:20px;margin-bottom:20px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        panel.innerHTML = `
+            <div style="padding: 10px;">
+                <!-- Device header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                     <div>
-                        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Signal Strength</div>
-                        <div style="font-family:monospace;font-size:36px;font-weight:700;color:${rssiColor};">${rssi !== null ? rssi : '--'}<span style="font-size:14px;color:#666;margin-left:4px;">dBm</span></div>
+                        <div style="font-size: 16px; font-weight: 600; color: #e0e0e0; margin-bottom: 4px;">
+                            ${escapeHtml(device.name || formatDeviceId(device.address))}
+                        </div>
+                        <div style="font-family: monospace; font-size: 12px; color: #00d4ff;">
+                            ${escapeHtml(device.address)}
+                            <span style="color: #666; font-size: 10px;">(${device.address_type || 'unknown'})</span>
+                        </div>
                     </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Range</div>
-                        <div style="font-size:18px;font-weight:600;color:#e0e0e0;text-transform:uppercase;">${device.range_band || 'Unknown'}</div>
-                    </div>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-                    <div style="background:#1a1a2e;padding:10px;border-radius:6px;text-align:center;">
-                        <div style="font-size:9px;color:#666;text-transform:uppercase;">Min</div>
-                        <div style="font-family:monospace;font-size:14px;color:#e0e0e0;">${device.rssi_min !== null ? device.rssi_min : '--'}</div>
-                    </div>
-                    <div style="background:#1a1a2e;padding:10px;border-radius:6px;text-align:center;">
-                        <div style="font-size:9px;color:#666;text-transform:uppercase;">Max</div>
-                        <div style="font-family:monospace;font-size:14px;color:#e0e0e0;">${device.rssi_max !== null ? device.rssi_max : '--'}</div>
-                    </div>
-                    <div style="background:#1a1a2e;padding:10px;border-radius:6px;text-align:center;">
-                        <div style="font-size:9px;color:#666;text-transform:uppercase;">Median</div>
-                        <div style="font-family:monospace;font-size:14px;color:#e0e0e0;">${device.rssi_median !== null ? device.rssi_median : '--'}</div>
-                    </div>
-                    <div style="background:#1a1a2e;padding:10px;border-radius:6px;text-align:center;">
-                        <div style="font-size:9px;color:#666;text-transform:uppercase;">Confidence</div>
-                        <div style="font-family:monospace;font-size:14px;color:#e0e0e0;">${device.rssi_confidence ? Math.round(device.rssi_confidence * 100) + '%' : '--'}</div>
+                    <div style="text-align: right;">
+                        <div style="font-family: monospace; font-size: 24px; font-weight: 700; color: ${rssiColor};">
+                            ${rssi != null ? rssi : '--'}
+                            <span style="font-size: 11px; color: #666;">dBm</span>
+                        </div>
+                        <div style="font-size: 10px; color: #888; text-transform: uppercase;">${device.range_band || 'unknown'}</div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Device info grid -->
-            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;">
-                <div style="background:#141428;padding:14px;border-radius:6px;">
-                    <div style="font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px;">Address</div>
-                    <div style="font-family:monospace;font-size:13px;color:#00d4ff;">${device.address}</div>
+                <!-- Badges -->
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;">
+                    <span style="background: ${device.protocol === 'ble' ? 'rgba(59,130,246,0.15)' : 'rgba(139,92,246,0.15)'}; color: ${device.protocol === 'ble' ? '#3b82f6' : '#8b5cf6'}; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;">
+                        ${(device.protocol || 'BLE').toUpperCase()}
+                    </span>
+                    ${flags.map(f => `<span style="background: rgba(107,114,128,0.15); color: #9ca3af; padding: 3px 8px; border-radius: 4px; font-size: 10px;">${f.replace('_', ' ').toUpperCase()}</span>`).join('')}
+                    <span style="background: ${device.in_baseline ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)'}; color: ${device.in_baseline ? '#22c55e' : '#3b82f6'}; padding: 3px 8px; border-radius: 4px; font-size: 10px;">
+                        ${device.in_baseline ? '✓ BASELINE' : '● NEW'}
+                    </span>
                 </div>
-                <div style="background:#141428;padding:14px;border-radius:6px;">
-                    <div style="font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px;">Address Type</div>
-                    <div style="font-size:13px;color:#e0e0e0;">${device.address_type || 'Unknown'}</div>
-                </div>
-                <div style="background:#141428;padding:14px;border-radius:6px;">
-                    <div style="font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px;">Manufacturer</div>
-                    <div style="font-size:13px;color:#e0e0e0;">${device.manufacturer_name || 'Unknown'}</div>
-                </div>
-                <div style="background:#141428;padding:14px;border-radius:6px;">
-                    <div style="font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px;">Manufacturer ID</div>
-                    <div style="font-family:monospace;font-size:13px;color:#e0e0e0;">${device.manufacturer_id != null ? '0x' + device.manufacturer_id.toString(16).toUpperCase().padStart(4, '0') : '--'}</div>
-                </div>
-            </div>
 
-            <!-- Observation stats -->
-            <div style="background:#141428;padding:14px;border-radius:6px;margin-bottom:20px;">
-                <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Observation Stats</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-                    <div>
-                        <div style="font-size:10px;color:#666;">First Seen</div>
-                        <div style="font-size:12px;color:#e0e0e0;">${device.first_seen ? new Date(device.first_seen).toLocaleTimeString() : '--'}</div>
+                <!-- Info grid -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px;">
+                    <div style="background: #141428; padding: 8px 10px; border-radius: 4px;">
+                        <div style="font-size: 9px; color: #666; text-transform: uppercase;">Manufacturer</div>
+                        <div style="font-size: 11px; color: #e0e0e0; margin-top: 2px;">${device.manufacturer_name || 'Unknown'}</div>
                     </div>
-                    <div>
-                        <div style="font-size:10px;color:#666;">Last Seen</div>
-                        <div style="font-size:12px;color:#e0e0e0;">${device.last_seen ? new Date(device.last_seen).toLocaleTimeString() : '--'}</div>
+                    <div style="background: #141428; padding: 8px 10px; border-radius: 4px;">
+                        <div style="font-size: 9px; color: #666; text-transform: uppercase;">Mfr ID</div>
+                        <div style="font-family: monospace; font-size: 11px; color: #e0e0e0; margin-top: 2px;">
+                            ${device.manufacturer_id != null ? '0x' + device.manufacturer_id.toString(16).toUpperCase().padStart(4, '0') : '--'}
+                        </div>
                     </div>
-                    <div>
-                        <div style="font-size:10px;color:#666;">Seen Count</div>
-                        <div style="font-size:12px;color:#e0e0e0;">${device.seen_count || 0} times</div>
+                    <div style="background: #141428; padding: 8px 10px; border-radius: 4px;">
+                        <div style="font-size: 9px; color: #666; text-transform: uppercase;">Seen</div>
+                        <div style="font-size: 11px; color: #e0e0e0; margin-top: 2px;">${device.seen_count || 0} times</div>
+                    </div>
+                    <div style="background: #141428; padding: 8px 10px; border-radius: 4px;">
+                        <div style="font-size: 9px; color: #666; text-transform: uppercase;">Confidence</div>
+                        <div style="font-size: 11px; color: #e0e0e0; margin-top: 2px;">${device.rssi_confidence ? Math.round(device.rssi_confidence * 100) + '%' : '--'}</div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Service UUIDs -->
-            ${device.service_uuids && device.service_uuids.length > 0 ? `
-            <div style="background:#141428;padding:14px;border-radius:6px;margin-bottom:20px;">
-                <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Service UUIDs</div>
-                <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                    ${device.service_uuids.map(uuid => `<span style="font-family:monospace;font-size:10px;background:#1a1a2e;padding:4px 8px;border-radius:4px;color:#888;">${uuid}</span>`).join('')}
+                <!-- Signal stats -->
+                <div style="background: #141428; padding: 10px; border-radius: 4px; margin-bottom: 12px;">
+                    <div style="font-size: 9px; color: #666; text-transform: uppercase; margin-bottom: 8px;">Signal Statistics</div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; color: #666;">MIN</div>
+                            <div style="font-family: monospace; font-size: 12px; color: #ef4444;">${device.rssi_min != null ? device.rssi_min : '--'}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; color: #666;">MEDIAN</div>
+                            <div style="font-family: monospace; font-size: 12px; color: #eab308;">${device.rssi_median != null ? Math.round(device.rssi_median) : '--'}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; color: #666;">MAX</div>
+                            <div style="font-family: monospace; font-size: 12px; color: #22c55e;">${device.rssi_max != null ? device.rssi_max : '--'}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; color: #666;">CURRENT</div>
+                            <div style="font-family: monospace; font-size: 12px; color: ${rssiColor};">${rssi != null ? rssi : '--'}</div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            ` : ''}
 
-            <!-- Actions -->
-            <div style="display:flex;gap:10px;margin-top:20px;">
-                <button onclick="BluetoothMode.copyAddress('${device.address}')" style="flex:1;background:#252538;border:1px solid #444;color:#e0e0e0;padding:10px;border-radius:6px;cursor:pointer;font-size:12px;">Copy Address</button>
-                <button onclick="BluetoothMode.closeModal()" style="flex:1;background:#3b82f6;border:none;color:#fff;padding:10px;border-radius:6px;cursor:pointer;font-size:12px;">Close</button>
+                <!-- Service UUIDs -->
+                ${device.service_uuids && device.service_uuids.length > 0 ? `
+                <div style="background: #141428; padding: 10px; border-radius: 4px; margin-bottom: 12px;">
+                    <div style="font-size: 9px; color: #666; text-transform: uppercase; margin-bottom: 8px;">Service UUIDs (${device.service_uuids.length})</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        ${device.service_uuids.slice(0, 6).map(uuid => `<span style="font-family: monospace; font-size: 9px; background: #1a1a2e; padding: 3px 6px; border-radius: 3px; color: #888;">${uuid.substring(0, 8)}...</span>`).join('')}
+                        ${device.service_uuids.length > 6 ? `<span style="font-size: 9px; color: #666;">+${device.service_uuids.length - 6} more</span>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Timestamps -->
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #666;">
+                    <span>First: ${device.first_seen ? new Date(device.first_seen).toLocaleTimeString() : '--'}</span>
+                    <span>Last: ${device.last_seen ? new Date(device.last_seen).toLocaleTimeString() : '--'}</span>
+                </div>
+
+                <!-- Action buttons -->
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <button onclick="BluetoothMode.copyAddress('${device.address}')" style="flex: 1; background: #252538; border: 1px solid #444; color: #e0e0e0; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                        Copy Address
+                    </button>
+                </div>
             </div>
         `;
 
-        modal.style.display = 'flex';
-    }
-
-    /**
-     * Close device details modal
-     */
-    function closeModal() {
-        const modal = document.getElementById('btDeviceModal');
-        if (modal) modal.style.display = 'none';
-        selectedDeviceId = null;
+        // Highlight selected card
+        const cards = deviceContainer?.querySelectorAll('[data-bt-device-id]');
+        cards?.forEach(card => {
+            if (card.dataset.btDeviceId === deviceId) {
+                card.style.borderColor = '#00d4ff';
+                card.style.boxShadow = '0 0 0 1px rgba(0, 212, 255, 0.3)';
+            } else {
+                card.style.borderColor = '#444';
+                card.style.boxShadow = 'none';
+            }
+        });
     }
 
     /**
@@ -237,7 +391,6 @@ const BluetoothMode = (function() {
      */
     function formatDeviceId(address) {
         if (!address) return 'Unknown Device';
-        // Return shortened format: first 2 and last 2 octets
         const parts = address.split(':');
         if (parts.length === 6) {
             return parts[0] + ':' + parts[1] + ':...:' + parts[4] + ':' + parts[5];
@@ -258,7 +411,6 @@ const BluetoothMode = (function() {
                 return;
             }
 
-            // Update adapter select
             if (adapterSelect && data.adapters && data.adapters.length > 0) {
                 adapterSelect.innerHTML = data.adapters.map(a => {
                     const status = a.powered ? 'UP' : 'DOWN';
@@ -268,14 +420,12 @@ const BluetoothMode = (function() {
                 adapterSelect.innerHTML = '<option value="">No adapters found</option>';
             }
 
-            // Show any issues
             if (data.issues && data.issues.length > 0) {
                 showCapabilityWarning(data.issues);
             } else {
                 hideCapabilityWarning();
             }
 
-            // Update scan mode based on preferred backend
             if (scanModeSelect && data.preferred_backend) {
                 const option = scanModeSelect.querySelector(`option[value="${data.preferred_backend}"]`);
                 if (option) option.selected = true;
@@ -287,12 +437,8 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Show capability warning
-     */
     function showCapabilityWarning(issues) {
         if (!capabilityStatusEl) return;
-
         capabilityStatusEl.style.display = 'block';
         capabilityStatusEl.innerHTML = `
             <div style="color: #f59e0b; padding: 10px; background: rgba(245,158,11,0.1); border-radius: 6px; font-size: 12px;">
@@ -301,9 +447,6 @@ const BluetoothMode = (function() {
         `;
     }
 
-    /**
-     * Hide capability warning
-     */
     function hideCapabilityWarning() {
         if (capabilityStatusEl) {
             capabilityStatusEl.style.display = 'none';
@@ -311,9 +454,6 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Check current scan status
-     */
     async function checkScanStatus() {
         try {
             const response = await fetch('/api/bluetooth/scan/status');
@@ -324,7 +464,6 @@ const BluetoothMode = (function() {
                 startEventStream();
             }
 
-            // Update baseline status
             if (data.baseline_count > 0) {
                 baselineSet = true;
                 baselineCount = data.baseline_count;
@@ -336,9 +475,6 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Start scanning
-     */
     async function startScan() {
         const adapter = adapterSelect?.value || '';
         const mode = scanModeSelect?.value || 'auto';
@@ -374,9 +510,6 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Stop scanning
-     */
     async function stopScan() {
         try {
             await fetch('/api/bluetooth/scan/stop', { method: 'POST' });
@@ -387,32 +520,30 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Set scanning state
-     */
     function setScanning(scanning) {
         isScanning = scanning;
 
         if (startBtn) startBtn.style.display = scanning ? 'none' : 'block';
         if (stopBtn) stopBtn.style.display = scanning ? 'block' : 'none';
 
-        // Clear container when starting scan
         if (scanning && deviceContainer) {
             deviceContainer.innerHTML = '';
             devices.clear();
             resetStats();
+
+            // Reset selected device panel
+            const selectedPanel = document.getElementById('btSelectedDevice');
+            if (selectedPanel) {
+                selectedPanel.innerHTML = '<div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device to view details</div>';
+            }
         }
 
-        // Update global status if available
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         if (statusDot) statusDot.classList.toggle('running', scanning);
         if (statusText) statusText.textContent = scanning ? 'Scanning...' : 'Idle';
     }
 
-    /**
-     * Reset stats
-     */
     function resetStats() {
         deviceStats = {
             phones: 0,
@@ -427,11 +558,9 @@ const BluetoothMode = (function() {
             findmy: []
         };
         updateVisualizationPanels();
+        drawHeatmap();
     }
 
-    /**
-     * Start SSE event stream
-     */
     function startEventStream() {
         if (eventSource) eventSource.close();
 
@@ -447,13 +576,11 @@ const BluetoothMode = (function() {
         });
 
         eventSource.addEventListener('scan_started', (e) => {
-            const data = JSON.parse(e.data);
             setScanning(true);
         });
 
         eventSource.addEventListener('scan_stopped', (e) => {
             setScanning(false);
-            const data = JSON.parse(e.data);
         });
 
         eventSource.onerror = () => {
@@ -461,9 +588,6 @@ const BluetoothMode = (function() {
         };
     }
 
-    /**
-     * Stop SSE event stream
-     */
     function stopEventStream() {
         if (eventSource) {
             eventSource.close();
@@ -471,27 +595,70 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Handle device update from SSE
-     */
     function handleDeviceUpdate(device) {
         devices.set(device.device_id, device);
         renderDevice(device);
         updateDeviceCount();
-        updateStatsFromDevice(device);
+        updateStatsFromDevices();
         updateVisualizationPanels();
-        updateRadar();
+        drawHeatmap();
+
+        // Update selected device panel if this device is selected
+        if (selectedDeviceId === device.device_id) {
+            selectDevice(device.device_id);
+        }
+
+        // Feed to activity timeline
+        addToTimeline(device);
     }
 
     /**
-     * Update stats from device
+     * Add device event to timeline
      */
-    function updateStatsFromDevice(device) {
-        // Categorize by manufacturer/type
-        const mfr = (device.manufacturer_name || '').toLowerCase();
-        const name = (device.name || '').toLowerCase();
+    function addToTimeline(device) {
+        if (typeof addTimelineEvent === 'function') {
+            const normalized = {
+                id: device.device_id,
+                label: device.name || formatDeviceId(device.address),
+                strength: device.rssi_current ? Math.min(5, Math.max(1, Math.ceil((device.rssi_current + 100) / 20))) : 3,
+                duration: 1500,
+                type: 'bluetooth'
+            };
+            addTimelineEvent('bluetooth', normalized);
+        }
 
-        // Reset counts and recalculate from all devices
+        // Also update our simple timeline if it exists
+        const activityContent = document.getElementById('btActivityContent');
+        if (activityContent) {
+            const time = new Date().toLocaleTimeString();
+            const existing = activityContent.querySelector('.bt-activity-list');
+
+            if (!existing) {
+                activityContent.innerHTML = '<div class="bt-activity-list" style="max-height: 150px; overflow-y: auto;"></div>';
+            }
+
+            const list = activityContent.querySelector('.bt-activity-list');
+            const entry = document.createElement('div');
+            entry.style.cssText = 'padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 10px;';
+            entry.innerHTML = `
+                <span style="color: #666;">${time}</span>
+                <span style="color: #00d4ff; margin-left: 8px;">${escapeHtml(device.name || formatDeviceId(device.address))}</span>
+                <span style="color: ${getRssiColor(device.rssi_current)}; margin-left: 8px;">${device.rssi_current || '--'} dBm</span>
+            `;
+            list.insertBefore(entry, list.firstChild);
+
+            // Keep only last 50 entries
+            while (list.children.length > 50) {
+                list.removeChild(list.lastChild);
+            }
+        }
+    }
+
+    /**
+     * Update stats from all devices
+     */
+    function updateStatsFromDevices() {
+        // Reset counts
         deviceStats.phones = 0;
         deviceStats.computers = 0;
         deviceStats.audio = 0;
@@ -504,39 +671,82 @@ const BluetoothMode = (function() {
         deviceStats.findmy = [];
 
         devices.forEach(d => {
-            const m = (d.manufacturer_name || '').toLowerCase();
-            const n = (d.name || '').toLowerCase();
+            const mfr = (d.manufacturer_name || '').toLowerCase();
+            const name = (d.name || '').toLowerCase();
             const rssi = d.rssi_current;
+            const flags = d.heuristic_flags || [];
 
-            // Device type classification
-            if (n.includes('iphone') || n.includes('phone') || n.includes('pixel') || n.includes('galaxy') || n.includes('android')) {
+            // Device type classification - more lenient matching
+            let classified = false;
+
+            // Phones
+            if (name.includes('iphone') || name.includes('phone') || name.includes('pixel') ||
+                name.includes('galaxy') || name.includes('android') || name.includes('samsung') ||
+                name.includes('oneplus') || name.includes('huawei') || name.includes('xiaomi')) {
                 deviceStats.phones++;
-            } else if (n.includes('macbook') || n.includes('laptop') || n.includes('pc') || n.includes('computer') || n.includes('imac')) {
+                classified = true;
+            }
+            // Computers
+            else if (name.includes('macbook') || name.includes('laptop') || name.includes('pc') ||
+                     name.includes('computer') || name.includes('imac') || name.includes('mac mini') ||
+                     name.includes('thinkpad') || name.includes('surface') || name.includes('dell') ||
+                     name.includes('hp ') || name.includes('lenovo')) {
                 deviceStats.computers++;
-            } else if (n.includes('airpod') || n.includes('headphone') || n.includes('speaker') || n.includes('buds') || n.includes('audio') || n.includes('beats')) {
+                classified = true;
+            }
+            // Audio devices
+            else if (name.includes('airpod') || name.includes('headphone') || name.includes('speaker') ||
+                     name.includes('buds') || name.includes('audio') || name.includes('beats') ||
+                     name.includes('bose') || name.includes('sony wh') || name.includes('sony wf') ||
+                     name.includes('jbl') || name.includes('soundbar') || name.includes('earbuds') ||
+                     name.includes('jabra') || name.includes('soundcore')) {
                 deviceStats.audio++;
-            } else if (n.includes('watch') || n.includes('band') || n.includes('fitbit') || n.includes('garmin')) {
+                classified = true;
+            }
+            // Wearables
+            else if (name.includes('watch') || name.includes('band') || name.includes('fitbit') ||
+                     name.includes('garmin') || name.includes('whoop') || name.includes('oura') ||
+                     name.includes('mi band') || name.includes('amazfit')) {
                 deviceStats.wearables++;
-            } else {
-                deviceStats.other++;
+                classified = true;
+            }
+
+            // If not classified by name, try manufacturer
+            if (!classified) {
+                if (mfr.includes('apple')) {
+                    // Could be various Apple devices - count as other
+                    deviceStats.other++;
+                } else {
+                    deviceStats.other++;
+                }
             }
 
             // Signal strength classification
-            if (rssi !== null && rssi !== undefined) {
+            if (rssi != null) {
                 if (rssi >= -50) deviceStats.strong++;
                 else if (rssi >= -70) deviceStats.medium++;
                 else deviceStats.weak++;
             }
 
-            // Tracker detection (Apple, Tile, etc.)
-            if (m.includes('apple') && (d.heuristic_flags || []).includes('beacon_like')) {
-                if (!deviceStats.findmy.find(t => t.address === d.address)) {
-                    deviceStats.findmy.push(d);
-                }
-            }
-            if (n.includes('tile') || n.includes('airtag') || n.includes('smarttag')) {
+            // Tracker detection - check for known tracker patterns
+            const isTracker = name.includes('tile') || name.includes('airtag') ||
+                             name.includes('smarttag') || name.includes('chipolo') ||
+                             name.includes('tracker') || name.includes('tag');
+
+            if (isTracker) {
                 if (!deviceStats.trackers.find(t => t.address === d.address)) {
                     deviceStats.trackers.push(d);
+                }
+            }
+
+            // FindMy detection - Apple devices with specific characteristics
+            // Apple manufacturer ID is 0x004C (76)
+            const isApple = mfr.includes('apple') || d.manufacturer_id === 76;
+            const hasBeaconBehavior = flags.includes('beacon_like') || flags.includes('persistent');
+
+            if (isApple && hasBeaconBehavior) {
+                if (!deviceStats.findmy.find(t => t.address === d.address)) {
+                    deviceStats.findmy.push(d);
                 }
             }
         });
@@ -578,16 +788,18 @@ const BluetoothMode = (function() {
         // Tracker Detection
         const trackerList = document.getElementById('btTrackerList');
         if (trackerList) {
-            if (deviceStats.trackers.length === 0) {
-                trackerList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;">No trackers detected</div>';
+            if (devices.size === 0) {
+                trackerList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;font-size:11px;">Start scanning to detect trackers</div>';
+            } else if (deviceStats.trackers.length === 0) {
+                trackerList.innerHTML = '<div style="color:#22c55e;padding:10px;text-align:center;font-size:11px;">✓ No known trackers detected</div>';
             } else {
                 trackerList.innerHTML = deviceStats.trackers.map(t => `
-                    <div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" onclick="BluetoothMode.showModal('${t.device_id}')">
+                    <div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" onclick="BluetoothMode.selectDevice('${t.device_id}')">
                         <div style="display:flex;justify-content:space-between;">
-                            <span style="color:#f97316;">${t.name || formatDeviceId(t.address)}</span>
-                            <span style="color:#666;">${t.rssi_current || '--'} dBm</span>
+                            <span style="color:#f97316;font-size:11px;">${escapeHtml(t.name || formatDeviceId(t.address))}</span>
+                            <span style="color:#666;font-size:10px;">${t.rssi_current || '--'} dBm</span>
                         </div>
-                        <div style="font-size:10px;color:#666;">${t.address}</div>
+                        <div style="font-size:9px;color:#666;font-family:monospace;">${t.address}</div>
                     </div>
                 `).join('');
             }
@@ -596,121 +808,24 @@ const BluetoothMode = (function() {
         // FindMy Detection
         const findmyList = document.getElementById('btFindMyList');
         if (findmyList) {
-            if (deviceStats.findmy.length === 0) {
-                findmyList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;">No FindMy devices detected</div>';
+            if (devices.size === 0) {
+                findmyList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;font-size:11px;">Start scanning to detect FindMy devices</div>';
+            } else if (deviceStats.findmy.length === 0) {
+                findmyList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;font-size:11px;">No FindMy-compatible devices detected</div>';
             } else {
                 findmyList.innerHTML = deviceStats.findmy.map(t => `
-                    <div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" onclick="BluetoothMode.showModal('${t.device_id}')">
+                    <div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" onclick="BluetoothMode.selectDevice('${t.device_id}')">
                         <div style="display:flex;justify-content:space-between;">
-                            <span style="color:#007aff;">${t.name || 'Apple Device'}</span>
-                            <span style="color:#666;">${t.rssi_current || '--'} dBm</span>
+                            <span style="color:#007aff;font-size:11px;">${escapeHtml(t.name || 'Apple Device')}</span>
+                            <span style="color:#666;font-size:10px;">${t.rssi_current || '--'} dBm</span>
                         </div>
-                        <div style="font-size:10px;color:#666;">${t.address}</div>
+                        <div style="font-size:9px;color:#666;font-family:monospace;">${t.address}</div>
                     </div>
                 `).join('');
             }
         }
     }
 
-    /**
-     * Initialize radar canvas
-     */
-    function initRadar() {
-        const canvas = document.getElementById('btRadarCanvas');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        drawRadarBackground(ctx, canvas.width, canvas.height);
-    }
-
-    /**
-     * Draw radar background
-     */
-    function drawRadarBackground(ctx, width, height) {
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const maxRadius = Math.min(width, height) / 2 - 10;
-
-        ctx.clearRect(0, 0, width, height);
-
-        // Draw concentric circles
-        ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
-        ctx.lineWidth = 1;
-        for (let i = 1; i <= 4; i++) {
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, maxRadius * i / 4, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        // Draw cross lines
-        ctx.beginPath();
-        ctx.moveTo(centerX, 10);
-        ctx.lineTo(centerX, height - 10);
-        ctx.moveTo(10, centerY);
-        ctx.lineTo(width - 10, centerY);
-        ctx.stroke();
-
-        // Center dot
-        ctx.fillStyle = '#00d4ff';
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    /**
-     * Update radar with device positions
-     */
-    function updateRadar() {
-        const canvas = document.getElementById('btRadarCanvas');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const maxRadius = Math.min(width, height) / 2 - 15;
-
-        // Redraw background
-        drawRadarBackground(ctx, width, height);
-
-        // Plot devices
-        let angle = 0;
-        const angleStep = (Math.PI * 2) / Math.max(devices.size, 1);
-
-        devices.forEach(device => {
-            const rssi = device.rssi_current;
-            if (rssi === null || rssi === undefined) return;
-
-            // Convert RSSI to distance (closer = smaller radius)
-            // RSSI typically ranges from -30 (very close) to -100 (far)
-            const normalizedRssi = Math.max(0, Math.min(1, (rssi + 100) / 70));
-            const radius = maxRadius * (1 - normalizedRssi);
-
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
-
-            // Color based on signal strength
-            const color = getRssiColor(rssi);
-
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, y, 4, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Glow effect
-            ctx.fillStyle = color.replace(')', ', 0.3)').replace('rgb', 'rgba');
-            ctx.beginPath();
-            ctx.arc(x, y, 8, 0, Math.PI * 2);
-            ctx.fill();
-
-            angle += angleStep;
-        });
-    }
-
-    /**
-     * Update device count display
-     */
     function updateDeviceCount() {
         const countEl = document.getElementById('btDeviceListCount');
         if (countEl) {
@@ -718,9 +833,6 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Render a device card
-     */
     function renderDevice(device) {
         if (!deviceContainer) {
             deviceContainer = document.getElementById('btDeviceListContent');
@@ -738,9 +850,6 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Simple device card with click handler
-     */
     function createSimpleDeviceCard(device) {
         const protocol = device.protocol || 'ble';
         const protoBadge = protocol === 'ble'
@@ -756,20 +865,20 @@ const BluetoothMode = (function() {
             badgesHtml += '<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:2px 6px;border-radius:3px;font-size:9px;margin-left:4px;">PERSISTENT</span>';
         }
 
-        // Use device name if available, otherwise format the address nicely
         const displayName = device.name || formatDeviceId(device.address);
         const name = escapeHtml(displayName);
         const addr = escapeHtml(device.address || 'Unknown');
         const addrType = escapeHtml(device.address_type || 'unknown');
         const rssi = device.rssi_current;
-        const rssiStr = (rssi !== null && rssi !== undefined) ? rssi + ' dBm' : '--';
+        const rssiStr = (rssi != null) ? rssi + ' dBm' : '--';
         const rssiColor = getRssiColor(rssi);
         const mfr = device.manufacturer_name ? escapeHtml(device.manufacturer_name) : '';
         const seenCount = device.seen_count || 0;
         const rangeBand = device.range_band || 'unknown';
         const inBaseline = device.in_baseline || false;
+        const isSelected = selectedDeviceId === device.device_id;
 
-        const cardStyle = 'display:block;background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s;';
+        const cardStyle = 'display:block;background:#1a1a2e;border:1px solid ' + (isSelected ? '#00d4ff' : '#444') + ';border-radius:8px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s;' + (isSelected ? 'box-shadow:0 0 0 1px rgba(0,212,255,0.3);' : '');
         const headerStyle = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;';
         const nameStyle = 'font-size:14px;font-weight:600;color:#e0e0e0;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
         const addrStyle = 'font-family:monospace;font-size:11px;color:#00d4ff;';
@@ -782,7 +891,7 @@ const BluetoothMode = (function() {
 
         const deviceIdEscaped = escapeHtml(device.device_id).replace(/'/g, "\\'");
 
-        return '<div data-bt-device-id="' + escapeHtml(device.device_id) + '" style="' + cardStyle + '" onclick="BluetoothMode.showModal(\'' + deviceIdEscaped + '\')" onmouseover="this.style.borderColor=\'#00d4ff\'" onmouseout="this.style.borderColor=\'#444\'">' +
+        return '<div data-bt-device-id="' + escapeHtml(device.device_id) + '" style="' + cardStyle + '" onclick="BluetoothMode.selectDevice(\'' + deviceIdEscaped + '\')" onmouseover="this.style.borderColor=\'#00d4ff\'" onmouseout="this.style.borderColor=\'' + (isSelected ? '#00d4ff' : '#444') + '\'">' +
             '<div style="' + headerStyle + '">' +
                 '<div>' + protoBadge + badgesHtml + '</div>' +
                 '<span style="' + statusPillStyle + '">' + (inBaseline ? '✓ Known' : '● New') + '</span>' +
@@ -803,11 +912,8 @@ const BluetoothMode = (function() {
         '</div>';
     }
 
-    /**
-     * Get RSSI color
-     */
     function getRssiColor(rssi) {
-        if (rssi === null || rssi === undefined) return '#666';
+        if (rssi == null) return '#666';
         if (rssi >= -50) return '#22c55e';
         if (rssi >= -60) return '#84cc16';
         if (rssi >= -70) return '#eab308';
@@ -815,9 +921,6 @@ const BluetoothMode = (function() {
         return '#ef4444';
     }
 
-    /**
-     * Escape HTML
-     */
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -825,9 +928,6 @@ const BluetoothMode = (function() {
         return div.innerHTML;
     }
 
-    /**
-     * Set baseline
-     */
     async function setBaseline() {
         try {
             const response = await fetch('/api/bluetooth/baseline/set', { method: 'POST' });
@@ -843,9 +943,6 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Clear baseline
-     */
     async function clearBaseline() {
         try {
             const response = await fetch('/api/bluetooth/baseline/clear', { method: 'POST' });
@@ -861,9 +958,6 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Update baseline status display
-     */
     function updateBaselineStatus() {
         if (!baselineStatusEl) return;
 
@@ -876,19 +970,12 @@ const BluetoothMode = (function() {
         }
     }
 
-    /**
-     * Export data
-     */
     function exportData(format) {
         window.open(`/api/bluetooth/export?format=${format}`, '_blank');
     }
 
-    /**
-     * Show error message
-     */
     function showErrorMessage(message) {
         console.error('[BT] Error:', message);
-        // Could show a toast notification here
     }
 
     // Public API
@@ -900,15 +987,14 @@ const BluetoothMode = (function() {
         setBaseline,
         clearBaseline,
         exportData,
-        showModal,
-        closeModal,
+        selectDevice,
         copyAddress,
         getDevices: () => Array.from(devices.values()),
         isScanning: () => isScanning
     };
 })();
 
-// Global functions for onclick handlers in HTML
+// Global functions for onclick handlers
 function btStartScan() { BluetoothMode.startScan(); }
 function btStopScan() { BluetoothMode.stopScan(); }
 function btCheckCapabilities() { BluetoothMode.checkCapabilities(); }
@@ -929,5 +1015,4 @@ if (document.readyState === 'loading') {
     }
 }
 
-// Make globally available
 window.BluetoothMode = BluetoothMode;
