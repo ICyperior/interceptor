@@ -1152,11 +1152,12 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
                                     db_values = [float(x) for x in parts[6:] if x.strip()]
 
                                     # Find peaks above noise floor
+                                    # RTL-SDR dongles have higher noise figures, so use permissive thresholds
                                     noise_floor = sum(db_values) / len(db_values) if db_values else -100
-                                    threshold = noise_floor + 10  # Signal must be 10dB above noise
+                                    threshold = noise_floor + 6  # Signal must be 6dB above noise
 
                                     for idx, db in enumerate(db_values):
-                                        if db > threshold and db > -70:  # Detect signals above -70dBm
+                                        if db > threshold and db > -90:  # Detect signals above -90dBm
                                             freq_hz = hz_low + (idx * hz_step)
                                             freq_mhz = freq_hz / 1000000
 
@@ -1262,7 +1263,7 @@ def _run_sweep(
         last_rf_scan = 0
         wifi_scan_interval = 15  # Scan WiFi every 15 seconds
         bt_scan_interval = 20   # Scan Bluetooth every 20 seconds
-        rf_scan_interval = 60   # Scan RF every 60 seconds (it's slower)
+        rf_scan_interval = 30   # Scan RF every 30 seconds
 
         while _sweep_running and (time.time() - start_time) < duration:
             current_time = time.time()
@@ -1403,7 +1404,7 @@ def _run_sweep(
                     if not rf_signals and last_rf_scan == 0:
                         _emit_event('rf_status', {
                             'status': 'no_signals',
-                            'message': 'RF scan completed but no signals detected. Check RTL-SDR connection.',
+                            'message': 'RF scan completed - no signals above threshold. This may be normal in a quiet RF environment.',
                         })
 
                     for signal in rf_signals:

@@ -1648,7 +1648,12 @@
             if (!container) return;
 
             // Create timeline using new ActivityTimeline
-            if (typeof ActivityTimeline !== 'undefined') {
+            // For TSCM mode, use SignalTimeline.create() to ensure backward compatibility
+            // with SignalTimeline.addEvent() calls used in TSCM event handlers
+            if (mode === 'tscm' && typeof SignalTimeline !== 'undefined') {
+                SignalTimeline.create(modeConfig.container, modeConfig.config);
+                modeTimelines[mode] = { addEvent: (e) => SignalTimeline.addEvent(e.id, e.strength, e.duration, e.label) };
+            } else if (typeof ActivityTimeline !== 'undefined') {
                 modeTimelines[mode] = ActivityTimeline.create(modeConfig.container, modeConfig.config);
             }
         }
