@@ -95,13 +95,13 @@ const WiFiMode = (function() {
             scanModeQuick: document.getElementById('wifiScanModeQuick'),
             scanModeDeep: document.getElementById('wifiScanModeDeep'),
 
-            // Status
+            // Status bar
             scanStatus: document.getElementById('wifiScanStatus'),
             networkCount: document.getElementById('wifiNetworkCount'),
             clientCount: document.getElementById('wifiClientCount'),
             hiddenCount: document.getElementById('wifiHiddenCount'),
 
-            // Network list
+            // Network table
             networkTable: document.getElementById('wifiNetworkTable'),
             networkTableBody: document.getElementById('wifiNetworkTableBody'),
             networkFilters: document.getElementById('wifiNetworkFilters'),
@@ -111,9 +111,30 @@ const WiFiMode = (function() {
             channelChart: document.getElementById('wifiChannelChart'),
             channelBandTabs: document.getElementById('wifiChannelBandTabs'),
 
-            // Detail panel
-            detailPanel: document.getElementById('wifiDetailPanel'),
-            detailContent: document.getElementById('wifiDetailContent'),
+            // Zone summary
+            zoneImmediate: document.getElementById('wifiZoneImmediate'),
+            zoneNear: document.getElementById('wifiZoneNear'),
+            zoneFar: document.getElementById('wifiZoneFar'),
+
+            // Security counts
+            wpa3Count: document.getElementById('wpa3Count'),
+            wpa2Count: document.getElementById('wpa2Count'),
+            wepCount: document.getElementById('wepCount'),
+            openCount: document.getElementById('openCount'),
+
+            // Detail drawer
+            detailDrawer: document.getElementById('wifiDetailDrawer'),
+            detailEssid: document.getElementById('wifiDetailEssid'),
+            detailBssid: document.getElementById('wifiDetailBssid'),
+            detailRssi: document.getElementById('wifiDetailRssi'),
+            detailChannel: document.getElementById('wifiDetailChannel'),
+            detailBand: document.getElementById('wifiDetailBand'),
+            detailSecurity: document.getElementById('wifiDetailSecurity'),
+            detailCipher: document.getElementById('wifiDetailCipher'),
+            detailVendor: document.getElementById('wifiDetailVendor'),
+            detailClients: document.getElementById('wifiDetailClients'),
+            detailFirstSeen: document.getElementById('wifiDetailFirstSeen'),
+            detailClientList: document.getElementById('wifiDetailClientList'),
 
             // Interface select
             interfaceSelect: document.getElementById('wifiInterfaceSelect'),
@@ -747,72 +768,56 @@ const WiFiMode = (function() {
     // ==========================================================================
 
     function updateDetailPanel(bssid) {
-        if (!elements.detailPanel || !elements.detailContent) return;
+        if (!elements.detailDrawer) return;
 
         const network = networks.get(bssid);
         if (!network) {
-            elements.detailPanel.style.display = 'none';
+            closeDetail();
             return;
         }
 
-        elements.detailPanel.style.display = 'block';
-        elements.detailContent.innerHTML = `
-            <div class="wifi-detail-header">
-                <h4>${escapeHtml(network.display_name || network.essid || '[Hidden SSID]')}</h4>
-                <button class="close-btn" onclick="WiFiMode.closeDetail()">&times;</button>
-            </div>
-            <div class="wifi-detail-body">
-                <div class="detail-row">
-                    <span class="label">BSSID:</span>
-                    <span class="value"><code>${escapeHtml(network.bssid)}</code></span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Channel:</span>
-                    <span class="value">${network.channel || '-'} (${network.band})</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Security:</span>
-                    <span class="value">${escapeHtml(network.security)} / ${escapeHtml(network.cipher || '-')} / ${escapeHtml(network.auth || '-')}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Signal:</span>
-                    <span class="value">${network.rssi_current || '-'} dBm (${network.signal_band})</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Vendor:</span>
-                    <span class="value">${escapeHtml(network.vendor || 'Unknown')}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Clients:</span>
-                    <span class="value">${network.client_count || 0}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">First Seen:</span>
-                    <span class="value">${formatTime(network.first_seen)}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Last Seen:</span>
-                    <span class="value">${formatTime(network.last_seen)}</span>
-                </div>
-                ${network.rssi_history?.length > 0 ? `
-                    <div class="detail-rssi-chart">
-                        <h5>Signal History</h5>
-                        <div id="wifiDetailRssiChart"></div>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-
-        // Render RSSI sparkline if available
-        if (network.rssi_history?.length > 0 && typeof RSSISparkline !== 'undefined') {
-            RSSISparkline.render('wifiDetailRssiChart', network.rssi_history);
+        // Update drawer header
+        if (elements.detailEssid) {
+            elements.detailEssid.textContent = network.display_name || network.essid || '[Hidden SSID]';
         }
+        if (elements.detailBssid) {
+            elements.detailBssid.textContent = network.bssid;
+        }
+
+        // Update detail stats
+        if (elements.detailRssi) {
+            elements.detailRssi.textContent = network.rssi_current ? `${network.rssi_current} dBm` : '--';
+        }
+        if (elements.detailChannel) {
+            elements.detailChannel.textContent = network.channel || '--';
+        }
+        if (elements.detailBand) {
+            elements.detailBand.textContent = network.band || '--';
+        }
+        if (elements.detailSecurity) {
+            elements.detailSecurity.textContent = network.security || '--';
+        }
+        if (elements.detailCipher) {
+            elements.detailCipher.textContent = network.cipher || '--';
+        }
+        if (elements.detailVendor) {
+            elements.detailVendor.textContent = network.vendor || 'Unknown';
+        }
+        if (elements.detailClients) {
+            elements.detailClients.textContent = network.client_count || '0';
+        }
+        if (elements.detailFirstSeen) {
+            elements.detailFirstSeen.textContent = formatTime(network.first_seen);
+        }
+
+        // Show the drawer
+        elements.detailDrawer.classList.add('open');
     }
 
     function closeDetail() {
         selectedNetwork = null;
-        if (elements.detailPanel) {
-            elements.detailPanel.style.display = 'none';
+        if (elements.detailDrawer) {
+            elements.detailDrawer.classList.remove('open');
         }
         elements.networkTableBody?.querySelectorAll('.wifi-network-row').forEach(row => {
             row.classList.remove('selected');
@@ -824,6 +829,9 @@ const WiFiMode = (function() {
     // ==========================================================================
 
     function updateStats() {
+        const networksList = Array.from(networks.values());
+
+        // Update counts in status bar
         if (elements.networkCount) {
             elements.networkCount.textContent = networks.size;
         }
@@ -831,9 +839,37 @@ const WiFiMode = (function() {
             elements.clientCount.textContent = clients.size;
         }
         if (elements.hiddenCount) {
-            const hidden = Array.from(networks.values()).filter(n => n.is_hidden).length;
+            const hidden = networksList.filter(n => n.is_hidden).length;
             elements.hiddenCount.textContent = hidden;
         }
+
+        // Update security counts
+        const securityCounts = { wpa3: 0, wpa2: 0, wep: 0, open: 0 };
+        networksList.forEach(n => {
+            const sec = (n.security || '').toLowerCase();
+            if (sec.includes('wpa3')) securityCounts.wpa3++;
+            else if (sec.includes('wpa2') || sec.includes('wpa')) securityCounts.wpa2++;
+            else if (sec.includes('wep')) securityCounts.wep++;
+            else if (sec === 'open' || sec === '') securityCounts.open++;
+        });
+
+        if (elements.wpa3Count) elements.wpa3Count.textContent = securityCounts.wpa3;
+        if (elements.wpa2Count) elements.wpa2Count.textContent = securityCounts.wpa2;
+        if (elements.wepCount) elements.wepCount.textContent = securityCounts.wep;
+        if (elements.openCount) elements.openCount.textContent = securityCounts.open;
+
+        // Update zone summary
+        const zoneCounts = { immediate: 0, near: 0, far: 0 };
+        networksList.forEach(n => {
+            const rssi = n.rssi_current;
+            if (rssi >= -50) zoneCounts.immediate++;
+            else if (rssi >= -70) zoneCounts.near++;
+            else zoneCounts.far++;
+        });
+
+        if (elements.zoneImmediate) elements.zoneImmediate.textContent = zoneCounts.immediate;
+        if (elements.zoneNear) elements.zoneNear.textContent = zoneCounts.near;
+        if (elements.zoneFar) elements.zoneFar.textContent = zoneCounts.far;
     }
 
     // ==========================================================================

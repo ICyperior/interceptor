@@ -480,134 +480,169 @@
                     </div>
                 </div>
 
-                <!-- WiFi Layout Container (visualizations left, device cards right) -->
+                <!-- WiFi Layout Container -->
                 <div class="wifi-layout-container" id="wifiLayoutContainer" style="display: none;">
-                    <!-- Left: WiFi Visualizations -->
-                    <div class="wifi-visuals" id="wifiVisuals">
-                        <!-- Selected WiFi Device Info - at top for visibility -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>Selected Device</h5>
-                            <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
-                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network
-                                    or client to view details</div>
-                            </div>
+                    <!-- Status Bar -->
+                    <div class="wifi-status-bar">
+                        <div class="wifi-status-item">
+                            <span class="wifi-status-label">Networks:</span>
+                            <span class="wifi-status-value" id="wifiNetworkCount">0</span>
                         </div>
-                        <!-- Row 1: Proximity Radar (v2) + Security Overview -->
-                        <div class="wifi-visual-panel">
-                            <h5>Proximity Radar</h5>
-                            <div id="wifiProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
-                            <div id="wifiRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
-                                <button data-filter="all" class="wifi-radar-filter-btn active" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">All</button>
-                                <button data-filter="hidden" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Hidden</button>
-                                <button data-filter="open" class="wifi-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Open</button>
-                            </div>
-                            <div id="wifiZoneSummary" style="display: flex; justify-content: center; gap: 16px; margin-top: 10px; font-size: 10px;">
-                                <div style="text-align: center;">
-                                    <span id="wifiZoneImmediate" style="font-size: 16px; font-weight: 600; color: #22c55e;">0</span>
-                                    <div style="color: #666;">Near</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span id="wifiZoneNear" style="font-size: 16px; font-weight: 600; color: #eab308;">0</span>
-                                    <div style="color: #666;">Mid</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span id="wifiZoneFar" style="font-size: 16px; font-weight: 600; color: #ef4444;">0</span>
-                                    <div style="color: #666;">Far</div>
-                                </div>
-                            </div>
-                            <!-- Legacy radar canvas (hidden, for backwards compat) -->
-                            <div style="display: none;">
-                                <canvas id="radarCanvas" width="150" height="150"></canvas>
-                            </div>
+                        <div class="wifi-status-item">
+                            <span class="wifi-status-label">Clients:</span>
+                            <span class="wifi-status-value" id="wifiClientCount">0</span>
                         </div>
-                        <div class="wifi-visual-panel">
-                            <h5>Security Overview</h5>
-                            <div class="security-container">
-                                <div class="security-donut">
-                                    <canvas id="securityCanvas" width="80" height="80"></canvas>
-                                </div>
-                                <div class="security-legend">
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot wpa3"></div>WPA3: <span id="wpa3Count">0</span>
-                                    </div>
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot wpa2"></div>WPA2: <span id="wpa2Count">0</span>
-                                    </div>
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot wep"></div>WEP: <span id="wepCount">0</span>
-                                    </div>
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot open"></div>Open: <span id="openCount">0</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="wifi-status-item">
+                            <span class="wifi-status-label">Hidden:</span>
+                            <span class="wifi-status-value" id="wifiHiddenCount">0</span>
                         </div>
-                        <!-- Row 2: Channel Analysis (v2) -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>Channel Analysis</h5>
-                            <div id="wifiChannelBandTabs" style="display: flex; gap: 4px; margin-bottom: 8px;">
-                                <button data-band="2.4" class="channel-band-tab active" style="padding: 4px 12px; font-size: 10px; background: var(--accent-cyan); color: #000; border: none; border-radius: 4px; cursor: pointer;">2.4 GHz</button>
-                                <button data-band="5" class="channel-band-tab" style="padding: 4px 12px; font-size: 10px; background: var(--bg-tertiary); color: #888; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">5 GHz</button>
-                            </div>
-                            <div id="wifiChannelChart"></div>
-                            <!-- Legacy channel graphs (hidden, for backwards compat) -->
-                            <div id="channelGraph" style="display: none;"></div>
-                            <div id="channelGraph5g" style="display: none;"></div>
-                        </div>
-                        <!-- Row 3: Channel Recommendation -->
-                        <div class="wifi-visual-panel channel-recommendation" id="channelRecommendation">
-                            <h4>Channel Recommendation</h4>
-                            <div class="rec-text">
-                                <strong>2.4 GHz:</strong> Use channel <span class="rec-channel"
-                                    id="rec24Channel">--</span>
-                                <span id="rec24Reason" style="font-size: 10px; color: var(--text-dim);"></span>
-                            </div>
-                            <div class="rec-text" style="margin-top: 5px;">
-                                <strong>5 GHz:</strong> Use channel <span class="rec-channel" id="rec5Channel">--</span>
-                                <span id="rec5Reason" style="font-size: 10px; color: var(--text-dim);"></span>
-                            </div>
-                        </div>
-                        <!-- Device Correlation -->
-                        <div class="wifi-visual-panel" id="correlationPanel">
-                            <h5>Device Correlation</h5>
-                            <div id="correlationList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
-                                <div style="color: var(--text-dim);">Analyzing WiFi/BT device patterns...</div>
-                            </div>
-                        </div>
-                        <!-- Hidden SSID Revealer -->
-                        <div class="wifi-visual-panel" id="hiddenSsidPanel">
-                            <h5>Hidden SSIDs Revealed</h5>
-                            <div id="hiddenSsidList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
-                                <div style="color: var(--text-dim);">Monitoring probe requests...</div>
-                            </div>
-                        </div>
-                        <!-- Client Probe Analysis -->
-                        <div class="wifi-visual-panel" id="probeAnalysisPanel" style="grid-column: span 2;">
-                            <h5>Client Probe Analysis</h5>
-                            <div style="display: flex; gap: 10px; margin-bottom: 8px; font-size: 10px;">
-                                <span>Clients: <strong id="probeClientCount">0</strong></span>
-                                <span>Unique SSIDs: <strong id="probeSSIDCount">0</strong></span>
-                                <span>Privacy Leaks: <strong id="probePrivacyCount"
-                                        style="color: var(--accent-orange);">0</strong></span>
-                            </div>
-                            <div id="probeAnalysisList" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
-                                <div style="color: var(--text-dim);">Waiting for client probe requests...</div>
-                            </div>
-                        </div>
-                        <!-- Network Activity Timeline -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <div id="wifiTimelineContainer"></div>
+                        <div class="wifi-status-item" id="wifiScanStatus">
+                            <span class="wifi-status-indicator idle"></span>
+                            <span>Ready</span>
                         </div>
                     </div>
-                    <!-- Right: WiFi Device Cards -->
-                    <div class="wifi-device-list" id="wifiDeviceList">
-                        <div class="wifi-device-list-header">
-                            <h5>Discovered Networks</h5>
-                            <span class="device-count">(<span id="wifiDeviceListCount">0</span>)</span>
+
+                    <!-- Main Content: 3-column layout -->
+                    <div class="wifi-main-content">
+                        <!-- LEFT: Networks Table -->
+                        <div class="wifi-networks-panel">
+                            <div class="wifi-networks-header">
+                                <h5>Discovered Networks</h5>
+                                <div class="wifi-network-filters" id="wifiNetworkFilters">
+                                    <button class="wifi-filter-btn active" data-filter="all">All</button>
+                                    <button class="wifi-filter-btn" data-filter="2.4">2.4G</button>
+                                    <button class="wifi-filter-btn" data-filter="5">5G</button>
+                                    <button class="wifi-filter-btn" data-filter="open">Open</button>
+                                    <button class="wifi-filter-btn" data-filter="hidden">Hidden</button>
+                                </div>
+                            </div>
+                            <div class="wifi-networks-table-wrapper">
+                                <table class="wifi-networks-table" id="wifiNetworkTable">
+                                    <thead>
+                                        <tr>
+                                            <th class="sortable" data-sort="essid">SSID</th>
+                                            <th class="sortable" data-sort="channel">Ch</th>
+                                            <th class="sortable" data-sort="rssi">Signal</th>
+                                            <th class="sortable" data-sort="security">Security</th>
+                                            <th class="sortable" data-sort="clients">Clients</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="wifiNetworkTableBody">
+                                        <tr class="wifi-network-placeholder">
+                                            <td colspan="5">
+                                                <div class="placeholder-text">Start scanning to discover networks</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="wifi-device-list-content" id="wifiDeviceListContent">
-                            <div style="color: var(--text-dim); text-align: center; padding: 30px;">
-                                Start scanning to discover WiFi networks
+
+                        <!-- CENTER: Proximity Radar -->
+                        <div class="wifi-radar-panel">
+                            <h5>Proximity Radar</h5>
+                            <div id="wifiProximityRadar" class="wifi-radar-container"></div>
+                            <div class="wifi-zone-summary">
+                                <div class="wifi-zone near">
+                                    <span class="wifi-zone-count" id="wifiZoneImmediate">0</span>
+                                    <span class="wifi-zone-label">Near</span>
+                                </div>
+                                <div class="wifi-zone mid">
+                                    <span class="wifi-zone-count" id="wifiZoneNear">0</span>
+                                    <span class="wifi-zone-label">Mid</span>
+                                </div>
+                                <div class="wifi-zone far">
+                                    <span class="wifi-zone-count" id="wifiZoneFar">0</span>
+                                    <span class="wifi-zone-label">Far</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT: Channel Analysis + Security -->
+                        <div class="wifi-analysis-panel">
+                            <div class="wifi-channel-section">
+                                <h5>Channel Analysis</h5>
+                                <div class="wifi-channel-tabs" id="wifiChannelBandTabs">
+                                    <button class="channel-band-tab active" data-band="2.4">2.4 GHz</button>
+                                    <button class="channel-band-tab" data-band="5">5 GHz</button>
+                                </div>
+                                <div id="wifiChannelChart" class="wifi-channel-chart"></div>
+                            </div>
+                            <div class="wifi-security-section">
+                                <h5>Security Overview</h5>
+                                <div class="wifi-security-stats">
+                                    <div class="wifi-security-item wpa3">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>WPA3</span>
+                                        <span class="wifi-security-count" id="wpa3Count">0</span>
+                                    </div>
+                                    <div class="wifi-security-item wpa2">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>WPA2</span>
+                                        <span class="wifi-security-count" id="wpa2Count">0</span>
+                                    </div>
+                                    <div class="wifi-security-item wep">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>WEP</span>
+                                        <span class="wifi-security-count" id="wepCount">0</span>
+                                    </div>
+                                    <div class="wifi-security-item open">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>Open</span>
+                                        <span class="wifi-security-count" id="openCount">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail Drawer (slides up on network selection) -->
+                    <div class="wifi-detail-drawer" id="wifiDetailDrawer">
+                        <div class="wifi-detail-header">
+                            <div class="wifi-detail-title">
+                                <span class="wifi-detail-essid" id="wifiDetailEssid">Network Name</span>
+                                <span class="wifi-detail-bssid" id="wifiDetailBssid">00:00:00:00:00:00</span>
+                            </div>
+                            <button class="wifi-detail-close" onclick="WiFiMode.closeDetail()">&times;</button>
+                        </div>
+                        <div class="wifi-detail-content" id="wifiDetailContent">
+                            <div class="wifi-detail-grid">
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Signal</span>
+                                    <span class="value" id="wifiDetailRssi">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Channel</span>
+                                    <span class="value" id="wifiDetailChannel">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Band</span>
+                                    <span class="value" id="wifiDetailBand">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Security</span>
+                                    <span class="value" id="wifiDetailSecurity">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Cipher</span>
+                                    <span class="value" id="wifiDetailCipher">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Vendor</span>
+                                    <span class="value" id="wifiDetailVendor">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Clients</span>
+                                    <span class="value" id="wifiDetailClients">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">First Seen</span>
+                                    <span class="value" id="wifiDetailFirstSeen">--</span>
+                                </div>
+                            </div>
+                            <div class="wifi-detail-clients" id="wifiDetailClientList" style="display: none;">
+                                <h6>Connected Clients</h6>
+                                <div class="wifi-client-list"></div>
                             </div>
                         </div>
                     </div>
