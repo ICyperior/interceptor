@@ -184,57 +184,49 @@ const DeviceCard = (function() {
         const protocolBadge = createProtocolBadge(device.protocol) || '';
 
         // Build card with explicit defaults for all values
-        const deviceName = device.name || 'Unknown Device';
+        const deviceName = device.name || device.device_id || 'Unknown Device';
         const deviceAddress = device.address || 'Unknown';
         const addressType = device.address_type || 'unknown';
-        const rssiDisplay = device.rssi_current !== null && device.rssi_current !== undefined
+        const rssiDisplay = (device.rssi_current !== null && device.rssi_current !== undefined)
             ? device.rssi_current + ' dBm' : '--';
         const seenCount = device.seen_count || 0;
         const inBaseline = device.in_baseline || false;
+        const mfrName = device.manufacturer_name || '';
 
-        card.innerHTML = `
-            <div class="signal-card-header">
-                <div class="signal-card-badges">
-                    ${protocolBadge}
-                    ${heuristicBadges}
-                </div>
-                <span class="signal-status-pill" data-status="${inBaseline ? 'baseline' : 'new'}">
-                    <span class="status-dot"></span>
-                    ${inBaseline ? 'Known' : 'New'}
-                </span>
-            </div>
-            <div class="signal-card-body">
-                <div class="device-identity">
-                    <div class="device-name">${escapeHtml(deviceName)}</div>
-                    <div class="device-address">
-                        <span class="address-value">${escapeHtml(deviceAddress)}</span>
-                        <span class="address-type">(${escapeHtml(addressType)})</span>
-                    </div>
-                </div>
-                <div class="device-signal-row">
-                    <div class="rssi-display">
-                        <span class="rssi-current" title="Current RSSI">${rssiDisplay}</span>
-                        ${sparkline}
-                    </div>
-                    ${rangeBand}
-                </div>
-                ${device.manufacturer_name ? `
-                <div class="device-manufacturer">
-                    <span class="mfr-icon">🏭</span>
-                    <span class="mfr-name">${escapeHtml(device.manufacturer_name)}</span>
-                </div>
-                ` : ''}
-                <div class="device-meta-row">
-                    <span class="device-seen-count" title="Observation count">
-                        <span class="seen-icon">👁</span>
-                        ${seenCount}×
-                    </span>
-                    <span class="device-timestamp" data-timestamp="${escapeHtml(device.last_seen || '')}">
-                        ${escapeHtml(relativeTime)}
-                    </span>
-                </div>
-            </div>
-        `;
+        // Build the HTML parts separately to avoid template issues
+        const headerHtml = '<div class="signal-card-header">' +
+            '<div class="signal-card-badges">' + protocolBadge + heuristicBadges + '</div>' +
+            '<span class="signal-status-pill" data-status="' + (inBaseline ? 'baseline' : 'new') + '">' +
+            '<span class="status-dot"></span>' + (inBaseline ? 'Known' : 'New') + '</span>' +
+            '</div>';
+
+        const identityHtml = '<div class="device-identity">' +
+            '<div class="device-name">' + escapeHtml(deviceName) + '</div>' +
+            '<div class="device-address">' +
+            '<span class="address-value">' + escapeHtml(deviceAddress) + '</span>' +
+            '<span class="address-type">(' + escapeHtml(addressType) + ')</span>' +
+            '</div></div>';
+
+        const signalHtml = '<div class="device-signal-row">' +
+            '<div class="rssi-display">' +
+            '<span class="rssi-current" title="Current RSSI">' + rssiDisplay + '</span>' +
+            sparkline + '</div>' + rangeBand + '</div>';
+
+        const mfrHtml = mfrName ?
+            '<div class="device-manufacturer">' +
+            '<span class="mfr-icon">🏭</span>' +
+            '<span class="mfr-name">' + escapeHtml(mfrName) + '</span></div>' : '';
+
+        const metaHtml = '<div class="device-meta-row">' +
+            '<span class="device-seen-count" title="Observation count">' +
+            '<span class="seen-icon">👁</span>' + seenCount + '×</span>' +
+            '<span class="device-timestamp" data-timestamp="' + escapeHtml(device.last_seen || '') + '">' +
+            escapeHtml(relativeTime) + '</span></div>';
+
+        const bodyHtml = '<div class="signal-card-body">' +
+            identityHtml + signalHtml + mfrHtml + metaHtml + '</div>';
+
+        card.innerHTML = headerHtml + bodyHtml;
 
         // Make card clickable - opens modal with full details
         card.addEventListener('click', () => {

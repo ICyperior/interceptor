@@ -6090,6 +6090,11 @@
 
         // Handle discovered Bluetooth device (called from batched update)
         function handleBtDeviceImmediate(device) {
+            // Skip if new BluetoothMode is handling devices
+            if (typeof BluetoothMode !== 'undefined') {
+                return;
+            }
+
             const isNew = !btDevices[device.mac];
 
             // Check for Find My network
