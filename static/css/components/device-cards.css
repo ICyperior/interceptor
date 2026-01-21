@@ -555,6 +555,276 @@
 }
 
 /* ============================================
+   DEVICE CARD GRID LAYOUT
+   ============================================ */
+.bt-device-list .wifi-device-list-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    padding: 12px;
+}
+
+.bt-device-list .device-card {
+    margin: 0;
+    height: fit-content;
+}
+
+/* ============================================
+   ENHANCED MODAL STYLES
+   ============================================ */
+.signal-details-modal-header .modal-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.signal-details-modal-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim, #666);
+}
+
+.signal-details-modal-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.signal-details-copy-addr-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 16px;
+    background: var(--bg-secondary, #252525);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.signal-details-copy-addr-btn:hover {
+    background: var(--bg-tertiary, #1a1a1a);
+    color: var(--text-primary, #e0e0e0);
+}
+
+/* Modal Header Section */
+.modal-device-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color, #333);
+}
+
+.modal-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Modal Sections */
+.modal-section {
+    margin-bottom: 20px;
+}
+
+.modal-section:last-child {
+    margin-bottom: 0;
+}
+
+.modal-section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim, #666);
+    margin-bottom: 12px;
+}
+
+/* Signal Display */
+.modal-signal-display {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 16px;
+    background: var(--bg-secondary, #1a1a1a);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.modal-rssi-large {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent-cyan, #00d4ff);
+    line-height: 1;
+}
+
+.modal-rssi-large .rssi-unit {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-dim, #666);
+    margin-left: 4px;
+}
+
+.modal-sparkline {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Signal Stats Grid */
+.modal-signal-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.modal-signal-stats .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    background: var(--bg-secondary, #1a1a1a);
+    border-radius: 6px;
+    text-align: center;
+}
+
+.modal-signal-stats .stat-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim, #666);
+    margin-bottom: 4px;
+}
+
+.modal-signal-stats .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #e0e0e0);
+}
+
+/* Info Grid */
+.modal-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.modal-info-grid .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg-secondary, #1a1a1a);
+    border-radius: 6px;
+}
+
+.modal-info-grid .info-label {
+    font-size: 11px;
+    color: var(--text-dim, #666);
+}
+
+.modal-info-grid .info-value {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary, #e0e0e0);
+}
+
+.modal-info-grid .info-value.mono {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-cyan, #00d4ff);
+}
+
+/* UUID List */
+.modal-uuid-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.modal-uuid {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    background: var(--bg-secondary, #1a1a1a);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 4px;
+    color: var(--text-secondary, #888);
+}
+
+/* Heuristics Grid */
+.modal-heuristics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.heuristic-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-secondary, #1a1a1a);
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #333);
+}
+
+.heuristic-check.active {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.heuristic-indicator {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dim, #666);
+}
+
+.heuristic-check.active .heuristic-indicator {
+    color: var(--accent-green, #22c55e);
+}
+
+.heuristic-label {
+    font-size: 11px;
+    text-transform: capitalize;
+    color: var(--text-secondary, #888);
+}
+
+/* ============================================
+   RESPONSIVE MODAL
+   ============================================ */
+@media (max-width: 600px) {
+    .modal-signal-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .modal-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-signal-display {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .modal-sparkline {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .modal-device-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+}
+
+/* ============================================
    DARK MODE OVERRIDES (if needed)
    ============================================ */
 @media (prefers-color-scheme: dark) {

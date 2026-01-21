@@ -220,32 +220,10 @@ const DeviceCard = (function() {
                     </span>
                 </div>
             </div>
-            <div class="signal-card-footer">
-                <button class="signal-advanced-toggle" onclick="DeviceCard.toggleAdvanced(this)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                    Details
-                </button>
-                <div class="signal-card-actions">
-                    <button class="signal-action-btn" onclick="DeviceCard.copyAddress('${escapeHtml(device.address)}')">Copy</button>
-                    ${options.showInvestigate ? `
-                    <button class="signal-action-btn primary" onclick="DeviceCard.investigate('${escapeHtml(device.device_id)}')">Investigate</button>
-                    ` : ''}
-                </div>
-            </div>
-            <div class="signal-advanced-panel">
-                <div class="signal-advanced-inner">
-                    ${createAdvancedPanel(device)}
-                </div>
-            </div>
         `;
 
-        // Make card clickable
-        card.addEventListener('click', (e) => {
-            if (e.target.closest('button') || e.target.closest('.signal-advanced-toggle')) {
-                return;
-            }
+        // Make card clickable - opens modal with full details
+        card.addEventListener('click', () => {
             showDeviceDetails(device);
         });
 
@@ -361,12 +339,16 @@ const DeviceCard = (function() {
                 <div class="signal-details-modal-backdrop"></div>
                 <div class="signal-details-modal-content">
                     <div class="signal-details-modal-header">
-                        <span class="signal-details-modal-title"></span>
+                        <div class="modal-header-info">
+                            <span class="signal-details-modal-title"></span>
+                            <span class="signal-details-modal-subtitle"></span>
+                        </div>
                         <button class="signal-details-modal-close">&times;</button>
                     </div>
                     <div class="signal-details-modal-body"></div>
                     <div class="signal-details-modal-footer">
-                        <button class="signal-details-copy-btn">Copy Device Info</button>
+                        <button class="signal-details-copy-btn">Copy JSON</button>
+                        <button class="signal-details-copy-addr-btn">Copy Address</button>
                     </div>
                 </div>
             `;
@@ -379,21 +361,159 @@ const DeviceCard = (function() {
             modal.querySelector('.signal-details-modal-close').addEventListener('click', () => {
                 modal.classList.remove('show');
             });
-            modal.querySelector('.signal-details-copy-btn').addEventListener('click', () => {
-                navigator.clipboard.writeText(JSON.stringify(device, null, 2)).then(() => {
-                    if (typeof SignalCards !== 'undefined') {
-                        SignalCards.showToast('Device info copied to clipboard');
-                    }
-                });
+            // Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('show')) {
+                    modal.classList.remove('show');
+                }
             });
         }
 
-        // Populate modal
-        modal.querySelector('.signal-details-modal-title').textContent =
-            device.name || device.address;
-        modal.querySelector('.signal-details-modal-body').innerHTML = createAdvancedPanel(device);
+        // Update copy button handlers with current device
+        const copyBtn = modal.querySelector('.signal-details-copy-btn');
+        const copyAddrBtn = modal.querySelector('.signal-details-copy-addr-btn');
+
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(JSON.stringify(device, null, 2)).then(() => {
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => { copyBtn.textContent = 'Copy JSON'; }, 1500);
+            });
+        };
+
+        copyAddrBtn.onclick = () => {
+            navigator.clipboard.writeText(device.address).then(() => {
+                copyAddrBtn.textContent = 'Copied!';
+                setTimeout(() => { copyAddrBtn.textContent = 'Copy Address'; }, 1500);
+            });
+        };
+
+        // Populate modal header
+        modal.querySelector('.signal-details-modal-title').textContent = device.name || 'Unknown Device';
+        modal.querySelector('.signal-details-modal-subtitle').textContent = device.address;
+
+        // Populate modal body with enhanced content
+        modal.querySelector('.signal-details-modal-body').innerHTML = createModalContent(device);
 
         modal.classList.add('show');
+    }
+
+    /**
+     * Create enhanced modal content
+     */
+    function createModalContent(device) {
+        const protocolLabel = device.protocol === 'ble' ? 'Bluetooth Low Energy' : 'Classic Bluetooth';
+        const sparkline = createSparkline(device.rssi_history, { width: 120, height: 30 });
+
+        return `
+            <div class="modal-device-header">
+                <div class="modal-badges">
+                    ${createProtocolBadge(device.protocol)}
+                    ${createHeuristicBadges(device.heuristic_flags)}
+                </div>
+                ${createRangeBand(device.range_band, device.range_confidence)}
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-title">Signal Strength</div>
+                <div class="modal-signal-display">
+                    <div class="modal-rssi-large">${device.rssi_current !== null ? device.rssi_current : '--'}<span class="rssi-unit">dBm</span></div>
+                    <div class="modal-sparkline">${sparkline}</div>
+                </div>
+                <div class="modal-signal-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Median</span>
+                        <span class="stat-value">${device.rssi_median !== null ? device.rssi_median + ' dBm' : 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Min</span>
+                        <span class="stat-value">${device.rssi_min !== null ? device.rssi_min + ' dBm' : 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Max</span>
+                        <span class="stat-value">${device.rssi_max !== null ? device.rssi_max + ' dBm' : 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Confidence</span>
+                        <span class="stat-value">${Math.round((device.rssi_confidence || 0) * 100)}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-title">Device Information</div>
+                <div class="modal-info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Address</span>
+                        <span class="info-value mono">${escapeHtml(device.address)}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Address Type</span>
+                        <span class="info-value">${escapeHtml(device.address_type)}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Protocol</span>
+                        <span class="info-value">${protocolLabel}</span>
+                    </div>
+                    ${device.manufacturer_name ? `
+                    <div class="info-item">
+                        <span class="info-label">Manufacturer</span>
+                        <span class="info-value">${escapeHtml(device.manufacturer_name)}</span>
+                    </div>
+                    ` : ''}
+                    ${device.manufacturer_id ? `
+                    <div class="info-item">
+                        <span class="info-label">Manufacturer ID</span>
+                        <span class="info-value mono">0x${device.manufacturer_id.toString(16).padStart(4, '0').toUpperCase()}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-title">Observation Timeline</div>
+                <div class="modal-info-grid">
+                    <div class="info-item">
+                        <span class="info-label">First Seen</span>
+                        <span class="info-value">${formatRelativeTime(device.first_seen)}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Last Seen</span>
+                        <span class="info-value">${formatRelativeTime(device.last_seen)}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Observations</span>
+                        <span class="info-value">${device.seen_count}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Rate</span>
+                        <span class="info-value">${device.seen_rate ? device.seen_rate.toFixed(1) : '0'}/min</span>
+                    </div>
+                </div>
+            </div>
+
+            ${device.service_uuids && device.service_uuids.length > 0 ? `
+            <div class="modal-section">
+                <div class="modal-section-title">Service UUIDs</div>
+                <div class="modal-uuid-list">
+                    ${device.service_uuids.map(uuid => `<span class="modal-uuid">${escapeHtml(uuid)}</span>`).join('')}
+                </div>
+            </div>
+            ` : ''}
+
+            ${device.heuristics ? `
+            <div class="modal-section">
+                <div class="modal-section-title">Behavioral Analysis</div>
+                <div class="modal-heuristics-grid">
+                    ${Object.entries(device.heuristics).map(([key, value]) => `
+                        <div class="heuristic-check ${value ? 'active' : ''}">
+                            <span class="heuristic-indicator">${value ? '✓' : '−'}</span>
+                            <span class="heuristic-label">${escapeHtml(key.replace(/_/g, ' '))}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+        `;
     }
 
     /**
