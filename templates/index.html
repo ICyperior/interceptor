@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/device-cards.css') }}">
 </head>
 
 <body>
@@ -1483,6 +1484,11 @@
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/rf-adapter.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/bluetooth-adapter.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/wifi-adapter.js') }}"></script>
+    <!-- Bluetooth v2 components -->
+    <script src="{{ url_for('static', filename='js/components/rssi-sparkline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/message-card.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/device-card.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/bluetooth.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/listening-post.js') }}"></script>
 
     <script>

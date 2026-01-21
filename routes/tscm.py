@@ -54,6 +54,13 @@ from utils.tscm.device_identity import (
     ingest_wifi_dict,
 )
 
+# Import unified Bluetooth scanner helper for TSCM integration
+try:
+    from routes.bluetooth_v2 import get_tscm_bluetooth_snapshot
+    _USE_UNIFIED_BT_SCANNER = True
+except ImportError:
+    _USE_UNIFIED_BT_SCANNER = False
+
 logger = logging.getLogger('intercept.tscm')
 
 tscm_bp = Blueprint('tscm', __name__, url_prefix='/tscm')
@@ -1322,7 +1329,11 @@ def _run_sweep(
             # Perform Bluetooth scan
             if bt_enabled and (current_time - last_bt_scan) >= bt_scan_interval:
                 try:
-                    bt_devices = _scan_bluetooth_devices(bt_interface, duration=8)
+                    # Use unified Bluetooth scanner if available
+                    if _USE_UNIFIED_BT_SCANNER:
+                        bt_devices = get_tscm_bluetooth_snapshot(bt_interface, duration=8)
+                    else:
+                        bt_devices = _scan_bluetooth_devices(bt_interface, duration=8)
                     for device in bt_devices:
                         mac = device.get('mac', '')
                         if mac and mac not in all_bt:
