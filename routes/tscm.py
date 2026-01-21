@@ -636,166 +636,41 @@ def get_tscm_devices():
 
 
 def _scan_wifi_networks(interface: str) -> list[dict]:
-    """Scan for WiFi networks using system tools."""
-    import platform
-    import re
-    import subprocess
+    """
+    Scan for WiFi networks using the unified WiFi scanner.
 
-    networks = []
+    This is a facade that maintains backwards compatibility with TSCM
+    while using the new unified scanner module.
 
-    if platform.system() == 'Darwin':
-        # macOS: Use airport utility
-        airport_path = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
-        try:
-            result = subprocess.run(
-                [airport_path, '-s'],
-                capture_output=True, text=True, timeout=15
-            )
-            # Parse airport output
-            # Format: SSID BSSID RSSI CHANNEL HT CC SECURITY
-            lines = result.stdout.strip().split('\n')
-            for line in lines[1:]:  # Skip header
-                if not line.strip():
-                    continue
-                # Parse the line - format is space-separated but SSID can have spaces
-                parts = line.split()
-                if len(parts) >= 7:
-                    # BSSID is always XX:XX:XX:XX:XX:XX format
-                    bssid_idx = None
-                    for i, p in enumerate(parts):
-                        if re.match(r'^[0-9a-fA-F:]{17}$', p):
-                            bssid_idx = i
-                            break
-                    if bssid_idx is not None:
-                        ssid = ' '.join(parts[:bssid_idx]) if bssid_idx > 0 else '[Hidden]'
-                        bssid = parts[bssid_idx]
-                        rssi = parts[bssid_idx + 1] if len(parts) > bssid_idx + 1 else '-100'
-                        channel = parts[bssid_idx + 2] if len(parts) > bssid_idx + 2 else '0'
-                        security = ' '.join(parts[bssid_idx + 5:]) if len(parts) > bssid_idx + 5 else ''
-                        networks.append({
-                            'bssid': bssid.upper(),
-                            'essid': ssid or '[Hidden]',
-                            'power': rssi,
-                            'channel': channel,
-                            'privacy': security
-                        })
-        except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            logger.warning(f"macOS WiFi scan failed: {e}")
+    Args:
+        interface: WiFi interface name (optional).
 
-    else:
-        # Linux: Try multiple scan methods
-        import shutil
+    Returns:
+        List of network dicts with: bssid, essid, power, channel, privacy
+    """
+    try:
+        from utils.wifi import get_wifi_scanner
 
-        # Detect wireless interface if not specified
-        if not interface:
-            try:
-                import glob
-                wireless_paths = glob.glob('/sys/class/net/*/wireless')
-                if wireless_paths:
-                    iface = wireless_paths[0].split('/')[4]
-                else:
-                    iface = 'wlan0'
-            except Exception:
-                iface = 'wlan0'
-        else:
-            iface = interface
+        scanner = get_wifi_scanner()
+        result = scanner.quick_scan(interface=interface, timeout=15)
 
-        logger.info(f"WiFi scan using interface: {iface}")
+        if result.error:
+            logger.warning(f"WiFi scan error: {result.error}")
 
-        # Method 1: Try iw scan (sometimes works without root)
-        if shutil.which('iw'):
-            try:
-                logger.info("Trying 'iw' scan...")
-                result = subprocess.run(
-                    ['iw', 'dev', iface, 'scan'],
-                    capture_output=True, text=True, timeout=30
-                )
-                if result.returncode == 0 and 'BSS' in result.stdout:
-                    # Parse iw output
-                    current_bss = None
-                    for line in result.stdout.split('\n'):
-                        if line.startswith('BSS '):
-                            if current_bss and current_bss.get('bssid'):
-                                networks.append(current_bss)
-                            # Extract BSSID from "BSS xx:xx:xx:xx:xx:xx(on wlan0)"
-                            bssid_match = re.search(r'BSS ([0-9a-fA-F:]{17})', line)
-                            if bssid_match:
-                                current_bss = {'bssid': bssid_match.group(1).upper(), 'essid': '[Hidden]'}
-                        elif current_bss:
-                            line = line.strip()
-                            if line.startswith('SSID:'):
-                                ssid = line[5:].strip()
-                                current_bss['essid'] = ssid or '[Hidden]'
-                            elif line.startswith('signal:'):
-                                sig_match = re.search(r'(-?\d+)', line)
-                                if sig_match:
-                                    current_bss['power'] = sig_match.group(1)
-                            elif line.startswith('freq:'):
-                                freq = line[5:].strip()
-                                # Convert frequency to channel
-                                try:
-                                    freq_mhz = int(freq)
-                                    if freq_mhz < 3000:
-                                        channel = (freq_mhz - 2407) // 5
-                                    else:
-                                        channel = (freq_mhz - 5000) // 5
-                                    current_bss['channel'] = str(channel)
-                                except ValueError:
-                                    pass
-                            elif 'WPA' in line or 'RSN' in line:
-                                current_bss['privacy'] = 'WPA2' if 'RSN' in line else 'WPA'
-                    if current_bss and current_bss.get('bssid'):
-                        networks.append(current_bss)
-                    logger.info(f"iw scan found {len(networks)} networks")
-                elif 'Operation not permitted' in result.stderr or result.returncode != 0:
-                    logger.warning(f"iw scan requires root: {result.stderr[:100]}")
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-                logger.warning(f"iw scan failed: {e}")
+        # Convert to legacy format for TSCM
+        networks = []
+        for ap in result.access_points:
+            networks.append(ap.to_legacy_dict())
 
-        # Method 2: Try iwlist scan if iw didn't work
-        if not networks and shutil.which('iwlist'):
-            try:
-                logger.info("Trying 'iwlist' scan...")
-                result = subprocess.run(
-                    ['iwlist', iface, 'scan'],
-                    capture_output=True, text=True, timeout=30
-                )
-                if 'Operation not permitted' in result.stderr:
-                    logger.warning("iwlist scan requires root privileges")
-                else:
-                    current_network = {}
-                    for line in result.stdout.split('\n'):
-                        line = line.strip()
-                        if 'Cell' in line and 'Address:' in line:
-                            if current_network.get('bssid'):
-                                networks.append(current_network)
-                            bssid = line.split('Address:')[1].strip()
-                            current_network = {'bssid': bssid.upper(), 'essid': '[Hidden]'}
-                        elif 'ESSID:' in line:
-                            essid = line.split('ESSID:')[1].strip().strip('"')
-                            current_network['essid'] = essid or '[Hidden]'
-                        elif 'Channel:' in line:
-                            channel = line.split('Channel:')[1].strip()
-                            current_network['channel'] = channel
-                        elif 'Signal level=' in line:
-                            match = re.search(r'Signal level[=:]?\s*(-?\d+)', line)
-                            if match:
-                                current_network['power'] = match.group(1)
-                        elif 'Encryption key:' in line:
-                            encrypted = 'on' in line.lower()
-                            current_network['encrypted'] = encrypted
-                        elif 'WPA' in line or 'WPA2' in line:
-                            current_network['privacy'] = 'WPA2' if 'WPA2' in line else 'WPA'
-                    if current_network.get('bssid'):
-                        networks.append(current_network)
-                    logger.info(f"iwlist scan found {len(networks)} networks")
-            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-                logger.warning(f"iwlist scan failed: {e}")
+        logger.info(f"WiFi scan found {len(networks)} networks")
+        return networks
 
-        if not networks:
-            logger.warning("WiFi scanning requires root privileges. Run with sudo for WiFi scanning.")
-
-    return networks
+    except ImportError as e:
+        logger.error(f"Failed to import wifi scanner: {e}")
+        return []
+    except Exception as e:
+        logger.exception(f"WiFi scan failed: {e}")
+        return []
 
 
 def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
