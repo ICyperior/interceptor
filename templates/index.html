@@ -773,56 +773,59 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Proximity Radar -->
-                        <div class="wifi-visual-panel bt-radar-panel">
-                            <h5>Proximity Radar</h5>
-                            <div id="btProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
-                            <div id="btRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
-                                <button data-filter="newOnly" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">New Only</button>
-                                <button data-filter="strongest" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Strongest</button>
-                                <button data-filter="unapproved" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Unapproved</button>
-                                <button id="btRadarPauseBtn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Pause</button>
-                            </div>
-                            <div id="btZoneSummary" style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 11px;">
-                                <div style="text-align: center;">
-                                    <span id="btZoneImmediate" style="font-size: 20px; font-weight: 600; color: #22c55e;">0</span>
-                                    <div style="color: #666;">Immediate</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span id="btZoneNear" style="font-size: 20px; font-weight: 600; color: #eab308;">0</span>
-                                    <div style="color: #666;">Near</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span id="btZoneFar" style="font-size: 20px; font-weight: 600; color: #ef4444;">0</span>
-                                    <div style="color: #666;">Far</div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Bottom row: Tracker Detection + Signal Distribution -->
-                        <div class="bt-bottom-panels">
-                            <div class="wifi-visual-panel bt-compact-panel">
-                                <h5>Tracker Detection</h5>
-                                <div id="btTrackerList" style="font-size: 11px;">
-                                    <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles...</div>
-                                </div>
-                            </div>
-                            <div class="wifi-visual-panel bt-compact-panel">
-                                <h5>Signal Distribution</h5>
-                                <div class="bt-signal-dist" id="btSignalDist">
-                                    <div class="signal-range"><span>Strong (-50+)</span>
-                                        <div class="signal-bar-bg">
-                                            <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
-                                        </div><span id="btSignalStrongCount">0</span>
+                        <!-- Main area: Side panels + Radar -->
+                        <div class="bt-main-area">
+                            <!-- Left side panels -->
+                            <div class="bt-side-panels">
+                                <div class="wifi-visual-panel bt-side-panel">
+                                    <h5>Tracker Detection</h5>
+                                    <div id="btTrackerList" style="font-size: 11px;">
+                                        <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles...</div>
                                     </div>
-                                    <div class="signal-range"><span>Medium (-70)</span>
-                                        <div class="signal-bar-bg">
-                                            <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
-                                        </div><span id="btSignalMediumCount">0</span>
+                                </div>
+                                <div class="wifi-visual-panel bt-side-panel">
+                                    <h5>Signal Distribution</h5>
+                                    <div class="bt-signal-dist" id="btSignalDist">
+                                        <div class="signal-range"><span>Strong (-50+)</span>
+                                            <div class="signal-bar-bg">
+                                                <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
+                                            </div><span id="btSignalStrongCount">0</span>
+                                        </div>
+                                        <div class="signal-range"><span>Medium (-70)</span>
+                                            <div class="signal-bar-bg">
+                                                <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
+                                            </div><span id="btSignalMediumCount">0</span>
+                                        </div>
+                                        <div class="signal-range"><span>Weak (-90)</span>
+                                            <div class="signal-bar-bg">
+                                                <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
+                                            </div><span id="btSignalWeakCount">0</span>
+                                        </div>
                                     </div>
-                                    <div class="signal-range"><span>Weak (-90)</span>
-                                        <div class="signal-bar-bg">
-                                            <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
-                                        </div><span id="btSignalWeakCount">0</span>
+                                </div>
+                            </div>
+                            <!-- Proximity Radar -->
+                            <div class="wifi-visual-panel bt-radar-panel">
+                                <h5>Proximity Radar</h5>
+                                <div id="btProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
+                                <div id="btRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
+                                    <button data-filter="newOnly" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">New Only</button>
+                                    <button data-filter="strongest" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Strongest</button>
+                                    <button data-filter="unapproved" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Unapproved</button>
+                                    <button id="btRadarPauseBtn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Pause</button>
+                                </div>
+                                <div id="btZoneSummary" style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 11px;">
+                                    <div style="text-align: center;">
+                                        <span id="btZoneImmediate" style="font-size: 20px; font-weight: 600; color: #22c55e;">0</span>
+                                        <div style="color: #666;">Immediate</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <span id="btZoneNear" style="font-size: 20px; font-weight: 600; color: #eab308;">0</span>
+                                        <div style="color: #666;">Near</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <span id="btZoneFar" style="font-size: 20px; font-weight: 600; color: #ef4444;">0</span>
+                                        <div style="color: #666;">Far</div>
                                     </div>
                                 </div>
                             </div>

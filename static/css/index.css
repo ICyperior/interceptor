@@ -3277,6 +3277,27 @@ header h1 .tagline {
     min-width: 0;
 }
 
+.bt-main-area {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+}
+
+.bt-side-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 220px;
+    flex-shrink: 0;
+}
+
+.bt-side-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .bt-radar-panel {
     flex: 1;
     min-height: 0;
@@ -3289,19 +3310,9 @@ header h1 .tagline {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-}
-
-.bt-bottom-panels {
     display: flex;
-    gap: 12px;
-    flex-shrink: 0;
-    max-height: 120px;
-}
-
-.bt-compact-panel {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Bluetooth Device Detail Panel */
