@@ -1004,6 +1004,10 @@
                                         style="padding: 8px 12px; font-size: 11px;">-1</button>
                                     <button class="tune-btn" onclick="tuneFreq(-0.1)"
                                         style="padding: 8px 12px; font-size: 11px;">-.1</button>
+                                    <button class="tune-btn" onclick="tuneFreq(-0.05)"
+                                        style="padding: 8px 12px; font-size: 11px;">-.05</button>
+                                    <button class="tune-btn" onclick="tuneFreq(-0.005)"
+                                        style="padding: 8px 12px; font-size: 10px;">-.005</button>
                                 </div>
 
                                 <!-- Main Tuning Dial -->
@@ -1013,14 +1017,22 @@
                                     <div
                                         style="font-size: 9px; color: var(--text-muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">
                                         Tune</div>
+                                    <div
+                                        style="font-size: 8px; color: var(--text-muted); margin-top: 3px; opacity: 0.6;"
+                                        title="Arrow keys: &#177;0.05/0.1 MHz&#10;Shift+Arrow: &#177;0.005/1 MHz">
+                                        &#9000; arrow keys</div>
                                 </div>
 
                                 <!-- Fine Tune Buttons (Right of dial) -->
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <button class="tune-btn" onclick="tuneFreq(0.1)"
-                                        style="padding: 8px 12px; font-size: 11px;">+.1</button>
                                     <button class="tune-btn" onclick="tuneFreq(1)"
                                         style="padding: 8px 12px; font-size: 11px;">+1</button>
+                                    <button class="tune-btn" onclick="tuneFreq(0.1)"
+                                        style="padding: 8px 12px; font-size: 11px;">+.1</button>
+                                    <button class="tune-btn" onclick="tuneFreq(0.05)"
+                                        style="padding: 8px 12px; font-size: 11px;">+.05</button>
+                                    <button class="tune-btn" onclick="tuneFreq(0.005)"
+                                        style="padding: 8px 12px; font-size: 10px;">+.005</button>
                                 </div>
 
                                 <!-- Divider -->

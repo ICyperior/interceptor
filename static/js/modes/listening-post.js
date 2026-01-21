@@ -1542,6 +1542,44 @@ function initListeningPost() {
             audioReconnectAttempts = 0;
         });
     }
+
+    // Keyboard controls for frequency tuning
+    document.addEventListener('keydown', function(e) {
+        // Only active in listening mode
+        if (typeof currentMode !== 'undefined' && currentMode !== 'listening') {
+            return;
+        }
+
+        // Don't intercept if user is typing in an input
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+            return;
+        }
+
+        // Arrow keys for tuning
+        // Up/Down: fine tuning (Shift for ultra-fine)
+        // Left/Right: coarse tuning (Shift for very coarse)
+        let delta = 0;
+        switch (e.key) {
+            case 'ArrowUp':
+                delta = e.shiftKey ? 0.005 : 0.05;
+                break;
+            case 'ArrowDown':
+                delta = e.shiftKey ? -0.005 : -0.05;
+                break;
+            case 'ArrowRight':
+                delta = e.shiftKey ? 1 : 0.1;
+                break;
+            case 'ArrowLeft':
+                delta = e.shiftKey ? -1 : -0.1;
+                break;
+            default:
+                return; // Not a tuning key
+        }
+
+        e.preventDefault();
+        tuneFreq(delta);
+    });
 }
 
 // Initialize when DOM is ready
@@ -1940,8 +1978,10 @@ function tuneFreq(delta) {
     const freqInput = document.getElementById('radioScanStart');
     if (freqInput) {
         let newFreq = parseFloat(freqInput.value) + delta;
+        // Round to 3 decimal places to avoid floating-point precision issues
+        newFreq = Math.round(newFreq * 1000) / 1000;
         newFreq = Math.max(24, Math.min(1800, newFreq));
-        freqInput.value = newFreq.toFixed(1);
+        freqInput.value = newFreq.toFixed(3);
 
         // Update display
         const freqDisplay = document.getElementById('mainScannerFreq');
