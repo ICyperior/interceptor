@@ -32,6 +32,7 @@ const ProximityRadar = (function() {
     let isPaused = false;
     let activeFilter = null;
     let onDeviceClick = null;
+    let selectedDeviceKey = null;
 
     /**
      * Initialize the radar component
@@ -204,14 +205,19 @@ const ProximityRadar = (function() {
             // Check if newly seen (pulse animation)
             const isNew = device.age_seconds < 5;
             const pulseClass = isNew ? 'radar-dot-pulse' : '';
+            const isSelected = selectedDeviceKey && device.device_key === selectedDeviceKey;
 
             return `
-                <g class="radar-device ${pulseClass}" data-device-key="${escapeAttr(device.device_key)}"
+                <g class="radar-device ${pulseClass}${isSelected ? ' selected' : ''}" data-device-key="${escapeAttr(device.device_key)}"
                    transform="translate(${x}, ${y})" style="cursor: pointer;">
+                    ${isSelected ? `<circle r="${dotSize + 8}" fill="none" stroke="#00d4ff" stroke-width="2" stroke-opacity="0.8">
+                        <animate attributeName="r" values="${dotSize + 6};${dotSize + 10};${dotSize + 6}" dur="1.5s" repeatCount="indefinite"/>
+                        <animate attributeName="stroke-opacity" values="0.8;0.4;0.8" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>` : ''}
                     <circle r="${dotSize}" fill="${color}"
-                            fill-opacity="${0.4 + confidence * 0.5}"
-                            stroke="${color}" stroke-width="1" />
-                    ${device.is_new ? `<circle r="${dotSize + 3}" fill="none" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2,2" />` : ''}
+                            fill-opacity="${isSelected ? 1 : 0.4 + confidence * 0.5}"
+                            stroke="${isSelected ? '#00d4ff' : color}" stroke-width="${isSelected ? 2 : 1}" />
+                    ${device.is_new && !isSelected ? `<circle r="${dotSize + 3}" fill="none" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2,2" />` : ''}
                     <title>${escapeHtml(device.name || device.address)} (${device.rssi_current || '--'} dBm)</title>
                 </g>
             `;
@@ -306,6 +312,23 @@ const ProximityRadar = (function() {
      */
     function clear() {
         devices.clear();
+        selectedDeviceKey = null;
+        renderDevices();
+    }
+
+    /**
+     * Highlight a specific device on the radar
+     */
+    function highlightDevice(deviceKey) {
+        selectedDeviceKey = deviceKey;
+        renderDevices();
+    }
+
+    /**
+     * Clear device highlighting
+     */
+    function clearHighlight() {
+        selectedDeviceKey = null;
         renderDevices();
     }
 
@@ -356,8 +379,11 @@ const ProximityRadar = (function() {
         setPaused,
         clear,
         getZoneCounts,
+        highlightDevice,
+        clearHighlight,
         isPaused: () => isPaused,
         getFilter: () => activeFilter,
+        getSelectedDevice: () => selectedDeviceKey,
     };
 })();
 

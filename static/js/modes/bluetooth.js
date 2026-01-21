@@ -385,6 +385,11 @@ const BluetoothMode = (function() {
                 el.classList.remove('selected');
             });
         }
+
+        // Clear radar highlight
+        if (typeof ProximityRadar !== 'undefined') {
+            ProximityRadar.clearHighlight();
+        }
     }
 
     /**
@@ -403,6 +408,12 @@ const BluetoothMode = (function() {
         const card = deviceContainer.querySelector(`[data-bt-device-id="${escapedId}"]`);
         if (card) {
             card.classList.add('selected');
+        }
+
+        // Also highlight on the radar
+        const device = devices.get(deviceId);
+        if (device && typeof ProximityRadar !== 'undefined') {
+            ProximityRadar.highlightDevice(device.device_key || device.device_id);
         }
     }
 
