@@ -300,29 +300,54 @@ class UnifiedWiFiScanner:
         result.interface = iface
 
         # Select and run parser based on platform/tools
+        # Try multiple tools with fallback on Linux
         observations = []
         tool_used = None
+        errors_encountered = []
 
         try:
             if self._capabilities.platform == 'darwin':
                 if self._capabilities.has_airport:
                     observations = self._scan_with_airport(iface, timeout)
                     tool_used = 'airport'
-            else:  # Linux
+                else:
+                    result.error = "No WiFi scanning tool available on macOS (airport not found)"
+                    result.is_complete = True
+                    return result
+            else:  # Linux - try tools in order with fallback
+                tools_to_try = []
                 if self._capabilities.has_nmcli:
-                    observations = self._scan_with_nmcli(iface, timeout)
-                    tool_used = 'nmcli'
-                elif self._capabilities.has_iw:
-                    observations = self._scan_with_iw(iface, timeout)
-                    tool_used = 'iw'
-                elif self._capabilities.has_iwlist:
-                    observations = self._scan_with_iwlist(iface, timeout)
-                    tool_used = 'iwlist'
+                    tools_to_try.append(('nmcli', self._scan_with_nmcli))
+                if self._capabilities.has_iw:
+                    tools_to_try.append(('iw', self._scan_with_iw))
+                if self._capabilities.has_iwlist:
+                    tools_to_try.append(('iwlist', self._scan_with_iwlist))
 
-            if not tool_used:
-                result.error = "No WiFi scanning tool available"
-                result.is_complete = True
-                return result
+                if not tools_to_try:
+                    result.error = "No WiFi scanning tools available. Install NetworkManager (nmcli) or wireless-tools (iw/iwlist)."
+                    result.is_complete = True
+                    return result
+
+                for tool_name, scan_func in tools_to_try:
+                    try:
+                        logger.info(f"Attempting quick scan with {tool_name} on {iface}")
+                        observations = scan_func(iface, timeout)
+                        tool_used = tool_name
+                        logger.info(f"Quick scan with {tool_name} found {len(observations)} networks")
+                        break  # Success, stop trying other tools
+                    except Exception as e:
+                        error_msg = f"{tool_name}: {str(e)}"
+                        errors_encountered.append(error_msg)
+                        logger.warning(f"Quick scan with {tool_name} failed: {e}")
+                        continue  # Try next tool
+
+                if not tool_used:
+                    # All tools failed
+                    result.error = "All scan tools failed. " + "; ".join(errors_encountered)
+                    if not self._capabilities.is_root:
+                        result.error += " (Note: iw/iwlist require root privileges)"
+                    result.is_complete = True
+                    return result
 
             # Process observations into access points
             for obs in observations:
@@ -332,9 +357,15 @@ class UnifiedWiFiScanner:
             with self._lock:
                 result.access_points = list(self._access_points.values())
 
+            # Add warnings for tools that failed before one succeeded
+            for err in errors_encountered:
+                result.warnings.append(err)
+
             # Generate channel stats
             result.channel_stats = self._calculate_channel_stats()
             result.recommendations = self._generate_recommendations(result.channel_stats)
+
+            logger.info(f"Quick scan complete: {len(result.access_points)} networks found using {tool_used}")
 
         except subprocess.TimeoutExpired:
             result.error = f"Scan timed out after {timeout}s"
@@ -383,14 +414,21 @@ class UnifiedWiFiScanner:
         from .parsers.nmcli import parse_nmcli_scan
 
         try:
-            # Trigger a rescan first
-            subprocess.run(
+            # Try to trigger a rescan first (might fail if interface not managed by NM)
+            rescan_result = subprocess.run(
                 ['nmcli', 'device', 'wifi', 'rescan', 'ifname', interface],
                 capture_output=True,
                 timeout=timeout / 2,
             )
+            if rescan_result.returncode != 0:
+                # Try without interface specification
+                subprocess.run(
+                    ['nmcli', 'device', 'wifi', 'rescan'],
+                    capture_output=True,
+                    timeout=timeout / 2,
+                )
 
-            # Get results
+            # Get results - try with interface first, then without
             result = subprocess.run(
                 ['nmcli', '-t', '-f', 'BSSID,SSID,MODE,CHAN,FREQ,RATE,SIGNAL,SECURITY', 'device', 'wifi', 'list', 'ifname', interface],
                 capture_output=True,
@@ -398,10 +436,28 @@ class UnifiedWiFiScanner:
                 timeout=timeout,
             )
 
+            # If interface-specific scan failed, try general scan
+            if result.returncode != 0 or not result.stdout.strip():
+                logger.debug(f"nmcli scan with interface {interface} failed, trying general scan")
+                result = subprocess.run(
+                    ['nmcli', '-t', '-f', 'BSSID,SSID,MODE,CHAN,FREQ,RATE,SIGNAL,SECURITY', 'device', 'wifi', 'list'],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+
             if result.returncode != 0:
                 error_msg = result.stderr.strip() or f"nmcli returned code {result.returncode}"
-                logger.warning(f"nmcli scan failed: {error_msg}")
-                raise RuntimeError(f"nmcli scan failed: {error_msg}")
+                # Check for common issues
+                if 'not running' in error_msg.lower():
+                    raise RuntimeError("NetworkManager is not running")
+                elif 'not found' in error_msg.lower() or 'no such' in error_msg.lower():
+                    raise RuntimeError(f"Interface {interface} not found or not managed by NetworkManager")
+                else:
+                    raise RuntimeError(f"nmcli scan failed: {error_msg}")
+
+            if not result.stdout.strip():
+                raise RuntimeError("nmcli returned no results (WiFi might be disabled or no networks in range)")
 
             return parse_nmcli_scan(result.stdout)
         except subprocess.TimeoutExpired:
@@ -413,36 +469,56 @@ class UnifiedWiFiScanner:
         """Scan using iw."""
         from .parsers.iw import parse_iw_scan
 
-        result = subprocess.run(
-            ['iw', interface, 'scan'],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        try:
+            result = subprocess.run(
+                ['iw', interface, 'scan'],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
 
-        if result.returncode != 0:
-            # May need root
-            logger.warning(f"iw scan failed: {result.stderr}")
-            return []
+            if result.returncode != 0:
+                error_msg = result.stderr.strip() or f"iw returned code {result.returncode}"
+                # Check for common errors
+                if 'Operation not permitted' in error_msg or 'Permission denied' in error_msg:
+                    raise RuntimeError(f"iw scan requires root privileges: {error_msg}")
+                elif 'Network is down' in error_msg:
+                    raise RuntimeError(f"Interface {interface} is down: {error_msg}")
+                else:
+                    raise RuntimeError(f"iw scan failed: {error_msg}")
 
-        return parse_iw_scan(result.stdout)
+            return parse_iw_scan(result.stdout)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"iw scan timed out after {timeout}s")
+        except FileNotFoundError:
+            raise RuntimeError("iw not found (wireless-tools not installed)")
 
     def _scan_with_iwlist(self, interface: str, timeout: float) -> list[WiFiObservation]:
         """Scan using iwlist."""
         from .parsers.iwlist import parse_iwlist_scan
 
-        result = subprocess.run(
-            ['iwlist', interface, 'scan'],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        try:
+            result = subprocess.run(
+                ['iwlist', interface, 'scan'],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
 
-        if result.returncode != 0:
-            logger.warning(f"iwlist scan failed: {result.stderr}")
-            return []
+            if result.returncode != 0:
+                error_msg = result.stderr.strip() or f"iwlist returned code {result.returncode}"
+                if 'Operation not permitted' in error_msg or 'Permission denied' in error_msg:
+                    raise RuntimeError(f"iwlist scan requires root privileges: {error_msg}")
+                elif 'Network is down' in error_msg:
+                    raise RuntimeError(f"Interface {interface} is down: {error_msg}")
+                else:
+                    raise RuntimeError(f"iwlist scan failed: {error_msg}")
 
-        return parse_iwlist_scan(result.stdout)
+            return parse_iwlist_scan(result.stdout)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"iwlist scan timed out after {timeout}s")
+        except FileNotFoundError:
+            raise RuntimeError("iwlist not found (wireless-tools not installed)")
 
     # =========================================================================
     # Deep Scan (airodump-ng)

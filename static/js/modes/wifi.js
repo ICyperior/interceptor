@@ -302,16 +302,30 @@ const WiFiMode = (function() {
             const result = await response.json();
             console.log('[WiFiMode] Quick scan complete:', result);
 
-            // Check if we got results
-            if (!result.access_points || result.access_points.length === 0) {
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-                // No error but no results - might need different tool
-                console.warn('[WiFiMode] Quick scan returned no networks. Try Deep Scan instead.');
-                showError('Quick scan found no networks. System tools may not be available. Try Deep Scan with monitor mode.');
+            // Check for error first
+            if (result.error) {
+                console.error('[WiFiMode] Quick scan error from server:', result.error);
+                showError(result.error);
                 setScanning(false);
                 return;
+            }
+
+            // Check if we got results
+            if (!result.access_points || result.access_points.length === 0) {
+                // No error but no results
+                let msg = 'Quick scan found no networks in range.';
+                if (result.warnings && result.warnings.length > 0) {
+                    msg += ' Warnings: ' + result.warnings.join('; ');
+                }
+                console.warn('[WiFiMode] ' + msg);
+                showError(msg + ' Try Deep Scan with monitor mode.');
+                setScanning(false);
+                return;
+            }
+
+            // Show any warnings even on success
+            if (result.warnings && result.warnings.length > 0) {
+                console.warn('[WiFiMode] Quick scan warnings:', result.warnings);
             }
 
             // Process results
