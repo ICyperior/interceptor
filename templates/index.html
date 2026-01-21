@@ -706,9 +706,9 @@
                 <!-- Bluetooth Layout Container (visualizations left, device cards right) -->
                 <div class="bt-layout-container" id="btLayoutContainer" style="display: none;">
                     <!-- Left: Bluetooth Visualizations -->
-                    <div class="wifi-visuals" id="btVisuals">
-                        <!-- Row 1: Proximity Radar + Device Types -->
-                        <div class="wifi-visual-panel" style="grid-row: span 2;">
+                    <div class="bt-visuals-column" id="btVisuals">
+                        <!-- Proximity Radar -->
+                        <div class="wifi-visual-panel bt-radar-panel">
                             <h5>Proximity Radar</h5>
                             <div id="btProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
                             <div id="btRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
@@ -717,46 +717,47 @@
                                 <button data-filter="unapproved" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Unapproved</button>
                                 <button id="btRadarPauseBtn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Pause</button>
                             </div>
-                            <div id="btZoneSummary" style="display: flex; justify-content: center; gap: 16px; margin-top: 12px; font-size: 11px;">
+                            <div id="btZoneSummary" style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 11px;">
                                 <div style="text-align: center;">
-                                    <span id="btZoneImmediate" style="font-size: 18px; font-weight: 600; color: #22c55e;">0</span>
+                                    <span id="btZoneImmediate" style="font-size: 20px; font-weight: 600; color: #22c55e;">0</span>
                                     <div style="color: #666;">Immediate</div>
                                 </div>
                                 <div style="text-align: center;">
-                                    <span id="btZoneNear" style="font-size: 18px; font-weight: 600; color: #eab308;">0</span>
+                                    <span id="btZoneNear" style="font-size: 20px; font-weight: 600; color: #eab308;">0</span>
                                     <div style="color: #666;">Near</div>
                                 </div>
                                 <div style="text-align: center;">
-                                    <span id="btZoneFar" style="font-size: 18px; font-weight: 600; color: #ef4444;">0</span>
+                                    <span id="btZoneFar" style="font-size: 20px; font-weight: 600; color: #ef4444;">0</span>
                                     <div style="color: #666;">Far</div>
                                 </div>
                             </div>
                         </div>
-                        <!-- Row 2: Tracker Detection + Signal Analysis -->
-                        <div class="wifi-visual-panel">
-                            <h5>Tracker Detection</h5>
-                            <div id="btTrackerList" style="max-height: 120px; overflow-y: auto; font-size: 11px;">
-                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for
-                                    AirTags, Tiles...</div>
+                        <!-- Bottom row: Tracker Detection + Signal Distribution -->
+                        <div class="bt-bottom-panels">
+                            <div class="wifi-visual-panel bt-compact-panel">
+                                <h5>Tracker Detection</h5>
+                                <div id="btTrackerList" style="font-size: 11px;">
+                                    <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles...</div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="wifi-visual-panel">
-                            <h5>Signal Distribution</h5>
-                            <div class="bt-signal-dist" id="btSignalDist">
-                                <div class="signal-range"><span>Strong (-50+)</span>
-                                    <div class="signal-bar-bg">
-                                        <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
-                                    </div><span id="btSignalStrongCount">0</span>
-                                </div>
-                                <div class="signal-range"><span>Medium (-70)</span>
-                                    <div class="signal-bar-bg">
-                                        <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
-                                    </div><span id="btSignalMediumCount">0</span>
-                                </div>
-                                <div class="signal-range"><span>Weak (-90)</span>
-                                    <div class="signal-bar-bg">
-                                        <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
-                                    </div><span id="btSignalWeakCount">0</span>
+                            <div class="wifi-visual-panel bt-compact-panel">
+                                <h5>Signal Distribution</h5>
+                                <div class="bt-signal-dist" id="btSignalDist">
+                                    <div class="signal-range"><span>Strong (-50+)</span>
+                                        <div class="signal-bar-bg">
+                                            <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
+                                        </div><span id="btSignalStrongCount">0</span>
+                                    </div>
+                                    <div class="signal-range"><span>Medium (-70)</span>
+                                        <div class="signal-bar-bg">
+                                            <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
+                                        </div><span id="btSignalMediumCount">0</span>
+                                    </div>
+                                    <div class="signal-range"><span>Weak (-90)</span>
+                                        <div class="signal-bar-bg">
+                                            <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
+                                        </div><span id="btSignalWeakCount">0</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -766,6 +767,12 @@
                         <div class="wifi-device-list-header">
                             <h5>Bluetooth Devices</h5>
                             <span class="device-count">(<span id="btDeviceListCount">0</span>)</span>
+                        </div>
+                        <div class="bt-device-filters" id="btDeviceFilters">
+                            <button class="bt-filter-btn active" data-filter="all">All</button>
+                            <button class="bt-filter-btn" data-filter="new">New</button>
+                            <button class="bt-filter-btn" data-filter="named">Named</button>
+                            <button class="bt-filter-btn" data-filter="strong">Strong</button>
                         </div>
                         <div class="wifi-device-list-content" id="btDeviceListContent">
                             <div style="color: var(--text-dim); text-align: center; padding: 30px;">

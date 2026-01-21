@@ -3269,8 +3269,28 @@ header h1 .tagline {
     min-height: 400px;
 }
 
-.bt-layout-container .wifi-visuals {
+.bt-visuals-column {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.bt-radar-panel {
+    flex: 1;
+    min-height: 0;
+}
+
+.bt-bottom-panels {
+    display: flex;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.bt-compact-panel {
+    flex: 1;
+    min-width: 0;
 }
 
 .bt-device-list {
@@ -3281,33 +3301,68 @@ header h1 .tagline {
     color: var(--accent-purple);
 }
 
+/* Bluetooth Device Filters */
+.bt-device-filters {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.bt-filter-btn {
+    padding: 5px 12px;
+    font-size: 11px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bt-filter-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.bt-filter-btn.active {
+    background: var(--accent-purple);
+    border-color: var(--accent-purple);
+    color: white;
+}
+
 /* Bluetooth Signal Distribution */
 .bt-signal-dist {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    font-size: 10px;
+    gap: 12px;
+    font-size: 11px;
+    padding: 4px 0;
 }
 
 .signal-range {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .signal-range span:first-child {
-    width: 70px;
+    width: 80px;
     color: var(--text-dim);
+    font-size: 10px;
 }
 
 .signal-range span:last-child {
-    width: 20px;
+    width: 28px;
     text-align: right;
+    font-weight: 600;
+    font-size: 12px;
 }
 
 .signal-bar-bg {
     flex: 1;
-    height: 8px;
+    height: 16px;
     background: var(--bg-tertiary);
     border-radius: 4px;
     overflow: hidden;
@@ -3320,15 +3375,15 @@ header h1 .tagline {
 }
 
 .signal-bar.strong {
-    background: var(--accent-green);
+    background: linear-gradient(90deg, #22c55e, #16a34a);
 }
 
 .signal-bar.medium {
-    background: var(--accent-orange);
+    background: linear-gradient(90deg, #eab308, #ca8a04);
 }
 
 .signal-bar.weak {
-    background: var(--accent-red);
+    background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
 /* Bluetooth Device Cards */
