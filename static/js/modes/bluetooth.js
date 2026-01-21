@@ -37,8 +37,10 @@ const BluetoothMode = (function() {
     let devicePositions = new Map(); // Persistent positions for smooth visualization
     let lastVisualizationUpdate = 0;
     let visualizationTimer = null;
-    const VISUALIZATION_UPDATE_INTERVAL = 100; // ms
-    const VISUALIZATION_REFRESH_INTERVAL = 1000; // 1 second refresh for fading
+    let offscreenCanvas = null; // Double buffering to prevent flicker
+    let offscreenCtx = null;
+    const VISUALIZATION_UPDATE_INTERVAL = 150; // ms
+    const VISUALIZATION_REFRESH_INTERVAL = 2000; // 2 second refresh for fading
     const DEVICE_STALE_THRESHOLD = 30000; // 30 seconds before device fades
 
     /**
@@ -90,6 +92,12 @@ const BluetoothMode = (function() {
         canvas.width = 180;
         canvas.height = 180;
 
+        // Create offscreen canvas for double buffering (prevents flicker)
+        offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width = canvas.width;
+        offscreenCanvas.height = canvas.height;
+        offscreenCtx = offscreenCanvas.getContext('2d');
+
         drawProximityVisualization();
     }
 
@@ -100,14 +108,22 @@ const BluetoothMode = (function() {
         const canvas = document.getElementById('btRadarCanvas');
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        // Use offscreen canvas for double buffering (prevents flicker)
+        if (!offscreenCanvas || !offscreenCtx) {
+            offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = canvas.width;
+            offscreenCanvas.height = canvas.height;
+            offscreenCtx = offscreenCanvas.getContext('2d');
+        }
+
+        const ctx = offscreenCtx;
         const width = canvas.width;
         const height = canvas.height;
         const centerX = width / 2;
         const centerY = height / 2;
         const maxRadius = Math.min(width, height) / 2 - 10;
 
-        // Clear canvas
+        // Clear offscreen canvas
         ctx.clearRect(0, 0, width, height);
 
         // Define zones with colors
@@ -264,6 +280,10 @@ const BluetoothMode = (function() {
             ctx.fillText('Start scan to', centerX, centerY - 8);
             ctx.fillText('detect devices', centerX, centerY + 8);
         }
+
+        // Copy offscreen canvas to visible canvas in one operation (prevents flicker)
+        const visibleCtx = canvas.getContext('2d');
+        visibleCtx.drawImage(offscreenCanvas, 0, 0);
     }
 
     /**
