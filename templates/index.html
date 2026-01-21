@@ -19,6 +19,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/device-cards.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/proximity-viz.css') }}">
 </head>
 
 <body>
@@ -472,230 +474,176 @@
                             <div style="color: var(--accent-red); cursor: pointer;" onclick="showRogueApDetails()"
                                 title="Click: Rogue AP details"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> <span id="rogueApCount">0</span></div>
                         </div>
-                        <div class="stats" id="btStats" style="display: none;">
-                            <div title="Bluetooth Devices"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span> <span id="btDeviceCount">0</span></div>
-                            <div title="BLE Beacons"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span> <span id="btBeaconCount">0</span></div>
-                        </div>
                         <div class="stats" id="satelliteStats" style="display: none;">
                             <div title="Upcoming Passes"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> <span id="passCount">0</span></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- WiFi Layout Container (visualizations left, device cards right) -->
+                <!-- WiFi Layout Container -->
                 <div class="wifi-layout-container" id="wifiLayoutContainer" style="display: none;">
-                    <!-- Left: WiFi Visualizations -->
-                    <div class="wifi-visuals" id="wifiVisuals">
-                        <!-- Selected WiFi Device Info - at top for visibility -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>Selected Device</h5>
-                            <div id="wifiSelectedDevice" style="font-size: 11px; min-height: 100px;">
-                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a network
-                                    or client to view details</div>
-                            </div>
+                    <!-- Status Bar -->
+                    <div class="wifi-status-bar">
+                        <div class="wifi-status-item">
+                            <span class="wifi-status-label">Networks:</span>
+                            <span class="wifi-status-value" id="wifiNetworkCount">0</span>
                         </div>
-                        <!-- Row 1: Network Radar + Security Overview -->
-                        <div class="wifi-visual-panel">
-                            <h5>Network Radar</h5>
-                            <div class="radar-container">
-                                <canvas id="radarCanvas" width="150" height="150"></canvas>
-                            </div>
+                        <div class="wifi-status-item">
+                            <span class="wifi-status-label">Clients:</span>
+                            <span class="wifi-status-value" id="wifiClientCount">0</span>
                         </div>
-                        <div class="wifi-visual-panel">
-                            <h5>Security Overview</h5>
-                            <div class="security-container">
-                                <div class="security-donut">
-                                    <canvas id="securityCanvas" width="80" height="80"></canvas>
-                                </div>
-                                <div class="security-legend">
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot wpa3"></div>WPA3: <span id="wpa3Count">0</span>
-                                    </div>
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot wpa2"></div>WPA2: <span id="wpa2Count">0</span>
-                                    </div>
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot wep"></div>WEP: <span id="wepCount">0</span>
-                                    </div>
-                                    <div class="security-legend-item">
-                                        <div class="security-legend-dot open"></div>Open: <span id="openCount">0</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="wifi-status-item">
+                            <span class="wifi-status-label">Hidden:</span>
+                            <span class="wifi-status-value" id="wifiHiddenCount">0</span>
                         </div>
-                        <!-- Row 2: Channel Utilization (2.4 GHz + 5 GHz side by side) -->
-                        <div class="wifi-visual-panel">
-                            <h5>Channel Utilization (2.4 GHz)</h5>
-                            <div class="channel-graph" id="channelGraph">
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">1</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">2</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">3</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">4</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">5</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">6</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">7</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">8</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">9</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">10</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">11</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">12</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">13</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="wifi-visual-panel">
-                            <h5>Channel Utilization (5 GHz)</h5>
-                            <div class="channel-graph" id="channelGraph5g" style="font-size: 7px;">
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">36</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">40</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">44</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">48</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">52</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">56</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">60</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">64</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">100</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">149</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">153</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">157</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">161</span>
-                                </div>
-                                <div class="channel-bar-wrapper">
-                                    <div class="channel-bar" style="height: 2px;"></div><span
-                                        class="channel-label">165</span>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Row 3: Channel Recommendation -->
-                        <div class="wifi-visual-panel channel-recommendation" id="channelRecommendation">
-                            <h4>Channel Recommendation</h4>
-                            <div class="rec-text">
-                                <strong>2.4 GHz:</strong> Use channel <span class="rec-channel"
-                                    id="rec24Channel">--</span>
-                                <span id="rec24Reason" style="font-size: 10px; color: var(--text-dim);"></span>
-                            </div>
-                            <div class="rec-text" style="margin-top: 5px;">
-                                <strong>5 GHz:</strong> Use channel <span class="rec-channel" id="rec5Channel">--</span>
-                                <span id="rec5Reason" style="font-size: 10px; color: var(--text-dim);"></span>
-                            </div>
-                        </div>
-                        <!-- Device Correlation -->
-                        <div class="wifi-visual-panel" id="correlationPanel">
-                            <h5>Device Correlation</h5>
-                            <div id="correlationList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
-                                <div style="color: var(--text-dim);">Analyzing WiFi/BT device patterns...</div>
-                            </div>
-                        </div>
-                        <!-- Hidden SSID Revealer -->
-                        <div class="wifi-visual-panel" id="hiddenSsidPanel">
-                            <h5>Hidden SSIDs Revealed</h5>
-                            <div id="hiddenSsidList" style="font-size: 11px; max-height: 100px; overflow-y: auto;">
-                                <div style="color: var(--text-dim);">Monitoring probe requests...</div>
-                            </div>
-                        </div>
-                        <!-- Client Probe Analysis -->
-                        <div class="wifi-visual-panel" id="probeAnalysisPanel" style="grid-column: span 2;">
-                            <h5>Client Probe Analysis</h5>
-                            <div style="display: flex; gap: 10px; margin-bottom: 8px; font-size: 10px;">
-                                <span>Clients: <strong id="probeClientCount">0</strong></span>
-                                <span>Unique SSIDs: <strong id="probeSSIDCount">0</strong></span>
-                                <span>Privacy Leaks: <strong id="probePrivacyCount"
-                                        style="color: var(--accent-orange);">0</strong></span>
-                            </div>
-                            <div id="probeAnalysisList" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
-                                <div style="color: var(--text-dim);">Waiting for client probe requests...</div>
-                            </div>
-                        </div>
-                        <!-- Network Activity Timeline -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <div id="wifiTimelineContainer"></div>
+                        <div class="wifi-status-item" id="wifiScanStatus">
+                            <span class="wifi-status-indicator idle"></span>
+                            <span>Ready</span>
                         </div>
                     </div>
-                    <!-- Right: WiFi Device Cards -->
-                    <div class="wifi-device-list" id="wifiDeviceList">
-                        <div class="wifi-device-list-header">
-                            <h5>Discovered Networks</h5>
-                            <span class="device-count">(<span id="wifiDeviceListCount">0</span>)</span>
+
+                    <!-- Main Content: 3-column layout -->
+                    <div class="wifi-main-content">
+                        <!-- LEFT: Networks Table -->
+                        <div class="wifi-networks-panel">
+                            <div class="wifi-networks-header">
+                                <h5>Discovered Networks</h5>
+                                <div class="wifi-network-filters" id="wifiNetworkFilters">
+                                    <button class="wifi-filter-btn active" data-filter="all">All</button>
+                                    <button class="wifi-filter-btn" data-filter="2.4">2.4G</button>
+                                    <button class="wifi-filter-btn" data-filter="5">5G</button>
+                                    <button class="wifi-filter-btn" data-filter="open">Open</button>
+                                    <button class="wifi-filter-btn" data-filter="hidden">Hidden</button>
+                                </div>
+                            </div>
+                            <div class="wifi-networks-table-wrapper">
+                                <table class="wifi-networks-table" id="wifiNetworkTable">
+                                    <thead>
+                                        <tr>
+                                            <th class="sortable" data-sort="essid">SSID</th>
+                                            <th class="sortable" data-sort="bssid">BSSID</th>
+                                            <th class="sortable" data-sort="channel">Ch</th>
+                                            <th class="sortable" data-sort="rssi">Signal</th>
+                                            <th class="sortable" data-sort="security">Security</th>
+                                            <th class="sortable" data-sort="clients">Clients</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="wifiNetworkTableBody">
+                                        <tr class="wifi-network-placeholder">
+                                            <td colspan="6">
+                                                <div class="placeholder-text">Start scanning to discover networks</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="wifi-device-list-content" id="wifiDeviceListContent">
-                            <div style="color: var(--text-dim); text-align: center; padding: 30px;">
-                                Start scanning to discover WiFi networks
+
+                        <!-- CENTER: Proximity Radar -->
+                        <div class="wifi-radar-panel">
+                            <h5>Proximity Radar</h5>
+                            <div id="wifiProximityRadar" class="wifi-radar-container"></div>
+                            <div class="wifi-zone-summary">
+                                <div class="wifi-zone near">
+                                    <span class="wifi-zone-count" id="wifiZoneImmediate">0</span>
+                                    <span class="wifi-zone-label">Near</span>
+                                </div>
+                                <div class="wifi-zone mid">
+                                    <span class="wifi-zone-count" id="wifiZoneNear">0</span>
+                                    <span class="wifi-zone-label">Mid</span>
+                                </div>
+                                <div class="wifi-zone far">
+                                    <span class="wifi-zone-count" id="wifiZoneFar">0</span>
+                                    <span class="wifi-zone-label">Far</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT: Channel Analysis + Security -->
+                        <div class="wifi-analysis-panel">
+                            <div class="wifi-channel-section">
+                                <h5>Channel Analysis</h5>
+                                <div class="wifi-channel-tabs" id="wifiChannelBandTabs">
+                                    <button class="channel-band-tab active" data-band="2.4">2.4 GHz</button>
+                                    <button class="channel-band-tab" data-band="5">5 GHz</button>
+                                </div>
+                                <div id="wifiChannelChart" class="wifi-channel-chart"></div>
+                            </div>
+                            <div class="wifi-security-section">
+                                <h5>Security Overview</h5>
+                                <div class="wifi-security-stats">
+                                    <div class="wifi-security-item wpa3">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>WPA3</span>
+                                        <span class="wifi-security-count" id="wpa3Count">0</span>
+                                    </div>
+                                    <div class="wifi-security-item wpa2">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>WPA2</span>
+                                        <span class="wifi-security-count" id="wpa2Count">0</span>
+                                    </div>
+                                    <div class="wifi-security-item wep">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>WEP</span>
+                                        <span class="wifi-security-count" id="wepCount">0</span>
+                                    </div>
+                                    <div class="wifi-security-item open">
+                                        <span class="wifi-security-dot"></span>
+                                        <span>Open</span>
+                                        <span class="wifi-security-count" id="openCount">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail Drawer (slides up on network selection) -->
+                    <div class="wifi-detail-drawer" id="wifiDetailDrawer">
+                        <div class="wifi-detail-header">
+                            <div class="wifi-detail-title">
+                                <span class="wifi-detail-essid" id="wifiDetailEssid">Network Name</span>
+                                <span class="wifi-detail-bssid" id="wifiDetailBssid">00:00:00:00:00:00</span>
+                            </div>
+                            <button class="wifi-detail-close" onclick="WiFiMode.closeDetail()">&times;</button>
+                        </div>
+                        <div class="wifi-detail-content" id="wifiDetailContent">
+                            <div class="wifi-detail-grid">
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Signal</span>
+                                    <span class="value" id="wifiDetailRssi">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Channel</span>
+                                    <span class="value" id="wifiDetailChannel">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Band</span>
+                                    <span class="value" id="wifiDetailBand">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Security</span>
+                                    <span class="value" id="wifiDetailSecurity">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Cipher</span>
+                                    <span class="value" id="wifiDetailCipher">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Vendor</span>
+                                    <span class="value" id="wifiDetailVendor">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">Clients</span>
+                                    <span class="value" id="wifiDetailClients">--</span>
+                                </div>
+                                <div class="wifi-detail-stat">
+                                    <span class="label">First Seen</span>
+                                    <span class="value" id="wifiDetailFirstSeen">--</span>
+                                </div>
+                            </div>
+                            <div class="wifi-detail-clients" id="wifiDetailClientList" style="display: none;">
+                                <h6>Connected Clients</h6>
+                                <div class="wifi-client-list"></div>
                             </div>
                         </div>
                     </div>
@@ -704,71 +652,129 @@
                 <!-- Bluetooth Layout Container (visualizations left, device cards right) -->
                 <div class="bt-layout-container" id="btLayoutContainer" style="display: none;">
                     <!-- Left: Bluetooth Visualizations -->
-                    <div class="wifi-visuals" id="btVisuals">
-                        <!-- Selected Bluetooth Device Info - at top for visibility -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>Selected Device</h5>
-                            <div id="btSelectedDevice" style="font-size: 11px; min-height: 100px;">
-                                <div style="color: var(--text-dim); padding: 20px; text-align: center;">Click a device
-                                    to view details</div>
+                    <div class="bt-visuals-column" id="btVisuals">
+                        <!-- Device Detail Panel (always visible) -->
+                        <div class="bt-detail-panel" id="btDetailPanel">
+                            <div class="bt-detail-header">
+                                <h5>Device Details</h5>
                             </div>
-                        </div>
-                        <!-- Row 1: Bluetooth Radar + Device Types -->
-                        <div class="wifi-visual-panel">
-                            <h5>Proximity Radar</h5>
-                            <div class="radar-container">
-                                <canvas id="btRadarCanvas" width="150" height="150"></canvas>
-                            </div>
-                        </div>
-                        <div class="wifi-visual-panel">
-                            <h5>Device Types</h5>
-                            <div class="bt-type-overview" id="btTypeOverview">
-                                <div class="bt-type-item">Phones: <strong id="btPhoneCount">0</strong></div>
-                                <div class="bt-type-item">Computers: <strong id="btComputerCount">0</strong></div>
-                                <div class="bt-type-item">Audio: <strong id="btAudioCount">0</strong></div>
-                                <div class="bt-type-item">Wearables: <strong id="btWearableCount">0</strong></div>
-                                <div class="bt-type-item">Other: <strong id="btOtherCount">0</strong></div>
-                            </div>
-                        </div>
-                        <!-- Row 2: Tracker Detection + Signal Analysis -->
-                        <div class="wifi-visual-panel">
-                            <h5>Tracker Detection</h5>
-                            <div id="btTrackerList" style="max-height: 120px; overflow-y: auto; font-size: 11px;">
-                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for
-                                    AirTags, Tiles...</div>
-                            </div>
-                        </div>
-                        <div class="wifi-visual-panel">
-                            <h5>Signal Distribution</h5>
-                            <div class="bt-signal-dist" id="btSignalDist">
-                                <div class="signal-range"><span>Strong (-50+)</span>
-                                    <div class="signal-bar-bg">
-                                        <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
-                                    </div><span id="btSignalStrongCount">0</span>
+                            <div class="bt-detail-body">
+                                <!-- Placeholder shown when no device selected -->
+                                <div class="bt-detail-placeholder" id="btDetailPlaceholder">
+                                    <span>Select a device to view details</span>
                                 </div>
-                                <div class="signal-range"><span>Medium (-70)</span>
-                                    <div class="signal-bar-bg">
-                                        <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
-                                    </div><span id="btSignalMediumCount">0</span>
-                                </div>
-                                <div class="signal-range"><span>Weak (-90)</span>
-                                    <div class="signal-bar-bg">
-                                        <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
-                                    </div><span id="btSignalWeakCount">0</span>
+                                <!-- Content shown when device is selected -->
+                                <div class="bt-detail-content" id="btDetailContent" style="display: none;">
+                                    <div class="bt-detail-top-row">
+                                        <div class="bt-detail-identity">
+                                            <div class="bt-detail-name" id="btDetailName">Device Name</div>
+                                            <div class="bt-detail-address" id="btDetailAddress">00:00:00:00:00:00</div>
+                                        </div>
+                                        <div class="bt-detail-rssi-display">
+                                            <span class="bt-detail-rssi-value" id="btDetailRssi">--</span>
+                                            <span class="bt-detail-rssi-unit">dBm</span>
+                                        </div>
+                                    </div>
+                                    <div class="bt-detail-badges" id="btDetailBadges"></div>
+                                    <div class="bt-detail-grid">
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Manufacturer</span>
+                                            <span class="bt-detail-stat-value" id="btDetailMfr">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Type</span>
+                                            <span class="bt-detail-stat-value" id="btDetailAddrType">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Seen</span>
+                                            <span class="bt-detail-stat-value" id="btDetailSeen">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Range</span>
+                                            <span class="bt-detail-stat-value" id="btDetailRange">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Min/Max</span>
+                                            <span class="bt-detail-stat-value" id="btDetailRssiRange">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">First Seen</span>
+                                            <span class="bt-detail-stat-value" id="btDetailFirstSeen">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Last Seen</span>
+                                            <span class="bt-detail-stat-value" id="btDetailLastSeen">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Mfr ID</span>
+                                            <span class="bt-detail-stat-value" id="btDetailMfrId">--</span>
+                                        </div>
+                                    </div>
+                                    <div class="bt-detail-bottom-row">
+                                        <div class="bt-detail-services" id="btDetailServices" style="display: none;">
+                                            <span class="bt-detail-services-list" id="btDetailServicesList"></span>
+                                        </div>
+                                        <button class="bt-detail-btn" onclick="BluetoothMode.copyAddress()">Copy</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <!-- Row 3: FindMy Detection -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <h5>Apple FindMy Network</h5>
-                            <div id="btFindMyList" style="max-height: 100px; overflow-y: auto; font-size: 11px;">
-                                <div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for
-                                    FindMy-compatible devices...</div>
+                        <!-- Main area: Side panels + Radar -->
+                        <div class="bt-main-area">
+                            <!-- Left side panels -->
+                            <div class="bt-side-panels">
+                                <div class="wifi-visual-panel bt-side-panel">
+                                    <h5>Tracker Detection</h5>
+                                    <div id="btTrackerList" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
+                                        <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles...</div>
+                                    </div>
+                                </div>
+                                <div class="wifi-visual-panel bt-side-panel">
+                                    <h5>Signal Distribution</h5>
+                                    <div class="bt-signal-dist" id="btSignalDist">
+                                        <div class="signal-range"><span>Strong (-50+)</span>
+                                            <div class="signal-bar-bg">
+                                                <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
+                                            </div><span id="btSignalStrongCount">0</span>
+                                        </div>
+                                        <div class="signal-range"><span>Medium (-70)</span>
+                                            <div class="signal-bar-bg">
+                                                <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
+                                            </div><span id="btSignalMediumCount">0</span>
+                                        </div>
+                                        <div class="signal-range"><span>Weak (-90)</span>
+                                            <div class="signal-bar-bg">
+                                                <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
+                                            </div><span id="btSignalWeakCount">0</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <!-- Device Activity Timeline -->
-                        <div class="wifi-visual-panel" style="grid-column: span 2;">
-                            <div id="bluetoothTimelineContainer"></div>
+                            <!-- Proximity Radar -->
+                            <div class="wifi-visual-panel bt-radar-panel">
+                                <h5>Proximity Radar</h5>
+                                <div id="btProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
+                                <div id="btRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
+                                    <button data-filter="newOnly" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">New Only</button>
+                                    <button data-filter="strongest" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Strongest</button>
+                                    <button data-filter="unapproved" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Unapproved</button>
+                                    <button id="btRadarPauseBtn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Pause</button>
+                                </div>
+                                <div id="btZoneSummary" style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 11px;">
+                                    <div style="text-align: center;">
+                                        <span id="btZoneImmediate" style="font-size: 20px; font-weight: 600; color: #22c55e;">0</span>
+                                        <div style="color: #666;">Immediate</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <span id="btZoneNear" style="font-size: 20px; font-weight: 600; color: #eab308;">0</span>
+                                        <div style="color: #666;">Near</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <span id="btZoneFar" style="font-size: 20px; font-weight: 600; color: #ef4444;">0</span>
+                                        <div style="color: #666;">Far</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <!-- Right: Bluetooth Device Cards -->
@@ -777,10 +783,29 @@
                             <h5>Bluetooth Devices</h5>
                             <span class="device-count">(<span id="btDeviceListCount">0</span>)</span>
                         </div>
+                        <div class="bt-device-filters" id="btDeviceFilters">
+                            <button class="bt-filter-btn active" data-filter="all">All</button>
+                            <button class="bt-filter-btn" data-filter="new">New</button>
+                            <button class="bt-filter-btn" data-filter="named">Named</button>
+                            <button class="bt-filter-btn" data-filter="strong">Strong</button>
+                        </div>
                         <div class="wifi-device-list-content" id="btDeviceListContent">
                             <div style="color: var(--text-dim); text-align: center; padding: 30px;">
                                 Start scanning to discover Bluetooth devices
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bluetooth Device Detail Modal -->
+                <div id="btDeviceModal" class="bt-modal-overlay" style="display: none;">
+                    <div class="bt-modal">
+                        <div class="bt-modal-header">
+                            <h4 id="btModalTitle">Device Details</h4>
+                            <button class="bt-modal-close" onclick="BluetoothMode.closeModal()">&times;</button>
+                        </div>
+                        <div class="bt-modal-body" id="btModalBody">
+                            <!-- Populated by JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -1483,6 +1508,16 @@
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/rf-adapter.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/bluetooth-adapter.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/wifi-adapter.js') }}"></script>
+    <!-- Bluetooth v2 components -->
+    <script src="{{ url_for('static', filename='js/components/rssi-sparkline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/message-card.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/device-card.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/proximity-radar.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/timeline-heatmap.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/bluetooth.js') }}"></script>
+    <!-- WiFi v2 components -->
+    <script src="{{ url_for('static', filename='js/components/channel-chart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/wifi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/listening-post.js') }}"></script>
 
     <script>
@@ -1566,7 +1601,12 @@
             if (!container) return;
 
             // Create timeline using new ActivityTimeline
-            if (typeof ActivityTimeline !== 'undefined') {
+            // For TSCM mode, use SignalTimeline.create() to ensure backward compatibility
+            // with SignalTimeline.addEvent() calls used in TSCM event handlers
+            if (mode === 'tscm' && typeof SignalTimeline !== 'undefined') {
+                SignalTimeline.create(modeConfig.container, modeConfig.config);
+                modeTimelines[mode] = { addEvent: (e) => SignalTimeline.addEvent(e.id, e.strength, e.duration, e.label) };
+            } else if (typeof ActivityTimeline !== 'undefined') {
                 modeTimelines[mode] = ActivityTimeline.create(modeConfig.container, modeConfig.config);
             }
         }
@@ -1730,12 +1770,6 @@
             if (headerClientCount) headerClientCount.textContent = document.getElementById('clientCount')?.textContent || '0';
             if (headerHandshakeCount) headerHandshakeCount.textContent = document.getElementById('handshakeCount')?.textContent || '0';
             if (headerDroneCount) headerDroneCount.textContent = document.getElementById('droneCount')?.textContent || '0';
-
-            // Bluetooth stats
-            const headerBtDeviceCount = document.getElementById('headerBtDeviceCount');
-            const headerBtBeaconCount = document.getElementById('headerBtBeaconCount');
-            if (headerBtDeviceCount) headerBtDeviceCount.textContent = document.getElementById('btDeviceCount')?.textContent || '0';
-            if (headerBtBeaconCount) headerBtBeaconCount.textContent = document.getElementById('btBeaconCount')?.textContent || '0';
 
             // Satellite stats
             const headerPassCount = document.getElementById('headerPassCount');
@@ -2016,19 +2050,16 @@
             const sensorStats = document.getElementById('sensorStats');
             const satelliteStats = document.getElementById('satelliteStats');
             const wifiStats = document.getElementById('wifiStats');
-            const btStats = document.getElementById('btStats');
             if (pagerStats) pagerStats.style.display = mode === 'pager' ? 'flex' : 'none';
             if (sensorStats) sensorStats.style.display = mode === 'sensor' ? 'flex' : 'none';
             if (satelliteStats) satelliteStats.style.display = mode === 'satellite' ? 'flex' : 'none';
             if (wifiStats) wifiStats.style.display = mode === 'wifi' ? 'flex' : 'none';
-            if (btStats) btStats.style.display = mode === 'bluetooth' ? 'flex' : 'none';
 
             // Update header stats groups
             document.getElementById('headerPagerStats')?.classList.toggle('active', mode === 'pager');
             document.getElementById('headerSensorStats')?.classList.toggle('active', mode === 'sensor');
             document.getElementById('headerSatelliteStats')?.classList.toggle('active', mode === 'satellite');
             document.getElementById('headerWifiStats')?.classList.toggle('active', mode === 'wifi');
-            document.getElementById('headerBtStats')?.classList.toggle('active', mode === 'bluetooth');
 
             // Show/hide dashboard buttons in nav bar
             const satelliteDashboardBtn = document.getElementById('satelliteDashboardBtn');
@@ -2129,6 +2160,10 @@
                 refreshWifiInterfaces();
                 initRadar();
                 initWatchList();
+                // Initialize v2 WiFi components
+                if (typeof WiFiMode !== 'undefined') {
+                    WiFiMode.init();
+                }
             } else if (mode === 'bluetooth') {
                 refreshBtInterfaces();
                 initBtRadar();
@@ -4215,21 +4250,26 @@
                 }
             });
 
-            // Update UI with more context
-            document.getElementById('rec24Channel').textContent = best24;
+            // Update UI with more context (with null checks for v2 layout)
+            const rec24El = document.getElementById('rec24Channel');
+            const rec24ReasonEl = document.getElementById('rec24Reason');
+            const rec5El = document.getElementById('rec5Channel');
+            const rec5ReasonEl = document.getElementById('rec5Reason');
+
+            if (rec24El) rec24El.textContent = best24;
             if (totalNetworks === 0) {
-                document.getElementById('rec24Reason').textContent = '(no networks detected)';
+                if (rec24ReasonEl) rec24ReasonEl.textContent = '(no networks detected)';
             } else {
                 const usage = channelUsage24.map(c => `CH${c.channel}:${Math.round(c.count)}`).join(', ');
-                document.getElementById('rec24Reason').textContent =
+                if (rec24ReasonEl) rec24ReasonEl.textContent =
                     minCount24 === 0 ? '(clear)' : `(${Math.round(minCount24)} interference) [${usage}]`;
             }
 
-            document.getElementById('rec5Channel').textContent = best5;
+            if (rec5El) rec5El.textContent = best5;
             if (totalNetworks === 0) {
-                document.getElementById('rec5Reason').textContent = '(no networks detected)';
+                if (rec5ReasonEl) rec5ReasonEl.textContent = '(no networks detected)';
             } else {
-                document.getElementById('rec5Reason').textContent =
+                if (rec5ReasonEl) rec5ReasonEl.textContent =
                     minCount5 === 0 ? `(clear, ${channels5g.length - used5g} unused)` : `(${minCount5} networks)`;
             }
         }
@@ -4361,6 +4401,48 @@
 
         // NOTE: Browser Notifications code moved to static/js/core/audio.js
 
+        // Sync legacy WiFi data to v2 channel chart
+        function syncLegacyToChannelChart() {
+            if (typeof ChannelChart === 'undefined') return;
+
+            const networksList = Object.values(wifiNetworks);
+            if (networksList.length === 0) return;
+
+            // Calculate channel stats from legacy networks
+            const stats = {};
+
+            // Initialize 2.4 GHz channels
+            for (let ch = 1; ch <= 11; ch++) {
+                stats[ch] = { channel: ch, band: '2.4GHz', ap_count: 0, utilization_score: 0 };
+            }
+            // Initialize 5 GHz channels
+            [36, 40, 44, 48, 149, 153, 157, 161, 165].forEach(ch => {
+                stats[ch] = { channel: ch, band: '5GHz', ap_count: 0, utilization_score: 0 };
+            });
+
+            // Count APs per channel
+            networksList.forEach(net => {
+                const ch = parseInt(net.channel);
+                if (stats[ch]) {
+                    stats[ch].ap_count++;
+                }
+            });
+
+            // Calculate utilization (0-1)
+            const maxAPs = Math.max(1, ...Object.values(stats).map(s => s.ap_count));
+            Object.values(stats).forEach(s => {
+                s.utilization_score = s.ap_count / maxAPs;
+            });
+
+            // Get active band from tab
+            const activeTab = document.querySelector('.channel-band-tab.active');
+            const band = activeTab ? activeTab.dataset.band : '2.4';
+            const bandFilter = band === '2.4' ? '2.4GHz' : '5GHz';
+
+            const filteredStats = Object.values(stats).filter(s => s.band === bandFilter);
+            ChannelChart.update(filteredStats, []);
+        }
+
         // Update visualizations periodically
         setInterval(() => {
             if (currentMode === 'wifi') {
@@ -4368,6 +4450,7 @@
                 correlateDevices();
                 updateHiddenSsidDisplay();
                 updateProbeAnalysis();
+                syncLegacyToChannelChart();
             }
         }, 2000);
 
@@ -4829,10 +4912,13 @@
                 });
             });
 
-            // Update counters
-            document.getElementById('probeClientCount').textContent = clientsWithProbes.length;
-            document.getElementById('probeSSIDCount').textContent = allProbes.size;
-            document.getElementById('probePrivacyCount').textContent = privacyLeaks;
+            // Update counters (with null checks for v2 layout)
+            const probeClientEl = document.getElementById('probeClientCount');
+            const probeSSIDEl = document.getElementById('probeSSIDCount');
+            const probePrivacyEl = document.getElementById('probePrivacyCount');
+            if (probeClientEl) probeClientEl.textContent = clientsWithProbes.length;
+            if (probeSSIDEl) probeSSIDEl.textContent = allProbes.size;
+            if (probePrivacyEl) probePrivacyEl.textContent = privacyLeaks;
 
             if (clientsWithProbes.length === 0) {
                 list.innerHTML = '<div style="color: var(--text-dim);">Waiting for client probe requests...</div>';
@@ -5790,13 +5876,22 @@
         let btRadarAnimFrame = null;
         let btRadarDevices = [];
 
-        // Refresh Bluetooth interfaces
+        // Refresh Bluetooth interfaces (legacy - now handled by BluetoothMode.init())
         function refreshBtInterfaces() {
+            // New Bluetooth mode uses /api/bluetooth/capabilities instead
+            // This function is kept for backwards compatibility but uses new API
+            if (typeof BluetoothMode !== 'undefined') {
+                BluetoothMode.checkCapabilities();
+                return;
+            }
+            // Legacy fallback (shouldn't be needed)
+            const select = document.getElementById('btInterfaceSelect') || document.getElementById('btAdapterSelect');
+            if (!select) return;
+
             fetch('/bt/interfaces')
                 .then(r => r.json())
                 .then(data => {
-                    const select = document.getElementById('btInterfaceSelect');
-                    if (data.interfaces.length === 0) {
+                    if (!data.interfaces || data.interfaces.length === 0) {
                         select.innerHTML = '<option value="">No BT interfaces found</option>';
                     } else {
                         select.innerHTML = data.interfaces.map(i =>
@@ -5804,13 +5899,16 @@
                         ).join('');
                     }
 
-                    // Update tool status
+                    // Update tool status (if element exists)
                     const statusDiv = document.getElementById('btToolStatus');
-                    statusDiv.innerHTML = `
-                        <span>hcitool:</span><span class="tool-status ${data.tools.hcitool ? 'ok' : 'missing'}">${data.tools.hcitool ? 'OK' : 'Missing'}</span>
-                        <span>bluetoothctl:</span><span class="tool-status ${data.tools.bluetoothctl ? 'ok' : 'missing'}">${data.tools.bluetoothctl ? 'OK' : 'Missing'}</span>
-                    `;
-                });
+                    if (statusDiv) {
+                        statusDiv.innerHTML = `
+                            <span>hcitool:</span><span class="tool-status ${data.tools.hcitool ? 'ok' : 'missing'}">${data.tools.hcitool ? 'OK' : 'Missing'}</span>
+                            <span>bluetoothctl:</span><span class="tool-status ${data.tools.bluetoothctl ? 'ok' : 'missing'}">${data.tools.bluetoothctl ? 'OK' : 'Missing'}</span>
+                        `;
+                    }
+                })
+                .catch(err => console.warn('Legacy BT interface check failed:', err));
         }
 
         // Start Bluetooth scan
@@ -6072,6 +6170,11 @@
 
         // Handle discovered Bluetooth device (called from batched update)
         function handleBtDeviceImmediate(device) {
+            // Skip if new BluetoothMode is handling devices
+            if (typeof BluetoothMode !== 'undefined') {
+                return;
+            }
+
             const isNew = !btDevices[device.mac];
 
             // Check for Find My network
@@ -6090,7 +6193,6 @@
 
             if (isNew) {
                 btDeviceCount++;
-                document.getElementById('btDeviceCount').textContent = btDeviceCount;
                 playAlert();
                 pulseSignal();
             }
@@ -6297,6 +6399,11 @@
 
         // Add Bluetooth device card to device list panel
         function addBtDeviceCard(device, isNew) {
+            // Skip if new BluetoothMode is handling rendering
+            if (typeof BluetoothMode !== 'undefined' && BluetoothMode.isScanning()) {
+                return;
+            }
+
             // Add to new device list panel
             const deviceList = document.getElementById('btDeviceListContent');
             if (deviceList) {

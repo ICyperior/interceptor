@@ -6,7 +6,9 @@ def register_blueprints(app):
     from .sensor import sensor_bp
     from .rtlamr import rtlamr_bp
     from .wifi import wifi_bp
+    from .wifi_v2 import wifi_v2_bp
     from .bluetooth import bluetooth_bp
+    from .bluetooth_v2 import bluetooth_v2_bp
     from .adsb import adsb_bp
     from .acars import acars_bp
     from .aprs import aprs_bp
@@ -21,7 +23,9 @@ def register_blueprints(app):
     app.register_blueprint(sensor_bp)
     app.register_blueprint(rtlamr_bp)
     app.register_blueprint(wifi_bp)
+    app.register_blueprint(wifi_v2_bp)  # New unified WiFi API
     app.register_blueprint(bluetooth_bp)
+    app.register_blueprint(bluetooth_v2_bp)  # New unified Bluetooth API
     app.register_blueprint(adsb_bp)
     app.register_blueprint(acars_bp)
     app.register_blueprint(aprs_bp)

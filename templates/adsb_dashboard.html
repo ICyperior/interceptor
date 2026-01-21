@@ -230,7 +230,7 @@
                     <label title="Use remote dump1090"><input type="checkbox" id="useRemoteDump1090" onchange="toggleRemoteDump1090()"> Remote</label>
                     <span class="remote-dump1090-controls" style="display: none;">
                         <input type="text" id="remoteSbsHost" placeholder="Host" style="width: 70px;">
-                        <input type="number" id="remoteSbsPort" value="30003" style="width: 55px;">
+                        <input type="number" id="remoteSbsPort" value="30003" min="1" max="65535" style="width: 70px;">
                     </span>
                     <select id="adsbDeviceSelect" title="SDR device for ADS-B (1090 MHz)">
                         <option value="0">SDR 0</option>
