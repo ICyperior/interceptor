@@ -270,18 +270,15 @@ def _check_capabilities_permission(caps: SystemCapabilities) -> None:
 
 def _determine_recommended_backend(caps: SystemCapabilities) -> None:
     """Determine the recommended scanning backend."""
-    # Prefer DBus/BlueZ if available and working
-    if caps.has_dbus and caps.has_bluez and caps.adapters:
-        if not caps.is_soft_blocked and not caps.is_hard_blocked:
-            caps.recommended_backend = 'dbus'
-            return
+    # NOTE: DBus/BlueZ requires a GLib main loop which Flask doesn't have.
+    # For Flask applications, we prefer bleak or subprocess-based tools.
 
-    # Fallback to bleak (cross-platform)
+    # Prefer bleak (cross-platform, works in Flask)
     if caps.has_bleak:
         caps.recommended_backend = 'bleak'
         return
 
-    # Fallback to hcitool (requires root)
+    # Fallback to hcitool (requires root on Linux)
     if caps.has_hcitool and caps.is_root:
         caps.recommended_backend = 'hcitool'
         return
@@ -290,6 +287,13 @@ def _determine_recommended_backend(caps: SystemCapabilities) -> None:
     if caps.has_bluetoothctl:
         caps.recommended_backend = 'bluetoothctl'
         return
+
+    # DBus is last resort - won't work properly with Flask but keep as option
+    # for potential future use with a separate scanning daemon
+    if caps.has_dbus and caps.has_bluez and caps.adapters:
+        if not caps.is_soft_blocked and not caps.is_hard_blocked:
+            caps.recommended_backend = 'dbus'
+            return
 
     caps.recommended_backend = 'none'
     if not caps.issues:
