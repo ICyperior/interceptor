@@ -10,6 +10,7 @@ def register_blueprints(app):
     from .bluetooth import bluetooth_bp
     from .bluetooth_v2 import bluetooth_v2_bp
     from .adsb import adsb_bp
+    from .ais import ais_bp
     from .acars import acars_bp
     from .aprs import aprs_bp
     from .satellite import satellite_bp
@@ -27,6 +28,7 @@ def register_blueprints(app):
     app.register_blueprint(bluetooth_bp)
     app.register_blueprint(bluetooth_v2_bp)  # New unified Bluetooth API
     app.register_blueprint(adsb_bp)
+    app.register_blueprint(ais_bp)
     app.register_blueprint(acars_bp)
     app.register_blueprint(aprs_bp)
     app.register_blueprint(satellite_bp)
