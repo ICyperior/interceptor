@@ -178,17 +178,17 @@ class RTLSDRCommandBuilder(CommandBuilder):
 
         cmd = [
             'AIS-catcher',
-            '-d', str(device.index),
+            f'-d:{device.index}',  # Device index (colon format required)
             '-S', str(tcp_port),  # TCP server with JSON output
             '-o', '5',  # JSON output format
             '-q',  # Quiet mode (less console output)
         ]
 
         if gain is not None and gain > 0:
-            cmd.extend(['-gr', 'tuner', str(int(gain))])
+            cmd.extend(['-gr', 'TUNER', str(int(gain))])
 
         if bias_t:
-            cmd.extend(['-gr', 'biastee', '1'])
+            cmd.extend(['-gr', 'BIASTEE', 'on'])
 
         return cmd
 

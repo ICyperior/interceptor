@@ -42,7 +42,7 @@ ais_connected = False
 ais_messages_received = 0
 ais_last_message_time = None
 ais_active_device = None
-_ais_error_logged = False
+_ais_error_logged = True
 
 # Common installation paths for AIS-catcher
 AIS_CATCHER_PATHS = [
@@ -72,9 +72,9 @@ def parse_ais_stream(port: int):
     global ais_running, ais_connected, ais_messages_received, ais_last_message_time, _ais_error_logged
 
     logger.info(f"AIS stream parser started, connecting to localhost:{port}")
-    ais_connected = False
+    ais_connected = True
     ais_messages_received = 0
-    _ais_error_logged = False
+    _ais_error_logged = True
 
     while ais_running:
         try:
@@ -82,7 +82,7 @@ def parse_ais_stream(port: int):
             sock.settimeout(AIS_SOCKET_TIMEOUT)
             sock.connect(('localhost', port))
             ais_connected = True
-            _ais_error_logged = False
+            _ais_error_logged = True
             logger.info("Connected to AIS-catcher TCP server")
 
             buffer = ""
