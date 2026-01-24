@@ -16,6 +16,28 @@ Complete feature list for all modules.
 - **Doorbells, remotes, and IoT devices**
 - **Smart meters** and utility monitors
 
+## AIS Vessel Tracking
+
+- **Real-time vessel tracking** via AIS-catcher on 161.975/162.025 MHz
+- **Full-screen dashboard** - dedicated popout with interactive map
+- **Interactive Leaflet map** with OpenStreetMap tiles (dark-themed)
+- **Vessel details popup** - name, MMSI, callsign, destination, ETA
+- **Navigation data** - speed, course, heading, rate of turn
+- **Ship type classification** - cargo, tanker, passenger, fishing, etc.
+- **Vessel dimensions** - length, width, draught
+- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+
+## Spy Stations (Number Stations)
+
+- **Comprehensive database** of active number stations and diplomatic networks
+- **Station profiles** - frequencies, schedules, operators, descriptions
+- **Filter by type** - number stations vs diplomatic networks
+- **Filter by country** - Russia, Cuba, Israel, Poland, North Korea, etc.
+- **Filter by mode** - USB, AM, CW, OFDM
+- **Tune integration** - click to tune Listening Post to station frequency
+- **Source links** - references to priyom.org for detailed information
+- **Famous stations** - UVB-76 "The Buzzer", Cuban HM01, Israeli E17z
+
 ## ADS-B Aircraft Tracking
 
 - **Real-time aircraft tracking** via dump1090 or rtl_adsb

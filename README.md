@@ -29,11 +29,13 @@ Support the developer of this open-source project
 - **Pager Decoding** - POCSAG/FLEX via rtl_fm + multimon-ng
 - **433MHz Sensors** - Weather stations, TPMS, IoT devices via rtl_433
 - **Aircraft Tracking** - ADS-B via dump1090 with real-time map and radar
+- **Vessel Tracking** - AIS ship tracking via AIS-catcher with maritime map
 - **ACARS Messaging** - Aircraft datalink messages via acarsdec
 - **Listening Post** - Frequency scanner with audio monitoring
 - **Satellite Tracking** - Pass prediction using TLE data
 - **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
 - **Bluetooth Scanning** - Device discovery and tracker detection
+- **Spy Stations** - Number stations and diplomatic HF network database
 
 ---
 
@@ -132,10 +134,12 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [multimon-ng](https://github.com/EliasOenal/multimon-ng) |
 [rtl_433](https://github.com/merbanan/rtl_433) |
 [dump1090](https://github.com/flightaware/dump1090) |
+[AIS-catcher](https://github.com/jvde-github/AIS-catcher) |
 [acarsdec](https://github.com/TLeconte/acarsdec) |
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
-[Celestrak](https://celestrak.org/)
+[Celestrak](https://celestrak.org/) |
+[Priyom.org](https://priyom.org/)
 
 
 

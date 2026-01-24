@@ -7,10 +7,20 @@ import os
 import sys
 
 # Application version
-VERSION = "2.9.5"
+VERSION = "2.10.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.10.0",
+        "date": "January 2026",
+        "highlights": [
+            "AIS vessel tracking with real-time maritime map",
+            "Spy Stations database (number stations & diplomatic HF)",
+            "Multi-SDR support for AIS (RTL-SDR, HackRF, LimeSDR, etc.)",
+            "UI improvements: renamed modes for clarity",
+        ]
+    },
     {
         "version": "2.9.5",
         "date": "January 2026",
