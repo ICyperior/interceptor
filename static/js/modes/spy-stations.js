@@ -507,7 +507,7 @@ const SpyStations = (function() {
         // Update visible count in header if element exists
         const visibleCountEl = document.getElementById('spyStationsVisibleCount');
         if (visibleCountEl) {
-            visibleCountEl.textContent = stationList.length + ' stations';
+            visibleCountEl.textContent = stationList.length;
         }
     }
 
