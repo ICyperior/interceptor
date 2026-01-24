@@ -19,6 +19,7 @@ def register_blueprints(app):
     from .correlation import correlation_bp
     from .listening_post import listening_post_bp
     from .tscm import tscm_bp, init_tscm_state
+    from .spy_stations import spy_stations_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -37,6 +38,7 @@ def register_blueprints(app):
     app.register_blueprint(correlation_bp)
     app.register_blueprint(listening_post_bp)
     app.register_blueprint(tscm_bp)
+    app.register_blueprint(spy_stations_bp)
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module
