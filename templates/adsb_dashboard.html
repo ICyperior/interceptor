@@ -77,6 +77,9 @@
             <button type="button" class="strip-btn primary" onclick="generateReport()" title="Generate Session Report">
                 📊 Report
             </button>
+            <a class="strip-btn" href="/adsb/history" title="Open History Reporting">
+                📚 History
+            </a>
             <div class="strip-divider"></div>
             <div class="strip-status">
                 <div class="status-dot inactive" id="trackingDot"></div>
@@ -1963,6 +1966,9 @@ ACARS: ${r.statistics.acarsMessages} messages`;
 
             // Auto-connect to gpsd if available
             autoConnectGps();
+
+            // Sync tracking state if ADS-B already running
+            syncTrackingStatus();
         });
 
         // Track which device is being used for ADS-B tracking
@@ -2429,6 +2435,46 @@ sudo make install</code>
                 document.getElementById('trackingStatus').textContent = 'STANDBY';
                 // Re-enable ADS-B device selector
                 document.getElementById('adsbDeviceSelect').disabled = false;
+            }
+        }
+
+        async function syncTrackingStatus() {
+            try {
+                const response = await fetch('/adsb/session');
+                if (!response.ok) {
+                    return;
+                }
+                const data = await response.json();
+                if (!data.tracking_active) {
+                    return;
+                }
+                isTracking = true;
+                startEventStream();
+                drawRangeRings();
+                const startBtn = document.getElementById('startBtn');
+                startBtn.textContent = 'STOP';
+                startBtn.classList.add('active');
+                document.getElementById('trackingDot').classList.remove('inactive');
+                document.getElementById('trackingStatus').textContent = 'TRACKING';
+                document.getElementById('adsbDeviceSelect').disabled = true;
+
+                const session = data.session || {};
+                const startTime = session.started_at ? Date.parse(session.started_at) : null;
+                if (startTime) {
+                    stats.sessionStart = startTime;
+                }
+                startSessionTimer();
+
+                const sessionDevice = session.device_index;
+                if (sessionDevice !== null && sessionDevice !== undefined) {
+                    adsbActiveDevice = sessionDevice;
+                    const adsbSelect = document.getElementById('adsbDeviceSelect');
+                    if (adsbSelect) {
+                        adsbSelect.value = sessionDevice;
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to sync ADS-B tracking status', err);
             }
         }
 
