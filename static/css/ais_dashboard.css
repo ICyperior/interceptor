@@ -208,6 +208,38 @@ body {
     color: var(--accent-green);
 }
 
+/* Signal quality states */
+.strip-stat.signal-stat .strip-value {
+    letter-spacing: 2px;
+}
+
+.strip-stat.signal-stat.good {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.strip-stat.signal-stat.good .strip-value {
+    color: var(--accent-green);
+}
+
+.strip-stat.signal-stat.warning {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.strip-stat.signal-stat.warning .strip-value {
+    color: var(--accent-orange);
+}
+
+.strip-stat.signal-stat.poor {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.strip-stat.signal-stat.poor .strip-value {
+    color: var(--accent-red);
+}
+
 .strip-divider {
     width: 1px;
     height: 24px;

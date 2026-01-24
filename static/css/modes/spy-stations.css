@@ -11,8 +11,9 @@
     flex-direction: column;
     gap: 16px;
     padding: 16px;
-    height: 100%;
-    overflow: hidden;
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .spy-stations-header {
@@ -54,9 +55,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 12px;
-    overflow-y: auto;
-    flex: 1;
     padding: 4px;
+    padding-bottom: 20px;
 }
 
 /* ============================================
@@ -66,8 +66,9 @@
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    overflow: hidden;
     transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .spy-station-card:hover {
@@ -144,6 +145,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    flex: 1;
 }
 
 .spy-station-meta {
@@ -211,10 +213,6 @@
     font-size: 11px;
     color: var(--text-secondary);
     line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
 }
 
 /* Card Footer */
@@ -225,6 +223,49 @@
     padding: 10px 14px;
     background: rgba(0, 0, 0, 0.1);
     border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+/* Frequency Selector Group */
+.spy-tune-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+}
+
+.spy-freq-select {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    min-width: 120px;
+    cursor: pointer;
+}
+
+.spy-freq-select:hover {
+    border-color: var(--border-light);
+}
+
+.spy-freq-select:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+}
+
+/* Clickable frequency items in details modal */
+.spy-freq-clickable {
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.spy-freq-clickable:hover {
+    background: var(--accent-cyan);
+    color: #000;
+    border-color: var(--accent-cyan);
 }
 
 /* Tune Button */
@@ -296,6 +337,13 @@
 }
 
 /* ============================================
+   MODE VISIBILITY - Ensure sidebar shows when active
+   ============================================ */
+#spystationsMode.active {
+    display: block !important;
+}
+
+/* ============================================
    FILTER CHECKBOX STYLING
    ============================================ */
 #spystationsMode .inline-checkbox {
@@ -321,6 +369,22 @@
 /* ============================================
    RESPONSIVE
    ============================================ */
+
+/* Large desktop (1200px+) */
+@media (min-width: 1200px) {
+    .spy-stations-grid {
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    }
+}
+
+/* Desktop/Tablet landscape (1024px) */
+@media (max-width: 1024px) {
+    .spy-stations-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+}
+
+/* Tablet portrait (768px) */
 @media (max-width: 768px) {
     .spy-stations-grid {
         grid-template-columns: 1fr;
@@ -341,7 +405,8 @@
     }
 }
 
-@media (max-width: 480px) {
+/* Small tablet / large phone (640px) */
+@media (max-width: 640px) {
     .spy-station-footer {
         flex-direction: column;
         gap: 8px;
@@ -351,5 +416,51 @@
     .spy-details-btn {
         width: 100%;
         justify-content: center;
+        min-height: 44px;
+    }
+
+    .spy-tune-group {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .spy-freq-select {
+        width: 100%;
+        min-height: 44px;
+    }
+}
+
+/* Mobile (480px) */
+@media (max-width: 480px) {
+    .spy-stations-container {
+        padding: 8px;
+    }
+
+    .spy-station-body {
+        padding: 10px;
+    }
+
+    .spy-stations-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    .spy-station-desc {
+        -webkit-line-clamp: 2;
+    }
+}
+
+/* Touch device compliance */
+@media (pointer: coarse) {
+    .spy-tune-btn,
+    .spy-details-btn,
+    .spy-freq-select {
+        min-height: 44px;
+    }
+
+    .spy-freq-clickable {
+        padding: 8px 12px;
     }
 }

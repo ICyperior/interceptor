@@ -22,7 +22,14 @@ const SpyStations = (function() {
         'EG': '\u{1F1EA}\u{1F1EC}',
         'KP': '\u{1F1F0}\u{1F1F5}',
         'TN': '\u{1F1F9}\u{1F1F3}',
-        'US': '\u{1F1FA}\u{1F1F8}'
+        'US': '\u{1F1FA}\u{1F1F8}',
+        'PL': '\u{1F1F5}\u{1F1F1}',
+        'IL': '\u{1F1EE}\u{1F1F1}',
+        'CN': '\u{1F1E8}\u{1F1F3}',
+        'MA': '\u{1F1F2}\u{1F1E6}',
+        'FR': '\u{1F1EB}\u{1F1F7}',
+        'RO': '\u{1F1F7}\u{1F1F4}',
+        'DZ': '\u{1F1E9}\u{1F1FF}'
     };
 
     /**
@@ -121,6 +128,7 @@ const SpyStations = (function() {
         });
 
         renderStations();
+        updateStats(true);
     }
 
     /**
@@ -161,6 +169,39 @@ const SpyStations = (function() {
         const freqList = station.frequencies.slice(0, 4).map(f => formatFrequency(f.freq_khz)).join(', ');
         const moreFreqs = station.frequencies.length > 4 ? ` +${station.frequencies.length - 4} more` : '';
 
+        // Build tune button with frequency selector if multiple frequencies
+        let tuneSection;
+        if (station.frequencies.length > 1) {
+            const options = station.frequencies.map(f => {
+                const label = formatFrequency(f.freq_khz) + (f.primary ? ' (primary)' : '');
+                return `<option value="${f.freq_khz}">${label}</option>`;
+            }).join('');
+            tuneSection = `
+                <div class="spy-tune-group">
+                    <select class="spy-freq-select" id="freq-select-${station.id}">
+                        ${options}
+                    </select>
+                    <button class="spy-tune-btn" onclick="SpyStations.tuneToSelectedFreq('${station.id}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+                        </svg>
+                        Tune In
+                    </button>
+                </div>
+            `;
+        } else {
+            tuneSection = `
+                <button class="spy-tune-btn" onclick="SpyStations.tuneToStation('${station.id}', ${primaryFreq.freq_khz})">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+                    </svg>
+                    Tune In
+                </button>
+            `;
+        }
+
         return `
             <div class="spy-station-card" data-station-id="${station.id}">
                 <div class="spy-station-header">
@@ -189,13 +230,7 @@ const SpyStations = (function() {
                     <div class="spy-station-desc">${station.description}</div>
                 </div>
                 <div class="spy-station-footer">
-                    <button class="spy-tune-btn" onclick="SpyStations.tuneToStation('${station.id}', ${primaryFreq.freq_khz})">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
-                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
-                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
-                        </svg>
-                        Tune In
-                    </button>
+                    ${tuneSection}
                     <button class="spy-details-btn" onclick="SpyStations.showDetails('${station.id}')">
                         Details
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 12px; height: 12px;">
@@ -218,19 +253,33 @@ const SpyStations = (function() {
     }
 
     /**
+     * Get appropriate SDR mode from station mode string
+     */
+    function getModeFromStation(stationMode) {
+        const mode = stationMode.toLowerCase();
+        if (mode.includes('am') || mode.includes('ofdm')) return 'am';
+        if (mode.includes('lsb')) return 'lsb';
+        if (mode.includes('fm')) return 'fm';
+        // Default to USB for most number stations and digital modes
+        return 'usb';
+    }
+
+    /**
      * Tune to a station frequency
      */
     function tuneToStation(stationId, freqKhz) {
         const freqMhz = freqKhz / 1000;
         sessionStorage.setItem('tuneFrequency', freqMhz.toString());
-        sessionStorage.setItem('tuneMode', 'usb'); // Most number stations use USB
 
-        // Find the station for notification
+        // Find the station and determine mode
         const station = stations.find(s => s.id === stationId);
+        const tuneMode = station ? getModeFromStation(station.mode) : 'usb';
+        sessionStorage.setItem('tuneMode', tuneMode);
+
         const stationName = station ? station.name : 'Station';
 
         if (typeof showNotification === 'function') {
-            showNotification('Tuning to ' + stationName, formatFrequency(freqKhz));
+            showNotification('Tuning to ' + stationName, formatFrequency(freqKhz) + ' (' + tuneMode.toUpperCase() + ')');
         }
 
         // Switch to listening post mode
@@ -238,6 +287,17 @@ const SpyStations = (function() {
             selectMode('listening');
         } else if (typeof switchMode === 'function') {
             switchMode('listening');
+        }
+    }
+
+    /**
+     * Tune to selected frequency from dropdown
+     */
+    function tuneToSelectedFreq(stationId) {
+        const select = document.getElementById('freq-select-' + stationId);
+        if (select) {
+            const freqKhz = parseInt(select.value, 10);
+            tuneToStation(stationId, freqKhz);
         }
     }
 
@@ -266,7 +326,7 @@ const SpyStations = (function() {
         const flag = countryFlags[station.country_code] || '';
         const allFreqs = station.frequencies.map(f => {
             const label = f.primary ? ' (primary)' : '';
-            return `<span class="spy-freq-item">${formatFrequency(f.freq_khz)}${label}</span>`;
+            return `<span class="spy-freq-item spy-freq-clickable" onclick="SpyStations.tuneToStation('${station.id}', ${f.freq_khz}); SpyStations.closeDetails();">${formatFrequency(f.freq_khz)}${label}</span>`;
         }).join('');
 
         modal.innerHTML = `
@@ -425,12 +485,14 @@ const SpyStations = (function() {
 
     /**
      * Update sidebar stats
+     * @param {boolean} useFiltered - If true, use filtered stations instead of all stations
      */
-    function updateStats() {
-        const numberCount = stations.filter(s => s.type === 'number').length;
-        const diplomaticCount = stations.filter(s => s.type === 'diplomatic').length;
-        const countryCount = new Set(stations.map(s => s.country_code)).size;
-        const freqCount = stations.reduce((sum, s) => sum + s.frequencies.length, 0);
+    function updateStats(useFiltered) {
+        const stationList = useFiltered ? filteredStations : stations;
+        const numberCount = stationList.filter(s => s.type === 'number').length;
+        const diplomaticCount = stationList.filter(s => s.type === 'diplomatic').length;
+        const countryCount = new Set(stationList.map(s => s.country_code)).size;
+        const freqCount = stationList.reduce((sum, s) => sum + s.frequencies.length, 0);
 
         const numberEl = document.getElementById('spyStatsNumber');
         const diplomaticEl = document.getElementById('spyStatsDiplomatic');
@@ -441,6 +503,12 @@ const SpyStations = (function() {
         if (diplomaticEl) diplomaticEl.textContent = diplomaticCount;
         if (countriesEl) countriesEl.textContent = countryCount;
         if (freqsEl) freqsEl.textContent = freqCount;
+
+        // Update visible count in header if element exists
+        const visibleCountEl = document.getElementById('spyStationsVisibleCount');
+        if (visibleCountEl) {
+            visibleCountEl.textContent = stationList.length + ' stations';
+        }
     }
 
     // Public API
@@ -448,6 +516,7 @@ const SpyStations = (function() {
         init,
         applyFilters,
         tuneToStation,
+        tuneToSelectedFreq,
         showDetails,
         closeDetails,
         showHelp,

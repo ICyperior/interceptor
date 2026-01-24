@@ -48,6 +48,10 @@
                 <span class="strip-label">NEAR NM</span>
             </div>
             <div class="strip-divider"></div>
+            <div class="strip-stat signal-stat" title="Signal quality (messages/sec)">
+                <span class="strip-value" id="stripSignal">--</span>
+                <span class="strip-label">SIGNAL</span>
+            </div>
             <div class="strip-stat session-stat">
                 <span class="strip-value" id="stripSession">00:00:00</span>
                 <span class="strip-label">SESSION</span>
@@ -155,8 +159,15 @@
             maxRange: 0,
             fastestSpeed: 0,
             closestDistance: Infinity,
-            sessionStart: null
+            sessionStart: null,
+            messagesReceived: 0,
+            messagesPerSecond: 0
         };
+
+        // Session timer
+        let sessionTimerInterval = null;
+        let messageRateInterval = null;
+        let lastMessageCount = 0;
 
         // Ship type to icon mapping
         const SHIP_ICONS = {
@@ -374,11 +385,11 @@
             .then(data => {
                 if (data.status === 'started' || data.status === 'already_running') {
                     isTracking = true;
-                    stats.sessionStart = Date.now();
                     document.getElementById('startBtn').textContent = 'STOP';
                     document.getElementById('startBtn').classList.add('active');
                     document.getElementById('trackingDot').classList.add('active');
                     document.getElementById('trackingStatus').textContent = 'TRACKING';
+                    startSessionTimer();
                     startSSE();
                 } else {
                     alert(data.message || 'Failed to start');
@@ -396,6 +407,8 @@
                 document.getElementById('startBtn').classList.remove('active');
                 document.getElementById('trackingDot').classList.remove('active');
                 document.getElementById('trackingStatus').textContent = 'STANDBY';
+                stopSessionTimer();
+                updateSignalQuality();
                 if (eventSource) {
                     eventSource.close();
                     eventSource = null;
@@ -429,6 +442,7 @@
 
             vessels[mmsi] = data;
             stats.totalVesselsSeen.add(mmsi);
+            stats.messagesReceived++;
 
             // Update statistics
             if (data.speed && data.speed > stats.fastestSpeed) {
@@ -630,15 +644,6 @@
             document.getElementById('stripMaxRange').textContent = stats.maxRange.toFixed(1);
             document.getElementById('stripFastest').textContent = stats.fastestSpeed > 0 ? stats.fastestSpeed.toFixed(1) : '-';
             document.getElementById('stripClosest').textContent = stats.closestDistance < Infinity ? stats.closestDistance.toFixed(1) : '-';
-
-            if (stats.sessionStart) {
-                const elapsed = Math.floor((Date.now() - stats.sessionStart) / 1000);
-                const h = Math.floor(elapsed / 3600);
-                const m = Math.floor((elapsed % 3600) / 60);
-                const s = elapsed % 60;
-                document.getElementById('stripSession').textContent =
-                    `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-            }
         }
 
         function cleanupStaleVessels() {
@@ -680,6 +685,77 @@
             const now = new Date();
             const utc = now.toISOString().slice(11, 19);
             document.getElementById('utcTime').textContent = utc + ' UTC';
+        }
+
+        // Session timer functions
+        function startSessionTimer() {
+            if (!stats.sessionStart) {
+                stats.sessionStart = Date.now();
+            }
+            if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+            sessionTimerInterval = setInterval(updateSessionTimer, 1000);
+
+            // Start message rate tracking
+            if (messageRateInterval) clearInterval(messageRateInterval);
+            lastMessageCount = stats.messagesReceived;
+            messageRateInterval = setInterval(updateMessageRate, 1000);
+        }
+
+        function stopSessionTimer() {
+            if (sessionTimerInterval) {
+                clearInterval(sessionTimerInterval);
+                sessionTimerInterval = null;
+            }
+            if (messageRateInterval) {
+                clearInterval(messageRateInterval);
+                messageRateInterval = null;
+            }
+        }
+
+        function updateSessionTimer() {
+            if (!stats.sessionStart) return;
+            const elapsed = Date.now() - stats.sessionStart;
+            const hours = Math.floor(elapsed / 3600000);
+            const mins = Math.floor((elapsed % 3600000) / 60000);
+            const secs = Math.floor((elapsed % 60000) / 1000);
+            document.getElementById('stripSession').textContent =
+                `${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        }
+
+        function updateMessageRate() {
+            const currentCount = stats.messagesReceived;
+            stats.messagesPerSecond = currentCount - lastMessageCount;
+            lastMessageCount = currentCount;
+            updateSignalQuality();
+        }
+
+        // Signal quality display
+        function updateSignalQuality() {
+            const msgRate = stats.messagesPerSecond;
+            const el = document.getElementById('stripSignal');
+            const stat = el.closest('.strip-stat');
+
+            if (!isTracking || msgRate === 0) {
+                el.textContent = '--';
+                stat.classList.remove('good', 'warning', 'poor');
+                return;
+            }
+
+            // Signal quality based on message rate
+            // Good: >5 msg/s, Warning: 1-5, Poor: <1
+            if (msgRate >= 5) {
+                el.textContent = '●●●';
+                stat.classList.remove('warning', 'poor');
+                stat.classList.add('good');
+            } else if (msgRate >= 1) {
+                el.textContent = '●●○';
+                stat.classList.remove('good', 'poor');
+                stat.classList.add('warning');
+            } else {
+                el.textContent = '●○○';
+                stat.classList.remove('good', 'warning');
+                stat.classList.add('poor');
+            }
         }
 
         // Initialize
