@@ -1580,6 +1580,40 @@ function initListeningPost() {
         e.preventDefault();
         tuneFreq(delta);
     });
+
+    // Check if we arrived from Spy Stations with a tune request
+    checkIncomingTuneRequest();
+}
+
+/**
+ * Check for incoming tune request from Spy Stations or other pages
+ */
+function checkIncomingTuneRequest() {
+    const tuneFreq = sessionStorage.getItem('tuneFrequency');
+    const tuneMode = sessionStorage.getItem('tuneMode');
+
+    if (tuneFreq) {
+        // Clear the session storage first
+        sessionStorage.removeItem('tuneFrequency');
+        sessionStorage.removeItem('tuneMode');
+
+        // Parse and validate frequency
+        const freq = parseFloat(tuneFreq);
+        if (!isNaN(freq) && freq >= 0.01 && freq <= 2000) {
+            console.log('[LISTEN] Incoming tune request:', freq, 'MHz, mode:', tuneMode || 'default');
+
+            // Determine modulation (default to USB for HF/number stations)
+            const mod = tuneMode || (freq < 30 ? 'usb' : 'am');
+
+            // Use quickTune to set frequency and modulation
+            quickTune(freq, mod);
+
+            // Show notification
+            if (typeof showNotification === 'function') {
+                showNotification('Tuned to ' + freq.toFixed(3) + ' MHz', mod.toUpperCase() + ' mode');
+            }
+        }
+    }
 }
 
 // Initialize when DOM is ready
@@ -2265,6 +2299,7 @@ window.skipSignal = skipSignal;
 window.setBand = setBand;
 window.tuneFreq = tuneFreq;
 window.quickTune = quickTune;
+window.checkIncomingTuneRequest = checkIncomingTuneRequest;
 window.addFrequencyBookmark = addFrequencyBookmark;
 window.removeBookmark = removeBookmark;
 window.tuneToFrequency = tuneToFrequency;

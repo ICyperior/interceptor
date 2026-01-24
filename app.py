@@ -36,6 +36,7 @@ from utils.constants import (
     MAX_AIRCRAFT_AGE_SECONDS,
     MAX_WIFI_NETWORK_AGE_SECONDS,
     MAX_BT_DEVICE_AGE_SECONDS,
+    MAX_VESSEL_AGE_SECONDS,
     QUEUE_MAX_SIZE,
 )
 import logging
@@ -139,6 +140,11 @@ rtlamr_process = None
 rtlamr_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 rtlamr_lock = threading.Lock()
 
+# AIS vessel tracking
+ais_process = None
+ais_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+ais_lock = threading.Lock()
+
 # TSCM (Technical Surveillance Countermeasures)
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
@@ -166,6 +172,9 @@ bt_services = {}     # MAC -> list of services (not auto-cleaned, user-requested
 # Aircraft (ADS-B) state - using DataStore for automatic cleanup
 adsb_aircraft = DataStore(max_age_seconds=MAX_AIRCRAFT_AGE_SECONDS, name='adsb_aircraft')
 
+# Vessel (AIS) state - using DataStore for automatic cleanup
+ais_vessels = DataStore(max_age_seconds=MAX_VESSEL_AGE_SECONDS, name='ais_vessels')
+
 # Satellite state
 satellite_passes = []  # Predicted satellite passes (not auto-cleaned, calculated)
 
@@ -175,6 +184,7 @@ cleanup_manager.register(wifi_clients)
 cleanup_manager.register(bt_devices)
 cleanup_manager.register(bt_beacons)
 cleanup_manager.register(adsb_aircraft)
+cleanup_manager.register(ais_vessels)
 
 
 # ============================================
@@ -501,6 +511,7 @@ def health_check() -> Response:
             'pager': current_process is not None and (current_process.poll() is None if current_process else False),
             'sensor': sensor_process is not None and (sensor_process.poll() is None if sensor_process else False),
             'adsb': adsb_process is not None and (adsb_process.poll() is None if adsb_process else False),
+            'ais': ais_process is not None and (ais_process.poll() is None if ais_process else False),
             'acars': acars_process is not None and (acars_process.poll() is None if acars_process else False),
             'aprs': aprs_process is not None and (aprs_process.poll() is None if aprs_process else False),
             'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
@@ -508,6 +519,7 @@ def health_check() -> Response:
         },
         'data': {
             'aircraft_count': len(adsb_aircraft),
+            'vessel_count': len(ais_vessels),
             'wifi_networks_count': len(wifi_networks),
             'wifi_clients_count': len(wifi_clients),
             'bt_devices_count': len(bt_devices),
@@ -518,17 +530,18 @@ def health_check() -> Response:
 @app.route('/killall', methods=['POST'])
 def kill_all() -> Response:
     """Kill all decoder and WiFi processes."""
-    global current_process, sensor_process, wifi_process, adsb_process, acars_process
+    global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process
 
-    # Import adsb module to reset its state
+    # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
+    from routes import ais as ais_module
 
     killed = []
     processes_to_kill = [
         'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
-        'dump1090', 'acarsdec', 'direwolf'
+        'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher'
     ]
 
     for proc in processes_to_kill:
@@ -552,6 +565,11 @@ def kill_all() -> Response:
     with adsb_lock:
         adsb_process = None
         adsb_module.adsb_using_service = False
+
+    # Reset AIS state
+    with ais_lock:
+        ais_process = None
+        ais_module.ais_running = False
 
     # Reset ACARS state
     with acars_lock:
