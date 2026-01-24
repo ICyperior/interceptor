@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VESSEL RADAR // INTERCEPT - See the Invisible</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ais_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+</head>
+<body>
+    <!-- Radar background effects -->
+    <div class="radar-bg"></div>
+    <div class="scanline"></div>
+
+    <header class="header">
+        <div class="logo">
+            VESSEL RADAR
+            <span>// INTERCEPT - AIS Tracking</span>
+        </div>
+        <div class="status-bar">
+            <a href="/" class="back-link">Main Dashboard</a>
+        </div>
+    </header>
+
+    <div class="stats-strip">
+        <div class="stats-strip-inner">
+            <div class="strip-stat">
+                <span class="strip-value" id="stripVesselsNow">0</span>
+                <span class="strip-label">VESSELS</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripTotalSeen">0</span>
+                <span class="strip-label">SEEN</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripMaxRange">0</span>
+                <span class="strip-label">MAX NM</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripFastest">-</span>
+                <span class="strip-label">MAX KT</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripClosest">-</span>
+                <span class="strip-label">NEAR NM</span>
+            </div>
+            <div class="strip-divider"></div>
+            <div class="strip-stat signal-stat" title="Signal quality (messages/sec)">
+                <span class="strip-value" id="stripSignal">--</span>
+                <span class="strip-label">SIGNAL</span>
+            </div>
+            <div class="strip-stat session-stat">
+                <span class="strip-value" id="stripSession">00:00:00</span>
+                <span class="strip-label">SESSION</span>
+            </div>
+            <div class="strip-divider"></div>
+            <div class="strip-status">
+                <div class="status-dot" id="trackingDot"></div>
+                <span id="trackingStatus">STANDBY</span>
+            </div>
+            <div class="strip-time" id="utcTime">--:--:-- UTC</div>
+        </div>
+    </div>
+
+    <main class="dashboard">
+        <div class="main-display">
+            <div id="vesselMap"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel selected-vessel">
+                <div class="panel-header">
+                    <span>SELECTED VESSEL</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="selected-info" id="selectedInfo">
+                    <div class="no-vessel">
+                        <div class="no-vessel-icon">&#128674;</div>
+                        <div>Select a vessel</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel vessel-list">
+                <div class="panel-header">
+                    <span>TRACKED VESSELS</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="vessel-list-content" id="vesselList">
+                    <div class="no-vessel">
+                        <div>No vessels detected</div>
+                        <div style="font-size: 10px; margin-top: 5px;">Start tracking to begin</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-bar">
+            <div class="control-group">
+                <span class="control-group-label">DISPLAY</span>
+                <div class="control-group-items">
+                    <label title="Show vessel trails"><input type="checkbox" id="showTrails" onchange="toggleTrails()"> Trails</label>
+                    <label title="Show range rings"><input type="checkbox" id="showRangeRings" checked onchange="drawRangeRings()"> Rings</label>
+                    <select id="rangeSelect" onchange="updateRange()" title="Range rings distance">
+                        <option value="10">10nm</option>
+                        <option value="25">25nm</option>
+                        <option value="50" selected>50nm</option>
+                        <option value="100">100nm</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <span class="control-group-label">LOCATION</span>
+                <div class="control-group-items">
+                    <input type="text" id="obsLat" value="51.5074" onchange="updateObserverLoc()" style="width: 70px;" title="Latitude" placeholder="Lat">
+                    <input type="text" id="obsLon" value="-0.1278" onchange="updateObserverLoc()" style="width: 70px;" title="Longitude" placeholder="Lon">
+                </div>
+            </div>
+
+            <div class="control-group tracking-group">
+                <span class="control-group-label">AIS TRACKING</span>
+                <div class="control-group-items">
+                    <select id="aisDeviceSelect" title="SDR device">
+                        <option value="0">SDR 0</option>
+                    </select>
+                    <input type="number" id="aisGain" value="40" min="0" max="50" style="width: 50px;" title="Gain">
+                    <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // State
+        let vesselMap = null;
+        let vessels = {};
+        let markers = {};
+        let selectedMmsi = null;
+        let eventSource = null;
+        let isTracking = false;
+        let showTrails = false;
+        let vesselTrails = {};
+        let trailLines = {};
+        let maxRange = 50;
+        const MAX_TRAIL_POINTS = 50;
+
+        // Observer location
+        let observerLocation = { lat: 51.5074, lon: -0.1278 };
+        let rangeRingsLayer = null;
+        let observerMarker = null;
+
+        // Statistics
+        let stats = {
+            totalVesselsSeen: new Set(),
+            maxRange: 0,
+            fastestSpeed: 0,
+            closestDistance: Infinity,
+            sessionStart: null,
+            messagesReceived: 0,
+            messagesPerSecond: 0
+        };
+
+        // Session timer
+        let sessionTimerInterval = null;
+        let messageRateInterval = null;
+        let lastMessageCount = 0;
+
+        // Ship type to icon mapping
+        const SHIP_ICONS = {
+            30: '&#128031;', // Fishing
+            31: '&#128674;', // Towing
+            32: '&#128674;', // Towing
+            36: '&#9973;',   // Sailing
+            37: '&#9973;',   // Pleasure craft
+            60: '&#128674;', // Passenger
+            61: '&#128674;', // Passenger
+            62: '&#128674;', // Passenger
+            63: '&#128674;', // Passenger
+            64: '&#128674;', // Passenger
+            65: '&#128674;', // Passenger
+            66: '&#128674;', // Passenger
+            67: '&#128674;', // Passenger
+            68: '&#128674;', // Passenger
+            69: '&#128674;', // Passenger
+            70: '&#128674;', // Cargo
+            71: '&#128674;', // Cargo - hazardous A
+            72: '&#128674;', // Cargo - hazardous B
+            73: '&#128674;', // Cargo - hazardous C
+            74: '&#128674;', // Cargo - hazardous D
+            80: '&#128674;', // Tanker
+            81: '&#128674;', // Tanker - hazardous A
+            82: '&#128674;', // Tanker - hazardous B
+            83: '&#128674;', // Tanker - hazardous C
+            84: '&#128674;', // Tanker - hazardous D
+            default: '&#128674;' // Generic ship
+        };
+
+        // Ship type categories
+        function getShipCategory(type) {
+            if (!type) return 'Unknown';
+            if (type >= 20 && type < 30) return 'Wing in Ground';
+            if (type === 30) return 'Fishing';
+            if (type >= 31 && type <= 32) return 'Towing';
+            if (type >= 33 && type <= 34) return 'Dredging';
+            if (type === 35) return 'Military';
+            if (type >= 36 && type <= 37) return 'Sailing/Pleasure';
+            if (type >= 40 && type < 50) return 'High Speed Craft';
+            if (type === 50) return 'Pilot Vessel';
+            if (type === 51) return 'Search & Rescue';
+            if (type === 52) return 'Tug';
+            if (type === 53) return 'Port Tender';
+            if (type === 55) return 'Law Enforcement';
+            if (type >= 60 && type < 70) return 'Passenger';
+            if (type >= 70 && type < 80) return 'Cargo';
+            if (type >= 80 && type < 90) return 'Tanker';
+            return 'Other';
+        }
+
+        function getShipIcon(type) {
+            return SHIP_ICONS[type] || SHIP_ICONS.default;
+        }
+
+        // Navigation status text
+        const NAV_STATUS = {
+            0: 'Under way using engine',
+            1: 'At anchor',
+            2: 'Not under command',
+            3: 'Restricted maneuverability',
+            4: 'Constrained by draught',
+            5: 'Moored',
+            6: 'Aground',
+            7: 'Engaged in fishing',
+            8: 'Under way sailing',
+            11: 'Power-driven vessel towing astern',
+            12: 'Power-driven vessel pushing ahead',
+            14: 'AIS-SART active',
+            15: 'Undefined'
+        };
+
+        // Initialize map
+        function initMap() {
+            // Load saved observer location
+            const saved = localStorage.getItem('ais_observerLocation');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.lat && parsed.lon) {
+                        observerLocation = parsed;
+                        document.getElementById('obsLat').value = parsed.lat;
+                        document.getElementById('obsLon').value = parsed.lon;
+                    }
+                } catch (e) {}
+            }
+
+            vesselMap = L.map('vesselMap', {
+                center: [observerLocation.lat, observerLocation.lon],
+                zoom: 10,
+                zoomControl: true
+            });
+
+            // OpenStreetMap tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(vesselMap);
+
+            // Add observer marker
+            observerMarker = L.circleMarker([observerLocation.lat, observerLocation.lon], {
+                radius: 8,
+                fillColor: '#22c55e',
+                color: '#22c55e',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.5
+            }).addTo(vesselMap);
+            observerMarker.bindTooltip('Observer', { permanent: false, direction: 'top' });
+
+            drawRangeRings();
+            loadDevices();
+            updateClock();
+            setInterval(updateClock, 1000);
+            setInterval(cleanupStaleVessels, 10000);
+        }
+
+        function loadDevices() {
+            fetch('/devices')
+                .then(r => r.json())
+                .then(devices => {
+                    const select = document.getElementById('aisDeviceSelect');
+                    select.innerHTML = '';
+                    if (devices.length === 0) {
+                        select.innerHTML = '<option value="0">No devices</option>';
+                    } else {
+                        devices.forEach((d, i) => {
+                            const opt = document.createElement('option');
+                            opt.value = d.index;
+                            opt.textContent = `SDR ${d.index}: ${d.name}`;
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function updateObserverLoc() {
+            const lat = parseFloat(document.getElementById('obsLat').value);
+            const lon = parseFloat(document.getElementById('obsLon').value);
+            if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                observerLocation = { lat, lon };
+                localStorage.setItem('ais_observerLocation', JSON.stringify(observerLocation));
+                if (observerMarker) {
+                    observerMarker.setLatLng([lat, lon]);
+                }
+                vesselMap.setView([lat, lon], vesselMap.getZoom());
+                drawRangeRings();
+            }
+        }
+
+        function drawRangeRings() {
+            if (rangeRingsLayer) {
+                vesselMap.removeLayer(rangeRingsLayer);
+            }
+
+            if (!document.getElementById('showRangeRings').checked) return;
+
+            const rings = [];
+            const nmToMeters = 1852;
+            const intervals = [maxRange / 4, maxRange / 2, maxRange * 3 / 4, maxRange];
+
+            intervals.forEach(nm => {
+                const circle = L.circle([observerLocation.lat, observerLocation.lon], {
+                    radius: nm * nmToMeters,
+                    fill: false,
+                    color: '#4a9eff',
+                    opacity: 0.3,
+                    weight: 1,
+                    dashArray: '4 4'
+                });
+                rings.push(circle);
+            });
+
+            rangeRingsLayer = L.layerGroup(rings).addTo(vesselMap);
+        }
+
+        function updateRange() {
+            maxRange = parseInt(document.getElementById('rangeSelect').value);
+            drawRangeRings();
+        }
+
+        function toggleTrails() {
+            showTrails = document.getElementById('showTrails').checked;
+            Object.keys(trailLines).forEach(mmsi => {
+                if (trailLines[mmsi]) {
+                    if (showTrails) {
+                        trailLines[mmsi].addTo(vesselMap);
+                    } else {
+                        vesselMap.removeLayer(trailLines[mmsi]);
+                    }
+                }
+            });
+        }
+
+        function toggleTracking() {
+            if (isTracking) {
+                stopTracking();
+            } else {
+                startTracking();
+            }
+        }
+
+        function startTracking() {
+            const device = document.getElementById('aisDeviceSelect').value;
+            const gain = document.getElementById('aisGain').value;
+
+            fetch('/ais/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device, gain })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started' || data.status === 'already_running') {
+                    isTracking = true;
+                    document.getElementById('startBtn').textContent = 'STOP';
+                    document.getElementById('startBtn').classList.add('active');
+                    document.getElementById('trackingDot').classList.add('active');
+                    document.getElementById('trackingStatus').textContent = 'TRACKING';
+                    startSessionTimer();
+                    startSSE();
+                } else {
+                    alert(data.message || 'Failed to start');
+                }
+            })
+            .catch(err => alert('Error: ' + err.message));
+        }
+
+        function stopTracking() {
+            fetch('/ais/stop', { method: 'POST' })
+            .then(r => r.json())
+            .then(() => {
+                isTracking = false;
+                document.getElementById('startBtn').textContent = 'START';
+                document.getElementById('startBtn').classList.remove('active');
+                document.getElementById('trackingDot').classList.remove('active');
+                document.getElementById('trackingStatus').textContent = 'STANDBY';
+                stopSessionTimer();
+                updateSignalQuality();
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+            });
+        }
+
+        function startSSE() {
+            if (eventSource) eventSource.close();
+
+            eventSource = new EventSource('/ais/stream');
+            eventSource.onmessage = function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'vessel') {
+                        updateVessel(data);
+                    }
+                } catch (err) {}
+            };
+
+            eventSource.onerror = function() {
+                setTimeout(() => {
+                    if (isTracking) startSSE();
+                }, 2000);
+            };
+        }
+
+        function updateVessel(data) {
+            const mmsi = data.mmsi;
+            if (!mmsi) return;
+
+            vessels[mmsi] = data;
+            stats.totalVesselsSeen.add(mmsi);
+            stats.messagesReceived++;
+
+            // Update statistics
+            if (data.speed && data.speed > stats.fastestSpeed) {
+                stats.fastestSpeed = data.speed;
+            }
+
+            if (data.lat && data.lon) {
+                const dist = calculateDistance(observerLocation.lat, observerLocation.lon, data.lat, data.lon);
+                if (dist > stats.maxRange) stats.maxRange = dist;
+                if (dist < stats.closestDistance) stats.closestDistance = dist;
+
+                // Update trail
+                if (!vesselTrails[mmsi]) vesselTrails[mmsi] = [];
+                vesselTrails[mmsi].push({ lat: data.lat, lon: data.lon, time: Date.now() });
+                if (vesselTrails[mmsi].length > MAX_TRAIL_POINTS) {
+                    vesselTrails[mmsi].shift();
+                }
+
+                // Update trail line
+                if (showTrails) {
+                    const points = vesselTrails[mmsi].map(p => [p.lat, p.lon]);
+                    if (trailLines[mmsi]) {
+                        trailLines[mmsi].setLatLngs(points);
+                    } else {
+                        trailLines[mmsi] = L.polyline(points, {
+                            color: '#4a9eff',
+                            weight: 2,
+                            opacity: 0.5
+                        }).addTo(vesselMap);
+                    }
+                }
+            }
+
+            updateMarker(data);
+            updateStats();
+            updateVesselList();
+
+            if (mmsi === selectedMmsi) {
+                showVesselDetails(data);
+            }
+        }
+
+        function updateMarker(vessel) {
+            const mmsi = vessel.mmsi;
+            if (!vessel.lat || !vessel.lon) return;
+
+            const heading = vessel.heading || vessel.course || 0;
+            const icon = getShipIcon(vessel.ship_type);
+
+            const markerHtml = `
+                <div class="vessel-marker-inner" style="transform: rotate(${heading}deg);">
+                    ${icon}
+                </div>
+            `;
+
+            const divIcon = L.divIcon({
+                className: 'vessel-marker' + (mmsi === selectedMmsi ? ' selected' : ''),
+                html: markerHtml,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            if (markers[mmsi]) {
+                markers[mmsi].setLatLng([vessel.lat, vessel.lon]);
+                markers[mmsi].setIcon(divIcon);
+            } else {
+                markers[mmsi] = L.marker([vessel.lat, vessel.lon], { icon: divIcon })
+                    .addTo(vesselMap)
+                    .on('click', () => selectVessel(mmsi));
+            }
+
+            const name = vessel.name || 'Unknown';
+            markers[mmsi].bindTooltip(`${name}<br>MMSI: ${mmsi}`, { direction: 'top' });
+        }
+
+        function selectVessel(mmsi) {
+            selectedMmsi = mmsi;
+
+            // Update marker styles
+            Object.keys(markers).forEach(m => {
+                const el = markers[m].getElement();
+                if (el) {
+                    el.querySelector('.vessel-marker-inner')?.parentElement?.classList.toggle('selected', m === mmsi);
+                }
+            });
+
+            // Update list selection
+            document.querySelectorAll('.vessel-item').forEach(el => {
+                el.classList.toggle('selected', el.dataset.mmsi === mmsi);
+            });
+
+            if (vessels[mmsi]) {
+                showVesselDetails(vessels[mmsi]);
+            }
+        }
+
+        function showVesselDetails(vessel) {
+            const container = document.getElementById('selectedInfo');
+            const icon = getShipIcon(vessel.ship_type);
+            const category = getShipCategory(vessel.ship_type);
+            const navStatus = NAV_STATUS[vessel.nav_status] || vessel.nav_status_text || 'Unknown';
+
+            container.innerHTML = `
+                <div class="vessel-header">
+                    <div class="vessel-icon">${icon}</div>
+                    <div>
+                        <div class="vessel-name">${vessel.name || 'Unknown Vessel'}</div>
+                        <div class="vessel-mmsi">MMSI: ${vessel.mmsi}</div>
+                    </div>
+                </div>
+                <div class="vessel-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Type</div>
+                        <div class="detail-value">${category}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Callsign</div>
+                        <div class="detail-value">${vessel.callsign || '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Speed</div>
+                        <div class="detail-value">${vessel.speed ? vessel.speed + ' kt' : '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Course</div>
+                        <div class="detail-value">${vessel.course ? vessel.course + '°' : '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Heading</div>
+                        <div class="detail-value">${vessel.heading ? vessel.heading + '°' : '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value" style="font-size: 10px;">${navStatus}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Destination</div>
+                        <div class="detail-value">${vessel.destination || '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">ETA</div>
+                        <div class="detail-value">${vessel.eta || '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Length</div>
+                        <div class="detail-value">${vessel.length ? vessel.length + ' m' : '-'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Width</div>
+                        <div class="detail-value">${vessel.width ? vessel.width + ' m' : '-'}</div>
+                    </div>
+                    <div class="detail-item" style="grid-column: span 2;">
+                        <div class="detail-label">Position</div>
+                        <div class="detail-value">${vessel.lat ? vessel.lat.toFixed(5) + ', ' + vessel.lon.toFixed(5) : '-'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateVesselList() {
+            const container = document.getElementById('vesselList');
+            const vesselArray = Object.values(vessels).sort((a, b) => {
+                // Sort by name, then MMSI
+                const nameA = a.name || 'ZZZZZ';
+                const nameB = b.name || 'ZZZZZ';
+                return nameA.localeCompare(nameB);
+            });
+
+            if (vesselArray.length === 0) {
+                container.innerHTML = `
+                    <div class="no-vessel">
+                        <div>No vessels detected</div>
+                        <div style="font-size: 10px; margin-top: 5px;">Start tracking to begin</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = vesselArray.map(v => {
+                const icon = getShipIcon(v.ship_type);
+                const category = getShipCategory(v.ship_type);
+                return `
+                    <div class="vessel-item ${v.mmsi === selectedMmsi ? 'selected' : ''}"
+                         data-mmsi="${v.mmsi}" onclick="selectVessel('${v.mmsi}')">
+                        <div class="vessel-item-icon">${icon}</div>
+                        <div class="vessel-item-info">
+                            <div class="vessel-item-name">${v.name || 'Unknown'}</div>
+                            <div class="vessel-item-type">${category} | ${v.mmsi}</div>
+                        </div>
+                        <div class="vessel-item-speed">${v.speed ? v.speed + ' kt' : '-'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('stripVesselsNow').textContent = Object.keys(vessels).length;
+            document.getElementById('stripTotalSeen').textContent = stats.totalVesselsSeen.size;
+            document.getElementById('stripMaxRange').textContent = stats.maxRange.toFixed(1);
+            document.getElementById('stripFastest').textContent = stats.fastestSpeed > 0 ? stats.fastestSpeed.toFixed(1) : '-';
+            document.getElementById('stripClosest').textContent = stats.closestDistance < Infinity ? stats.closestDistance.toFixed(1) : '-';
+        }
+
+        function cleanupStaleVessels() {
+            const now = Date.now();
+            const maxAge = 600000; // 10 minutes
+
+            Object.keys(vessels).forEach(mmsi => {
+                const lastSeen = vessels[mmsi].last_seen * 1000;
+                if (now - lastSeen > maxAge) {
+                    delete vessels[mmsi];
+                    if (markers[mmsi]) {
+                        vesselMap.removeLayer(markers[mmsi]);
+                        delete markers[mmsi];
+                    }
+                    if (trailLines[mmsi]) {
+                        vesselMap.removeLayer(trailLines[mmsi]);
+                        delete trailLines[mmsi];
+                    }
+                    delete vesselTrails[mmsi];
+                }
+            });
+
+            updateVesselList();
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            // Haversine formula, returns nautical miles
+            const R = 3440.065; // Earth radius in nautical miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const utc = now.toISOString().slice(11, 19);
+            document.getElementById('utcTime').textContent = utc + ' UTC';
+        }
+
+        // Session timer functions
+        function startSessionTimer() {
+            if (!stats.sessionStart) {
+                stats.sessionStart = Date.now();
+            }
+            if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+            sessionTimerInterval = setInterval(updateSessionTimer, 1000);
+
+            // Start message rate tracking
+            if (messageRateInterval) clearInterval(messageRateInterval);
+            lastMessageCount = stats.messagesReceived;
+            messageRateInterval = setInterval(updateMessageRate, 1000);
+        }
+
+        function stopSessionTimer() {
+            if (sessionTimerInterval) {
+                clearInterval(sessionTimerInterval);
+                sessionTimerInterval = null;
+            }
+            if (messageRateInterval) {
+                clearInterval(messageRateInterval);
+                messageRateInterval = null;
+            }
+        }
+
+        function updateSessionTimer() {
+            if (!stats.sessionStart) return;
+            const elapsed = Date.now() - stats.sessionStart;
+            const hours = Math.floor(elapsed / 3600000);
+            const mins = Math.floor((elapsed % 3600000) / 60000);
+            const secs = Math.floor((elapsed % 60000) / 1000);
+            document.getElementById('stripSession').textContent =
+                `${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        }
+
+        function updateMessageRate() {
+            const currentCount = stats.messagesReceived;
+            stats.messagesPerSecond = currentCount - lastMessageCount;
+            lastMessageCount = currentCount;
+            updateSignalQuality();
+        }
+
+        // Signal quality display
+        function updateSignalQuality() {
+            const msgRate = stats.messagesPerSecond;
+            const el = document.getElementById('stripSignal');
+            const stat = el.closest('.strip-stat');
+
+            if (!isTracking || msgRate === 0) {
+                el.textContent = '--';
+                stat.classList.remove('good', 'warning', 'poor');
+                return;
+            }
+
+            // Signal quality based on message rate
+            // Good: >5 msg/s, Warning: 1-5, Poor: <1
+            if (msgRate >= 5) {
+                el.textContent = '●●●';
+                stat.classList.remove('warning', 'poor');
+                stat.classList.add('good');
+            } else if (msgRate >= 1) {
+                el.textContent = '●●○';
+                stat.classList.remove('good', 'poor');
+                stat.classList.add('warning');
+            } else {
+                el.textContent = '●○○';
+                stat.classList.remove('good', 'warning');
+                stat.classList.add('poor');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>

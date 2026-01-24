@@ -209,6 +209,20 @@ TOOL_DEPENDENCIES = {
             }
         }
     },
+    'ais': {
+        'name': 'Vessel Tracking (AIS)',
+        'tools': {
+            'AIS-catcher': {
+                'required': True,
+                'description': 'AIS receiver and decoder',
+                'install': {
+                    'apt': 'Download .deb from https://github.com/jvde-github/AIS-catcher/releases',
+                    'brew': 'brew install aiscatcher',
+                    'manual': 'https://github.com/jvde-github/AIS-catcher/releases'
+                }
+            }
+        }
+    },
     'aprs': {
         'name': 'APRS Tracking',
         'tools': {

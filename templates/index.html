@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/device-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/proximity-viz.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/spy-stations.css') }}">
 </head>
 
 <body>
@@ -95,6 +96,11 @@
                             <span class="mode-name">Aircraft</span>
                             <span class="mode-desc">ADS-B tracking</span>
                         </a>
+                        <a href="/ais/dashboard" class="mode-card" style="text-decoration: none;">
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l2 2h14l2-2"/><path d="M5 18v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M12 12V6"/><path d="M12 6l4 3"/></svg></span>
+                            <span class="mode-name">Vessels</span>
+                            <span class="mode-desc">AIS ship tracking</span>
+                        </a>
                         <button class="mode-card" onclick="selectMode('wifi')">
                             <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span>
                             <span class="mode-name">WiFi</span>
@@ -129,6 +135,11 @@
                             <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/><circle cx="12" cy="12" r="4"/></svg></span>
                             <span class="mode-name">Meters</span>
                             <span class="mode-desc">Utility meters</span>
+                        </button>
+                        <button class="mode-card" onclick="selectMode('spystations')">
+                            <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></span>
+                            <span class="mode-name">Spy Stations</span>
+                            <span class="mode-desc">Number stations & diplomatic</span>
                         </button>
                     </div>
                 </div>
@@ -271,9 +282,11 @@
                 <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span><span class="nav-label">433MHz</span></button>
                 <button class="mode-nav-btn" onclick="switchMode('rtlamr')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="nav-label">Meters</span></button>
                 <a href="/adsb/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span><span class="nav-label">Aircraft</span></a>
+                <a href="/ais/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l2 2h14l2-2"/><path d="M5 18v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M12 12V6"/><path d="M12 6l4 3"/></svg></span><span class="nav-label">Vessels</span></a>
                 <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><span class="nav-label">APRS</span></button>
                 <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></span><span class="nav-label">Satellite</span></button>
                 <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span><span class="nav-label">Listening Post</span></button>
+                <button class="mode-nav-btn" onclick="switchMode('spystations')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></span><span class="nav-label">Spy Stations</span></button>
             </div>
         </div>
         <div class="mode-nav-dropdown" data-group="wireless">
@@ -330,12 +343,14 @@
         <button class="mobile-nav-btn" data-mode="sensor" onclick="switchMode('sensor')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span> 433MHz</button>
         <button class="mobile-nav-btn" data-mode="rtlamr" onclick="switchMode('rtlamr')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Meters</button>
         <a href="/adsb/dashboard" class="mobile-nav-btn" style="text-decoration: none;"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span> Aircraft</a>
+        <a href="/ais/dashboard" class="mobile-nav-btn" style="text-decoration: none;"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18l2 2h14l2-2"/><path d="M5 18v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M12 12V6"/><path d="M12 6l4 3"/></svg></span> Vessels</a>
         <button class="mobile-nav-btn" data-mode="aprs" onclick="switchMode('aprs')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span> APRS</button>
         <button class="mobile-nav-btn" data-mode="wifi" onclick="switchMode('wifi')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span> WiFi</button>
         <button class="mobile-nav-btn" data-mode="bluetooth" onclick="switchMode('bluetooth')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span> BT</button>
         <button class="mobile-nav-btn" data-mode="tscm" onclick="switchMode('tscm')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span> TSCM</button>
         <button class="mobile-nav-btn" data-mode="satellite" onclick="switchMode('satellite')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> Sat</button>
         <button class="mobile-nav-btn" data-mode="listening" onclick="switchMode('listening')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> Scanner</button>
+        <button class="mobile-nav-btn" data-mode="spystations" onclick="switchMode('spystations')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><circle cx="12" cy="12" r="2"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></span> Spy</button>
     </nav>
 
     <!-- Mobile Drawer Overlay -->
@@ -445,6 +460,10 @@
                 {% include 'partials/modes/listening-post.html' %}
 
                 {% include 'partials/modes/tscm.html' %}
+
+                {% include 'partials/modes/ais.html' %}
+
+                {% include 'partials/modes/spy-stations.html' %}
 
                 <button class="preset-btn" onclick="killAll()"
                     style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
@@ -1438,6 +1457,28 @@
                     </div>
                 </div>
 
+                <!-- Spy Stations Dashboard -->
+                <div id="spyStationsVisuals" class="spy-stations-container" style="display: none;">
+                    <div class="spy-stations-header">
+                        <div class="spy-stations-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                                <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/>
+                                <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/>
+                                <circle cx="12" cy="12" r="2"/>
+                                <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/>
+                                <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>
+                            </svg>
+                            Number Stations & Diplomatic Networks
+                        </div>
+                        <div class="spy-stations-count">
+                            <span id="spyStationsVisibleCount">0</span> stations
+                        </div>
+                    </div>
+                    <div class="spy-stations-grid" id="spyStationsGrid">
+                        <!-- Station cards populated by JavaScript -->
+                    </div>
+                </div>
+
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
                 <div class="recon-panel collapsed" id="reconPanel">
                     <div class="recon-header" onclick="toggleReconCollapse()" style="cursor: pointer;">
@@ -1519,6 +1560,7 @@
     <script src="{{ url_for('static', filename='js/components/channel-chart.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/wifi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/listening-post.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/spy-stations.js') }}"></script>
 
     <script>
         // ============================================
@@ -1987,7 +2029,8 @@
                 'pager': 'sdr', 'sensor': 'sdr',
                 'aprs': 'sdr', 'satellite': 'sdr', 'listening': 'sdr',
                 'wifi': 'wireless', 'bluetooth': 'wireless',
-                'tscm': 'security'
+                'tscm': 'security',
+                'rtlamr': 'sdr', 'ais': 'sdr', 'spystations': 'sdr'
             };
 
             // Remove has-active from all dropdowns
@@ -2046,6 +2089,8 @@
             document.getElementById('listeningPostMode')?.classList.toggle('active', mode === 'listening');
             document.getElementById('aprsMode')?.classList.toggle('active', mode === 'aprs');
             document.getElementById('tscmMode')?.classList.toggle('active', mode === 'tscm');
+            document.getElementById('aisMode')?.classList.toggle('active', mode === 'ais');
+            document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
             const pagerStats = document.getElementById('pagerStats');
             const sensorStats = document.getElementById('sensorStats');
             const satelliteStats = document.getElementById('satelliteStats');
@@ -2075,7 +2120,9 @@
                 'bluetooth': 'BLUETOOTH',
                 'listening': 'LISTENING POST',
                 'aprs': 'APRS',
-                'tscm': 'TSCM'
+                'tscm': 'TSCM',
+                'ais': 'AIS VESSELS',
+                'spystations': 'SPY STATIONS'
             };
             const activeModeIndicator = document.getElementById('activeModeIndicator');
             if (activeModeIndicator) activeModeIndicator.innerHTML = '<span class="pulse-dot"></span>' + (modeNames[mode] || mode.toUpperCase());
@@ -2085,12 +2132,14 @@
             const listeningPostVisuals = document.getElementById('listeningPostVisuals');
             const aprsVisuals = document.getElementById('aprsVisuals');
             const tscmVisuals = document.getElementById('tscmVisuals');
+            const spyStationsVisuals = document.getElementById('spyStationsVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
             if (listeningPostVisuals) listeningPostVisuals.style.display = mode === 'listening' ? 'grid' : 'none';
             if (aprsVisuals) aprsVisuals.style.display = mode === 'aprs' ? 'flex' : 'none';
             if (tscmVisuals) tscmVisuals.style.display = mode === 'tscm' ? 'flex' : 'none';
+            if (spyStationsVisuals) spyStationsVisuals.style.display = mode === 'spystations' ? 'flex' : 'none';
 
             // Show/hide mode-specific timeline containers
             const pagerTimelineContainer = document.getElementById('pagerTimelineContainer');
@@ -2108,7 +2157,9 @@
                 'bluetooth': 'Bluetooth Scanner',
                 'listening': 'Listening Post',
                 'aprs': 'APRS Tracker',
-                'tscm': 'TSCM Counter-Surveillance'
+                'tscm': 'TSCM Counter-Surveillance',
+                'ais': 'AIS Vessel Tracker',
+                'spystations': 'Spy Stations'
             };
             const outputTitle = document.getElementById('outputTitle');
             if (outputTitle) outputTitle.textContent = titles[mode] || 'Signal Monitor';
@@ -2126,7 +2177,7 @@
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'listening' || mode === 'aprs' || mode === 'tscm') {
+            if (mode === 'satellite' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -2152,7 +2203,7 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm') ? 'none' : 'block';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations') ? 'none' : 'block';
             if (statusBar) statusBar.style.display = (mode === 'satellite') ? 'none' : 'flex';
 
             // Load interfaces and initialize visualizations when switching modes
@@ -2177,6 +2228,13 @@
             } else if (mode === 'satellite') {
                 initPolarPlot();
                 initSatelliteList();
+            } else if (mode === 'listening') {
+                // Check for incoming tune requests from Spy Stations
+                if (typeof checkIncomingTuneRequest === 'function') {
+                    checkIncomingTuneRequest();
+                }
+            } else if (mode === 'spystations') {
+                SpyStations.init();
             }
         }
 
@@ -10495,6 +10553,8 @@
                     </div>
                     <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - Opens ADS-B
                             Dashboard</span></div>
+                    <div class="icon-item"><span class="icon">🚢</span><span class="desc">Vessels - Opens AIS
+                            Dashboard</span></div>
                     <div class="icon-item"><span class="icon">📍</span><span class="desc">APRS - Amateur radio
                             tracking</span></div>
                     <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellite - Pass
@@ -10671,6 +10731,7 @@
                     <li><strong>Utility Meters:</strong> RTL-SDR, rtl_tcp, rtlamr</li>
                     <li><strong>Aircraft (ADS-B):</strong> RTL-SDR, dump1090 or rtl_adsb</li>
                     <li><strong>Aircraft (ACARS):</strong> Second RTL-SDR, acarsdec</li>
+                    <li><strong>Vessels (AIS):</strong> RTL-SDR, AIS-catcher</li>
                     <li><strong>APRS:</strong> RTL-SDR, direwolf or multimon-ng</li>
                     <li><strong>Satellite:</strong> Internet for Celestrak (optional), skyfield</li>
                     <li><strong>WiFi:</strong> Monitor-mode adapter, aircrack-ng suite</li>
