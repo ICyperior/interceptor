@@ -163,10 +163,13 @@ def process_ais_message(msg: dict) -> dict | None:
     vessel = app_module.ais_vessels.get(mmsi) or {'mmsi': mmsi}
 
     # Extract common fields
-    if 'lat' in msg and 'lon' in msg:
+    # AIS-catcher JSON_FULL uses 'longitude'/'latitude', but some versions use 'lon'/'lat'
+    lat_val = msg.get('latitude') or msg.get('lat')
+    lon_val = msg.get('longitude') or msg.get('lon')
+    if lat_val is not None and lon_val is not None:
         try:
-            lat = float(msg['lat'])
-            lon = float(msg['lon'])
+            lat = float(lat_val)
+            lon = float(lon_val)
             # Validate coordinates (AIS uses 181 for unavailable)
             if -90 <= lat <= 90 and -180 <= lon <= 180:
                 vessel['lat'] = lat
