@@ -10551,10 +10551,9 @@
                     </div>
                     <div class="icon-item"><span class="icon">⚡</span><span class="desc">Meters - Utility meter decoder</span>
                     </div>
-                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - Opens ADS-B
-                            Dashboard</span></div>
-                    <div class="icon-item"><span class="icon">🚢</span><span class="desc">Vessels - Opens AIS
-                            Dashboard</span></div>
+                    <div class="icon-item"><span class="icon">✈️</span><span class="desc">Aircraft - ADS-B tracking &amp; history</span></div>
+                    <div class="icon-item"><span class="icon">🚢</span><span class="desc">Vessels - AIS &amp; VHF DSC distress</span></div>
+                    <div class="icon-item"><span class="icon">📻</span><span class="desc">Spy Stations - Number stations database</span></div>
                     <div class="icon-item"><span class="icon">📍</span><span class="desc">APRS - Amateur radio
                             tracking</span></div>
                     <div class="icon-item"><span class="icon">🛰️</span><span class="desc">Satellite - Pass
@@ -10600,6 +10599,27 @@
                 <ul class="tip-list">
                     <li>Opens the dedicated ADS-B Dashboard for aircraft tracking</li>
                     <li>Features radar scope, map view, airband audio, and ACARS decoding</li>
+                    <li>Optional history mode persists data to Postgres for long-term analysis</li>
+                    <li>Access history dashboard at <code>/adsb/history</code></li>
+                </ul>
+
+                <h3>Vessels (Dashboard)</h3>
+                <ul class="tip-list">
+                    <li>Opens the AIS Dashboard for maritime vessel tracking</li>
+                    <li>Displays vessel name, MMSI, callsign, destination, and navigation data</li>
+                    <li><strong>VHF DSC Channel 70:</strong> Monitors maritime distress frequency (156.525 MHz)</li>
+                    <li>Decodes DSC messages: Distress, Urgency, Safety, and Routine calls</li>
+                    <li>MMSI country identification via Maritime Identification Digits (MID)</li>
+                    <li>Visual alerts for DISTRESS and URGENCY messages with map markers</li>
+                </ul>
+
+                <h3>Spy Stations</h3>
+                <ul class="tip-list">
+                    <li>Database of number stations and diplomatic HF networks</li>
+                    <li>Browse stations from priyom.org with frequencies and schedules</li>
+                    <li>Filter by type (number/diplomatic), country, and mode</li>
+                    <li>Famous stations: UVB-76 "The Buzzer", Cuban HM01, Israeli E17z</li>
+                    <li>Click "Tune" to listen via Listening Post mode</li>
                 </ul>
 
                 <h3>APRS Mode</h3>
