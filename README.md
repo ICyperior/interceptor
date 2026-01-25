@@ -33,6 +33,7 @@ Support the developer of this open-source project
 - **ACARS Messaging** - Aircraft datalink messages via acarsdec
 - **Listening Post** - Frequency scanner with audio monitoring
 - **Satellite Tracking** - Pass prediction using TLE data
+- **ADS-B History** - Persistent aircraft history with reporting dashboard (Postgres optional)
 - **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
 - **Bluetooth Scanning** - Device discovery and tracker detection
 - **Spy Stations** - Number stations and diplomatic HF network database
@@ -60,6 +61,29 @@ docker compose up -d
 ```
 
 > **Note:** Docker requires privileged mode for USB SDR access. See `docker-compose.yml` for configuration options.
+
+### ADS-B History (Optional, Postgres)
+
+The ADS-B history dashboard persists aircraft messages and snapshots to Postgres.
+
+1. Enable history and DB connection:
+
+```bash
+export INTERCEPT_ADSB_HISTORY_ENABLED=true
+export INTERCEPT_ADSB_DB_HOST=adsb_db
+export INTERCEPT_ADSB_DB_PORT=5432
+export INTERCEPT_ADSB_DB_NAME=intercept_adsb
+export INTERCEPT_ADSB_DB_USER=intercept
+export INTERCEPT_ADSB_DB_PASSWORD=intercept
+```
+
+2. Start the services (includes Postgres in `docker-compose.yml`):
+
+```bash
+docker compose up -d
+```
+
+3. Open **/adsb/history** for the reporting dashboard and headless start/stop controls.
 
 ### Local Fixes Branch (Optional)
 
