@@ -428,7 +428,7 @@ class DSCDecoder:
             # Quadrant indicator
             quadrant = symbols[0]
             lat_sign = 1 if quadrant in (10, 11) else -1
-            lon_sign = 1 if quadrant in (10, 00) else -1
+            lon_sign = 1 if quadrant in (10, 0) else -1
 
             # Latitude degrees and minutes
             lat_deg = symbols[1] if symbols[1] <= 90 else 0
