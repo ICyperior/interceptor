@@ -57,6 +57,31 @@ Complete feature list for all modules.
   <img src="/static/images/screenshots/screenshot_radar.png" alt="Screenshot">
 </p>
 
+## AIS Vessel Tracking
+
+- **Real-time vessel tracking** via AIS-catcher or rtl_ais
+- **Full-screen dashboard** - dedicated popout with maritime map
+- **Interactive Leaflet map** with OpenStreetMap tiles (dark-themed)
+- **Vessel trails** - optional track history visualization
+- **Vessel details popup** - name, MMSI, callsign, destination, ship type, speed, heading
+- **Country identification** - flag lookup via Maritime Identification Digits (MID)
+
+### VHF DSC Channel 70 Monitoring
+
+Digital Selective Calling (DSC) monitoring on the international maritime distress frequency.
+
+- **Real-time DSC decoding** - Distress, Urgency, Safety, and Routine messages
+- **MMSI country lookup** - 180+ Maritime Identification Digit codes
+- **Distress nature identification** - Fire, Flooding, Collision, Sinking, Piracy, MOB, etc.
+- **Position extraction** - Automatic lat/lon parsing from distress messages
+- **Map markers** - Distress positions plotted with pulsing alert markers
+- **Visual alert overlay** - Prominent popup for DISTRESS and URGENCY messages
+- **Audio alerts** - Notification sound for critical messages
+- **Alert persistence** - Critical alerts stored permanently in database
+- **Acknowledgement workflow** - Track response status with notes
+- **SDR conflict detection** - Prevents device collisions with AIS tracking
+- **Alert summary** - Dashboard counts for unacknowledged distress/urgency
+
 ## Satellite Tracking
 
 - **Full-screen dashboard** - dedicated popout with polar plot and ground track

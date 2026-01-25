@@ -15,10 +15,10 @@ CHANGELOG = [
         "version": "2.10.0",
         "date": "January 2026",
         "highlights": [
-            "AIS vessel tracking with real-time maritime map",
+            "AIS vessel tracking with VHF DSC distress monitoring",
             "Spy Stations database (number stations & diplomatic HF)",
-            "Multi-SDR support for AIS (RTL-SDR, HackRF, LimeSDR, etc.)",
-            "UI improvements: renamed modes for clarity",
+            "MMSI country identification and distress alert overlays",
+            "SDR device conflict detection for AIS/DSC",
         ]
     },
     {
