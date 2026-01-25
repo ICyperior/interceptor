@@ -129,6 +129,15 @@ BT_UPDATE_INTERVAL = _get_env_float('BT_UPDATE_INTERVAL', 2.0)
 # ADS-B settings
 ADSB_SBS_PORT = _get_env_int('ADSB_SBS_PORT', 30003)
 ADSB_UPDATE_INTERVAL = _get_env_float('ADSB_UPDATE_INTERVAL', 1.0)
+ADSB_HISTORY_ENABLED = _get_env_bool('ADSB_HISTORY_ENABLED', False)
+ADSB_DB_HOST = _get_env('ADSB_DB_HOST', 'localhost')
+ADSB_DB_PORT = _get_env_int('ADSB_DB_PORT', 5432)
+ADSB_DB_NAME = _get_env('ADSB_DB_NAME', 'intercept_adsb')
+ADSB_DB_USER = _get_env('ADSB_DB_USER', 'intercept')
+ADSB_DB_PASSWORD = _get_env('ADSB_DB_PASSWORD', 'intercept')
+ADSB_HISTORY_BATCH_SIZE = _get_env_int('ADSB_HISTORY_BATCH_SIZE', 500)
+ADSB_HISTORY_FLUSH_INTERVAL = _get_env_float('ADSB_HISTORY_FLUSH_INTERVAL', 1.0)
+ADSB_HISTORY_QUEUE_SIZE = _get_env_int('ADSB_HISTORY_QUEUE_SIZE', 50000)
 
 # Satellite settings
 SATELLITE_UPDATE_INTERVAL = _get_env_int('SATELLITE_UPDATE_INTERVAL', 30)

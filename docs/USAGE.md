@@ -79,6 +79,38 @@ The system highlights aircraft transmitting emergency squawks:
 - **7600** - Radio failure
 - **7700** - General emergency
 
+## ADS-B History (Optional)
+
+The history dashboard persists aircraft messages and per-aircraft snapshots to Postgres for long-running tracking and reporting.
+
+### Enable History
+
+Set the following environment variables (Docker recommended):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INTERCEPT_ADSB_HISTORY_ENABLED` | `false` | Enables history storage and reporting |
+| `INTERCEPT_ADSB_DB_HOST` | `localhost` | Postgres host (use `adsb_db` in Docker) |
+| `INTERCEPT_ADSB_DB_PORT` | `5432` | Postgres port |
+| `INTERCEPT_ADSB_DB_NAME` | `intercept_adsb` | Database name |
+| `INTERCEPT_ADSB_DB_USER` | `intercept` | Database user |
+| `INTERCEPT_ADSB_DB_PASSWORD` | `intercept` | Database password |
+
+### Docker Setup
+
+`docker-compose.yml` includes an `adsb_db` service and a persistent volume for history storage:
+
+```bash
+docker compose up -d
+```
+
+### Using the History Dashboard
+
+1. Open **/adsb/history**
+2. Use **Start Tracking** to run ADS-B in headless mode
+3. View aircraft history and timelines
+4. Stop tracking when desired (session history is recorded)
+
 ## Satellite Mode
 
 1. **Set Location** - Choose location source:

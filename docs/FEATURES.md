@@ -48,6 +48,8 @@ Complete feature list for all modules.
 - **Aircraft filtering** - show all, military only, civil only, or emergency only
 - **Marker clustering** - group nearby aircraft at lower zoom levels
 - **Reception statistics** - max range, message rate, busiest hour, total seen
+- **Persistent ADS-B history** - optional Postgres-backed message and snapshot storage
+- **History reporting dashboard** - session controls, aircraft timelines, and detail modal
 - **Observer location** - manual input or GPS geolocation
 - **Audio alerts** - notifications for military and emergency aircraft
 - **Emergency squawk highlighting** - visual alerts for 7500/7600/7700
