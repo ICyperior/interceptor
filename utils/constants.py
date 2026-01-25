@@ -237,3 +237,20 @@ HANDSHAKE_CAPTURE_PATH_PREFIX = '/tmp/intercept_handshake_'
 
 # PMKID capture path prefix
 PMKID_CAPTURE_PATH_PREFIX = '/tmp/intercept_pmkid_'
+
+
+# =============================================================================
+# DSC (Digital Selective Calling)
+# =============================================================================
+
+# VHF DSC frequency (Channel 70)
+DSC_VHF_FREQUENCY_MHZ = 156.525
+
+# DSC audio sample rate for rtl_fm
+DSC_SAMPLE_RATE = 48000
+
+# Maximum age for DSC messages in transient store
+MAX_DSC_MESSAGE_AGE_SECONDS = 3600  # 1 hour
+
+# DSC process termination timeout
+DSC_TERMINATE_TIMEOUT = 3
