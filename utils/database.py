@@ -352,6 +352,39 @@ def init_db() -> None:
             ON tscm_cases(status, created_at)
         ''')
 
+        # =====================================================================
+        # DSC (Digital Selective Calling) Tables
+        # =====================================================================
+
+        # DSC Alerts - Permanent storage for DISTRESS/URGENCY messages
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS dsc_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                source_mmsi TEXT NOT NULL,
+                source_name TEXT,
+                dest_mmsi TEXT,
+                format_code TEXT NOT NULL,
+                category TEXT NOT NULL,
+                nature_of_distress TEXT,
+                latitude REAL,
+                longitude REAL,
+                raw_message TEXT,
+                acknowledged BOOLEAN DEFAULT 0,
+                notes TEXT
+            )
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_dsc_alerts_category
+            ON dsc_alerts(category, received_at)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_dsc_alerts_mmsi
+            ON dsc_alerts(source_mmsi, received_at)
+        ''')
+
         logger.info("Database initialized successfully")
 
 
@@ -1455,3 +1488,192 @@ def get_sweep_capabilities(sweep_id: int) -> dict | None:
             'limitations': json.loads(row['limitations']) if row['limitations'] else [],
             'recorded_at': row['recorded_at']
         }
+
+
+# =============================================================================
+# DSC (Digital Selective Calling) Functions
+# =============================================================================
+
+def store_dsc_alert(
+    source_mmsi: str,
+    format_code: str,
+    category: str,
+    source_name: str | None = None,
+    dest_mmsi: str | None = None,
+    nature_of_distress: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    raw_message: str | None = None
+) -> int:
+    """
+    Store a DSC alert (typically DISTRESS or URGENCY) to permanent storage.
+
+    Returns:
+        The ID of the created alert
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO dsc_alerts
+            (source_mmsi, source_name, dest_mmsi, format_code, category,
+             nature_of_distress, latitude, longitude, raw_message)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            source_mmsi, source_name, dest_mmsi, format_code, category,
+            nature_of_distress, latitude, longitude, raw_message
+        ))
+        return cursor.lastrowid
+
+
+def get_dsc_alerts(
+    category: str | None = None,
+    acknowledged: bool | None = None,
+    source_mmsi: str | None = None,
+    limit: int = 100,
+    offset: int = 0
+) -> list[dict]:
+    """
+    Get DSC alerts with optional filters.
+
+    Args:
+        category: Filter by category (DISTRESS, URGENCY, SAFETY, ROUTINE)
+        acknowledged: Filter by acknowledgement status
+        source_mmsi: Filter by source MMSI
+        limit: Maximum number of results
+        offset: Offset for pagination
+
+    Returns:
+        List of DSC alert records
+    """
+    conditions = []
+    params = []
+
+    if category is not None:
+        conditions.append('category = ?')
+        params.append(category)
+    if acknowledged is not None:
+        conditions.append('acknowledged = ?')
+        params.append(1 if acknowledged else 0)
+    if source_mmsi is not None:
+        conditions.append('source_mmsi = ?')
+        params.append(source_mmsi)
+
+    where_clause = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+    params.extend([limit, offset])
+
+    with get_db() as conn:
+        cursor = conn.execute(f'''
+            SELECT * FROM dsc_alerts
+            {where_clause}
+            ORDER BY received_at DESC
+            LIMIT ? OFFSET ?
+        ''', params)
+
+        results = []
+        for row in cursor:
+            results.append({
+                'id': row['id'],
+                'received_at': row['received_at'],
+                'source_mmsi': row['source_mmsi'],
+                'source_name': row['source_name'],
+                'dest_mmsi': row['dest_mmsi'],
+                'format_code': row['format_code'],
+                'category': row['category'],
+                'nature_of_distress': row['nature_of_distress'],
+                'latitude': row['latitude'],
+                'longitude': row['longitude'],
+                'raw_message': row['raw_message'],
+                'acknowledged': bool(row['acknowledged']),
+                'notes': row['notes']
+            })
+        return results
+
+
+def get_dsc_alert(alert_id: int) -> dict | None:
+    """Get a specific DSC alert by ID."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'SELECT * FROM dsc_alerts WHERE id = ?',
+            (alert_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            'id': row['id'],
+            'received_at': row['received_at'],
+            'source_mmsi': row['source_mmsi'],
+            'source_name': row['source_name'],
+            'dest_mmsi': row['dest_mmsi'],
+            'format_code': row['format_code'],
+            'category': row['category'],
+            'nature_of_distress': row['nature_of_distress'],
+            'latitude': row['latitude'],
+            'longitude': row['longitude'],
+            'raw_message': row['raw_message'],
+            'acknowledged': bool(row['acknowledged']),
+            'notes': row['notes']
+        }
+
+
+def acknowledge_dsc_alert(alert_id: int, notes: str | None = None) -> bool:
+    """
+    Acknowledge a DSC alert.
+
+    Args:
+        alert_id: The alert ID to acknowledge
+        notes: Optional notes about the acknowledgement
+
+    Returns:
+        True if alert was found and updated, False otherwise
+    """
+    with get_db() as conn:
+        if notes:
+            cursor = conn.execute(
+                'UPDATE dsc_alerts SET acknowledged = 1, notes = ? WHERE id = ?',
+                (notes, alert_id)
+            )
+        else:
+            cursor = conn.execute(
+                'UPDATE dsc_alerts SET acknowledged = 1 WHERE id = ?',
+                (alert_id,)
+            )
+        return cursor.rowcount > 0
+
+
+def get_dsc_alert_summary() -> dict:
+    """Get summary counts of DSC alerts by category."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            SELECT category, COUNT(*) as count
+            FROM dsc_alerts
+            WHERE acknowledged = 0
+            GROUP BY category
+        ''')
+
+        summary = {'distress': 0, 'urgency': 0, 'safety': 0, 'routine': 0, 'total': 0}
+        for row in cursor:
+            cat = row['category'].lower()
+            if cat in summary:
+                summary[cat] = row['count']
+            summary['total'] += row['count']
+
+        return summary
+
+
+def cleanup_old_dsc_alerts(max_age_days: int = 30) -> int:
+    """
+    Remove old acknowledged DSC alerts (keeps unacknowledged ones).
+
+    Args:
+        max_age_days: Maximum age in days for acknowledged alerts
+
+    Returns:
+        Number of deleted alerts
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM dsc_alerts
+            WHERE acknowledged = 1
+              AND received_at < datetime('now', ?)
+        ''', (f'-{max_age_days} days',))
+        return cursor.rowcount

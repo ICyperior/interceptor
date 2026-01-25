@@ -96,6 +96,23 @@
                     </div>
                 </div>
             </div>
+
+            <div class="panel dsc-messages">
+                <div class="panel-header">
+                    <span>VHF DSC MESSAGES</span>
+                    <div class="panel-indicator" id="dscIndicator"></div>
+                </div>
+                <div class="dsc-alert-summary" id="dscAlertSummary">
+                    <span class="dsc-alert-count distress" id="dscDistressCount" title="Distress alerts">0 DISTRESS</span>
+                    <span class="dsc-alert-count urgency" id="dscUrgencyCount" title="Urgency alerts">0 URGENCY</span>
+                </div>
+                <div class="dsc-list-content" id="dscMessageList">
+                    <div class="no-messages">
+                        <div>No DSC messages</div>
+                        <div style="font-size: 10px; margin-top: 5px;">Start VHF DSC to monitor</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="controls-bar">
@@ -131,6 +148,17 @@
                     <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
                 </div>
             </div>
+
+            <div class="control-group dsc-group">
+                <span class="control-group-label">VHF DSC</span>
+                <div class="control-group-items">
+                    <select id="dscDeviceSelect" title="DSC SDR device (secondary)">
+                        <option value="0">SDR 0</option>
+                    </select>
+                    <input type="number" id="dscGain" value="40" min="0" max="50" style="width: 50px;" title="Gain">
+                    <button class="start-btn dsc-btn" id="dscStartBtn" onclick="toggleDscTracking()">START DSC</button>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -142,6 +170,13 @@
         let selectedMmsi = null;
         let eventSource = null;
         let isTracking = false;
+
+        // DSC State
+        let dscEventSource = null;
+        let isDscTracking = false;
+        let dscMessages = {};
+        let dscMarkers = {};
+        let dscAlertCounts = { distress: 0, urgency: 0 };
         let showTrails = false;
         let vesselTrails = {};
         let trailLines = {};
@@ -290,17 +325,36 @@
             fetch('/devices')
                 .then(r => r.json())
                 .then(devices => {
-                    const select = document.getElementById('aisDeviceSelect');
-                    select.innerHTML = '';
+                    // Populate AIS device selector
+                    const aisSelect = document.getElementById('aisDeviceSelect');
+                    aisSelect.innerHTML = '';
                     if (devices.length === 0) {
-                        select.innerHTML = '<option value="0">No devices</option>';
+                        aisSelect.innerHTML = '<option value="0">No devices</option>';
                     } else {
                         devices.forEach((d, i) => {
                             const opt = document.createElement('option');
                             opt.value = d.index;
                             opt.textContent = `SDR ${d.index}: ${d.name}`;
-                            select.appendChild(opt);
+                            aisSelect.appendChild(opt);
                         });
+                    }
+
+                    // Populate DSC device selector
+                    const dscSelect = document.getElementById('dscDeviceSelect');
+                    dscSelect.innerHTML = '';
+                    if (devices.length === 0) {
+                        dscSelect.innerHTML = '<option value="0">No devices</option>';
+                    } else {
+                        devices.forEach((d, i) => {
+                            const opt = document.createElement('option');
+                            opt.value = d.index;
+                            opt.textContent = `SDR ${d.index}: ${d.name}`;
+                            dscSelect.appendChild(opt);
+                        });
+                        // Default to second device if available
+                        if (devices.length > 1) {
+                            dscSelect.value = devices[1].index;
+                        }
                     }
                 })
                 .catch(() => {});
@@ -756,6 +810,238 @@
                 stat.classList.remove('good', 'warning');
                 stat.classList.add('poor');
             }
+        }
+
+        // ============================================
+        // DSC (Digital Selective Calling) Functions
+        // ============================================
+
+        function toggleDscTracking() {
+            if (isDscTracking) {
+                stopDscTracking();
+            } else {
+                startDscTracking();
+            }
+        }
+
+        function startDscTracking() {
+            const device = document.getElementById('dscDeviceSelect').value;
+            const gain = document.getElementById('dscGain').value;
+
+            fetch('/dsc/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device, gain })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    isDscTracking = true;
+                    document.getElementById('dscStartBtn').textContent = 'STOP DSC';
+                    document.getElementById('dscStartBtn').classList.add('active');
+                    document.getElementById('dscIndicator').classList.add('active');
+                    startDscSSE();
+                } else if (data.error_type === 'DEVICE_BUSY') {
+                    alert('SDR device is busy.\n\n' + data.suggestion);
+                } else {
+                    alert(data.message || 'Failed to start DSC');
+                }
+            })
+            .catch(err => alert('Error: ' + err.message));
+        }
+
+        function stopDscTracking() {
+            fetch('/dsc/stop', { method: 'POST' })
+            .then(r => r.json())
+            .then(() => {
+                isDscTracking = false;
+                document.getElementById('dscStartBtn').textContent = 'START DSC';
+                document.getElementById('dscStartBtn').classList.remove('active');
+                document.getElementById('dscIndicator').classList.remove('active');
+                if (dscEventSource) {
+                    dscEventSource.close();
+                    dscEventSource = null;
+                }
+            });
+        }
+
+        function startDscSSE() {
+            if (dscEventSource) dscEventSource.close();
+
+            dscEventSource = new EventSource('/dsc/stream');
+            dscEventSource.onmessage = function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'dsc_message') {
+                        handleDscMessage(data);
+                    } else if (data.type === 'error') {
+                        console.error('DSC error:', data.error);
+                        if (data.error_type === 'DEVICE_BUSY') {
+                            alert('DSC: Device became busy. ' + (data.suggestion || ''));
+                            stopDscTracking();
+                        }
+                    }
+                } catch (err) {}
+            };
+
+            dscEventSource.onerror = function() {
+                setTimeout(() => {
+                    if (isDscTracking) startDscSSE();
+                }, 2000);
+            };
+        }
+
+        function handleDscMessage(data) {
+            const msgId = data.id || data.source_mmsi + '_' + Date.now();
+            dscMessages[msgId] = data;
+
+            // Update alert counts
+            if (data.category === 'DISTRESS') {
+                dscAlertCounts.distress++;
+            } else if (data.category === 'URGENCY') {
+                dscAlertCounts.urgency++;
+            }
+
+            // Show prominent alert for distress/urgency
+            if (data.is_critical) {
+                showDistressAlert(data);
+            }
+
+            // Add position marker if coordinates present
+            if (data.latitude && data.longitude) {
+                addDscPositionMarker(data);
+            }
+
+            updateDscMessageList();
+            updateDscAlertSummary();
+        }
+
+        function showDistressAlert(data) {
+            // Create alert notification
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'dsc-distress-alert';
+            alertDiv.innerHTML = `
+                <div class="dsc-alert-header">${data.category}</div>
+                <div class="dsc-alert-mmsi">MMSI: ${data.source_mmsi}</div>
+                ${data.source_country ? `<div class="dsc-alert-country">${data.source_country}</div>` : ''}
+                ${data.nature_of_distress ? `<div class="dsc-alert-nature">${data.nature_of_distress}</div>` : ''}
+                ${data.latitude ? `<div class="dsc-alert-position">${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}</div>` : ''}
+                <button onclick="this.parentElement.remove()">ACKNOWLEDGE</button>
+            `;
+            document.body.appendChild(alertDiv);
+
+            // Auto-remove after 30 seconds
+            setTimeout(() => {
+                if (alertDiv.parentElement) alertDiv.remove();
+            }, 30000);
+
+            // Play alert sound if available
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1yc3R3eXx+foCAfn59fHt5d3VzcWxnYlxVT0hCOzUuJx8YEAkDAP/+/v7+/v7+/v8AAAECAwUHCQsOEBMWGRwfIiUoKy4xNDc6PT9CRUdKTE5QUlRVV1hZWlpbW1taWVhXVlRTUU9NSkdEQT47ODUyLywpJiMgHRoXFBEOCwgFAwEA/v38+/r5+Pf29fTz8vHw7+7t7Ovq6ejn5uXk4+Lh4N/e3dzb2tnY19bV1NPS0dDPzs3MzMvLy8vMzM3Nzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufp6uvs7e7v8PHy8/T19vf4+fr7/P3+');
+                audio.volume = 0.5;
+                audio.play().catch(() => {});
+            } catch (e) {}
+        }
+
+        function addDscPositionMarker(data) {
+            const mmsi = data.source_mmsi;
+
+            // Remove existing marker
+            if (dscMarkers[mmsi]) {
+                vesselMap.removeLayer(dscMarkers[mmsi]);
+            }
+
+            // Create marker with distress icon
+            const isDistress = data.category === 'DISTRESS';
+            const color = isDistress ? '#ef4444' : (data.category === 'URGENCY' ? '#f59e0b' : '#4a9eff');
+
+            const icon = L.divIcon({
+                className: 'dsc-marker',
+                html: `<div class="dsc-marker-inner ${isDistress ? 'distress' : ''}" style="background: ${color};">
+                    <span>&#9888;</span>
+                </div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+
+            dscMarkers[mmsi] = L.marker([data.latitude, data.longitude], { icon })
+                .addTo(vesselMap)
+                .bindPopup(`
+                    <strong>${data.category}</strong><br>
+                    MMSI: ${mmsi}<br>
+                    ${data.source_country ? `Country: ${data.source_country}<br>` : ''}
+                    ${data.nature_of_distress ? `Nature: ${data.nature_of_distress}<br>` : ''}
+                    Position: ${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}
+                `);
+
+            // Pan to distress position
+            if (isDistress) {
+                vesselMap.setView([data.latitude, data.longitude], 12);
+            }
+        }
+
+        function updateDscMessageList() {
+            const container = document.getElementById('dscMessageList');
+            const msgArray = Object.values(dscMessages)
+                .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+
+            if (msgArray.length === 0) {
+                container.innerHTML = `
+                    <div class="no-messages">
+                        <div>No DSC messages</div>
+                        <div style="font-size: 10px; margin-top: 5px;">Start VHF DSC to monitor</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = msgArray.slice(0, 50).map(msg => {
+                const isDistress = msg.category === 'DISTRESS';
+                const isUrgency = msg.category === 'URGENCY';
+                const categoryClass = isDistress ? 'distress' : (isUrgency ? 'urgency' : '');
+
+                return `
+                    <div class="dsc-message-item ${categoryClass}" data-id="${msg.id}">
+                        <div class="dsc-message-header">
+                            <span class="dsc-message-category">${msg.category}</span>
+                            <span class="dsc-message-time">${formatDscTime(msg.timestamp)}</span>
+                        </div>
+                        <div class="dsc-message-mmsi">MMSI: ${msg.source_mmsi}</div>
+                        ${msg.source_country ? `<div class="dsc-message-country">${msg.source_country}</div>` : ''}
+                        ${msg.nature_of_distress ? `<div class="dsc-message-nature">${msg.nature_of_distress}</div>` : ''}
+                        ${msg.latitude ? `<div class="dsc-message-pos">${msg.latitude.toFixed(4)}, ${msg.longitude.toFixed(4)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatDscTime(timestamp) {
+            if (!timestamp) return '--:--';
+            try {
+                const d = new Date(timestamp);
+                return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch (e) {
+                return timestamp.slice(11, 19) || '--:--';
+            }
+        }
+
+        function updateDscAlertSummary() {
+            document.getElementById('dscDistressCount').textContent = `${dscAlertCounts.distress} DISTRESS`;
+            document.getElementById('dscUrgencyCount').textContent = `${dscAlertCounts.urgency} URGENCY`;
+        }
+
+        // Cross-reference DSC MMSI with AIS vessels
+        function crossReferenceDscWithAis(mmsi) {
+            const vessel = vessels[mmsi];
+            if (vessel) {
+                return {
+                    name: vessel.name,
+                    callsign: vessel.callsign,
+                    ship_type: vessel.ship_type,
+                    destination: vessel.destination
+                };
+            }
+            return null;
         }
 
         // Initialize
