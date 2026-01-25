@@ -179,7 +179,7 @@ class RTLSDRCommandBuilder(CommandBuilder):
         cmd = [
             'AIS-catcher',
             f'-d:{device.index}',  # Device index (colon format required)
-            '-S', str(tcp_port), 'JSON',  # TCP server with JSON output
+            '-S', str(tcp_port), 'JSON_FULL', 'on',  # TCP server with full JSON output
             '-q',  # Quiet mode (less console output)
         ]
 
