@@ -42,6 +42,10 @@ let recentSignalHits = new Map();
 let isDirectListening = false;
 let currentModulation = 'am';
 
+// Agent mode state
+let listeningPostCurrentAgent = null;
+let listeningPostPollTimer = null;
+
 // ============== PRESETS ==============
 
 const scannerPresets = {
@@ -145,6 +149,10 @@ function startScanner() {
     const dwell = dwellSelect ? parseInt(dwellSelect.value) : 10;
     const device = getSelectedDevice();
 
+    // Check if using agent mode
+    const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+    listeningPostCurrentAgent = isAgentMode ? currentAgent : null;
+
     if (startFreq >= endFreq) {
         if (typeof showNotification === 'function') {
             showNotification('Scanner Error', 'End frequency must be greater than start');
@@ -152,8 +160,8 @@ function startScanner() {
         return;
     }
 
-    // Check if device is available
-    if (typeof checkDeviceAvailability === 'function' && !checkDeviceAvailability('scanner')) {
+    // Check if device is available (only for local mode)
+    if (!isAgentMode && typeof checkDeviceAvailability === 'function' && !checkDeviceAvailability('scanner')) {
         return;
     }
 
@@ -181,7 +189,12 @@ function startScanner() {
         document.getElementById('mainRangeEnd').textContent = endFreq.toFixed(1) + ' MHz';
     }
 
-    fetch('/listening/scanner/start', {
+    // Determine endpoint based on agent mode
+    const endpoint = isAgentMode
+        ? `/controller/agents/${currentAgent}/listening_post/start`
+        : '/listening/scanner/start';
+
+    fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,8 +211,11 @@ function startScanner() {
     })
     .then(r => r.json())
     .then(data => {
-        if (data.status === 'started') {
-            if (typeof reserveDevice === 'function') reserveDevice(device, 'scanner');
+        // Handle controller proxy response format
+        const scanResult = isAgentMode && data.result ? data.result : data;
+
+        if (scanResult.status === 'started' || scanResult.status === 'success') {
+            if (!isAgentMode && typeof reserveDevice === 'function') reserveDevice(device, 'scanner');
             isScannerRunning = true;
             isScannerPaused = false;
             scannerSignalActive = false;
@@ -229,7 +245,7 @@ function startScanner() {
             const levelMeter = document.getElementById('scannerLevelMeter');
             if (levelMeter) levelMeter.style.display = 'block';
 
-            connectScannerStream();
+            connectScannerStream(isAgentMode);
             addScannerLogEntry('Scanner started', `Range: ${startFreq}-${endFreq} MHz, Step: ${step} kHz`);
             if (typeof showNotification === 'function') {
                 showNotification('Scanner Started', `Scanning ${startFreq} - ${endFreq} MHz`);
@@ -237,7 +253,7 @@ function startScanner() {
         } else {
             updateScannerDisplay('ERROR', 'var(--accent-red)');
             if (typeof showNotification === 'function') {
-                showNotification('Scanner Error', data.message || 'Failed to start');
+                showNotification('Scanner Error', scanResult.message || scanResult.error || 'Failed to start');
             }
         }
     })
@@ -252,12 +268,24 @@ function startScanner() {
 }
 
 function stopScanner() {
-    fetch('/listening/scanner/stop', { method: 'POST' })
+    const isAgentMode = listeningPostCurrentAgent !== null;
+    const endpoint = isAgentMode
+        ? `/controller/agents/${listeningPostCurrentAgent}/listening_post/stop`
+        : '/listening/scanner/stop';
+
+    fetch(endpoint, { method: 'POST' })
         .then(() => {
-            if (typeof releaseDevice === 'function') releaseDevice('scanner');
+            if (!isAgentMode && typeof releaseDevice === 'function') releaseDevice('scanner');
+            listeningPostCurrentAgent = null;
             isScannerRunning = false;
             isScannerPaused = false;
             scannerSignalActive = false;
+
+            // Clear polling timer
+            if (listeningPostPollTimer) {
+                clearInterval(listeningPostPollTimer);
+                listeningPostPollTimer = null;
+            }
 
             // Update sidebar (with null checks)
             const startBtn = document.getElementById('scannerStartBtn');
@@ -386,17 +414,29 @@ function skipSignal() {
 
 // ============== SCANNER STREAM ==============
 
-function connectScannerStream() {
+function connectScannerStream(isAgentMode = false) {
     if (scannerEventSource) {
         scannerEventSource.close();
     }
 
-    scannerEventSource = new EventSource('/listening/scanner/stream');
+    // Use different stream endpoint for agent mode
+    const streamUrl = isAgentMode ? '/controller/stream/all' : '/listening/scanner/stream';
+    scannerEventSource = new EventSource(streamUrl);
 
     scannerEventSource.onmessage = function(e) {
         try {
             const data = JSON.parse(e.data);
-            handleScannerEvent(data);
+
+            if (isAgentMode) {
+                // Handle multi-agent stream format
+                if (data.scan_type === 'listening_post' && data.payload) {
+                    const payload = data.payload;
+                    payload.agent_name = data.agent_name;
+                    handleScannerEvent(payload);
+                }
+            } else {
+                handleScannerEvent(data);
+            }
         } catch (err) {
             console.warn('Scanner parse error:', err);
         }
@@ -404,9 +444,68 @@ function connectScannerStream() {
 
     scannerEventSource.onerror = function() {
         if (isScannerRunning) {
-            setTimeout(connectScannerStream, 2000);
+            setTimeout(() => connectScannerStream(isAgentMode), 2000);
         }
     };
+
+    // Start polling fallback for agent mode
+    if (isAgentMode) {
+        startListeningPostPolling();
+    }
+}
+
+// Track last activity count for polling
+let lastListeningPostActivityCount = 0;
+
+function startListeningPostPolling() {
+    if (listeningPostPollTimer) return;
+    lastListeningPostActivityCount = 0;
+
+    const pollInterval = 2000;
+    listeningPostPollTimer = setInterval(async () => {
+        if (!isScannerRunning || !listeningPostCurrentAgent) {
+            clearInterval(listeningPostPollTimer);
+            listeningPostPollTimer = null;
+            return;
+        }
+
+        try {
+            const response = await fetch(`/controller/agents/${listeningPostCurrentAgent}/listening_post/data`);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const result = data.result || data;
+            const modeData = result.data || {};
+
+            // Process activity from polling response
+            const activity = modeData.activity || [];
+            if (activity.length > lastListeningPostActivityCount) {
+                const newActivity = activity.slice(lastListeningPostActivityCount);
+                newActivity.forEach(item => {
+                    // Convert to scanner event format
+                    const event = {
+                        type: 'signal_found',
+                        frequency: item.frequency,
+                        level: item.level || item.signal_level,
+                        modulation: item.modulation,
+                        agent_name: result.agent_name || 'Remote Agent'
+                    };
+                    handleScannerEvent(event);
+                });
+                lastListeningPostActivityCount = activity.length;
+            }
+
+            // Update current frequency if available
+            if (modeData.current_freq) {
+                handleScannerEvent({
+                    type: 'freq_change',
+                    frequency: modeData.current_freq
+                });
+            }
+        } catch (err) {
+            console.error('Listening Post polling error:', err);
+        }
+    }, pollInterval);
 }
 
 function handleScannerEvent(data) {

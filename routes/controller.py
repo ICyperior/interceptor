@@ -241,6 +241,33 @@ def refresh_agent_metadata(agent_id: int):
 
 
 # =============================================================================
+# Agent Status - Get running state
+# =============================================================================
+
+@controller_bp.route('/agents/<int:agent_id>/status', methods=['GET'])
+def get_agent_status(agent_id: int):
+    """Get an agent's current status including running modes."""
+    agent = get_agent(agent_id)
+    if not agent:
+        return jsonify({'status': 'error', 'message': 'Agent not found'}), 404
+
+    try:
+        client = create_client_from_agent(agent)
+        status = client.get_status()
+        return jsonify({
+            'status': 'success',
+            'agent_id': agent_id,
+            'agent_name': agent['name'],
+            'agent_status': status
+        })
+    except (AgentHTTPError, AgentConnectionError) as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to reach agent: {e}'
+        }), 503
+
+
+# =============================================================================
 # Proxy Operations - Forward requests to agents
 # =============================================================================
 

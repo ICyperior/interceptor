@@ -206,9 +206,31 @@
     font-family: 'JetBrains Mono', monospace;
 }
 
-.agent-badge.local {
+.agent-badge.local,
+.agent-badge.agent-local {
     background: rgba(0, 255, 136, 0.1);
     color: var(--accent-green);
+}
+
+.agent-badge.agent-remote {
+    background: rgba(0, 212, 255, 0.1);
+    color: var(--accent-cyan);
+}
+
+/* WiFi table agent column */
+.wifi-networks-table .col-agent {
+    width: 100px;
+    text-align: center;
+}
+
+.wifi-networks-table th.col-agent {
+    font-size: 10px;
+}
+
+/* Bluetooth table agent column */
+.bt-devices-table .col-agent {
+    width: 100px;
+    text-align: center;
 }
 
 .agent-badge-dot {

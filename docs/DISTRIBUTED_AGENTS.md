@@ -252,6 +252,45 @@ Response:
 }
 ```
 
+## Supported Modes
+
+All modes are fully implemented in the agent with the following tools and data formats:
+
+| Mode | Tool(s) | Data Format | Notes |
+|------|---------|-------------|-------|
+| `sensor` | rtl_433 | JSON readings | ISM band devices (433/868/915 MHz) |
+| `pager` | rtl_fm + multimon-ng | POCSAG/FLEX messages | Address, function, message content |
+| `adsb` | dump1090 | SBS-format aircraft | ICAO, callsign, position, altitude |
+| `ais` | AIS-catcher | JSON vessels | MMSI, position, speed, vessel info |
+| `acars` | acarsdec | JSON messages | Aircraft tail, label, message text |
+| `aprs` | rtl_fm + direwolf | APRS packets | Callsign, position, path |
+| `wifi` | airodump-ng | Networks + clients | BSSID, ESSID, signal, clients |
+| `bluetooth` | bluetoothctl | Device list | MAC, name, RSSI |
+| `rtlamr` | rtl_tcp + rtlamr | Meter readings | Meter ID, consumption data |
+| `dsc` | rtl_fm (+ dsc-decoder) | DSC messages | MMSI, distress category, position |
+| `tscm` | WiFi/BT analysis | Anomaly reports | New/rogue devices detected |
+| `satellite` | skyfield (TLE) | Pass predictions | No SDR required |
+| `listening_post` | rtl_fm scanner | Signal detections | Frequency, modulation |
+
+### Mode-Specific Notes
+
+**Listening Post**: Full FFT streaming isn't practical over HTTP. Instead, the agent provides:
+- Signal detection events when activity is found
+- Current scanning frequency
+- Activity log of detected signals
+
+**TSCM**: Analyzes WiFi and Bluetooth data for anomalies:
+- Builds baseline of known devices
+- Reports new/unknown devices as anomalies
+- No SDR required (uses WiFi/BT data)
+
+**Satellite**: Pure computational mode:
+- Calculates pass predictions from TLE data
+- Requires observer location (lat/lon)
+- No SDR required
+
+**Audio Modes**: Modes requiring real-time audio (airband, listening_post audio) are limited via agents. Use rtl_tcp for remote audio streaming instead.
+
 ## Controller API
 
 ### Agent Management
@@ -396,6 +435,62 @@ bluetooth = true
 4. **Firewall**: Restrict agent ports to controller IP only
 5. **allowed_ips**: Use this config option to restrict agent connections
 
+## Dashboard Integration
+
+Agent support has been integrated into the following specialized dashboards:
+
+### ADS-B Dashboard (`/adsb/dashboard`)
+- Agent selector in header bar
+- Routes tracking start/stop through agent proxy when remote agent selected
+- Connects to multi-agent stream for data from remote agents
+- Displays agent badge on aircraft from remote sources
+- Updates observer location from agent's GPS coordinates
+
+### AIS Dashboard (`/ais/dashboard`)
+- Agent selector in header bar
+- Routes AIS and DSC mode operations through agent proxy
+- Connects to multi-agent stream for vessel data
+- Displays agent badge on vessels from remote sources
+- Updates observer location from agent's GPS coordinates
+
+### Main Dashboard (`/`)
+- Agent selector in sidebar
+- Supports sensor, pager, WiFi, Bluetooth modes via agents
+- SDR conflict detection with device-aware warnings
+- Real-time sync with agent's running mode state
+
+### Multi-SDR Agent Support
+
+For agents with multiple SDR devices, the system now tracks which device each mode is using:
+
+```json
+{
+  "running_modes": ["sensor", "adsb"],
+  "running_modes_detail": {
+    "sensor": {"device": 0, "started_at": "2024-01-15T10:30:00Z"},
+    "adsb": {"device": 1, "started_at": "2024-01-15T10:35:00Z"}
+  }
+}
+```
+
+This allows:
+- Smart conflict detection (only warns if same device is in use)
+- Display of which device each mode is using
+- Parallel operation of multiple SDR modes on multi-SDR agents
+
+### Agent Mode Warnings
+
+When an agent has SDR modes running, the UI displays:
+- Warning banner showing active modes with device numbers
+- Stop buttons for each running mode
+- Refresh button to re-sync with agent state
+
+### Pages Without Agent Support
+
+The following pages don't require SDR-based agent support:
+- **Satellite Dashboard** (`/satellite/dashboard`) - Uses TLE orbital calculations, no SDR
+- **History pages** - Display stored data, not live SDR streams
+
 ## Files
 
 | File | Description |
@@ -407,3 +502,5 @@ bluetooth = true
 | `utils/database.py` | Agent CRUD operations |
 | `static/js/core/agents.js` | Frontend agent management |
 | `templates/agents.html` | Agent management page |
+| `templates/adsb_dashboard.html` | ADS-B page with agent integration |
+| `templates/ais_dashboard.html` | AIS page with agent integration |

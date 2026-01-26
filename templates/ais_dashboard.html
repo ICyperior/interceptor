@@ -21,6 +21,16 @@
             <span>// INTERCEPT - AIS Tracking</span>
         </div>
         <div class="status-bar">
+            <!-- Agent Selector -->
+            <div class="agent-selector-compact" id="agentSection">
+                <select id="agentSelect" class="agent-select-sm" title="Select signal source">
+                    <option value="local">Local</option>
+                </select>
+                <span class="agent-status-dot online" id="agentStatusDot"></span>
+                <label class="show-all-label" title="Show vessels from all agents on map">
+                    <input type="checkbox" id="showAllAgents" onchange="toggleShowAllAgents()"> All
+                </label>
+            </div>
             <a href="/" class="back-link">Main Dashboard</a>
         </div>
     </header>
@@ -173,6 +183,7 @@
         let markers = {};
         let selectedMmsi = null;
         let eventSource = null;
+        let aisPollTimer = null;  // Polling fallback for agent mode
         let isTracking = false;
 
         // DSC State
@@ -181,6 +192,8 @@
         let dscMessages = {};
         let dscMarkers = {};
         let dscAlertCounts = { distress: 0, urgency: 0 };
+        let dscCurrentAgent = null;
+        let dscPollTimer = null;
         let showTrails = false;
         let vesselTrails = {};
         let trailLines = {};
@@ -490,6 +503,40 @@
             const device = document.getElementById('aisDeviceSelect').value;
             const gain = document.getElementById('aisGain').value;
 
+            // Check if using agent mode
+            const useAgent = typeof aisCurrentAgent !== 'undefined' && aisCurrentAgent !== 'local';
+
+            // For agent mode, check conflicts and route through proxy
+            if (useAgent) {
+                if (typeof checkAgentModeConflict === 'function' && !checkAgentModeConflict('ais')) {
+                    return;
+                }
+
+                fetch(`/controller/agents/${aisCurrentAgent}/ais/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device, gain })
+                })
+                .then(r => r.json())
+                .then(result => {
+                    const data = result.result || result;
+                    if (data.status === 'started' || data.status === 'already_running') {
+                        isTracking = true;
+                        document.getElementById('startBtn').textContent = 'STOP';
+                        document.getElementById('startBtn').classList.add('active');
+                        document.getElementById('trackingDot').classList.add('active');
+                        document.getElementById('trackingStatus').textContent = 'TRACKING';
+                        startSessionTimer();
+                        startSSE();
+                    } else {
+                        alert(data.message || 'Failed to start');
+                    }
+                })
+                .catch(err => alert('Error: ' + err.message));
+                return;
+            }
+
+            // Local mode - original behavior unchanged
             fetch('/ais/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -513,7 +560,12 @@
         }
 
         function stopTracking() {
-            fetch('/ais/stop', { method: 'POST' })
+            const useAgent = typeof aisCurrentAgent !== 'undefined' && aisCurrentAgent !== 'local';
+
+            // Route to agent or local
+            const url = useAgent ? `/controller/agents/${aisCurrentAgent}/ais/stop` : '/ais/stop';
+
+            fetch(url, { method: 'POST' })
             .then(r => r.json())
             .then(() => {
                 isTracking = false;
@@ -527,18 +579,107 @@
                     eventSource.close();
                     eventSource = null;
                 }
+                if (aisPollTimer) {
+                    clearInterval(aisPollTimer);
+                    aisPollTimer = null;
+                }
             });
+        }
+
+        /**
+         * Start polling agent data as fallback when push isn't enabled.
+         */
+        function startAisPolling() {
+            if (aisPollTimer) return;
+            if (typeof aisCurrentAgent === 'undefined' || aisCurrentAgent === 'local') return;
+
+            const pollInterval = 2000;  // 2 seconds for AIS
+            console.log('Starting AIS agent polling fallback...');
+
+            aisPollTimer = setInterval(async () => {
+                if (!isTracking) {
+                    clearInterval(aisPollTimer);
+                    aisPollTimer = null;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/controller/agents/${aisCurrentAgent}/ais/data`);
+                    if (!response.ok) return;
+
+                    const result = await response.json();
+                    const data = result.data || result;
+
+                    // Get agent name
+                    let agentName = 'Agent';
+                    if (typeof agents !== 'undefined') {
+                        const agent = agents.find(a => a.id == aisCurrentAgent);
+                        if (agent) agentName = agent.name;
+                    }
+
+                    // Process vessels from polling response
+                    if (data && data.vessels) {
+                        Object.values(data.vessels).forEach(vessel => {
+                            vessel._agent = agentName;
+                            updateVessel(vessel);
+                        });
+                    } else if (data && Array.isArray(data)) {
+                        data.forEach(vessel => {
+                            vessel._agent = agentName;
+                            updateVessel(vessel);
+                        });
+                    }
+                } catch (err) {
+                    console.debug('AIS agent poll error:', err);
+                }
+            }, pollInterval);
         }
 
         function startSSE() {
             if (eventSource) eventSource.close();
 
-            eventSource = new EventSource('/ais/stream');
+            const useAgent = typeof aisCurrentAgent !== 'undefined' && aisCurrentAgent !== 'local';
+            const streamUrl = useAgent ? '/controller/stream/all' : '/ais/stream';
+
+            // Get agent name for filtering
+            let targetAgentName = null;
+            if (useAgent && typeof agents !== 'undefined') {
+                const agent = agents.find(a => a.id == aisCurrentAgent);
+                targetAgentName = agent ? agent.name : null;
+            }
+
+            eventSource = new EventSource(streamUrl);
             eventSource.onmessage = function(e) {
                 try {
                     const data = JSON.parse(e.data);
-                    if (data.type === 'vessel') {
-                        updateVessel(data);
+
+                    if (useAgent) {
+                        // Multi-agent stream format
+                        if (data.type === 'keepalive') return;
+
+                        // Filter to our agent
+                        if (targetAgentName && data.agent_name && data.agent_name !== targetAgentName) {
+                            return;
+                        }
+
+                        // Extract vessel data from push payload
+                        if (data.scan_type === 'ais' && data.payload) {
+                            const payload = data.payload;
+                            if (payload.vessels) {
+                                Object.values(payload.vessels).forEach(v => {
+                                    v._agent = data.agent_name;
+                                    updateVessel({ type: 'vessel', ...v });
+                                });
+                            } else if (payload.mmsi) {
+                                payload._agent = data.agent_name;
+                                updateVessel({ type: 'vessel', ...payload });
+                            }
+                        }
+                    } else {
+                        // Local stream format
+                        if (data.type === 'vessel') {
+                            updateVessel(data);
+                        }
                     }
                 } catch (err) {}
             };
@@ -731,12 +872,13 @@
             container.innerHTML = vesselArray.map(v => {
                 const iconSvg = getShipIconSvg(v.ship_type, 20);
                 const category = getShipCategory(v.ship_type);
+                const agentBadge = v._agent ? `<span class="agent-badge">${v._agent}</span>` : '';
                 return `
                     <div class="vessel-item ${v.mmsi === selectedMmsi ? 'selected' : ''}"
                          data-mmsi="${v.mmsi}" onclick="selectVessel('${v.mmsi}')">
                         <div class="vessel-item-icon">${iconSvg}</div>
                         <div class="vessel-item-info">
-                            <div class="vessel-item-name">${v.name || 'Unknown'}</div>
+                            <div class="vessel-item-name">${v.name || 'Unknown'}${agentBadge}</div>
                             <div class="vessel-item-type">${category} | ${v.mmsi}</div>
                         </div>
                         <div class="vessel-item-speed">${v.speed ? v.speed + ' kt' : '-'}</div>
@@ -881,33 +1023,51 @@
             const device = document.getElementById('dscDeviceSelect').value;
             const gain = document.getElementById('dscGain').value;
 
-            fetch('/dsc/start', {
+            // Check if using agent mode
+            const isAgentMode = typeof aisCurrentAgent !== 'undefined' && aisCurrentAgent !== 'local';
+            dscCurrentAgent = isAgentMode ? aisCurrentAgent : null;
+
+            // Determine endpoint based on agent mode
+            const endpoint = isAgentMode
+                ? `/controller/agents/${aisCurrentAgent}/dsc/start`
+                : '/dsc/start';
+
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ device, gain })
             })
             .then(r => r.json())
             .then(data => {
-                if (data.status === 'started') {
+                // Handle controller proxy response format
+                const scanResult = isAgentMode && data.result ? data.result : data;
+
+                if (scanResult.status === 'started' || scanResult.status === 'success') {
                     isDscTracking = true;
                     document.getElementById('dscStartBtn').textContent = 'STOP DSC';
                     document.getElementById('dscStartBtn').classList.add('active');
                     document.getElementById('dscIndicator').classList.add('active');
-                    startDscSSE();
-                } else if (data.error_type === 'DEVICE_BUSY') {
-                    alert('SDR device is busy.\n\n' + data.suggestion);
+                    startDscSSE(isAgentMode);
+                } else if (scanResult.error_type === 'DEVICE_BUSY') {
+                    alert('SDR device is busy.\n\n' + (scanResult.suggestion || ''));
                 } else {
-                    alert(data.message || 'Failed to start DSC');
+                    alert(scanResult.message || scanResult.error || 'Failed to start DSC');
                 }
             })
             .catch(err => alert('Error: ' + err.message));
         }
 
         function stopDscTracking() {
-            fetch('/dsc/stop', { method: 'POST' })
+            const isAgentMode = dscCurrentAgent !== null;
+            const endpoint = isAgentMode
+                ? `/controller/agents/${dscCurrentAgent}/dsc/stop`
+                : '/dsc/stop';
+
+            fetch(endpoint, { method: 'POST' })
             .then(r => r.json())
             .then(() => {
                 isDscTracking = false;
+                dscCurrentAgent = null;
                 document.getElementById('dscStartBtn').textContent = 'START DSC';
                 document.getElementById('dscStartBtn').classList.remove('active');
                 document.getElementById('dscIndicator').classList.remove('active');
@@ -915,23 +1075,50 @@
                     dscEventSource.close();
                     dscEventSource = null;
                 }
+                // Clear polling timer
+                if (dscPollTimer) {
+                    clearInterval(dscPollTimer);
+                    dscPollTimer = null;
+                }
             });
         }
 
-        function startDscSSE() {
+        function startDscSSE(isAgentMode = false) {
             if (dscEventSource) dscEventSource.close();
 
-            dscEventSource = new EventSource('/dsc/stream');
+            // Use different stream endpoint for agent mode
+            const streamUrl = isAgentMode ? '/controller/stream/all' : '/dsc/stream';
+            dscEventSource = new EventSource(streamUrl);
+
             dscEventSource.onmessage = function(e) {
                 try {
                     const data = JSON.parse(e.data);
-                    if (data.type === 'dsc_message') {
-                        handleDscMessage(data);
-                    } else if (data.type === 'error') {
-                        console.error('DSC error:', data.error);
-                        if (data.error_type === 'DEVICE_BUSY') {
-                            alert('DSC: Device became busy. ' + (data.suggestion || ''));
-                            stopDscTracking();
+
+                    if (isAgentMode) {
+                        // Handle multi-agent stream format
+                        if (data.scan_type === 'dsc' && data.payload) {
+                            const payload = data.payload;
+                            if (payload.type === 'dsc_message') {
+                                payload.agent_name = data.agent_name;
+                                handleDscMessage(payload);
+                            } else if (payload.type === 'error') {
+                                console.error('DSC error:', payload.error);
+                                if (payload.error_type === 'DEVICE_BUSY') {
+                                    alert('DSC: Device became busy. ' + (payload.suggestion || ''));
+                                    stopDscTracking();
+                                }
+                            }
+                        }
+                    } else {
+                        // Local stream format
+                        if (data.type === 'dsc_message') {
+                            handleDscMessage(data);
+                        } else if (data.type === 'error') {
+                            console.error('DSC error:', data.error);
+                            if (data.error_type === 'DEVICE_BUSY') {
+                                alert('DSC: Device became busy. ' + (data.suggestion || ''));
+                                stopDscTracking();
+                            }
                         }
                     }
                 } catch (err) {}
@@ -939,9 +1126,56 @@
 
             dscEventSource.onerror = function() {
                 setTimeout(() => {
-                    if (isDscTracking) startDscSSE();
+                    if (isDscTracking) startDscSSE(isAgentMode);
                 }, 2000);
             };
+
+            // Start polling fallback for agent mode
+            if (isAgentMode) {
+                startDscPolling();
+            }
+        }
+
+        // Track last DSC message count for polling
+        let lastDscMessageCount = 0;
+
+        function startDscPolling() {
+            if (dscPollTimer) return;
+            lastDscMessageCount = 0;
+
+            const pollInterval = 2000;
+            dscPollTimer = setInterval(async () => {
+                if (!isDscTracking || !dscCurrentAgent) {
+                    clearInterval(dscPollTimer);
+                    dscPollTimer = null;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/controller/agents/${dscCurrentAgent}/dsc/data`);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    const result = data.result || data;
+                    const messages = result.data || [];
+
+                    // Process new messages
+                    if (messages.length > lastDscMessageCount) {
+                        const newMessages = messages.slice(lastDscMessageCount);
+                        newMessages.forEach(msg => {
+                            const dscMsg = {
+                                type: 'dsc_message',
+                                ...msg,
+                                agent_name: result.agent_name || 'Remote Agent'
+                            };
+                            handleDscMessage(dscMsg);
+                        });
+                        lastDscMessageCount = messages.length;
+                    }
+                } catch (err) {
+                    console.error('DSC polling error:', err);
+                }
+            }, pollInterval);
         }
 
         function handleDscMessage(data) {
@@ -1099,6 +1333,325 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+
+    <!-- Agent styles -->
+    <style>
+        .agent-selector-compact {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-right: 15px;
+        }
+        .agent-select-sm {
+            background: rgba(0, 40, 60, 0.8);
+            border: 1px solid var(--border-color, rgba(0, 200, 255, 0.3));
+            color: var(--text-primary, #e0f7ff);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+        }
+        .agent-select-sm:focus {
+            outline: none;
+            border-color: var(--accent-cyan, #00d4ff);
+        }
+        .agent-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .agent-status-dot.online {
+            background: #4caf50;
+            box-shadow: 0 0 6px #4caf50;
+        }
+        .agent-status-dot.offline {
+            background: #f44336;
+            box-shadow: 0 0 6px #f44336;
+        }
+        .vessel-item .agent-badge {
+            font-size: 9px;
+            color: var(--accent-cyan, #00d4ff);
+            background: rgba(0, 200, 255, 0.1);
+            padding: 1px 4px;
+            border-radius: 2px;
+            margin-left: 4px;
+        }
+        #agentModeWarning {
+            color: #f0ad4e;
+            font-size: 10px;
+            padding: 4px 8px;
+            background: rgba(240,173,78,0.1);
+            border-radius: 4px;
+            margin-top: 4px;
+        }
+        .show-all-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-muted, #a0c4d0);
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .show-all-label input {
+            margin: 0;
+            cursor: pointer;
+        }
+    </style>
+
+    <!-- Agent Manager -->
+    <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>
+    <script>
+        // AIS-specific agent integration
+        let aisCurrentAgent = 'local';
+
+        function selectAisAgent(agentId) {
+            aisCurrentAgent = agentId;
+            currentAgent = agentId;  // Update global agent state
+
+            if (agentId === 'local') {
+                loadDevices();
+                console.log('AIS: Using local device');
+            } else {
+                refreshAgentDevicesForAis(agentId);
+                syncAgentModeStates(agentId);
+                console.log(`AIS: Using agent ${agentId}`);
+            }
+            updateAgentStatus();
+        }
+
+        async function refreshAgentDevicesForAis(agentId) {
+            try {
+                const response = await fetch(`/controller/agents/${agentId}?refresh=true`);
+                const data = await response.json();
+
+                if (data.agent && data.agent.interfaces) {
+                    const devices = data.agent.interfaces.devices || [];
+                    populateAisDeviceSelects(devices);
+
+                    // Update observer location if agent has GPS
+                    if (data.agent.gps_coords) {
+                        const gps = typeof data.agent.gps_coords === 'string'
+                            ? JSON.parse(data.agent.gps_coords)
+                            : data.agent.gps_coords;
+                        if (gps.lat && gps.lon) {
+                            document.getElementById('obsLat').value = gps.lat.toFixed(4);
+                            document.getElementById('obsLon').value = gps.lon.toFixed(4);
+                            updateObserverLoc();
+                            console.log(`Updated observer location from agent GPS: ${gps.lat}, ${gps.lon}`);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to refresh agent devices:', error);
+            }
+        }
+
+        function populateAisDeviceSelects(devices) {
+            const aisSelect = document.getElementById('aisDeviceSelect');
+            const dscSelect = document.getElementById('dscDeviceSelect');
+
+            [aisSelect, dscSelect].forEach(select => {
+                if (!select) return;
+                select.innerHTML = '';
+
+                if (devices.length === 0) {
+                    select.innerHTML = '<option value="0">No SDR found</option>';
+                } else {
+                    devices.forEach(device => {
+                        const opt = document.createElement('option');
+                        opt.value = device.index;
+                        opt.textContent = `Device ${device.index}: ${device.name || device.type || 'SDR'}`;
+                        select.appendChild(opt);
+                    });
+                }
+            });
+        }
+
+        // Override startTracking for agent support
+        const originalStartTracking = startTracking;
+        startTracking = function() {
+            const useAgent = aisCurrentAgent !== 'local';
+
+            if (useAgent) {
+                // Check for conflicts
+                if (typeof checkAgentModeConflict === 'function' && !checkAgentModeConflict('ais')) {
+                    return;
+                }
+
+                const device = document.getElementById('aisDeviceSelect').value;
+                const gain = document.getElementById('aisGain').value;
+
+                fetch(`/controller/agents/${aisCurrentAgent}/ais/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device, gain })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    // Handle controller proxy response (agent response is nested in 'result')
+                    const scanResult = data.result || data;
+                    if (scanResult.status === 'started' || scanResult.status === 'already_running' || scanResult.status === 'success') {
+                        isTracking = true;
+                        document.getElementById('startBtn').textContent = 'STOP';
+                        document.getElementById('startBtn').classList.add('active');
+                        document.getElementById('trackingDot').classList.add('active');
+                        document.getElementById('trackingStatus').textContent = 'TRACKING (AGENT)';
+                        document.getElementById('agentSelect').disabled = true;
+                        startSessionTimer();
+                        startSSE();  // Use multi-agent stream
+                        startAisPolling();  // Also start polling as fallback
+
+                        if (typeof agentRunningModes !== 'undefined' && !agentRunningModes.includes('ais')) {
+                            agentRunningModes.push('ais');
+                        }
+                    } else {
+                        alert(scanResult.message || 'Failed to start');
+                    }
+                })
+                .catch(err => alert('Error: ' + err.message));
+            } else {
+                originalStartTracking();
+            }
+        };
+
+        // Override stopTracking for agent support
+        const originalStopTracking = stopTracking;
+        stopTracking = function() {
+            const useAgent = aisCurrentAgent !== 'local';
+
+            if (useAgent) {
+                fetch(`/controller/agents/${aisCurrentAgent}/ais/stop`, { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    isTracking = false;
+                    document.getElementById('startBtn').textContent = 'START';
+                    document.getElementById('startBtn').classList.remove('active');
+                    document.getElementById('trackingDot').classList.remove('active');
+                    document.getElementById('trackingStatus').textContent = 'STANDBY';
+                    document.getElementById('agentSelect').disabled = false;
+                    stopSSE();
+
+                    if (typeof agentRunningModes !== 'undefined') {
+                        agentRunningModes = agentRunningModes.filter(m => m !== 'ais');
+                    }
+                })
+                .catch(err => console.error('Stop error:', err));
+            } else {
+                originalStopTracking();
+            }
+        };
+
+        // Hook into page init
+        document.addEventListener('DOMContentLoaded', function() {
+            const agentSelect = document.getElementById('agentSelect');
+            if (agentSelect) {
+                agentSelect.addEventListener('change', function(e) {
+                    selectAisAgent(e.target.value);
+                });
+            }
+        });
+
+        // Show All Agents mode - display vessels from all agents on the map
+        let showAllAgentsMode = false;
+        let allAgentsEventSource = null;
+
+        function toggleShowAllAgents() {
+            const checkbox = document.getElementById('showAllAgents');
+            showAllAgentsMode = checkbox ? checkbox.checked : false;
+
+            const agentSelect = document.getElementById('agentSelect');
+            const startBtn = document.getElementById('startBtn');
+
+            if (showAllAgentsMode) {
+                // Disable individual agent selection and start button
+                if (agentSelect) agentSelect.disabled = true;
+                if (startBtn) startBtn.disabled = true;
+
+                // Connect to multi-agent stream (passive listening to all agents)
+                startAllAgentsStream();
+
+                document.getElementById('trackingStatus').textContent = 'ALL AGENTS';
+                document.getElementById('trackingDot').classList.add('active');
+                console.log('Show All Agents mode enabled');
+            } else {
+                // Re-enable controls
+                if (agentSelect) agentSelect.disabled = isTracking;
+                if (startBtn) startBtn.disabled = false;
+
+                // Stop multi-agent stream
+                stopAllAgentsStream();
+
+                if (!isTracking) {
+                    document.getElementById('trackingStatus').textContent = 'STANDBY';
+                    document.getElementById('trackingDot').classList.remove('active');
+                }
+                console.log('Show All Agents mode disabled');
+            }
+        }
+
+        function startAllAgentsStream() {
+            if (allAgentsEventSource) allAgentsEventSource.close();
+
+            allAgentsEventSource = new EventSource('/controller/stream/all');
+            allAgentsEventSource.onmessage = function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'keepalive') return;
+
+                    // Handle AIS data from any agent
+                    if (data.scan_type === 'ais' && data.payload) {
+                        const payload = data.payload;
+                        if (payload.vessels) {
+                            Object.values(payload.vessels).forEach(v => {
+                                v._agent = data.agent_name;
+                                updateVessel({ type: 'vessel', ...v });
+                            });
+                        } else if (payload.mmsi) {
+                            payload._agent = data.agent_name;
+                            updateVessel({ type: 'vessel', ...payload });
+                        }
+                    }
+
+                    // Handle DSC data from any agent
+                    if (data.scan_type === 'dsc' && data.payload) {
+                        const payload = data.payload;
+                        if (payload.messages) {
+                            payload.messages.forEach(msg => {
+                                msg._agent = data.agent_name;
+                                processDscMessage(msg);
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.error('All agents stream parse error:', err);
+                }
+            };
+
+            allAgentsEventSource.onerror = function() {
+                console.error('All agents stream error');
+                setTimeout(() => {
+                    if (showAllAgentsMode) startAllAgentsStream();
+                }, 3000);
+            };
+        }
+
+        function stopAllAgentsStream() {
+            if (allAgentsEventSource) {
+                allAgentsEventSource.close();
+                allAgentsEventSource = null;
+            }
+        }
+
+        // Process DSC message (wrapper for addDscMessage if it exists)
+        function processDscMessage(msg) {
+            if (typeof addDscMessage === 'function') {
+                addDscMessage(msg);
+            }
+        }
     </script>
 </body>
 </html>

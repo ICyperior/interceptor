@@ -11,6 +11,13 @@
                             </button>
                         </div>
                         <div id="wifiCapabilityStatus" class="info-text" style="margin-top: 8px; font-size: 10px;"></div>
+                        <!-- Show All Agents option (visible when agents are available) -->
+                        <div id="wifiShowAllAgentsContainer" style="margin-top: 8px; display: none;">
+                            <label class="inline-checkbox" style="font-size: 10px;">
+                                <input type="checkbox" id="wifiShowAllAgents" onchange="if(typeof WiFiMode !== 'undefined') WiFiMode.toggleShowAllAgents(this.checked)">
+                                Show networks from all agents
+                            </label>
+                        </div>
                     </div>
 
                     <div class="section">

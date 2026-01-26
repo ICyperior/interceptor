@@ -9,6 +9,7 @@ const BluetoothMode = (function() {
     // State
     let isScanning = false;
     let eventSource = null;
+    let agentPollTimer = null;  // Polling fallback for agent mode
     let devices = new Map();
     let baselineSet = false;
     let baselineCount = 0;
@@ -35,6 +36,47 @@ const BluetoothMode = (function() {
 
     // Device list filter
     let currentDeviceFilter = 'all';
+
+    // Agent support
+    let showAllAgentsMode = false;
+    let lastAgentId = null;
+
+    /**
+     * Get API base URL, routing through agent proxy if agent is selected.
+     */
+    function getApiBase() {
+        if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
+            return `/controller/agents/${currentAgent}`;
+        }
+        return '';
+    }
+
+    /**
+     * Get current agent name for tagging data.
+     */
+    function getCurrentAgentName() {
+        if (typeof currentAgent === 'undefined' || currentAgent === 'local') {
+            return 'Local';
+        }
+        if (typeof agents !== 'undefined') {
+            const agent = agents.find(a => a.id == currentAgent);
+            return agent ? agent.name : `Agent ${currentAgent}`;
+        }
+        return `Agent ${currentAgent}`;
+    }
+
+    /**
+     * Check for agent mode conflicts before starting scan.
+     */
+    function checkAgentConflicts() {
+        if (typeof currentAgent === 'undefined' || currentAgent === 'local') {
+            return true;
+        }
+        if (typeof checkAgentModeConflict === 'function') {
+            return checkAgentModeConflict('bluetooth');
+        }
+        return true;
+    }
 
     /**
      * Initialize the Bluetooth mode
@@ -526,8 +568,37 @@ const BluetoothMode = (function() {
      */
     async function checkCapabilities() {
         try {
-            const response = await fetch('/api/bluetooth/capabilities');
-            const data = await response.json();
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            let data;
+
+            if (isAgentMode) {
+                // Fetch capabilities from agent via controller proxy
+                const response = await fetch(`/controller/agents/${currentAgent}?refresh=true`);
+                const agentData = await response.json();
+
+                if (agentData.agent && agentData.agent.capabilities) {
+                    const agentCaps = agentData.agent.capabilities;
+                    const agentInterfaces = agentData.agent.interfaces || {};
+
+                    // Build BT-compatible capabilities object
+                    data = {
+                        available: agentCaps.bluetooth || false,
+                        adapters: (agentInterfaces.bt_adapters || []).map(adapter => ({
+                            id: adapter.id || adapter.name || adapter,
+                            name: adapter.name || adapter,
+                            powered: adapter.powered !== false
+                        })),
+                        issues: [],
+                        preferred_backend: 'auto'
+                    };
+                    console.log('[BT] Agent capabilities:', data);
+                } else {
+                    data = { available: false, adapters: [], issues: ['Agent does not support Bluetooth'] };
+                }
+            } else {
+                const response = await fetch('/api/bluetooth/capabilities');
+                data = await response.json();
+            }
 
             if (!data.available) {
                 showCapabilityWarning(['Bluetooth not available on this system']);
@@ -599,32 +670,60 @@ const BluetoothMode = (function() {
     }
 
     async function startScan() {
+        // Check for agent mode conflicts
+        if (!checkAgentConflicts()) {
+            return;
+        }
+
         const adapter = adapterSelect?.value || '';
         const mode = scanModeSelect?.value || 'auto';
         const transport = transportSelect?.value || 'auto';
         const duration = parseInt(durationInput?.value || '0', 10);
         const minRssi = parseInt(minRssiInput?.value || '-100', 10);
 
+        const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+
         try {
-            const response = await fetch('/api/bluetooth/scan/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mode: mode,
-                    adapter_id: adapter || undefined,
-                    duration_s: duration > 0 ? duration : undefined,
-                    transport: transport,
-                    rssi_threshold: minRssi
-                })
-            });
+            let response;
+            if (isAgentMode) {
+                // Route through agent proxy
+                response = await fetch(`/controller/agents/${currentAgent}/bluetooth/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: mode,
+                        adapter_id: adapter || undefined,
+                        duration_s: duration > 0 ? duration : undefined,
+                        transport: transport,
+                        rssi_threshold: minRssi
+                    })
+                });
+            } else {
+                response = await fetch('/api/bluetooth/scan/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: mode,
+                        adapter_id: adapter || undefined,
+                        duration_s: duration > 0 ? duration : undefined,
+                        transport: transport,
+                        rssi_threshold: minRssi
+                    })
+                });
+            }
 
             const data = await response.json();
 
-            if (data.status === 'started' || data.status === 'already_scanning') {
+            // Handle controller proxy response format (agent response is nested in 'result')
+            const scanResult = isAgentMode && data.result ? data.result : data;
+
+            if (scanResult.status === 'started' || scanResult.status === 'already_scanning') {
                 setScanning(true);
                 startEventStream();
+            } else if (scanResult.status === 'error') {
+                showErrorMessage(scanResult.message || 'Failed to start scan');
             } else {
-                showErrorMessage(data.message || 'Failed to start scan');
+                showErrorMessage(scanResult.message || 'Failed to start scan');
             }
 
         } catch (err) {
@@ -634,8 +733,14 @@ const BluetoothMode = (function() {
     }
 
     async function stopScan() {
+        const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+
         try {
-            await fetch('/api/bluetooth/scan/stop', { method: 'POST' });
+            if (isAgentMode) {
+                await fetch(`/controller/agents/${currentAgent}/bluetooth/stop`, { method: 'POST' });
+            } else {
+                await fetch('/api/bluetooth/scan/stop', { method: 'POST' });
+            }
             setScanning(false);
             stopEventStream();
         } catch (err) {
@@ -680,27 +785,84 @@ const BluetoothMode = (function() {
     function startEventStream() {
         if (eventSource) eventSource.close();
 
-        eventSource = new EventSource('/api/bluetooth/stream');
+        const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+        const agentName = getCurrentAgentName();
+        let streamUrl;
 
-        eventSource.addEventListener('device_update', (e) => {
-            try {
-                const device = JSON.parse(e.data);
-                handleDeviceUpdate(device);
-            } catch (err) {
-                console.error('Failed to parse device update:', err);
-            }
-        });
+        if (isAgentMode) {
+            // Use multi-agent stream for remote agents
+            streamUrl = '/controller/stream/all';
+            console.log('[BT] Starting multi-agent event stream...');
+        } else {
+            streamUrl = '/api/bluetooth/stream';
+            console.log('[BT] Starting local event stream...');
+        }
 
-        eventSource.addEventListener('scan_started', (e) => {
-            setScanning(true);
-        });
+        eventSource = new EventSource(streamUrl);
 
-        eventSource.addEventListener('scan_stopped', (e) => {
-            setScanning(false);
-        });
+        if (isAgentMode) {
+            // Handle multi-agent stream
+            eventSource.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+
+                    // Skip keepalive and non-bluetooth data
+                    if (data.type === 'keepalive') return;
+                    if (data.scan_type !== 'bluetooth') return;
+
+                    // Filter by current agent if not in "show all" mode
+                    if (!showAllAgentsMode && typeof agents !== 'undefined') {
+                        const currentAgentObj = agents.find(a => a.id == currentAgent);
+                        if (currentAgentObj && data.agent_name && data.agent_name !== currentAgentObj.name) {
+                            return;
+                        }
+                    }
+
+                    // Transform multi-agent payload to device updates
+                    if (data.payload && data.payload.devices) {
+                        Object.values(data.payload.devices).forEach(device => {
+                            device._agent = data.agent_name || 'Unknown';
+                            handleDeviceUpdate(device);
+                        });
+                    }
+                } catch (err) {
+                    console.error('Failed to parse multi-agent event:', err);
+                }
+            };
+
+            // Also start polling as fallback (in case push isn't enabled on agent)
+            startAgentPolling();
+        } else {
+            // Handle local stream
+            eventSource.addEventListener('device_update', (e) => {
+                try {
+                    const device = JSON.parse(e.data);
+                    device._agent = 'Local';
+                    handleDeviceUpdate(device);
+                } catch (err) {
+                    console.error('Failed to parse device update:', err);
+                }
+            });
+
+            eventSource.addEventListener('scan_started', (e) => {
+                setScanning(true);
+            });
+
+            eventSource.addEventListener('scan_stopped', (e) => {
+                setScanning(false);
+            });
+        }
 
         eventSource.onerror = () => {
             console.warn('Bluetooth SSE connection error');
+            if (isScanning) {
+                // Attempt to reconnect
+                setTimeout(() => {
+                    if (isScanning) {
+                        startEventStream();
+                    }
+                }, 3000);
+            }
         };
     }
 
@@ -709,6 +871,54 @@ const BluetoothMode = (function() {
             eventSource.close();
             eventSource = null;
         }
+        if (agentPollTimer) {
+            clearInterval(agentPollTimer);
+            agentPollTimer = null;
+        }
+    }
+
+    /**
+     * Start polling agent data as fallback when push isn't enabled.
+     * This polls the controller proxy endpoint for agent data.
+     */
+    function startAgentPolling() {
+        if (agentPollTimer) return;
+
+        const pollInterval = 3000;  // 3 seconds
+        console.log('[BT] Starting agent polling fallback...');
+
+        agentPollTimer = setInterval(async () => {
+            if (!isScanning) {
+                clearInterval(agentPollTimer);
+                agentPollTimer = null;
+                return;
+            }
+
+            try {
+                const response = await fetch(`/controller/agents/${currentAgent}/bluetooth/data`);
+                if (!response.ok) return;
+
+                const result = await response.json();
+                const data = result.data || result;
+
+                // Process devices from polling response
+                if (data && data.devices) {
+                    const agentName = getCurrentAgentName();
+                    Object.values(data.devices).forEach(device => {
+                        device._agent = agentName;
+                        handleDeviceUpdate(device);
+                    });
+                } else if (data && Array.isArray(data)) {
+                    const agentName = getCurrentAgentName();
+                    data.forEach(device => {
+                        device._agent = agentName;
+                        handleDeviceUpdate(device);
+                    });
+                }
+            } catch (err) {
+                console.debug('[BT] Agent poll error:', err);
+            }
+        }, pollInterval);
     }
 
     function handleDeviceUpdate(device) {
@@ -876,6 +1086,7 @@ const BluetoothMode = (function() {
         const trackerType = device.tracker_type;
         const trackerConfidence = device.tracker_confidence;
         const riskScore = device.risk_score || 0;
+        const agentName = device._agent || 'Local';
 
         // Calculate RSSI bar width (0-100%)
         // RSSI typically ranges from -100 (weak) to -30 (very strong)
@@ -929,6 +1140,10 @@ const BluetoothMode = (function() {
         let secondaryParts = [addr];
         if (mfr) secondaryParts.push(mfr);
         secondaryParts.push('Seen ' + seenCount + '×');
+        // Add agent name if not Local
+        if (agentName !== 'Local') {
+            secondaryParts.push('<span class="agent-badge agent-remote" style="font-size:8px;padding:1px 4px;">' + escapeHtml(agentName) + '</span>');
+        }
         const secondaryInfo = secondaryParts.join(' · ');
 
         // Row border color - highlight trackers in red/orange
@@ -1019,6 +1234,112 @@ const BluetoothMode = (function() {
 
     function showErrorMessage(message) {
         console.error('[BT] Error:', message);
+        if (typeof showNotification === 'function') {
+            showNotification('Bluetooth Error', message, 'error');
+        }
+    }
+
+    function showInfo(message) {
+        console.log('[BT]', message);
+        if (typeof showNotification === 'function') {
+            showNotification('Bluetooth', message, 'info');
+        }
+    }
+
+    // ==========================================================================
+    // Agent Handling
+    // ==========================================================================
+
+    /**
+     * Handle agent change - refresh adapters and optionally clear data.
+     */
+    function handleAgentChange() {
+        const currentAgentId = typeof currentAgent !== 'undefined' ? currentAgent : 'local';
+
+        // Check if agent actually changed
+        if (lastAgentId === currentAgentId) return;
+
+        console.log('[BT] Agent changed from', lastAgentId, 'to', currentAgentId);
+
+        // Stop any running scan
+        if (isScanning) {
+            stopScan();
+        }
+
+        // Clear existing data when switching agents (unless "Show All" is enabled)
+        if (!showAllAgentsMode) {
+            clearData();
+            showInfo(`Switched to ${getCurrentAgentName()} - previous data cleared`);
+        }
+
+        // Refresh capabilities for new agent
+        checkCapabilities();
+
+        lastAgentId = currentAgentId;
+    }
+
+    /**
+     * Clear all collected data.
+     */
+    function clearData() {
+        devices.clear();
+        resetStats();
+
+        if (deviceContainer) {
+            deviceContainer.innerHTML = '';
+        }
+
+        updateDeviceCount();
+        updateProximityZones();
+        updateRadar();
+    }
+
+    /**
+     * Toggle "Show All Agents" mode.
+     */
+    function toggleShowAllAgents(enabled) {
+        showAllAgentsMode = enabled;
+        console.log('[BT] Show all agents mode:', enabled);
+
+        if (enabled) {
+            // If currently scanning, switch to multi-agent stream
+            if (isScanning && eventSource) {
+                eventSource.close();
+                startEventStream();
+            }
+            showInfo('Showing Bluetooth devices from all agents');
+        } else {
+            // Filter to current agent only
+            filterToCurrentAgent();
+        }
+    }
+
+    /**
+     * Filter devices to only show those from current agent.
+     */
+    function filterToCurrentAgent() {
+        const agentName = getCurrentAgentName();
+        const toRemove = [];
+
+        devices.forEach((device, deviceId) => {
+            if (device._agent && device._agent !== agentName) {
+                toRemove.push(deviceId);
+            }
+        });
+
+        toRemove.forEach(deviceId => devices.delete(deviceId));
+
+        // Re-render device list
+        if (deviceContainer) {
+            deviceContainer.innerHTML = '';
+            devices.forEach(device => renderDevice(device));
+        }
+
+        updateDeviceCount();
+        updateStatsFromDevices();
+        updateVisualizationPanels();
+        updateProximityZones();
+        updateRadar();
     }
 
     // Public API
@@ -1033,8 +1354,16 @@ const BluetoothMode = (function() {
         selectDevice,
         clearSelection,
         copyAddress,
+
+        // Agent handling
+        handleAgentChange,
+        clearData,
+        toggleShowAllAgents,
+
+        // Getters
         getDevices: () => Array.from(devices.values()),
-        isScanning: () => isScanning
+        isScanning: () => isScanning,
+        isShowAllAgents: () => showAllAgentsMode
     };
 })();
 

@@ -499,8 +499,18 @@ class ModeManager:
 
     def get_status(self) -> dict:
         """Get overall agent status."""
+        # Build running modes with device info for multi-SDR tracking
+        running_modes_detail = {}
+        for mode, info in self.running_modes.items():
+            params = info.get('params', {})
+            running_modes_detail[mode] = {
+                'started_at': info.get('started_at'),
+                'device': params.get('device', params.get('device_index', 0)),
+            }
+
         status = {
             'running_modes': list(self.running_modes.keys()),
+            'running_modes_detail': running_modes_detail,  # Include device info per mode
             'uptime': time.time() - _start_time,
             'push_enabled': config.push_enabled,
             'push_connected': push_client is not None and push_client.running,
@@ -512,6 +522,26 @@ class ModeManager:
             status['gps_position'] = gps_pos
         return status
 
+    # Modes that use RTL-SDR devices
+    SDR_MODES = {'adsb', 'sensor', 'pager', 'ais', 'acars', 'dsc', 'rtlamr', 'listening_post'}
+
+    def get_sdr_in_use(self, device: int = 0) -> str | None:
+        """Check if an SDR device is in use by another mode.
+
+        Returns the mode name using the device, or None if available.
+        """
+        for mode, info in self.running_modes.items():
+            if mode in self.SDR_MODES:
+                mode_device = info.get('params', {}).get('device', 0)
+                # Normalize to int for comparison
+                try:
+                    mode_device = int(mode_device)
+                except (ValueError, TypeError):
+                    mode_device = 0
+                if mode_device == device:
+                    return mode
+        return None
+
     def start_mode(self, mode: str, params: dict) -> dict:
         """Start a mode with given parameters."""
         if mode in self.running_modes:
@@ -520,6 +550,20 @@ class ModeManager:
         caps = self.detect_capabilities()
         if not caps['modes'].get(mode, False):
             return {'status': 'error', 'message': f'{mode} not available (missing tools)'}
+
+        # Check SDR device conflicts for SDR-based modes
+        if mode in self.SDR_MODES:
+            device = params.get('device', 0)
+            try:
+                device = int(device)
+            except (ValueError, TypeError):
+                device = 0
+            in_use_by = self.get_sdr_in_use(device)
+            if in_use_by:
+                return {
+                    'status': 'error',
+                    'message': f'SDR device {device} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.'
+                }
 
         # Initialize lock if needed
         if mode not in self.locks:
@@ -574,6 +618,23 @@ class ModeManager:
                 info['device_count'] = len(self.bluetooth_devices)
             elif mode == 'sensor':
                 info['reading_count'] = len(self.data_snapshots.get(mode, []))
+            elif mode == 'ais':
+                info['vessel_count'] = len(getattr(self, 'ais_vessels', {}))
+            elif mode == 'aprs':
+                info['station_count'] = len(getattr(self, 'aprs_stations', {}))
+            elif mode == 'pager':
+                info['message_count'] = len(self.data_snapshots.get(mode, []))
+            elif mode == 'acars':
+                info['message_count'] = len(self.data_snapshots.get(mode, []))
+            elif mode == 'rtlamr':
+                info['reading_count'] = len(self.data_snapshots.get(mode, []))
+            elif mode == 'tscm':
+                info['anomaly_count'] = len(getattr(self, 'tscm_anomalies', []))
+            elif mode == 'satellite':
+                info['pass_count'] = len(self.data_snapshots.get(mode, []))
+            elif mode == 'listening_post':
+                info['signal_count'] = len(getattr(self, 'listening_post_activity', []))
+                info['current_freq'] = getattr(self, 'listening_post_current_freq', 0)
             return info
         return {'running': False}
 
@@ -599,6 +660,27 @@ class ModeManager:
             }
         elif mode == 'bluetooth':
             data['data'] = list(self.bluetooth_devices.values())
+        elif mode == 'ais':
+            data['data'] = list(getattr(self, 'ais_vessels', {}).values())
+        elif mode == 'aprs':
+            data['data'] = list(getattr(self, 'aprs_stations', {}).values())
+        elif mode == 'tscm':
+            data['data'] = {
+                'anomalies': getattr(self, 'tscm_anomalies', []),
+                'baseline': getattr(self, 'tscm_baseline', {}),
+            }
+        elif mode == 'listening_post':
+            data['data'] = {
+                'activity': getattr(self, 'listening_post_activity', []),
+                'current_freq': getattr(self, 'listening_post_current_freq', 0),
+            }
+        elif mode == 'pager':
+            # Return recent pager messages
+            messages = self.data_snapshots.get(mode, [])
+            data['data'] = {
+                'messages': messages[-50:] if len(messages) > 50 else messages,
+                'total_count': len(messages),
+            }
         else:
             data['data'] = self.data_snapshots.get(mode, [])
 
@@ -623,15 +705,24 @@ class ModeManager:
             'adsb': self._start_adsb,
             'wifi': self._start_wifi,
             'bluetooth': self._start_bluetooth,
+            'pager': self._start_pager,
+            'ais': self._start_ais,
+            'acars': self._start_acars,
+            'aprs': self._start_aprs,
+            'rtlamr': self._start_rtlamr,
+            'dsc': self._start_dsc,
+            'tscm': self._start_tscm,
+            'satellite': self._start_satellite,
+            'listening_post': self._start_listening_post,
         }
 
         handler = handlers.get(mode)
         if handler:
             return handler(params)
 
-        # Default stub for modes not yet implemented
-        logger.warning(f"Mode {mode} not yet implemented - running in stub mode")
-        return {'status': 'started', 'mode': mode, 'stub': True}
+        # Unknown mode
+        logger.warning(f"Unknown mode: {mode}")
+        return {'status': 'error', 'message': f'Unknown mode: {mode}'}
 
     def _stop_mode_internal(self, mode: str) -> dict:
         """Internal mode stop - terminates processes and cleans up."""
@@ -724,6 +815,13 @@ class ModeManager:
                 stderr=subprocess.PIPE,
             )
             self.processes['sensor'] = proc
+
+            # Wait briefly to verify process started successfully
+            time.sleep(0.5)
+            if proc.poll() is not None:
+                stderr_output = proc.stderr.read().decode('utf-8', errors='replace')
+                del self.processes['sensor']
+                return {'status': 'error', 'message': f'rtl_433 failed to start: {stderr_output[:200]}'}
 
             # Start output reader thread
             thread = threading.Thread(
@@ -1042,7 +1140,13 @@ class ModeManager:
         interface = params.get('interface')
         channel = params.get('channel')
         band = params.get('band', 'abg')
+        scan_type = params.get('scan_type', 'deep')
 
+        # Handle quick scan - returns results synchronously
+        if scan_type == 'quick':
+            return self._wifi_quick_scan(interface)
+
+        # Deep scan requires interface
         if not interface:
             return {'status': 'error', 'message': 'WiFi interface required'}
 
@@ -1127,6 +1231,112 @@ class ModeManager:
 
         except FileNotFoundError:
             return {'status': 'error', 'message': 'airodump-ng not found'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    def _wifi_quick_scan(self, interface: str | None) -> dict:
+        """
+        Perform a quick one-shot WiFi scan using system tools.
+
+        Uses nmcli, iw, or iwlist (no monitor mode required).
+        Returns results synchronously.
+        """
+        try:
+            from utils.wifi.scanner import get_wifi_scanner
+            scanner = get_wifi_scanner()
+            result = scanner.quick_scan(interface=interface, timeout=15.0)
+
+            if result.error:
+                return {
+                    'status': 'error',
+                    'message': result.error,
+                    'warnings': result.warnings
+                }
+
+            # Convert access points to dict format
+            networks = []
+            gps_position = gps_manager.position
+            for ap in result.access_points:
+                net = ap.to_dict()
+                # Add agent GPS if available
+                if gps_position:
+                    net['agent_gps'] = gps_position
+                networks.append(net)
+
+            return {
+                'status': 'success',
+                'scan_type': 'quick',
+                'access_points': networks,
+                'networks': networks,  # Alias for compatibility
+                'network_count': len(networks),
+                'warnings': result.warnings,
+                'gps_enabled': gps_manager.is_running,
+                'agent_gps': gps_position
+            }
+
+        except ImportError:
+            # Fallback: simple nmcli scan
+            return self._wifi_quick_scan_fallback(interface)
+        except Exception as e:
+            logger.exception("Quick WiFi scan failed")
+            return {'status': 'error', 'message': str(e)}
+
+    def _wifi_quick_scan_fallback(self, interface: str | None) -> dict:
+        """Fallback quick scan using nmcli directly."""
+        nmcli_path = shutil.which('nmcli')
+        if not nmcli_path:
+            return {'status': 'error', 'message': 'nmcli not found. Install NetworkManager.'}
+
+        try:
+            # Trigger rescan
+            subprocess.run(
+                [nmcli_path, 'device', 'wifi', 'rescan'],
+                capture_output=True,
+                timeout=5
+            )
+
+            # Get results
+            cmd = [nmcli_path, '-t', '-f', 'BSSID,SSID,CHAN,SIGNAL,SECURITY', 'device', 'wifi', 'list']
+            if interface:
+                cmd.extend(['ifname', interface])
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+
+            if result.returncode != 0:
+                return {'status': 'error', 'message': f'nmcli failed: {result.stderr}'}
+
+            networks = []
+            gps_position = gps_manager.position
+            for line in result.stdout.strip().split('\n'):
+                if not line.strip():
+                    continue
+                parts = line.split(':')
+                if len(parts) >= 5:
+                    net = {
+                        'bssid': parts[0],
+                        'essid': parts[1],
+                        'channel': int(parts[2]) if parts[2].isdigit() else 0,
+                        'signal': int(parts[3]) if parts[3].isdigit() else 0,
+                        'rssi_current': int(parts[3]) - 100 if parts[3].isdigit() else -100,  # Convert % to dBm approx
+                        'security': parts[4],
+                    }
+                    if gps_position:
+                        net['agent_gps'] = gps_position
+                    networks.append(net)
+
+            return {
+                'status': 'success',
+                'scan_type': 'quick',
+                'access_points': networks,
+                'networks': networks,
+                'network_count': len(networks),
+                'warnings': ['Using fallback nmcli scanner'],
+                'gps_enabled': gps_manager.is_running,
+                'agent_gps': gps_position
+            }
+
+        except subprocess.TimeoutExpired:
+            return {'status': 'error', 'message': 'nmcli scan timed out'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
@@ -1405,6 +1615,1179 @@ class ModeManager:
             device['agent_gps'] = gps_pos
 
         self.bluetooth_devices[mac] = device
+
+    # -------------------------------------------------------------------------
+    # PAGER MODE (rtl_fm | multimon-ng)
+    # -------------------------------------------------------------------------
+
+    def _start_pager(self, params: dict) -> dict:
+        """Start POCSAG/FLEX pager decoding using rtl_fm | multimon-ng."""
+        freq = params.get('frequency', '929.6125')
+        gain = params.get('gain', '0')
+        device = params.get('device', '0')
+        ppm = params.get('ppm', '0')
+        squelch = params.get('squelch', '0')
+        protocols = params.get('protocols', ['POCSAG512', 'POCSAG1200', 'POCSAG2400', 'FLEX'])
+
+        # Validate tools
+        rtl_fm_path = self._get_tool_path('rtl_fm')
+        multimon_path = self._get_tool_path('multimon-ng')
+        if not rtl_fm_path:
+            return {'status': 'error', 'message': 'rtl_fm not found. Install rtl-sdr.'}
+        if not multimon_path:
+            return {'status': 'error', 'message': 'multimon-ng not found. Install multimon-ng.'}
+
+        # Build rtl_fm command for FM demodulation at 22050 Hz
+        rtl_fm_cmd = [
+            rtl_fm_path,
+            '-f', f'{freq}M',
+            '-s', '22050',
+            '-g', str(gain),
+            '-d', str(device),
+        ]
+        if ppm and str(ppm) != '0':
+            rtl_fm_cmd.extend(['-p', str(ppm)])
+        if squelch and str(squelch) != '0':
+            rtl_fm_cmd.extend(['-l', str(squelch)])
+
+        # Build multimon-ng command
+        multimon_cmd = [multimon_path, '-t', 'raw', '-a']
+        for proto in protocols:
+            if proto in ['POCSAG512', 'POCSAG1200', 'POCSAG2400', 'FLEX']:
+                multimon_cmd.extend(['-a', proto])
+        multimon_cmd.append('-')
+
+        logger.info(f"Starting pager: {' '.join(rtl_fm_cmd)} | {' '.join(multimon_cmd)}")
+
+        try:
+            # Start rtl_fm process
+            rtl_fm_proc = subprocess.Popen(
+                rtl_fm_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            # Pipe to multimon-ng
+            multimon_proc = subprocess.Popen(
+                multimon_cmd,
+                stdin=rtl_fm_proc.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            rtl_fm_proc.stdout.close()  # Allow SIGPIPE
+
+            # Store both processes
+            self.processes['pager'] = multimon_proc
+            self.processes['pager_rtl'] = rtl_fm_proc
+
+            # Wait briefly to verify processes started successfully
+            time.sleep(0.5)
+            if rtl_fm_proc.poll() is not None:
+                stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
+                multimon_proc.terminate()
+                del self.processes['pager']
+                del self.processes['pager_rtl']
+                return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+
+            # Start output reader
+            thread = threading.Thread(
+                target=self._pager_output_reader,
+                args=(multimon_proc,),
+                daemon=True
+            )
+            thread.start()
+            self.output_threads['pager'] = thread
+
+            return {
+                'status': 'started',
+                'mode': 'pager',
+                'frequency': freq,
+                'protocols': protocols,
+                'gps_enabled': gps_manager.is_running
+            }
+
+        except FileNotFoundError as e:
+            return {'status': 'error', 'message': str(e)}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    def _pager_output_reader(self, proc: subprocess.Popen):
+        """Read and parse multimon-ng output for pager messages."""
+        mode = 'pager'
+        stop_event = self.stop_events.get(mode)
+
+        try:
+            for line in iter(proc.stdout.readline, b''):
+                if stop_event and stop_event.is_set():
+                    break
+
+                line = line.decode('utf-8', errors='replace').strip()
+                if not line:
+                    continue
+
+                parsed = self._parse_pager_message(line)
+                if parsed:
+                    parsed['received_at'] = datetime.now(timezone.utc).isoformat()
+
+                    gps_pos = gps_manager.position
+                    if gps_pos:
+                        parsed['agent_gps'] = gps_pos
+
+                    snapshots = self.data_snapshots.get(mode, [])
+                    snapshots.append(parsed)
+                    if len(snapshots) > 200:
+                        snapshots = snapshots[-200:]
+                    self.data_snapshots[mode] = snapshots
+
+                    logger.debug(f"Pager: {parsed.get('protocol')} addr={parsed.get('address')}")
+
+        except Exception as e:
+            logger.error(f"Pager reader error: {e}")
+        finally:
+            proc.wait()
+            if 'pager_rtl' in self.processes:
+                rtl_proc = self.processes['pager_rtl']
+                if rtl_proc.poll() is None:
+                    rtl_proc.terminate()
+                del self.processes['pager_rtl']
+            logger.info("Pager reader stopped")
+
+    def _parse_pager_message(self, line: str) -> dict | None:
+        """Parse multimon-ng output line for POCSAG/FLEX."""
+        # POCSAG with message
+        match = re.match(
+            r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s+(Alpha|Numeric):\s*(.*)',
+            line
+        )
+        if match:
+            return {
+                'type': 'pager',
+                'protocol': match.group(1),
+                'address': match.group(2),
+                'function': match.group(3),
+                'msg_type': match.group(4),
+                'message': match.group(5).strip() or '[No Message]'
+            }
+
+        # POCSAG address only (tone)
+        match = re.match(
+            r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s*$',
+            line
+        )
+        if match:
+            return {
+                'type': 'pager',
+                'protocol': match.group(1),
+                'address': match.group(2),
+                'function': match.group(3),
+                'msg_type': 'Tone',
+                'message': '[Tone Only]'
+            }
+
+        # FLEX format
+        match = re.match(r'FLEX[:\|]\s*(.+)', line)
+        if match:
+            return {
+                'type': 'pager',
+                'protocol': 'FLEX',
+                'address': 'Unknown',
+                'function': '',
+                'msg_type': 'Unknown',
+                'message': match.group(1).strip()
+            }
+
+        return None
+
+    # -------------------------------------------------------------------------
+    # AIS MODE (AIS-catcher)
+    # -------------------------------------------------------------------------
+
+    def _start_ais(self, params: dict) -> dict:
+        """Start AIS vessel tracking using AIS-catcher."""
+        gain = params.get('gain', '33')
+        device = params.get('device', '0')
+        bias_t = params.get('bias_t', False)
+
+        # Find AIS-catcher
+        ais_catcher = self._find_ais_catcher()
+        if not ais_catcher:
+            return {'status': 'error', 'message': 'AIS-catcher not found. Install from https://github.com/jvde-github/AIS-catcher'}
+
+        # Initialize vessel dict
+        if not hasattr(self, 'ais_vessels'):
+            self.ais_vessels = {}
+        self.ais_vessels.clear()
+
+        # Build command - output JSON on TCP port 1234
+        cmd = [
+            ais_catcher,
+            '-d', str(device),
+            '-gr', f'TUNER={gain}',
+            '-o', '4',  # JSON format
+            '-N', '1234',  # TCP output on port 1234
+        ]
+
+        if bias_t:
+            cmd.extend(['-gr', 'BIASTEE=on'])
+
+        logger.info(f"Starting AIS-catcher: {' '.join(cmd)}")
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            self.processes['ais'] = proc
+
+            time.sleep(2)
+            if proc.poll() is not None:
+                stderr = proc.stderr.read().decode('utf-8', errors='ignore')
+                return {'status': 'error', 'message': f'AIS-catcher failed: {stderr[:200]}'}
+
+            # Start TCP reader thread
+            thread = threading.Thread(
+                target=self._ais_tcp_reader,
+                args=(1234,),
+                daemon=True
+            )
+            thread.start()
+            self.output_threads['ais'] = thread
+
+            return {
+                'status': 'started',
+                'mode': 'ais',
+                'tcp_port': 1234,
+                'gps_enabled': gps_manager.is_running
+            }
+
+        except FileNotFoundError:
+            return {'status': 'error', 'message': 'AIS-catcher not found'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    def _find_ais_catcher(self) -> str | None:
+        """Find AIS-catcher binary."""
+        for name in ['AIS-catcher', 'aiscatcher']:
+            path = self._get_tool_path(name)
+            if path:
+                return path
+        for path in ['/usr/local/bin/AIS-catcher', '/usr/bin/AIS-catcher', '/opt/homebrew/bin/AIS-catcher']:
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+        return None
+
+    def _ais_tcp_reader(self, port: int):
+        """Read JSON vessel data from AIS-catcher TCP port."""
+        mode = 'ais'
+        stop_event = self.stop_events.get(mode)
+        retry_count = 0
+
+        # Initialize vessel dict
+        if not hasattr(self, 'ais_vessels'):
+            self.ais_vessels = {}
+
+        while not (stop_event and stop_event.is_set()):
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5.0)
+                sock.connect(('localhost', port))
+                logger.info(f"Connected to AIS-catcher on port {port}")
+                retry_count = 0
+
+                buffer = ""
+                sock.settimeout(1.0)
+
+                while not (stop_event and stop_event.is_set()):
+                    try:
+                        data = sock.recv(4096).decode('utf-8', errors='ignore')
+                        if not data:
+                            break
+                        buffer += data
+
+                        while '\n' in buffer:
+                            line, buffer = buffer.split('\n', 1)
+                            self._parse_ais_json(line.strip())
+
+                    except socket.timeout:
+                        continue
+
+                sock.close()
+
+            except Exception as e:
+                retry_count += 1
+                if retry_count >= 10:
+                    logger.error("Max AIS retries reached")
+                    break
+                time.sleep(2)
+
+        logger.info("AIS TCP reader stopped")
+
+    def _parse_ais_json(self, line: str):
+        """Parse AIS-catcher JSON output."""
+        if not line:
+            return
+
+        try:
+            msg = json.loads(line)
+        except json.JSONDecodeError:
+            return
+
+        mmsi = msg.get('mmsi')
+        if not mmsi:
+            return
+
+        mmsi = str(mmsi)
+        vessel = self.ais_vessels.get(mmsi) or {'mmsi': mmsi}
+        vessel['last_seen'] = datetime.now(timezone.utc).isoformat()
+
+        # Position
+        lat = msg.get('latitude') or msg.get('lat')
+        lon = msg.get('longitude') or msg.get('lon')
+        if lat is not None and lon is not None:
+            try:
+                lat, lon = float(lat), float(lon)
+                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                    vessel['lat'] = lat
+                    vessel['lon'] = lon
+            except (ValueError, TypeError):
+                pass
+
+        # Speed and course
+        for field, max_val in [('speed', 102.3), ('course', 360)]:
+            if field in msg:
+                try:
+                    val = float(msg[field])
+                    if val < max_val:
+                        vessel[field] = round(val, 1)
+                except (ValueError, TypeError):
+                    pass
+
+        if 'heading' in msg:
+            try:
+                heading = int(msg['heading'])
+                if heading < 360:
+                    vessel['heading'] = heading
+            except (ValueError, TypeError):
+                pass
+
+        # Static data
+        for field in ['name', 'callsign', 'destination', 'shiptype', 'ship_type']:
+            if field in msg and msg[field]:
+                key = 'ship_type' if field == 'shiptype' else field
+                vessel[key] = str(msg[field]).strip()
+
+        gps_pos = gps_manager.position
+        if gps_pos:
+            vessel['agent_gps'] = gps_pos
+
+        self.ais_vessels[mmsi] = vessel
+
+    # -------------------------------------------------------------------------
+    # ACARS MODE (acarsdec)
+    # -------------------------------------------------------------------------
+
+    def _start_acars(self, params: dict) -> dict:
+        """Start ACARS decoding using acarsdec."""
+        gain = params.get('gain', '40')
+        device = params.get('device', '0')
+        frequencies = params.get('frequencies', ['131.550', '130.025', '129.125', '131.525', '131.725'])
+
+        acarsdec_path = self._get_tool_path('acarsdec')
+        if not acarsdec_path:
+            return {'status': 'error', 'message': 'acarsdec not found. Install acarsdec.'}
+
+        # Build command with JSON output
+        cmd = [acarsdec_path, '-j', '-r', str(device), '-g', str(gain)]
+        for freq in frequencies:
+            cmd.append(freq)
+
+        logger.info(f"Starting acarsdec: {' '.join(cmd)}")
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.processes['acars'] = proc
+
+            thread = threading.Thread(
+                target=self._acars_output_reader,
+                args=(proc,),
+                daemon=True
+            )
+            thread.start()
+            self.output_threads['acars'] = thread
+
+            # Wait briefly to verify process started successfully
+            time.sleep(0.5)
+            if proc.poll() is not None:
+                # Process already exited - likely SDR busy or other error
+                stderr_output = proc.stderr.read().decode('utf-8', errors='replace')
+                del self.processes['acars']
+                return {'status': 'error', 'message': f'acarsdec failed to start: {stderr_output[:200]}'}
+
+            return {
+                'status': 'started',
+                'mode': 'acars',
+                'frequencies': frequencies,
+                'gps_enabled': gps_manager.is_running
+            }
+
+        except FileNotFoundError:
+            return {'status': 'error', 'message': 'acarsdec not found'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    def _acars_output_reader(self, proc: subprocess.Popen):
+        """Read acarsdec JSON output."""
+        mode = 'acars'
+        stop_event = self.stop_events.get(mode)
+
+        try:
+            for line in iter(proc.stdout.readline, b''):
+                if stop_event and stop_event.is_set():
+                    break
+
+                line = line.decode('utf-8', errors='replace').strip()
+                if not line:
+                    continue
+
+                try:
+                    msg = json.loads(line)
+                    msg['type'] = 'acars'
+                    msg['received_at'] = datetime.now(timezone.utc).isoformat()
+
+                    gps_pos = gps_manager.position
+                    if gps_pos:
+                        msg['agent_gps'] = gps_pos
+
+                    snapshots = self.data_snapshots.get(mode, [])
+                    snapshots.append(msg)
+                    if len(snapshots) > 100:
+                        snapshots = snapshots[-100:]
+                    self.data_snapshots[mode] = snapshots
+
+                    logger.debug(f"ACARS: {msg.get('tail', 'Unknown')}")
+
+                except json.JSONDecodeError:
+                    pass
+
+        except Exception as e:
+            logger.error(f"ACARS reader error: {e}")
+        finally:
+            proc.wait()
+            logger.info("ACARS reader stopped")
+
+    # -------------------------------------------------------------------------
+    # APRS MODE (rtl_fm | direwolf)
+    # -------------------------------------------------------------------------
+
+    def _start_aprs(self, params: dict) -> dict:
+        """Start APRS decoding using rtl_fm | direwolf."""
+        freq = params.get('frequency', '144.390')  # North America APRS
+        gain = params.get('gain', '40')
+        device = params.get('device', '0')
+        ppm = params.get('ppm', '0')
+
+        rtl_fm_path = self._get_tool_path('rtl_fm')
+        if not rtl_fm_path:
+            return {'status': 'error', 'message': 'rtl_fm not found'}
+
+        direwolf_path = self._get_tool_path('direwolf')
+        multimon_path = self._get_tool_path('multimon-ng')
+        decoder_path = direwolf_path or multimon_path
+
+        if not decoder_path:
+            return {'status': 'error', 'message': 'direwolf or multimon-ng not found'}
+
+        # Initialize state
+        if not hasattr(self, 'aprs_stations'):
+            self.aprs_stations = {}
+        self.aprs_stations.clear()
+
+        # Build rtl_fm command for APRS (22050 Hz for AFSK 1200 baud)
+        rtl_fm_cmd = [
+            rtl_fm_path,
+            '-f', f'{freq}M',
+            '-s', '22050',
+            '-g', str(gain),
+            '-d', str(device),
+            '-E', 'dc',
+            '-A', 'fast',
+        ]
+        if ppm and str(ppm) != '0':
+            rtl_fm_cmd.extend(['-p', str(ppm)])
+
+        # Build decoder command
+        if direwolf_path:
+            dw_config = '/tmp/intercept_direwolf.conf'
+            try:
+                with open(dw_config, 'w') as f:
+                    f.write("ADEVICE stdin null\nARATE 22050\nMODEM 1200\n")
+            except Exception as e:
+                return {'status': 'error', 'message': f'Failed to create direwolf config: {e}'}
+            decoder_cmd = [direwolf_path, '-c', dw_config, '-r', '22050', '-t', '0', '-']
+        else:
+            decoder_cmd = [multimon_path, '-t', 'raw', '-a', 'AFSK1200', '-']
+
+        logger.info(f"Starting APRS: {' '.join(rtl_fm_cmd)} | {' '.join(decoder_cmd)}")
+
+        try:
+            rtl_fm_proc = subprocess.Popen(
+                rtl_fm_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            decoder_proc = subprocess.Popen(
+                decoder_cmd,
+                stdin=rtl_fm_proc.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            rtl_fm_proc.stdout.close()
+
+            self.processes['aprs'] = decoder_proc
+            self.processes['aprs_rtl'] = rtl_fm_proc
+
+            # Wait briefly to verify processes started successfully
+            time.sleep(0.5)
+            if rtl_fm_proc.poll() is not None:
+                stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
+                decoder_proc.terminate()
+                del self.processes['aprs']
+                del self.processes['aprs_rtl']
+                return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+
+            thread = threading.Thread(
+                target=self._aprs_output_reader,
+                args=(decoder_proc, direwolf_path is not None),
+                daemon=True
+            )
+            thread.start()
+            self.output_threads['aprs'] = thread
+
+            return {
+                'status': 'started',
+                'mode': 'aprs',
+                'frequency': freq,
+                'decoder': 'direwolf' if direwolf_path else 'multimon-ng',
+                'gps_enabled': gps_manager.is_running
+            }
+
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    def _aprs_output_reader(self, proc: subprocess.Popen, is_direwolf: bool):
+        """Read and parse APRS packets."""
+        mode = 'aprs'
+        stop_event = self.stop_events.get(mode)
+
+        try:
+            for line in iter(proc.stdout.readline, b''):
+                if stop_event and stop_event.is_set():
+                    break
+
+                line = line.decode('utf-8', errors='replace').strip()
+                if not line:
+                    continue
+
+                parsed = self._parse_aprs_packet(line)
+                if parsed:
+                    parsed['received_at'] = datetime.now(timezone.utc).isoformat()
+
+                    gps_pos = gps_manager.position
+                    if gps_pos:
+                        parsed['agent_gps'] = gps_pos
+
+                    callsign = parsed.get('callsign')
+                    if callsign:
+                        self.aprs_stations[callsign] = parsed
+
+                    snapshots = self.data_snapshots.get(mode, [])
+                    snapshots.append(parsed)
+                    if len(snapshots) > 100:
+                        snapshots = snapshots[-100:]
+                    self.data_snapshots[mode] = snapshots
+
+                    logger.debug(f"APRS: {callsign}")
+
+        except Exception as e:
+            logger.error(f"APRS reader error: {e}")
+        finally:
+            proc.wait()
+            if 'aprs_rtl' in self.processes:
+                rtl_proc = self.processes['aprs_rtl']
+                if rtl_proc.poll() is None:
+                    rtl_proc.terminate()
+                del self.processes['aprs_rtl']
+            logger.info("APRS reader stopped")
+
+    def _parse_aprs_packet(self, line: str) -> dict | None:
+        """Parse APRS packet from direwolf or multimon-ng."""
+        match = re.match(r'([A-Z0-9-]+)>([^:]+):(.+)', line)
+        if not match:
+            return None
+
+        callsign = match.group(1)
+        path = match.group(2)
+        data = match.group(3)
+
+        packet = {
+            'type': 'aprs',
+            'callsign': callsign,
+            'path': path,
+            'raw': data,
+        }
+
+        # Try to extract position
+        pos_match = re.search(r'[!=/@](\d{4}\.\d{2})([NS])[/\\](\d{5}\.\d{2})([EW])', data)
+        if pos_match:
+            lat = float(pos_match.group(1)[:2]) + float(pos_match.group(1)[2:]) / 60
+            if pos_match.group(2) == 'S':
+                lat = -lat
+            lon = float(pos_match.group(3)[:3]) + float(pos_match.group(3)[3:]) / 60
+            if pos_match.group(4) == 'W':
+                lon = -lon
+            packet['lat'] = round(lat, 6)
+            packet['lon'] = round(lon, 6)
+
+        return packet
+
+    # -------------------------------------------------------------------------
+    # RTLAMR MODE (rtl_tcp + rtlamr)
+    # -------------------------------------------------------------------------
+
+    def _start_rtlamr(self, params: dict) -> dict:
+        """Start utility meter reading using rtl_tcp + rtlamr."""
+        freq = params.get('frequency', '912.0')
+        device = params.get('device', '0')
+        gain = params.get('gain', '40')
+        msg_type = params.get('msgtype', 'scm')
+        filter_id = params.get('filterid')
+
+        rtl_tcp_path = self._get_tool_path('rtl_tcp')
+        rtlamr_path = self._get_tool_path('rtlamr')
+
+        if not rtl_tcp_path:
+            return {'status': 'error', 'message': 'rtl_tcp not found. Install rtl-sdr.'}
+        if not rtlamr_path:
+            return {'status': 'error', 'message': 'rtlamr not found. Install from https://github.com/bemasher/rtlamr'}
+
+        # Start rtl_tcp server
+        rtl_tcp_cmd = [rtl_tcp_path, '-a', '127.0.0.1', '-p', '1234', '-d', str(device)]
+        if gain:
+            rtl_tcp_cmd.extend(['-g', str(gain)])
+
+        logger.info(f"Starting rtl_tcp: {' '.join(rtl_tcp_cmd)}")
+
+        try:
+            rtl_tcp_proc = subprocess.Popen(
+                rtl_tcp_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.processes['rtlamr_tcp'] = rtl_tcp_proc
+
+            time.sleep(2)
+            if rtl_tcp_proc.poll() is not None:
+                stderr = rtl_tcp_proc.stderr.read().decode('utf-8', errors='ignore')
+                return {'status': 'error', 'message': f'rtl_tcp failed: {stderr[:200]}'}
+
+            # Build rtlamr command
+            rtlamr_cmd = [
+                rtlamr_path,
+                '-server=127.0.0.1:1234',
+                f'-msgtype={msg_type}',
+                '-format=json',
+                f'-centerfreq={int(float(freq) * 1e6)}',
+                '-unique=true',
+            ]
+            if filter_id:
+                rtlamr_cmd.append(f'-filterid={filter_id}')
+
+            logger.info(f"Starting rtlamr: {' '.join(rtlamr_cmd)}")
+
+            rtlamr_proc = subprocess.Popen(
+                rtlamr_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.processes['rtlamr'] = rtlamr_proc
+
+            thread = threading.Thread(
+                target=self._rtlamr_output_reader,
+                args=(rtlamr_proc,),
+                daemon=True
+            )
+            thread.start()
+            self.output_threads['rtlamr'] = thread
+
+            return {
+                'status': 'started',
+                'mode': 'rtlamr',
+                'frequency': freq,
+                'msgtype': msg_type,
+                'gps_enabled': gps_manager.is_running
+            }
+
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    def _rtlamr_output_reader(self, proc: subprocess.Popen):
+        """Read rtlamr JSON output."""
+        mode = 'rtlamr'
+        stop_event = self.stop_events.get(mode)
+
+        try:
+            for line in iter(proc.stdout.readline, b''):
+                if stop_event and stop_event.is_set():
+                    break
+
+                line = line.decode('utf-8', errors='replace').strip()
+                if not line:
+                    continue
+
+                try:
+                    msg = json.loads(line)
+                    msg['type'] = 'rtlamr'
+                    msg['received_at'] = datetime.now(timezone.utc).isoformat()
+
+                    gps_pos = gps_manager.position
+                    if gps_pos:
+                        msg['agent_gps'] = gps_pos
+
+                    snapshots = self.data_snapshots.get(mode, [])
+                    snapshots.append(msg)
+                    if len(snapshots) > 100:
+                        snapshots = snapshots[-100:]
+                    self.data_snapshots[mode] = snapshots
+
+                    logger.debug(f"RTLAMR: meter {msg.get('Message', {}).get('ID', 'Unknown')}")
+
+                except json.JSONDecodeError:
+                    pass
+
+        except Exception as e:
+            logger.error(f"RTLAMR reader error: {e}")
+        finally:
+            proc.wait()
+            if 'rtlamr_tcp' in self.processes:
+                tcp_proc = self.processes['rtlamr_tcp']
+                if tcp_proc.poll() is None:
+                    tcp_proc.terminate()
+                del self.processes['rtlamr_tcp']
+            logger.info("RTLAMR reader stopped")
+
+    # -------------------------------------------------------------------------
+    # DSC MODE (rtl_fm | dsc-decoder) - Digital Selective Calling
+    # -------------------------------------------------------------------------
+
+    def _start_dsc(self, params: dict) -> dict:
+        """Start DSC (VHF Channel 70) decoding."""
+        device = params.get('device', '0')
+        gain = params.get('gain', '40')
+        ppm = params.get('ppm', '0')
+        freq = '156.525'  # DSC Channel 70
+
+        rtl_fm_path = self._get_tool_path('rtl_fm')
+        if not rtl_fm_path:
+            return {'status': 'error', 'message': 'rtl_fm not found'}
+
+        # Try to find dsc-decoder
+        dsc_decoder = None
+        for path in ['/usr/local/bin/dsc-decoder', '/usr/bin/dsc-decoder', './bin/dsc-decoder']:
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                dsc_decoder = path
+                break
+
+        # Build rtl_fm command for DSC (48kHz sample rate)
+        rtl_fm_cmd = [
+            rtl_fm_path,
+            '-f', f'{freq}M',
+            '-s', '48000',
+            '-g', str(gain),
+            '-d', str(device),
+        ]
+        if ppm and str(ppm) != '0':
+            rtl_fm_cmd.extend(['-p', str(ppm)])
+
+        logger.info(f"Starting DSC: {' '.join(rtl_fm_cmd)}")
+
+        try:
+            if dsc_decoder:
+                rtl_fm_proc = subprocess.Popen(
+                    rtl_fm_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                decoder_proc = subprocess.Popen(
+                    [dsc_decoder],
+                    stdin=rtl_fm_proc.stdout,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                rtl_fm_proc.stdout.close()
+                self.processes['dsc'] = decoder_proc
+                self.processes['dsc_rtl'] = rtl_fm_proc
+
+                # Wait briefly to verify processes started successfully
+                time.sleep(0.5)
+                if rtl_fm_proc.poll() is not None:
+                    stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
+                    decoder_proc.terminate()
+                    del self.processes['dsc']
+                    del self.processes['dsc_rtl']
+                    return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+            else:
+                rtl_fm_proc = subprocess.Popen(
+                    rtl_fm_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                self.processes['dsc'] = rtl_fm_proc
+                logger.warning("No dsc-decoder found - DSC decoding limited")
+
+                # Wait briefly to verify process started successfully
+                time.sleep(0.5)
+                if rtl_fm_proc.poll() is not None:
+                    stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
+                    del self.processes['dsc']
+                    return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+
+            return {
+                'status': 'started',
+                'mode': 'dsc',
+                'frequency': freq,
+                'channel': 70,
+                'has_decoder': dsc_decoder is not None,
+                'gps_enabled': gps_manager.is_running
+            }
+
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    # -------------------------------------------------------------------------
+    # TSCM MODE (Technical Surveillance Countermeasures)
+    # -------------------------------------------------------------------------
+
+    def _start_tscm(self, params: dict) -> dict:
+        """Start TSCM scanning - combines WiFi and Bluetooth analysis."""
+        # Initialize state
+        if not hasattr(self, 'tscm_baseline'):
+            self.tscm_baseline = {}
+        if not hasattr(self, 'tscm_anomalies'):
+            self.tscm_anomalies = []
+        self.tscm_anomalies.clear()
+
+        thread = threading.Thread(
+            target=self._tscm_analyzer,
+            daemon=True
+        )
+        thread.start()
+        self.output_threads['tscm'] = thread
+
+        return {
+            'status': 'started',
+            'mode': 'tscm',
+            'note': 'TSCM analyzes WiFi/BT data for anomalies - no SDR required',
+            'gps_enabled': gps_manager.is_running
+        }
+
+    def _tscm_analyzer(self):
+        """Background TSCM analysis - looks for anomalies in WiFi/BT."""
+        mode = 'tscm'
+        stop_event = self.stop_events.get(mode)
+        baseline_built = False
+
+        while not (stop_event and stop_event.is_set()):
+            try:
+                current_wifi = dict(self.wifi_networks)
+                current_bt = dict(self.bluetooth_devices)
+
+                if not baseline_built and (current_wifi or current_bt):
+                    self.tscm_baseline = {
+                        'wifi': {k: {'rssi': v.get('signal'), 'essid': v.get('essid')}
+                                 for k, v in current_wifi.items()},
+                        'bluetooth': {k: {'rssi': v.get('rssi'), 'name': v.get('name')}
+                                      for k, v in current_bt.items()},
+                        'built_at': datetime.now(timezone.utc).isoformat()
+                    }
+                    baseline_built = True
+                    logger.info(f"TSCM baseline: {len(current_wifi)} WiFi, {len(current_bt)} BT")
+
+                elif baseline_built:
+                    anomalies = []
+
+                    for bssid, network in current_wifi.items():
+                        if bssid not in self.tscm_baseline.get('wifi', {}):
+                            anomalies.append({
+                                'type': 'new_wifi',
+                                'severity': 'medium',
+                                'bssid': bssid,
+                                'essid': network.get('essid'),
+                                'rssi': network.get('signal'),
+                                'detected_at': datetime.now(timezone.utc).isoformat()
+                            })
+
+                    for mac, device in current_bt.items():
+                        if mac not in self.tscm_baseline.get('bluetooth', {}):
+                            anomalies.append({
+                                'type': 'new_bluetooth',
+                                'severity': 'medium',
+                                'mac': mac,
+                                'name': device.get('name'),
+                                'rssi': device.get('rssi'),
+                                'detected_at': datetime.now(timezone.utc).isoformat()
+                            })
+
+                    if anomalies:
+                        self.tscm_anomalies.extend(anomalies)
+                        if len(self.tscm_anomalies) > 100:
+                            self.tscm_anomalies = self.tscm_anomalies[-100:]
+
+                        for anomaly in anomalies:
+                            logger.info(f"TSCM anomaly: {anomaly['type']}")
+
+                        self.data_snapshots[mode] = self.tscm_anomalies.copy()
+
+                time.sleep(5)
+
+            except Exception as e:
+                logger.error(f"TSCM analyzer error: {e}")
+                time.sleep(5)
+
+        logger.info("TSCM analyzer stopped")
+
+    # -------------------------------------------------------------------------
+    # SATELLITE MODE (TLE-based pass prediction)
+    # -------------------------------------------------------------------------
+
+    def _start_satellite(self, params: dict) -> dict:
+        """Start satellite pass prediction - no SDR needed."""
+        lat = params.get('lat', params.get('latitude'))
+        lon = params.get('lon', params.get('longitude'))
+        min_elevation = params.get('min_elevation', 10)
+
+        if lat is None or lon is None:
+            gps_pos = gps_manager.position
+            if gps_pos:
+                lat = gps_pos.get('lat')
+                lon = gps_pos.get('lon')
+
+        if lat is None or lon is None:
+            return {'status': 'error', 'message': 'Observer location required (lat/lon)'}
+
+        thread = threading.Thread(
+            target=self._satellite_predictor,
+            args=(float(lat), float(lon), int(min_elevation)),
+            daemon=True
+        )
+        thread.start()
+        self.output_threads['satellite'] = thread
+
+        return {
+            'status': 'started',
+            'mode': 'satellite',
+            'observer': {'lat': lat, 'lon': lon},
+            'min_elevation': min_elevation,
+            'note': 'Satellite pass prediction - no SDR required'
+        }
+
+    def _satellite_predictor(self, lat: float, lon: float, min_elevation: int):
+        """Calculate satellite passes using TLE data."""
+        mode = 'satellite'
+        stop_event = self.stop_events.get(mode)
+
+        try:
+            from skyfield.api import Topos, load
+
+            stations_url = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle'
+            satellites = load.tle_file(stations_url)
+
+            ts = load.timescale()
+            observer = Topos(latitude_degrees=lat, longitude_degrees=lon)
+
+            logger.info(f"Satellite predictor: {len(satellites)} satellites loaded")
+
+            while not (stop_event and stop_event.is_set()):
+                passes = []
+                now = ts.now()
+                end = ts.utc(now.utc_datetime().year, now.utc_datetime().month,
+                            now.utc_datetime().day + 1)
+
+                for sat in satellites[:20]:
+                    try:
+                        t, events = sat.find_events(observer, now, end, altitude_degrees=min_elevation)
+
+                        for ti, event in zip(t, events):
+                            if event == 0:  # Rise
+                                difference = sat - observer
+                                topocentric = difference.at(ti)
+                                alt, az, _ = topocentric.altaz()
+                                passes.append({
+                                    'satellite': sat.name,
+                                    'rise_time': ti.utc_iso(),
+                                    'rise_azimuth': round(az.degrees, 1),
+                                    'max_elevation': min_elevation,
+                                })
+                    except Exception:
+                        continue
+
+                self.data_snapshots[mode] = passes[:50]
+                time.sleep(300)
+
+        except ImportError:
+            logger.warning("skyfield not installed - satellite prediction unavailable")
+            self.data_snapshots[mode] = [{'error': 'skyfield not installed'}]
+        except Exception as e:
+            logger.error(f"Satellite predictor error: {e}")
+
+        logger.info("Satellite predictor stopped")
+
+    # -------------------------------------------------------------------------
+    # LISTENING POST MODE (Spectrum scanner - signal detection only)
+    # -------------------------------------------------------------------------
+
+    def _start_listening_post(self, params: dict) -> dict:
+        """
+        Start listening post / spectrum scanner.
+
+        Note: Full FFT streaming isn't practical over HTTP agents.
+        Instead provides signal detection events and activity log.
+        """
+        start_freq = params.get('start_freq', 88.0)
+        end_freq = params.get('end_freq', 108.0)
+        step = params.get('step', 0.1)
+        modulation = params.get('modulation', 'wfm')
+        squelch = params.get('squelch', 20)
+        device = params.get('device', '0')
+        gain = params.get('gain', '40')
+
+        rtl_fm_path = self._get_tool_path('rtl_fm')
+        if not rtl_fm_path:
+            return {'status': 'error', 'message': 'rtl_fm not found'}
+
+        # Initialize state
+        if not hasattr(self, 'listening_post_activity'):
+            self.listening_post_activity = []
+        self.listening_post_activity.clear()
+        self.listening_post_current_freq = float(start_freq)
+
+        thread = threading.Thread(
+            target=self._listening_post_scanner,
+            args=(float(start_freq), float(end_freq), float(step),
+                  modulation, int(squelch), str(device), str(gain)),
+            daemon=True
+        )
+        thread.start()
+        self.output_threads['listening_post'] = thread
+
+        return {
+            'status': 'started',
+            'mode': 'listening_post',
+            'start_freq': start_freq,
+            'end_freq': end_freq,
+            'step': step,
+            'modulation': modulation,
+            'note': 'Provides signal detection events, not full FFT data',
+            'gps_enabled': gps_manager.is_running
+        }
+
+    def _listening_post_scanner(self, start_freq: float, end_freq: float,
+                                 step: float, modulation: str, squelch: int,
+                                 device: str, gain: str):
+        """Scan frequency range and report signal detections."""
+        mode = 'listening_post'
+        stop_event = self.stop_events.get(mode)
+
+        rtl_fm_path = self._get_tool_path('rtl_fm')
+        current_freq = start_freq
+        scan_direction = 1
+
+        while not (stop_event and stop_event.is_set()):
+            self.listening_post_current_freq = current_freq
+
+            cmd = [
+                rtl_fm_path,
+                '-f', f'{current_freq}M',
+                '-M', modulation,
+                '-s', '22050',
+                '-g', gain,
+                '-d', device,
+                '-l', str(squelch),
+            ]
+
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                signal_detected = False
+                start_time = time.time()
+
+                while time.time() - start_time < 1.0:
+                    if stop_event and stop_event.is_set():
+                        break
+                    data = proc.stdout.read(2205)
+                    if data and len(data) > 10:
+                        # Simple signal detection via audio level
+                        try:
+                            samples = [int.from_bytes(data[i:i+2], 'little', signed=True)
+                                       for i in range(0, min(len(data)-1, 1000), 2)]
+                            if samples:
+                                rms = (sum(s*s for s in samples) / len(samples)) ** 0.5
+                                if rms > 500:
+                                    signal_detected = True
+                                    break
+                        except Exception:
+                            pass
+
+                proc.terminate()
+                try:
+                    proc.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+
+                if signal_detected:
+                    event = {
+                        'type': 'signal_found',
+                        'frequency': current_freq,
+                        'modulation': modulation,
+                        'detected_at': datetime.now(timezone.utc).isoformat()
+                    }
+
+                    gps_pos = gps_manager.position
+                    if gps_pos:
+                        event['agent_gps'] = gps_pos
+
+                    self.listening_post_activity.append(event)
+                    if len(self.listening_post_activity) > 500:
+                        self.listening_post_activity = self.listening_post_activity[-500:]
+
+                    self.data_snapshots[mode] = self.listening_post_activity.copy()
+                    logger.info(f"Listening post: signal at {current_freq} MHz")
+
+            except Exception as e:
+                logger.debug(f"Scanner error at {current_freq}: {e}")
+
+            # Move to next frequency
+            current_freq += step * scan_direction
+            if current_freq >= end_freq:
+                current_freq = end_freq
+                scan_direction = -1
+            elif current_freq <= start_freq:
+                current_freq = start_freq
+                scan_direction = 1
+
+            time.sleep(0.1)
+
+        logger.info("Listening post scanner stopped")
 
 
 # Global mode manager

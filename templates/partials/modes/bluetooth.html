@@ -5,6 +5,14 @@
                         <!-- Populated by JavaScript with capability warnings -->
                     </div>
 
+                    <!-- Show All Agents option (visible when agents are available) -->
+                    <div id="btShowAllAgentsContainer" class="section" style="display: none; padding: 8px;">
+                        <label class="inline-checkbox" style="font-size: 10px;">
+                            <input type="checkbox" id="btShowAllAgents" onchange="if(typeof BluetoothMode !== 'undefined') BluetoothMode.toggleShowAllAgents(this.checked)">
+                            Show devices from all agents
+                        </label>
+                    </div>
+
                     <div class="section">
                         <h3>Scanner Configuration</h3>
                         <div class="form-group">

@@ -10,6 +10,8 @@ let currentAgent = 'local';
 let agentEventSource = null;
 let multiAgentMode = false;  // Show combined results from all agents
 let multiAgentPollInterval = null;
+let agentRunningModes = [];  // Track agent's running modes for conflict detection
+let agentRunningModesDetail = {};  // Track device info per mode (for multi-SDR agents)
 
 // ============== AGENT LOADING ==============
 
@@ -54,6 +56,28 @@ function updateAgentSelector() {
     }
 
     updateAgentStatus();
+
+    // Show/hide "Show All Agents" options based on whether agents exist
+    updateShowAllAgentsVisibility();
+}
+
+/**
+ * Show or hide the "Show All Agents" checkboxes in mode panels.
+ */
+function updateShowAllAgentsVisibility() {
+    const hasAgents = agents.length > 0;
+
+    // WiFi "Show All Agents" container
+    const wifiContainer = document.getElementById('wifiShowAllAgentsContainer');
+    if (wifiContainer) {
+        wifiContainer.style.display = hasAgents ? 'block' : 'none';
+    }
+
+    // Bluetooth "Show All Agents" container
+    const btContainer = document.getElementById('btShowAllAgentsContainer');
+    if (btContainer) {
+        btContainer.style.display = hasAgents ? 'block' : 'none';
+    }
 }
 
 function updateAgentStatus() {
@@ -88,10 +112,36 @@ function selectAgent(agentId) {
         if (typeof refreshDevices === 'function') {
             refreshDevices();
         }
+        // Refresh TSCM devices if function exists
+        if (typeof refreshTscmDevices === 'function') {
+            refreshTscmDevices();
+        }
+        // Notify WiFi mode of agent change
+        if (typeof WiFiMode !== 'undefined' && WiFiMode.handleAgentChange) {
+            WiFiMode.handleAgentChange();
+        }
+        // Notify Bluetooth mode of agent change
+        if (typeof BluetoothMode !== 'undefined' && BluetoothMode.handleAgentChange) {
+            BluetoothMode.handleAgentChange();
+        }
         console.log('Agent selected: Local');
     } else {
         // Fetch devices from remote agent
         refreshAgentDevices(agentId);
+        // Sync mode states with agent's actual running state
+        syncAgentModeStates(agentId);
+        // Refresh TSCM devices for agent
+        if (typeof refreshTscmDevices === 'function') {
+            refreshTscmDevices();
+        }
+        // Notify WiFi mode of agent change
+        if (typeof WiFiMode !== 'undefined' && WiFiMode.handleAgentChange) {
+            WiFiMode.handleAgentChange();
+        }
+        // Notify Bluetooth mode of agent change
+        if (typeof BluetoothMode !== 'undefined' && BluetoothMode.handleAgentChange) {
+            BluetoothMode.handleAgentChange();
+        }
         const agentName = agents.find(a => a.id == agentId)?.name || 'Unknown';
         console.log(`Agent selected: ${agentName}`);
 
@@ -101,6 +151,287 @@ function selectAgent(agentId) {
             statusText.textContent = `Loading ${agentName}...`;
             setTimeout(() => updateAgentStatus(), 2000);
         }
+    }
+}
+
+/**
+ * Sync UI state with agent's actual running modes.
+ * This ensures UI reflects reality when agent was started externally
+ * or when user navigates away and back.
+ */
+async function syncAgentModeStates(agentId) {
+    try {
+        const response = await fetch(`/controller/agents/${agentId}/status`, {
+            credentials: 'same-origin'
+        });
+        const data = await response.json();
+
+        if (data.status === 'success' && data.agent_status) {
+            agentRunningModes = data.agent_status.running_modes || [];
+            agentRunningModesDetail = data.agent_status.running_modes_detail || {};
+            console.log(`Agent ${agentId} running modes:`, agentRunningModes);
+            console.log(`Agent ${agentId} mode details:`, agentRunningModesDetail);
+
+            // IMPORTANT: Only sync UI if this agent is currently selected
+            // Otherwise we'd start streams for an agent the user hasn't selected
+            const isSelectedAgent = currentAgent == agentId;  // Use == for string/number comparison
+            console.log(`Agent ${agentId} is selected: ${isSelectedAgent} (currentAgent=${currentAgent})`);
+
+            if (isSelectedAgent) {
+                // Update UI for each mode based on agent state
+                agentRunningModes.forEach(mode => {
+                    syncModeUI(mode, true, agentId);
+                });
+
+                // Also check modes that might need to be marked as stopped
+                const allModes = ['sensor', 'pager', 'adsb', 'wifi', 'bluetooth', 'ais', 'dsc', 'acars', 'aprs', 'rtlamr', 'tscm', 'satellite', 'listening_post'];
+                allModes.forEach(mode => {
+                    if (!agentRunningModes.includes(mode)) {
+                        syncModeUI(mode, false, agentId);
+                    }
+                });
+            }
+
+            // Show warning if SDR modes are running (always show, regardless of selection)
+            showAgentModeWarnings(agentRunningModes, agentRunningModesDetail);
+        }
+    } catch (error) {
+        console.error('Failed to sync agent mode states:', error);
+    }
+}
+
+/**
+ * Show warnings about running modes that may cause conflicts.
+ * @param {string[]} runningModes - List of running mode names
+ * @param {Object} modesDetail - Detail info including device per mode
+ */
+function showAgentModeWarnings(runningModes, modesDetail = {}) {
+    // SDR modes that can't run simultaneously on same device
+    const sdrModes = ['sensor', 'pager', 'adsb', 'ais', 'acars', 'aprs', 'rtlamr', 'listening_post', 'tscm', 'dsc'];
+    const runningSdrModes = runningModes.filter(m => sdrModes.includes(m));
+
+    let warning = document.getElementById('agentModeWarning');
+
+    if (runningSdrModes.length > 0) {
+        if (!warning) {
+            // Create warning element if it doesn't exist
+            const agentSection = document.getElementById('agentSection');
+            if (agentSection) {
+                warning = document.createElement('div');
+                warning.id = 'agentModeWarning';
+                warning.style.cssText = 'color: #f0ad4e; font-size: 10px; padding: 4px 8px; background: rgba(240,173,78,0.1); border-radius: 4px; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+                agentSection.appendChild(warning);
+            }
+        }
+        if (warning) {
+            // Build mode buttons with device info
+            const modeButtons = runningSdrModes.map(m => {
+                const detail = modesDetail[m] || {};
+                const deviceNum = detail.device !== undefined ? detail.device : '?';
+                return `<button onclick="stopAgentModeWithRefresh('${m}')" style="background:#ff6b6b;color:#fff;border:none;padding:2px 6px;border-radius:3px;font-size:9px;cursor:pointer;" title="Stop ${m} on agent (SDR ${deviceNum})">${m} (SDR ${deviceNum})</button>`;
+            }).join(' ');
+            warning.innerHTML = `<span>⚠️ Running:</span> ${modeButtons} <button onclick="refreshAgentState()" style="background:#555;color:#fff;border:none;padding:2px 6px;border-radius:3px;font-size:9px;cursor:pointer;" title="Refresh agent state">↻</button>`;
+            warning.style.display = 'flex';
+        }
+    } else if (warning) {
+        warning.style.display = 'none';
+    }
+}
+
+/**
+ * Stop a mode on the agent and refresh state.
+ */
+async function stopAgentModeWithRefresh(mode) {
+    if (currentAgent === 'local') return;
+
+    try {
+        const response = await fetch(`/controller/agents/${currentAgent}/${mode}/stop`, {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+        const data = await response.json();
+        console.log(`Stop ${mode} response:`, data);
+
+        // Refresh agent state to update UI
+        await refreshAgentState();
+    } catch (error) {
+        console.error(`Failed to stop ${mode} on agent:`, error);
+        alert(`Failed to stop ${mode}: ${error.message}`);
+    }
+}
+
+/**
+ * Refresh agent state from server.
+ */
+async function refreshAgentState() {
+    if (currentAgent === 'local') return;
+
+    console.log('Refreshing agent state...');
+    await syncAgentModeStates(currentAgent);
+}
+
+/**
+ * Check if a mode requires audio streaming (not supported via agents).
+ * @param {string} mode - Mode name
+ * @returns {boolean} - True if mode requires audio
+ */
+function isAudioMode(mode) {
+    const audioModes = ['airband', 'listening_post'];
+    return audioModes.includes(mode);
+}
+
+/**
+ * Get the IP/hostname from an agent's base URL.
+ * @param {number|string} agentId - Agent ID
+ * @returns {string|null} - Hostname or null
+ */
+function getAgentHost(agentId) {
+    const agent = agents.find(a => a.id == agentId);
+    if (!agent || !agent.base_url) return null;
+    try {
+        const url = new URL(agent.base_url);
+        return url.hostname;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Check if trying to start an audio mode on a remote agent.
+ * Offers rtl_tcp option instead of just blocking.
+ * @param {string} modeToStart - Mode to start
+ * @returns {boolean} - True if OK to proceed
+ */
+function checkAgentAudioMode(modeToStart) {
+    if (currentAgent === 'local') return true;
+
+    if (isAudioMode(modeToStart)) {
+        const agentHost = getAgentHost(currentAgent);
+        const agentName = agents.find(a => a.id == currentAgent)?.name || 'remote agent';
+
+        alert(
+            `Audio streaming is not supported via remote agents.\n\n` +
+            `"${modeToStart}" requires real-time audio.\n\n` +
+            `To use audio from a remote SDR:\n\n` +
+            `1. On the agent (${agentName}):\n` +
+            `   Run: rtl_tcp -a 0.0.0.0\n\n` +
+            `2. On the Main Dashboard (/):\n` +
+            `   - Select "Local" mode\n` +
+            `   - Check "Use Remote SDR (rtl_tcp)"\n` +
+            `   - Enter host: ${agentHost || '[agent IP]'}\n` +
+            `   - Port: 1234\n\n` +
+            `Note: rtl_tcp config is on the Main Dashboard,\n` +
+            `not on specialized dashboards like ADS-B/AIS.`
+        );
+
+        return false;  // Don't proceed with agent mode
+    }
+    return true;
+}
+
+/**
+ * Check if trying to start a mode that conflicts with running modes.
+ * Returns true if OK to proceed, false if conflict exists.
+ * @param {string} modeToStart - Mode to start
+ * @param {number} deviceToUse - Device index to use (optional, for smarter conflict detection)
+ */
+function checkAgentModeConflict(modeToStart, deviceToUse = null) {
+    if (currentAgent === 'local') return true;  // No conflict checking for local
+
+    // First check if this is an audio mode
+    if (!checkAgentAudioMode(modeToStart)) {
+        return false;
+    }
+
+    const sdrModes = ['sensor', 'pager', 'adsb', 'ais', 'acars', 'aprs', 'rtlamr', 'listening_post', 'tscm', 'dsc'];
+
+    // If we're trying to start an SDR mode
+    if (sdrModes.includes(modeToStart)) {
+        // Check for conflicts - if device is specified, only check that device
+        let conflictingModes = [];
+
+        if (deviceToUse !== null && Object.keys(agentRunningModesDetail).length > 0) {
+            // Smart conflict detection: only flag modes using the same device
+            conflictingModes = agentRunningModes.filter(m => {
+                if (!sdrModes.includes(m) || m === modeToStart) return false;
+                const detail = agentRunningModesDetail[m];
+                return detail && detail.device === deviceToUse;
+            });
+        } else {
+            // Fallback: warn about all running SDR modes
+            conflictingModes = agentRunningModes.filter(m =>
+                sdrModes.includes(m) && m !== modeToStart
+            );
+        }
+
+        if (conflictingModes.length > 0) {
+            const modeList = conflictingModes.map(m => {
+                const detail = agentRunningModesDetail[m];
+                return detail ? `${m} (SDR ${detail.device})` : m;
+            }).join(', ');
+
+            const proceed = confirm(
+                `The agent's SDR device is currently running: ${modeList}\n\n` +
+                `Starting ${modeToStart} on the same device will fail.\n\n` +
+                `Do you want to stop the conflicting mode(s) first?`
+            );
+
+            if (proceed) {
+                // Stop conflicting modes
+                conflictingModes.forEach(mode => {
+                    stopAgentModeQuiet(mode);
+                });
+                return true;
+            }
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Stop a mode on the current agent (without UI feedback).
+ */
+async function stopAgentModeQuiet(mode) {
+    if (currentAgent === 'local') return;
+
+    try {
+        await fetch(`/controller/agents/${currentAgent}/${mode}/stop`, {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+        console.log(`Stopped ${mode} on agent ${currentAgent}`);
+        // Remove from running modes
+        agentRunningModes = agentRunningModes.filter(m => m !== mode);
+        syncModeUI(mode, false);
+        showAgentModeWarnings(agentRunningModes);
+    } catch (error) {
+        console.error(`Failed to stop ${mode} on agent:`, error);
+    }
+}
+
+/**
+ * Update UI elements for a specific mode based on running state.
+ * @param {string} mode - Mode name (adsb, wifi, etc.)
+ * @param {boolean} isRunning - Whether the mode is running
+ * @param {string|number|null} agentId - Agent ID if running on agent, null for local
+ */
+function syncModeUI(mode, isRunning, agentId = null) {
+    // Map mode names to UI setter functions (if they exist)
+    const uiSetters = {
+        'sensor': 'setSensorRunning',
+        'pager': 'setPagerRunning',
+        'adsb': 'setADSBRunning',
+        'wifi': 'setWiFiRunning',
+        'bluetooth': 'setBluetoothRunning'
+    };
+
+    const setterName = uiSetters[mode];
+    if (setterName && typeof window[setterName] === 'function') {
+        // Pass agent ID as source for functions that support it (like setADSBRunning)
+        window[setterName](isRunning, agentId);
+        console.log(`Synced ${mode} UI state: ${isRunning ? 'running' : 'stopped'} (agent: ${agentId || 'local'})`);
     }
 }
 
@@ -430,14 +761,36 @@ function handleMultiAgentData(data) {
             break;
 
         case 'wifi':
+            // WiFi mode handles its own multi-agent stream processing
+            // This is a fallback for legacy display or when WiFi mode isn't active
             if (payload && payload.networks) {
                 Object.values(payload.networks).forEach(net => {
                     net._agent = agentName;
+                    // Use legacy display if available
+                    if (typeof handleWifiNetworkImmediate === 'function') {
+                        handleWifiNetworkImmediate(net);
+                    }
                 });
-                // Update WiFi display if handler exists
-                if (typeof WiFiMode !== 'undefined' && WiFiMode.updateNetworks) {
-                    WiFiMode.updateNetworks(payload.networks);
-                }
+            }
+            if (payload && payload.clients) {
+                Object.values(payload.clients).forEach(client => {
+                    client._agent = agentName;
+                    if (typeof handleWifiClientImmediate === 'function') {
+                        handleWifiClientImmediate(client);
+                    }
+                });
+            }
+            break;
+
+        case 'bluetooth':
+            if (payload && payload.devices) {
+                Object.values(payload.devices).forEach(device => {
+                    device._agent = agentName;
+                    // Update Bluetooth display if handler exists
+                    if (typeof addBluetoothDevice === 'function') {
+                        addBluetoothDevice(device);
+                    }
+                });
             }
             break;
 

@@ -574,11 +574,12 @@
                                             <th class="sortable" data-sort="rssi">Signal</th>
                                             <th class="sortable" data-sort="security">Security</th>
                                             <th class="sortable" data-sort="clients">Clients</th>
+                                            <th class="col-agent sortable" data-sort="agent">Source</th>
                                         </tr>
                                     </thead>
                                     <tbody id="wifiNetworkTableBody">
                                         <tr class="wifi-network-placeholder">
-                                            <td colspan="6">
+                                            <td colspan="7">
                                                 <div class="placeholder-text">Start scanning to discover networks</div>
                                             </td>
                                         </tr>
@@ -2306,6 +2307,11 @@
 
             // Check if using remote agent
             if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
+                // Check for conflicts with other running SDR modes
+                if (typeof checkAgentModeConflict === 'function' && !checkAgentModeConflict('sensor')) {
+                    return;  // User cancelled or conflict not resolved
+                }
+
                 // Route through agent proxy
                 const config = {
                     frequency: freq,
@@ -2320,12 +2326,14 @@
                     body: JSON.stringify(config)
                 }).then(r => r.json())
                     .then(data => {
-                        if (data.status === 'started' || data.status === 'success') {
+                        // Handle controller proxy response (agent response is nested in 'result')
+                        const scanResult = data.result || data;
+                        if (scanResult.status === 'started' || scanResult.status === 'success') {
                             setSensorRunning(true);
                             startAgentSensorStream();
                             showInfo(`Sensor started on remote agent`);
                         } else {
-                            alert('Error: ' + (data.message || 'Failed to start sensor on agent'));
+                            alert('Error: ' + (scanResult.message || 'Failed to start sensor on agent'));
                         }
                     })
                     .catch(err => {
@@ -2612,6 +2620,10 @@
             document.getElementById('rtlamrFrequency').value = freq;
         }
 
+        // RTLAMR mode polling timer for agent mode
+        let rtlamrPollTimer = null;
+        let rtlamrCurrentAgent = null;
+
         function startRtlamrDecoding() {
             const freq = document.getElementById('rtlamrFrequency').value;
             const gain = document.getElementById('rtlamrGain').value;
@@ -2621,8 +2633,12 @@
             const filterid = document.getElementById('rtlamrFilterId').value;
             const unique = document.getElementById('rtlamrUnique').checked;
 
-            // Check if device is available
-            if (!checkDeviceAvailability('rtlamr')) {
+            // Check if using agent mode
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            rtlamrCurrentAgent = isAgentMode ? currentAgent : null;
+
+            // Check if device is available (only for local mode)
+            if (!isAgentMode && !checkDeviceAvailability('rtlamr')) {
                 return;
             }
 
@@ -2637,16 +2653,26 @@
                 format: 'json'
             };
 
-            fetch('/start_rtlamr', {
+            // Determine endpoint based on agent mode
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/rtlamr/start`
+                : '/start_rtlamr';
+
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
             }).then(r => r.json())
                 .then(data => {
-                    if (data.status === 'started') {
-                        reserveDevice(parseInt(device), 'rtlamr');
+                    // Handle controller proxy response format
+                    const scanResult = isAgentMode && data.result ? data.result : data;
+
+                    if (scanResult.status === 'started' || scanResult.status === 'success') {
+                        if (!isAgentMode) {
+                            reserveDevice(parseInt(device), 'rtlamr');
+                        }
                         setRtlamrRunning(true);
-                        startRtlamrStream();
+                        startRtlamrStream(isAgentMode);
 
                         // Initialize meter filter bar (reuse sensor filter bar since same structure)
                         const filterContainer = document.getElementById('filterBarContainer');
@@ -2667,20 +2693,33 @@
                         // Clear existing output
                         output.innerHTML = '<div class="placeholder signal-empty-state" style="display: none;"></div>';
                     } else {
-                        alert('Error: ' + data.message);
+                        alert('Error: ' + (scanResult.message || scanResult.error || 'Failed to start'));
                     }
                 });
         }
 
         function stopRtlamrDecoding() {
-            fetch('/stop_rtlamr', { method: 'POST' })
+            const isAgentMode = rtlamrCurrentAgent !== null;
+            const endpoint = isAgentMode
+                ? `/controller/agents/${rtlamrCurrentAgent}/rtlamr/stop`
+                : '/stop_rtlamr';
+
+            fetch(endpoint, { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
-                    releaseDevice('rtlamr');
+                    if (!isAgentMode) {
+                        releaseDevice('rtlamr');
+                    }
+                    rtlamrCurrentAgent = null;
                     setRtlamrRunning(false);
                     if (eventSource) {
                         eventSource.close();
                         eventSource = null;
+                    }
+                    // Clear polling timer
+                    if (rtlamrPollTimer) {
+                        clearInterval(rtlamrPollTimer);
+                        rtlamrPollTimer = null;
                     }
                 });
         }
@@ -2701,12 +2740,14 @@
             }
         }
 
-        function startRtlamrStream() {
+        function startRtlamrStream(isAgentMode = false) {
             if (eventSource) {
                 eventSource.close();
             }
 
-            eventSource = new EventSource('/stream_rtlamr');
+            // Use different stream endpoint for agent mode
+            const streamUrl = isAgentMode ? '/controller/stream/all' : '/stream_rtlamr';
+            eventSource = new EventSource(streamUrl);
 
             eventSource.onopen = function () {
                 showInfo('RTLAMR stream connected...');
@@ -2714,20 +2755,86 @@
 
             eventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
-                if (data.type === 'rtlamr') {
-                    addRtlamrReading(data);
-                } else if (data.type === 'status') {
-                    if (data.text === 'stopped') {
-                        setRtlamrRunning(false);
+
+                if (isAgentMode) {
+                    // Handle multi-agent stream format
+                    if (data.scan_type === 'rtlamr' && data.payload) {
+                        const payload = data.payload;
+                        if (payload.type === 'rtlamr') {
+                            payload.agent_name = data.agent_name;
+                            addRtlamrReading(payload);
+                        } else if (payload.type === 'status') {
+                            if (payload.text === 'stopped') {
+                                setRtlamrRunning(false);
+                            }
+                        } else if (payload.type === 'info' || payload.type === 'raw') {
+                            showInfo(`[${data.agent_name}] ${payload.text}`);
+                        }
                     }
-                } else if (data.type === 'info' || data.type === 'raw') {
-                    showInfo(data.text);
+                } else {
+                    // Local stream format
+                    if (data.type === 'rtlamr') {
+                        addRtlamrReading(data);
+                    } else if (data.type === 'status') {
+                        if (data.text === 'stopped') {
+                            setRtlamrRunning(false);
+                        }
+                    } else if (data.type === 'info' || data.type === 'raw') {
+                        showInfo(data.text);
+                    }
                 }
             };
 
             eventSource.onerror = function (e) {
                 console.error('RTLAMR stream error');
             };
+
+            // Start polling fallback for agent mode
+            if (isAgentMode) {
+                startRtlamrPolling();
+            }
+        }
+
+        // Track last reading count for polling
+        let lastRtlamrReadingCount = 0;
+
+        function startRtlamrPolling() {
+            if (rtlamrPollTimer) return;
+            lastRtlamrReadingCount = 0;
+
+            const pollInterval = 2000;
+            rtlamrPollTimer = setInterval(async () => {
+                if (!isRtlamrRunning || !rtlamrCurrentAgent) {
+                    clearInterval(rtlamrPollTimer);
+                    rtlamrPollTimer = null;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/controller/agents/${rtlamrCurrentAgent}/rtlamr/data`);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    const result = data.result || data;
+                    const readings = result.data || [];
+
+                    // Process new readings
+                    if (readings.length > lastRtlamrReadingCount) {
+                        const newReadings = readings.slice(lastRtlamrReadingCount);
+                        newReadings.forEach(reading => {
+                            const displayReading = {
+                                type: 'rtlamr',
+                                ...reading,
+                                agent_name: result.agent_name || 'Remote Agent'
+                            };
+                            addRtlamrReading(displayReading);
+                        });
+                        lastRtlamrReadingCount = readings.length;
+                    }
+                } catch (err) {
+                    console.error('RTLAMR polling error:', err);
+                }
+            }, pollInterval);
         }
 
         function addRtlamrReading(data) {
@@ -3196,6 +3303,9 @@
             return protocols;
         }
 
+        // Pager mode polling timer for agent mode
+        let pagerPollTimer = null;
+
         function startDecoding() {
             const freq = document.getElementById('frequency').value;
             const gain = document.getElementById('gain').value;
@@ -3209,13 +3319,16 @@
                 return;
             }
 
-            // Check if device is available
-            if (!checkDeviceAvailability('pager')) {
+            // Check if using agent mode
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+
+            // Check if device is available (only for local mode)
+            if (!isAgentMode && !checkDeviceAvailability('pager')) {
                 return;
             }
 
-            // Check for remote SDR
-            const remoteConfig = getRemoteSDRConfig();
+            // Check for remote SDR (only for local mode)
+            const remoteConfig = isAgentMode ? null : getRemoteSDRConfig();
             if (remoteConfig === false) return; // Validation failed
 
             const config = {
@@ -3229,22 +3342,32 @@
                 bias_t: getBiasTEnabled()
             };
 
-            // Add rtl_tcp params if using remote SDR
+            // Add rtl_tcp params if using remote SDR (local mode only)
             if (remoteConfig) {
                 config.rtl_tcp_host = remoteConfig.host;
                 config.rtl_tcp_port = remoteConfig.port;
             }
 
-            fetch('/start', {
+            // Determine endpoint based on agent mode
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/pager/start`
+                : '/start';
+
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
             }).then(r => r.json())
                 .then(data => {
-                    if (data.status === 'started') {
-                        reserveDevice(parseInt(device), 'pager');
+                    // Handle controller proxy response format (agent response is nested in 'result')
+                    const scanResult = isAgentMode && data.result ? data.result : data;
+
+                    if (scanResult.status === 'started' || scanResult.status === 'success') {
+                        if (!isAgentMode) {
+                            reserveDevice(parseInt(device), 'pager');
+                        }
                         setRunning(true);
-                        startStream();
+                        startStream(isAgentMode);
 
                         // Initialize filter bar
                         const filterContainer = document.getElementById('filterBarContainer');
@@ -3260,23 +3383,36 @@
                         // Clear address history for fresh session
                         SignalCards.clearAddressHistory('pager');
                     } else {
-                        alert('Error: ' + data.message);
+                        alert('Error: ' + (scanResult.message || scanResult.error || 'Failed to start pager decoding'));
                     }
                 })
                 .catch(err => {
                     console.error('Start error:', err);
+                    alert('Error starting pager decoding: ' + err.message);
                 });
         }
 
         function stopDecoding() {
-            fetch('/stop', { method: 'POST' })
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/pager/stop`
+                : '/stop';
+
+            fetch(endpoint, { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
-                    releaseDevice('pager');
+                    if (!isAgentMode) {
+                        releaseDevice('pager');
+                    }
                     setRunning(false);
                     if (eventSource) {
                         eventSource.close();
                         eventSource = null;
+                    }
+                    // Clear polling timer if active
+                    if (pagerPollTimer) {
+                        clearInterval(pagerPollTimer);
+                        pagerPollTimer = null;
                     }
                 });
         }
@@ -3342,12 +3478,14 @@
             document.getElementById('stopBtn').style.display = running ? 'block' : 'none';
         }
 
-        function startStream() {
+        function startStream(isAgentMode = false) {
             if (eventSource) {
                 eventSource.close();
             }
 
-            eventSource = new EventSource('/stream');
+            // Use different stream endpoint for agent mode
+            const streamUrl = isAgentMode ? '/controller/stream/all' : '/stream';
+            eventSource = new EventSource(streamUrl);
 
             eventSource.onopen = function () {
                 showInfo('Stream connected...');
@@ -3356,24 +3494,101 @@
             eventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
 
-                if (data.type === 'message') {
-                    addMessage(data);
-                } else if (data.type === 'status') {
-                    if (data.text === 'stopped') {
-                        setRunning(false);
-                    } else if (data.text === 'started') {
-                        showInfo('Decoder started, waiting for signals...');
+                // Handle multi-agent stream format
+                if (isAgentMode) {
+                    // Multi-agent stream tags data with scan_type and agent_name
+                    if (data.scan_type === 'pager' && data.payload) {
+                        const payload = data.payload;
+                        if (payload.type === 'message') {
+                            // Add agent info to the message
+                            payload.agent_name = data.agent_name;
+                            addMessage(payload);
+                        } else if (payload.type === 'status') {
+                            if (payload.text === 'stopped') {
+                                setRunning(false);
+                            } else if (payload.text === 'started') {
+                                showInfo(`Decoder started on ${data.agent_name}, waiting for signals...`);
+                            }
+                        } else if (payload.type === 'info') {
+                            showInfo(`[${data.agent_name}] ${payload.text}`);
+                        }
+                    } else if (data.type === 'keepalive') {
+                        // Ignore keepalive messages
                     }
-                } else if (data.type === 'info') {
-                    showInfo(data.text);
-                } else if (data.type === 'raw') {
-                    showInfo(data.text);
+                } else {
+                    // Local stream format
+                    if (data.type === 'message') {
+                        addMessage(data);
+                    } else if (data.type === 'status') {
+                        if (data.text === 'stopped') {
+                            setRunning(false);
+                        } else if (data.text === 'started') {
+                            showInfo('Decoder started, waiting for signals...');
+                        }
+                    } else if (data.type === 'info') {
+                        showInfo(data.text);
+                    } else if (data.type === 'raw') {
+                        showInfo(data.text);
+                    }
                 }
             };
 
             eventSource.onerror = function (e) {
                 checkStatus();
             };
+
+            // Start polling fallback for agent mode (in case push isn't enabled)
+            if (isAgentMode) {
+                startPagerPolling();
+            }
+        }
+
+        // Track last message count to avoid duplicates during polling
+        let lastPagerMsgCount = 0;
+
+        function startPagerPolling() {
+            if (pagerPollTimer) return;
+            lastPagerMsgCount = 0;
+
+            const pollInterval = 2000; // 2 seconds
+            pagerPollTimer = setInterval(async () => {
+                if (!isRunning) {
+                    clearInterval(pagerPollTimer);
+                    pagerPollTimer = null;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/controller/agents/${currentAgent}/pager/data`);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    const result = data.result || data;
+                    const modeData = result.data || result;
+
+                    // Process messages from polling response
+                    if (modeData.messages && Array.isArray(modeData.messages)) {
+                        const newMsgs = modeData.messages.slice(lastPagerMsgCount);
+                        newMsgs.forEach(msg => {
+                            // Convert to expected format
+                            const displayMsg = {
+                                type: 'message',
+                                protocol: msg.protocol || 'UNKNOWN',
+                                address: msg.address || '',
+                                function: msg.function || '',
+                                msg_type: msg.msg_type || 'Alpha',
+                                message: msg.message || '',
+                                timestamp: msg.received_at || new Date().toISOString(),
+                                agent_name: result.agent_name || 'Remote Agent'
+                            };
+                            addMessage(displayMsg);
+                        });
+                        lastPagerMsgCount = modeData.messages.length;
+                    }
+                } catch (err) {
+                    console.error('Pager polling error:', err);
+                }
+            }, pollInterval);
         }
 
         function addMessage(msg) {
@@ -7084,11 +7299,19 @@
             }
         }
 
+        // APRS mode polling timer for agent mode
+        let aprsPollTimer = null;
+        let aprsCurrentAgent = null;
+
         function startAprs() {
             // Get values from function bar controls
             const region = document.getElementById('aprsStripRegion').value;
             const device = getSelectedDevice();
             const gain = document.getElementById('aprsStripGain').value;
+
+            // Check if using agent mode
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            aprsCurrentAgent = isAgentMode ? currentAgent : null;
 
             // Build request body
             const requestBody = {
@@ -7107,14 +7330,22 @@
                 requestBody.frequency = customFreq;
             }
 
-            fetch('/aprs/start', {
+            // Determine endpoint based on agent mode
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/aprs/start`
+                : '/aprs/start';
+
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
             })
             .then(r => r.json())
             .then(data => {
-                if (data.status === 'started') {
+                // Handle controller proxy response format
+                const scanResult = isAgentMode && data.result ? data.result : data;
+
+                if (scanResult.status === 'started' || scanResult.status === 'success') {
                     isAprsRunning = true;
                     aprsPacketCount = 0;
                     aprsStationCount = 0;
@@ -7138,7 +7369,7 @@
                     document.getElementById('aprsMapStatus').textContent = 'TRACKING';
                     document.getElementById('aprsMapStatus').style.color = 'var(--accent-green)';
                     // Update function bar status
-                    updateAprsStatus('listening', data.frequency);
+                    updateAprsStatus('listening', scanResult.frequency);
                     // Reset function bar stats
                     document.getElementById('aprsStripStations').textContent = '0';
                     document.getElementById('aprsStripPackets').textContent = '0';
@@ -7149,9 +7380,9 @@
                     const customFreqInput = document.getElementById('aprsStripCustomFreq');
                     if (customFreqInput) customFreqInput.disabled = true;
                     startAprsMeterCheck();
-                    startAprsStream();
+                    startAprsStream(isAgentMode);
                 } else {
-                    alert('APRS Error: ' + data.message);
+                    alert('APRS Error: ' + (scanResult.message || scanResult.error || 'Failed to start'));
                     updateAprsStatus('error');
                 }
             })
@@ -7162,10 +7393,16 @@
         }
 
         function stopAprs() {
-            fetch('/aprs/stop', { method: 'POST' })
+            const isAgentMode = aprsCurrentAgent !== null;
+            const endpoint = isAgentMode
+                ? `/controller/agents/${aprsCurrentAgent}/aprs/stop`
+                : '/aprs/stop';
+
+            fetch(endpoint, { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     isAprsRunning = false;
+                    aprsCurrentAgent = null;
                     // Update function bar buttons
                     document.getElementById('aprsStripStartBtn').style.display = 'inline-block';
                     document.getElementById('aprsStripStopBtn').style.display = 'none';
@@ -7192,29 +7429,60 @@
                         aprsEventSource.close();
                         aprsEventSource = null;
                     }
+                    // Clear polling timer
+                    if (aprsPollTimer) {
+                        clearInterval(aprsPollTimer);
+                        aprsPollTimer = null;
+                    }
                 });
         }
 
-        function startAprsStream() {
+        function startAprsStream(isAgentMode = false) {
             if (aprsEventSource) aprsEventSource.close();
-            aprsEventSource = new EventSource('/aprs/stream');
+
+            // Use different stream endpoint for agent mode
+            const streamUrl = isAgentMode ? '/controller/stream/all' : '/aprs/stream';
+            aprsEventSource = new EventSource(streamUrl);
 
             aprsEventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);
-                if (data.type === 'aprs') {
-                    aprsPacketCount++;
-                    // Update map footer and function bar
-                    document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
-                    document.getElementById('aprsStripPackets').textContent = aprsPacketCount;
-                    // Switch to tracking state on first packet
-                    const dot = document.getElementById('aprsStripDot');
-                    if (dot && !dot.classList.contains('tracking')) {
-                        updateAprsStatus('tracking');
+
+                if (isAgentMode) {
+                    // Handle multi-agent stream format
+                    if (data.scan_type === 'aprs' && data.payload) {
+                        const payload = data.payload;
+                        if (payload.type === 'aprs') {
+                            aprsPacketCount++;
+                            document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
+                            document.getElementById('aprsStripPackets').textContent = aprsPacketCount;
+                            const dot = document.getElementById('aprsStripDot');
+                            if (dot && !dot.classList.contains('tracking')) {
+                                updateAprsStatus('tracking');
+                            }
+                            // Add agent info
+                            payload.agent_name = data.agent_name;
+                            processAprsPacket(payload);
+                        } else if (payload.type === 'meter') {
+                            updateAprsMeter(payload.level);
+                        }
                     }
-                    processAprsPacket(data);
-                } else if (data.type === 'meter') {
-                    // Update signal indicator in function bar
-                    updateAprsMeter(data.level);
+                } else {
+                    // Local stream format
+                    if (data.type === 'aprs') {
+                        aprsPacketCount++;
+                        // Update map footer and function bar
+                        document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
+                        document.getElementById('aprsStripPackets').textContent = aprsPacketCount;
+                        // Switch to tracking state on first packet
+                        const dot = document.getElementById('aprsStripDot');
+                        if (dot && !dot.classList.contains('tracking')) {
+                            updateAprsStatus('tracking');
+                        }
+                        processAprsPacket(data);
+                    } else if (data.type === 'meter') {
+                        // Update signal indicator in function bar
+                        updateAprsMeter(data.level);
+                    }
                 }
             };
 
@@ -7222,6 +7490,61 @@
                 console.error('APRS stream error');
                 updateAprsStatus('error');
             };
+
+            // Start polling fallback for agent mode
+            if (isAgentMode) {
+                startAprsPolling();
+            }
+        }
+
+        // Track last station count for polling
+        let lastAprsStationCount = 0;
+
+        function startAprsPolling() {
+            if (aprsPollTimer) return;
+            lastAprsStationCount = 0;
+
+            const pollInterval = 2000;
+            aprsPollTimer = setInterval(async () => {
+                if (!isAprsRunning || !aprsCurrentAgent) {
+                    clearInterval(aprsPollTimer);
+                    aprsPollTimer = null;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/controller/agents/${aprsCurrentAgent}/aprs/data`);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    const result = data.result || data;
+                    const stations = result.data || [];
+
+                    // Process new stations
+                    if (stations.length > lastAprsStationCount) {
+                        const newStations = stations.slice(lastAprsStationCount);
+                        newStations.forEach(station => {
+                            aprsPacketCount++;
+                            document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
+                            document.getElementById('aprsStripPackets').textContent = aprsPacketCount;
+                            const dot = document.getElementById('aprsStripDot');
+                            if (dot && !dot.classList.contains('tracking')) {
+                                updateAprsStatus('tracking');
+                            }
+                            // Convert to expected packet format
+                            const packet = {
+                                type: 'aprs',
+                                ...station,
+                                agent_name: result.agent_name || 'Remote Agent'
+                            };
+                            processAprsPacket(packet);
+                        });
+                        lastAprsStationCount = stations.length;
+                    }
+                } catch (err) {
+                    console.error('APRS polling error:', err);
+                }
+            }, pollInterval);
         }
 
         // Signal Meter Functions
@@ -7710,6 +8033,9 @@
             }
         }
 
+        // Satellite mode agent state
+        let satelliteCurrentAgent = null;
+
         function calculatePasses() {
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
@@ -7723,18 +8049,30 @@
                 return;
             }
 
-            fetch('/satellite/predict', {
+            // Check if using agent mode
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            satelliteCurrentAgent = isAgentMode ? currentAgent : null;
+
+            // Determine endpoint based on agent mode
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/satellite/predict`
+                : '/satellite/predict';
+
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ lat, lon, hours, minEl, satellites })
             })
                 .then(r => r.json())
                 .then(data => {
-                    if (data.status === 'success') {
-                        satellitePasses = data.passes;
+                    // Handle controller proxy response format
+                    const result = isAgentMode && data.result ? data.result : data;
+
+                    if (result.status === 'success') {
+                        satellitePasses = result.passes;
                         renderPassList();
-                        document.getElementById('passCount').textContent = data.passes.length;
-                        if (data.passes.length > 0) {
+                        document.getElementById('passCount').textContent = result.passes.length;
+                        if (result.passes.length > 0) {
                             selectPass(0);
                             document.getElementById('satelliteCountdown').style.display = 'block';
                             updateSatelliteCountdown();
@@ -7743,7 +8081,7 @@
                             document.getElementById('satelliteCountdown').style.display = 'none';
                         }
                     } else {
-                        alert('Error: ' + data.message);
+                        alert('Error: ' + (result.message || result.error || 'Failed to predict passes'));
                     }
                 });
         }
@@ -7941,15 +8279,24 @@
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
 
-            fetch('/satellite/position', {
+            // Check if using agent mode
+            const isAgentMode = satelliteCurrentAgent !== null;
+            const endpoint = isAgentMode
+                ? `/controller/agents/${satelliteCurrentAgent}/satellite/position`
+                : '/satellite/position';
+
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ lat, lon, satellites, includeTrack: true })
             })
                 .then(r => r.json())
                 .then(data => {
-                    if (data.status === 'success' && data.positions) {
-                        updateRealTimeIndicators(data.positions);
+                    // Handle controller proxy response format
+                    const result = isAgentMode && data.result ? data.result : data;
+
+                    if (result.status === 'success' && result.positions) {
+                        updateRealTimeIndicators(result.positions);
                     }
                 });
         }
@@ -8350,10 +8697,33 @@
 
         async function refreshTscmDevices() {
             // Fetch available interfaces for TSCM scanning
+            // Check if agent is selected and route accordingly
             try {
-                const response = await fetch('/tscm/devices');
+                let response;
+                if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
+                    // Fetch devices from agent capabilities
+                    response = await fetch(`/controller/agents/${currentAgent}?refresh=true`);
+                } else {
+                    response = await fetch('/tscm/devices');
+                }
                 const data = await response.json();
-                const devices = data.devices || {};
+
+                // Handle both local (/tscm/devices) and agent response formats
+                let devices;
+                const isAgentResponse = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+
+                if (isAgentResponse && data.agent) {
+                    // Agent response format - extract from capabilities/interfaces
+                    const agentInterfaces = data.agent.interfaces || {};
+                    const agentCapabilities = data.agent.capabilities || {};
+                    devices = {
+                        wifi_interfaces: agentInterfaces.wifi_interfaces || [],
+                        bt_adapters: agentInterfaces.bt_adapters || [],
+                        sdr_devices: agentCapabilities.devices || agentInterfaces.sdr_devices || []
+                    };
+                } else {
+                    devices = data.devices || {};
+                }
 
                 // Populate WiFi interfaces
                 const wifiSelect = document.getElementById('tscmWifiInterface');
@@ -8370,7 +8740,11 @@
                         wifiSelect.value = devices.wifi_interfaces[0].name;
                     }
                 } else {
-                    wifiSelect.innerHTML = '<option value="">No WiFi interfaces found</option>';
+                    if (isAgentResponse) {
+                        wifiSelect.innerHTML = '<option value="">Agent manages WiFi</option>';
+                    } else {
+                        wifiSelect.innerHTML = '<option value="">No WiFi interfaces found</option>';
+                    }
                 }
 
                 // Populate Bluetooth adapters
@@ -8388,7 +8762,11 @@
                         btSelect.value = devices.bt_adapters[0].name;
                     }
                 } else {
-                    btSelect.innerHTML = '<option value="">No Bluetooth adapters found</option>';
+                    if (isAgentResponse) {
+                        btSelect.innerHTML = '<option value="">Agent manages Bluetooth</option>';
+                    } else {
+                        btSelect.innerHTML = '<option value="">No Bluetooth adapters found</option>';
+                    }
                 }
 
                 // Populate SDR devices
@@ -8397,16 +8775,20 @@
                 if (devices.sdr_devices && devices.sdr_devices.length > 0) {
                     devices.sdr_devices.forEach(dev => {
                         const opt = document.createElement('option');
-                        opt.value = dev.index;
+                        opt.value = dev.index !== undefined ? dev.index : 0;
                         opt.textContent = dev.display_name || dev.name || 'SDR Device';
                         sdrSelect.appendChild(opt);
                     });
                     // Auto-select first SDR if available
                     if (devices.sdr_devices.length > 0) {
-                        sdrSelect.value = devices.sdr_devices[0].index;
+                        sdrSelect.value = devices.sdr_devices[0].index !== undefined ? devices.sdr_devices[0].index : 0;
                     }
                 } else {
-                    sdrSelect.innerHTML = '<option value="">No SDR devices found</option>';
+                    if (isAgentResponse) {
+                        sdrSelect.innerHTML = '<option value="">Agent manages SDR</option>';
+                    } else {
+                        sdrSelect.innerHTML = '<option value="">No SDR devices found</option>';
+                    }
                 }
 
                 // Show warnings (e.g., not running as root)
@@ -8465,8 +8847,23 @@
             document.getElementById('tscmDeviceWarnings').style.display = 'none';
             document.getElementById('tscmDeviceWarnings').innerHTML = '';
 
+            // Check for agent mode
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+
+            // Check for conflicts if using agent
+            if (isAgentMode && typeof checkAgentModeConflict === 'function') {
+                if (!checkAgentModeConflict('tscm')) {
+                    return;  // Conflict detected, user cancelled
+                }
+            }
+
             try {
-                const response = await fetch('/tscm/sweep/start', {
+                // Route to agent or local based on selection
+                const endpoint = isAgentMode
+                    ? `/controller/agents/${currentAgent}/tscm/start`
+                    : '/tscm/sweep/start';
+
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -8483,7 +8880,9 @@
                 });
 
                 const data = await response.json();
-                if (data.status === 'success') {
+                // Handle controller proxy response (agent response is nested in 'result')
+                const scanResult = isAgentMode && data.result ? data.result : data;
+                if (scanResult.status === 'success' || scanResult.status === 'started') {
                     isTscmRunning = true;
                     tscmSweepStartTime = new Date();
                     tscmSweepEndTime = null;
@@ -8496,16 +8895,16 @@
                     document.getElementById('tscmReportBtn').style.display = 'none';
 
                     // Show warnings if any devices unavailable
-                    if (data.warnings && data.warnings.length > 0) {
+                    if (scanResult.warnings && scanResult.warnings.length > 0) {
                         const warningsDiv = document.getElementById('tscmDeviceWarnings');
-                        warningsDiv.innerHTML = data.warnings.map(w =>
+                        warningsDiv.innerHTML = scanResult.warnings.map(w =>
                             `<div style="color: #ff9933; font-size: 10px; margin-bottom: 2px;">⚠ ${w}</div>`
                         ).join('');
                         warningsDiv.style.display = 'block';
                     }
 
                     // Update device indicators
-                    updateTscmDeviceIndicators(data.devices);
+                    updateTscmDeviceIndicators(scanResult.devices);
 
                     // Reset displays
                     tscmThreats = [];
@@ -8519,9 +8918,9 @@
                     startTscmStream();
                 } else {
                     // Show error with details
-                    let errorMsg = data.message || 'Failed to start sweep';
-                    if (data.details && data.details.length > 0) {
-                        errorMsg += '\n\n' + data.details.join('\n');
+                    let errorMsg = scanResult.message || 'Failed to start sweep';
+                    if (scanResult.details && scanResult.details.length > 0) {
+                        errorMsg += '\n\n' + scanResult.details.join('\n');
                     }
                     alert(errorMsg);
                 }
@@ -8552,7 +8951,12 @@
 
         async function stopTscmSweep() {
             try {
-                await fetch('/tscm/sweep/stop', { method: 'POST' });
+                // Route to agent or local based on selection
+                const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+                const endpoint = isAgentMode
+                    ? `/controller/agents/${currentAgent}/tscm/stop`
+                    : '/tscm/sweep/stop';
+                await fetch(endpoint, { method: 'POST' });
             } catch (e) {
                 console.error('Error stopping sweep:', e);
             }
@@ -9111,12 +9515,33 @@
                 tscmEventSource.close();
             }
 
-            tscmEventSource = new EventSource('/tscm/sweep/stream');
+            // Check if using agent - connect to multi-agent stream
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const streamUrl = isAgentMode
+                ? '/controller/stream/all'
+                : '/tscm/sweep/stream';
+
+            tscmEventSource = new EventSource(streamUrl);
 
             tscmEventSource.onmessage = function (event) {
                 try {
                     const data = JSON.parse(event.data);
-                    handleTscmEvent(data);
+
+                    // If using multi-agent stream, filter for TSCM data
+                    if (isAgentMode) {
+                        if (data.scan_type === 'tscm' || data.type?.startsWith('tscm') ||
+                            data.type === 'wifi_device' || data.type === 'bt_device' ||
+                            data.type === 'rf_signal' || data.type === 'threat' ||
+                            data.type === 'sweep_progress') {
+                            // Add agent info to data for display
+                            if (data.agent_name) {
+                                data._agent = data.agent_name;
+                            }
+                            handleTscmEvent(data.payload || data);
+                        }
+                    } else {
+                        handleTscmEvent(data);
+                    }
                 } catch (e) {
                     console.error('TSCM SSE parse error:', e);
                 }

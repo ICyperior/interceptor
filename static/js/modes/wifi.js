@@ -29,6 +29,47 @@ const WiFiMode = (function() {
     };
 
     // ==========================================================================
+    // Agent Support
+    // ==========================================================================
+
+    /**
+     * Get the API base URL, routing through agent proxy if agent is selected.
+     */
+    function getApiBase() {
+        if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
+            return `/controller/agents/${currentAgent}/wifi/v2`;
+        }
+        return CONFIG.apiBase;
+    }
+
+    /**
+     * Get the current agent name for tagging data.
+     */
+    function getCurrentAgentName() {
+        if (typeof currentAgent === 'undefined' || currentAgent === 'local') {
+            return 'Local';
+        }
+        if (typeof agents !== 'undefined') {
+            const agent = agents.find(a => a.id == currentAgent);
+            return agent ? agent.name : `Agent ${currentAgent}`;
+        }
+        return `Agent ${currentAgent}`;
+    }
+
+    /**
+     * Check for agent mode conflicts before starting WiFi scan.
+     */
+    function checkAgentConflicts() {
+        if (typeof currentAgent === 'undefined' || currentAgent === 'local') {
+            return true;
+        }
+        if (typeof checkAgentModeConflict === 'function') {
+            return checkAgentModeConflict('wifi');
+        }
+        return true;
+    }
+
+    // ==========================================================================
     // State
     // ==========================================================================
 
@@ -48,6 +89,10 @@ const WiFiMode = (function() {
     let selectedNetwork = null;
     let currentFilter = 'all';
     let currentSort = { field: 'rssi', order: 'desc' };
+
+    // Agent state
+    let showAllAgentsMode = false;  // Show combined results from all agents
+    let lastAgentId = null;  // Track agent switches
 
     // Capabilities
     let capabilities = null;
@@ -154,11 +199,43 @@ const WiFiMode = (function() {
 
     async function checkCapabilities() {
         try {
-            const response = await fetch(`${CONFIG.apiBase}/capabilities`);
-            if (!response.ok) throw new Error('Failed to fetch capabilities');
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            let response;
 
-            capabilities = await response.json();
-            console.log('[WiFiMode] Capabilities:', capabilities);
+            if (isAgentMode) {
+                // Fetch capabilities from agent via controller proxy
+                response = await fetch(`/controller/agents/${currentAgent}?refresh=true`);
+                if (!response.ok) throw new Error('Failed to fetch agent capabilities');
+
+                const data = await response.json();
+                // Extract WiFi capabilities from agent data
+                if (data.agent && data.agent.capabilities) {
+                    const agentCaps = data.agent.capabilities;
+                    const agentInterfaces = data.agent.interfaces || {};
+
+                    // Build WiFi-compatible capabilities object
+                    capabilities = {
+                        can_quick_scan: agentCaps.wifi || false,
+                        can_deep_scan: agentCaps.wifi || false,
+                        interfaces: (agentInterfaces.wifi_interfaces || []).map(iface => ({
+                            name: iface.name || iface,
+                            supports_monitor: iface.supports_monitor !== false
+                        })),
+                        default_interface: agentInterfaces.default_wifi || null,
+                        preferred_quick_tool: 'agent',
+                        issues: []
+                    };
+                    console.log('[WiFiMode] Agent capabilities:', capabilities);
+                } else {
+                    throw new Error('Agent does not support WiFi mode');
+                }
+            } else {
+                // Local capabilities
+                response = await fetch(`${CONFIG.apiBase}/capabilities`);
+                if (!response.ok) throw new Error('Failed to fetch capabilities');
+                capabilities = await response.json();
+                console.log('[WiFiMode] Local capabilities:', capabilities);
+            }
 
             updateCapabilityUI();
             populateInterfaceSelect();
@@ -282,17 +359,34 @@ const WiFiMode = (function() {
     async function startQuickScan() {
         if (isScanning) return;
 
+        // Check for agent mode conflicts
+        if (!checkAgentConflicts()) {
+            return;
+        }
+
         console.log('[WiFiMode] Starting quick scan...');
         setScanning(true, 'quick');
 
         try {
             const iface = elements.interfaceSelect?.value || null;
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const agentName = getCurrentAgentName();
 
-            const response = await fetch(`${CONFIG.apiBase}/scan/quick`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interface: iface }),
-            });
+            let response;
+            if (isAgentMode) {
+                // Route through agent proxy
+                response = await fetch(`/controller/agents/${currentAgent}/wifi/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ interface: iface, scan_type: 'quick' }),
+                });
+            } else {
+                response = await fetch(`${CONFIG.apiBase}/scan/quick`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ interface: iface }),
+                });
+            }
 
             if (!response.ok) {
                 const error = await response.json();
@@ -302,20 +396,26 @@ const WiFiMode = (function() {
             const result = await response.json();
             console.log('[WiFiMode] Quick scan complete:', result);
 
+            // Handle controller proxy response format (agent response is nested in 'result')
+            const scanResult = isAgentMode && result.result ? result.result : result;
+
             // Check for error first
-            if (result.error) {
-                console.error('[WiFiMode] Quick scan error from server:', result.error);
-                showError(result.error);
+            if (scanResult.error || scanResult.status === 'error') {
+                console.error('[WiFiMode] Quick scan error from server:', scanResult.error || scanResult.message);
+                showError(scanResult.error || scanResult.message || 'Quick scan failed');
                 setScanning(false);
                 return;
             }
 
+            // Handle agent response format
+            let accessPoints = scanResult.access_points || scanResult.networks || [];
+
             // Check if we got results
-            if (!result.access_points || result.access_points.length === 0) {
+            if (accessPoints.length === 0) {
                 // No error but no results
                 let msg = 'Quick scan found no networks in range.';
-                if (result.warnings && result.warnings.length > 0) {
-                    msg += ' Warnings: ' + result.warnings.join('; ');
+                if (scanResult.warnings && scanResult.warnings.length > 0) {
+                    msg += ' Warnings: ' + scanResult.warnings.join('; ');
                 }
                 console.warn('[WiFiMode] ' + msg);
                 showError(msg + ' Try Deep Scan with monitor mode.');
@@ -323,13 +423,18 @@ const WiFiMode = (function() {
                 return;
             }
 
+            // Tag results with agent source
+            accessPoints.forEach(ap => {
+                ap._agent = agentName;
+            });
+
             // Show any warnings even on success
-            if (result.warnings && result.warnings.length > 0) {
-                console.warn('[WiFiMode] Quick scan warnings:', result.warnings);
+            if (scanResult.warnings && scanResult.warnings.length > 0) {
+                console.warn('[WiFiMode] Quick scan warnings:', scanResult.warnings);
             }
 
             // Process results
-            processQuickScanResult(result);
+            processQuickScanResult({ ...scanResult, access_points: accessPoints });
 
             // For quick scan, we're done after one scan
             // But keep polling if user wants continuous updates
@@ -346,6 +451,11 @@ const WiFiMode = (function() {
     async function startDeepScan() {
         if (isScanning) return;
 
+        // Check for agent mode conflicts
+        if (!checkAgentConflicts()) {
+            return;
+        }
+
         console.log('[WiFiMode] Starting deep scan...');
         setScanning(true, 'deep');
 
@@ -353,20 +463,46 @@ const WiFiMode = (function() {
             const iface = elements.interfaceSelect?.value || null;
             const band = document.getElementById('wifiBand')?.value || 'all';
             const channel = document.getElementById('wifiChannel')?.value || null;
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
 
-            const response = await fetch(`${CONFIG.apiBase}/scan/start`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    interface: iface,
-                    band: band === 'abg' ? 'all' : band === 'bg' ? '2.4' : '5',
-                    channel: channel ? parseInt(channel) : null,
-                }),
-            });
+            let response;
+            if (isAgentMode) {
+                // Route through agent proxy
+                response = await fetch(`/controller/agents/${currentAgent}/wifi/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        interface: iface,
+                        scan_type: 'deep',
+                        band: band === 'abg' ? 'all' : band === 'bg' ? '2.4' : '5',
+                        channel: channel ? parseInt(channel) : null,
+                    }),
+                });
+            } else {
+                response = await fetch(`${CONFIG.apiBase}/scan/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        interface: iface,
+                        band: band === 'abg' ? 'all' : band === 'bg' ? '2.4' : '5',
+                        channel: channel ? parseInt(channel) : null,
+                    }),
+                });
+            }
 
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'Failed to start deep scan');
+            }
+
+            // Check for agent error in response
+            if (isAgentMode) {
+                const result = await response.json();
+                const scanResult = result.result || result;
+                if (scanResult.status === 'error') {
+                    throw new Error(scanResult.message || 'Agent failed to start deep scan');
+                }
+                console.log('[WiFiMode] Agent deep scan started:', scanResult);
             }
 
             // Start SSE stream for real-time updates
@@ -393,13 +529,17 @@ const WiFiMode = (function() {
             eventSource = null;
         }
 
-        // Stop deep scan on server
-        if (scanMode === 'deep') {
-            try {
+        // Stop scan on server (local or agent)
+        const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+
+        try {
+            if (isAgentMode) {
+                await fetch(`/controller/agents/${currentAgent}/wifi/stop`, { method: 'POST' });
+            } else if (scanMode === 'deep') {
                 await fetch(`${CONFIG.apiBase}/scan/stop`, { method: 'POST' });
-            } catch (error) {
-                console.warn('[WiFiMode] Error stopping scan:', error);
             }
+        } catch (error) {
+            console.warn('[WiFiMode] Error stopping scan:', error);
         }
 
         setScanning(false);
@@ -517,8 +657,20 @@ const WiFiMode = (function() {
             eventSource.close();
         }
 
-        console.log('[WiFiMode] Starting event stream...');
-        eventSource = new EventSource(`${CONFIG.apiBase}/stream`);
+        const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+        const agentName = getCurrentAgentName();
+        let streamUrl;
+
+        if (isAgentMode) {
+            // Use multi-agent stream for remote agents
+            streamUrl = '/controller/stream/all';
+            console.log('[WiFiMode] Starting multi-agent event stream...');
+        } else {
+            streamUrl = `${CONFIG.apiBase}/stream`;
+            console.log('[WiFiMode] Starting local event stream...');
+        }
+
+        eventSource = new EventSource(streamUrl);
 
         eventSource.onopen = () => {
             console.log('[WiFiMode] Event stream connected');
@@ -527,7 +679,46 @@ const WiFiMode = (function() {
         eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                handleStreamEvent(data);
+
+                // For multi-agent stream, filter and transform data
+                if (isAgentMode) {
+                    // Skip keepalive and non-wifi data
+                    if (data.type === 'keepalive') return;
+                    if (data.scan_type !== 'wifi') return;
+
+                    // Filter by current agent if not in "show all" mode
+                    if (!showAllAgentsMode && typeof agents !== 'undefined') {
+                        const currentAgentObj = agents.find(a => a.id == currentAgent);
+                        if (currentAgentObj && data.agent_name && data.agent_name !== currentAgentObj.name) {
+                            return;
+                        }
+                    }
+
+                    // Transform multi-agent payload to stream event format
+                    if (data.payload && data.payload.networks) {
+                        data.payload.networks.forEach(net => {
+                            net._agent = data.agent_name || 'Unknown';
+                            handleStreamEvent({
+                                type: 'network_update',
+                                network: net
+                            });
+                        });
+                    }
+                    if (data.payload && data.payload.clients) {
+                        data.payload.clients.forEach(client => {
+                            client._agent = data.agent_name || 'Unknown';
+                            handleStreamEvent({
+                                type: 'client_update',
+                                client: client
+                            });
+                        });
+                    }
+                } else {
+                    // Local stream - tag with local
+                    if (data.network) data.network._agent = 'Local';
+                    if (data.client) data.client._agent = 'Local';
+                    handleStreamEvent(data);
+                }
             } catch (error) {
                 console.debug('[WiFiMode] Event parse error:', error);
             }
@@ -745,6 +936,10 @@ const WiFiMode = (function() {
         const hiddenBadge = network.is_hidden ? '<span class="badge badge-hidden">Hidden</span>' : '';
         const newBadge = network.is_new ? '<span class="badge badge-new">New</span>' : '';
 
+        // Agent source badge
+        const agentName = network._agent || 'Local';
+        const agentClass = agentName === 'Local' ? 'agent-local' : 'agent-remote';
+
         return `
             <tr class="wifi-network-row ${network.bssid === selectedNetwork ? 'selected' : ''}"
                 data-bssid="${escapeHtml(network.bssid)}"
@@ -762,6 +957,9 @@ const WiFiMode = (function() {
                     <span class="security-badge ${securityClass}">${escapeHtml(network.security)}</span>
                 </td>
                 <td class="col-clients">${network.client_count || 0}</td>
+                <td class="col-agent">
+                    <span class="agent-badge ${agentClass}">${escapeHtml(agentName)}</span>
+                </td>
             </tr>
         `;
     }
@@ -1072,6 +1270,113 @@ const WiFiMode = (function() {
     }
 
     // ==========================================================================
+    // Agent Handling
+    // ==========================================================================
+
+    /**
+     * Handle agent change - refresh interfaces and optionally clear data.
+     * Called when user selects a different agent.
+     */
+    function handleAgentChange() {
+        const currentAgentId = typeof currentAgent !== 'undefined' ? currentAgent : 'local';
+
+        // Check if agent actually changed
+        if (lastAgentId === currentAgentId) return;
+
+        console.log('[WiFiMode] Agent changed from', lastAgentId, 'to', currentAgentId);
+
+        // Stop any running scan
+        if (isScanning) {
+            stopScan();
+        }
+
+        // Clear existing data when switching agents (unless "Show All" is enabled)
+        if (!showAllAgentsMode) {
+            clearData();
+            showInfo(`Switched to ${getCurrentAgentName()} - previous data cleared`);
+        }
+
+        // Refresh capabilities for new agent
+        checkCapabilities();
+
+        lastAgentId = currentAgentId;
+    }
+
+    /**
+     * Clear all collected data.
+     */
+    function clearData() {
+        networks.clear();
+        clients.clear();
+        probeRequests = [];
+        channelStats = [];
+        recommendations = [];
+
+        updateNetworkTable();
+        updateStats();
+        updateProximityRadar();
+        updateChannelChart();
+    }
+
+    /**
+     * Toggle "Show All Agents" mode.
+     * When enabled, displays combined WiFi results from all agents.
+     */
+    function toggleShowAllAgents(enabled) {
+        showAllAgentsMode = enabled;
+        console.log('[WiFiMode] Show all agents mode:', enabled);
+
+        if (enabled) {
+            // If currently scanning, switch to multi-agent stream
+            if (isScanning && eventSource) {
+                eventSource.close();
+                startEventStream();
+            }
+            showInfo('Showing WiFi networks from all agents');
+        } else {
+            // Filter to current agent only
+            filterToCurrentAgent();
+        }
+    }
+
+    /**
+     * Filter networks to only show those from current agent.
+     */
+    function filterToCurrentAgent() {
+        const agentName = getCurrentAgentName();
+        const toRemove = [];
+
+        networks.forEach((network, bssid) => {
+            if (network._agent && network._agent !== agentName) {
+                toRemove.push(bssid);
+            }
+        });
+
+        toRemove.forEach(bssid => networks.delete(bssid));
+
+        // Also filter clients
+        const clientsToRemove = [];
+        clients.forEach((client, mac) => {
+            if (client._agent && client._agent !== agentName) {
+                clientsToRemove.push(mac);
+            }
+        });
+        clientsToRemove.forEach(mac => clients.delete(mac));
+
+        updateNetworkTable();
+        updateStats();
+        updateProximityRadar();
+    }
+
+    /**
+     * Refresh WiFi interfaces from current agent.
+     * Called when agent changes.
+     */
+    async function refreshInterfaces() {
+        await checkCapabilities();
+    }
+
+    // ==========================================================================
     // Public API
     // ==========================================================================
 
@@ -1086,12 +1391,19 @@ const WiFiMode = (function() {
         exportData,
         checkCapabilities,
 
+        // Agent handling
+        handleAgentChange,
+        clearData,
+        toggleShowAllAgents,
+        refreshInterfaces,
+
         // Getters
         getNetworks: () => Array.from(networks.values()),
         getClients: () => Array.from(clients.values()),
         getProbes: () => [...probeRequests],
         isScanning: () => isScanning,
         getScanMode: () => scanMode,
+        isShowAllAgents: () => showAllAgentsMode,
 
         // Callbacks
         onNetworkUpdate: (cb) => { onNetworkUpdate = cb; },
