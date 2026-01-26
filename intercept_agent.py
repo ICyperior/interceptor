@@ -2671,6 +2671,22 @@ class ModeManager:
         if not rtl_fm_path:
             return {'status': 'error', 'message': 'rtl_fm not found'}
 
+        # Quick SDR availability check - try to run rtl_fm briefly
+        try:
+            test_proc = subprocess.Popen(
+                [rtl_fm_path, '-f', f'{start_freq}M', '-d', str(device), '-g', str(gain)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            time.sleep(0.5)
+            if test_proc.poll() is not None:
+                stderr = test_proc.stderr.read().decode('utf-8', errors='ignore')
+                return {'status': 'error', 'message': f'SDR not available: {stderr[:200]}'}
+            test_proc.terminate()
+            test_proc.wait(timeout=1)
+        except Exception as e:
+            return {'status': 'error', 'message': f'SDR check failed: {str(e)}'}
+
         # Initialize state
         if not hasattr(self, 'listening_post_activity'):
             self.listening_post_activity = []
