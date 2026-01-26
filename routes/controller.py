@@ -267,6 +267,68 @@ def get_agent_status(agent_id: int):
         }), 503
 
 
+@controller_bp.route('/agents/health', methods=['GET'])
+def check_all_agents_health():
+    """
+    Check health of all registered agents in one call.
+
+    More efficient than checking each agent individually.
+    Returns health status, response time, and running modes for each agent.
+    """
+    agents_list = list_agents(active_only=True)
+    results = []
+
+    for agent in agents_list:
+        result = {
+            'id': agent['id'],
+            'name': agent['name'],
+            'healthy': False,
+            'response_time_ms': None,
+            'running_modes': [],
+            'error': None
+        }
+
+        try:
+            client = create_client_from_agent(agent)
+
+            # Time the health check
+            start_time = time.time()
+            is_healthy = client.health_check()
+            response_time = (time.time() - start_time) * 1000
+
+            result['healthy'] = is_healthy
+            result['response_time_ms'] = round(response_time, 1)
+
+            if is_healthy:
+                # Update last_seen in database
+                update_agent(agent['id'], update_last_seen=True)
+
+                # Also fetch running modes
+                try:
+                    status = client.get_status()
+                    result['running_modes'] = status.get('running_modes', [])
+                    result['running_modes_detail'] = status.get('running_modes_detail', {})
+                except Exception:
+                    pass  # Status fetch is optional
+
+        except AgentConnectionError as e:
+            result['error'] = f'Connection failed: {str(e)}'
+        except AgentHTTPError as e:
+            result['error'] = f'HTTP error: {str(e)}'
+        except Exception as e:
+            result['error'] = str(e)
+
+        results.append(result)
+
+    return jsonify({
+        'status': 'success',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'agents': results,
+        'total': len(results),
+        'healthy_count': sum(1 for r in results if r['healthy'])
+    })
+
+
 # =============================================================================
 # Proxy Operations - Forward requests to agents
 # =============================================================================

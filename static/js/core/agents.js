@@ -12,6 +12,150 @@ let multiAgentMode = false;  // Show combined results from all agents
 let multiAgentPollInterval = null;
 let agentRunningModes = [];  // Track agent's running modes for conflict detection
 let agentRunningModesDetail = {};  // Track device info per mode (for multi-SDR agents)
+let healthCheckInterval = null;  // Health monitoring interval
+let agentHealthStatus = {};  // Cache of health status per agent ID
+
+// ============== AGENT HEALTH MONITORING ==============
+
+/**
+ * Start periodic health monitoring for all agents.
+ * Runs every 30 seconds to check agent health status.
+ */
+function startHealthMonitoring() {
+    // Don't start if already running
+    if (healthCheckInterval) return;
+
+    // Initial check
+    checkAllAgentsHealth();
+
+    // Start periodic checks every 30 seconds
+    healthCheckInterval = setInterval(checkAllAgentsHealth, 30000);
+    console.log('[AgentManager] Health monitoring started (30s interval)');
+}
+
+/**
+ * Stop health monitoring.
+ */
+function stopHealthMonitoring() {
+    if (healthCheckInterval) {
+        clearInterval(healthCheckInterval);
+        healthCheckInterval = null;
+        console.log('[AgentManager] Health monitoring stopped');
+    }
+}
+
+/**
+ * Check health of all registered agents in one efficient call.
+ */
+async function checkAllAgentsHealth() {
+    if (agents.length === 0) return;
+
+    try {
+        const response = await fetch('/controller/agents/health');
+        const data = await response.json();
+
+        if (data.status === 'success' && data.agents) {
+            // Update health status cache and UI
+            data.agents.forEach(agentHealth => {
+                const previousHealth = agentHealthStatus[agentHealth.id];
+                agentHealthStatus[agentHealth.id] = agentHealth;
+
+                // Update agent in local list
+                const agent = agents.find(a => a.id === agentHealth.id);
+                if (agent) {
+                    const wasHealthy = agent.healthy !== false;
+                    agent.healthy = agentHealth.healthy;
+                    agent.response_time_ms = agentHealth.response_time_ms;
+                    agent.running_modes = agentHealth.running_modes || [];
+                    agent.running_modes_detail = agentHealth.running_modes_detail || {};
+
+                    // Log status change
+                    if (wasHealthy !== agentHealth.healthy) {
+                        console.log(`[AgentManager] ${agent.name} is now ${agentHealth.healthy ? 'ONLINE' : 'OFFLINE'}`);
+
+                        // Show notification for status change
+                        if (!agentHealth.healthy && typeof showNotification === 'function') {
+                            showNotification(`Agent "${agent.name}" went offline`, 'warning');
+                        }
+                    }
+                }
+            });
+
+            // Update UI
+            updateAgentHealthUI();
+
+            // If current agent is selected, sync mode warnings
+            if (currentAgent !== 'local') {
+                const currentHealth = agentHealthStatus[currentAgent];
+                if (currentHealth) {
+                    agentRunningModes = currentHealth.running_modes || [];
+                    agentRunningModesDetail = currentHealth.running_modes_detail || {};
+                    showAgentModeWarnings(agentRunningModes, agentRunningModesDetail);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[AgentManager] Health check failed:', error);
+    }
+}
+
+/**
+ * Update the UI to reflect current health status.
+ */
+function updateAgentHealthUI() {
+    const selector = document.getElementById('agentSelect');
+    if (!selector) return;
+
+    // Update each option in selector
+    agents.forEach(agent => {
+        const option = selector.querySelector(`option[value="${agent.id}"]`);
+        if (option) {
+            const health = agentHealthStatus[agent.id];
+            const isHealthy = health ? health.healthy : agent.healthy !== false;
+            const status = isHealthy ? '●' : '○';
+            const latency = health?.response_time_ms ? ` (${health.response_time_ms}ms)` : '';
+            option.textContent = `${status} ${agent.name}${latency}`;
+            option.dataset.healthy = isHealthy;
+        }
+    });
+
+    // Update status display for current agent
+    updateAgentStatus();
+
+    // Update health panel if it exists
+    updateHealthPanel();
+}
+
+/**
+ * Update the optional health panel showing all agents.
+ */
+function updateHealthPanel() {
+    const panel = document.getElementById('agentHealthPanel');
+    if (!panel) return;
+
+    if (agents.length === 0) {
+        panel.innerHTML = '<div style="color: var(--text-muted); font-size: 11px;">No agents registered</div>';
+        return;
+    }
+
+    const html = agents.map(agent => {
+        const health = agentHealthStatus[agent.id];
+        const isHealthy = health ? health.healthy : agent.healthy !== false;
+        const latency = health?.response_time_ms ? `${health.response_time_ms}ms` : '--';
+        const modes = health?.running_modes?.length || 0;
+        const statusColor = isHealthy ? 'var(--accent-green)' : 'var(--accent-red)';
+        const statusIcon = isHealthy ? '●' : '○';
+
+        return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border-color);">
+            <span style="color: ${statusColor}; font-size: 12px;">${statusIcon} ${agent.name}</span>
+            <span style="font-size: 10px; color: var(--text-muted);">
+                ${latency} ${modes > 0 ? `| ${modes} mode${modes > 1 ? 's' : ''}` : ''}
+            </span>
+        </div>`;
+    }).join('');
+
+    panel.innerHTML = html;
+}
 
 // ============== AGENT LOADING ==============
 
@@ -84,20 +228,89 @@ function updateAgentStatus() {
     const selector = document.getElementById('agentSelect');
     const statusDot = document.getElementById('agentStatusDot');
     const statusText = document.getElementById('agentStatusText');
+    const latencyText = document.getElementById('agentLatencyText');
 
     if (!selector || !statusDot) return;
 
     if (currentAgent === 'local') {
         statusDot.className = 'agent-status-dot online';
         if (statusText) statusText.textContent = 'Local';
+        if (latencyText) latencyText.textContent = '';
     } else {
         const agent = agents.find(a => a.id == currentAgent);
         if (agent) {
-            const isOnline = agent.healthy !== false;
+            const health = agentHealthStatus[agent.id];
+            const isOnline = health ? health.healthy : agent.healthy !== false;
             statusDot.className = `agent-status-dot ${isOnline ? 'online' : 'offline'}`;
-            if (statusText) statusText.textContent = isOnline ? 'Connected' : 'Offline';
+
+            if (statusText) {
+                statusText.textContent = isOnline ? 'Connected' : 'Offline';
+            }
+
+            // Show latency if available
+            if (latencyText) {
+                if (health?.response_time_ms) {
+                    latencyText.textContent = `${health.response_time_ms}ms`;
+                } else {
+                    latencyText.textContent = '';
+                }
+            }
         }
     }
+}
+
+// ============== RESPONSE UTILITIES ==============
+
+/**
+ * Unwrap agent response from controller proxy format.
+ * Controller returns: {status: 'success', result: {...agent response...}}
+ * This extracts the actual agent response.
+ *
+ * @param {Object} response - Response from fetch
+ * @param {boolean} isAgentMode - Whether this is an agent (vs local) request
+ * @returns {Object} - Unwrapped response
+ * @throws {Error} - If response indicates an error
+ */
+function unwrapAgentResponse(response, isAgentMode = false) {
+    if (!response) return null;
+
+    // Check for error status first
+    if (response.status === 'error') {
+        throw new Error(response.message || response.error || 'Unknown error');
+    }
+
+    // If agent mode and has nested result, unwrap it
+    if (isAgentMode && response.status === 'success' && response.result !== undefined) {
+        const result = response.result;
+
+        // Check if the nested result itself is an error
+        if (result.status === 'error') {
+            throw new Error(result.message || result.error || 'Agent operation failed');
+        }
+
+        return result;
+    }
+
+    // Return as-is for local mode or already-unwrapped responses
+    return response;
+}
+
+/**
+ * Check if currently operating in agent mode.
+ * @returns {boolean}
+ */
+function isAgentMode() {
+    return currentAgent !== 'local';
+}
+
+/**
+ * Get the current agent's name for display.
+ * @returns {string}
+ */
+function getCurrentAgentName() {
+    if (currentAgent === 'local') return 'Local';
+    const agent = agents.find(a => a.id == currentAgent);
+    return agent ? agent.name : 'Unknown';
 }
 
 // ============== AGENT SELECTION ==============
@@ -625,7 +838,12 @@ function disconnectAgentStream() {
 
 function initAgentManager() {
     // Load agents on page load
-    loadAgents();
+    loadAgents().then(() => {
+        // Start health monitoring after agents are loaded
+        if (agents.length > 0) {
+            startHealthMonitoring();
+        }
+    });
 
     // Set up agent selector change handler
     const selector = document.getElementById('agentSelect');
@@ -635,8 +853,14 @@ function initAgentManager() {
         });
     }
 
-    // Refresh agents periodically
-    setInterval(loadAgents, 30000);
+    // Refresh agent list periodically (less often since health monitor is active)
+    setInterval(async () => {
+        await loadAgents();
+        // Start health monitoring if we now have agents
+        if (agents.length > 0 && !healthCheckInterval) {
+            startHealthMonitoring();
+        }
+    }, 60000);  // Refresh list every 60s (health checks every 30s)
 }
 
 // ============== MULTI-AGENT MODE ==============

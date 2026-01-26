@@ -375,7 +375,15 @@
                     </div>
                     <div id="agentInfo" class="info-text" style="font-size: 10px; color: #666; margin-top: 4px;">
                         <span id="agentStatusText">Local</span>
+                        <span id="agentLatencyText" style="margin-left: 6px; color: var(--accent-cyan);"></span>
                     </div>
+                    <!-- Agent health panel (shows all agents when expanded) -->
+                    <details style="margin-top: 8px;">
+                        <summary style="font-size: 10px; color: #888; cursor: pointer;">All Agents Health</summary>
+                        <div id="agentHealthPanel" style="margin-top: 6px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px; max-height: 120px; overflow-y: auto;">
+                            <div style="color: var(--text-muted); font-size: 11px;">Loading...</div>
+                        </div>
+                    </details>
                     <!-- Multi-agent mode toggle -->
                     <div class="form-group" style="margin-top: 10px;">
                         <label class="inline-checkbox" style="display: flex; align-items: center; gap: 8px;">
