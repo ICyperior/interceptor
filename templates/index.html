@@ -329,6 +329,8 @@
                 </button>
                 <button class="nav-tool-btn" onclick="showDependencies()" title="Check Tool Dependencies"
                     id="depsBtn"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
+                <a href="/controller/monitor" class="nav-tool-btn" title="Network Monitor - Multi-Agent View" style="text-decoration: none;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span></a>
+                <a href="/controller/manage" class="nav-tool-btn" title="Manage Remote Agents" style="text-decoration: none;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span></a>
                 <button class="nav-tool-btn" onclick="showHelp()" title="Help & Documentation">?</button>
                 <button class="nav-tool-btn" onclick="logout(event)" title="Logout">
                     <span class="power-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
@@ -359,6 +361,33 @@
     <div class="container">
         <div class="main-content">
             <div class="sidebar mobile-drawer" id="mainSidebar">
+                <!-- Agent Selector -->
+                <div class="section" id="agentSection">
+                    <h3>Signal Source</h3>
+                    <div class="form-group">
+                        <label style="font-size: 11px; color: #888; margin-bottom: 4px;">Agent</label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <select id="agentSelect" style="flex: 1;">
+                                <option value="local">Local (This Device)</option>
+                            </select>
+                            <span id="agentStatusDot" class="agent-status-dot online" title="Agent status"></span>
+                        </div>
+                    </div>
+                    <div id="agentInfo" class="info-text" style="font-size: 10px; color: #666; margin-top: 4px;">
+                        <span id="agentStatusText">Local</span>
+                    </div>
+                    <!-- Multi-agent mode toggle -->
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label class="inline-checkbox" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="showAllAgents" onchange="toggleMultiAgentMode()">
+                            <span style="font-size: 11px;">Show All Agents Combined</span>
+                        </label>
+                    </div>
+                    <a href="/controller/manage" class="preset-btn" style="display: block; text-align: center; text-decoration: none; margin-top: 8px; font-size: 11px;">
+                        Manage Agents
+                    </a>
+                </div>
+
                 <div class="section" id="rtlDeviceSection">
                     <h3>SDR Device</h3>
                     <div class="form-group">
@@ -1541,6 +1570,7 @@
     <!-- Intercept JS Modules -->
     <script src="{{ url_for('static', filename='js/core/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/audio.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/radio-knob.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-guess.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-cards.js') }}"></script>
@@ -1973,10 +2003,10 @@
                 });
             });
 
-            // Collapse all sections by default (except SDR Device which is first)
+            // Collapse all sections by default (except Signal Source and SDR Device)
             document.querySelectorAll('.section').forEach((section, index) => {
-                // Keep first section expanded, collapse rest
-                if (index > 0) {
+                // Keep first two sections expanded (Signal Source, SDR Device), collapse rest
+                if (index > 1) {
                     section.classList.add('collapsed');
                 }
             });
@@ -2190,6 +2220,11 @@
                 }
             }
 
+            // Show agent selector for modes that support remote agents
+            const agentSection = document.getElementById('agentSection');
+            const agentModes = ['pager', 'sensor', 'rtlamr', 'listening', 'aprs', 'wifi', 'bluetooth', 'aircraft'];
+            if (agentSection) agentSection.style.display = agentModes.includes(mode) ? 'block' : 'none';
+
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
             if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs') ? 'block' : 'none';
@@ -2269,6 +2304,36 @@
             const ppm = document.getElementById('sensorPpm').value;
             const device = getSelectedDevice();
 
+            // Check if using remote agent
+            if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
+                // Route through agent proxy
+                const config = {
+                    frequency: freq,
+                    gain: gain,
+                    ppm: ppm,
+                    device: device
+                };
+
+                fetch(`/controller/agents/${currentAgent}/sensor/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                }).then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'started' || data.status === 'success') {
+                            setSensorRunning(true);
+                            startAgentSensorStream();
+                            showInfo(`Sensor started on remote agent`);
+                        } else {
+                            alert('Error: ' + (data.message || 'Failed to start sensor on agent'));
+                        }
+                    })
+                    .catch(err => {
+                        alert('Error connecting to agent: ' + err.message);
+                    });
+                return;
+            }
+
             // Check if device is available
             if (!checkDeviceAvailability('sensor')) {
                 return;
@@ -2327,6 +2392,25 @@
 
         // Stop sensor decoding
         function stopSensorDecoding() {
+            // Check if using remote agent
+            if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
+                fetch(`/controller/agents/${currentAgent}/sensor/stop`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        setSensorRunning(false);
+                        if (eventSource) {
+                            eventSource.close();
+                            eventSource = null;
+                        }
+                        if (agentPollInterval) {
+                            clearInterval(agentPollInterval);
+                            agentPollInterval = null;
+                        }
+                        showInfo('Sensor stopped on remote agent');
+                    });
+                return;
+            }
+
             fetch('/stop_sensor', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
@@ -2337,6 +2421,56 @@
                         eventSource = null;
                     }
                 });
+        }
+
+        // Polling interval for agent data
+        let agentPollInterval = null;
+
+        // Start polling agent for sensor data
+        function startAgentSensorStream() {
+            if (agentPollInterval) {
+                clearInterval(agentPollInterval);
+            }
+
+            // Poll every 2 seconds for new data
+            agentPollInterval = setInterval(() => {
+                if (!isSensorRunning || currentAgent === 'local') {
+                    clearInterval(agentPollInterval);
+                    agentPollInterval = null;
+                    return;
+                }
+
+                fetch(`/controller/agents/${currentAgent}/sensor/data`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.sensors) {
+                            data.sensors.forEach(sensor => {
+                                displaySensorMessage(sensor);
+                            });
+                        }
+                    })
+                    .catch(err => console.error('Agent poll error:', err));
+            }, 2000);
+        }
+
+        // Display a sensor message (works for both local and remote)
+        function displaySensorMessage(msg) {
+            const output = document.getElementById('output');
+            if (!output) return;
+
+            // Remove placeholder
+            const placeholder = output.querySelector('.placeholder');
+            if (placeholder) placeholder.style.display = 'none';
+
+            // Create signal card if SignalCards is available
+            if (typeof SignalCards !== 'undefined' && SignalCards.createFromSensor) {
+                const card = SignalCards.createFromSensor(msg);
+                if (card) {
+                    output.insertBefore(card, output.firstChild);
+                    sensorCount++;
+                    updateStats();
+                }
+            }
         }
 
         function setSensorRunning(running) {

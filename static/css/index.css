@@ -1840,6 +1840,27 @@ header h1 .tagline {
     letter-spacing: 1px;
 }
 
+/* Agent status indicator */
+.agent-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.agent-status-dot.online {
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+}
+
+.agent-status-dot.offline {
+    background: var(--accent-red);
+}
+
+.agent-status-dot.unknown {
+    background: #666;
+}
+
 .header-controls {
     display: flex;
     align-items: center;
