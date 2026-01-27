@@ -808,6 +808,7 @@ class ModeManager:
             elif mode == 'listening_post':
                 info['signal_count'] = len(getattr(self, 'listening_post_activity', []))
                 info['current_freq'] = getattr(self, 'listening_post_current_freq', 0)
+                info['freqs_scanned'] = getattr(self, 'listening_post_freqs_scanned', 0)
             return info
         return {'running': False}
 
@@ -849,6 +850,8 @@ class ModeManager:
             data['data'] = {
                 'activity': getattr(self, 'listening_post_activity', []),
                 'current_freq': getattr(self, 'listening_post_current_freq', 0),
+                'freqs_scanned': getattr(self, 'listening_post_freqs_scanned', 0),
+                'signal_count': len(getattr(self, 'listening_post_activity', [])),
             }
         elif mode == 'pager':
             # Return recent pager messages
@@ -3267,12 +3270,14 @@ class ModeManager:
         squelch = params.get('squelch', 20)
         device = params.get('device', '0')
         gain = params.get('gain', '40')
+        dwell_time = params.get('dwell_time', 1.0)
 
         rtl_fm_path = self._get_tool_path('rtl_fm')
         if not rtl_fm_path:
             return {'status': 'error', 'message': 'rtl_fm not found'}
 
         # Quick SDR availability check - try to run rtl_fm briefly
+        test_proc = None
         try:
             test_proc = subprocess.Popen(
                 [rtl_fm_path, '-f', f'{start_freq}M', '-d', str(device), '-g', str(gain)],
@@ -3283,9 +3288,21 @@ class ModeManager:
             if test_proc.poll() is not None:
                 stderr = test_proc.stderr.read().decode('utf-8', errors='ignore')
                 return {'status': 'error', 'message': f'SDR not available: {stderr[:200]}'}
+            # SDR is available - terminate test process
             test_proc.terminate()
-            test_proc.wait(timeout=1)
+            try:
+                test_proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                test_proc.kill()
+                test_proc.wait(timeout=1)
         except Exception as e:
+            # Ensure test process is killed on any error
+            if test_proc and test_proc.poll() is None:
+                test_proc.kill()
+                try:
+                    test_proc.wait(timeout=1)
+                except Exception:
+                    pass
             return {'status': 'error', 'message': f'SDR check failed: {str(e)}'}
 
         # Initialize state
@@ -3297,7 +3314,7 @@ class ModeManager:
         thread = threading.Thread(
             target=self._listening_post_scanner,
             args=(float(start_freq), float(end_freq), float(step),
-                  modulation, int(squelch), str(device), str(gain)),
+                  modulation, int(squelch), str(device), str(gain), float(dwell_time)),
             daemon=True
         )
         thread.start()
@@ -3310,20 +3327,28 @@ class ModeManager:
             'end_freq': end_freq,
             'step': step,
             'modulation': modulation,
+            'dwell_time': dwell_time,
             'note': 'Provides signal detection events, not full FFT data',
             'gps_enabled': gps_manager.is_running
         }
 
     def _listening_post_scanner(self, start_freq: float, end_freq: float,
                                  step: float, modulation: str, squelch: int,
-                                 device: str, gain: str):
+                                 device: str, gain: str, dwell_time: float = 1.0):
         """Scan frequency range and report signal detections."""
+        import select
+        import os
+        import fcntl
+
         mode = 'listening_post'
         stop_event = self.stop_events.get(mode)
 
         rtl_fm_path = self._get_tool_path('rtl_fm')
         current_freq = start_freq
         scan_direction = 1
+        self.listening_post_freqs_scanned = 0
+
+        logger.info(f"Listening post scanner starting: {start_freq}-{end_freq} MHz, step {step}, dwell {dwell_time}s")
 
         while not (stop_event and stop_event.is_set()):
             self.listening_post_current_freq = current_freq
@@ -3345,31 +3370,45 @@ class ModeManager:
                     stderr=subprocess.PIPE,
                 )
 
+                # Set stdout to non-blocking
+                fd = proc.stdout.fileno()
+                flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+                fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
                 signal_detected = False
                 start_time = time.time()
 
-                while time.time() - start_time < 1.0:
+                while time.time() - start_time < dwell_time:
                     if stop_event and stop_event.is_set():
                         break
-                    data = proc.stdout.read(2205)
-                    if data and len(data) > 10:
-                        # Simple signal detection via audio level
+
+                    # Use select for non-blocking read with timeout
+                    ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+                    if ready:
                         try:
-                            samples = [int.from_bytes(data[i:i+2], 'little', signed=True)
-                                       for i in range(0, min(len(data)-1, 1000), 2)]
-                            if samples:
-                                rms = (sum(s*s for s in samples) / len(samples)) ** 0.5
-                                if rms > 500:
-                                    signal_detected = True
-                                    break
-                        except Exception:
+                            data = proc.stdout.read(2205)
+                            if data and len(data) > 10:
+                                # Simple signal detection via audio level
+                                try:
+                                    samples = [int.from_bytes(data[i:i+2], 'little', signed=True)
+                                               for i in range(0, min(len(data)-1, 1000), 2)]
+                                    if samples:
+                                        rms = (sum(s*s for s in samples) / len(samples)) ** 0.5
+                                        if rms > 500:
+                                            signal_detected = True
+                                except Exception:
+                                    pass
+                        except (IOError, BlockingIOError):
                             pass
 
                 proc.terminate()
                 try:
-                    proc.wait(timeout=1)
+                    proc.wait(timeout=2)
                 except subprocess.TimeoutExpired:
                     proc.kill()
+                    proc.wait(timeout=1)
+
+                self.listening_post_freqs_scanned += 1
 
                 if signal_detected:
                     event = {

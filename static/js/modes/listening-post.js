@@ -153,6 +153,9 @@ function startScanner() {
     const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
     listeningPostCurrentAgent = isAgentMode ? currentAgent : null;
 
+    // Disable listen button for agent mode (audio can't stream over HTTP)
+    updateListenButtonState(isAgentMode);
+
     if (startFreq >= endFreq) {
         if (typeof showNotification === 'function') {
             showNotification('Scanner Error', 'End frequency must be greater than start');
@@ -280,6 +283,9 @@ function stopScanner() {
             isScannerRunning = false;
             isScannerPaused = false;
             scannerSignalActive = false;
+
+            // Re-enable listen button (will be in local mode after stop)
+            updateListenButtonState(false);
 
             // Clear polling timer
             if (listeningPostPollTimer) {
@@ -461,6 +467,9 @@ function startListeningPostPolling() {
     if (listeningPostPollTimer) return;
     lastListeningPostActivityCount = 0;
 
+    // Disable listen button for agent mode (audio can't stream over HTTP)
+    updateListenButtonState(true);
+
     const pollInterval = 2000;
     listeningPostPollTimer = setInterval(async () => {
         if (!isScannerRunning || !listeningPostCurrentAgent) {
@@ -475,7 +484,9 @@ function startListeningPostPolling() {
 
             const data = await response.json();
             const result = data.result || data;
-            const modeData = result.data || {};
+            // Controller returns nested structure: data.data.data for agent mode data
+            const outerData = result.data || {};
+            const modeData = outerData.data || outerData;
 
             // Process activity from polling response
             const activity = modeData.activity || [];
@@ -501,6 +512,19 @@ function startListeningPostPolling() {
                     type: 'freq_change',
                     frequency: modeData.current_freq
                 });
+            }
+
+            // Update freqs scanned counter from agent data
+            if (modeData.freqs_scanned !== undefined) {
+                const freqsEl = document.getElementById('mainFreqsScanned');
+                if (freqsEl) freqsEl.textContent = modeData.freqs_scanned;
+                scannerFreqsScanned = modeData.freqs_scanned;
+            }
+
+            // Update signal count from agent data
+            if (modeData.signal_count !== undefined) {
+                const signalEl = document.getElementById('mainSignalCount');
+                if (signalEl) signalEl.textContent = modeData.signal_count;
             }
         } catch (err) {
             console.error('Listening Post polling error:', err);
@@ -673,6 +697,27 @@ function handleSignalLost(data) {
     const logType = data.type === 'signal_skipped' ? 'info' : 'info';
     const logTitle = data.type === 'signal_skipped' ? 'Signal skipped' : 'Signal lost';
     addScannerLogEntry(logTitle, `${data.frequency.toFixed(3)} MHz`, logType);
+}
+
+/**
+ * Update listen button state based on agent mode
+ * Audio streaming isn't practical over HTTP so disable for remote agents
+ */
+function updateListenButtonState(isAgentMode) {
+    const listenBtn = document.getElementById('radioListenBtn');
+    if (!listenBtn) return;
+
+    if (isAgentMode) {
+        listenBtn.disabled = true;
+        listenBtn.style.opacity = '0.5';
+        listenBtn.style.cursor = 'not-allowed';
+        listenBtn.title = 'Audio listening not available for remote agents';
+    } else {
+        listenBtn.disabled = false;
+        listenBtn.style.opacity = '1';
+        listenBtn.style.cursor = 'pointer';
+        listenBtn.title = 'Listen to current frequency';
+    }
 }
 
 function updateScannerDisplay(mode, color) {
@@ -2384,6 +2429,64 @@ function addSidebarRecentSignal(freq, mod) {
 
 // Load bookmarks on init
 document.addEventListener('DOMContentLoaded', loadFrequencyBookmarks);
+
+/**
+ * Set listening post running state from external source (agent sync).
+ * Called by syncModeUI in agents.js when switching to an agent that already has scan running.
+ */
+function setListeningPostRunning(isRunning, agentId = null) {
+    console.log(`[ListeningPost] setListeningPostRunning: ${isRunning}, agent: ${agentId}`);
+
+    isScannerRunning = isRunning;
+
+    if (isRunning && agentId !== null && agentId !== 'local') {
+        // Agent has scan running - sync UI and start polling
+        listeningPostCurrentAgent = agentId;
+
+        // Update main scan button (radioScanBtn is the actual ID)
+        const radioScanBtn = document.getElementById('radioScanBtn');
+        if (radioScanBtn) {
+            radioScanBtn.innerHTML = '<span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg></span>STOP';
+            radioScanBtn.style.background = 'var(--accent-red)';
+            radioScanBtn.style.borderColor = 'var(--accent-red)';
+        }
+
+        // Update status display
+        updateScannerDisplay('SCANNING', 'var(--accent-green)');
+
+        // Disable listen button (can't stream audio from agent)
+        updateListenButtonState(true);
+
+        // Start polling for agent data
+        startListeningPostPolling();
+    } else if (!isRunning) {
+        // Not running - reset UI
+        listeningPostCurrentAgent = null;
+
+        // Reset scan button
+        const radioScanBtn = document.getElementById('radioScanBtn');
+        if (radioScanBtn) {
+            radioScanBtn.innerHTML = '<span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>SCAN';
+            radioScanBtn.style.background = '';
+            radioScanBtn.style.borderColor = '';
+        }
+
+        // Update status
+        updateScannerDisplay('IDLE', 'var(--text-secondary)');
+
+        // Re-enable listen button
+        updateListenButtonState(false);
+
+        // Clear polling
+        if (listeningPostPollTimer) {
+            clearInterval(listeningPostPollTimer);
+            listeningPostPollTimer = null;
+        }
+    }
+}
+
+// Export for agent sync
+window.setListeningPostRunning = setListeningPostRunning;
 
 // Export functions for HTML onclick handlers
 window.toggleDirectListen = toggleDirectListen;
