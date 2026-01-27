@@ -970,6 +970,43 @@ class ModeManager:
             # Clear DSC data
             if hasattr(self, 'dsc_messages'):
                 self.dsc_messages = []
+        elif mode == 'pager':
+            # Pager uses two processes: multimon-ng (pager) and rtl_fm (pager_rtl)
+            # Kill the rtl_fm process as well
+            if 'pager_rtl' in self.processes:
+                rtl_proc = self.processes['pager_rtl']
+                if rtl_proc and rtl_proc.poll() is None:
+                    rtl_proc.terminate()
+                    try:
+                        rtl_proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        rtl_proc.kill()
+                del self.processes['pager_rtl']
+            # Clear pager data
+            if hasattr(self, 'pager_messages'):
+                self.pager_messages = []
+        elif mode == 'aprs':
+            # APRS uses two processes: decoder (aprs) and rtl_fm (aprs_rtl)
+            if 'aprs_rtl' in self.processes:
+                rtl_proc = self.processes['aprs_rtl']
+                if rtl_proc and rtl_proc.poll() is None:
+                    rtl_proc.terminate()
+                    try:
+                        rtl_proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        rtl_proc.kill()
+                del self.processes['aprs_rtl']
+        elif mode == 'rtlamr':
+            # RTLAMR uses two processes: rtlamr and rtl_tcp (rtlamr_tcp)
+            if 'rtlamr_tcp' in self.processes:
+                tcp_proc = self.processes['rtlamr_tcp']
+                if tcp_proc and tcp_proc.poll() is None:
+                    tcp_proc.terminate()
+                    try:
+                        tcp_proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        tcp_proc.kill()
+                del self.processes['rtlamr_tcp']
 
         return {'status': 'stopped', 'mode': mode}
 

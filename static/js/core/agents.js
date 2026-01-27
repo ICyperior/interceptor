@@ -329,6 +329,8 @@ function selectAgent(agentId) {
         if (typeof refreshTscmDevices === 'function') {
             refreshTscmDevices();
         }
+        // Sync mode UI to local status (reset modes that aren't running locally)
+        syncLocalModeStates();
         // Notify WiFi mode of agent change
         if (typeof WiFiMode !== 'undefined' && WiFiMode.handleAgentChange) {
             WiFiMode.handleAgentChange();
@@ -410,6 +412,45 @@ async function syncAgentModeStates(agentId) {
         }
     } catch (error) {
         console.error('Failed to sync agent mode states:', error);
+    }
+}
+
+/**
+ * Sync UI state with local mode statuses.
+ * Called when switching back to local to ensure UI reflects local state.
+ */
+async function syncLocalModeStates() {
+    console.log('[AgentManager] Syncing local mode states...');
+
+    // Check each mode's local status endpoint
+    const modeChecks = [
+        { mode: 'pager', endpoint: '/status', runningKey: 'running' },
+        { mode: 'sensor', endpoint: '/sensor/status', runningKey: 'running' },
+        { mode: 'adsb', endpoint: '/adsb/status', runningKey: 'running' },
+        { mode: 'tscm', endpoint: '/tscm/status', runningKey: 'running' },
+    ];
+
+    for (const check of modeChecks) {
+        try {
+            const response = await fetch(check.endpoint);
+            if (response.ok) {
+                const data = await response.json();
+                const isRunning = data[check.runningKey] || false;
+                syncModeUI(check.mode, isRunning, null);
+            } else {
+                // Endpoint not available or error - assume not running
+                syncModeUI(check.mode, false, null);
+            }
+        } catch (error) {
+            // Network error or endpoint doesn't exist - assume not running
+            syncModeUI(check.mode, false, null);
+        }
+    }
+
+    // Clear agent mode warnings when switching to local
+    const warning = document.getElementById('agentModeWarning');
+    if (warning) {
+        warning.style.display = 'none';
     }
 }
 

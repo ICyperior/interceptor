@@ -2092,15 +2092,27 @@
 
         // Mode switching
         function switchMode(mode) {
-            // Stop any running scans when switching modes
-            if (isRunning) stopDecoding();
-            if (isSensorRunning) stopSensorDecoding();
-            if (isWifiRunning) stopWifiScan();
-            if (isBtRunning) stopBtScan();
-            if (isAprsRunning) stopAprs();
-            if (isTscmRunning) stopTscmSweep();
+            // Only stop local scans if in local mode (not agent mode)
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            if (!isAgentMode) {
+                if (isRunning) stopDecoding();
+                if (isSensorRunning) stopSensorDecoding();
+                if (isWifiRunning) stopWifiScan();
+                if (isBtRunning) stopBtScan();
+                if (isAprsRunning) stopAprs();
+                if (isTscmRunning) stopTscmSweep();
+            }
 
             currentMode = mode;
+
+            // Sync mode state with current agent/local after switching
+            if (isAgentMode && typeof syncAgentModeStates === 'function') {
+                // Re-sync with agent to update this mode's UI state
+                syncAgentModeStates(currentAgent);
+            } else if (!isAgentMode && typeof syncLocalModeStates === 'function') {
+                // Sync with local status
+                syncLocalModeStates();
+            }
 
             // Close dropdowns and update active state
             closeAllDropdowns();
