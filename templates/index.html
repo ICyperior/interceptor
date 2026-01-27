@@ -2231,7 +2231,7 @@
 
             // Show agent selector for modes that support remote agents
             const agentSection = document.getElementById('agentSection');
-            const agentModes = ['pager', 'sensor', 'rtlamr', 'listening', 'aprs', 'wifi', 'bluetooth', 'aircraft'];
+            const agentModes = ['pager', 'sensor', 'rtlamr', 'listening', 'aprs', 'wifi', 'bluetooth', 'aircraft', 'tscm', 'ais', 'acars', 'dsc'];
             if (agentSection) agentSection.style.display = agentModes.includes(mode) ? 'block' : 'none';
 
             // Show RTL-SDR device section for modes that use it
@@ -8943,6 +8943,15 @@
             const btIndicator = document.getElementById('tscmBtIndicator');
             const rfIndicator = document.getElementById('tscmRfIndicator');
 
+            // Safety check for agent mode which may not return devices
+            if (!devices) {
+                // Just mark all as active if we don't have device info
+                if (wifiIndicator) wifiIndicator.classList.add('active');
+                if (btIndicator) btIndicator.classList.add('active');
+                if (rfIndicator) rfIndicator.classList.add('active');
+                return;
+            }
+
             if (wifiIndicator) {
                 wifiIndicator.classList.toggle('active', devices.wifi);
                 wifiIndicator.classList.toggle('inactive', !devices.wifi);
@@ -8974,6 +8983,10 @@
             if (tscmEventSource) {
                 tscmEventSource.close();
                 tscmEventSource = null;
+            }
+            if (typeof tscmAgentPollInterval !== 'undefined' && tscmAgentPollInterval) {
+                clearInterval(tscmAgentPollInterval);
+                tscmAgentPollInterval = null;
             }
 
             document.getElementById('startTscmBtn').style.display = 'block';
@@ -9518,46 +9531,113 @@
             reportWindow.document.close();
         }
 
+        let tscmAgentPollInterval = null;
+
         function startTscmStream() {
             if (tscmEventSource) {
                 tscmEventSource.close();
+                tscmEventSource = null;
+            }
+            if (tscmAgentPollInterval) {
+                clearInterval(tscmAgentPollInterval);
+                tscmAgentPollInterval = null;
             }
 
-            // Check if using agent - connect to multi-agent stream
+            // Check if using agent
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
-            const streamUrl = isAgentMode
-                ? '/controller/stream/all'
-                : '/tscm/sweep/stream';
 
-            tscmEventSource = new EventSource(streamUrl);
+            if (isAgentMode) {
+                // For agent mode, poll the agent for TSCM data since push may not be enabled
+                console.log('[TSCM] Starting agent polling mode');
+                pollAgentTscmData();  // Initial poll
+                tscmAgentPollInterval = setInterval(pollAgentTscmData, 2000);  // Poll every 2 seconds
+            } else {
+                // For local mode, use SSE stream
+                const streamUrl = '/tscm/sweep/stream';
+                tscmEventSource = new EventSource(streamUrl);
 
-            tscmEventSource.onmessage = function (event) {
-                try {
-                    const data = JSON.parse(event.data);
-
-                    // If using multi-agent stream, filter for TSCM data
-                    if (isAgentMode) {
-                        if (data.scan_type === 'tscm' || data.type?.startsWith('tscm') ||
-                            data.type === 'wifi_device' || data.type === 'bt_device' ||
-                            data.type === 'rf_signal' || data.type === 'threat' ||
-                            data.type === 'sweep_progress') {
-                            // Add agent info to data for display
-                            if (data.agent_name) {
-                                data._agent = data.agent_name;
-                            }
-                            handleTscmEvent(data.payload || data);
-                        }
-                    } else {
+                tscmEventSource.onmessage = function (event) {
+                    try {
+                        const data = JSON.parse(event.data);
                         handleTscmEvent(data);
+                    } catch (e) {
+                        console.error('TSCM SSE parse error:', e);
                     }
-                } catch (e) {
-                    console.error('TSCM SSE parse error:', e);
-                }
-            };
+                };
 
-            tscmEventSource.onerror = function () {
-                console.warn('TSCM SSE connection error');
-            };
+                tscmEventSource.onerror = function () {
+                    console.warn('TSCM SSE connection error');
+                };
+            }
+        }
+
+        async function pollAgentTscmData() {
+            if (!isTscmRunning) {
+                if (tscmAgentPollInterval) {
+                    clearInterval(tscmAgentPollInterval);
+                    tscmAgentPollInterval = null;
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(`/controller/agents/${currentAgent}/tscm/data`);
+                const result = await response.json();
+
+                if (result.status === 'success' && result.data) {
+                    // Agent data is nested: result.data.data (controller wraps agent response)
+                    const data = result.data.data || result.data;
+
+                    // Process WiFi devices
+                    if (data.wifi_devices) {
+                        data.wifi_devices.forEach(device => {
+                            if (!tscmWifiDevices.find(d => d.bssid === device.bssid)) {
+                                handleTscmEvent({ type: 'wifi_device', ...device });
+                            }
+                        });
+                    }
+
+                    // Process Bluetooth devices
+                    if (data.bt_devices) {
+                        data.bt_devices.forEach(device => {
+                            if (!tscmBtDevices.find(d => d.address === device.address)) {
+                                handleTscmEvent({ type: 'bt_device', ...device });
+                            }
+                        });
+                    }
+
+                    // Process anomalies/threats
+                    // Agent now uses same ThreatDetector as local mode, so format matches:
+                    // threat_type, severity, source, identifier, name, signal_strength
+                    if (data.anomalies) {
+                        data.anomalies.forEach(threat => {
+                            handleTscmEvent({
+                                type: 'threat_detected',
+                                ...threat
+                            });
+                        });
+                    }
+
+                    // Process RF signals
+                    if (data.rf_signals) {
+                        data.rf_signals.forEach(signal => {
+                            handleTscmEvent({ type: 'rf_signal', ...signal });
+                        });
+                    }
+
+                    // Update progress (simple time-based estimate)
+                    if (tscmSweepStartTime) {
+                        const elapsed = (Date.now() - tscmSweepStartTime) / 1000;
+                        const sweepType = document.getElementById('tscmSweepType')?.value || 'standard';
+                        const durations = { quick: 120, standard: 300, full: 900 };
+                        const maxDuration = durations[sweepType] || 300;
+                        const progress = Math.min(95, (elapsed / maxDuration) * 100);
+                        updateTscmProgress({ progress: Math.round(progress), phase: 'Scanning' });
+                    }
+                }
+            } catch (e) {
+                console.error('[TSCM] Agent poll error:', e);
+            }
         }
 
         let tscmCorrelations = [];
@@ -9714,7 +9794,7 @@
                 tscmHighInterestDevices.push({
                     id: id,
                     protocol: protocol,
-                    name: device.name || device.ssid || `${device.frequency} MHz`,
+                    name: device.name || device.essid || device.ssid || (device.frequency ? `${device.frequency.toFixed(3)} MHz` : 'Unknown Device'),
                     score: device.score,
                     classification: device.classification,
                     indicators: device.indicators || [],
@@ -9811,7 +9891,7 @@
             document.getElementById('tscmInformationalCard').classList.toggle('active', counts.informational > 0);
             document.getElementById('tscmCorrelationsCard').classList.toggle('active', tscmCorrelations.length > 0);
 
-            // Update threat panel count (now shows high interest items)
+            // Update threat panel count (shows high interest items only)
             document.getElementById('tscmThreatCount').textContent = counts.high_interest;
         }
 
@@ -9873,7 +9953,7 @@
             // Build detailed view
             let html = `
                 <div class="device-detail-header ${getClassificationClass(device.classification)}">
-                    <h3>${getClassificationIcon(device.classification)} ${escapeHtml(device.name || device.ssid || device.mac || device.bssid || device.frequency + ' MHz')}</h3>
+                    <h3>${getClassificationIcon(device.classification)} ${escapeHtml(device.name || device.essid || device.ssid || device.mac || device.bssid || (device.frequency ? device.frequency.toFixed(3) + ' MHz' : 'Unknown'))}</h3>
                     <span class="device-detail-protocol">${protocol.toUpperCase()}</span>
                 </div>
 
@@ -10109,7 +10189,7 @@
                                 <div class="category-device-header">
                                     <span class="category-device-name">
                                         ${getClassificationIcon(d.classification)}
-                                        ${escapeHtml(d.name || d.ssid || d.mac || d.bssid || d.frequency + ' MHz')}
+                                        ${escapeHtml(d.name || d.ssid || d.mac || d.bssid || (d.frequency ? d.frequency.toFixed(3) + ' MHz' : 'Unknown'))}
                                     </span>
                                     <span class="category-device-score">${d.score || 0}</span>
                                 </div>

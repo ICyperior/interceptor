@@ -41,6 +41,25 @@ try:
 except ImportError:
     HAS_DEPENDENCIES_MODULE = False
 
+# Import TSCM modules for consistent analysis (same as local mode)
+try:
+    from utils.tscm.detector import ThreatDetector
+    from utils.tscm.correlation import CorrelationEngine
+    HAS_TSCM_MODULES = True
+except ImportError:
+    HAS_TSCM_MODULES = False
+    ThreatDetector = None
+    CorrelationEngine = None
+
+# Import database functions for baseline support (same as local mode)
+try:
+    from utils.database import get_tscm_baseline, get_active_tscm_baseline
+    HAS_BASELINE_DB = True
+except ImportError:
+    HAS_BASELINE_DB = False
+    get_tscm_baseline = None
+    get_active_tscm_baseline = None
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -390,11 +409,19 @@ class ModeManager:
         capabilities = {
             'modes': {},
             'devices': [],
+            'interfaces': {
+                'wifi_interfaces': [],
+                'bt_adapters': [],
+                'sdr_devices': [],
+            },
             'agent_version': AGENT_VERSION,
             'gps': gps_manager.is_running,
             'gps_position': gps_manager.position,
             'tool_details': {},  # Detailed tool status
         }
+
+        # Detect interfaces using Intercept's TSCM device detection
+        self._detect_interfaces(capabilities)
 
         # Use Intercept's comprehensive dependency checking if available
         if HAS_DEPENDENCIES_MODULE:
@@ -454,12 +481,158 @@ class ModeManager:
         if sdr_factory:
             try:
                 devices = sdr_factory.detect_devices()
-                capabilities['devices'] = [d.to_dict() for d in devices]
+                sdr_list = []
+                for sdr in devices:
+                    sdr_dict = sdr.to_dict()
+                    # Create friendly display name
+                    display_name = sdr.name
+                    if sdr.serial and sdr.serial not in ('N/A', 'Unknown'):
+                        display_name = f'{sdr.name} (SN: {sdr.serial[-8:]})'
+                    sdr_dict['display_name'] = display_name
+                    sdr_list.append(sdr_dict)
+                capabilities['devices'] = sdr_list
+                capabilities['interfaces']['sdr_devices'] = sdr_list
             except Exception as e:
                 logger.warning(f"SDR device detection failed: {e}")
 
         self._capabilities = capabilities
         return capabilities
+
+    def _detect_interfaces(self, capabilities: dict):
+        """Detect WiFi interfaces and Bluetooth adapters."""
+        import platform
+
+        interfaces = capabilities.get('interfaces', {})
+
+        # Detect WiFi interfaces
+        if platform.system() == 'Darwin':  # macOS
+            try:
+                result = subprocess.run(
+                    ['networksetup', '-listallhardwareports'],
+                    capture_output=True, text=True, timeout=5
+                )
+                lines = result.stdout.split('\n')
+                for i, line in enumerate(lines):
+                    if 'Wi-Fi' in line or 'AirPort' in line:
+                        port_name = line.replace('Hardware Port:', '').strip()
+                        for j in range(i + 1, min(i + 3, len(lines))):
+                            if 'Device:' in lines[j]:
+                                device = lines[j].split('Device:')[1].strip()
+                                interfaces['wifi_interfaces'].append({
+                                    'name': device,
+                                    'display_name': f'{port_name} ({device})',
+                                    'type': 'internal',
+                                    'monitor_capable': False
+                                })
+                                break
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
+                pass
+        else:  # Linux
+            try:
+                result = subprocess.run(
+                    ['iw', 'dev'],
+                    capture_output=True, text=True, timeout=5
+                )
+                current_iface = None
+                for line in result.stdout.split('\n'):
+                    line = line.strip()
+                    if line.startswith('Interface'):
+                        current_iface = line.split()[1]
+                    elif current_iface and 'type' in line:
+                        iface_type = line.split()[-1]
+                        interfaces['wifi_interfaces'].append({
+                            'name': current_iface,
+                            'display_name': f'Wireless ({current_iface}) - {iface_type}',
+                            'type': iface_type,
+                            'monitor_capable': True
+                        })
+                        current_iface = None
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
+                # Fall back to iwconfig
+                try:
+                    result = subprocess.run(
+                        ['iwconfig'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    for line in result.stdout.split('\n'):
+                        if 'IEEE 802.11' in line:
+                            iface = line.split()[0]
+                            interfaces['wifi_interfaces'].append({
+                                'name': iface,
+                                'display_name': f'Wireless ({iface})',
+                                'type': 'managed',
+                                'monitor_capable': True
+                            })
+                except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
+                    pass
+
+        # Detect Bluetooth adapters
+        if platform.system() == 'Linux':
+            try:
+                result = subprocess.run(
+                    ['hciconfig'],
+                    capture_output=True, text=True, timeout=5
+                )
+                blocks = re.split(r'(?=^hci\d+:)', result.stdout, flags=re.MULTILINE)
+                for block in blocks:
+                    if block.strip():
+                        first_line = block.split('\n')[0]
+                        match = re.match(r'(hci\d+):', first_line)
+                        if match:
+                            iface_name = match.group(1)
+                            is_up = 'UP RUNNING' in block or '\tUP ' in block
+                            interfaces['bt_adapters'].append({
+                                'name': iface_name,
+                                'display_name': f'Bluetooth Adapter ({iface_name})',
+                                'type': 'hci',
+                                'status': 'up' if is_up else 'down'
+                            })
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
+                # Try bluetoothctl as fallback
+                try:
+                    result = subprocess.run(
+                        ['bluetoothctl', 'list'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    for line in result.stdout.split('\n'):
+                        if 'Controller' in line:
+                            parts = line.split()
+                            if len(parts) >= 3:
+                                addr = parts[1]
+                                name = ' '.join(parts[2:]) if len(parts) > 2 else 'Bluetooth'
+                                interfaces['bt_adapters'].append({
+                                    'name': addr,
+                                    'display_name': f'{name} ({addr[-8:]})',
+                                    'type': 'controller',
+                                    'status': 'available'
+                                })
+                except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
+                    pass
+        elif platform.system() == 'Darwin':
+            try:
+                result = subprocess.run(
+                    ['system_profiler', 'SPBluetoothDataType'],
+                    capture_output=True, text=True, timeout=10
+                )
+                bt_name = 'Built-in Bluetooth'
+                bt_addr = ''
+                for line in result.stdout.split('\n'):
+                    if 'Address:' in line:
+                        bt_addr = line.split('Address:')[1].strip()
+                        break
+                interfaces['bt_adapters'].append({
+                    'name': 'default',
+                    'display_name': f'{bt_name}' + (f' ({bt_addr[-8:]})' if bt_addr else ''),
+                    'type': 'macos',
+                    'status': 'available'
+                })
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
+                interfaces['bt_adapters'].append({
+                    'name': 'default',
+                    'display_name': 'Built-in Bluetooth',
+                    'type': 'macos',
+                    'status': 'available'
+                })
 
     def _detect_capabilities_fallback(self, capabilities: dict):
         """Fallback capability detection when dependencies module unavailable."""
@@ -668,6 +841,9 @@ class ModeManager:
             data['data'] = {
                 'anomalies': getattr(self, 'tscm_anomalies', []),
                 'baseline': getattr(self, 'tscm_baseline', {}),
+                'wifi_devices': list(self.wifi_networks.values()),
+                'bt_devices': list(self.bluetooth_devices.values()),
+                'rf_signals': getattr(self, 'tscm_rf_signals', []),
             }
         elif mode == 'listening_post':
             data['data'] = {
@@ -677,6 +853,13 @@ class ModeManager:
         elif mode == 'pager':
             # Return recent pager messages
             messages = self.data_snapshots.get(mode, [])
+            data['data'] = {
+                'messages': messages[-50:] if len(messages) > 50 else messages,
+                'total_count': len(messages),
+            }
+        elif mode == 'dsc':
+            # Return DSC messages
+            messages = getattr(self, 'dsc_messages', [])
             data['data'] = {
                 'messages': messages[-50:] if len(messages) > 50 else messages,
                 'total_count': len(messages),
@@ -766,6 +949,27 @@ class ModeManager:
             self.wifi_clients.clear()
         elif mode == 'bluetooth':
             self.bluetooth_devices.clear()
+        elif mode == 'tscm':
+            # Clean up TSCM sub-threads
+            for sub_thread_name in ['tscm_wifi', 'tscm_bt', 'tscm_rf']:
+                if sub_thread_name in self.output_threads:
+                    thread = self.output_threads[sub_thread_name]
+                    if thread and thread.is_alive():
+                        thread.join(timeout=2)
+                    del self.output_threads[sub_thread_name]
+            # Clear TSCM data
+            self.tscm_anomalies = []
+            self.tscm_baseline = {}
+            self.tscm_rf_signals = []
+            # Clear reported threat tracking sets
+            if hasattr(self, '_tscm_reported_wifi'):
+                self._tscm_reported_wifi.clear()
+            if hasattr(self, '_tscm_reported_bt'):
+                self._tscm_reported_bt.clear()
+        elif mode == 'dsc':
+            # Clear DSC data
+            if hasattr(self, 'dsc_messages'):
+                self.dsc_messages = []
 
         return {'status': 'stopped', 'mode': mode}
 
@@ -1136,7 +1340,7 @@ class ModeManager:
     # -------------------------------------------------------------------------
 
     def _start_wifi(self, params: dict) -> dict:
-        """Start WiFi scanning using Intercept's existing infrastructure."""
+        """Start WiFi scanning using Intercept's UnifiedWiFiScanner."""
         interface = params.get('interface')
         channel = params.get('channel')
         band = params.get('band', 'abg')
@@ -1146,22 +1350,101 @@ class ModeManager:
         if scan_type == 'quick':
             return self._wifi_quick_scan(interface)
 
-        # Deep scan requires interface
+        # Deep scan - use Intercept's UnifiedWiFiScanner
+        try:
+            from utils.wifi.scanner import get_wifi_scanner
+            scanner = get_wifi_scanner(interface)
+
+            # Store scanner reference
+            self._wifi_scanner_instance = scanner
+
+            # Check capabilities
+            caps = scanner.check_capabilities()
+            if not caps.can_deep_scan:
+                return {'status': 'error', 'message': f'Deep scan not available: {", ".join(caps.issues)}'}
+
+            # Convert band parameter
+            if band == 'abg':
+                scan_band = 'all'
+            elif band == 'bg':
+                scan_band = '2.4'
+            elif band == 'a':
+                scan_band = '5'
+            else:
+                scan_band = 'all'
+
+            # Start deep scan
+            if scanner.start_deep_scan(interface=interface, band=scan_band, channel=channel):
+                # Start thread to sync data to agent's dictionaries
+                thread = threading.Thread(
+                    target=self._wifi_data_sync,
+                    args=(scanner,),
+                    daemon=True
+                )
+                thread.start()
+                self.output_threads['wifi'] = thread
+
+                return {
+                    'status': 'started',
+                    'mode': 'wifi',
+                    'interface': interface,
+                    'gps_enabled': gps_manager.is_running
+                }
+            else:
+                return {'status': 'error', 'message': scanner.get_status().error or 'Failed to start deep scan'}
+
+        except ImportError:
+            # Fallback to direct airodump-ng
+            return self._start_wifi_fallback(interface, channel, band)
+        except Exception as e:
+            logger.error(f"WiFi scanner error: {e}")
+            return {'status': 'error', 'message': str(e)}
+
+    def _wifi_data_sync(self, scanner):
+        """Sync WiFi scanner data to agent's data structures."""
+        mode = 'wifi'
+        stop_event = self.stop_events.get(mode)
+
+        while not (stop_event and stop_event.is_set()):
+            try:
+                gps_position = gps_manager.position
+
+                # Sync access points
+                for ap in scanner.access_points:
+                    net = ap.to_dict()
+                    if gps_position:
+                        net['agent_gps'] = gps_position
+                    self.wifi_networks[ap.bssid.upper()] = net
+
+                # Sync clients
+                for client in scanner.clients:
+                    client_data = client.to_dict()
+                    if gps_position:
+                        client_data['agent_gps'] = gps_position
+                    self.wifi_clients[client.mac.upper()] = client_data
+
+                time.sleep(2)
+            except Exception as e:
+                logger.debug(f"WiFi sync error: {e}")
+                time.sleep(2)
+
+        # Stop scanner when done
+        if hasattr(self, '_wifi_scanner_instance') and self._wifi_scanner_instance:
+            self._wifi_scanner_instance.stop_deep_scan()
+
+    def _start_wifi_fallback(self, interface: str | None, channel: int | None, band: str) -> dict:
+        """Fallback WiFi deep scan using airodump-ng directly."""
         if not interface:
             return {'status': 'error', 'message': 'WiFi interface required'}
 
-        # Use Intercept's validation if available
+        # Validate interface
         try:
             from utils.validation import validate_network_interface
             interface = validate_network_interface(interface)
-        except ImportError:
-            # Fallback: basic validation
+        except (ImportError, ValueError) as e:
             if not os.path.exists(f'/sys/class/net/{interface}'):
                 return {'status': 'error', 'message': f'Interface {interface} not found'}
-        except ValueError as e:
-            return {'status': 'error', 'message': str(e)}
 
-        # Clean up old output files
         csv_path = '/tmp/intercept_agent_wifi'
         for f in [f'{csv_path}-01.csv', f'{csv_path}-01.cap', f'{csv_path}-01.gps']:
             try:
@@ -1169,43 +1452,20 @@ class ModeManager:
             except OSError:
                 pass
 
-        # Get airodump-ng path using Intercept's dependency module
         airodump_path = self._get_tool_path('airodump-ng')
         if not airodump_path:
-            return {'status': 'error', 'message': 'airodump-ng not found. Install aircrack-ng suite.'}
+            return {'status': 'error', 'message': 'airodump-ng not found'}
 
-        # Determine output formats - include gps if gpsd is running
-        output_formats = 'csv'
-        if gps_manager.is_running:
-            output_formats = 'csv,gps'  # GPS file for accurate coordinates
-
-        cmd = [
-            airodump_path,
-            '-w', csv_path,
-            '--output-format', output_formats,
-            '--band', band,
-        ]
-
-        # Add GPS support if gpsd is running
-        # This writes GPS coordinates to a separate .gps file
+        output_formats = 'csv,gps' if gps_manager.is_running else 'csv'
+        cmd = [airodump_path, '-w', csv_path, '--output-format', output_formats, '--band', band]
         if gps_manager.is_running:
             cmd.append('--gpsd')
-            logger.info("GPS enabled for airodump-ng captures (gps file output)")
-
         if channel:
             cmd.extend(['-c', str(channel)])
-
-        # Interface must be last argument
         cmd.append(interface)
 
-        logger.info(f"Starting airodump-ng: {' '.join(cmd)}")
-
         try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.processes['wifi'] = proc
 
             time.sleep(0.5)
@@ -1213,24 +1473,11 @@ class ModeManager:
                 stderr = proc.stderr.read().decode('utf-8', errors='ignore')
                 return {'status': 'error', 'message': f'airodump-ng failed: {stderr[:200]}'}
 
-            # Start CSV parser thread
-            thread = threading.Thread(
-                target=self._wifi_csv_reader,
-                args=(csv_path,),
-                daemon=True
-            )
+            thread = threading.Thread(target=self._wifi_csv_reader, args=(csv_path,), daemon=True)
             thread.start()
             self.output_threads['wifi'] = thread
 
-            return {
-                'status': 'started',
-                'mode': 'wifi',
-                'interface': interface,
-                'gps_enabled': gps_manager.is_running
-            }
-
-        except FileNotFoundError:
-            return {'status': 'error', 'message': 'airodump-ng not found'}
+            return {'status': 'started', 'mode': 'wifi', 'interface': interface, 'gps_enabled': gps_manager.is_running}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
@@ -1514,16 +1761,96 @@ class ModeManager:
     # -------------------------------------------------------------------------
 
     def _start_bluetooth(self, params: dict) -> dict:
-        """Start Bluetooth scanning."""
+        """Start Bluetooth scanning using Intercept's BluetoothScanner."""
         adapter = params.get('adapter', 'hci0')
+        mode_param = params.get('mode', 'auto')
+        duration = params.get('duration')
 
-        # Check for bluetoothctl
+        try:
+            # Use Intercept's BluetoothScanner
+            from utils.bluetooth.scanner import BluetoothScanner
+            scanner = BluetoothScanner(adapter_id=adapter)
+
+            # Store scanner reference
+            self._bluetooth_scanner_instance = scanner
+
+            # Set callback for device updates
+            def on_device_updated(device):
+                # Convert to agent's format and store
+                self.bluetooth_devices[device.address.upper()] = {
+                    'mac': device.address.upper(),
+                    'name': device.name,
+                    'rssi': device.rssi_current,
+                    'protocol': device.protocol,
+                    'last_seen': device.last_seen.isoformat() if device.last_seen else None,
+                    'first_seen': device.first_seen.isoformat() if device.first_seen else None,
+                    'agent_gps': gps_manager.position
+                }
+
+            scanner.set_on_device_updated(on_device_updated)
+
+            # Start scanning
+            if scanner.start_scan(mode=mode_param, duration_s=duration):
+                # Start thread to sync device data
+                thread = threading.Thread(
+                    target=self._bluetooth_data_sync,
+                    args=(scanner,),
+                    daemon=True
+                )
+                thread.start()
+                self.output_threads['bluetooth'] = thread
+
+                return {
+                    'status': 'started',
+                    'mode': 'bluetooth',
+                    'adapter': adapter,
+                    'backend': scanner.get_status().backend,
+                    'gps_enabled': gps_manager.is_running
+                }
+            else:
+                return {'status': 'error', 'message': scanner.get_status().error or 'Failed to start scan'}
+
+        except ImportError:
+            # Fallback to direct bluetoothctl if scanner not available
+            return self._start_bluetooth_fallback(adapter)
+        except Exception as e:
+            logger.error(f"Bluetooth scanner error: {e}")
+            return {'status': 'error', 'message': str(e)}
+
+    def _bluetooth_data_sync(self, scanner):
+        """Sync Bluetooth scanner data to agent's data structures."""
+        mode = 'bluetooth'
+        stop_event = self.stop_events.get(mode)
+
+        while not (stop_event and stop_event.is_set()):
+            try:
+                # Get devices from scanner
+                devices = scanner.get_devices()
+                for device in devices:
+                    self.bluetooth_devices[device.address.upper()] = {
+                        'mac': device.address.upper(),
+                        'name': device.name,
+                        'rssi': device.rssi_current,
+                        'protocol': device.protocol,
+                        'last_seen': device.last_seen.isoformat() if device.last_seen else None,
+                        'agent_gps': gps_manager.position
+                    }
+                time.sleep(1)
+            except Exception as e:
+                logger.debug(f"Bluetooth sync error: {e}")
+                time.sleep(1)
+
+        # Stop scanner when done
+        if hasattr(self, '_bluetooth_scanner_instance') and self._bluetooth_scanner_instance:
+            self._bluetooth_scanner_instance.stop_scan()
+
+    def _start_bluetooth_fallback(self, adapter: str) -> dict:
+        """Fallback Bluetooth scanning using bluetoothctl directly."""
         if not shutil.which('bluetoothctl'):
             return {'status': 'error', 'message': 'bluetoothctl not found'}
 
-        # Start scan thread
         thread = threading.Thread(
-            target=self._bluetooth_scanner,
+            target=self._bluetooth_scanner_fallback,
             args=(adapter,),
             daemon=True
         )
@@ -1534,16 +1861,16 @@ class ModeManager:
             'status': 'started',
             'mode': 'bluetooth',
             'adapter': adapter,
+            'backend': 'bluetoothctl',
             'gps_enabled': gps_manager.is_running
         }
 
-    def _bluetooth_scanner(self, adapter: str):
-        """Scan for Bluetooth devices using bluetoothctl."""
+    def _bluetooth_scanner_fallback(self, adapter: str):
+        """Fallback scan using bluetoothctl directly."""
         mode = 'bluetooth'
         stop_event = self.stop_events.get(mode)
 
         try:
-            # Start bluetoothctl scan
             proc = subprocess.Popen(
                 ['bluetoothctl'],
                 stdin=subprocess.PIPE,
@@ -1552,7 +1879,6 @@ class ModeManager:
             )
             self.processes['bluetooth'] = proc
 
-            # Enable scanning
             proc.stdin.write(b'scan on\n')
             proc.stdin.flush()
 
@@ -1562,16 +1888,11 @@ class ModeManager:
                     break
 
                 line = line.decode('utf-8', errors='replace').strip()
-
-                # Parse device discovery lines
-                # Format: [NEW] Device XX:XX:XX:XX:XX:XX DeviceName
-                # Format: [CHG] Device XX:XX:XX:XX:XX:XX RSSI: -XX
                 if 'Device' in line:
                     self._parse_bluetooth_line(line)
 
                 time.sleep(0.1)
 
-            # Stop scanning
             proc.stdin.write(b'scan off\n')
             proc.stdin.write(b'exit\n')
             proc.stdin.flush()
@@ -1753,50 +2074,61 @@ class ModeManager:
             logger.info("Pager reader stopped")
 
     def _parse_pager_message(self, line: str) -> dict | None:
-        """Parse multimon-ng output line for POCSAG/FLEX."""
-        # POCSAG with message
-        match = re.match(
-            r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s+(Alpha|Numeric):\s*(.*)',
-            line
-        )
-        if match:
-            return {
-                'type': 'pager',
-                'protocol': match.group(1),
-                'address': match.group(2),
-                'function': match.group(3),
-                'msg_type': match.group(4),
-                'message': match.group(5).strip() or '[No Message]'
-            }
+        """Parse multimon-ng output line for POCSAG/FLEX using Intercept's parser."""
+        try:
+            # Use Intercept's existing pager parser
+            from routes.pager import parse_multimon_output
+            parsed = parse_multimon_output(line)
+            if parsed:
+                parsed['type'] = 'pager'
+                return parsed
+            return None
+        except ImportError:
+            # Fallback to inline parsing if import fails
+            import re
+            # POCSAG with message
+            match = re.match(
+                r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s+(Alpha|Numeric):\s*(.*)',
+                line
+            )
+            if match:
+                return {
+                    'type': 'pager',
+                    'protocol': match.group(1),
+                    'address': match.group(2),
+                    'function': match.group(3),
+                    'msg_type': match.group(4),
+                    'message': match.group(5).strip() or '[No Message]'
+                }
 
-        # POCSAG address only (tone)
-        match = re.match(
-            r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s*$',
-            line
-        )
-        if match:
-            return {
-                'type': 'pager',
-                'protocol': match.group(1),
-                'address': match.group(2),
-                'function': match.group(3),
-                'msg_type': 'Tone',
-                'message': '[Tone Only]'
-            }
+            # POCSAG address only (tone)
+            match = re.match(
+                r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s*$',
+                line
+            )
+            if match:
+                return {
+                    'type': 'pager',
+                    'protocol': match.group(1),
+                    'address': match.group(2),
+                    'function': match.group(3),
+                    'msg_type': 'Tone',
+                    'message': '[Tone Only]'
+                }
 
-        # FLEX format
-        match = re.match(r'FLEX[:\|]\s*(.+)', line)
-        if match:
-            return {
-                'type': 'pager',
-                'protocol': 'FLEX',
-                'address': 'Unknown',
-                'function': '',
-                'msg_type': 'Unknown',
-                'message': match.group(1).strip()
-            }
+            # FLEX format
+            match = re.match(r'FLEX[:\|]\s*(.+)', line)
+            if match:
+                return {
+                    'type': 'pager',
+                    'protocol': 'FLEX',
+                    'address': 'Unknown',
+                    'function': '',
+                    'msg_type': 'Unknown',
+                    'message': match.group(1).strip()
+                }
 
-        return None
+            return None
 
     # -------------------------------------------------------------------------
     # AIS MODE (AIS-catcher)
@@ -2387,7 +2719,7 @@ class ModeManager:
     # -------------------------------------------------------------------------
 
     def _start_dsc(self, params: dict) -> dict:
-        """Start DSC (VHF Channel 70) decoding."""
+        """Start DSC (VHF Channel 70) decoding using Intercept's DSCDecoder."""
         device = params.get('device', '0')
         gain = params.get('gain', '40')
         ppm = params.get('ppm', '0')
@@ -2397,12 +2729,9 @@ class ModeManager:
         if not rtl_fm_path:
             return {'status': 'error', 'message': 'rtl_fm not found'}
 
-        # Try to find dsc-decoder
-        dsc_decoder = None
-        for path in ['/usr/local/bin/dsc-decoder', '/usr/bin/dsc-decoder', './bin/dsc-decoder']:
-            if os.path.isfile(path) and os.access(path, os.X_OK):
-                dsc_decoder = path
-                break
+        # Initialize DSC messages list
+        if not hasattr(self, 'dsc_messages'):
+            self.dsc_messages = []
 
         # Build rtl_fm command for DSC (48kHz sample rate)
         rtl_fm_cmd = [
@@ -2418,149 +2747,339 @@ class ModeManager:
         logger.info(f"Starting DSC: {' '.join(rtl_fm_cmd)}")
 
         try:
-            if dsc_decoder:
-                rtl_fm_proc = subprocess.Popen(
-                    rtl_fm_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                decoder_proc = subprocess.Popen(
-                    [dsc_decoder],
-                    stdin=rtl_fm_proc.stdout,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                rtl_fm_proc.stdout.close()
-                self.processes['dsc'] = decoder_proc
-                self.processes['dsc_rtl'] = rtl_fm_proc
+            rtl_fm_proc = subprocess.Popen(
+                rtl_fm_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.processes['dsc'] = rtl_fm_proc
 
-                # Wait briefly to verify processes started successfully
-                time.sleep(0.5)
-                if rtl_fm_proc.poll() is not None:
-                    stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
-                    decoder_proc.terminate()
-                    del self.processes['dsc']
-                    del self.processes['dsc_rtl']
-                    return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
-            else:
-                rtl_fm_proc = subprocess.Popen(
-                    rtl_fm_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                self.processes['dsc'] = rtl_fm_proc
-                logger.warning("No dsc-decoder found - DSC decoding limited")
+            # Wait briefly to verify process started successfully
+            time.sleep(0.5)
+            if rtl_fm_proc.poll() is not None:
+                stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
+                del self.processes['dsc']
+                return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
 
-                # Wait briefly to verify process started successfully
-                time.sleep(0.5)
-                if rtl_fm_proc.poll() is not None:
-                    stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
-                    del self.processes['dsc']
-                    return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+            # Start output reader thread using Intercept's DSCDecoder
+            thread = threading.Thread(
+                target=self._dsc_output_reader,
+                args=(rtl_fm_proc,),
+                daemon=True
+            )
+            thread.start()
+            self.output_threads['dsc'] = thread
 
             return {
                 'status': 'started',
                 'mode': 'dsc',
                 'frequency': freq,
                 'channel': 70,
-                'has_decoder': dsc_decoder is not None,
                 'gps_enabled': gps_manager.is_running
             }
 
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
+    def _dsc_output_reader(self, proc: subprocess.Popen):
+        """Read rtl_fm audio and decode DSC using Intercept's DSCDecoder."""
+        mode = 'dsc'
+        stop_event = self.stop_events.get(mode)
+
+        try:
+            # Use Intercept's DSC decoder
+            from utils.dsc.decoder import DSCDecoder
+            decoder = DSCDecoder(sample_rate=48000)
+            logger.info("Using Intercept's DSCDecoder")
+
+            chunk_size = 9600  # 0.1 seconds at 48kHz, 16-bit
+
+            while not (stop_event and stop_event.is_set()):
+                audio_data = proc.stdout.read(chunk_size)
+                if not audio_data:
+                    break
+
+                for message in decoder.process_audio(audio_data):
+                    message['received_at'] = datetime.now(timezone.utc).isoformat()
+
+                    gps_pos = gps_manager.position
+                    if gps_pos:
+                        message['agent_gps'] = gps_pos
+
+                    # Store message
+                    self.dsc_messages.append(message)
+                    if len(self.dsc_messages) > 100:
+                        self.dsc_messages = self.dsc_messages[-100:]
+
+                    self.data_snapshots[mode] = self.dsc_messages.copy()
+                    logger.info(f"DSC message: {message.get('category')} from {message.get('source_mmsi')}")
+
+        except ImportError:
+            logger.warning("DSCDecoder not available (missing scipy/numpy)")
+        except Exception as e:
+            logger.error(f"DSC reader error: {e}")
+        finally:
+            proc.wait()
+            logger.info("DSC reader stopped")
+
     # -------------------------------------------------------------------------
     # TSCM MODE (Technical Surveillance Countermeasures)
     # -------------------------------------------------------------------------
 
     def _start_tscm(self, params: dict) -> dict:
-        """Start TSCM scanning - combines WiFi and Bluetooth analysis."""
+        """Start TSCM scanning - uses existing Intercept scanning functions."""
         # Initialize state
         if not hasattr(self, 'tscm_baseline'):
             self.tscm_baseline = {}
         if not hasattr(self, 'tscm_anomalies'):
             self.tscm_anomalies = []
+        if not hasattr(self, 'tscm_rf_signals'):
+            self.tscm_rf_signals = []
         self.tscm_anomalies.clear()
 
+        # Get params for what to scan
+        scan_wifi = params.get('wifi', True)
+        scan_bt = params.get('bluetooth', True)
+        scan_rf = params.get('rf', True)
+        wifi_interface = params.get('wifi_interface') or params.get('interface')
+        bt_adapter = params.get('bt_interface') or params.get('adapter', 'hci0')
+        sdr_device = params.get('sdr_device', params.get('device', 0))
+
+        # Get baseline_id for comparison (same as local mode)
+        baseline_id = params.get('baseline_id')
+
+        started_scans = []
+
+        # Start the combined TSCM scanner thread using existing Intercept functions
         thread = threading.Thread(
-            target=self._tscm_analyzer,
+            target=self._tscm_scanner_thread,
+            args=(scan_wifi, scan_bt, scan_rf, wifi_interface, bt_adapter, sdr_device, baseline_id),
             daemon=True
         )
         thread.start()
         self.output_threads['tscm'] = thread
 
+        if scan_wifi:
+            started_scans.append('wifi')
+        if scan_bt:
+            started_scans.append('bluetooth')
+        if scan_rf:
+            started_scans.append('rf')
+
         return {
             'status': 'started',
             'mode': 'tscm',
-            'note': 'TSCM analyzes WiFi/BT data for anomalies - no SDR required',
-            'gps_enabled': gps_manager.is_running
+            'note': f'TSCM scanning {", ".join(started_scans) if started_scans else "using existing data"}',
+            'gps_enabled': gps_manager.is_running,
+            'scanning': started_scans
         }
 
-    def _tscm_analyzer(self):
-        """Background TSCM analysis - looks for anomalies in WiFi/BT."""
+    def _tscm_scanner_thread(self, scan_wifi: bool, scan_bt: bool, scan_rf: bool,
+                              wifi_interface: str | None, bt_adapter: str, sdr_device: int,
+                              baseline_id: int | None = None):
+        """Combined TSCM scanner using existing Intercept functions.
+
+        NOTE: This matches local mode behavior exactly:
+        - If baseline_id provided, loads baseline and detects 'new_device' threats
+        - If no baseline, only 'anomaly' and 'hidden_camera' threats are detected
+        - Each new device seen during sweep is analyzed once
+        """
+        logger.info("TSCM thread starting...")
         mode = 'tscm'
         stop_event = self.stop_events.get(mode)
-        baseline_built = False
+
+        # Import existing Intercept TSCM functions
+        from routes.tscm import _scan_wifi_networks, _scan_bluetooth_devices, _scan_rf_signals
+        logger.info("TSCM imports successful")
+
+        # Load baseline if specified (same as local mode)
+        baseline = None
+        if baseline_id and HAS_BASELINE_DB and get_tscm_baseline:
+            baseline = get_tscm_baseline(baseline_id)
+            if baseline:
+                logger.info(f"TSCM loaded baseline '{baseline.get('name')}' (ID: {baseline_id})")
+            else:
+                logger.warning(f"TSCM baseline ID {baseline_id} not found")
+
+        # Initialize detector and correlation engine (same as local mode)
+        if HAS_TSCM_MODULES and ThreatDetector:
+            self._tscm_detector = ThreatDetector(baseline=baseline)
+            self._tscm_correlation = CorrelationEngine() if CorrelationEngine else None
+            if baseline:
+                logger.info("TSCM detector initialized with baseline - will detect 'new_device' threats")
+            else:
+                logger.info("TSCM detector initialized without baseline - only 'anomaly'/'hidden_camera' threats")
+        else:
+            self._tscm_detector = None
+            self._tscm_correlation = None
+
+        # Track devices seen during this sweep (like local mode's all_wifi/all_bt dicts)
+        seen_wifi = {}
+        seen_bt = {}
+
+        last_rf_scan = 0
+        rf_scan_interval = 30
 
         while not (stop_event and stop_event.is_set()):
             try:
-                current_wifi = dict(self.wifi_networks)
-                current_bt = dict(self.bluetooth_devices)
+                current_time = time.time()
 
-                if not baseline_built and (current_wifi or current_bt):
-                    self.tscm_baseline = {
-                        'wifi': {k: {'rssi': v.get('signal'), 'essid': v.get('essid')}
-                                 for k, v in current_wifi.items()},
-                        'bluetooth': {k: {'rssi': v.get('rssi'), 'name': v.get('name')}
-                                      for k, v in current_bt.items()},
-                        'built_at': datetime.now(timezone.utc).isoformat()
-                    }
-                    baseline_built = True
-                    logger.info(f"TSCM baseline: {len(current_wifi)} WiFi, {len(current_bt)} BT")
+                # WiFi scan using Intercept's function (same as local mode)
+                if scan_wifi:
+                    try:
+                        wifi_networks = _scan_wifi_networks(wifi_interface or '')
+                        for net in wifi_networks:
+                            bssid = net.get('bssid', '').upper()
+                            if bssid and bssid not in seen_wifi:
+                                # First time seeing this device during sweep
+                                seen_wifi[bssid] = net
 
-                elif baseline_built:
-                    anomalies = []
+                                # Enrich with classification/scoring
+                                enriched = dict(net)
+                                # Ensure power/signal is numeric (scanner may return string)
+                                if 'power' in enriched:
+                                    try:
+                                        enriched['power'] = int(enriched['power'])
+                                    except (ValueError, TypeError):
+                                        enriched['power'] = -100
+                                if 'signal' in enriched and enriched['signal'] is not None:
+                                    try:
+                                        enriched['signal'] = int(enriched['signal'])
+                                    except (ValueError, TypeError):
+                                        enriched['signal'] = -100
 
-                    for bssid, network in current_wifi.items():
-                        if bssid not in self.tscm_baseline.get('wifi', {}):
-                            anomalies.append({
-                                'type': 'new_wifi',
-                                'severity': 'medium',
-                                'bssid': bssid,
-                                'essid': network.get('essid'),
-                                'rssi': network.get('signal'),
-                                'detected_at': datetime.now(timezone.utc).isoformat()
-                            })
+                                # Analyze for threats (same as local mode)
+                                if self._tscm_detector:
+                                    threat = self._tscm_detector.analyze_wifi_device(enriched)
+                                    if threat:
+                                        self.tscm_anomalies.append(threat)
+                                        if len(self.tscm_anomalies) > 100:
+                                            self.tscm_anomalies = self.tscm_anomalies[-100:]
+                                        print(f"[TSCM] WiFi threat: {threat.get('threat_type')} - {threat.get('name')}", flush=True)
 
-                    for mac, device in current_bt.items():
-                        if mac not in self.tscm_baseline.get('bluetooth', {}):
-                            anomalies.append({
-                                'type': 'new_bluetooth',
-                                'severity': 'medium',
-                                'mac': mac,
-                                'name': device.get('name'),
-                                'rssi': device.get('rssi'),
-                                'detected_at': datetime.now(timezone.utc).isoformat()
-                            })
+                                    classification = self._tscm_detector.classify_wifi_device(enriched)
+                                    enriched['is_new'] = not classification.get('in_baseline', False)
+                                    enriched['reasons'] = classification.get('reasons', [])
 
-                    if anomalies:
-                        self.tscm_anomalies.extend(anomalies)
-                        if len(self.tscm_anomalies) > 100:
-                            self.tscm_anomalies = self.tscm_anomalies[-100:]
+                                if self._tscm_correlation:
+                                    profile = self._tscm_correlation.analyze_wifi_device(enriched)
+                                    enriched['classification'] = profile.risk_level.value
+                                    enriched['score'] = profile.total_score
+                                    enriched['indicators'] = [
+                                        {'type': i.type.value, 'desc': i.description}
+                                        for i in profile.indicators
+                                    ]
+                                    enriched['recommended_action'] = profile.recommended_action
 
-                        for anomaly in anomalies:
-                            logger.info(f"TSCM anomaly: {anomaly['type']}")
+                                self.wifi_networks[bssid] = enriched
+                    except Exception as e:
+                        logger.debug(f"WiFi scan error: {e}")
 
-                        self.data_snapshots[mode] = self.tscm_anomalies.copy()
+                # Bluetooth scan using Intercept's function (same as local mode)
+                if scan_bt:
+                    try:
+                        bt_devices = _scan_bluetooth_devices(bt_adapter, duration=5)
+                        for dev in bt_devices:
+                            mac = dev.get('mac', '').upper()
+                            if mac and mac not in seen_bt:
+                                # First time seeing this device during sweep
+                                seen_bt[mac] = dev
 
+                                # Enrich with classification/scoring
+                                enriched = dict(dev)
+                                # Ensure rssi/signal is numeric (scanner may return string)
+                                if 'rssi' in enriched and enriched['rssi'] is not None:
+                                    try:
+                                        enriched['rssi'] = int(enriched['rssi'])
+                                    except (ValueError, TypeError):
+                                        enriched['rssi'] = -100
+
+                                # Analyze for threats (same as local mode)
+                                if self._tscm_detector:
+                                    threat = self._tscm_detector.analyze_bt_device(enriched)
+                                    if threat:
+                                        self.tscm_anomalies.append(threat)
+                                        if len(self.tscm_anomalies) > 100:
+                                            self.tscm_anomalies = self.tscm_anomalies[-100:]
+                                        logger.info(f"TSCM BT threat: {threat.get('threat_type')} - {threat.get('name')}")
+
+                                    classification = self._tscm_detector.classify_bt_device(enriched)
+                                    enriched['is_new'] = not classification.get('in_baseline', False)
+                                    enriched['reasons'] = classification.get('reasons', [])
+
+                                if self._tscm_correlation:
+                                    profile = self._tscm_correlation.analyze_bluetooth_device(enriched)
+                                    enriched['classification'] = profile.risk_level.value
+                                    enriched['score'] = profile.total_score
+                                    enriched['indicators'] = [
+                                        {'type': i.type.value, 'desc': i.description}
+                                        for i in profile.indicators
+                                    ]
+                                    enriched['recommended_action'] = profile.recommended_action
+
+                                self.bluetooth_devices[mac] = enriched
+                    except Exception as e:
+                        logger.debug(f"Bluetooth scan error: {e}")
+
+                # RF scan using Intercept's function (less frequently)
+                if scan_rf and (current_time - last_rf_scan) >= rf_scan_interval:
+                    try:
+                        # Pass a stop check that uses our stop_event (not the module's _sweep_running)
+                        agent_stop_check = lambda: stop_event and stop_event.is_set()
+                        rf_signals = _scan_rf_signals(sdr_device, stop_check=agent_stop_check)
+
+                        # Analyze each RF signal like local mode does
+                        analyzed_signals = []
+                        rf_threats = []
+                        for signal in rf_signals:
+                            analyzed = dict(signal)
+                            is_threat = False
+
+                            # Use detector to analyze for threats (same as local mode)
+                            if hasattr(self, '_tscm_detector') and self._tscm_detector:
+                                threat = self._tscm_detector.analyze_rf_signal(signal)
+                                if threat:
+                                    rf_threats.append(threat)
+                                    is_threat = True
+                                classification = self._tscm_detector.classify_rf_signal(signal)
+                                analyzed['is_new'] = not classification.get('in_baseline', False)
+                                analyzed['reasons'] = classification.get('reasons', [])
+
+                            # Use correlation engine for scoring (same as local mode)
+                            if hasattr(self, '_tscm_correlation') and self._tscm_correlation:
+                                profile = self._tscm_correlation.analyze_rf_signal(signal)
+                                analyzed['classification'] = profile.risk_level.value
+                                analyzed['score'] = profile.total_score
+                                analyzed['indicators'] = [
+                                    {'type': i.type.value, 'desc': i.description}
+                                    for i in profile.indicators
+                                ]
+
+                            analyzed['is_threat'] = is_threat
+                            analyzed_signals.append(analyzed)
+
+                        # Add RF threats to anomalies list
+                        if rf_threats:
+                            self.tscm_anomalies.extend(rf_threats)
+                            if len(self.tscm_anomalies) > 100:
+                                self.tscm_anomalies = self.tscm_anomalies[-100:]
+                            for threat in rf_threats:
+                                logger.info(f"TSCM RF threat: {threat.get('threat_type')} - {threat.get('identifier')}")
+
+                        self.tscm_rf_signals = analyzed_signals
+                        logger.info(f"RF scan found {len(analyzed_signals)} signals")
+                        last_rf_scan = current_time
+                    except Exception as e:
+                        logger.debug(f"RF scan error: {e}")
+
+                # Sleep between scan cycles (same interval as local mode)
                 time.sleep(5)
 
             except Exception as e:
-                logger.error(f"TSCM analyzer error: {e}")
+                logger.error(f"TSCM scanner error: {e}")
                 time.sleep(5)
 
-        logger.info("TSCM analyzer stopped")
+        logger.info("TSCM scanner stopped")
 
     # -------------------------------------------------------------------------
     # SATELLITE MODE (TLE-based pass prediction)

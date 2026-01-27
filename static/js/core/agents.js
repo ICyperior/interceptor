@@ -106,7 +106,7 @@ function updateAgentHealthUI() {
     const selector = document.getElementById('agentSelect');
     if (!selector) return;
 
-    // Update each option in selector
+    // Update each option in selector with status and latency
     agents.forEach(agent => {
         const option = selector.querySelector(`option[value="${agent.id}"]`);
         if (option) {

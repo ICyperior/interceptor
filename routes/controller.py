@@ -153,10 +153,16 @@ def get_agent_detail(agent_id: int):
             client = create_client_from_agent(agent)
             metadata = client.refresh_metadata()
             if metadata['healthy']:
+                caps = metadata['capabilities'] or {}
+                # Store full interfaces structure (wifi, bt, sdr)
+                agent_interfaces = caps.get('interfaces', {})
+                # Fallback: also include top-level devices for backwards compatibility
+                if not agent_interfaces.get('sdr_devices') and caps.get('devices'):
+                    agent_interfaces['sdr_devices'] = caps.get('devices', [])
                 update_agent(
                     agent_id,
-                    capabilities=metadata['capabilities'].get('modes') if metadata['capabilities'] else None,
-                    interfaces={'devices': metadata['capabilities'].get('devices', [])} if metadata['capabilities'] else None,
+                    capabilities=caps.get('modes'),
+                    interfaces=agent_interfaces,
                     update_last_seen=True
                 )
                 agent = get_agent(agent_id)
@@ -215,10 +221,15 @@ def refresh_agent_metadata(agent_id: int):
 
         if metadata['healthy']:
             caps = metadata['capabilities'] or {}
+            # Store full interfaces structure (wifi, bt, sdr)
+            agent_interfaces = caps.get('interfaces', {})
+            # Fallback: also include top-level devices for backwards compatibility
+            if not agent_interfaces.get('sdr_devices') and caps.get('devices'):
+                agent_interfaces['sdr_devices'] = caps.get('devices', [])
             update_agent(
                 agent_id,
                 capabilities=caps.get('modes'),
-                interfaces={'devices': caps.get('devices', [])},
+                interfaces=agent_interfaces,
                 update_last_seen=True
             )
             agent = get_agent(agent_id)
