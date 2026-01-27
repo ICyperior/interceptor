@@ -3763,6 +3763,30 @@ sudo make install</code>
                 });
         }
 
+        // Sync ACARS UI state (called by syncModeUI in agents.js)
+        function setAcarsRunning(running, agentId = null) {
+            isAcarsRunning = running;
+            const btn = document.getElementById('acarsToggleBtn');
+            const indicator = document.getElementById('acarsPanelIndicator');
+
+            if (running) {
+                acarsCurrentAgent = agentId;
+                btn.textContent = '■ STOP ACARS';
+                btn.classList.add('active');
+                if (indicator) indicator.classList.add('active');
+                // Start stream if not already running
+                if (!acarsEventSource && !acarsPollTimer) {
+                    startAcarsStream(agentId !== null);
+                }
+            } else {
+                btn.textContent = '▶ START ACARS';
+                btn.classList.remove('active');
+                if (indicator) indicator.classList.remove('active');
+            }
+        }
+        // Expose to global scope for syncModeUI
+        window.setAcarsRunning = setAcarsRunning;
+
         function startAcarsStream(isAgentMode = false) {
             if (acarsEventSource) acarsEventSource.close();
 

@@ -678,7 +678,8 @@ function syncModeUI(mode, isRunning, agentId = null) {
         'pager': 'setPagerRunning',
         'adsb': 'setADSBRunning',
         'wifi': 'setWiFiRunning',
-        'bluetooth': 'setBluetoothRunning'
+        'bluetooth': 'setBluetoothRunning',
+        'acars': 'setAcarsRunning'
     };
 
     const setterName = uiSetters[mode];

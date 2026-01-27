@@ -2357,6 +2357,37 @@ class ModeManager:
     # ACARS MODE (acarsdec)
     # -------------------------------------------------------------------------
 
+    def _detect_acarsdec_fork(self, acarsdec_path: str) -> str:
+        """Detect which acarsdec fork is installed.
+
+        Returns:
+            '--output' for f00b4r0 fork (DragonOS)
+            '-j' for TLeconte v4+
+            '-o' for TLeconte v3.x
+        """
+        try:
+            result = subprocess.run(
+                [acarsdec_path],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            output = result.stdout + result.stderr
+
+            # f00b4r0 fork uses --output instead of -j/-o
+            if '--output' in output:
+                return '--output'
+
+            # Parse version for TLeconte
+            import re
+            version_match = re.search(r'acarsdec[^\d]*v?(\d+)\.(\d+)', output, re.IGNORECASE)
+            if version_match:
+                major = int(version_match.group(1))
+                return '-j' if major >= 4 else '-o'
+        except Exception:
+            pass
+        return '-j'  # Default to TLeconte v4+
+
     def _start_acars(self, params: dict) -> dict:
         """Start ACARS decoding using acarsdec."""
         gain = params.get('gain', '40')
@@ -2367,10 +2398,24 @@ class ModeManager:
         if not acarsdec_path:
             return {'status': 'error', 'message': 'acarsdec not found. Install acarsdec.'}
 
-        # Build command with JSON output
-        cmd = [acarsdec_path, '-j', '-r', str(device), '-g', str(gain)]
-        for freq in frequencies:
-            cmd.append(freq)
+        # Detect fork and build appropriate command
+        fork_type = self._detect_acarsdec_fork(acarsdec_path)
+        cmd = [acarsdec_path]
+
+        if fork_type == '--output':
+            # f00b4r0 fork (DragonOS): different syntax
+            cmd.extend(['--output', 'json:file'])  # stdout
+            cmd.extend(['-g', str(gain)])
+            cmd.extend(['-m', '256'])  # 3.2 MS/s for wider bandwidth
+            cmd.extend(['--rtlsdr', str(device)])
+        elif fork_type == '-j':
+            # TLeconte v4+
+            cmd.extend(['-j', '-g', str(gain), '-r', str(device)])
+        else:
+            # TLeconte v3.x
+            cmd.extend(['-o', '4', '-g', str(gain), '-r', str(device)])
+
+        cmd.extend(frequencies)
 
         logger.info(f"Starting acarsdec: {' '.join(cmd)}")
 
