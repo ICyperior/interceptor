@@ -339,6 +339,10 @@ function selectAgent(agentId) {
         if (typeof BluetoothMode !== 'undefined' && BluetoothMode.handleAgentChange) {
             BluetoothMode.handleAgentChange();
         }
+        // Re-enable listen button for local mode
+        if (typeof updateListenButtonState === 'function') {
+            updateListenButtonState(false);
+        }
         console.log('Agent selected: Local');
     } else {
         // Fetch devices from remote agent
@@ -356,6 +360,10 @@ function selectAgent(agentId) {
         // Notify Bluetooth mode of agent change
         if (typeof BluetoothMode !== 'undefined' && BluetoothMode.handleAgentChange) {
             BluetoothMode.handleAgentChange();
+        }
+        // Disable listen button for agent mode (audio can't stream over HTTP)
+        if (typeof updateListenButtonState === 'function') {
+            updateListenButtonState(true);
         }
         const agentName = agents.find(a => a.id == agentId)?.name || 'Unknown';
         console.log(`Agent selected: ${agentName}`);

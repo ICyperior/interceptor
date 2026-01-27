@@ -2487,6 +2487,7 @@ function setListeningPostRunning(isRunning, agentId = null) {
 
 // Export for agent sync
 window.setListeningPostRunning = setListeningPostRunning;
+window.updateListenButtonState = updateListenButtonState;
 
 // Export functions for HTML onclick handlers
 window.toggleDirectListen = toggleDirectListen;
