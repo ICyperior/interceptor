@@ -571,12 +571,19 @@ const WiFiMode = (function() {
 
     async function checkScanStatus() {
         try {
-            const response = await fetch(`${CONFIG.apiBase}/scan/status`);
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/wifi/status`
+                : `${CONFIG.apiBase}/scan/status`;
+
+            const response = await fetch(endpoint);
             if (!response.ok) return;
 
-            const status = await response.json();
+            const data = await response.json();
+            // Handle agent response format (may be nested in 'result')
+            const status = isAgentMode && data.result ? data.result : data;
 
-            if (status.is_scanning) {
+            if (status.is_scanning || status.running) {
                 setScanning(true, status.scan_mode);
                 if (status.scan_mode === 'deep') {
                     startEventStream();

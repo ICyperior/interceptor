@@ -650,10 +650,17 @@ const BluetoothMode = (function() {
 
     async function checkScanStatus() {
         try {
-            const response = await fetch('/api/bluetooth/scan/status');
-            const data = await response.json();
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/bluetooth/status`
+                : '/api/bluetooth/scan/status';
 
-            if (data.is_scanning) {
+            const response = await fetch(endpoint);
+            const responseData = await response.json();
+            // Handle agent response format (may be nested in 'result')
+            const data = isAgentMode && responseData.result ? responseData.result : responseData;
+
+            if (data.is_scanning || data.running) {
                 setScanning(true);
                 startEventStream();
             }

@@ -3447,13 +3447,22 @@
         }
 
         function checkStatus() {
-            fetch('/status')
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/pager/status`
+                : '/status';
+
+            fetch(endpoint)
                 .then(r => r.json())
                 .then(data => {
-                    if (data.running !== isRunning) {
-                        setRunning(data.running);
-                        if (data.running && !eventSource) {
-                            startStream();
+                    // Handle agent response format (may be nested in 'result')
+                    const statusData = isAgentMode && data.result ? data.result : data;
+                    const running = statusData.running;
+
+                    if (running !== isRunning) {
+                        setRunning(running);
+                        if (running && !eventSource) {
+                            startStream(isAgentMode);
                         }
                     }
                 })

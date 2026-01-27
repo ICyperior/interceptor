@@ -658,22 +658,30 @@ async function refreshAgentDevices(agentId) {
         console.log('Agent data received:', data);
 
         if (data.agent && data.agent.interfaces) {
-            const devices = data.agent.interfaces.devices || [];
+            // Agent stores SDR devices in interfaces.sdr_devices (matching local mode)
+            const devices = data.agent.interfaces.sdr_devices || data.agent.interfaces.devices || [];
             console.log(`Found ${devices.length} devices on agent`);
-            populateDeviceSelect(devices);
 
-            // Update SDR type dropdown if device has sdr_type
-            if (devices.length > 0 && devices[0].sdr_type) {
+            // Auto-select SDR type if devices found
+            if (devices.length > 0) {
+                const firstType = devices[0].sdr_type || 'rtlsdr';
                 const sdrTypeSelect = document.getElementById('sdrTypeSelect');
                 if (sdrTypeSelect) {
-                    sdrTypeSelect.value = devices[0].sdr_type;
+                    sdrTypeSelect.value = firstType;
                 }
             }
+
+            // Directly populate device dropdown for agent mode
+            // (Don't use onSDRTypeChanged since currentDeviceList is template-scoped)
+            populateDeviceSelect(devices);
         } else {
-            console.warn('No interfaces found in agent data');
+            console.warn('No interfaces found in agent data:', data);
+            // Show empty devices
+            populateDeviceSelect([]);
         }
     } catch (error) {
         console.error('Failed to refresh agent devices:', error);
+        populateDeviceSelect([]);
     }
 }
 
