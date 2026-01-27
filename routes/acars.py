@@ -227,8 +227,8 @@ def start_acars() -> Response:
     json_flag = get_acarsdec_json_flag(acarsdec_path)
     cmd = [acarsdec_path]
     if json_flag == '--output':
-        # f00b4r0 fork: --output json:file:- sends JSON to stdout
-        cmd.extend(['--output', 'json:file:-'])
+        # f00b4r0 fork: --output json:file (no path = stdout)
+        cmd.extend(['--output', 'json:file'])
     elif json_flag == '-j':
         cmd.append('-j')         # JSON output (TLeconte v4+)
     else:
@@ -242,8 +242,14 @@ def start_acars() -> Response:
     if ppm and str(ppm) != '0':
         cmd.extend(['-p', str(ppm)])
 
-    # Add device and frequencies (-r takes device, remaining args are frequencies)
-    cmd.extend(['-r', str(device)])
+    # Add device and frequencies
+    # f00b4r0 uses --rtlsdr <device>, TLeconte uses -r <device>
+    if json_flag == '--output':
+        # Use 3.2 MS/s sample rate for wider bandwidth (handles NA frequency span)
+        cmd.extend(['-m', '256'])
+        cmd.extend(['--rtlsdr', str(device)])
+    else:
+        cmd.extend(['-r', str(device)])
     cmd.extend(frequencies)
 
     logger.info(f"Starting ACARS decoder: {' '.join(cmd)}")

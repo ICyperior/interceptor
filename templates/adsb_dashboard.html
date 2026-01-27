@@ -2466,7 +2466,11 @@ sudo make install</code>
                     const url = useAgent
                         ? `/controller/agents/${adsbCurrentAgent}/adsb/stop`
                         : '/adsb/stop';
-                    await fetch(url, { method: 'POST' });
+                    await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
 
                     // Update agent running modes tracking
                     if (useAgent && typeof agentRunningModes !== 'undefined') {
