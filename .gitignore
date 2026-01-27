@@ -43,3 +43,14 @@ uv.lock
 *.db
 *.sqlite3
 intercept.db
+
+# Instance folder (contains database with user data)
+instance/
+
+# Agent configs with real credentials (keep template only)
+intercept_agent_*.cfg
+!intercept_agent.cfg
+
+# Temporary files
+/tmp/
+*.tmp

@@ -385,6 +385,51 @@ def init_db() -> None:
             ON dsc_alerts(source_mmsi, received_at)
         ''')
 
+        # =====================================================================
+        # Remote Agent Tables (for distributed/controller mode)
+        # =====================================================================
+
+        # Remote agents registry
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS agents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                base_url TEXT NOT NULL,
+                description TEXT,
+                api_key TEXT,
+                capabilities TEXT,
+                interfaces TEXT,
+                gps_coords TEXT,
+                last_seen TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT 1
+            )
+        ''')
+
+        # Push payloads received from remote agents
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS push_payloads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id INTEGER NOT NULL,
+                scan_type TEXT NOT NULL,
+                interface TEXT,
+                payload TEXT NOT NULL,
+                received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (agent_id) REFERENCES agents(id)
+            )
+        ''')
+
+        # Indexes for agent tables
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_agents_name
+            ON agents(name)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_push_payloads_agent
+            ON push_payloads(agent_id, received_at)
+        ''')
+
         logger.info("Database initialized successfully")
 
 
@@ -1676,4 +1721,237 @@ def cleanup_old_dsc_alerts(max_age_days: int = 30) -> int:
             WHERE acknowledged = 1
               AND received_at < datetime('now', ?)
         ''', (f'-{max_age_days} days',))
+        return cursor.rowcount
+
+
+# =============================================================================
+# Remote Agent Functions (for distributed/controller mode)
+# =============================================================================
+
+def create_agent(
+    name: str,
+    base_url: str,
+    api_key: str | None = None,
+    description: str | None = None,
+    capabilities: dict | None = None,
+    interfaces: dict | None = None,
+    gps_coords: dict | None = None
+) -> int:
+    """
+    Create a new remote agent.
+
+    Returns:
+        The ID of the created agent
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO agents
+            (name, base_url, api_key, description, capabilities, interfaces, gps_coords)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            name,
+            base_url.rstrip('/'),
+            api_key,
+            description,
+            json.dumps(capabilities) if capabilities else None,
+            json.dumps(interfaces) if interfaces else None,
+            json.dumps(gps_coords) if gps_coords else None
+        ))
+        return cursor.lastrowid
+
+
+def get_agent(agent_id: int) -> dict | None:
+    """Get an agent by ID."""
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM agents WHERE id = ?', (agent_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return _row_to_agent(row)
+
+
+def get_agent_by_name(name: str) -> dict | None:
+    """Get an agent by name."""
+    with get_db() as conn:
+        cursor = conn.execute('SELECT * FROM agents WHERE name = ?', (name,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return _row_to_agent(row)
+
+
+def _row_to_agent(row) -> dict:
+    """Convert database row to agent dict."""
+    return {
+        'id': row['id'],
+        'name': row['name'],
+        'base_url': row['base_url'],
+        'description': row['description'],
+        'api_key': row['api_key'],
+        'capabilities': json.loads(row['capabilities']) if row['capabilities'] else None,
+        'interfaces': json.loads(row['interfaces']) if row['interfaces'] else None,
+        'gps_coords': json.loads(row['gps_coords']) if row['gps_coords'] else None,
+        'last_seen': row['last_seen'],
+        'created_at': row['created_at'],
+        'is_active': bool(row['is_active'])
+    }
+
+
+def list_agents(active_only: bool = True) -> list[dict]:
+    """Get all agents."""
+    with get_db() as conn:
+        if active_only:
+            cursor = conn.execute(
+                'SELECT * FROM agents WHERE is_active = 1 ORDER BY name'
+            )
+        else:
+            cursor = conn.execute('SELECT * FROM agents ORDER BY name')
+        return [_row_to_agent(row) for row in cursor]
+
+
+def update_agent(
+    agent_id: int,
+    base_url: str | None = None,
+    description: str | None = None,
+    api_key: str | None = None,
+    capabilities: dict | None = None,
+    interfaces: dict | None = None,
+    gps_coords: dict | None = None,
+    is_active: bool | None = None,
+    update_last_seen: bool = False
+) -> bool:
+    """Update an agent's fields."""
+    updates = []
+    params = []
+
+    if base_url is not None:
+        updates.append('base_url = ?')
+        params.append(base_url.rstrip('/'))
+    if description is not None:
+        updates.append('description = ?')
+        params.append(description)
+    if api_key is not None:
+        updates.append('api_key = ?')
+        params.append(api_key)
+    if capabilities is not None:
+        updates.append('capabilities = ?')
+        params.append(json.dumps(capabilities))
+    if interfaces is not None:
+        updates.append('interfaces = ?')
+        params.append(json.dumps(interfaces))
+    if gps_coords is not None:
+        updates.append('gps_coords = ?')
+        params.append(json.dumps(gps_coords))
+    if is_active is not None:
+        updates.append('is_active = ?')
+        params.append(1 if is_active else 0)
+    if update_last_seen:
+        updates.append('last_seen = CURRENT_TIMESTAMP')
+
+    if not updates:
+        return False
+
+    params.append(agent_id)
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            f'UPDATE agents SET {", ".join(updates)} WHERE id = ?',
+            params
+        )
+        return cursor.rowcount > 0
+
+
+def delete_agent(agent_id: int) -> bool:
+    """Delete an agent and its push payloads."""
+    with get_db() as conn:
+        # Delete push payloads first (foreign key)
+        conn.execute('DELETE FROM push_payloads WHERE agent_id = ?', (agent_id,))
+        cursor = conn.execute('DELETE FROM agents WHERE id = ?', (agent_id,))
+        return cursor.rowcount > 0
+
+
+def store_push_payload(
+    agent_id: int,
+    scan_type: str,
+    payload: dict,
+    interface: str | None = None,
+    received_at: str | None = None
+) -> int:
+    """
+    Store a push payload from a remote agent.
+
+    Returns:
+        The ID of the created payload record
+    """
+    with get_db() as conn:
+        if received_at:
+            cursor = conn.execute('''
+                INSERT INTO push_payloads (agent_id, scan_type, interface, payload, received_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (agent_id, scan_type, interface, json.dumps(payload), received_at))
+        else:
+            cursor = conn.execute('''
+                INSERT INTO push_payloads (agent_id, scan_type, interface, payload)
+                VALUES (?, ?, ?, ?)
+            ''', (agent_id, scan_type, interface, json.dumps(payload)))
+
+        # Update agent last_seen
+        conn.execute(
+            'UPDATE agents SET last_seen = CURRENT_TIMESTAMP WHERE id = ?',
+            (agent_id,)
+        )
+
+        return cursor.lastrowid
+
+
+def get_recent_payloads(
+    agent_id: int | None = None,
+    scan_type: str | None = None,
+    limit: int = 100
+) -> list[dict]:
+    """Get recent push payloads, optionally filtered."""
+    conditions = []
+    params = []
+
+    if agent_id is not None:
+        conditions.append('p.agent_id = ?')
+        params.append(agent_id)
+    if scan_type is not None:
+        conditions.append('p.scan_type = ?')
+        params.append(scan_type)
+
+    where_clause = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+    params.append(limit)
+
+    with get_db() as conn:
+        cursor = conn.execute(f'''
+            SELECT p.*, a.name as agent_name
+            FROM push_payloads p
+            JOIN agents a ON p.agent_id = a.id
+            {where_clause}
+            ORDER BY p.received_at DESC
+            LIMIT ?
+        ''', params)
+
+        results = []
+        for row in cursor:
+            results.append({
+                'id': row['id'],
+                'agent_id': row['agent_id'],
+                'agent_name': row['agent_name'],
+                'scan_type': row['scan_type'],
+                'interface': row['interface'],
+                'payload': json.loads(row['payload']),
+                'received_at': row['received_at']
+            })
+        return results
+
+
+def cleanup_old_payloads(max_age_hours: int = 24) -> int:
+    """Remove old push payloads."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM push_payloads
+            WHERE received_at < datetime('now', ?)
+        ''', (f'-{max_age_hours} hours',))
         return cursor.rowcount

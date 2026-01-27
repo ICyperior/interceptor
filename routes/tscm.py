@@ -944,7 +944,7 @@ def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
     return devices
 
 
-def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
+def _scan_rf_signals(sdr_device: int | None, duration: int = 30, stop_check: callable | None = None) -> list[dict]:
     """
     Scan for RF signals using SDR (rtl_power).
 
@@ -956,7 +956,16 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
     - 915 MHz: US ISM band
     - 1.2 GHz: Video transmitters
     - 2.4 GHz: WiFi, Bluetooth, video transmitters
+
+    Args:
+        sdr_device: SDR device index
+        duration: Scan duration per band
+        stop_check: Optional callable that returns True if scan should stop.
+                   Defaults to checking module-level _sweep_running.
     """
+    # Default stop check uses module-level _sweep_running
+    if stop_check is None:
+        stop_check = lambda: not _sweep_running
     import os
     import shutil
     import subprocess
@@ -1021,7 +1030,7 @@ def _scan_rf_signals(sdr_device: int | None, duration: int = 30) -> list[dict]:
 
         # Scan each band and look for strong signals
         for start_freq, end_freq, bin_size, band_name in scan_bands:
-            if not _sweep_running:
+            if stop_check():
                 break
 
             logger.info(f"Scanning {band_name} ({start_freq/1e6:.1f}-{end_freq/1e6:.1f} MHz)")
