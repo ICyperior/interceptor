@@ -2474,8 +2474,10 @@ function setListeningPostRunning(isRunning, agentId = null) {
         // Update status
         updateScannerDisplay('IDLE', 'var(--text-secondary)');
 
-        // Re-enable listen button
-        updateListenButtonState(false);
+        // Only re-enable listen button if we're in local mode
+        // (agent mode can't stream audio over HTTP)
+        const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+        updateListenButtonState(isAgentMode);
 
         // Clear polling
         if (listeningPostPollTimer) {

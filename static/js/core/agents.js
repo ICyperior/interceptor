@@ -340,6 +340,14 @@ function selectAgent(agentId) {
             BluetoothMode.handleAgentChange();
         }
         // Re-enable listen button for local mode
+        const listenBtn = document.getElementById('radioListenBtn');
+        console.log('[agents.js] Enabling listen button, found:', listenBtn);
+        if (listenBtn) {
+            listenBtn.disabled = false;
+            listenBtn.style.opacity = '1';
+            listenBtn.style.cursor = 'pointer';
+            listenBtn.title = 'Listen to current frequency';
+        }
         if (typeof updateListenButtonState === 'function') {
             updateListenButtonState(false);
         }
@@ -362,6 +370,14 @@ function selectAgent(agentId) {
             BluetoothMode.handleAgentChange();
         }
         // Disable listen button for agent mode (audio can't stream over HTTP)
+        const listenBtn = document.getElementById('radioListenBtn');
+        console.log('[agents.js] Disabling listen button, found:', listenBtn);
+        if (listenBtn) {
+            listenBtn.disabled = true;
+            listenBtn.style.opacity = '0.5';
+            listenBtn.style.cursor = 'not-allowed';
+            listenBtn.title = 'Audio listening not available for remote agents';
+        }
         if (typeof updateListenButtonState === 'function') {
             updateListenButtonState(true);
         }
