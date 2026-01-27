@@ -4461,16 +4461,43 @@ sudo make install</code>
                 loadDevices();
                 // Check if local ADS-B is running
                 syncLocalTrackingStatus();
+                // Enable airband controls (local audio works)
+                setAirbandEnabled(true);
                 console.log('ADS-B: Using local device');
             } else {
                 // Get agent devices
                 refreshAgentDevicesForAdsb(agentId);
                 // Check if agent has ADS-B running (syncAgentModeStates will call setADSBRunning)
                 syncAgentModeStates(agentId);
+                // Disable airband controls (no audio streaming from remote agents)
+                setAirbandEnabled(false);
                 console.log(`ADS-B: Using agent ${agentId}`);
             }
             updateAgentStatus();
             updateSourceIndicator();
+        }
+
+        // Enable/disable airband controls based on local vs remote agent
+        function setAirbandEnabled(enabled) {
+            const airbandControls = document.querySelectorAll('.airband-controls');
+            const playBtn = document.getElementById('airbandBtn');
+
+            airbandControls.forEach(ctrl => {
+                ctrl.disabled = !enabled;
+                ctrl.style.opacity = enabled ? '1' : '0.5';
+            });
+
+            if (playBtn) {
+                playBtn.disabled = !enabled;
+                playBtn.style.opacity = enabled ? '1' : '0.5';
+                if (!enabled) {
+                    playBtn.textContent = '▶ LOCAL ONLY';
+                    playBtn.title = 'Airband requires local audio - not available for remote agents';
+                } else {
+                    playBtn.textContent = '▶ LISTEN';
+                    playBtn.title = 'Start airband audio';
+                }
+            }
         }
 
         // Check local ADS-B tracking status
@@ -4600,7 +4627,8 @@ sudo make install</code>
                 const data = await response.json();
 
                 if (data.agent && data.agent.interfaces) {
-                    const devices = data.agent.interfaces.devices || [];
+                    // Agent stores SDR devices in interfaces.sdr_devices (same fix as agents.js)
+                    const devices = data.agent.interfaces.sdr_devices || data.agent.interfaces.devices || [];
                     populateAdsbDeviceSelects(devices);
 
                     // Update observer location if agent has GPS
@@ -4667,9 +4695,9 @@ sudo make install</code>
             const startBtn = document.getElementById('startBtn');
 
             if (showAllAgentsMode) {
-                // Disable individual agent selection and start button
-                if (agentSelect) agentSelect.disabled = true;
-                if (startBtn) startBtn.disabled = true;
+                // Keep dropdown enabled to select which agent to control
+                // Keep start button enabled to start/stop on selected agent
+                // (agentSelect and startBtn stay enabled)
 
                 // Connect to multi-agent stream (passive listening to all agents)
                 startAllAgentsStream();
@@ -4689,8 +4717,9 @@ sudo make install</code>
 
                 console.log('Show All Agents mode enabled');
             } else {
-                // Re-enable controls
-                if (agentSelect) agentSelect.disabled = isTracking;
+                // When unchecking "All", dropdown follows normal tracking rules
+                // (disabled only if tracking is active on a specific agent)
+                if (agentSelect) agentSelect.disabled = isTracking && !showAllAgentsMode;
                 if (startBtn) startBtn.disabled = false;
 
                 // Stop multi-agent stream
