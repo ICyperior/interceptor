@@ -3265,7 +3265,9 @@ class ModeManager:
         """
         start_freq = params.get('start_freq', 88.0)
         end_freq = params.get('end_freq', 108.0)
-        step = params.get('step', 0.1)
+        # Step is sent in kHz from frontend, convert to MHz
+        step_khz = params.get('step', 100)
+        step = step_khz / 1000.0  # Convert kHz to MHz
         modulation = params.get('modulation', 'wfm')
         squelch = params.get('squelch', 20)
         device = params.get('device', '0')
