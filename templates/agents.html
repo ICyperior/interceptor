@@ -275,8 +275,8 @@
 </head>
 
 <body>
-    <header style="padding: 15px 20px;">
-        <div class="logo" style="display: inline-block; vertical-align: middle;">
+    <header style="padding: 15px 20px; display: flex; align-items: center; gap: 12px;">
+        <div class="logo">
             <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5"/>
                 <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
@@ -290,7 +290,7 @@
                 <rect x="38" y="76" width="24" height="4" rx="1" fill="#00d4ff"/>
             </svg>
         </div>
-        <h1 style="display: inline-block; vertical-align: middle; margin-left: 10px;">
+        <h1 style="margin: 0;">
             iNTERCEPT <span class="tagline">// Remote Agents</span>
         </h1>
     </header>
@@ -305,9 +305,6 @@
 
         <div class="agents-header">
             <h1>Remote Agents</h1>
-            <button class="agent-btn primary" onclick="refreshAllAgents()">
-                Refresh All
-            </button>
         </div>
 
         <!-- Add Agent Form -->
@@ -334,9 +331,14 @@
                         <input type="text" id="agentDescription" placeholder="Rooftop sensor node">
                     </div>
                 </div>
-                <button type="submit" class="agent-btn primary" style="width: auto; padding: 10px 24px;">
-                    Register Agent
-                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="agent-btn primary" style="width: auto; padding: 10px 24px;">
+                        Register Agent
+                    </button>
+                    <button type="button" class="agent-btn" style="width: auto; padding: 10px 24px;" onclick="refreshAllAgents()">
+                        Refresh All
+                    </button>
+                </div>
             </form>
         </div>
 
