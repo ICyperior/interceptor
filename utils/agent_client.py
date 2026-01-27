@@ -83,10 +83,17 @@ class AgentClient:
         except requests.Timeout:
             raise AgentConnectionError(f"Request to agent timed out after {self.timeout}s")
         except requests.HTTPError as e:
-            raise AgentHTTPError(
-                f"Agent returned error: {e.response.status_code}",
-                status_code=e.response.status_code
-            )
+            # Try to extract error message from response body
+            error_msg = f"Agent returned error: {e.response.status_code}"
+            try:
+                error_data = e.response.json()
+                if 'message' in error_data:
+                    error_msg = error_data['message']
+                elif 'error' in error_data:
+                    error_msg = error_data['error']
+            except Exception:
+                pass
+            raise AgentHTTPError(error_msg, status_code=e.response.status_code)
         except requests.RequestException as e:
             raise AgentHTTPError(f"Request failed: {e}")
 
@@ -120,10 +127,17 @@ class AgentClient:
         except requests.Timeout:
             raise AgentConnectionError(f"Request to agent timed out after {self.timeout}s")
         except requests.HTTPError as e:
-            raise AgentHTTPError(
-                f"Agent returned error: {e.response.status_code}",
-                status_code=e.response.status_code
-            )
+            # Try to extract error message from response body
+            error_msg = f"Agent returned error: {e.response.status_code}"
+            try:
+                error_data = e.response.json()
+                if 'message' in error_data:
+                    error_msg = error_data['message']
+                elif 'error' in error_data:
+                    error_msg = error_data['error']
+            except Exception:
+                pass
+            raise AgentHTTPError(error_msg, status_code=e.response.status_code)
         except requests.RequestException as e:
             raise AgentHTTPError(f"Request failed: {e}")
 

@@ -3596,7 +3596,8 @@ class InterceptAgentHandler(BaseHTTPRequestHandler):
 
             if action == 'start':
                 result = mode_manager.start_mode(mode, body)
-                status = 200 if result.get('status') == 'started' else 400
+                # Accept both 'started' and 'success' as valid (quick scans return 'success')
+                status = 200 if result.get('status') in ('started', 'success') else 400
                 self._send_json(result, status)
             elif action == 'stop':
                 result = mode_manager.stop_mode(mode)
