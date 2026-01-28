@@ -2,6 +2,56 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.11.0] - 2026-01-28
+
+### Added
+- **Meshtastic Mesh Network Integration** - LoRa mesh communication support
+  - Connect to Meshtastic devices (Heltec, T-Beam, RAK) via USB/Serial
+  - Real-time message streaming via SSE
+  - Channel configuration with encryption key support
+  - Node information display with signal metrics (RSSI, SNR)
+  - Message history with up to 500 messages
+- **Ubertooth One BLE Scanner** - Advanced Bluetooth scanning
+  - Passive BLE packet capture across all 40 BLE channels
+  - Raw advertising payload access
+  - Integration with existing Bluetooth scanning modes
+  - Automatic detection of Ubertooth hardware
+- **Offline Mode** - Run iNTERCEPT without internet connectivity
+  - Bundled Leaflet 1.9.4 (JS, CSS, marker images)
+  - Bundled Chart.js 4.4.1
+  - Bundled Inter and JetBrains Mono fonts (woff2)
+  - Local asset status checking and validation
+- **Settings Modal** - New configuration interface accessible from navigation
+  - Offline tab: Toggle offline mode, configure asset sources
+  - Display tab: Theme and animation preferences
+  - About tab: Version info and links
+- **Multiple Map Tile Providers** - Choose from:
+  - OpenStreetMap (default)
+  - CartoDB Dark
+  - CartoDB Positron (light)
+  - ESRI World Imagery
+  - Custom tile server URL
+
+### Changed
+- **Dashboard Templates** - Conditional asset loading based on offline settings
+- **Bluetooth Scanner** - Added Ubertooth backend alongside BlueZ/DBus
+- **Dependencies** - Added meshtastic SDK to requirements.txt
+
+### Technical
+- Added `routes/meshtastic.py` for Meshtastic API endpoints
+- Added `utils/meshtastic.py` for device management
+- Added `utils/bluetooth/ubertooth_scanner.py` for Ubertooth support
+- Added `routes/offline.py` for offline mode API
+- Added `static/js/core/settings-manager.js` for client-side settings
+- Added `static/css/settings.css` for settings modal styles
+- Added `static/css/modes/meshtastic.css` for Meshtastic UI
+- Added `static/js/modes/meshtastic.js` for Meshtastic frontend
+- Added `templates/partials/modes/meshtastic.html` for Meshtastic mode
+- Added `templates/partials/settings-modal.html` for settings UI
+- Added `static/vendor/` directory structure for bundled assets
+
+---
+
 ## [2.10.0] - 2026-01-25
 
 ### Added

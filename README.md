@@ -35,9 +35,11 @@ Support the developer of this open-source project
 - **Satellite Tracking** - Pass prediction using TLE data
 - **ADS-B History** - Persistent aircraft history with reporting dashboard (Postgres optional)
 - **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
-- **Bluetooth Scanning** - Device discovery and tracker detection
+- **Bluetooth Scanning** - Device discovery and tracker detection (with Ubertooth support)
+- **Meshtastic** - LoRa mesh network integration
 - **Spy Stations** - Number stations and diplomatic HF network database
 - **Remote Agents** - Distributed SIGINT with remote sensor nodes
+- **Offline Mode** - Bundled assets for air-gapped/field deployments
 
 ---
 

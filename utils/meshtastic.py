@@ -25,10 +25,12 @@ logger = get_logger('intercept.meshtastic')
 try:
     import meshtastic
     import meshtastic.serial_interface
+    from meshtastic import BROADCAST_ADDR
     from pubsub import pub
     HAS_MESHTASTIC = True
 except ImportError:
     HAS_MESHTASTIC = False
+    BROADCAST_ADDR = 0xFFFFFFFF  # Fallback if SDK not installed
     logger.warning("Meshtastic SDK not installed. Install with: pip install meshtastic")
 
 
@@ -44,20 +46,25 @@ class MeshtasticMessage:
     snr: float | None
     hop_limit: int | None
     timestamp: datetime
+    from_name: str | None = None
+    to_name: str | None = None
     raw_packet: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
             'type': 'meshtastic',
             'from': self.from_id,
+            'from_name': self.from_name,
             'to': self.to_id,
+            'to_name': self.to_name,
             'message': self.message,
+            'text': self.message,  # Alias for frontend compatibility
             'portnum': self.portnum,
             'channel': self.channel,
             'rssi': self.rssi,
             'snr': self.snr,
             'hop_limit': self.hop_limit,
-            'timestamp': self.timestamp.isoformat(),
+            'timestamp': self.timestamp.timestamp(),  # Unix seconds for frontend
         }
 
 
@@ -98,6 +105,38 @@ class ChannelConfig:
 
 
 @dataclass
+class MeshNode:
+    """Tracked Meshtastic node with position and metadata."""
+    num: int
+    user_id: str
+    long_name: str
+    short_name: str
+    hw_model: str
+    latitude: float | None = None
+    longitude: float | None = None
+    altitude: int | None = None
+    battery_level: int | None = None
+    snr: float | None = None
+    last_heard: datetime | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            'num': self.num,
+            'id': self.user_id or f"!{self.num:08x}",
+            'long_name': self.long_name,
+            'short_name': self.short_name,
+            'hw_model': self.hw_model,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'altitude': self.altitude,
+            'battery_level': self.battery_level,
+            'snr': self.snr,
+            'last_heard': self.last_heard.isoformat() if self.last_heard else None,
+            'has_position': self.latitude is not None and self.longitude is not None,
+        }
+
+
+@dataclass
 class NodeInfo:
     """Meshtastic node information."""
     num: int
@@ -132,6 +171,7 @@ class MeshtasticClient:
         self._running = False
         self._callback: Callable[[MeshtasticMessage], None] | None = None
         self._lock = threading.Lock()
+        self._nodes: dict[int, MeshNode] = {}  # num -> MeshNode
         self._device_path: str | None = None
         self._error: str | None = None
 
@@ -230,32 +270,89 @@ class MeshtasticClient:
     def _on_connection(self, interface, topic=None) -> None:
         """Handle connection established event."""
         logger.info("Meshtastic connection established")
+        # Sync nodes from device's nodeDB so names are available for messages
+        self._sync_nodes_from_interface()
+        # Try to set device time from host computer
+        self._sync_device_time()
 
     def _on_disconnect(self, interface, topic=None) -> None:
         """Handle connection lost event."""
         logger.warning("Meshtastic connection lost")
         self._running = False
 
+    def _sync_device_time(self) -> None:
+        """Sync device time from host computer."""
+        if not self._interface:
+            return
+        try:
+            # Try to set the device's time using the SDK
+            import time
+            current_time = int(time.time())
+            if hasattr(self._interface, 'localNode') and self._interface.localNode:
+                local_node = self._interface.localNode
+                if hasattr(local_node, 'setTime'):
+                    local_node.setTime(current_time)
+                    logger.info(f"Set device time to {current_time}")
+                elif hasattr(self._interface, 'sendAdmin'):
+                    # Alternative: send admin message with time
+                    logger.debug("setTime not available, device time not synced")
+            else:
+                logger.debug("localNode not available, device time not synced")
+        except Exception as e:
+            logger.warning(f"Failed to sync device time: {e}")
+
     def _on_receive(self, packet: dict, interface) -> None:
         """Handle received packet from Meshtastic device."""
-        if not self._callback:
-            return
-
         try:
             decoded = packet.get('decoded', {})
+            from_num = packet.get('from', 0)
+            to_num = packet.get('to', 0)
+            portnum = decoded.get('portnum', 'UNKNOWN')
+
+            # Track node from packet (always, even for filtered messages)
+            self._track_node_from_packet(packet, decoded, portnum)
+
+            # Skip callback if none set
+            if not self._callback:
+                return
+
+            # Filter out internal protocol messages that aren't useful to users
+            ignored_portnums = {
+                'ROUTING_APP',      # Mesh routing/acknowledgments
+                'ADMIN_APP',        # Admin commands
+                'REPLY_APP',        # Internal replies
+                'STORE_FORWARD_APP',  # Store and forward protocol
+                'RANGE_TEST_APP',   # Range testing
+                'PAXCOUNTER_APP',   # People counter
+                'REMOTE_HARDWARE_APP',  # Remote hardware control
+                'SIMULATOR_APP',    # Simulator
+                'MAP_REPORT_APP',   # Map reporting
+                'TELEMETRY_APP',    # Device telemetry (battery, etc.) - too noisy
+                'POSITION_APP',     # Position updates - used for map, not messages
+                'NODEINFO_APP',     # Node info - used for tracking, not messages
+            }
+            if portnum in ignored_portnums:
+                logger.debug(f"Ignoring {portnum} message from {from_num}")
+                return
 
             # Extract text message if present
             message = None
-            portnum = decoded.get('portnum', 'UNKNOWN')
             if portnum == 'TEXT_MESSAGE_APP':
                 message = decoded.get('text')
+            elif portnum in ('WAYPOINT_APP', 'TRACEROUTE_APP'):
+                # Show these as informational messages
+                message = f"[{portnum}]"
             elif 'payload' in decoded:
                 # For other message types, include payload info
                 message = f"[{portnum}]"
 
+            # Look up node names - try cache first, then SDK's nodeDB
+            from_name = self._lookup_node_name(from_num)
+            to_name = self._lookup_node_name(to_num) if to_num != BROADCAST_ADDR else None
+
             msg = MeshtasticMessage(
-                from_id=self._format_node_id(packet.get('from', 0)),
-                to_id=self._format_node_id(packet.get('to', 0)),
+                from_id=self._format_node_id(from_num),
+                to_id=self._format_node_id(to_num),
                 message=message,
                 portnum=portnum,
                 channel=packet.get('channel', 0),
@@ -263,6 +360,8 @@ class MeshtasticClient:
                 snr=packet.get('rxSnr'),
                 hop_limit=packet.get('hopLimit'),
                 timestamp=datetime.now(timezone.utc),
+                from_name=from_name,
+                to_name=to_name,
                 raw_packet=packet,
             )
 
@@ -271,6 +370,101 @@ class MeshtasticClient:
 
         except Exception as e:
             logger.error(f"Error processing Meshtastic packet: {e}")
+
+    def _track_node_from_packet(self, packet: dict, decoded: dict, portnum: str) -> None:
+        """Update node tracking from received packet."""
+        from_num = packet.get('from', 0)
+        if from_num == 0 or from_num == 0xFFFFFFFF:
+            return
+
+        now = datetime.now(timezone.utc)
+
+        # Get or create node entry
+        if from_num not in self._nodes:
+            self._nodes[from_num] = MeshNode(
+                num=from_num,
+                user_id=f"!{from_num:08x}",
+                long_name='',
+                short_name='',
+                hw_model='UNKNOWN',
+            )
+
+        node = self._nodes[from_num]
+        node.last_heard = now
+        node.snr = packet.get('rxSnr', node.snr)
+
+        # Parse NODEINFO_APP for user details
+        if portnum == 'NODEINFO_APP':
+            user = decoded.get('user', {})
+            if user:
+                node.long_name = user.get('longName', node.long_name)
+                node.short_name = user.get('shortName', node.short_name)
+                node.hw_model = user.get('hwModel', node.hw_model)
+                if user.get('id'):
+                    node.user_id = user.get('id')
+
+        # Parse POSITION_APP for location
+        elif portnum == 'POSITION_APP':
+            position = decoded.get('position', {})
+            if position:
+                lat = position.get('latitude') or position.get('latitudeI')
+                lon = position.get('longitude') or position.get('longitudeI')
+
+                # Handle integer format (latitudeI/longitudeI are in 1e-7 degrees)
+                if isinstance(lat, int) and abs(lat) > 1000:
+                    lat = lat / 1e7
+                if isinstance(lon, int) and abs(lon) > 1000:
+                    lon = lon / 1e7
+
+                if lat is not None and lon is not None:
+                    node.latitude = lat
+                    node.longitude = lon
+                    node.altitude = position.get('altitude', node.altitude)
+
+        # Parse TELEMETRY_APP for battery
+        elif portnum == 'TELEMETRY_APP':
+            telemetry = decoded.get('telemetry', {})
+            device_metrics = telemetry.get('deviceMetrics', {})
+            if device_metrics:
+                battery = device_metrics.get('batteryLevel')
+                if battery is not None:
+                    node.battery_level = battery
+
+    def _lookup_node_name(self, node_num: int) -> str | None:
+        """Look up a node's name by its number."""
+        if node_num == 0 or node_num == BROADCAST_ADDR:
+            return None
+
+        # Try our cache first
+        if node_num in self._nodes:
+            node = self._nodes[node_num]
+            name = node.short_name or node.long_name
+            if name:
+                return name
+
+        # Try SDK's nodeDB with various key formats
+        if self._interface and hasattr(self._interface, 'nodes') and self._interface.nodes:
+            nodes = self._interface.nodes
+
+            # Try direct lookup with different key formats
+            for key in [node_num, f"!{node_num:08x}", f"!{node_num:x}", str(node_num)]:
+                if key in nodes:
+                    user = nodes[key].get('user', {})
+                    name = user.get('shortName') or user.get('longName')
+                    if name:
+                        logger.debug(f"Found name '{name}' for node {node_num} with key {key}")
+                        return name
+
+            # Search through all nodes by num field
+            for key, node_data in nodes.items():
+                if node_data.get('num') == node_num:
+                    user = node_data.get('user', {})
+                    name = user.get('shortName') or user.get('longName')
+                    if name:
+                        logger.debug(f"Found name '{name}' for node {node_num} by search")
+                        return name
+
+        return None
 
     @staticmethod
     def _format_node_id(node_num: int) -> str:
@@ -302,6 +496,74 @@ class MeshtasticClient:
             logger.error(f"Error getting node info: {e}")
             return None
 
+    def get_nodes(self) -> list[MeshNode]:
+        """Get all tracked nodes."""
+        # Also pull nodes from the SDK's nodeDB if available
+        self._sync_nodes_from_interface()
+        return list(self._nodes.values())
+
+    def _sync_nodes_from_interface(self) -> None:
+        """Sync nodes from the Meshtastic SDK's nodeDB."""
+        if not self._interface:
+            return
+
+        try:
+            nodes = self._interface.nodes
+            if not nodes:
+                return
+
+            for node_id, node_data in nodes.items():
+                # Skip if it's a string key like '!abcd1234'
+                if isinstance(node_id, str):
+                    try:
+                        num = int(node_id[1:], 16) if node_id.startswith('!') else int(node_id)
+                    except ValueError:
+                        continue
+                else:
+                    num = node_id
+
+                user = node_data.get('user', {})
+                position = node_data.get('position', {})
+
+                # Get or create node
+                if num not in self._nodes:
+                    self._nodes[num] = MeshNode(
+                        num=num,
+                        user_id=user.get('id', f"!{num:08x}"),
+                        long_name=user.get('longName', ''),
+                        short_name=user.get('shortName', ''),
+                        hw_model=user.get('hwModel', 'UNKNOWN'),
+                    )
+
+                node = self._nodes[num]
+
+                # Update from SDK data
+                if user:
+                    node.long_name = user.get('longName', node.long_name) or node.long_name
+                    node.short_name = user.get('shortName', node.short_name) or node.short_name
+                    node.hw_model = user.get('hwModel', node.hw_model) or node.hw_model
+                    if user.get('id'):
+                        node.user_id = user.get('id')
+
+                if position:
+                    lat = position.get('latitude')
+                    lon = position.get('longitude')
+                    if lat is not None and lon is not None:
+                        node.latitude = lat
+                        node.longitude = lon
+                        node.altitude = position.get('altitude', node.altitude)
+
+                # Update last heard from SDK
+                last_heard = node_data.get('lastHeard')
+                if last_heard:
+                    node.last_heard = datetime.fromtimestamp(last_heard, tz=timezone.utc)
+
+                # Update SNR
+                node.snr = node_data.get('snr', node.snr)
+
+        except Exception as e:
+            logger.error(f"Error syncing nodes from interface: {e}")
+
     def get_channels(self) -> list[ChannelConfig]:
         """Get all configured channels."""
         if not self._interface:
@@ -320,6 +582,67 @@ class MeshtasticClient:
         except Exception as e:
             logger.error(f"Error getting channels: {e}")
         return channels
+
+    def send_text(self, text: str, channel: int = 0,
+                  destination: str | int | None = None) -> tuple[bool, str]:
+        """
+        Send a text message to the mesh network.
+
+        Args:
+            text: Message text (max 237 characters)
+            channel: Channel index to send on (0-7)
+            destination: Target node ID (string like "!a1b2c3d4" or int).
+                        None or "^all" for broadcast.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        if not self._interface:
+            return False, "Not connected to device"
+
+        if not text or len(text) > 237:
+            return False, "Message must be 1-237 characters"
+
+        try:
+            # Parse destination - use broadcast address for None/^all
+            dest_id = BROADCAST_ADDR  # Default to broadcast
+
+            if destination:
+                if isinstance(destination, int):
+                    dest_id = destination
+                elif destination == "^all":
+                    dest_id = BROADCAST_ADDR
+                elif destination.startswith('!'):
+                    dest_id = int(destination[1:], 16)
+                else:
+                    # Try parsing as integer
+                    try:
+                        dest_id = int(destination)
+                    except ValueError:
+                        return False, f"Invalid destination: {destination}"
+
+            # Send the message using sendData for more control
+            logger.debug(f"Calling sendData: text='{text[:30]}', dest={dest_id}, channel={channel}")
+
+            # Use sendData with TEXT_MESSAGE_APP portnum
+            # This gives us more control over the packet
+            from meshtastic import portnums_pb2
+
+            self._interface.sendData(
+                text.encode('utf-8'),
+                destinationId=dest_id,
+                portNum=portnums_pb2.PortNum.TEXT_MESSAGE_APP,
+                channelIndex=channel,
+            )
+            logger.debug("sendData completed")
+
+            dest_str = "^all" if dest_id == BROADCAST_ADDR else f"!{dest_id:08x}"
+            logger.info(f"Sent message to {dest_str} on channel {channel}: {text[:50]}...")
+            return True, None
+
+        except Exception as e:
+            logger.error(f"Error sending message: {e}")
+            return False, str(e)
 
     def set_channel(self, index: int, name: str | None = None,
                     psk: str | None = None) -> tuple[bool, str]:

@@ -372,7 +372,18 @@ body {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 20px;
+    padding: 16px;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+}
+
+.welcome-modes > h2 {
+    position: sticky;
+    top: -16px;
+    background: var(--bg-secondary);
+    padding: 8px 0;
+    margin: -8px 0 12px 0;
+    z-index: 1;
 }
 
 .mode-grid {
@@ -439,6 +450,65 @@ body {
     margin-top: 4px;
 }
 
+/* Mode Categories */
+.mode-category {
+    margin-bottom: 16px;
+}
+
+.mode-category:last-child {
+    margin-bottom: 0;
+}
+
+.mode-category-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.mode-category-icon {
+    display: flex;
+    align-items: center;
+    color: var(--accent-cyan);
+}
+
+.mode-category-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Compact Mode Grid */
+.mode-grid-compact {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.mode-card-sm {
+    padding: 10px 6px;
+}
+
+.mode-card-sm .mode-icon {
+    margin-bottom: 6px;
+}
+
+.mode-card-sm .mode-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.mode-card-sm .mode-name {
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+}
+
 /* Welcome Footer */
 .welcome-footer {
     text-align: center;
@@ -501,10 +571,17 @@ body {
     grid-template-columns: repeat(2, 1fr);
 }
 
-/* Larger phones: 3 columns for mode grid */
+.mode-grid-compact {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* Larger phones: more columns for mode grid */
 @media (min-width: 480px) {
     .mode-grid {
         grid-template-columns: repeat(3, 1fr);
+    }
+    .mode-grid-compact {
+        grid-template-columns: repeat(4, 1fr);
     }
 }
 
@@ -521,6 +598,10 @@ body {
 
     .welcome-title-block {
         text-align: left;
+    }
+
+    .mode-grid-compact {
+        grid-template-columns: repeat(5, 1fr);
     }
 }
 
@@ -6121,4 +6202,50 @@ body::before {
 
 .preset-freq-btn:active {
     transform: scale(0.98);
+}
+
+/* Animation toggle icon states in nav bar */
+.nav-tool-btn .icon-effects-on,
+.nav-tool-btn .icon-effects-off {
+    position: absolute;
+    transition: opacity 0.2s, transform 0.2s;
+    font-size: 14px;
+}
+
+.nav-tool-btn .icon-effects-on {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+.nav-tool-btn .icon-effects-off {
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+[data-animations="off"] .nav-tool-btn .icon-effects-on {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
+[data-animations="off"] .nav-tool-btn .icon-effects-off {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+/* Disable cosmetic animations when toggled off */
+[data-animations="off"] .globe-svg,
+[data-animations="off"] .rotating-meridians,
+[data-animations="off"] .meridian-1,
+[data-animations="off"] .meridian-2,
+[data-animations="off"] .meridian-3,
+[data-animations="off"] .welcome-scanline,
+[data-animations="off"] .landing-scanline,
+[data-animations="off"] .scanline,
+[data-animations="off"] .signal-wave,
+[data-animations="off"] .signal-wave-1,
+[data-animations="off"] .signal-wave-2,
+[data-animations="off"] .signal-wave-3,
+[data-animations="off"] .logo-dot,
+[data-animations="off"] .welcome-logo {
+    animation: none !important;
 }

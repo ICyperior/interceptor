@@ -413,7 +413,7 @@ install_multimon_ng_from_source_macos() {
 }
 
 install_macos_packages() {
-  TOTAL_STEPS=14
+  TOTAL_STEPS=15
   CURRENT_STEP=0
 
   progress "Checking Homebrew"
@@ -477,6 +477,19 @@ install_macos_packages() {
 
   progress "Installing gpsd"
   brew_install gpsd
+
+  progress "Installing Ubertooth tools (optional)"
+  if ! cmd_exists ubertooth-btle; then
+    echo
+    info "Ubertooth is used for advanced Bluetooth packet sniffing with Ubertooth One hardware."
+    if ask_yes_no "Do you want to install Ubertooth tools?"; then
+      brew_install ubertooth || warn "Ubertooth not available via Homebrew"
+    else
+      warn "Skipping Ubertooth installation. You can install it later if needed."
+    fi
+  else
+    ok "Ubertooth already installed"
+  fi
 
   warn "macOS note: hcitool/hciconfig are Linux (BlueZ) utilities and often unavailable on macOS."
   info "TSCM BLE scanning uses bleak library (installed via pip) for manufacturer data detection."
@@ -613,6 +626,34 @@ install_aiscatcher_from_source_debian() {
   )
 }
 
+install_ubertooth_from_source_debian() {
+  info "Building Ubertooth from source..."
+
+  apt_install build-essential git cmake libusb-1.0-0-dev pkg-config libbluetooth-dev
+
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning Ubertooth..."
+    git clone --depth 1 https://github.com/greatscottgadgets/ubertooth.git "$tmp_dir/ubertooth" >/dev/null 2>&1 \
+      || { warn "Failed to clone Ubertooth"; exit 1; }
+
+    cd "$tmp_dir/ubertooth/host"
+    mkdir -p build && cd build
+
+    info "Compiling Ubertooth..."
+    if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
+      $SUDO make install >/dev/null 2>&1
+      $SUDO ldconfig
+      ok "Ubertooth installed successfully from source."
+    else
+      warn "Failed to build Ubertooth from source."
+    fi
+  )
+}
+
 install_rtlsdr_blog_drivers_debian() {
   # The RTL-SDR Blog drivers provide better support for:
   # - RTL-SDR Blog V4 (R828D tuner)
@@ -720,7 +761,7 @@ install_debian_packages() {
     export NEEDRESTART_MODE=a
   fi
 
-  TOTAL_STEPS=19
+  TOTAL_STEPS=20
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -817,6 +858,19 @@ install_debian_packages() {
 
   progress "Installing Bluetooth tools"
   apt_install bluez bluetooth || true
+
+  progress "Installing Ubertooth tools (optional)"
+  if ! cmd_exists ubertooth-btle; then
+    echo
+    info "Ubertooth is used for advanced Bluetooth packet sniffing with Ubertooth One hardware."
+    if ask_yes_no "Do you want to install Ubertooth tools?"; then
+      apt_install libubertooth-dev ubertooth || install_ubertooth_from_source_debian
+    else
+      warn "Skipping Ubertooth installation. You can install it later if needed."
+    fi
+  else
+    ok "Ubertooth already installed"
+  fi
 
   progress "Installing SoapySDR"
   # Exclude xtrx-dkms - its kernel module fails to build on newer kernels (6.14+)

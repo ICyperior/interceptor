@@ -280,6 +280,72 @@ def configure_channel(index: int):
         }), 500
 
 
+@meshtastic_bp.route('/send', methods=['POST'])
+def send_message():
+    """
+    Send a text message to the mesh network.
+
+    JSON body:
+        {
+            "text": "Hello mesh!",      // Required: message text (max 237 chars)
+            "channel": 0,               // Optional: channel index (default 0)
+            "to": "!a1b2c3d4"          // Optional: destination node (default broadcast)
+        }
+
+    Returns:
+        JSON with send status.
+    """
+    if not is_meshtastic_available():
+        return jsonify({
+            'status': 'error',
+            'message': 'Meshtastic SDK not installed'
+        }), 400
+
+    client = get_meshtastic_client()
+
+    if not client or not client.is_running:
+        return jsonify({
+            'status': 'error',
+            'message': 'Not connected to Meshtastic device'
+        }), 400
+
+    data = request.get_json(silent=True) or {}
+    text = data.get('text', '').strip()
+
+    if not text:
+        return jsonify({
+            'status': 'error',
+            'message': 'Message text is required'
+        }), 400
+
+    if len(text) > 237:
+        return jsonify({
+            'status': 'error',
+            'message': 'Message too long (max 237 characters)'
+        }), 400
+
+    channel = data.get('channel', 0)
+    if not isinstance(channel, int) or not 0 <= channel <= 7:
+        return jsonify({
+            'status': 'error',
+            'message': 'Channel must be 0-7'
+        }), 400
+
+    destination = data.get('to')
+
+    logger.info(f"Sending message: text='{text[:50]}...', channel={channel}, to={destination}")
+    success, error = client.send_text(text, channel=channel, destination=destination)
+    logger.info(f"Send result: success={success}, error={error}")
+
+    if success:
+        return jsonify({'status': 'sent'})
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': error or 'Failed to send message'
+        }), 500
+
+
 @meshtastic_bp.route('/messages')
 def get_messages():
     """
@@ -384,3 +450,42 @@ def get_node():
             'status': 'error',
             'message': 'Failed to get node information'
         }), 500
+
+
+@meshtastic_bp.route('/nodes')
+def get_nodes():
+    """
+    Get all tracked mesh nodes with their positions.
+
+    Returns all nodes that have been seen on the mesh network,
+    including their positions (if reported), battery levels, and signal info.
+
+    Query parameters:
+        with_position: If 'true', only return nodes with valid positions
+
+    Returns:
+        JSON with list of nodes.
+    """
+    client = get_meshtastic_client()
+
+    if not client or not client.is_running:
+        return jsonify({
+            'status': 'error',
+            'message': 'Not connected to Meshtastic device',
+            'nodes': []
+        }), 400
+
+    nodes = client.get_nodes()
+    nodes_list = [n.to_dict() for n in nodes]
+
+    # Filter to only nodes with positions if requested
+    with_position = request.args.get('with_position', '').lower() == 'true'
+    if with_position:
+        nodes_list = [n for n in nodes_list if n.get('has_position')]
+
+    return jsonify({
+        'status': 'ok',
+        'nodes': nodes_list,
+        'count': len(nodes_list),
+        'with_position_count': sum(1 for n in nodes_list if n.get('has_position'))
+    })

@@ -7,10 +7,20 @@ import os
 import sys
 
 # Application version
-VERSION = "2.10.0"
+VERSION = "2.11.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.11.0",
+        "date": "January 2026",
+        "highlights": [
+            "Meshtastic LoRa mesh network integration",
+            "Ubertooth One BLE scanning support",
+            "Offline mode with bundled assets",
+            "Settings modal with tile provider configuration",
+        ]
+    },
     {
         "version": "2.10.0",
         "date": "January 2026",

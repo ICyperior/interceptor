@@ -20,6 +20,9 @@ numpy>=1.24.0
 # GPS dongle support (optional - only needed for USB GPS receivers)
 pyserial>=3.5
 
+# Meshtastic mesh network support (optional - only needed for Meshtastic features)
+meshtastic>=2.0.0
+
 # Development dependencies (install with: pip install -r requirements-dev.txt)
 # pytest>=7.0.0
 # pytest-cov>=4.0.0

@@ -92,6 +92,25 @@ def add_security_headers(response):
 
 
 # ============================================
+# CONTEXT PROCESSORS
+# ============================================
+
+@app.context_processor
+def inject_offline_settings():
+    """Inject offline settings into all templates."""
+    from utils.database import get_setting
+    return {
+        'offline_settings': {
+            'enabled': get_setting('offline.enabled', False),
+            'assets_source': get_setting('offline.assets_source', 'cdn'),
+            'fonts_source': get_setting('offline.fonts_source', 'cdn'),
+            'tile_provider': get_setting('offline.tile_provider', 'openstreetmap'),
+            'tile_server_url': get_setting('offline.tile_server_url', '')
+        }
+    }
+
+
+# ============================================
 # GLOBAL PROCESS MANAGEMENT
 # ============================================
 

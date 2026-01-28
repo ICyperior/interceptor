@@ -1,0 +1,167 @@
+<!-- Settings Modal -->
+<div id="settingsModal" class="settings-modal" onclick="if(event.target === this) hideSettings()">
+    <div class="settings-content">
+        <div class="settings-header">
+            <h2>
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                Settings
+            </h2>
+            <button class="settings-close" onclick="hideSettings()">&times;</button>
+        </div>
+
+        <div class="settings-tabs">
+            <button class="settings-tab active" data-tab="offline" onclick="switchSettingsTab('offline')">Offline</button>
+            <button class="settings-tab" data-tab="display" onclick="switchSettingsTab('display')">Display</button>
+            <button class="settings-tab" data-tab="about" onclick="switchSettingsTab('about')">About</button>
+        </div>
+
+        <!-- Offline Section -->
+        <div id="settings-offline" class="settings-section active">
+            <div class="settings-group">
+                <div class="settings-group-title">Offline Mode</div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Enable Offline Mode</span>
+                        <span class="settings-label-desc">Use local assets instead of CDN</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="offlineEnabled" onchange="Settings.toggleOfflineMode(this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Asset Sources</div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">JavaScript/CSS Libraries</span>
+                        <span class="settings-label-desc">Leaflet, Chart.js</span>
+                    </div>
+                    <select id="assetsSource" class="settings-select" onchange="Settings.setAssetSource(this.value)">
+                        <option value="cdn">CDN (Online)</option>
+                        <option value="local">Local</option>
+                    </select>
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Web Fonts</span>
+                        <span class="settings-label-desc">Inter, JetBrains Mono</span>
+                    </div>
+                    <select id="fontsSource" class="settings-select" onchange="Settings.setFontsSource(this.value)">
+                        <option value="cdn">Google Fonts (Online)</option>
+                        <option value="local">Local</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Map Tiles</div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Tile Provider</span>
+                        <span class="settings-label-desc">Map background imagery</span>
+                    </div>
+                    <select id="tileProvider" class="settings-select" onchange="Settings.setTileProvider(this.value)">
+                        <option value="openstreetmap">OpenStreetMap</option>
+                        <option value="cartodb_dark">CartoDB Dark</option>
+                        <option value="cartodb_light">CartoDB Positron</option>
+                        <option value="esri_world">ESRI World Imagery</option>
+                        <option value="custom">Custom URL</option>
+                    </select>
+                </div>
+
+                <div class="settings-row custom-url-row" id="customTileUrlRow" style="display: none;">
+                    <div class="settings-label" style="width: 100%;">
+                        <span class="settings-label-text">Custom Tile URL</span>
+                        <span class="settings-label-desc">e.g., http://localhost:8080/{z}/{x}/{y}.png</span>
+                        <input type="text" id="customTileUrl" class="settings-input"
+                               placeholder="http://tile-server/{z}/{x}/{y}.png"
+                               onchange="Settings.setCustomTileUrl(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Local Asset Status</div>
+                <div class="asset-status" id="assetStatus">
+                    <div class="asset-status-row">
+                        <span class="asset-name">Leaflet JS/CSS</span>
+                        <span class="asset-badge checking" id="statusLeaflet">Checking...</span>
+                    </div>
+                    <div class="asset-status-row">
+                        <span class="asset-name">Chart.js</span>
+                        <span class="asset-badge checking" id="statusChartjs">Checking...</span>
+                    </div>
+                    <div class="asset-status-row">
+                        <span class="asset-name">Inter Font</span>
+                        <span class="asset-badge checking" id="statusInter">Checking...</span>
+                    </div>
+                    <div class="asset-status-row">
+                        <span class="asset-name">JetBrains Mono</span>
+                        <span class="asset-badge checking" id="statusJetBrains">Checking...</span>
+                    </div>
+                </div>
+                <button class="check-assets-btn" onclick="Settings.checkAssets()">
+                    Check Assets
+                </button>
+            </div>
+
+            <div class="settings-info">
+                <strong>Note:</strong> Changes to asset sources require a page reload to take effect.
+                Local assets must be available in <code>/static/vendor/</code>.
+            </div>
+        </div>
+
+        <!-- Display Section -->
+        <div id="settings-display" class="settings-section">
+            <div class="settings-group">
+                <div class="settings-group-title">Visual Preferences</div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Theme</span>
+                        <span class="settings-label-desc">Color scheme preference</span>
+                    </div>
+                    <select id="themeSelect" class="settings-select" onchange="setThemePreference(this.value)">
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                    </select>
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Animations</span>
+                        <span class="settings-label-desc">Enable visual effects and animations</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="animationsEnabled" checked onchange="setAnimationsEnabled(this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Section -->
+        <div id="settings-about" class="settings-section">
+            <div class="settings-group">
+                <div class="about-info">
+                    <p><strong>iNTERCEPT</strong> - Signal Intelligence Platform</p>
+                    <p>Version: <span class="about-version">{{ version }}</span></p>
+                    <p>
+                        A unified web interface for software-defined radio (SDR) tools,
+                        supporting pager decoding, sensor monitoring, aircraft tracking,
+                        WiFi/Bluetooth scanning, and more.
+                    </p>
+                    <p>
+                        <a href="https://github.com/intercept" target="_blank">GitHub Repository</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

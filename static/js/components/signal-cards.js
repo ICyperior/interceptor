@@ -989,6 +989,66 @@ const SignalCards = (function() {
     }
 
     /**
+     * Build HTML for all meter detail fields from raw message data
+     */
+    function buildMeterDetailsHtml(msg, seenCount) {
+        let html = '';
+        const rawMessage = msg.rawMessage || {};
+
+        // Display all fields from the raw rtlamr message
+        for (const [key, value] of Object.entries(rawMessage)) {
+            if (value === null || value === undefined) continue;
+
+            // Format the label (convert camelCase/PascalCase to spaces)
+            const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
+
+            // Format the value based on type
+            let displayValue;
+            if (Array.isArray(value)) {
+                // For arrays like DifferentialConsumptionIntervals, show count and values
+                if (value.length > 10) {
+                    displayValue = `[${value.length} values] ${value.slice(0, 5).join(', ')}...`;
+                } else {
+                    displayValue = value.join(', ');
+                }
+            } else if (typeof value === 'object') {
+                displayValue = JSON.stringify(value);
+            } else if (key === 'Consumption') {
+                displayValue = `${value.toLocaleString()} units`;
+            } else {
+                displayValue = String(value);
+            }
+
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">${escapeHtml(label)}</span>
+                    <span class="signal-advanced-value">${escapeHtml(displayValue)}</span>
+                </div>
+            `;
+        }
+
+        // Add message type if not in raw message
+        if (!rawMessage.Type && msg.type) {
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">Message Type</span>
+                    <span class="signal-advanced-value">${escapeHtml(msg.type)}</span>
+                </div>
+            `;
+        }
+
+        // Add seen count
+        html += `
+            <div class="signal-advanced-item">
+                <span class="signal-advanced-label">Seen</span>
+                <span class="signal-advanced-value">${seenCount} time${seenCount > 1 ? 's' : ''}</span>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
      * Create a utility meter (rtlamr) card
      */
     function createMeterCard(msg, options = {}) {
@@ -1060,30 +1120,7 @@ const SignalCards = (function() {
                         <div class="signal-advanced-section">
                             <div class="signal-advanced-title">Meter Details</div>
                             <div class="signal-advanced-grid">
-                                <div class="signal-advanced-item">
-                                    <span class="signal-advanced-label">Meter ID</span>
-                                    <span class="signal-advanced-value">${escapeHtml(msg.id || 'N/A')}</span>
-                                </div>
-                                <div class="signal-advanced-item">
-                                    <span class="signal-advanced-label">Type</span>
-                                    <span class="signal-advanced-value">${escapeHtml(msg.type || 'Unknown')}</span>
-                                </div>
-                                ${msg.endpoint_type ? `
-                                <div class="signal-advanced-item">
-                                    <span class="signal-advanced-label">Endpoint</span>
-                                    <span class="signal-advanced-value">${escapeHtml(msg.endpoint_type)}</span>
-                                </div>
-                                ` : ''}
-                                ${msg.endpoint_id ? `
-                                <div class="signal-advanced-item">
-                                    <span class="signal-advanced-label">Endpoint ID</span>
-                                    <span class="signal-advanced-value">${escapeHtml(msg.endpoint_id)}</span>
-                                </div>
-                                ` : ''}
-                                <div class="signal-advanced-item">
-                                    <span class="signal-advanced-label">Seen</span>
-                                    <span class="signal-advanced-value">${seenCount} time${seenCount > 1 ? 's' : ''}</span>
-                                </div>
+                                ${buildMeterDetailsHtml(msg, seenCount)}
                             </div>
                         </div>
                     </div>
