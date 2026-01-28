@@ -521,3 +521,89 @@ def get_nodes():
         'count': len(nodes_list),
         'with_position_count': sum(1 for n in nodes_list if n.get('has_position'))
     })
+
+
+@meshtastic_bp.route('/traceroute', methods=['POST'])
+def send_traceroute():
+    """
+    Send a traceroute request to a mesh node.
+
+    JSON body:
+        {
+            "destination": "!a1b2c3d4",  // Required: target node ID
+            "hop_limit": 7                // Optional: max hops (1-7, default 7)
+        }
+
+    Returns:
+        JSON with traceroute request status.
+    """
+    if not is_meshtastic_available():
+        return jsonify({
+            'status': 'error',
+            'message': 'Meshtastic SDK not installed'
+        }), 400
+
+    client = get_meshtastic_client()
+
+    if not client or not client.is_running:
+        return jsonify({
+            'status': 'error',
+            'message': 'Not connected to Meshtastic device'
+        }), 400
+
+    data = request.get_json(silent=True) or {}
+    destination = data.get('destination')
+
+    if not destination:
+        return jsonify({
+            'status': 'error',
+            'message': 'Destination node ID is required'
+        }), 400
+
+    hop_limit = data.get('hop_limit', 7)
+    if not isinstance(hop_limit, int) or not 1 <= hop_limit <= 7:
+        hop_limit = 7
+
+    success, error = client.send_traceroute(destination, hop_limit=hop_limit)
+
+    if success:
+        return jsonify({
+            'status': 'sent',
+            'destination': destination,
+            'hop_limit': hop_limit
+        })
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': error or 'Failed to send traceroute'
+        }), 500
+
+
+@meshtastic_bp.route('/traceroute/results')
+def get_traceroute_results():
+    """
+    Get recent traceroute results.
+
+    Query parameters:
+        limit: Maximum number of results to return (default: 10)
+
+    Returns:
+        JSON with list of traceroute results.
+    """
+    client = get_meshtastic_client()
+
+    if not client or not client.is_running:
+        return jsonify({
+            'status': 'error',
+            'message': 'Not connected to Meshtastic device',
+            'results': []
+        }), 400
+
+    limit = request.args.get('limit', 10, type=int)
+    results = client.get_traceroute_results(limit=limit)
+
+    return jsonify({
+        'status': 'ok',
+        'results': [r.to_dict() for r in results],
+        'count': len(results)
+    })

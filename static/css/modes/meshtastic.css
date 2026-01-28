@@ -1180,3 +1180,175 @@
         min-height: 44px;
     }
 }
+
+/* ============================================
+   TRACEROUTE BUTTON IN POPUP
+   ============================================ */
+.mesh-traceroute-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--accent-cyan);
+    border: none;
+    border-radius: 4px;
+    color: #000;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mesh-traceroute-btn:hover {
+    background: var(--accent-green);
+    transform: scale(1.02);
+}
+
+/* ============================================
+   TRACEROUTE MODAL CONTENT
+   ============================================ */
+.mesh-traceroute-content {
+    min-height: 100px;
+}
+
+.mesh-traceroute-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.mesh-traceroute-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-cyan);
+    border-radius: 50%;
+    animation: mesh-spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes mesh-spin {
+    to { transform: rotate(360deg); }
+}
+
+.mesh-traceroute-error {
+    padding: 16px;
+    background: rgba(255, 51, 102, 0.1);
+    border: 1px solid var(--accent-red, #ff3366);
+    border-radius: 6px;
+    color: var(--accent-red, #ff3366);
+    font-size: 12px;
+}
+
+.mesh-traceroute-section {
+    margin-bottom: 16px;
+}
+
+.mesh-traceroute-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.mesh-traceroute-path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+.mesh-traceroute-hop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    min-width: 70px;
+}
+
+.mesh-traceroute-hop-node {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin-bottom: 4px;
+}
+
+.mesh-traceroute-hop-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+
+.mesh-traceroute-snr {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.mesh-traceroute-snr.snr-good {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+}
+
+.mesh-traceroute-snr.snr-ok {
+    background: rgba(74, 158, 255, 0.15);
+    color: var(--accent-cyan);
+}
+
+.mesh-traceroute-snr.snr-poor {
+    background: rgba(255, 193, 7, 0.15);
+    color: var(--accent-orange);
+}
+
+.mesh-traceroute-snr.snr-bad {
+    background: rgba(255, 51, 102, 0.15);
+    color: var(--accent-red, #ff3366);
+}
+
+.mesh-traceroute-arrow {
+    font-size: 18px;
+    color: var(--text-dim);
+    font-weight: bold;
+}
+
+.mesh-traceroute-timestamp {
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: right;
+}
+
+/* Responsive traceroute path */
+@media (max-width: 600px) {
+    .mesh-traceroute-path {
+        flex-direction: column;
+    }
+
+    .mesh-traceroute-hop {
+        width: 100%;
+    }
+
+    .mesh-traceroute-arrow {
+        transform: rotate(90deg);
+    }
+}

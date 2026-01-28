@@ -118,6 +118,14 @@ class MeshNode:
     battery_level: int | None = None
     snr: float | None = None
     last_heard: datetime | None = None
+    # Device telemetry
+    voltage: float | None = None
+    channel_utilization: float | None = None
+    air_util_tx: float | None = None
+    # Environment telemetry
+    temperature: float | None = None
+    humidity: float | None = None
+    barometric_pressure: float | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -133,6 +141,14 @@ class MeshNode:
             'snr': self.snr,
             'last_heard': self.last_heard.isoformat() if self.last_heard else None,
             'has_position': self.latitude is not None and self.longitude is not None,
+            # Device telemetry
+            'voltage': self.voltage,
+            'channel_utilization': self.channel_utilization,
+            'air_util_tx': self.air_util_tx,
+            # Environment telemetry
+            'temperature': self.temperature,
+            'humidity': self.humidity,
+            'barometric_pressure': self.barometric_pressure,
         }
 
 
@@ -163,6 +179,29 @@ class NodeInfo:
         }
 
 
+@dataclass
+class TracerouteResult:
+    """Result of a traceroute to a mesh node."""
+    destination_id: str
+    route: list[str]           # Node IDs in forward path
+    route_back: list[str]      # Return path
+    snr_towards: list[float]   # SNR per hop (forward)
+    snr_back: list[float]      # SNR per hop (return)
+    timestamp: datetime
+    success: bool
+
+    def to_dict(self) -> dict:
+        return {
+            'destination_id': self.destination_id,
+            'route': self.route,
+            'route_back': self.route_back,
+            'snr_towards': self.snr_towards,
+            'snr_back': self.snr_back,
+            'timestamp': self.timestamp.isoformat(),
+            'success': self.success,
+        }
+
+
 class MeshtasticClient:
     """Client for connecting to Meshtastic devices."""
 
@@ -174,6 +213,8 @@ class MeshtasticClient:
         self._nodes: dict[int, MeshNode] = {}  # num -> MeshNode
         self._device_path: str | None = None
         self._error: str | None = None
+        self._traceroute_results: list[TracerouteResult] = []
+        self._max_traceroute_results = 50
 
     @property
     def is_running(self) -> bool:
@@ -312,6 +353,10 @@ class MeshtasticClient:
             # Track node from packet (always, even for filtered messages)
             self._track_node_from_packet(packet, decoded, portnum)
 
+            # Parse traceroute responses
+            if portnum == 'TRACEROUTE_APP':
+                self._handle_traceroute_response(packet, decoded)
+
             # Skip callback if none set
             if not self._callback:
                 return
@@ -421,14 +466,38 @@ class MeshtasticClient:
                     node.longitude = lon
                     node.altitude = position.get('altitude', node.altitude)
 
-        # Parse TELEMETRY_APP for battery
+        # Parse TELEMETRY_APP for battery and other metrics
         elif portnum == 'TELEMETRY_APP':
             telemetry = decoded.get('telemetry', {})
+
+            # Device metrics
             device_metrics = telemetry.get('deviceMetrics', {})
             if device_metrics:
                 battery = device_metrics.get('batteryLevel')
                 if battery is not None:
                     node.battery_level = battery
+                voltage = device_metrics.get('voltage')
+                if voltage is not None:
+                    node.voltage = voltage
+                channel_util = device_metrics.get('channelUtilization')
+                if channel_util is not None:
+                    node.channel_utilization = channel_util
+                air_util = device_metrics.get('airUtilTx')
+                if air_util is not None:
+                    node.air_util_tx = air_util
+
+            # Environment metrics
+            env_metrics = telemetry.get('environmentMetrics', {})
+            if env_metrics:
+                temp = env_metrics.get('temperature')
+                if temp is not None:
+                    node.temperature = temp
+                humidity = env_metrics.get('relativeHumidity')
+                if humidity is not None:
+                    node.humidity = humidity
+                pressure = env_metrics.get('barometricPressure')
+                if pressure is not None:
+                    node.barometric_pressure = pressure
 
     def _lookup_node_name(self, node_num: int) -> str | None:
         """Look up a node's name by its number."""
@@ -751,6 +820,106 @@ class MeshtasticClient:
             pass
 
         return None
+
+    def send_traceroute(self, destination: str | int, hop_limit: int = 7) -> tuple[bool, str]:
+        """
+        Send a traceroute request to a destination node.
+
+        Args:
+            destination: Target node ID (string like "!a1b2c3d4" or int)
+            hop_limit: Maximum number of hops (1-7, default 7)
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        if not self._interface:
+            return False, "Not connected to device"
+
+        if not HAS_MESHTASTIC:
+            return False, "Meshtastic SDK not installed"
+
+        # Validate hop limit
+        hop_limit = max(1, min(7, hop_limit))
+
+        try:
+            # Parse destination
+            if isinstance(destination, int):
+                dest_id = destination
+            elif destination.startswith('!'):
+                dest_id = int(destination[1:], 16)
+            else:
+                try:
+                    dest_id = int(destination)
+                except ValueError:
+                    return False, f"Invalid destination: {destination}"
+
+            if dest_id == BROADCAST_ADDR:
+                return False, "Cannot traceroute to broadcast address"
+
+            # Use the SDK's sendTraceRoute method
+            logger.info(f"Sending traceroute to {self._format_node_id(dest_id)} with hop_limit={hop_limit}")
+            self._interface.sendTraceRoute(dest_id, hopLimit=hop_limit)
+
+            return True, None
+
+        except Exception as e:
+            logger.error(f"Error sending traceroute: {e}")
+            return False, str(e)
+
+    def _handle_traceroute_response(self, packet: dict, decoded: dict) -> None:
+        """Handle incoming traceroute response."""
+        try:
+            from_num = packet.get('from', 0)
+            route_discovery = decoded.get('routeDiscovery', {})
+
+            # Extract route information
+            route = route_discovery.get('route', [])
+            route_back = route_discovery.get('routeBack', [])
+            snr_towards = route_discovery.get('snrTowards', [])
+            snr_back = route_discovery.get('snrBack', [])
+
+            # Convert node numbers to IDs
+            route_ids = [self._format_node_id(n) for n in route]
+            route_back_ids = [self._format_node_id(n) for n in route_back]
+
+            # Convert SNR values (stored as int8, need to convert)
+            snr_towards_float = [float(s) / 4.0 if isinstance(s, int) else float(s) for s in snr_towards]
+            snr_back_float = [float(s) / 4.0 if isinstance(s, int) else float(s) for s in snr_back]
+
+            result = TracerouteResult(
+                destination_id=self._format_node_id(from_num),
+                route=route_ids,
+                route_back=route_back_ids,
+                snr_towards=snr_towards_float,
+                snr_back=snr_back_float,
+                timestamp=datetime.now(timezone.utc),
+                success=len(route) > 0 or len(route_back) > 0,
+            )
+
+            # Store result
+            self._traceroute_results.append(result)
+            if len(self._traceroute_results) > self._max_traceroute_results:
+                self._traceroute_results.pop(0)
+
+            logger.info(f"Traceroute response from {result.destination_id}: route={route_ids}, route_back={route_back_ids}")
+
+        except Exception as e:
+            logger.error(f"Error handling traceroute response: {e}")
+
+    def get_traceroute_results(self, limit: int | None = None) -> list[TracerouteResult]:
+        """
+        Get recent traceroute results.
+
+        Args:
+            limit: Maximum number of results to return (None for all)
+
+        Returns:
+            List of TracerouteResult objects, most recent first
+        """
+        results = list(reversed(self._traceroute_results))
+        if limit:
+            results = results[:limit]
+        return results
 
 
 # Global client instance

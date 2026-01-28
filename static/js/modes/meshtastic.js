@@ -589,6 +589,40 @@ const Meshtastic = (function() {
             popupAnchor: [0, -14]
         });
 
+        // Build telemetry section
+        let telemetryHtml = '';
+        if (node.voltage !== null || node.channel_utilization !== null || node.air_util_tx !== null) {
+            telemetryHtml += '<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-color);">';
+            telemetryHtml += '<span style="color: var(--text-dim); font-size: 9px; text-transform: uppercase;">Device Telemetry</span><br>';
+            if (node.voltage !== null) {
+                telemetryHtml += `<span style="color: var(--text-dim);">Voltage:</span> ${node.voltage.toFixed(2)}V<br>`;
+            }
+            if (node.channel_utilization !== null) {
+                telemetryHtml += `<span style="color: var(--text-dim);">Ch Util:</span> ${node.channel_utilization.toFixed(1)}%<br>`;
+            }
+            if (node.air_util_tx !== null) {
+                telemetryHtml += `<span style="color: var(--text-dim);">Air TX:</span> ${node.air_util_tx.toFixed(1)}%<br>`;
+            }
+            telemetryHtml += '</div>';
+        }
+
+        // Build environment section
+        let envHtml = '';
+        if (node.temperature !== null || node.humidity !== null || node.barometric_pressure !== null) {
+            envHtml += '<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-color);">';
+            envHtml += '<span style="color: var(--text-dim); font-size: 9px; text-transform: uppercase;">Environment</span><br>';
+            if (node.temperature !== null) {
+                telemetryHtml += `<span style="color: var(--text-dim);">Temp:</span> ${node.temperature.toFixed(1)}°C<br>`;
+            }
+            if (node.humidity !== null) {
+                envHtml += `<span style="color: var(--text-dim);">Humidity:</span> ${node.humidity.toFixed(1)}%<br>`;
+            }
+            if (node.barometric_pressure !== null) {
+                envHtml += `<span style="color: var(--text-dim);">Pressure:</span> ${node.barometric_pressure.toFixed(1)} hPa<br>`;
+            }
+            envHtml += '</div>';
+        }
+
         // Build popup content
         const popupContent = `
             <div style="min-width: 150px;">
@@ -599,7 +633,10 @@ const Meshtastic = (function() {
                 ${node.altitude ? `<span style="color: var(--text-dim);">Altitude:</span> ${node.altitude}m<br>` : ''}
                 ${node.battery_level !== null ? `<span style="color: var(--text-dim);">Battery:</span> ${node.battery_level}%<br>` : ''}
                 ${node.snr !== null ? `<span style="color: var(--text-dim);">SNR:</span> ${node.snr.toFixed(1)} dB<br>` : ''}
-                ${node.last_heard ? `<span style="color: var(--text-dim);">Last heard:</span> ${new Date(node.last_heard).toLocaleTimeString()}` : ''}
+                ${node.last_heard ? `<span style="color: var(--text-dim);">Last heard:</span> ${new Date(node.last_heard).toLocaleTimeString()}<br>` : ''}
+                ${telemetryHtml}
+                ${envHtml}
+                ${!isLocal ? `<button class="mesh-traceroute-btn" onclick="Meshtastic.sendTraceroute('${nodeId}')">Traceroute</button>` : ''}
             </div>
         `;
 
@@ -1208,6 +1245,190 @@ const Meshtastic = (function() {
         }
     }
 
+    /**
+     * Send traceroute to a node
+     */
+    async function sendTraceroute(destination) {
+        if (!destination) return;
+
+        // Show traceroute modal with loading state
+        showTracerouteModal(destination, null, true);
+
+        try {
+            const response = await fetch('/meshtastic/traceroute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ destination, hop_limit: 7 })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'sent') {
+                // Start polling for results
+                pollTracerouteResults(destination);
+            } else {
+                showTracerouteModal(destination, { error: data.message || 'Failed to send traceroute' }, false);
+            }
+        } catch (err) {
+            console.error('Traceroute error:', err);
+            showTracerouteModal(destination, { error: err.message }, false);
+        }
+    }
+
+    /**
+     * Poll for traceroute results
+     */
+    async function pollTracerouteResults(destination, attempts = 0) {
+        const maxAttempts = 30;  // 30 seconds timeout
+        const pollInterval = 1000;
+
+        if (attempts >= maxAttempts) {
+            showTracerouteModal(destination, { error: 'Traceroute timeout - no response received' }, false);
+            return;
+        }
+
+        try {
+            const response = await fetch('/meshtastic/traceroute/results?limit=5');
+            const data = await response.json();
+
+            if (data.status === 'ok' && data.results) {
+                // Find result matching our destination
+                const result = data.results.find(r => r.destination_id === destination);
+                if (result) {
+                    showTracerouteModal(destination, result, false);
+                    return;
+                }
+            }
+
+            // Continue polling
+            setTimeout(() => pollTracerouteResults(destination, attempts + 1), pollInterval);
+        } catch (err) {
+            console.error('Error polling traceroute:', err);
+            setTimeout(() => pollTracerouteResults(destination, attempts + 1), pollInterval);
+        }
+    }
+
+    /**
+     * Show traceroute modal
+     */
+    function showTracerouteModal(destination, result, loading) {
+        let modal = document.getElementById('meshTracerouteModal');
+        if (!modal) return;
+
+        const destEl = document.getElementById('meshTracerouteDest');
+        const contentEl = document.getElementById('meshTracerouteContent');
+
+        if (destEl) destEl.textContent = destination;
+
+        if (loading) {
+            contentEl.innerHTML = `
+                <div class="mesh-traceroute-loading">
+                    <div class="mesh-traceroute-spinner"></div>
+                    <p>Waiting for traceroute response...</p>
+                </div>
+            `;
+        } else if (result && result.error) {
+            contentEl.innerHTML = `
+                <div class="mesh-traceroute-error">
+                    <p>Error: ${escapeHtml(result.error)}</p>
+                </div>
+            `;
+        } else if (result) {
+            contentEl.innerHTML = renderTracerouteVisualization(result);
+        }
+
+        modal.classList.add('show');
+    }
+
+    /**
+     * Close traceroute modal
+     */
+    function closeTracerouteModal() {
+        const modal = document.getElementById('meshTracerouteModal');
+        if (modal) modal.classList.remove('show');
+    }
+
+    /**
+     * Render traceroute visualization
+     */
+    function renderTracerouteVisualization(result) {
+        if (!result.route || result.route.length === 0) {
+            if (result.route_back && result.route_back.length > 0) {
+                // Only have return path - show it
+                return renderRoutePath('Return Path', result.route_back, result.snr_back);
+            }
+            return '<p style="color: var(--text-dim);">Direct connection (no intermediate hops)</p>';
+        }
+
+        let html = '';
+
+        // Forward route
+        if (result.route && result.route.length > 0) {
+            html += renderRoutePath('Forward Path', result.route, result.snr_towards);
+        }
+
+        // Return route
+        if (result.route_back && result.route_back.length > 0) {
+            html += renderRoutePath('Return Path', result.route_back, result.snr_back);
+        }
+
+        // Timestamp
+        if (result.timestamp) {
+            html += `<div class="mesh-traceroute-timestamp">Completed: ${new Date(result.timestamp).toLocaleString()}</div>`;
+        }
+
+        return html;
+    }
+
+    /**
+     * Render a single route path
+     */
+    function renderRoutePath(label, route, snrValues) {
+        let html = `<div class="mesh-traceroute-section">
+            <div class="mesh-traceroute-label">${label}</div>
+            <div class="mesh-traceroute-path">`;
+
+        route.forEach((nodeId, index) => {
+            // Look up node name if available
+            const nodeName = lookupNodeName(nodeId) || nodeId.slice(-4);
+            const snr = snrValues && snrValues[index] !== undefined ? snrValues[index] : null;
+            const snrClass = snr !== null ? getSnrClass(snr) : '';
+
+            html += `<div class="mesh-traceroute-hop">
+                <div class="mesh-traceroute-hop-node">${escapeHtml(nodeName)}</div>
+                <div class="mesh-traceroute-hop-id">${nodeId}</div>
+                ${snr !== null ? `<div class="mesh-traceroute-snr ${snrClass}">${snr.toFixed(1)} dB</div>` : ''}
+            </div>`;
+
+            // Add arrow between hops
+            if (index < route.length - 1) {
+                html += '<div class="mesh-traceroute-arrow">→</div>';
+            }
+        });
+
+        html += '</div></div>';
+        return html;
+    }
+
+    /**
+     * Get SNR quality class
+     */
+    function getSnrClass(snr) {
+        if (snr >= 10) return 'snr-good';
+        if (snr >= 0) return 'snr-ok';
+        if (snr >= -10) return 'snr-poor';
+        return 'snr-bad';
+    }
+
+    /**
+     * Look up node name from our tracked nodes
+     */
+    function lookupNodeName(nodeId) {
+        // This would ideally look up from our cached nodes
+        // For now, return null to use ID
+        return null;
+    }
+
     return {
         init,
         start,
@@ -1226,7 +1447,9 @@ const Meshtastic = (function() {
         invalidateMap,
         handleComposeKeydown,
         toggleSidebar,
-        toggleOptionsPanel
+        toggleOptionsPanel,
+        sendTraceroute,
+        closeTracerouteModal
     };
 
     /**

@@ -100,3 +100,22 @@
         </div>
     </div>
 </div>
+
+<!-- Traceroute Modal -->
+<div id="meshTracerouteModal" class="signal-details-modal">
+    <div class="signal-details-modal-backdrop" onclick="Meshtastic.closeTracerouteModal()"></div>
+    <div class="signal-details-modal-content">
+        <div class="signal-details-modal-header">
+            <h3>Traceroute to <span id="meshTracerouteDest">--</span></h3>
+            <button class="signal-details-modal-close" onclick="Meshtastic.closeTracerouteModal()">&times;</button>
+        </div>
+        <div class="signal-details-modal-body">
+            <div id="meshTracerouteContent" class="mesh-traceroute-content">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+        <div class="signal-details-modal-footer">
+            <button class="preset-btn" onclick="Meshtastic.closeTracerouteModal()" style="width: 100%;">Close</button>
+        </div>
+    </div>
+</div>
