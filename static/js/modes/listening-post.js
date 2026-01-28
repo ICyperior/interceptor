@@ -1531,6 +1531,9 @@ function initSynthesizer() {
     drawSynthesizer();
 }
 
+// Debug: log signal level periodically
+let lastSynthDebugLog = 0;
+
 function drawSynthesizer() {
     if (!synthCtx || !synthCanvas) return;
 
@@ -1545,6 +1548,19 @@ function drawSynthesizer() {
     // Determine activity level based on actual signal level
     let activityLevel = 0;
     let signalIntensity = 0;
+
+    // Debug logging every 2 seconds
+    const now = Date.now();
+    if (now - lastSynthDebugLog > 2000) {
+        console.log('[SYNTH] State:', {
+            isScannerRunning,
+            isDirectListening,
+            scannerSignalActive,
+            currentSignalLevel,
+            visualizerAnalyser: !!visualizerAnalyser
+        });
+        lastSynthDebugLog = now;
+    }
 
     if (isScannerRunning && !isScannerPaused) {
         // Use actual signal level data (0-5000 range, normalize to 0-1)
@@ -1636,6 +1652,13 @@ function drawSynthesizer() {
     synthCtx.moveTo(0, height / 2);
     synthCtx.lineTo(width, height / 2);
     synthCtx.stroke();
+
+    // Debug: show signal level value
+    if (isScannerRunning || isDirectListening) {
+        synthCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        synthCtx.font = '9px monospace';
+        synthCtx.fillText(`lvl:${Math.round(currentSignalLevel)}`, 4, 10);
+    }
 
     synthAnimationId = requestAnimationFrame(drawSynthesizer);
 }
