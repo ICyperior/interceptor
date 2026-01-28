@@ -84,6 +84,7 @@
                 <span id="trackingStatus">STANDBY</span>
             </div>
             <div class="strip-time" id="utcTime">--:--:-- UTC</div>
+            <span id="gpsIndicator" class="gps-indicator" style="display: none;" title="GPS connected via gpsd"><span class="gps-dot"></span> GPS</span>
         </div>
     </div>
 
@@ -216,6 +217,11 @@
         let observerLocation = { lat: 51.5074, lon: -0.1278 };
         let rangeRingsLayer = null;
         let observerMarker = null;
+
+        // GPS state
+        let gpsConnected = false;
+        let gpsEventSource = null;
+        let gpsReconnectTimeout = null;
 
         // Statistics
         let stats = {
@@ -948,6 +954,106 @@
             document.getElementById('utcTime').textContent = utc + ' UTC';
         }
 
+        // ============================================
+        // GPS FUNCTIONS (gpsd auto-connect)
+        // ============================================
+        async function autoConnectGps() {
+            try {
+                const response = await fetch('/gps/auto-connect', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.status === 'connected') {
+                    gpsConnected = true;
+                    startGpsStream();
+                    showGpsIndicator(true);
+                    console.log('GPS: Auto-connected to gpsd');
+                    if (data.position) {
+                        updateLocationFromGps(data.position);
+                    }
+                } else {
+                    console.log('GPS: gpsd not available -', data.message);
+                }
+            } catch (e) {
+                console.log('GPS: Auto-connect failed -', e.message);
+            }
+        }
+
+        function startGpsStream() {
+            if (gpsEventSource) {
+                gpsEventSource.close();
+            }
+            if (gpsReconnectTimeout) {
+                clearTimeout(gpsReconnectTimeout);
+                gpsReconnectTimeout = null;
+            }
+
+            gpsEventSource = new EventSource('/gps/stream');
+            gpsEventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'position' && data.latitude && data.longitude) {
+                        updateLocationFromGps(data);
+                    }
+                } catch (e) {
+                    console.error('GPS parse error:', e);
+                }
+            };
+            gpsEventSource.onerror = (e) => {
+                // Don't log every error - connection suspends are normal
+                if (gpsEventSource) {
+                    gpsEventSource.close();
+                    gpsEventSource = null;
+                }
+                // Auto-reconnect after 5 seconds if still connected
+                if (gpsConnected && !gpsReconnectTimeout) {
+                    gpsReconnectTimeout = setTimeout(() => {
+                        gpsReconnectTimeout = null;
+                        if (gpsConnected) {
+                            startGpsStream();
+                        }
+                    }, 5000);
+                }
+            };
+        }
+
+        // Reconnect GPS stream when tab becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && gpsConnected && !gpsEventSource) {
+                startGpsStream();
+            }
+        });
+
+        function updateLocationFromGps(position) {
+            observerLocation.lat = position.latitude;
+            observerLocation.lon = position.longitude;
+            document.getElementById('obsLat').value = position.latitude.toFixed(4);
+            document.getElementById('obsLon').value = position.longitude.toFixed(4);
+
+            // Update observer marker position
+            if (observerMarker) {
+                observerMarker.setLatLng([position.latitude, position.longitude]);
+            }
+
+            // Center map on GPS location (on first fix)
+            if (vesselMap && !vesselMap._gpsInitialized) {
+                vesselMap.setView([position.latitude, position.longitude], vesselMap.getZoom());
+                vesselMap._gpsInitialized = true;
+            }
+
+            // Redraw range rings at new position
+            drawRangeRings();
+
+            // Save to localStorage
+            localStorage.setItem('ais_observerLocation', JSON.stringify(observerLocation));
+        }
+
+        function showGpsIndicator(show) {
+            const indicator = document.getElementById('gpsIndicator');
+            if (indicator) {
+                indicator.style.display = show ? 'inline-flex' : 'none';
+            }
+        }
+
         // Session timer functions
         function startSessionTimer() {
             if (!stats.sessionStart) {
@@ -1344,7 +1450,11 @@
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', initMap);
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            // Auto-connect to gpsd if available
+            autoConnectGps();
+        });
     </script>
 
     <!-- Agent styles -->
