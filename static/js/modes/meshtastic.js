@@ -533,10 +533,16 @@ const Meshtastic = (function() {
 
                 // Update markers for all nodes with positions
                 data.nodes.forEach(node => {
+                    // Track node in uniqueNodes set for stats
+                    if (node.num) uniqueNodes.add(node.num);
+
                     if (node.has_position) {
                         updateNodeMarker(node);
                     }
                 });
+
+                // Update stats to reflect loaded nodes
+                updateStats();
 
                 // Fit map to show all nodes if we have any
                 const nodesWithPos = data.nodes.filter(n => n.has_position);
