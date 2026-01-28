@@ -57,6 +57,38 @@ def _message_callback(msg: MeshtasticMessage) -> None:
             pass
 
 
+@meshtastic_bp.route('/ports')
+def list_ports():
+    """
+    List available serial ports that may have Meshtastic devices.
+
+    Returns:
+        JSON with list of available serial ports.
+    """
+    if not is_meshtastic_available():
+        return jsonify({
+            'status': 'error',
+            'ports': [],
+            'message': 'Meshtastic SDK not installed'
+        })
+
+    try:
+        from meshtastic.util import findPorts
+        ports = findPorts()
+        return jsonify({
+            'status': 'ok',
+            'ports': ports,
+            'count': len(ports)
+        })
+    except Exception as e:
+        logger.error(f"Error listing ports: {e}")
+        return jsonify({
+            'status': 'error',
+            'ports': [],
+            'message': str(e)
+        })
+
+
 @meshtastic_bp.route('/status')
 def get_status():
     """

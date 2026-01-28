@@ -24,7 +24,41 @@ const Meshtastic = (function() {
      */
     function init() {
         initMap();
+        loadPorts();
         checkStatus();
+    }
+
+    /**
+     * Load available serial ports and populate dropdown
+     */
+    async function loadPorts() {
+        try {
+            const response = await fetch('/meshtastic/ports');
+            const data = await response.json();
+
+            const select = document.getElementById('meshStripDevice');
+            if (!select) return;
+
+            // Clear existing options except auto-detect
+            select.innerHTML = '<option value="">Auto-detect</option>';
+
+            if (data.status === 'ok' && data.ports && data.ports.length > 0) {
+                data.ports.forEach(port => {
+                    const option = document.createElement('option');
+                    option.value = port;
+                    option.textContent = port;
+                    select.appendChild(option);
+                });
+
+                // If multiple ports, select the first one by default to avoid auto-detect failure
+                if (data.ports.length > 1) {
+                    select.value = data.ports[0];
+                    showStatusMessage(`Multiple ports detected. Selected ${data.ports[0]}`, 'warning');
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load ports:', err);
+        }
     }
 
     /**
@@ -91,7 +125,15 @@ const Meshtastic = (function() {
         // Try strip device select first, then sidebar
         const stripDeviceSelect = document.getElementById('meshStripDevice');
         const sidebarDeviceSelect = document.getElementById('meshDeviceSelect');
-        const device = stripDeviceSelect?.value || sidebarDeviceSelect?.value || null;
+        let device = stripDeviceSelect?.value || sidebarDeviceSelect?.value || null;
+
+        // Check if auto-detect is selected but multiple ports exist
+        if (!device && stripDeviceSelect && stripDeviceSelect.options.length > 2) {
+            // Multiple ports available - prompt user to select one
+            showStatusMessage('Multiple ports detected. Please select a specific device from the dropdown.', 'warning');
+            updateStatusIndicator('disconnected', 'Select a device');
+            return;
+        }
 
         updateStatusIndicator('connecting', 'Connecting...');
 
@@ -1164,6 +1206,7 @@ const Meshtastic = (function() {
         init,
         start,
         stop,
+        loadPorts,
         refreshChannels,
         openChannelModal,
         closeChannelModal,
