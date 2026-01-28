@@ -3091,6 +3091,11 @@
                 }
             }
 
+            // Get meter type info for display
+            const meterInfo = typeof getMeterTypeInfo === 'function'
+                ? getMeterTypeInfo(msgData.EndpointType, data.Type)
+                : { utility: 'Unknown', manufacturer: 'Unknown' };
+
             // Convert rtlamr data to our card format, preserving all raw fields
             const msg = {
                 id: String(meterId),
@@ -3099,6 +3104,8 @@
                 unit: 'units',
                 endpoint_type: msgData.EndpointType,
                 endpoint_id: msgData.EndpointID,
+                utility: meterInfo.utility,
+                manufacturer: meterInfo.manufacturer,
                 timestamp: new Date().toISOString(),
                 rawMessage: msgData  // Include all original fields for detailed display
             };
@@ -4106,6 +4113,9 @@
                 return 'WIFI_CLIENT_' + (data.address || 'UNK').replace(/:/g, '');
             } else if (data.protocol === 'Bluetooth' || data.protocol === 'BLE') {
                 return 'BT_' + (data.address || 'UNK').replace(/:/g, '');
+            } else if (data.protocol === 'Meter') {
+                // Utility meter (rtlamr)
+                return 'METER_' + (data.meterId || data.address || 'UNK');
             } else if (data.model) {
                 // 433MHz sensor
                 const id = data.id || data.channel || data.unit || '0';
@@ -4297,6 +4307,94 @@
             originalAddSensorReading(data);
             trackDevice(data);
         };
+
+        // Hook rtlamr readings into device intelligence
+        const originalAddRtlamrReading = addRtlamrReading;
+        addRtlamrReading = function (data) {
+            originalAddRtlamrReading(data);
+            // Transform rtlamr data for device tracking
+            const msgData = data.Message || {};
+            const meterInfo = getMeterTypeInfo(msgData.EndpointType, data.Type);
+            trackDevice({
+                protocol: 'Meter',
+                meterId: String(msgData.ID || 'Unknown'),
+                address: String(msgData.ID || 'Unknown'),
+                message: `${meterInfo.utility} - ${(msgData.Consumption || 0).toLocaleString()} units`,
+                model: meterInfo.manufacturer || data.Type || 'Unknown',
+                meterType: data.Type,
+                endpointType: msgData.EndpointType,
+                utility: meterInfo.utility,
+                manufacturer: meterInfo.manufacturer,
+                consumption: msgData.Consumption
+            });
+        };
+
+        // Meter type/manufacturer lookup based on ERT endpoint types and message formats
+        function getMeterTypeInfo(endpointType, msgType) {
+            // Common ERT endpoint type mappings (varies by utility)
+            const endpointInfo = {
+                // Electric meter types (0-7 common)
+                0: { utility: 'Electric', manufacturer: 'Generic' },
+                1: { utility: 'Electric', manufacturer: 'Generic' },
+                2: { utility: 'Electric', manufacturer: 'Itron' },
+                3: { utility: 'Electric', manufacturer: 'Itron' },
+                4: { utility: 'Electric', manufacturer: 'Landis+Gyr' },
+                5: { utility: 'Electric', manufacturer: 'Landis+Gyr' },
+                6: { utility: 'Electric', manufacturer: 'Elster' },
+                7: { utility: 'Electric', manufacturer: 'Elster' },
+                // Gas meter types (8-15)
+                8: { utility: 'Gas', manufacturer: 'Itron' },
+                9: { utility: 'Gas', manufacturer: 'Itron' },
+                10: { utility: 'Gas', manufacturer: 'Sensus' },
+                11: { utility: 'Gas', manufacturer: 'Sensus' },
+                12: { utility: 'Gas', manufacturer: 'Badger' },
+                13: { utility: 'Gas', manufacturer: 'Neptune' },
+                // Water meter types (16-23)
+                16: { utility: 'Water', manufacturer: 'Badger' },
+                17: { utility: 'Water', manufacturer: 'Badger' },
+                18: { utility: 'Water', manufacturer: 'Neptune' },
+                19: { utility: 'Water', manufacturer: 'Neptune' },
+                20: { utility: 'Water', manufacturer: 'Sensus' },
+                21: { utility: 'Water', manufacturer: 'Sensus' },
+                22: { utility: 'Water', manufacturer: 'Master Meter' },
+                23: { utility: 'Water', manufacturer: 'Mueller' },
+                // Extended types
+                156: { utility: 'Electric', manufacturer: 'Itron OpenWay' },
+                157: { utility: 'Electric', manufacturer: 'Itron OpenWay' },
+                180: { utility: 'Gas', manufacturer: 'Itron ERT' },
+                188: { utility: 'Water', manufacturer: 'Badger ORION' },
+                220: { utility: 'Electric', manufacturer: 'Landis+Gyr Focus' }
+            };
+
+            // Message type hints
+            const msgTypeInfo = {
+                'SCM': { utility: 'Electric', manufacturer: 'Standard ERT' },
+                'SCM+': { utility: 'Electric', manufacturer: 'Enhanced ERT' },
+                'IDM': { utility: 'Electric', manufacturer: 'Interval Data' },
+                'NetIDM': { utility: 'Electric', manufacturer: 'Network IDM' },
+                'R900': { utility: 'Water', manufacturer: 'Neptune R900' },
+                'R900BCD': { utility: 'Water', manufacturer: 'Neptune R900' }
+            };
+
+            // Try endpoint type first
+            if (endpointType !== undefined && endpointInfo[endpointType]) {
+                return endpointInfo[endpointType];
+            }
+
+            // Fall back to message type
+            if (msgType && msgTypeInfo[msgType]) {
+                return msgTypeInfo[msgType];
+            }
+
+            // Default based on endpoint range
+            if (endpointType !== undefined) {
+                if (endpointType < 8) return { utility: 'Electric', manufacturer: 'Unknown' };
+                if (endpointType < 16) return { utility: 'Gas', manufacturer: 'Unknown' };
+                if (endpointType < 24) return { utility: 'Water', manufacturer: 'Unknown' };
+            }
+
+            return { utility: 'Unknown', manufacturer: 'Unknown' };
+        }
 
         // Export device database
         function exportDeviceDB() {

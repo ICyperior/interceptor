@@ -995,6 +995,24 @@ const SignalCards = (function() {
         let html = '';
         const rawMessage = msg.rawMessage || {};
 
+        // Add device intelligence info at the top
+        if (msg.utility && msg.utility !== 'Unknown') {
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">Utility Type</span>
+                    <span class="signal-advanced-value">${escapeHtml(msg.utility)}</span>
+                </div>
+            `;
+        }
+        if (msg.manufacturer && msg.manufacturer !== 'Unknown') {
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">Manufacturer</span>
+                    <span class="signal-advanced-value">${escapeHtml(msg.manufacturer)}</span>
+                </div>
+            `;
+        }
+
         // Display all fields from the raw rtlamr message
         for (const [key, value] of Object.entries(rawMessage)) {
             if (value === null || value === undefined) continue;
@@ -1066,19 +1084,24 @@ const SignalCards = (function() {
         const stats = getAddressStats('meter', msg.id);
         const seenCount = stats ? stats.count : 1;
 
-        // Determine meter type color
+        // Determine meter type color based on utility type
         let meterTypeClass = 'electric';
+        const utility = (msg.utility || '').toLowerCase();
         const meterType = (msg.type || '').toLowerCase();
-        if (meterType.includes('gas')) {
+        if (utility === 'gas' || meterType.includes('gas')) {
             meterTypeClass = 'gas';
-        } else if (meterType.includes('water')) {
+        } else if (utility === 'water' || meterType.includes('water') || meterType.includes('r900')) {
             meterTypeClass = 'water';
         }
+
+        // Format utility display
+        const utilityDisplay = msg.utility && msg.utility !== 'Unknown' ? msg.utility : null;
+        const manufacturerDisplay = msg.manufacturer && msg.manufacturer !== 'Unknown' ? msg.manufacturer : null;
 
         card.innerHTML = `
             <div class="signal-card-header">
                 <div class="signal-card-badges">
-                    <span class="signal-proto-badge meter ${meterTypeClass}">${escapeHtml(msg.type || 'Meter')}</span>
+                    <span class="signal-proto-badge meter ${meterTypeClass}">${escapeHtml(utilityDisplay || msg.type || 'Meter')}</span>
                     <span class="signal-freq-badge">ID: ${escapeHtml(msg.id || 'N/A')}</span>
                 </div>
                 ${status !== 'baseline' ? `
@@ -1090,7 +1113,8 @@ const SignalCards = (function() {
             </div>
             <div class="signal-card-body">
                 <div class="signal-meta-row">
-                    ${msg.endpoint_type ? `<span class="signal-msg-type">${escapeHtml(msg.endpoint_type)}</span>` : ''}
+                    ${manufacturerDisplay ? `<span class="signal-msg-type">${escapeHtml(manufacturerDisplay)}</span>` : ''}
+                    ${msg.type ? `<span class="signal-msg-type" style="opacity: 0.7">${escapeHtml(msg.type)}</span>` : ''}
                     ${seenCount > 1 ? `<span class="signal-seen-count">×${seenCount}</span>` : ''}
                     <span class="signal-timestamp" data-timestamp="${escapeHtml(msg.timestamp)}">${escapeHtml(relativeTime)}</span>
                 </div>
