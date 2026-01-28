@@ -1182,13 +1182,20 @@ async function tuneToFrequency(freq, mod) {
 
 function initAudioVisualizer() {
     const audioPlayer = document.getElementById('scannerAudioPlayer');
-    if (!audioPlayer) return;
+    if (!audioPlayer) {
+        console.warn('[VISUALIZER] No audio player found');
+        return;
+    }
+
+    console.log('[VISUALIZER] Initializing with audio player, src:', audioPlayer.src);
 
     if (!visualizerContext) {
         visualizerContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('[VISUALIZER] Created audio context');
     }
 
     if (visualizerContext.state === 'suspended') {
+        console.log('[VISUALIZER] Resuming suspended audio context');
         visualizerContext.resume();
     }
 
@@ -1201,25 +1208,36 @@ function initAudioVisualizer() {
 
             visualizerSource.connect(visualizerAnalyser);
             visualizerAnalyser.connect(visualizerContext.destination);
+            console.log('[VISUALIZER] Audio source and analyser connected');
         } catch (e) {
-            console.warn('Could not create audio source:', e);
-            return;
+            console.error('[VISUALIZER] Could not create audio source:', e);
+            // Try to continue anyway if analyser exists
+            if (!visualizerAnalyser) return;
         }
+    } else {
+        console.log('[VISUALIZER] Reusing existing audio source');
     }
 
     const container = document.getElementById('audioVisualizerContainer');
     if (container) container.style.display = 'block';
 
-    drawAudioVisualizer();
+    // Start the visualization loop
+    if (!visualizerAnimationId) {
+        console.log('[VISUALIZER] Starting draw loop');
+        drawAudioVisualizer();
+    } else {
+        console.log('[VISUALIZER] Draw loop already running');
+    }
 }
 
 function drawAudioVisualizer() {
-    if (!visualizerAnalyser) return;
+    if (!visualizerAnalyser) {
+        console.warn('[VISUALIZER] No analyser available');
+        return;
+    }
 
     const canvas = document.getElementById('audioSpectrumCanvas');
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas ? canvas.getContext('2d') : null;
     const bufferLength = visualizerAnalyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
@@ -1236,7 +1254,7 @@ function drawAudioVisualizer() {
         const levelPercent = (average / 255) * 100;
 
         // Feed audio level to synthesizer visualization during direct listening
-        if (isDirectListening) {
+        if (isDirectListening || isScannerRunning) {
             // Scale 0-255 average to 0-3000 range (matching SSE scan_update levels)
             currentSignalLevel = (average / 255) * 3000;
         }
@@ -1257,26 +1275,29 @@ function drawAudioVisualizer() {
         const db = average > 0 ? Math.round(20 * Math.log10(average / 255)) : -60;
         if (meterValue) meterValue.textContent = db + ' dB';
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Only draw spectrum if canvas exists
+        if (ctx && canvas) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const barWidth = canvas.width / bufferLength * 2.5;
-        let x = 0;
+            const barWidth = canvas.width / bufferLength * 2.5;
+            let x = 0;
 
-        for (let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * canvas.height;
-            const hue = 200 - (i / bufferLength) * 60;
-            const lightness = 40 + (dataArray[i] / 255) * 30;
-            ctx.fillStyle = `hsl(${hue}, 80%, ${lightness}%)`;
-            ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-            x += barWidth;
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = (dataArray[i] / 255) * canvas.height;
+                const hue = 200 - (i / bufferLength) * 60;
+                const lightness = 40 + (dataArray[i] / 255) * 30;
+                ctx.fillStyle = `hsl(${hue}, 80%, ${lightness}%)`;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+                x += barWidth;
+            }
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '8px JetBrains Mono';
+            ctx.fillText('0', 2, canvas.height - 2);
+            ctx.fillText('4kHz', canvas.width / 4, canvas.height - 2);
+            ctx.fillText('8kHz', canvas.width / 2, canvas.height - 2);
         }
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.font = '8px JetBrains Mono';
-        ctx.fillText('0', 2, canvas.height - 2);
-        ctx.fillText('4kHz', canvas.width / 4, canvas.height - 2);
-        ctx.fillText('8kHz', canvas.width / 2, canvas.height - 2);
     }
 
     draw();
