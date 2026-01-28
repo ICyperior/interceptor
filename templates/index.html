@@ -1768,6 +1768,8 @@
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/wifi-adapter.js') }}"></script>
     <!-- Bluetooth v2 components -->
     <script src="{{ url_for('static', filename='js/components/rssi-sparkline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/consumption-sparkline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/meter-aggregator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/message-card.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/device-card.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/proximity-radar.js') }}"></script>
@@ -3072,17 +3074,18 @@
             const placeholder = output.querySelector('.placeholder');
             if (placeholder) placeholder.remove();
 
-            // Store for export
+            // Store for export (all raw readings)
             allMessages.push(data);
-            playAlert();
             pulseSignal();
 
             sensorCount++;
             document.getElementById('sensorCount').textContent = sensorCount;
 
+            // Aggregate meter data using MeterAggregator
+            const { meter, isNew } = MeterAggregator.ingest(data);
+
             // Track unique meters by ID
-            const msgData = data.Message || {};
-            const meterId = msgData.ID || 'Unknown';
+            const meterId = meter.id;
             if (meterId !== 'Unknown') {
                 const deviceKey = 'METER_' + meterId;
                 if (!uniqueDevices.has(deviceKey)) {
@@ -3091,36 +3094,34 @@
                 }
             }
 
-            // Get meter type info for display
-            const meterInfo = typeof getMeterTypeInfo === 'function'
-                ? getMeterTypeInfo(msgData.EndpointType, data.Type)
-                : { utility: 'Unknown', manufacturer: 'Unknown' };
+            // Check if card already exists for this meter
+            const existingCard = document.getElementById('metercard_' + meterId);
 
-            // Convert rtlamr data to our card format, preserving all raw fields
-            const msg = {
-                id: String(meterId),
-                type: data.Type || 'Unknown',
-                consumption: msgData.Consumption,
-                unit: 'units',
-                endpoint_type: msgData.EndpointType,
-                endpoint_id: msgData.EndpointID,
-                utility: meterInfo.utility,
-                manufacturer: meterInfo.manufacturer,
-                timestamp: new Date().toISOString(),
-                rawMessage: msgData  // Include all original fields for detailed display
-            };
+            if (existingCard) {
+                // Update existing card in place
+                SignalCards.updateAggregatedMeterCard(existingCard, meter);
+            } else {
+                // Create new aggregated meter card
+                const card = SignalCards.createAggregatedMeterCard(meter);
+                output.insertBefore(card, output.firstChild);
 
-            // Create card using SignalCards component
-            const card = SignalCards.createMeterCard(msg);
-            output.insertBefore(card, output.firstChild);
+                // Only play alert for new meters (not updates)
+                playAlert();
+            }
 
             // Update filter counts
             SignalCards.updateCounts(output);
 
-            // Limit output to 50 cards
-            const cards = output.querySelectorAll('.signal-card');
+            // Limit to max 50 unique meters (cards won't pile up since we update in place)
+            const cards = output.querySelectorAll('.signal-card.meter-aggregated');
             while (cards.length > 50) {
-                output.removeChild(output.lastChild);
+                // Remove oldest card (last one)
+                const oldestCard = output.querySelector('.signal-card.meter-aggregated:last-of-type');
+                if (oldestCard) {
+                    output.removeChild(oldestCard);
+                } else {
+                    break;
+                }
             }
         }
 
@@ -3994,6 +3995,11 @@
             document.getElementById('flexCount').textContent = '0';
             document.getElementById('sensorCount').textContent = '0';
             document.getElementById('deviceCount').textContent = '0';
+
+            // Clear meter aggregator data
+            if (typeof MeterAggregator !== 'undefined') {
+                MeterAggregator.clear();
+            }
 
             // Reset recon data
             deviceDatabase.clear();

@@ -1156,6 +1156,303 @@ const SignalCards = (function() {
     }
 
     /**
+     * Create an aggregated utility meter card (grouped by meter ID)
+     * Shows consumption history, sparkline, delta, and rate
+     * @param {Object} meter - Aggregated meter data from MeterAggregator
+     * @param {Object} options - Optional configuration
+     * @returns {HTMLElement}
+     */
+    function createAggregatedMeterCard(meter, options = {}) {
+        const status = meter.readingCount === 1 ? 'new' : 'baseline';
+        const relativeTime = MeterAggregator.getTimeSinceLastReading(meter);
+
+        const card = document.createElement('article');
+        card.className = 'signal-card meter-aggregated';
+        card.dataset.status = status;
+        card.dataset.type = 'meter';
+        card.dataset.protocol = meter.type || 'unknown';
+        card.dataset.meterId = meter.id;
+        card.id = 'metercard_' + meter.id;
+
+        // Determine meter type color
+        let meterTypeClass = 'electric';
+        const utility = (meter.utility || '').toLowerCase();
+        const meterType = (meter.type || '').toLowerCase();
+        if (utility === 'gas' || meterType.includes('gas')) {
+            meterTypeClass = 'gas';
+        } else if (utility === 'water' || meterType.includes('water') || meterType.includes('r900')) {
+            meterTypeClass = 'water';
+        }
+
+        // Format utility display
+        const utilityDisplay = meter.utility && meter.utility !== 'Unknown' ? meter.utility : null;
+        const manufacturerDisplay = meter.manufacturer && meter.manufacturer !== 'Unknown' ? meter.manufacturer : null;
+
+        // Get consumption deltas for sparkline
+        const deltas = typeof MeterAggregator !== 'undefined'
+            ? MeterAggregator.getConsumptionDeltas(meter)
+            : [];
+
+        // Create sparkline
+        const sparklineHtml = typeof ConsumptionSparkline !== 'undefined'
+            ? ConsumptionSparkline.createSparklineSvg(deltas, { width: 100, height: 28 })
+            : '<span class="meter-sparkline-placeholder">--</span>';
+
+        // Format delta and rate
+        const deltaFormatted = MeterAggregator.formatDelta(meter.delta);
+        const rateFormatted = MeterAggregator.formatRate(meter.rate);
+        const deltaClass = meter.delta === null ? '' : (meter.delta >= 0 ? 'positive' : 'negative');
+
+        // Get latest consumption
+        const latestConsumption = meter.history.length > 0
+            ? meter.history[meter.history.length - 1].consumption
+            : null;
+
+        card.innerHTML = `
+            <div class="signal-card-header">
+                <div class="signal-card-badges">
+                    <span class="signal-proto-badge meter ${meterTypeClass}">${escapeHtml(utilityDisplay || meter.type || 'Meter')}</span>
+                    <span class="signal-freq-badge">ID: ${escapeHtml(meter.id || 'N/A')}</span>
+                    ${meter.readingCount > 1 ? `<span class="signal-seen-count">&times;${meter.readingCount}</span>` : ''}
+                </div>
+                ${status === 'new' ? `
+                <span class="signal-status-pill" data-status="new">
+                    <span class="status-dot"></span>
+                    New
+                </span>
+                ` : ''}
+            </div>
+            <div class="signal-card-body">
+                <div class="signal-meta-row">
+                    ${manufacturerDisplay ? `<span class="signal-msg-type">${escapeHtml(manufacturerDisplay)}</span>` : ''}
+                    ${meter.type ? `<span class="signal-msg-type" style="opacity: 0.7">${escapeHtml(meter.type)}</span>` : ''}
+                    <span class="signal-timestamp meter-last-seen" data-timestamp="${meter.lastSeen}">${escapeHtml(relativeTime)}</span>
+                </div>
+                <div class="meter-aggregated-grid">
+                    <div class="meter-aggregated-col consumption-col">
+                        <span class="meter-aggregated-label">Consumption</span>
+                        <span class="meter-aggregated-value consumption-value">${latestConsumption !== null ? latestConsumption.toLocaleString() : '--'}</span>
+                        <span class="meter-delta ${deltaClass}" title="Change from previous reading">${deltaFormatted}</span>
+                    </div>
+                    <div class="meter-aggregated-col trend-col">
+                        <span class="meter-aggregated-label">Trend</span>
+                        <div class="meter-sparkline-container">
+                            ${sparklineHtml}
+                        </div>
+                    </div>
+                    <div class="meter-aggregated-col rate-col">
+                        <span class="meter-aggregated-label">Rate</span>
+                        <span class="meter-rate-value">${rateFormatted}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="signal-card-footer">
+                <button class="signal-advanced-toggle" onclick="SignalCards.toggleAdvanced(this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                    Details
+                </button>
+                <div class="signal-card-actions">
+                    <button class="signal-action-btn" onclick="SignalCards.muteAddress('${escapeHtml(meter.id)}')">Mute</button>
+                </div>
+            </div>
+            <div class="signal-advanced-panel">
+                <div class="signal-advanced-inner">
+                    <div class="signal-advanced-content">
+                        <div class="signal-advanced-section">
+                            <div class="signal-advanced-title">Meter Details</div>
+                            <div class="signal-advanced-grid">
+                                ${buildAggregatedMeterDetailsHtml(meter)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return card;
+    }
+
+    /**
+     * Update an existing aggregated meter card in place
+     * @param {HTMLElement} card - The card element to update
+     * @param {Object} meter - Updated meter data from MeterAggregator
+     */
+    function updateAggregatedMeterCard(card, meter) {
+        if (!card || !meter) return;
+
+        // Update timestamp
+        const relativeTime = MeterAggregator.getTimeSinceLastReading(meter);
+        const timestampEl = card.querySelector('.meter-last-seen');
+        if (timestampEl) {
+            timestampEl.dataset.timestamp = meter.lastSeen;
+            timestampEl.textContent = relativeTime;
+        }
+
+        // Update seen count badge
+        const seenCountEl = card.querySelector('.signal-seen-count');
+        if (seenCountEl) {
+            seenCountEl.innerHTML = `&times;${meter.readingCount}`;
+        } else if (meter.readingCount > 1) {
+            // Add seen count if it doesn't exist
+            const badges = card.querySelector('.signal-card-badges');
+            if (badges) {
+                const countSpan = document.createElement('span');
+                countSpan.className = 'signal-seen-count';
+                countSpan.innerHTML = `&times;${meter.readingCount}`;
+                badges.appendChild(countSpan);
+            }
+        }
+
+        // Remove "new" status pill after first update
+        if (meter.readingCount > 1) {
+            card.dataset.status = 'baseline';
+            const statusPill = card.querySelector('.signal-status-pill[data-status="new"]');
+            if (statusPill) {
+                statusPill.remove();
+            }
+        }
+
+        // Update consumption value
+        const latestConsumption = meter.history.length > 0
+            ? meter.history[meter.history.length - 1].consumption
+            : null;
+        const consumptionEl = card.querySelector('.consumption-value');
+        if (consumptionEl) {
+            consumptionEl.textContent = latestConsumption !== null ? latestConsumption.toLocaleString() : '--';
+        }
+
+        // Update delta
+        const deltaEl = card.querySelector('.meter-delta');
+        if (deltaEl) {
+            const deltaFormatted = MeterAggregator.formatDelta(meter.delta);
+            deltaEl.textContent = deltaFormatted;
+            deltaEl.classList.remove('positive', 'negative');
+            if (meter.delta !== null) {
+                deltaEl.classList.add(meter.delta >= 0 ? 'positive' : 'negative');
+            }
+        }
+
+        // Update sparkline
+        const sparklineContainer = card.querySelector('.meter-sparkline-container');
+        if (sparklineContainer && typeof ConsumptionSparkline !== 'undefined') {
+            const deltas = MeterAggregator.getConsumptionDeltas(meter);
+            sparklineContainer.innerHTML = ConsumptionSparkline.createSparklineSvg(deltas, { width: 100, height: 28 });
+        }
+
+        // Update rate
+        const rateEl = card.querySelector('.meter-rate-value');
+        if (rateEl) {
+            rateEl.textContent = MeterAggregator.formatRate(meter.rate);
+        }
+
+        // Update details panel
+        const detailsGrid = card.querySelector('.signal-advanced-grid');
+        if (detailsGrid) {
+            detailsGrid.innerHTML = buildAggregatedMeterDetailsHtml(meter);
+        }
+
+        // Add subtle update animation
+        card.classList.add('meter-updated');
+        setTimeout(() => card.classList.remove('meter-updated'), 300);
+    }
+
+    /**
+     * Build HTML for aggregated meter detail fields
+     * @param {Object} meter - Aggregated meter data
+     * @returns {string} - HTML string
+     */
+    function buildAggregatedMeterDetailsHtml(meter) {
+        let html = '';
+        const latestReading = meter.latestReading || {};
+        const rawMessage = latestReading.Message || {};
+
+        // Add device intelligence info at the top
+        if (meter.utility && meter.utility !== 'Unknown') {
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">Utility Type</span>
+                    <span class="signal-advanced-value">${escapeHtml(meter.utility)}</span>
+                </div>
+            `;
+        }
+        if (meter.manufacturer && meter.manufacturer !== 'Unknown') {
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">Manufacturer</span>
+                    <span class="signal-advanced-value">${escapeHtml(meter.manufacturer)}</span>
+                </div>
+            `;
+        }
+
+        // Add aggregation stats
+        html += `
+            <div class="signal-advanced-item">
+                <span class="signal-advanced-label">Total Readings</span>
+                <span class="signal-advanced-value">${meter.readingCount}</span>
+            </div>
+            <div class="signal-advanced-item">
+                <span class="signal-advanced-label">First Seen</span>
+                <span class="signal-advanced-value">${new Date(meter.firstSeen).toLocaleTimeString()}</span>
+            </div>
+        `;
+
+        // Add rate info if available
+        if (meter.rate !== null) {
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">Consumption Rate</span>
+                    <span class="signal-advanced-value">${MeterAggregator.formatRate(meter.rate)}</span>
+                </div>
+            `;
+        }
+
+        // Display fields from the raw rtlamr message
+        for (const [key, value] of Object.entries(rawMessage)) {
+            if (value === null || value === undefined) continue;
+
+            // Format the label
+            const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
+
+            // Format the value
+            let displayValue;
+            if (Array.isArray(value)) {
+                if (value.length > 10) {
+                    displayValue = `[${value.length} values] ${value.slice(0, 5).join(', ')}...`;
+                } else {
+                    displayValue = value.join(', ');
+                }
+            } else if (typeof value === 'object') {
+                displayValue = JSON.stringify(value);
+            } else if (key === 'Consumption') {
+                displayValue = `${value.toLocaleString()} units`;
+            } else {
+                displayValue = String(value);
+            }
+
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">${escapeHtml(label)}</span>
+                    <span class="signal-advanced-value">${escapeHtml(displayValue)}</span>
+                </div>
+            `;
+        }
+
+        // Add message type if not in raw message
+        if (!rawMessage.Type && meter.type) {
+            html += `
+                <div class="signal-advanced-item">
+                    <span class="signal-advanced-label">Message Type</span>
+                    <span class="signal-advanced-value">${escapeHtml(meter.type)}</span>
+                </div>
+            `;
+        }
+
+        return html;
+    }
+
+    /**
      * Toggle advanced panel on a card
      */
     function toggleAdvanced(button) {
@@ -1946,6 +2243,8 @@ const SignalCards = (function() {
         createSensorCard,
         createAcarsCard,
         createMeterCard,
+        createAggregatedMeterCard,
+        updateAggregatedMeterCard,
 
         // Signal classification
         SignalClassification,
