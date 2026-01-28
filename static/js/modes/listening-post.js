@@ -35,6 +35,10 @@ let visualizerAnimationId = null;
 let peakLevel = 0;
 let peakDecay = 0.95;
 
+// Signal level for synthesizer visualization
+let currentSignalLevel = 0;
+let signalLevelThreshold = 1000;
+
 // Track recent signal hits to prevent duplicates
 let recentSignalHits = new Map();
 
@@ -283,6 +287,7 @@ function stopScanner() {
             isScannerRunning = false;
             isScannerPaused = false;
             scannerSignalActive = false;
+            currentSignalLevel = 0;
 
             // Re-enable listen button (will be in local mode after stop)
             updateListenButtonState(false);
@@ -581,6 +586,12 @@ function handleFrequencyUpdate(data) {
 
     // Update level meter if present
     if (data.level !== undefined) {
+        // Store for synthesizer visualization
+        currentSignalLevel = data.level;
+        if (data.threshold !== undefined) {
+            signalLevelThreshold = data.threshold;
+        }
+
         const levelPercent = Math.min(100, (data.level / 5000) * 100);
         const levelBar = document.getElementById('scannerLevelBar');
         if (levelBar) {
@@ -1222,6 +1233,12 @@ function drawAudioVisualizer() {
         const average = sum / bufferLength;
         const levelPercent = (average / 255) * 100;
 
+        // Feed audio level to synthesizer visualization during direct listening
+        if (isDirectListening) {
+            // Scale 0-255 average to 0-3000 range (matching SSE scan_update levels)
+            currentSignalLevel = (average / 255) * 3000;
+        }
+
         if (levelPercent > peakLevel) {
             peakLevel = levelPercent;
         } else {
@@ -1523,30 +1540,49 @@ function drawSynthesizer() {
     synthCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     synthCtx.fillRect(0, 0, width, height);
 
-    // Determine activity level based on state
+    // Determine activity level based on actual signal level
     let activityLevel = 0;
+    let signalIntensity = 0;
+
     if (isScannerRunning && !isScannerPaused) {
-        activityLevel = scannerSignalActive ? 0.9 : 0.4;
+        // Use actual signal level data (0-5000 range, normalize to 0-1)
+        signalIntensity = Math.min(1, currentSignalLevel / 3000);
+        // Base activity when scanning, boosted by actual signal strength
+        activityLevel = 0.15 + (signalIntensity * 0.85);
+        if (scannerSignalActive) {
+            activityLevel = Math.max(activityLevel, 0.7);
+        }
     } else if (isDirectListening) {
-        activityLevel = 0.7;
+        // For direct listening, use signal level if available
+        signalIntensity = Math.min(1, currentSignalLevel / 3000);
+        activityLevel = 0.2 + (signalIntensity * 0.8);
     }
 
     // Update bar targets
     for (let i = 0; i < SYNTH_BAR_COUNT; i++) {
         if (activityLevel > 0) {
-            // Create wave-like pattern with some randomness
-            const wave = Math.sin((Date.now() / 200) + (i * 0.3)) * 0.3;
-            const random = Math.random() * 0.4;
-            const centerBoost = 1 - Math.abs((i - SYNTH_BAR_COUNT / 2) / (SYNTH_BAR_COUNT / 2)) * 0.5;
-            synthBars[i].targetHeight = (wave + random + 0.3) * activityLevel * centerBoost * height;
+            // Create wave-like pattern modulated by actual signal strength
+            const time = Date.now() / 200;
+            // Multiple wave frequencies for more organic feel
+            const wave1 = Math.sin(time + (i * 0.3)) * 0.2;
+            const wave2 = Math.sin(time * 1.7 + (i * 0.5)) * 0.15;
+            // Less randomness when signal is weak, more when strong
+            const randomAmount = 0.1 + (signalIntensity * 0.3);
+            const random = (Math.random() - 0.5) * randomAmount;
+            // Center bars tend to be taller (frequency spectrum shape)
+            const centerBoost = 1 - Math.abs((i - SYNTH_BAR_COUNT / 2) / (SYNTH_BAR_COUNT / 2)) * 0.4;
+            // Combine all factors with signal-driven amplitude
+            const baseHeight = 0.15 + (signalIntensity * 0.5);
+            synthBars[i].targetHeight = (baseHeight + wave1 + wave2 + random) * activityLevel * centerBoost * height;
         } else {
             // Idle state - minimal activity
             synthBars[i].targetHeight = (Math.sin((Date.now() / 500) + (i * 0.5)) * 0.1 + 0.1) * height * 0.3;
         }
 
-        // Smooth animation
+        // Smooth animation - faster response when signal changes
+        const springStrength = signalIntensity > 0.3 ? 0.15 : 0.1;
         const diff = synthBars[i].targetHeight - synthBars[i].height;
-        synthBars[i].velocity += diff * 0.1;
+        synthBars[i].velocity += diff * springStrength;
         synthBars[i].velocity *= 0.8;
         synthBars[i].height += synthBars[i].velocity;
         synthBars[i].height = Math.max(2, Math.min(height - 4, synthBars[i].height));
@@ -2104,6 +2140,7 @@ function stopDirectListen() {
     fetch('/listening/audio/stop', { method: 'POST' }).catch(() => {});
 
     isDirectListening = false;
+    currentSignalLevel = 0;
     updateDirectListenUI(false);
     addScannerLogEntry('Listening stopped');
 }
