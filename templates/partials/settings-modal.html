@@ -12,6 +12,7 @@
         <div class="settings-tabs">
             <button class="settings-tab active" data-tab="offline" onclick="switchSettingsTab('offline')">Offline</button>
             <button class="settings-tab" data-tab="display" onclick="switchSettingsTab('display')">Display</button>
+            <button class="settings-tab" data-tab="tools" onclick="switchSettingsTab('tools')">Tools</button>
             <button class="settings-tab" data-tab="about" onclick="switchSettingsTab('about')">About</button>
         </div>
 
@@ -142,6 +143,35 @@
                         <input type="checkbox" id="animationsEnabled" checked onchange="setAnimationsEnabled(this.checked)">
                         <span class="toggle-slider"></span>
                     </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tools Section -->
+        <div id="settings-tools" class="settings-section">
+            <div class="settings-group">
+                <div class="settings-group-title">Tool Dependencies</div>
+                <p style="color: var(--text-dim); margin-bottom: 15px; font-size: 12px;">
+                    Check which external tools are installed for each mode.
+                    <span style="color: var(--accent-green);">●</span> = Installed,
+                    <span style="color: var(--accent-red);">●</span> = Missing
+                </p>
+                <div id="settingsToolsContent" style="max-height: 45vh; overflow-y: auto;">
+                    <div style="text-align: center; padding: 30px; color: var(--text-dim);">
+                        Loading dependencies...
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-group" style="margin-top: 15px;">
+                <div class="settings-group-title">Quick Install (Debian/Ubuntu)</div>
+                <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; overflow-x: auto;">
+                    <div>sudo apt install rtl-sdr multimon-ng rtl-433 aircrack-ng bluez dump1090-mutability hcxdumptool hcxtools</div>
+                    <div style="margin-top: 5px;">pip install skyfield flask</div>
+                </div>
+                <div style="margin-top: 10px; font-size: 11px; color: var(--text-dim);">
+                    <strong>Note:</strong> ACARS decoding requires <code>acarsdec</code> which must be built from source.
+                    See <a href="https://github.com/TLeconte/acarsdec" target="_blank" style="color: var(--accent-cyan);">github.com/TLeconte/acarsdec</a> or run <code>./setup.sh</code> for automated installation.
                 </div>
             </div>
         </div>

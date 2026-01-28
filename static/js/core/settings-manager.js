@@ -391,6 +391,99 @@ function switchSettingsTab(tabName) {
     document.querySelectorAll('.settings-section').forEach(section => {
         section.classList.toggle('active', section.id === `settings-${tabName}`);
     });
+
+    // Load tools/dependencies when that tab is selected
+    if (tabName === 'tools') {
+        loadSettingsTools();
+    }
+}
+
+/**
+ * Load tool dependencies into settings modal
+ */
+function loadSettingsTools() {
+    const content = document.getElementById('settingsToolsContent');
+    if (!content) return;
+
+    content.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-dim);">Loading dependencies...</div>';
+
+    fetch('/dependencies')
+        .then(r => r.json())
+        .then(data => {
+            if (data.status !== 'success') {
+                content.innerHTML = '<div style="color: var(--accent-red);">Error loading dependencies</div>';
+                return;
+            }
+
+            let html = '';
+            let totalMissing = 0;
+
+            for (const [modeKey, mode] of Object.entries(data.modes)) {
+                const statusColor = mode.ready ? 'var(--accent-green)' : 'var(--accent-red)';
+                const statusIcon = mode.ready ? '✓' : '✗';
+
+                html += `
+                    <div style="background: var(--bg-tertiary); border-radius: 6px; padding: 12px; margin-bottom: 10px; border-left: 3px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-weight: 600; color: var(--accent-cyan); font-size: 13px;">${mode.name}</span>
+                            <span style="color: ${statusColor}; font-size: 11px; font-weight: bold;">${statusIcon} ${mode.ready ? 'Ready' : 'Missing'}</span>
+                        </div>
+                        <div style="display: grid; gap: 6px;">
+                `;
+
+                for (const [toolName, tool] of Object.entries(mode.tools)) {
+                    const installed = tool.installed;
+                    const dotColor = installed ? 'var(--accent-green)' : 'var(--accent-red)';
+                    const requiredBadge = tool.required ? '<span style="background: var(--accent-orange); color: #000; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-left: 4px;">REQ</span>' : '';
+
+                    if (!installed) totalMissing++;
+
+                    let installCmd = '';
+                    if (tool.install) {
+                        if (tool.install.pip) {
+                            installCmd = tool.install.pip;
+                        } else if (data.pkg_manager && tool.install[data.pkg_manager]) {
+                            installCmd = tool.install[data.pkg_manager];
+                        } else if (tool.install.manual) {
+                            installCmd = tool.install.manual;
+                        }
+                    }
+
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-secondary); border-radius: 4px; font-size: 11px;">
+                            <span style="color: ${dotColor}; font-size: 12px;">●</span>
+                            <div style="flex: 1; min-width: 0;">
+                                <span style="font-weight: 500;">${toolName}${requiredBadge}</span>
+                                <div style="font-size: 10px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${tool.description}</div>
+                            </div>
+                            ${!installed && installCmd ? `
+                                <code style="font-size: 9px; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${installCmd}">${installCmd}</code>
+                            ` : ''}
+                            <span style="font-size: 10px; color: ${dotColor}; font-weight: bold; min-width: 45px; text-align: right;">${installed ? 'OK' : 'MISSING'}</span>
+                        </div>
+                    `;
+                }
+
+                html += '</div></div>';
+            }
+
+            // Summary at top
+            const summaryHtml = `
+                <div style="background: ${totalMissing > 0 ? 'rgba(255, 100, 0, 0.1)' : 'rgba(0, 255, 100, 0.1)'}; border: 1px solid ${totalMissing > 0 ? 'var(--accent-orange)' : 'var(--accent-green)'}; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;">
+                    <div style="font-size: 13px; font-weight: bold; color: ${totalMissing > 0 ? 'var(--accent-orange)' : 'var(--accent-green)'};">
+                        ${totalMissing > 0 ? '⚠️ ' + totalMissing + ' tool(s) not found' : '✓ All tools installed'}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 3px;">
+                        OS: ${data.os} | Package Manager: ${data.pkg_manager}
+                    </div>
+                </div>
+            `;
+
+            content.innerHTML = summaryHtml + html;
+        })
+        .catch(err => {
+            content.innerHTML = '<div style="color: var(--accent-red);">Error loading dependencies: ' + err.message + '</div>';
+        });
 }
 
 // Initialize settings on page load
