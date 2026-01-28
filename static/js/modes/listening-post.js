@@ -659,6 +659,8 @@ function handleSignalFound(data) {
                 scannerAudio.volume = knobValue / 100;
             }
             scannerAudio.play().catch(e => console.warn('[SCANNER] Audio autoplay blocked:', e));
+            // Initialize audio visualizer to feed signal levels to synthesizer
+            initAudioVisualizer();
         }
     }
 
@@ -2088,6 +2090,9 @@ async function _startDirectListenInternal() {
         audioPlayer.play().catch(e => {
             console.log('[LISTEN] Initial play blocked, waiting for canplay');
         });
+
+        // Initialize audio visualizer to feed signal levels to synthesizer
+        initAudioVisualizer();
 
         isDirectListening = true;
         updateDirectListenUI(true, freq);
