@@ -11,6 +11,7 @@
 
         <div class="settings-tabs">
             <button class="settings-tab active" data-tab="offline" onclick="switchSettingsTab('offline')">Offline</button>
+            <button class="settings-tab" data-tab="location" onclick="switchSettingsTab('location')">Location</button>
             <button class="settings-tab" data-tab="display" onclick="switchSettingsTab('display')">Display</button>
             <button class="settings-tab" data-tab="updates" onclick="switchSettingsTab('updates')">Updates</button>
             <button class="settings-tab" data-tab="tools" onclick="switchSettingsTab('tools')">Tools</button>
@@ -116,6 +117,72 @@
             <div class="settings-info">
                 <strong>Note:</strong> Changes to asset sources require a page reload to take effect.
                 Local assets must be available in <code>/static/vendor/</code>.
+            </div>
+        </div>
+
+        <!-- Location Section -->
+        <div id="settings-location" class="settings-section">
+            <div class="settings-group">
+                <div class="settings-group-title">Observer Location</div>
+                <p style="color: var(--text-dim); margin-bottom: 15px; font-size: 12px;">
+                    Set your geographic coordinates for satellite pass predictions and ISS tracking.
+                </p>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Latitude</span>
+                        <span class="settings-label-desc">Decimal degrees (-90 to 90)</span>
+                    </div>
+                    <input type="number" id="observerLatInput" class="settings-input"
+                           step="0.0001" min="-90" max="90" placeholder="51.5074"
+                           style="width: 120px; text-align: right;">
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Longitude</span>
+                        <span class="settings-label-desc">Decimal degrees (-180 to 180)</span>
+                    </div>
+                    <input type="number" id="observerLonInput" class="settings-input"
+                           step="0.0001" min="-180" max="180" placeholder="-0.1278"
+                           style="width: 120px; text-align: right;">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="check-assets-btn" onclick="detectLocationGPS()" style="flex: 1;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 5px;">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="3"/>
+                            <line x1="12" y1="2" x2="12" y2="6"/>
+                            <line x1="12" y1="18" x2="12" y2="22"/>
+                            <line x1="2" y1="12" x2="6" y2="12"/>
+                            <line x1="18" y1="12" x2="22" y2="12"/>
+                        </svg>
+                        Use GPS
+                    </button>
+                    <button class="check-assets-btn" onclick="saveObserverLocation()" style="flex: 1; background: var(--accent-cyan); color: #000;">
+                        Save Location
+                    </button>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Current Location</div>
+                <div id="currentLocationDisplay" style="padding: 12px; background: var(--bg-tertiary); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="color: var(--text-dim);">Latitude</span>
+                        <span id="currentLatDisplay" style="color: var(--accent-cyan);">Not set</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-dim);">Longitude</span>
+                        <span id="currentLonDisplay" style="color: var(--accent-cyan);">Not set</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-info">
+                <strong>Note:</strong> Location is used for ISS pass predictions in SSTV mode and satellite tracking.
+                Your location is stored locally and never sent to external servers.
             </div>
         </div>
 

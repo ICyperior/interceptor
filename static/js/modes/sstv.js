@@ -312,33 +312,45 @@ const SSTV = (function() {
      * Load ISS pass schedule
      */
     async function loadIssSchedule() {
-        // Try to get user's location
-        const lat = localStorage.getItem('observerLat') || 51.5074;
-        const lon = localStorage.getItem('observerLon') || -0.1278;
+        // Try to get user's location from settings
+        const storedLat = localStorage.getItem('observerLat');
+        const storedLon = localStorage.getItem('observerLon');
+
+        // Check if location is actually set
+        const hasLocation = storedLat !== null && storedLon !== null;
+        const lat = storedLat || 51.5074;
+        const lon = storedLon || -0.1278;
 
         try {
             const response = await fetch(`/sstv/iss-schedule?latitude=${lat}&longitude=${lon}&hours=48`);
             const data = await response.json();
 
             if (data.status === 'ok' && data.passes && data.passes.length > 0) {
-                renderIssInfo(data.passes[0]);
+                renderIssInfo(data.passes[0], hasLocation);
             } else {
-                renderIssInfo(null);
+                renderIssInfo(null, hasLocation);
             }
         } catch (err) {
             console.error('Failed to load ISS schedule:', err);
-            renderIssInfo(null);
+            renderIssInfo(null, hasLocation);
         }
     }
 
     /**
      * Render ISS pass info
      */
-    function renderIssInfo(nextPass) {
+    function renderIssInfo(nextPass, hasLocation = true) {
         const container = document.getElementById('sstvIssInfo');
         if (!container) return;
 
         if (!nextPass) {
+            const locationMsg = hasLocation
+                ? 'No passes in next 48 hours'
+                : 'Set location in Settings > Location tab';
+            const noteMsg = hasLocation
+                ? 'Check ARISS.org for SSTV event schedules'
+                : 'Click the gear icon to open Settings';
+
             container.innerHTML = `
                 <div class="sstv-iss-info">
                     <svg class="sstv-iss-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -348,8 +360,8 @@ const SSTV = (function() {
                     </svg>
                     <div class="sstv-iss-details">
                         <div class="sstv-iss-label">Next ISS Pass</div>
-                        <div class="sstv-iss-value">Unknown - Set location in settings</div>
-                        <div class="sstv-iss-note">Check ARISS.org for SSTV event schedules</div>
+                        <div class="sstv-iss-value">${locationMsg}</div>
+                        <div class="sstv-iss-note">${noteMsg}</div>
                     </div>
                 </div>
             `;
@@ -443,6 +455,7 @@ const SSTV = (function() {
         start,
         stop,
         loadImages,
+        loadIssSchedule,
         showImage,
         closeImage
     };

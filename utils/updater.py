@@ -174,6 +174,7 @@ def check_for_updates(force: bool = False) -> dict[str, Any]:
 
                         return {
                             'success': True,
+                            'checked': True,
                             'update_available': update_available,
                             'show_notification': show_notification,
                             'current_version': current_version,
@@ -196,6 +197,7 @@ def check_for_updates(force: bool = False) -> dict[str, Any]:
             update_available = _compare_versions(current_version, cached_version) < 0
             return {
                 'success': True,
+                'checked': True,
                 'update_available': update_available,
                 'current_version': current_version,
                 'latest_version': cached_version,
@@ -223,6 +225,7 @@ def check_for_updates(force: bool = False) -> dict[str, Any]:
 
     return {
         'success': True,
+        'checked': True,
         'update_available': update_available,
         'show_notification': show_notification,
         'current_version': current_version,
@@ -231,7 +234,8 @@ def check_for_updates(force: bool = False) -> dict[str, Any]:
         'release_notes': release['body'] or '',
         'release_name': release['name'] or f'v{latest_version}',
         'published_at': release['published_at'],
-        'cached': False
+        'cached': False,
+        'last_check': datetime.now().isoformat()
     }
 
 

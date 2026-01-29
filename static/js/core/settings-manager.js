@@ -541,6 +541,133 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =============================================================================
+// Location Settings Functions
+// =============================================================================
+
+/**
+ * Load and display current observer location
+ */
+function loadObserverLocation() {
+    const lat = localStorage.getItem('observerLat');
+    const lon = localStorage.getItem('observerLon');
+
+    const latInput = document.getElementById('observerLatInput');
+    const lonInput = document.getElementById('observerLonInput');
+    const currentLatDisplay = document.getElementById('currentLatDisplay');
+    const currentLonDisplay = document.getElementById('currentLonDisplay');
+
+    if (latInput && lat) latInput.value = lat;
+    if (lonInput && lon) lonInput.value = lon;
+
+    if (currentLatDisplay) {
+        currentLatDisplay.textContent = lat ? parseFloat(lat).toFixed(4) + '°' : 'Not set';
+    }
+    if (currentLonDisplay) {
+        currentLonDisplay.textContent = lon ? parseFloat(lon).toFixed(4) + '°' : 'Not set';
+    }
+}
+
+/**
+ * Detect location using browser GPS
+ */
+function detectLocationGPS() {
+    const latInput = document.getElementById('observerLatInput');
+    const lonInput = document.getElementById('observerLonInput');
+
+    if (!navigator.geolocation) {
+        if (typeof showNotification === 'function') {
+            showNotification('Location', 'GPS not available in this browser');
+        } else {
+            alert('GPS not available in this browser');
+        }
+        return;
+    }
+
+    // Show loading state
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span style="opacity: 0.7;">Detecting...</span>';
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            if (latInput) latInput.value = pos.coords.latitude.toFixed(4);
+            if (lonInput) lonInput.value = pos.coords.longitude.toFixed(4);
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+            if (typeof showNotification === 'function') {
+                showNotification('Location', 'GPS coordinates detected');
+            }
+        },
+        (err) => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+            let message = 'Failed to get location';
+            if (err.code === 1) message = 'Location access denied';
+            else if (err.code === 2) message = 'Location unavailable';
+            else if (err.code === 3) message = 'Location request timed out';
+
+            if (typeof showNotification === 'function') {
+                showNotification('Location', message);
+            } else {
+                alert(message);
+            }
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+}
+
+/**
+ * Save observer location to localStorage
+ */
+function saveObserverLocation() {
+    const latInput = document.getElementById('observerLatInput');
+    const lonInput = document.getElementById('observerLonInput');
+
+    const lat = parseFloat(latInput?.value);
+    const lon = parseFloat(lonInput?.value);
+
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+        if (typeof showNotification === 'function') {
+            showNotification('Location', 'Invalid latitude (must be -90 to 90)');
+        } else {
+            alert('Invalid latitude (must be -90 to 90)');
+        }
+        return;
+    }
+
+    if (isNaN(lon) || lon < -180 || lon > 180) {
+        if (typeof showNotification === 'function') {
+            showNotification('Location', 'Invalid longitude (must be -180 to 180)');
+        } else {
+            alert('Invalid longitude (must be -180 to 180)');
+        }
+        return;
+    }
+
+    localStorage.setItem('observerLat', lat.toString());
+    localStorage.setItem('observerLon', lon.toString());
+
+    // Update display
+    const currentLatDisplay = document.getElementById('currentLatDisplay');
+    const currentLonDisplay = document.getElementById('currentLonDisplay');
+    if (currentLatDisplay) currentLatDisplay.textContent = lat.toFixed(4) + '°';
+    if (currentLonDisplay) currentLonDisplay.textContent = lon.toFixed(4) + '°';
+
+    if (typeof showNotification === 'function') {
+        showNotification('Location', 'Observer location saved');
+    }
+
+    // Refresh SSTV ISS schedule if available
+    if (typeof SSTV !== 'undefined' && typeof SSTV.loadIssSchedule === 'function') {
+        SSTV.loadIssSchedule();
+    }
+}
+
+// =============================================================================
 // Update Settings Functions
 // =============================================================================
 
@@ -709,5 +836,7 @@ function switchSettingsTab(tabName) {
         loadSettingsTools();
     } else if (tabName === 'updates') {
         loadUpdateStatus();
+    } else if (tabName === 'location') {
+        loadObserverLocation();
     }
 }
