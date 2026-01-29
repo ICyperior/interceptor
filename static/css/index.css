@@ -1769,8 +1769,7 @@ header h1 .tagline {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     background: var(--bg-primary);
-    min-height: 400px;
-    max-height: 600px;
+    min-height: 0; /* Allow shrinking in flex context */
 }
 
 .output-content::-webkit-scrollbar {
@@ -2516,9 +2515,8 @@ header h1 .tagline {
 /* Satellite Dashboard Embed */
 .satellite-dashboard-embed {
     width: 100%;
-    height: calc(100vh - 200px);
-    min-height: 700px;
-    max-height: 900px;
+    flex: 1;
+    min-height: 400px;
     background: var(--bg-primary);
     border-radius: 8px;
     overflow: hidden;
@@ -3322,8 +3320,8 @@ header h1 .tagline {
     background: var(--bg-secondary);
     margin: 0 15px 10px 15px;
     border: 1px solid var(--border-color);
-    height: calc(100vh - 200px);
-    min-height: 400px;
+    flex: 1;
+    min-height: 0; /* Allow shrinking in flex context */
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -3799,8 +3797,8 @@ header h1 .tagline {
 
 @media (max-width: 1200px) {
     .wifi-layout-container {
-        height: auto;
-        max-height: calc(100vh - 200px);
+        flex: 1;
+        min-height: 0;
     }
 
     .wifi-main-content {
@@ -3836,8 +3834,8 @@ header h1 .tagline {
     background: var(--bg-secondary);
     margin: 0 15px 10px 15px;
     border: 1px solid var(--border-color);
-    height: calc(100vh - 200px);
-    min-height: 400px;
+    flex: 1;
+    min-height: 0; /* Allow shrinking in flex context */
 }
 
 .bt-visuals-column {
@@ -4518,8 +4516,8 @@ header h1 .tagline {
 @media (max-width: 1200px) {
     .bt-layout-container {
         flex-direction: column;
-        height: auto;
-        max-height: calc(100vh - 200px);
+        flex: 1;
+        min-height: 0;
     }
 
     .bt-layout-container .wifi-visuals {

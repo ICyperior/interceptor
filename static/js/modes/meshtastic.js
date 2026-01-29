@@ -625,9 +625,9 @@ const Meshtastic = (function() {
         const icon = L.divIcon({
             className: 'mesh-marker-wrapper',
             html: `<div class="${markerClass}">${shortName.slice(0, 2).toUpperCase()}</div>`,
-            iconSize: [28, 28],
-            iconAnchor: [14, 14],
-            popupAnchor: [0, -14]
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -16]
         });
 
         // Build telemetry section

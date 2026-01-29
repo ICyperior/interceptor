@@ -350,7 +350,8 @@ const SSTV = (function() {
      */
     async function start() {
         const freqInput = document.getElementById('sstvFrequency');
-        const deviceSelect = document.getElementById('sstvDevice');
+        // Use the global SDR device selector
+        const deviceSelect = document.getElementById('deviceSelect');
 
         const frequency = parseFloat(freqInput?.value || ISS_FREQ);
         const device = parseInt(deviceSelect?.value || '0', 10);
