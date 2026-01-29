@@ -539,3 +539,175 @@ function loadSettingsTools() {
 document.addEventListener('DOMContentLoaded', () => {
     Settings.init();
 });
+
+// =============================================================================
+// Update Settings Functions
+// =============================================================================
+
+/**
+ * Check for updates manually from settings panel
+ */
+async function checkForUpdatesManual() {
+    const content = document.getElementById('updateStatusContent');
+    if (!content) return;
+
+    content.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-dim);">Checking for updates...</div>';
+
+    try {
+        const data = await Updater.checkNow();
+        renderUpdateStatus(data);
+    } catch (error) {
+        content.innerHTML = `<div style="color: var(--accent-red); padding: 10px;">Error checking for updates: ${error.message}</div>`;
+    }
+}
+
+/**
+ * Load update status when tab is opened
+ */
+async function loadUpdateStatus() {
+    const content = document.getElementById('updateStatusContent');
+    if (!content) return;
+
+    try {
+        const data = await Updater.getStatus();
+        renderUpdateStatus(data);
+    } catch (error) {
+        content.innerHTML = `<div style="color: var(--accent-red); padding: 10px;">Error loading update status: ${error.message}</div>`;
+    }
+}
+
+/**
+ * Render update status in settings panel
+ */
+function renderUpdateStatus(data) {
+    const content = document.getElementById('updateStatusContent');
+    if (!content) return;
+
+    if (!data.success) {
+        content.innerHTML = `<div style="color: var(--accent-red); padding: 10px;">Error: ${data.error || 'Unknown error'}</div>`;
+        return;
+    }
+
+    if (data.disabled) {
+        content.innerHTML = `
+            <div style="padding: 15px; background: var(--bg-tertiary); border-radius: 6px; text-align: center;">
+                <div style="color: var(--text-dim); font-size: 13px;">Update checking is disabled</div>
+            </div>
+        `;
+        return;
+    }
+
+    if (!data.checked) {
+        content.innerHTML = `
+            <div style="padding: 15px; background: var(--bg-tertiary); border-radius: 6px; text-align: center;">
+                <div style="color: var(--text-dim); font-size: 13px;">No update check performed yet</div>
+                <div style="font-size: 11px; color: var(--text-dim); margin-top: 5px;">Click "Check Now" to check for updates</div>
+            </div>
+        `;
+        return;
+    }
+
+    const statusColor = data.update_available ? 'var(--accent-green)' : 'var(--text-dim)';
+    const statusText = data.update_available ? 'Update Available' : 'Up to Date';
+    const statusIcon = data.update_available
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+
+    let html = `
+        <div style="padding: 15px; background: var(--bg-tertiary); border-radius: 6px; border-left: 3px solid ${statusColor};">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <span style="color: ${statusColor};">${statusIcon}</span>
+                <span style="font-weight: 600; color: ${statusColor};">${statusText}</span>
+            </div>
+            <div style="display: grid; gap: 8px; font-size: 12px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-dim);">Current Version</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">v${data.current_version}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-dim);">Latest Version</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; color: ${data.update_available ? 'var(--accent-green)' : 'var(--text-primary)'};">v${data.latest_version}</span>
+                </div>
+                ${data.last_check ? `
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-dim);">Last Checked</span>
+                    <span style="color: var(--text-secondary);">${formatLastCheck(data.last_check)}</span>
+                </div>
+                ` : ''}
+            </div>
+            ${data.update_available ? `
+            <button onclick="Updater.showUpdateModal()" style="
+                margin-top: 12px;
+                width: 100%;
+                padding: 8px;
+                background: var(--accent-green);
+                color: #000;
+                border: none;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+            ">View Update Details</button>
+            ` : ''}
+        </div>
+    `;
+
+    content.innerHTML = html;
+}
+
+/**
+ * Format last check timestamp
+ */
+function formatLastCheck(isoString) {
+    try {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} min ago`;
+        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        return date.toLocaleDateString();
+    } catch (e) {
+        return isoString;
+    }
+}
+
+/**
+ * Toggle update checking
+ */
+async function toggleUpdateCheck(enabled) {
+    // This would require adding a setting to disable update checks
+    // For now, just store in localStorage
+    localStorage.setItem('intercept_update_check_enabled', enabled ? 'true' : 'false');
+
+    if (!enabled && typeof Updater !== 'undefined') {
+        Updater.destroy();
+    } else if (enabled && typeof Updater !== 'undefined') {
+        Updater.init();
+    }
+}
+
+// Extend switchSettingsTab to load update status
+const _originalSwitchSettingsTab = typeof switchSettingsTab !== 'undefined' ? switchSettingsTab : null;
+
+function switchSettingsTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+
+    // Update sections
+    document.querySelectorAll('.settings-section').forEach(section => {
+        section.classList.toggle('active', section.id === `settings-${tabName}`);
+    });
+
+    // Load content based on tab
+    if (tabName === 'tools') {
+        loadSettingsTools();
+    } else if (tabName === 'updates') {
+        loadUpdateStatus();
+    }
+}

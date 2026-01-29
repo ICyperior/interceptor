@@ -12,6 +12,7 @@
         <div class="settings-tabs">
             <button class="settings-tab active" data-tab="offline" onclick="switchSettingsTab('offline')">Offline</button>
             <button class="settings-tab" data-tab="display" onclick="switchSettingsTab('display')">Display</button>
+            <button class="settings-tab" data-tab="updates" onclick="switchSettingsTab('updates')">Updates</button>
             <button class="settings-tab" data-tab="tools" onclick="switchSettingsTab('tools')">Tools</button>
             <button class="settings-tab" data-tab="about" onclick="switchSettingsTab('about')">About</button>
         </div>
@@ -144,6 +145,41 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
+            </div>
+        </div>
+
+        <!-- Updates Section -->
+        <div id="settings-updates" class="settings-section">
+            <div class="settings-group">
+                <div class="settings-group-title">Update Status</div>
+                <div id="updateStatusContent" style="padding: 10px 0;">
+                    <div style="text-align: center; padding: 20px; color: var(--text-dim);">
+                        Loading update status...
+                    </div>
+                </div>
+                <button class="check-assets-btn" onclick="checkForUpdatesManual()" style="margin-top: 10px;">
+                    Check Now
+                </button>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Update Settings</div>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Auto-Check for Updates</span>
+                        <span class="settings-label-desc">Periodically check GitHub for new releases</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="updateCheckEnabled" checked onchange="toggleUpdateCheck(this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-info">
+                <strong>Note:</strong> Updates are fetched from GitHub and applied via git pull.
+                Make sure you have git installed and the application is in a git repository.
             </div>
         </div>
 
