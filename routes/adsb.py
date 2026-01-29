@@ -15,8 +15,16 @@ from typing import Any, Generator
 
 from flask import Blueprint, jsonify, request, Response, render_template
 from flask import make_response
-import psycopg2
-from psycopg2.extras import RealDictCursor
+
+# psycopg2 is optional - only needed for PostgreSQL history persistence
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    psycopg2 = None  # type: ignore
+    RealDictCursor = None  # type: ignore
+    PSYCOPG2_AVAILABLE = False
 
 import app as app_module
 from config import (
@@ -192,7 +200,7 @@ def _parse_int_param(value: str | None, default: int, min_value: int | None = No
 
 
 def _get_active_session() -> dict[str, Any] | None:
-    if not ADSB_HISTORY_ENABLED:
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
         return None
     _ensure_history_schema()
     try:
@@ -222,7 +230,7 @@ def _record_session_start(
     start_source: str | None,
     started_by: str | None,
 ) -> dict[str, Any] | None:
-    if not ADSB_HISTORY_ENABLED:
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
         return None
     _ensure_history_schema()
     try:
@@ -257,7 +265,7 @@ def _record_session_start(
 
 
 def _record_session_stop(*, stop_source: str | None, stopped_by: str | None) -> dict[str, Any] | None:
-    if not ADSB_HISTORY_ENABLED:
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
         return None
     _ensure_history_schema()
     try:
@@ -810,7 +818,8 @@ def adsb_dashboard():
 @adsb_bp.route('/history')
 def adsb_history():
     """ADS-B history reporting dashboard."""
-    resp = make_response(render_template('adsb_history.html', history_enabled=ADSB_HISTORY_ENABLED))
+    history_available = ADSB_HISTORY_ENABLED and PSYCOPG2_AVAILABLE
+    resp = make_response(render_template('adsb_history.html', history_enabled=history_available))
     resp.headers['Cache-Control'] = 'no-store'
     return resp
 
@@ -818,7 +827,7 @@ def adsb_history():
 @adsb_bp.route('/history/summary')
 def adsb_history_summary():
     """Summary stats for ADS-B history window."""
-    if not ADSB_HISTORY_ENABLED:
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
         return jsonify({'error': 'ADS-B history is disabled'}), 503
     _ensure_history_schema()
 
@@ -848,7 +857,7 @@ def adsb_history_summary():
 @adsb_bp.route('/history/aircraft')
 def adsb_history_aircraft():
     """List latest aircraft snapshots for a time window."""
-    if not ADSB_HISTORY_ENABLED:
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
         return jsonify({'error': 'ADS-B history is disabled'}), 503
     _ensure_history_schema()
 
@@ -898,7 +907,7 @@ def adsb_history_aircraft():
 @adsb_bp.route('/history/timeline')
 def adsb_history_timeline():
     """Timeline snapshots for a specific aircraft."""
-    if not ADSB_HISTORY_ENABLED:
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
         return jsonify({'error': 'ADS-B history is disabled'}), 503
     _ensure_history_schema()
 
@@ -933,7 +942,7 @@ def adsb_history_timeline():
 @adsb_bp.route('/history/messages')
 def adsb_history_messages():
     """Raw message history for a specific aircraft."""
-    if not ADSB_HISTORY_ENABLED:
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
         return jsonify({'error': 'ADS-B history is disabled'}), 503
     _ensure_history_schema()
 
