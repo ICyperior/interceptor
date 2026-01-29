@@ -759,6 +759,55 @@ body {
     filter: drop-shadow(0 0 8px rgba(255,255,255,0.8)) !important;
 }
 
+/* ============================================
+   TRACKED VESSEL PULSATING RING
+   ============================================ */
+.vessel-marker.selected {
+    position: relative;
+}
+
+.tracking-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--accent-cyan);
+    border-radius: 50%;
+    animation: tracking-pulse 1.5s ease-out infinite;
+    pointer-events: none;
+}
+
+.tracking-ring-inner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--accent-cyan);
+    border-radius: 50%;
+    animation: tracking-pulse 1.5s ease-out infinite 0.3s;
+    pointer-events: none;
+}
+
+@keyframes tracking-pulse {
+    0% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 1;
+        border-color: rgba(74, 158, 255, 1);
+    }
+    50% {
+        opacity: 0.6;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.8);
+        opacity: 0;
+        border-color: rgba(74, 158, 255, 0);
+    }
+}
+
 /* Range rings */
 .range-ring {
     fill: none;

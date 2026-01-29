@@ -2970,9 +2970,11 @@ sudo make install</code>
             const size = iconType === 'helicopter' ? 22 : 24;
             const glowColor = isSelected ? 'rgba(255,255,255,0.9)' : color;
             const glowSize = isSelected ? '10px' : '5px';
+            const trackingRing = isSelected ?
+                '<div class="tracking-ring"></div><div class="tracking-ring-inner"></div>' : '';
             return L.divIcon({
                 className: `aircraft-marker aircraft-${iconType}${isSelected ? ' selected' : ''}`,
-                html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); color: ${color}; filter: drop-shadow(0 0 ${glowSize} ${glowColor});">
+                html: `${trackingRing}<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); color: ${color}; filter: drop-shadow(0 0 ${glowSize} ${glowColor});">
                     <path fill="currentColor" d="${path}"/>
                 </svg>`,
                 iconSize: [size, size],

@@ -329,10 +329,12 @@
             const size = 24;
             const glowColor = isSelected ? 'rgba(255,255,255,0.8)' : color;
             const glowSize = isSelected ? '8px' : '4px';
+            const trackingRing = isSelected ?
+                '<div class="tracking-ring"></div><div class="tracking-ring-inner"></div>' : '';
 
             return L.divIcon({
                 className: 'vessel-marker' + (isSelected ? ' selected' : ''),
-                html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); filter: drop-shadow(0 0 ${glowSize} ${glowColor});">
+                html: `${trackingRing}<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); filter: drop-shadow(0 0 ${glowSize} ${glowColor});">
                     <path fill="${color}" d="${path}"/>
                 </svg>`,
                 iconSize: [size, size],
