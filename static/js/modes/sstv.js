@@ -10,6 +10,9 @@ const SSTV = (function() {
     let images = [];
     let currentMode = null;
     let progress = 0;
+    let globeAnimationId = null;
+    let issPosition = null;
+    let issUpdateInterval = null;
 
     // ISS frequency
     const ISS_FREQ = 145.800;
@@ -20,7 +23,310 @@ const SSTV = (function() {
     function init() {
         checkStatus();
         loadImages();
+        loadLocationInputs();
         loadIssSchedule();
+        initGlobe();
+        startIssTracking();
+    }
+
+    /**
+     * Load location into input fields
+     */
+    function loadLocationInputs() {
+        const latInput = document.getElementById('sstvObsLat');
+        const lonInput = document.getElementById('sstvObsLon');
+
+        const storedLat = localStorage.getItem('observerLat');
+        const storedLon = localStorage.getItem('observerLon');
+
+        if (latInput && storedLat) latInput.value = storedLat;
+        if (lonInput && storedLon) lonInput.value = storedLon;
+
+        // Add change handlers to save and refresh
+        if (latInput) latInput.addEventListener('change', saveLocationFromInputs);
+        if (lonInput) lonInput.addEventListener('change', saveLocationFromInputs);
+    }
+
+    /**
+     * Save location from input fields
+     */
+    function saveLocationFromInputs() {
+        const latInput = document.getElementById('sstvObsLat');
+        const lonInput = document.getElementById('sstvObsLon');
+
+        const lat = parseFloat(latInput?.value);
+        const lon = parseFloat(lonInput?.value);
+
+        if (!isNaN(lat) && lat >= -90 && lat <= 90 &&
+            !isNaN(lon) && lon >= -180 && lon <= 180) {
+            localStorage.setItem('observerLat', lat.toString());
+            localStorage.setItem('observerLon', lon.toString());
+            loadIssSchedule(); // Refresh pass predictions
+        }
+    }
+
+    /**
+     * Use GPS to get location
+     */
+    function useGPS(btn) {
+        if (!navigator.geolocation) {
+            showNotification('SSTV', 'GPS not available in this browser');
+            return;
+        }
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span style="opacity: 0.7;">...</span>';
+        btn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const latInput = document.getElementById('sstvObsLat');
+                const lonInput = document.getElementById('sstvObsLon');
+
+                const lat = pos.coords.latitude.toFixed(4);
+                const lon = pos.coords.longitude.toFixed(4);
+
+                if (latInput) latInput.value = lat;
+                if (lonInput) lonInput.value = lon;
+
+                localStorage.setItem('observerLat', lat);
+                localStorage.setItem('observerLon', lon);
+
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+
+                showNotification('SSTV', 'Location updated from GPS');
+                loadIssSchedule();
+            },
+            (err) => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+
+                let msg = 'Failed to get location';
+                if (err.code === 1) msg = 'Location access denied';
+                else if (err.code === 2) msg = 'Location unavailable';
+                showNotification('SSTV', msg);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+    /**
+     * Update TLE data from CelesTrak
+     */
+    async function updateTLE(btn) {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span style="opacity: 0.7;">Updating...</span>';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('/satellite/update-tle', { method: 'POST' });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                showNotification('SSTV', `TLE updated: ${data.updated?.length || 0} satellites`);
+                loadIssSchedule(); // Refresh predictions with new TLE
+            } else {
+                showNotification('SSTV', data.message || 'TLE update failed');
+            }
+        } catch (err) {
+            console.error('TLE update error:', err);
+            showNotification('SSTV', 'Failed to update TLE');
+        }
+
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+
+    /**
+     * Initialize 3D globe
+     */
+    function initGlobe() {
+        const canvas = document.getElementById('sstvGlobe');
+        if (!canvas) return;
+
+        renderGlobe();
+    }
+
+    /**
+     * Start ISS position tracking
+     */
+    function startIssTracking() {
+        updateIssPosition();
+        // Update every 5 seconds
+        if (issUpdateInterval) clearInterval(issUpdateInterval);
+        issUpdateInterval = setInterval(updateIssPosition, 5000);
+    }
+
+    /**
+     * Stop ISS tracking
+     */
+    function stopIssTracking() {
+        if (issUpdateInterval) {
+            clearInterval(issUpdateInterval);
+            issUpdateInterval = null;
+        }
+        if (globeAnimationId) {
+            cancelAnimationFrame(globeAnimationId);
+            globeAnimationId = null;
+        }
+    }
+
+    /**
+     * Fetch current ISS position
+     */
+    async function updateIssPosition() {
+        const storedLat = localStorage.getItem('observerLat') || 51.5074;
+        const storedLon = localStorage.getItem('observerLon') || -0.1278;
+
+        try {
+            const response = await fetch('/satellite/position', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: parseFloat(storedLat),
+                    longitude: parseFloat(storedLon),
+                    satellites: ['ISS']
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success' && data.positions?.length > 0) {
+                issPosition = data.positions[0];
+                updateIssDisplay();
+                renderGlobe();
+            }
+        } catch (err) {
+            console.error('Failed to get ISS position:', err);
+        }
+    }
+
+    /**
+     * Update ISS position display
+     */
+    function updateIssDisplay() {
+        if (!issPosition) return;
+
+        const latEl = document.getElementById('sstvIssLat');
+        const lonEl = document.getElementById('sstvIssLon');
+        const altEl = document.getElementById('sstvIssAlt');
+
+        if (latEl) latEl.textContent = issPosition.lat.toFixed(1) + '°';
+        if (lonEl) lonEl.textContent = issPosition.lon.toFixed(1) + '°';
+        if (altEl) altEl.textContent = Math.round(issPosition.altitude);
+    }
+
+    /**
+     * Render 3D globe with ISS position
+     */
+    function renderGlobe() {
+        const canvas = document.getElementById('sstvGlobe');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const radius = Math.min(cx, cy) - 10;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw globe background
+        const gradient = ctx.createRadialGradient(cx - radius * 0.3, cy - radius * 0.3, 0, cx, cy, radius);
+        gradient.addColorStop(0, '#1a4a6e');
+        gradient.addColorStop(0.5, '#0d2840');
+        gradient.addColorStop(1, '#061520');
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Draw latitude/longitude grid
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
+        ctx.lineWidth = 0.5;
+
+        // Latitude lines
+        for (let lat = -60; lat <= 60; lat += 30) {
+            const y = cy - (lat / 90) * radius;
+            const xRadius = Math.cos(lat * Math.PI / 180) * radius;
+            ctx.beginPath();
+            ctx.ellipse(cx, y, xRadius, xRadius * 0.3, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Longitude lines
+        for (let lon = 0; lon < 180; lon += 30) {
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, radius * Math.cos(lon * Math.PI / 180), radius, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Draw simple landmasses (simplified continents)
+        ctx.fillStyle = 'rgba(0, 180, 100, 0.3)';
+        ctx.strokeStyle = 'rgba(0, 200, 120, 0.4)';
+        ctx.lineWidth = 1;
+
+        // Draw ISS position
+        if (issPosition) {
+            const issLat = issPosition.lat;
+            const issLon = issPosition.lon;
+
+            // Convert lat/lon to x/y on globe (simple projection)
+            // Only show if on visible hemisphere (simplified: lon between -90 and 90)
+            const normalizedLon = ((issLon + 180) % 360) - 180;
+            const visibleRange = 90;
+
+            if (Math.abs(normalizedLon) <= visibleRange) {
+                const x = cx + (normalizedLon / 90) * radius * Math.cos(issLat * Math.PI / 180);
+                const y = cy - (issLat / 90) * radius;
+
+                // ISS glow
+                const issGradient = ctx.createRadialGradient(x, y, 0, x, y, 15);
+                issGradient.addColorStop(0, 'rgba(0, 212, 255, 0.8)');
+                issGradient.addColorStop(0.5, 'rgba(0, 212, 255, 0.3)');
+                issGradient.addColorStop(1, 'rgba(0, 212, 255, 0)');
+
+                ctx.beginPath();
+                ctx.arc(x, y, 15, 0, Math.PI * 2);
+                ctx.fillStyle = issGradient;
+                ctx.fill();
+
+                // ISS dot
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#00d4ff';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // ISS label
+                ctx.fillStyle = '#00d4ff';
+                ctx.font = 'bold 9px JetBrains Mono, monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('ISS', x, y - 12);
+            }
+        }
+
+        // Draw globe edge highlight
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Atmospheric glow
+        const atmoGradient = ctx.createRadialGradient(cx, cy, radius - 5, cx, cy, radius + 8);
+        atmoGradient.addColorStop(0, 'rgba(0, 212, 255, 0)');
+        atmoGradient.addColorStop(0.5, 'rgba(0, 212, 255, 0.1)');
+        atmoGradient.addColorStop(1, 'rgba(0, 212, 255, 0)');
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+        ctx.fillStyle = atmoGradient;
+        ctx.fill();
     }
 
     /**
@@ -457,7 +763,10 @@ const SSTV = (function() {
         loadImages,
         loadIssSchedule,
         showImage,
-        closeImage
+        closeImage,
+        useGPS,
+        updateTLE,
+        stopIssTracking
     };
 })();
 
