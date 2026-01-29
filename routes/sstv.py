@@ -362,7 +362,10 @@ def iss_schedule():
 @sstv_bp.route('/iss-position')
 def iss_position():
     """
-    Get current ISS position.
+    Get current ISS position from real-time API.
+
+    Uses the Open Notify API for accurate real-time position,
+    with fallback to "Where The ISS At" API.
 
     Query parameters:
         latitude: Observer latitude (optional, for elevation calc)
@@ -371,60 +374,114 @@ def iss_position():
     Returns:
         JSON with ISS current position.
     """
-    lat = request.args.get('latitude', type=float)
-    lon = request.args.get('longitude', type=float)
+    import requests
+    from datetime import datetime
 
+    observer_lat = request.args.get('latitude', type=float)
+    observer_lon = request.args.get('longitude', type=float)
+
+    # Try primary API: Open Notify
     try:
-        from skyfield.api import load, wgs84, EarthSatellite
-        from data.satellites import TLE_SATELLITES
+        response = requests.get('http://api.open-notify.org/iss-now.json', timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('message') == 'success':
+                iss_lat = float(data['iss_position']['latitude'])
+                iss_lon = float(data['iss_position']['longitude'])
 
-        # Get ISS TLE
-        iss_tle = TLE_SATELLITES.get('ISS')
-        if not iss_tle:
-            return jsonify({
-                'status': 'error',
-                'message': 'ISS TLE data not available'
-            }), 500
+                result = {
+                    'status': 'ok',
+                    'lat': iss_lat,
+                    'lon': iss_lon,
+                    'altitude': 420,  # Approximate ISS altitude in km
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'source': 'open-notify'
+                }
 
-        ts = load.timescale()
-        satellite = EarthSatellite(iss_tle[1], iss_tle[2], iss_tle[0], ts)
+                # Calculate observer-relative data if location provided
+                if observer_lat is not None and observer_lon is not None:
+                    result.update(_calculate_observer_data(iss_lat, iss_lon, observer_lat, observer_lon))
 
-        now = ts.now()
-        geocentric = satellite.at(now)
-        subpoint = wgs84.subpoint(geocentric)
-
-        result = {
-            'status': 'ok',
-            'lat': float(subpoint.latitude.degrees),
-            'lon': float(subpoint.longitude.degrees),
-            'altitude': float(subpoint.elevation.km),
-            'timestamp': now.utc_datetime().isoformat()
-        }
-
-        # If observer location provided, calculate elevation/azimuth
-        if lat is not None and lon is not None:
-            observer = wgs84.latlon(lat, lon)
-            diff = satellite - observer
-            topocentric = diff.at(now)
-            alt, az, distance = topocentric.altaz()
-            result['elevation'] = float(alt.degrees)
-            result['azimuth'] = float(az.degrees)
-            result['distance'] = float(distance.km)
-
-        return jsonify(result)
-
-    except ImportError:
-        return jsonify({
-            'status': 'error',
-            'message': 'skyfield library not installed'
-        }), 503
-
+                return jsonify(result)
     except Exception as e:
-        logger.error(f"Error getting ISS position: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        logger.warning(f"Open Notify API failed: {e}")
+
+    # Try fallback API: Where The ISS At
+    try:
+        response = requests.get('https://api.wheretheiss.at/v1/satellites/25544', timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            iss_lat = float(data['latitude'])
+            iss_lon = float(data['longitude'])
+
+            result = {
+                'status': 'ok',
+                'lat': iss_lat,
+                'lon': iss_lon,
+                'altitude': float(data.get('altitude', 420)),
+                'timestamp': datetime.utcnow().isoformat(),
+                'source': 'wheretheiss'
+            }
+
+            # Calculate observer-relative data if location provided
+            if observer_lat is not None and observer_lon is not None:
+                result.update(_calculate_observer_data(iss_lat, iss_lon, observer_lat, observer_lon))
+
+            return jsonify(result)
+    except Exception as e:
+        logger.warning(f"Where The ISS At API failed: {e}")
+
+    # Both APIs failed
+    return jsonify({
+        'status': 'error',
+        'message': 'Unable to fetch ISS position from real-time APIs'
+    }), 503
+
+
+def _calculate_observer_data(iss_lat: float, iss_lon: float, obs_lat: float, obs_lon: float) -> dict:
+    """Calculate elevation, azimuth, and distance from observer to ISS."""
+    import math
+
+    # ISS altitude in km
+    iss_alt_km = 420
+
+    # Earth radius in km
+    earth_radius = 6371
+
+    # Convert to radians
+    lat1 = math.radians(obs_lat)
+    lat2 = math.radians(iss_lat)
+    lon1 = math.radians(obs_lon)
+    lon2 = math.radians(iss_lon)
+
+    # Haversine for ground distance
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    ground_distance = earth_radius * c
+
+    # Calculate elevation angle (simplified)
+    # Using spherical geometry approximation
+    iss_height = iss_alt_km
+    slant_range = math.sqrt(ground_distance**2 + iss_height**2)
+
+    if ground_distance > 0:
+        elevation = math.degrees(math.atan2(iss_height - (ground_distance**2 / (2 * earth_radius)), ground_distance))
+    else:
+        elevation = 90.0
+
+    # Calculate azimuth
+    y = math.sin(dlon) * math.cos(lat2)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+    azimuth = math.degrees(math.atan2(y, x))
+    azimuth = (azimuth + 360) % 360
+
+    return {
+        'elevation': round(elevation, 1),
+        'azimuth': round(azimuth, 1),
+        'distance': round(slant_range, 1)
+    }
 
 
 @sstv_bp.route('/decode-file', methods=['POST'])
