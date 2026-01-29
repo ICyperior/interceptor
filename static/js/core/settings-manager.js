@@ -8,7 +8,7 @@ const Settings = {
         'offline.enabled': false,
         'offline.assets_source': 'cdn',
         'offline.fonts_source': 'cdn',
-        'offline.tile_provider': 'openstreetmap',
+        'offline.tile_provider': 'cartodb_dark',
         'offline.tile_server_url': ''
     },
 

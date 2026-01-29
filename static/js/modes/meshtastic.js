@@ -26,6 +26,23 @@ const Meshtastic = (function() {
         initMap();
         loadPorts();
         checkStatus();
+        setupEventDelegation();
+    }
+
+    /**
+     * Setup event delegation for dynamically created elements
+     */
+    function setupEventDelegation() {
+        // Handle traceroute button clicks in Leaflet popups
+        document.addEventListener('click', function(e) {
+            const tracerouteBtn = e.target.closest('.mesh-traceroute-btn');
+            if (tracerouteBtn) {
+                const nodeId = tracerouteBtn.dataset.nodeId;
+                if (nodeId) {
+                    sendTraceroute(nodeId);
+                }
+            }
+        });
     }
 
     /**
@@ -636,7 +653,7 @@ const Meshtastic = (function() {
                 ${node.last_heard ? `<span style="color: var(--text-dim);">Last heard:</span> ${new Date(node.last_heard).toLocaleTimeString()}<br>` : ''}
                 ${telemetryHtml}
                 ${envHtml}
-                ${!isLocal ? `<button class="mesh-traceroute-btn" onclick="Meshtastic.sendTraceroute('${nodeId}')">Traceroute</button>` : ''}
+                ${!isLocal ? `<button class="mesh-traceroute-btn" data-node-id="${nodeId}">Traceroute</button>` : ''}
             </div>
         `;
 
