@@ -549,6 +549,8 @@ install_dump1090_from_source_debian() {
       || { fail "Failed to clone FlightAware dump1090"; exit 1; }
 
     cd "$tmp_dir/dump1090"
+    # Remove -Werror to prevent build failures on newer GCC versions
+    sed -i 's/-Werror//g' Makefile 2>/dev/null || sed -i '' 's/-Werror//g' Makefile
     info "Compiling FlightAware dump1090..."
     if make BLADERF=no RTLSDR=yes >/dev/null 2>&1; then
       $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
@@ -556,17 +558,17 @@ install_dump1090_from_source_debian() {
       exit 0
     fi
 
-    warn "FlightAware build failed. Falling back to antirez/dump1090..."
+    warn "FlightAware build failed. Falling back to wiedehopf/readsb..."
     rm -rf "$tmp_dir/dump1090"
-    git clone --depth 1 https://github.com/antirez/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
-      || { fail "Failed to clone antirez dump1090"; exit 1; }
+    git clone --depth 1 https://github.com/wiedehopf/readsb.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
+      || { fail "Failed to clone wiedehopf/readsb"; exit 1; }
 
     cd "$tmp_dir/dump1090"
-    info "Compiling antirez dump1090..."
-    make >/dev/null 2>&1 || { fail "Failed to build dump1090 from source (required)."; exit 1; }
+    info "Compiling readsb..."
+    make RTLSDR=yes >/dev/null 2>&1 || { fail "Failed to build readsb from source (required)."; exit 1; }
 
-    $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
-    ok "dump1090 installed successfully (antirez)."
+    $SUDO install -m 0755 readsb /usr/local/bin/dump1090
+    ok "dump1090 installed successfully (via readsb)."
   )
 }
 
