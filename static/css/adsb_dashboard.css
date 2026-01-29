@@ -172,15 +172,15 @@ body {
 }
 
 /* Main dashboard grid - Mobile first */
-/* Header ~55px + Stats strip ~36px = ~91px, using 95px for safety */
+/* Header ~55px + Stats strip ~55px = ~110px, using 115px for safety */
 .dashboard {
     position: relative;
     z-index: 10;
     display: flex;
     flex-direction: column;
     gap: 0;
-    height: calc(100dvh - 95px);
-    height: calc(100vh - 95px); /* Fallback */
+    height: calc(100dvh - 115px);
+    height: calc(100vh - 115px); /* Fallback */
     min-height: 400px;
 }
 
@@ -216,7 +216,7 @@ body {
 @media (min-width: 1024px) {
     .acars-sidebar {
         display: flex;
-        max-height: calc(100dvh - 95px);
+        max-height: calc(100dvh - 115px);
     }
 }
 
@@ -1153,7 +1153,7 @@ body {
         display: flex !important;
         flex-direction: column !important;
         height: auto !important;
-        min-height: calc(100dvh - 95px);
+        min-height: calc(100dvh - 115px);
         overflow-y: auto !important;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
