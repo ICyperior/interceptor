@@ -94,7 +94,7 @@ const Meshtastic = (function() {
         meshMap = L.map('meshMap').setView([defaultLat, defaultLon], 4);
 
         // Dark themed map tiles
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png?v=2', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
             maxZoom: 19
         }).addTo(meshMap);
