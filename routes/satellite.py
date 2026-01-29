@@ -412,56 +412,69 @@ def get_satellite_position():
     })
 
 
-@satellite_bp.route('/update-tle', methods=['POST'])
-def update_tle():
-    """Update TLE data from CelesTrak."""
+def refresh_tle_data() -> list:
+    """
+    Refresh TLE data from CelesTrak.
+
+    This can be called at startup or periodically to keep TLE data fresh.
+    Returns list of satellite names that were updated.
+    """
     global _tle_cache
 
-    try:
-        name_mappings = {
-            'ISS (ZARYA)': 'ISS',
-            'NOAA 15': 'NOAA-15',
-            'NOAA 18': 'NOAA-18',
-            'NOAA 19': 'NOAA-19',
-            'METEOR-M 2': 'METEOR-M2',
-            'METEOR-M2 3': 'METEOR-M2-3'
-        }
+    name_mappings = {
+        'ISS (ZARYA)': 'ISS',
+        'NOAA 15': 'NOAA-15',
+        'NOAA 18': 'NOAA-18',
+        'NOAA 19': 'NOAA-19',
+        'NOAA 20 (JPSS-1)': 'NOAA-20',
+        'NOAA 21 (JPSS-2)': 'NOAA-21',
+        'METEOR-M 2': 'METEOR-M2',
+        'METEOR-M2 3': 'METEOR-M2-3'
+    }
 
-        updated = []
+    updated = []
 
-        for group in ['stations', 'weather']:
-            url = f'https://celestrak.org/NORAD/elements/gp.php?GROUP={group}&FORMAT=tle'
-            try:
-                with urllib.request.urlopen(url, timeout=10) as response:
-                    content = response.read().decode('utf-8')
-                    lines = content.strip().split('\n')
+    for group in ['stations', 'weather', 'noaa']:
+        url = f'https://celestrak.org/NORAD/elements/gp.php?GROUP={group}&FORMAT=tle'
+        try:
+            with urllib.request.urlopen(url, timeout=15) as response:
+                content = response.read().decode('utf-8')
+                lines = content.strip().split('\n')
 
-                    i = 0
-                    while i + 2 < len(lines):
-                        name = lines[i].strip()
-                        line1 = lines[i + 1].strip()
-                        line2 = lines[i + 2].strip()
+                i = 0
+                while i + 2 < len(lines):
+                    name = lines[i].strip()
+                    line1 = lines[i + 1].strip()
+                    line2 = lines[i + 2].strip()
 
-                        if not (line1.startswith('1 ') and line2.startswith('2 ')):
-                            i += 1
-                            continue
+                    if not (line1.startswith('1 ') and line2.startswith('2 ')):
+                        i += 1
+                        continue
 
-                        internal_name = name_mappings.get(name, name)
+                    internal_name = name_mappings.get(name, name)
 
-                        if internal_name in _tle_cache:
-                            _tle_cache[internal_name] = (name, line1, line2)
+                    if internal_name in _tle_cache:
+                        _tle_cache[internal_name] = (name, line1, line2)
+                        if internal_name not in updated:
                             updated.append(internal_name)
 
-                        i += 3
-            except Exception as e:
-                logger.error(f"Error fetching {group}: {e}")
-                continue
+                    i += 3
+        except Exception as e:
+            logger.warning(f"Error fetching TLE group {group}: {e}")
+            continue
 
+    return updated
+
+
+@satellite_bp.route('/update-tle', methods=['POST'])
+def update_tle():
+    """Update TLE data from CelesTrak (API endpoint)."""
+    try:
+        updated = refresh_tle_data()
         return jsonify({
             'status': 'success',
             'updated': updated
         })
-
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
