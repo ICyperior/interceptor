@@ -449,108 +449,126 @@
 }
 
 /* ============================================
-   ISS ROW (Globe + Pass Info)
+   ISS MAP ROW
    ============================================ */
-.sstv-iss-row {
-    display: flex;
-    gap: 16px;
-    align-items: stretch;
+.sstv-map-row {
+    margin-bottom: 16px;
 }
 
-.sstv-globe-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.sstv-map-container {
+    position: relative;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 12px;
-    min-width: 320px;
+    overflow: hidden;
 }
 
-#sstvGlobe {
-    border-radius: 4px;
+.sstv-iss-map {
+    width: 100%;
+    height: 200px;
     background: #0a1628;
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
 }
 
-.sstv-globe-info {
-    text-align: center;
-    margin-top: 8px;
+.sstv-map-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+    pointer-events: none;
+    z-index: 1000;
 }
 
-.sstv-globe-label {
+.sstv-map-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     font-family: 'JetBrains Mono', monospace;
+}
+
+.sstv-map-label {
+    font-size: 10px;
+    font-weight: bold;
+    color: #ffcc00;
+    background: rgba(255, 204, 0, 0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.sstv-map-coords {
+    font-size: 11px;
+    color: var(--accent-cyan);
+}
+
+.sstv-map-alt {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.sstv-pass-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sstv-pass-label {
     font-size: 9px;
     color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 1px;
 }
 
-.sstv-globe-coords {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--accent-cyan);
-    margin-top: 4px;
-}
-
-.sstv-globe-alt {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--text-secondary);
-    margin-top: 2px;
-}
-
-.sstv-pass-info-container {
-    flex: 1;
-    display: flex;
-    align-items: center;
+.sstv-pass-value {
+    font-size: 11px;
+    color: var(--text-primary);
 }
 
 /* ============================================
-   ISS PASS INFO
+   ISS MAP MARKER
    ============================================ */
-.sstv-iss-info {
+.sstv-iss-marker {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 16px;
-    padding: 10px 14px;
-    background: rgba(0, 212, 255, 0.05);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    border-radius: 6px;
-    flex: 1;
+    justify-content: center;
 }
 
-.sstv-iss-icon {
-    width: 32px;
-    height: 32px;
-    color: var(--accent-cyan);
-    flex-shrink: 0;
-}
-
-.sstv-iss-details {
-    flex: 1;
-    min-width: 0;
+.sstv-iss-dot {
+    width: 16px;
+    height: 16px;
+    background: #ffcc00;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.8), 0 0 30px rgba(255, 204, 0, 0.4);
+    animation: iss-pulse 2s ease-in-out infinite;
 }
 
 .sstv-iss-label {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.sstv-iss-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--text-primary);
-}
-
-.sstv-iss-note {
-    font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
-    color: var(--accent-orange);
+    font-weight: bold;
+    color: #ffcc00;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.5);
+    margin-top: 2px;
+}
+
+@keyframes iss-pulse {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(255, 204, 0, 0.8), 0 0 30px rgba(255, 204, 0, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(255, 204, 0, 1), 0 0 50px rgba(255, 204, 0, 0.6);
+    }
+}
+
+/* Override Leaflet default marker styles */
+.leaflet-marker-icon.sstv-iss-marker {
+    background: transparent;
+    border: none;
 }
 
 /* ============================================
@@ -618,21 +636,14 @@
 }
 
 @media (max-width: 1024px) {
-    .sstv-iss-row {
+    .sstv-iss-map {
+        height: 180px;
+    }
+
+    .sstv-map-overlay {
         flex-direction: column;
-    }
-
-    .sstv-globe-container {
-        flex-direction: row;
-        min-width: auto;
-        width: 100%;
-        justify-content: center;
-        gap: 16px;
-    }
-
-    .sstv-globe-info {
-        margin-top: 0;
-        text-align: left;
+        align-items: flex-start;
+        gap: 4px;
     }
 }
 
@@ -640,6 +651,7 @@
     .sstv-stats-strip {
         padding: 8px 12px;
         gap: 8px;
+        flex-wrap: wrap;
     }
 
     .sstv-strip-divider {
@@ -660,17 +672,16 @@
         padding: 8px;
     }
 
-    .sstv-iss-info {
-        flex-direction: column;
-        text-align: center;
+    .sstv-iss-map {
+        height: 150px;
     }
 
-    .sstv-globe-container {
-        flex-direction: column;
+    .sstv-map-info {
+        gap: 8px;
     }
 
-    .sstv-globe-info {
-        text-align: center;
+    .sstv-map-overlay {
+        padding: 6px 10px;
     }
 }
 

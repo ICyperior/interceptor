@@ -10,7 +10,9 @@ const SSTV = (function() {
     let images = [];
     let currentMode = null;
     let progress = 0;
-    let globeAnimationId = null;
+    let issMap = null;
+    let issMarker = null;
+    let issTrackLine = null;
     let issPosition = null;
     let issUpdateInterval = null;
 
@@ -25,7 +27,7 @@ const SSTV = (function() {
         loadImages();
         loadLocationInputs();
         loadIssSchedule();
-        initGlobe();
+        initMap();
         startIssTracking();
     }
 
@@ -139,13 +141,51 @@ const SSTV = (function() {
     }
 
     /**
-     * Initialize 3D globe
+     * Initialize Leaflet map for ISS tracking
      */
-    function initGlobe() {
-        const canvas = document.getElementById('sstvGlobe');
-        if (!canvas) return;
+    function initMap() {
+        const mapContainer = document.getElementById('sstvIssMap');
+        if (!mapContainer || issMap) return;
 
-        renderGlobe();
+        // Create map
+        issMap = L.map('sstvIssMap', {
+            center: [0, 0],
+            zoom: 1,
+            minZoom: 1,
+            maxZoom: 6,
+            zoomControl: true,
+            attributionControl: false,
+            worldCopyJump: true
+        });
+
+        // Add tile layer using settings manager if available
+        if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+            Settings.createTileLayer().addTo(issMap);
+        } else {
+            // Fallback to dark theme tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(issMap);
+        }
+
+        // Create ISS icon
+        const issIcon = L.divIcon({
+            className: 'sstv-iss-marker',
+            html: `<div class="sstv-iss-dot"></div><div class="sstv-iss-label">ISS</div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        // Create ISS marker (will be positioned when we get data)
+        issMarker = L.marker([0, 0], { icon: issIcon }).addTo(issMap);
+
+        // Create ground track line
+        issTrackLine = L.polyline([], {
+            color: '#00d4ff',
+            weight: 2,
+            opacity: 0.6,
+            dashArray: '5, 5'
+        }).addTo(issMap);
     }
 
     /**
@@ -166,10 +206,6 @@ const SSTV = (function() {
             clearInterval(issUpdateInterval);
             issUpdateInterval = null;
         }
-        if (globeAnimationId) {
-            cancelAnimationFrame(globeAnimationId);
-            globeAnimationId = null;
-        }
     }
 
     /**
@@ -187,7 +223,7 @@ const SSTV = (function() {
             if (data.status === 'ok') {
                 issPosition = data;
                 updateIssDisplay();
-                renderGlobe();
+                updateMap();
                 console.log('ISS position updated:', data.lat.toFixed(1), data.lon.toFixed(1));
             } else {
                 console.warn('ISS position error:', data.message);
@@ -212,345 +248,72 @@ const SSTV = (function() {
         if (altEl) altEl.textContent = Math.round(issPosition.altitude);
     }
 
-    // Accurate world map continent outlines (lon, lat pairs)
-    const continents = {
-        // North America mainland
-        northAmerica: [
-            [-168, 66], [-166, 62], [-164, 60], [-160, 59], [-152, 60], [-146, 61],
-            [-141, 60], [-139, 60], [-137, 59], [-135, 56], [-133, 55], [-130, 54],
-            [-127, 51], [-124, 48], [-124, 42], [-120, 39], [-117, 33], [-114, 31],
-            [-110, 31], [-108, 31], [-105, 29], [-101, 26], [-97, 26], [-97, 28],
-            [-94, 29], [-90, 29], [-89, 30], [-85, 29], [-83, 29], [-81, 25],
-            [-80, 25], [-81, 28], [-81, 31], [-77, 35], [-75, 36], [-75, 38],
-            [-73, 41], [-70, 42], [-70, 44], [-67, 45], [-66, 44], [-64, 46],
-            [-61, 47], [-64, 52], [-59, 48], [-55, 52], [-57, 58], [-62, 58],
-            [-68, 60], [-73, 62], [-77, 64], [-78, 69], [-85, 70], [-95, 70],
-            [-102, 72], [-115, 72], [-125, 72], [-135, 70], [-145, 70], [-155, 71],
-            [-165, 68], [-168, 66]
-        ],
-        // Greenland
-        greenland: [
-            [-45, 60], [-43, 60], [-40, 62], [-38, 65], [-30, 68], [-25, 72],
-            [-20, 76], [-22, 80], [-35, 83], [-50, 82], [-60, 78], [-68, 76],
-            [-72, 73], [-60, 70], [-52, 66], [-48, 62], [-45, 60]
-        ],
-        // Central America
-        centralAmerica: [
-            [-97, 26], [-97, 22], [-95, 19], [-92, 18], [-90, 16], [-88, 16],
-            [-86, 14], [-84, 11], [-82, 9], [-79, 8], [-77, 9], [-80, 9],
-            [-83, 10], [-86, 12], [-88, 14], [-90, 15], [-92, 16], [-95, 17],
-            [-97, 20], [-97, 26]
-        ],
-        // South America
-        southAmerica: [
-            [-79, 8], [-77, 9], [-73, 11], [-72, 12], [-67, 11], [-63, 10],
-            [-60, 8], [-57, 6], [-52, 5], [-50, 2], [-50, 0], [-48, -2],
-            [-44, -3], [-39, -4], [-35, -7], [-35, -10], [-37, -13], [-39, -18],
-            [-41, -22], [-44, -23], [-47, -24], [-49, -29], [-52, -33], [-54, -34],
-            [-57, -38], [-62, -39], [-65, -41], [-66, -45], [-66, -52], [-68, -55],
-            [-72, -53], [-74, -50], [-75, -47], [-75, -41], [-73, -37], [-71, -33],
-            [-71, -29], [-70, -24], [-70, -18], [-75, -15], [-76, -12], [-81, -6],
-            [-81, -2], [-80, 1], [-79, 8]
-        ],
-        // UK and Ireland
-        ukIreland: [
-            [-10, 51], [-9, 52], [-10, 54], [-8, 55], [-6, 55], [-6, 58],
-            [-3, 59], [0, 58], [2, 53], [1, 51], [-2, 50], [-5, 50], [-6, 52],
-            [-10, 51]
-        ],
-        // Iceland
-        iceland: [
-            [-24, 64], [-22, 66], [-18, 66], [-14, 65], [-14, 64], [-18, 63],
-            [-22, 64], [-24, 64]
-        ],
-        // Europe mainland
-        europe: [
-            [-10, 36], [-9, 38], [-9, 43], [-2, 44], [3, 43], [4, 44], [1, 46],
-            [-2, 47], [-5, 48], [-3, 49], [2, 51], [4, 52], [7, 54], [8, 55],
-            [12, 55], [14, 54], [19, 55], [23, 55], [28, 56], [28, 60], [24, 60],
-            [23, 64], [26, 66], [25, 70], [21, 70], [18, 69], [15, 69], [11, 64],
-            [12, 58], [10, 58], [8, 58], [6, 58], [5, 62], [7, 65], [15, 69],
-            [25, 71], [30, 70], [28, 66], [31, 65], [29, 60], [32, 55], [40, 55],
-            [50, 55], [60, 55], [68, 56], [70, 66], [60, 70], [50, 68], [40, 67],
-            [32, 70], [28, 70], [25, 71], [21, 70], [17, 68], [10, 64], [12, 56],
-            [8, 54], [5, 54], [4, 52], [2, 51], [-3, 49], [-5, 48], [-2, 47],
-            [1, 46], [4, 44], [3, 43], [-2, 44], [-9, 43], [-9, 41], [-8, 40],
-            [-9, 38], [-7, 37], [-6, 37], [-5, 36], [-2, 36], [0, 38], [3, 42],
-            [6, 43], [8, 44], [13, 44], [14, 42], [16, 41], [14, 38], [12, 38],
-            [15, 37], [18, 40], [20, 40], [24, 38], [26, 39], [28, 41], [26, 42],
-            [29, 45], [22, 45], [20, 42], [16, 42], [14, 44], [10, 46], [7, 46],
-            [7, 48], [10, 48], [15, 47], [17, 49], [15, 51], [14, 53], [10, 54],
-            [7, 54], [4, 52]
-        ],
-        // Scandinavia (simplified)
-        scandinavia: [
-            [5, 58], [6, 62], [8, 64], [14, 66], [18, 68], [20, 70], [28, 71],
-            [31, 70], [30, 67], [27, 65], [24, 60], [18, 60], [16, 57], [11, 56],
-            [8, 56], [5, 58]
-        ],
-        // Africa
-        africa: [
-            [-17, 21], [-17, 15], [-16, 13], [-15, 11], [-8, 5], [-5, 5],
-            [0, 5], [2, 6], [10, 4], [10, 1], [9, -1], [12, -5], [14, -5],
-            [17, -12], [23, -18], [26, -23], [28, -28], [28, -33], [23, -35],
-            [18, -34], [16, -29], [14, -22], [12, -17], [14, -10], [20, -3],
-            [30, 5], [35, 5], [42, 11], [44, 11], [49, 12], [51, 11], [43, 5],
-            [41, -2], [40, -10], [36, -20], [33, -26], [28, -33], [23, -35],
-            [18, -34], [16, -29], [13, -25], [10, -18], [9, -6], [5, 4],
-            [-5, 5], [-10, 8], [-17, 15], [-17, 21], [-13, 24], [-8, 28],
-            [-2, 35], [3, 37], [10, 37], [11, 34], [9, 31], [10, 28], [17, 32],
-            [25, 32], [32, 31], [35, 32], [36, 30], [33, 27], [35, 22], [43, 13],
-            [42, 11], [35, 5], [33, 10], [31, 10], [30, 5], [20, -3], [14, -10],
-            [12, -17], [17, -12], [14, -5], [12, -5], [9, -1], [10, 1], [10, 4],
-            [2, 6], [0, 5], [-5, 5], [-8, 5], [-15, 11], [-16, 13], [-17, 15],
-            [-17, 21]
-        ],
-        // Madagascar
-        madagascar: [
-            [50, -12], [50, -16], [47, -24], [44, -25], [44, -20], [47, -15],
-            [49, -12], [50, -12]
-        ],
-        // Middle East / Arabian Peninsula
-        middleEast: [
-            [35, 32], [36, 30], [40, 29], [48, 30], [52, 26], [56, 25], [57, 21],
-            [55, 17], [52, 13], [44, 13], [43, 13], [35, 22], [33, 27], [35, 32]
-        ],
-        // Asia mainland
-        asia: [
-            [60, 55], [70, 55], [80, 55], [90, 55], [100, 55], [110, 55], [120, 53],
-            [130, 48], [135, 45], [135, 42], [130, 43], [123, 40], [120, 35],
-            [117, 30], [118, 25], [118, 22], [110, 20], [108, 22], [107, 17],
-            [103, 10], [100, 14], [99, 7], [104, 2], [104, -2], [117, -8],
-            [120, -10], [115, -8], [107, -6], [105, -6], [106, -2], [103, 1],
-            [99, 7], [100, 14], [103, 10], [105, 12], [107, 17], [108, 22],
-            [105, 22], [102, 22], [98, 24], [90, 22], [89, 26], [92, 28],
-            [88, 28], [84, 28], [80, 30], [77, 35], [72, 37], [68, 37],
-            [60, 40], [52, 42], [50, 46], [55, 50], [60, 55]
-        ],
-        // India
-        india: [
-            [68, 24], [70, 22], [72, 21], [73, 17], [75, 12], [77, 8], [80, 10],
-            [80, 14], [83, 15], [86, 20], [90, 22], [89, 26], [88, 28], [84, 28],
-            [80, 30], [77, 30], [75, 25], [72, 25], [68, 24]
-        ],
-        // Southeast Asia
-        southeastAsia: [
-            [100, 14], [103, 10], [105, 12], [107, 17], [108, 22], [105, 22],
-            [102, 22], [98, 24], [98, 19], [100, 14]
-        ],
-        // Japan
-        japan: [
-            [130, 32], [131, 34], [135, 35], [137, 37], [140, 38], [141, 41],
-            [141, 43], [145, 44], [145, 42], [142, 39], [140, 36], [137, 35],
-            [135, 34], [130, 32]
-        ],
-        // Korea
-        korea: [
-            [126, 34], [126, 38], [129, 38], [130, 43], [128, 42], [124, 40],
-            [125, 37], [126, 34]
-        ],
-        // Philippines
-        philippines: [
-            [117, 7], [120, 10], [122, 13], [124, 17], [122, 19], [120, 16],
-            [118, 12], [117, 7]
-        ],
-        // Indonesia (simplified)
-        indonesia: [
-            [95, 6], [98, 4], [103, 1], [106, -2], [106, -6], [110, -7],
-            [115, -8], [120, -10], [127, -8], [131, -2], [136, -2], [141, -5],
-            [141, -9], [131, -8], [120, -10], [115, -8], [110, -7], [106, -6],
-            [106, -2], [103, 1], [98, 4], [95, 6]
-        ],
-        // Australia
-        australia: [
-            [114, -22], [114, -26], [115, -32], [117, -35], [122, -34], [129, -32],
-            [132, -32], [134, -33], [137, -35], [140, -38], [144, -38], [147, -38],
-            [150, -37], [153, -29], [153, -25], [149, -21], [145, -15], [142, -11],
-            [136, -12], [130, -15], [129, -17], [123, -17], [119, -20], [114, -22]
-        ],
-        // New Zealand
-        newZealand: [
-            [166, -46], [168, -45], [171, -41], [175, -37], [178, -37], [178, -42],
-            [174, -41], [170, -43], [167, -44], [166, -46]
-        ],
-        // Taiwan
-        taiwan: [
-            [120, 22], [121, 23], [122, 25], [121, 25], [120, 24], [120, 22]
-        ],
-        // Sri Lanka
-        sriLanka: [
-            [80, 6], [80, 8], [82, 10], [82, 7], [80, 6]
-        ]
-    };
-
     /**
-     * Convert lat/lon to canvas x/y (equirectangular projection)
-     * This is a simple, accurate 1:1 mapping
+     * Update map with ISS position
      */
-    function latLonToXY(lat, lon, width, height, padding) {
-        // Simple linear mapping - guaranteed accurate
-        // Longitude: -180 to 180 maps to padding to width-padding
-        // Latitude: 90 to -90 maps to padding to height-padding
-        const mapWidth = width - 2 * padding;
-        const mapHeight = height - 2 * padding;
+    function updateMap() {
+        if (!issMap || !issPosition) return;
 
-        const x = padding + ((lon + 180) / 360) * mapWidth;
-        const y = padding + ((90 - lat) / 180) * mapHeight;
+        const lat = issPosition.lat;
+        const lon = issPosition.lon;
 
-        return { x, y };
-    }
-
-    /**
-     * Render 2D world map with ISS position
-     */
-    function renderGlobe() {
-        const canvas = document.getElementById('sstvGlobe');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        const padding = 5;
-
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-
-        // Draw ocean background
-        ctx.fillStyle = '#0a1628';
-        ctx.fillRect(0, 0, width, height);
-
-        // Inner map area
-        ctx.fillStyle = '#0d2847';
-        ctx.fillRect(padding, padding, width - 2 * padding, height - 2 * padding);
-
-        // Draw grid lines
-        ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
-        ctx.lineWidth = 0.5;
-
-        // Latitude lines every 30 degrees
-        for (let lat = -60; lat <= 60; lat += 30) {
-            const p = latLonToXY(lat, -180, width, height, padding);
-            const p2 = latLonToXY(lat, 180, width, height, padding);
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
+        // Update marker position
+        if (issMarker) {
+            issMarker.setLatLng([lat, lon]);
         }
 
-        // Longitude lines every 30 degrees
-        for (let lon = -180; lon <= 180; lon += 30) {
-            const p = latLonToXY(90, lon, width, height, padding);
-            const p2 = latLonToXY(-90, lon, width, height, padding);
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-        }
+        // Calculate and draw ground track
+        if (issTrackLine) {
+            const trackPoints = [];
+            const inclination = 51.6; // ISS orbital inclination in degrees
 
-        // Draw equator slightly brighter
-        ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
-        const eq1 = latLonToXY(0, -180, width, height, padding);
-        const eq2 = latLonToXY(0, 180, width, height, padding);
-        ctx.beginPath();
-        ctx.moveTo(eq1.x, eq1.y);
-        ctx.lineTo(eq2.x, eq2.y);
-        ctx.stroke();
+            // Generate orbit track points
+            for (let offset = -180; offset <= 180; offset += 3) {
+                let trackLon = lon + offset;
 
-        // Draw continents
-        ctx.fillStyle = 'rgba(34, 139, 87, 0.6)';
-        ctx.strokeStyle = 'rgba(50, 180, 120, 0.8)';
-        ctx.lineWidth = 1;
+                // Normalize longitude
+                while (trackLon > 180) trackLon -= 360;
+                while (trackLon < -180) trackLon += 360;
 
-        for (const [name, coords] of Object.entries(continents)) {
-            ctx.beginPath();
-            for (let i = 0; i < coords.length; i++) {
-                const [lon, lat] = coords[i];
-                const p = latLonToXY(lat, lon, width, height, padding);
-                if (i === 0) {
-                    ctx.moveTo(p.x, p.y);
-                } else {
-                    ctx.lineTo(p.x, p.y);
-                }
-            }
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-        }
-
-        // Draw ISS ground track (orbit path)
-        if (issPosition) {
-            // Draw approximate orbit path (ISS completes orbit in ~92 minutes)
-            // Orbit is inclined at 51.6 degrees
-            ctx.strokeStyle = 'rgba(255, 200, 0, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-
-            let lastX = null;
-            for (let offset = -180; offset <= 180; offset += 2) {
-                // ISS moves ~360° longitude per 92 minutes, latitude oscillates ±51.6°
-                const orbitLon = issPosition.lon + offset;
-                // Normalize longitude to -180 to 180
-                let normLon = orbitLon;
-                while (normLon > 180) normLon -= 360;
-                while (normLon < -180) normLon += 360;
-
-                // Calculate latitude based on orbit (sinusoidal pattern)
+                // Calculate latitude based on orbital inclination
                 const phase = (offset / 360) * 2 * Math.PI;
-                const orbitLat = 51.6 * Math.sin(phase + Math.asin(issPosition.lat / 51.6));
+                const currentPhase = Math.asin(Math.max(-1, Math.min(1, lat / inclination)));
+                let trackLat = inclination * Math.sin(phase + currentPhase);
 
-                // Clamp latitude to valid range
-                const clampedLat = Math.max(-90, Math.min(90, orbitLat));
+                // Clamp to valid range
+                trackLat = Math.max(-inclination, Math.min(inclination, trackLat));
 
-                const p = latLonToXY(clampedLat, normLon, width, height, padding);
-
-                // Handle wrap-around (don't draw line across the map)
-                if (lastX !== null && Math.abs(p.x - lastX) > width / 2) {
-                    ctx.moveTo(p.x, p.y);
-                } else if (offset === -180) {
-                    ctx.moveTo(p.x, p.y);
-                } else {
-                    ctx.lineTo(p.x, p.y);
-                }
-                lastX = p.x;
+                trackPoints.push([trackLat, trackLon]);
             }
-            ctx.stroke();
-            ctx.setLineDash([]);
 
-            // Draw ISS position marker
-            const issP = latLonToXY(issPosition.lat, issPosition.lon, width, height, padding);
+            // Split track at antimeridian to avoid line across map
+            const segments = [];
+            let currentSegment = [];
 
-            // ISS glow
-            const issGradient = ctx.createRadialGradient(issP.x, issP.y, 0, issP.x, issP.y, 15);
-            issGradient.addColorStop(0, 'rgba(255, 200, 0, 0.9)');
-            issGradient.addColorStop(0.4, 'rgba(255, 150, 0, 0.4)');
-            issGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            for (let i = 0; i < trackPoints.length; i++) {
+                if (i > 0) {
+                    const prevLon = trackPoints[i - 1][1];
+                    const currLon = trackPoints[i][1];
+                    if (Math.abs(currLon - prevLon) > 180) {
+                        // Crossed antimeridian
+                        if (currentSegment.length > 0) {
+                            segments.push(currentSegment);
+                        }
+                        currentSegment = [];
+                    }
+                }
+                currentSegment.push(trackPoints[i]);
+            }
+            if (currentSegment.length > 0) {
+                segments.push(currentSegment);
+            }
 
-            ctx.beginPath();
-            ctx.arc(issP.x, issP.y, 15, 0, Math.PI * 2);
-            ctx.fillStyle = issGradient;
-            ctx.fill();
-
-            // ISS dot
-            ctx.beginPath();
-            ctx.arc(issP.x, issP.y, 4, 0, Math.PI * 2);
-            ctx.fillStyle = '#ffcc00';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-
-            // ISS label
-            ctx.fillStyle = '#ffcc00';
-            ctx.font = 'bold 9px JetBrains Mono, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('ISS', issP.x, issP.y - 10);
+            // Use only the longest segment or combine if needed
+            issTrackLine.setLatLngs(segments.length > 0 ? segments : []);
         }
 
-        // Draw border
-        ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(padding, padding, width - 2 * padding, height - 2 * padding);
+        // Pan map to follow ISS
+        issMap.panTo([lat, lon], { animate: true, duration: 0.5 });
     }
 
     /**
@@ -870,48 +633,17 @@ const SSTV = (function() {
      * Render ISS pass info
      */
     function renderIssInfo(nextPass, hasLocation = true) {
-        const container = document.getElementById('sstvIssInfo');
-        if (!container) return;
+        const passEl = document.getElementById('sstvNextPass');
+        if (!passEl) return;
 
         if (!nextPass) {
-            const locationMsg = hasLocation
-                ? 'No passes in next 48 hours'
-                : 'Set location in Settings > Location tab';
-            const noteMsg = hasLocation
-                ? 'Check ARISS.org for SSTV event schedules'
-                : 'Click the gear icon to open Settings';
-
-            container.innerHTML = `
-                <div class="sstv-iss-info">
-                    <svg class="sstv-iss-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M13 7L9 3 5 7l4 4"/>
-                        <path d="m17 11 4 4-4 4-4-4"/>
-                        <path d="m8 12 4 4 6-6-4-4-6 6"/>
-                    </svg>
-                    <div class="sstv-iss-details">
-                        <div class="sstv-iss-label">Next ISS Pass</div>
-                        <div class="sstv-iss-value">${locationMsg}</div>
-                        <div class="sstv-iss-note">${noteMsg}</div>
-                    </div>
-                </div>
-            `;
+            passEl.textContent = hasLocation
+                ? 'No passes in 48h'
+                : 'Set location above';
             return;
         }
 
-        container.innerHTML = `
-            <div class="sstv-iss-info">
-                <svg class="sstv-iss-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M13 7L9 3 5 7l4 4"/>
-                    <path d="m17 11 4 4-4 4-4-4"/>
-                    <path d="m8 12 4 4 6-6-4-4-6 6"/>
-                </svg>
-                <div class="sstv-iss-details">
-                    <div class="sstv-iss-label">Next ISS Pass</div>
-                    <div class="sstv-iss-value">${nextPass.startTime} (${nextPass.maxEl}° max elevation)</div>
-                    <div class="sstv-iss-note">Duration: ${nextPass.duration} min | Check ARISS.org for SSTV events</div>
-                </div>
-            </div>
-        `;
+        passEl.textContent = `${nextPass.startTime} (${nextPass.maxEl}° el, ${nextPass.duration}min)`;
     }
 
     /**
