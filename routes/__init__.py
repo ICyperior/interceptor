@@ -24,6 +24,8 @@ def register_blueprints(app):
     from .spy_stations import spy_stations_bp
     from .controller import controller_bp
     from .offline import offline_bp
+    from .updater import updater_bp
+    from .sstv import sstv_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -47,6 +49,8 @@ def register_blueprints(app):
     app.register_blueprint(spy_stations_bp)
     app.register_blueprint(controller_bp)  # Remote agent controller
     app.register_blueprint(offline_bp)  # Offline mode settings
+    app.register_blueprint(updater_bp)  # GitHub update checking
+    app.register_blueprint(sstv_bp)  # ISS SSTV decoder
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module
