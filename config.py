@@ -7,10 +7,20 @@ import os
 import sys
 
 # Application version
-VERSION = "2.11.0"
+VERSION = "2.12.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.12.0",
+        "date": "January 2026",
+        "highlights": [
+            "ISS SSTV decoder with real-time ISS tracking globe",
+            "GitHub update notifications for new releases",
+            "Meshtastic QR code support and telemetry display",
+            "New Space category with reorganized UI",
+        ]
+    },
     {
         "version": "2.11.0",
         "date": "January 2026",
@@ -59,16 +69,6 @@ CHANGELOG = [
             "WiFi/Bluetooth device correlation engine",
             "Tracker detection (AirTag, Tile, SmartTag)",
             "Risk scoring and threat classification",
-        ]
-    },
-    {
-        "version": "2.7.0",
-        "date": "November 2025",
-        "highlights": [
-            "Multi-SDR hardware support via SoapySDR",
-            "LimeSDR, HackRF, Airspy, SDRplay support",
-            "Improved aircraft database with photo lookup",
-            "GPS auto-detection and integration",
         ]
     },
 ]

@@ -2,6 +2,50 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.12.0] - 2026-01-29
+
+### Added
+- **ISS SSTV Decoder Mode** - Receive Slow Scan Television transmissions from the ISS
+  - Real-time ISS tracking globe with accurate position via N2YO API
+  - Leaflet world map showing ISS ground track and current position
+  - Location settings for ISS pass predictions
+  - Integration with satellite tracking TLE data
+- **GitHub Update Notifications** - Automatic new version alerts
+  - Checks for updates on app startup
+  - Unobtrusive notification when new releases are available
+  - Configurable check interval via settings
+- **Meshtastic Enhancements**
+  - QR code support for easy device sharing
+  - Telemetry display with battery, voltage, and environmental data
+  - Traceroute visualization for mesh network topology
+  - Improved node synchronization between map and top bar
+- **UI Improvements**
+  - New Space category for satellite and ISS-related modes
+  - Pulsating ring effect for tracked aircraft/vessels
+  - Map marker highlighting for selected aircraft in ADS-B
+  - Consolidated settings and dependencies into single modal
+- **Auto-Update TLE Data** - Satellite tracking data updates automatically on app startup
+- **GPS Auto-Connect** - AIS dashboard now connects to gpsd automatically
+
+### Changed
+- **Utility Meters** - Added device grouping by ID with consumption trends
+- **Utility Meters** - Device intelligence and manufacturer information display
+
+### Fixed
+- **SoapySDR** - Module detection on macOS with Homebrew
+- **dump1090** - Build failures in Docker containers
+- **dump1090** - Build failures on Kali Linux and newer GCC versions
+- **Flask** - Ensure Flask 3.0+ compatibility in setup script
+- **psycopg2** - Now optional for Flask/Werkzeug compatibility
+- **Bias-T** - Setting now properly passed to ADS-B and AIS dashboards
+- **Dark Mode Maps** - Removed CSS filter that was inverting dark tiles
+- **Map Tiles** - Fixed CARTO tile URLs and added cache-busting
+- **Meshtastic** - Traceroute button and dark mode map fixes
+- **ADS-B Dashboard** - Height adjustment to prevent bottom controls cutoff
+- **Audio Visualizer** - Now works without spectrum canvas
+
+---
+
 ## [2.11.0] - 2026-01-28
 
 ### Added

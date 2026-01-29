@@ -15,6 +15,8 @@ const SSTV = (function() {
     let issTrackLine = null;
     let issPosition = null;
     let issUpdateInterval = null;
+    let countdownInterval = null;
+    let nextPassData = null;
 
     // ISS frequency
     const ISS_FREQ = 145.800;
@@ -29,6 +31,7 @@ const SSTV = (function() {
         loadIssSchedule();
         initMap();
         startIssTracking();
+        startCountdown();
     }
 
     /**
@@ -206,6 +209,150 @@ const SSTV = (function() {
             clearInterval(issUpdateInterval);
             issUpdateInterval = null;
         }
+    }
+
+    /**
+     * Start countdown timer
+     */
+    function startCountdown() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        countdownInterval = setInterval(updateCountdown, 1000);
+        updateCountdown();
+    }
+
+    /**
+     * Stop countdown timer
+     */
+    function stopCountdown() {
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+    }
+
+    /**
+     * Update countdown display
+     */
+    function updateCountdown() {
+        const valueEl = document.getElementById('sstvCountdownValue');
+        const labelEl = document.getElementById('sstvCountdownLabel');
+        const statusEl = document.getElementById('sstvCountdownStatus');
+
+        if (!nextPassData || !nextPassData.startTimestamp) {
+            if (valueEl) {
+                valueEl.textContent = '--:--:--';
+                valueEl.className = 'sstv-countdown-value';
+            }
+            if (labelEl) {
+                const hasLocation = localStorage.getItem('observerLat') !== null;
+                labelEl.textContent = hasLocation ? 'No passes in 48h' : 'Set location';
+            }
+            if (statusEl) {
+                statusEl.className = 'sstv-countdown-status';
+                statusEl.innerHTML = '<span class="sstv-status-dot"></span><span>Waiting for pass data...</span>';
+            }
+            return;
+        }
+
+        const now = Date.now();
+        const startTime = nextPassData.startTimestamp;
+        const endTime = nextPassData.endTimestamp || (startTime + (nextPassData.durationMinutes || 10) * 60 * 1000);
+        const diff = startTime - now;
+
+        if (now >= startTime && now < endTime) {
+            // Pass is currently active
+            const remaining = endTime - now;
+            const mins = Math.floor(remaining / 60000);
+            const secs = Math.floor((remaining % 60000) / 1000);
+
+            if (valueEl) {
+                valueEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                valueEl.className = 'sstv-countdown-value active';
+            }
+            if (labelEl) labelEl.textContent = 'Pass in progress!';
+            if (statusEl) {
+                statusEl.className = 'sstv-countdown-status active';
+                statusEl.innerHTML = '<span class="sstv-status-dot"></span><span>ISS overhead now!</span>';
+            }
+        } else if (diff > 0) {
+            // Countdown to next pass
+            const hours = Math.floor(diff / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+
+            if (valueEl) {
+                if (hours > 0) {
+                    valueEl.textContent = `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                } else {
+                    valueEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                }
+
+                // Highlight when pass is imminent (< 5 minutes)
+                if (diff < 300000) {
+                    valueEl.className = 'sstv-countdown-value imminent';
+                } else {
+                    valueEl.className = 'sstv-countdown-value';
+                }
+            }
+
+            if (labelEl) {
+                if (diff < 60000) {
+                    labelEl.textContent = 'Starting soon!';
+                } else if (diff < 300000) {
+                    labelEl.textContent = 'Get ready!';
+                } else if (diff < 3600000) {
+                    labelEl.textContent = 'Until next pass';
+                } else {
+                    labelEl.textContent = 'Until next pass';
+                }
+            }
+
+            if (statusEl) {
+                if (diff < 300000) {
+                    statusEl.className = 'sstv-countdown-status imminent';
+                    statusEl.innerHTML = '<span class="sstv-status-dot"></span><span>Pass imminent!</span>';
+                } else {
+                    statusEl.className = 'sstv-countdown-status has-pass';
+                    statusEl.innerHTML = '<span class="sstv-status-dot"></span><span>Next pass scheduled</span>';
+                }
+            }
+        } else {
+            // Pass has ended, need to refresh schedule
+            loadIssSchedule();
+        }
+    }
+
+    /**
+     * Update countdown panel details
+     */
+    function updateCountdownDetails(pass) {
+        const startEl = document.getElementById('sstvPassStart');
+        const maxElEl = document.getElementById('sstvPassMaxEl');
+        const durationEl = document.getElementById('sstvPassDuration');
+        const directionEl = document.getElementById('sstvPassDirection');
+
+        if (!pass) {
+            if (startEl) startEl.textContent = '--:--';
+            if (maxElEl) maxElEl.textContent = '--°';
+            if (durationEl) durationEl.textContent = '-- min';
+            if (directionEl) directionEl.textContent = '--';
+            return;
+        }
+
+        if (startEl) startEl.textContent = pass.startTime || '--:--';
+        if (maxElEl) maxElEl.textContent = (pass.maxEl || '--') + '°';
+        if (durationEl) durationEl.textContent = (pass.duration || '--') + ' min';
+        if (directionEl) directionEl.textContent = pass.direction || (pass.azStart ? getDirection(pass.azStart) : '--');
+    }
+
+    /**
+     * Get compass direction from azimuth
+     */
+    function getDirection(azimuth) {
+        if (azimuth === undefined || azimuth === null) return '--';
+        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const index = Math.round(azimuth / 22.5) % 16;
+        return directions[index];
     }
 
     /**
@@ -620,31 +767,110 @@ const SSTV = (function() {
             const data = await response.json();
 
             if (data.status === 'ok' && data.passes && data.passes.length > 0) {
-                renderIssInfo(data.passes[0], hasLocation);
+                const pass = data.passes[0];
+                // Parse the pass data to get timestamps
+                nextPassData = parsePassData(pass);
+                updateCountdownDetails(pass);
+                updateCountdown();
             } else {
-                renderIssInfo(null, hasLocation);
+                nextPassData = null;
+                updateCountdownDetails(null);
+                updateCountdown();
             }
         } catch (err) {
             console.error('Failed to load ISS schedule:', err);
-            renderIssInfo(null, hasLocation);
+            nextPassData = null;
+            updateCountdownDetails(null);
+            updateCountdown();
         }
     }
 
     /**
-     * Render ISS pass info
+     * Parse pass data to extract timestamps
      */
-    function renderIssInfo(nextPass, hasLocation = true) {
-        const passEl = document.getElementById('sstvNextPass');
-        if (!passEl) return;
+    function parsePassData(pass) {
+        if (!pass) return null;
 
-        if (!nextPass) {
-            passEl.textContent = hasLocation
-                ? 'No passes in 48h'
-                : 'Set location above';
-            return;
+        let startTimestamp = null;
+        let endTimestamp = null;
+        const durationMinutes = parseInt(pass.duration) || 10;
+
+        // Try to parse the startTime
+        if (pass.startTimestamp) {
+            // If timestamp is provided directly
+            startTimestamp = pass.startTimestamp;
+        } else if (pass.startTime) {
+            // Parse time string (format: "HH:MM" or "HH:MM:SS" or with date)
+            startTimestamp = parseTimeString(pass.startTime, pass.date);
         }
 
-        passEl.textContent = `${nextPass.startTime} (${nextPass.maxEl}° el, ${nextPass.duration}min)`;
+        if (startTimestamp) {
+            endTimestamp = startTimestamp + durationMinutes * 60 * 1000;
+        }
+
+        return {
+            startTimestamp,
+            endTimestamp,
+            durationMinutes,
+            maxEl: pass.maxEl,
+            azStart: pass.azStart
+        };
+    }
+
+    /**
+     * Parse time string to timestamp
+     */
+    function parseTimeString(timeStr, dateStr) {
+        if (!timeStr) return null;
+
+        // Try to parse as a full datetime string first (e.g., "2026-01-30 03:01 UTC")
+        // Remove UTC suffix for parsing
+        const cleanedStr = timeStr.replace(' UTC', '').replace('UTC', '');
+
+        // Try full datetime parse
+        let parsed = new Date(cleanedStr);
+        if (!isNaN(parsed.getTime())) {
+            return parsed.getTime();
+        }
+
+        // Try with T separator (ISO format)
+        parsed = new Date(cleanedStr.replace(' ', 'T'));
+        if (!isNaN(parsed.getTime())) {
+            return parsed.getTime();
+        }
+
+        // Fallback: parse as time only (HH:MM or HH:MM:SS)
+        const now = new Date();
+        let targetDate = new Date();
+
+        // If a date string is provided
+        if (dateStr) {
+            const parsedDate = new Date(dateStr);
+            if (!isNaN(parsedDate)) {
+                targetDate = parsedDate;
+            }
+        }
+
+        // Parse time (HH:MM or HH:MM:SS format)
+        const timeParts = cleanedStr.split(':');
+        if (timeParts.length >= 2) {
+            const hours = parseInt(timeParts[0]);
+            const minutes = parseInt(timeParts[1]);
+            const seconds = timeParts.length > 2 ? parseInt(timeParts[2]) : 0;
+
+            if (!isNaN(hours) && !isNaN(minutes)) {
+                targetDate.setHours(hours, minutes, seconds, 0);
+
+                // If the time is in the past, assume it's tomorrow
+                if (targetDate.getTime() < now.getTime() && !dateStr) {
+                    targetDate.setDate(targetDate.getDate() + 1);
+                }
+
+                return targetDate.getTime();
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -723,7 +949,8 @@ const SSTV = (function() {
         closeImage,
         useGPS,
         updateTLE,
-        stopIssTracking
+        stopIssTracking,
+        stopCountdown
     };
 })();
 
