@@ -1,0 +1,221 @@
+<!-- Utility Bar - Shared navigation and controls for dashboard pages -->
+<div class="utility-bar">
+    <a href="/" class="utility-home" title="Back to Main Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>iNTERCEPT</span>
+    </a>
+    <div class="utility-controls">
+        <button class="utility-btn" onclick="toggleDashboardTheme()" title="Toggle Theme">
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+        </button>
+        <button class="utility-btn" onclick="toggleDashboardAnimations()" title="Toggle Animations">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+        </button>
+        <button class="utility-btn" onclick="showDashboardSettings()" title="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+        </button>
+        <button class="utility-btn" onclick="showDashboardHelp()" title="Help">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<style>
+    .utility-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 15px;
+        height: 36px;
+        background: rgba(0, 20, 40, 0.9);
+        border-bottom: 1px solid rgba(0, 200, 255, 0.2);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+    }
+
+    .utility-home {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--accent-cyan, #00d4ff);
+        text-decoration: none;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: color 0.2s;
+    }
+
+    .utility-home:hover {
+        color: #fff;
+    }
+
+    .utility-home svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .utility-controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .utility-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: transparent;
+        border: 1px solid rgba(0, 200, 255, 0.3);
+        border-radius: 4px;
+        color: var(--text-secondary, #8899aa);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .utility-btn:hover {
+        background: rgba(0, 200, 255, 0.1);
+        border-color: var(--accent-cyan, #00d4ff);
+        color: var(--accent-cyan, #00d4ff);
+    }
+
+    .utility-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    /* Theme toggle - show sun in dark mode, moon in light mode */
+    .utility-btn .icon-moon { display: none; }
+    .utility-btn .icon-sun { display: block; }
+
+    [data-theme="light"] .utility-btn .icon-moon { display: block; }
+    [data-theme="light"] .utility-btn .icon-sun { display: none; }
+
+    /* Animations toggle state indicator */
+    [data-animations="off"] .utility-btn[onclick*="Animations"] {
+        opacity: 0.5;
+    }
+
+    /* Light theme adjustments */
+    [data-theme="light"] .utility-bar {
+        background: rgba(240, 245, 250, 0.95);
+        border-bottom-color: rgba(0, 100, 150, 0.2);
+    }
+
+    [data-theme="light"] .utility-home {
+        color: #0066aa;
+    }
+
+    [data-theme="light"] .utility-btn {
+        border-color: rgba(0, 100, 150, 0.3);
+        color: #446688;
+    }
+
+    [data-theme="light"] .utility-btn:hover {
+        background: rgba(0, 100, 150, 0.1);
+        border-color: #0066aa;
+        color: #0066aa;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+        .utility-home span {
+            display: none;
+        }
+    }
+</style>
+
+<script>
+    // Dashboard utility functions
+    (function() {
+        // Theme toggle
+        window.toggleDashboardTheme = function() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+            if (newTheme === 'dark') {
+                html.removeAttribute('data-theme');
+            } else {
+                html.setAttribute('data-theme', newTheme);
+            }
+
+            // Update maps to use appropriate tiles
+            if (typeof Settings !== 'undefined' && Settings.updateAllMaps) {
+                Settings.updateAllMaps();
+            }
+
+            localStorage.setItem('intercept-theme', newTheme);
+
+            // Sync to server
+            fetch('/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: newTheme })
+            }).catch(err => console.warn('Failed to save theme:', err));
+        };
+
+        // Animations toggle
+        window.toggleDashboardAnimations = function() {
+            const html = document.documentElement;
+            const currentState = html.getAttribute('data-animations');
+            const newState = currentState === 'off' ? 'on' : 'off';
+
+            if (newState === 'on') {
+                html.removeAttribute('data-animations');
+            } else {
+                html.setAttribute('data-animations', newState);
+            }
+
+            localStorage.setItem('intercept-animations', newState);
+        };
+
+        // Settings - open main dashboard with settings open
+        window.showDashboardSettings = function() {
+            window.location.href = '/?settings=open';
+        };
+
+        // Help - open main dashboard with help open
+        window.showDashboardHelp = function() {
+            window.location.href = '/?help=open';
+        };
+
+        // Apply saved theme/animations on page load
+        (function() {
+            const theme = localStorage.getItem('intercept-theme');
+            if (theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+
+            const animations = localStorage.getItem('intercept-animations');
+            if (animations === 'off') {
+                document.documentElement.setAttribute('data-animations', 'off');
+            }
+        })();
+    })();
+</script>

@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>iNTERCEPT // See the Invisible</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <!-- Check disclaimer BEFORE page renders to prevent flash of welcome page -->
+    <script>
+        if (localStorage.getItem('disclaimerAccepted') !== 'true') {
+            document.documentElement.classList.add('disclaimer-pending');
+        }
+    </script>
+    <style>
+        /* Hide welcome page when disclaimer hasn't been accepted yet */
+        .disclaimer-pending .welcome-overlay { display: none !important; }
+        .disclaimer-pending #disclaimerModal { display: flex !important; }
+    </style>
     <!-- Fonts - Conditional CDN/Local loading -->
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
@@ -207,7 +218,7 @@
     </div>
 
     <!-- Disclaimer Modal -->
-    <div class="disclaimer-overlay" id="disclaimerModal" style="display: none;">
+    <div class="disclaimer-overlay" id="disclaimerModal">
         <div class="disclaimer-modal">
             <div class="warning-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
             <h2>DISCLAIMER</h2>
@@ -1899,21 +1910,24 @@
             const welcome = document.getElementById('welcomePage');
             welcome.classList.add('fade-out');
 
-            // After fade out, hide welcome and show disclaimer if needed
+            // After fade out, hide welcome and switch to mode
             setTimeout(() => {
                 welcome.style.display = 'none';
-                checkDisclaimer();
+                switchMode(mode);
             }, 400);
         }
 
-        // Disclaimer handling
+        // Disclaimer handling - called on page load
         function checkDisclaimer() {
             const accepted = localStorage.getItem('disclaimerAccepted');
             if (accepted === 'true') {
+                // Already accepted - ensure welcome page is shown, disclaimer hidden
+                document.documentElement.classList.remove('disclaimer-pending');
                 document.getElementById('disclaimerModal').style.display = 'none';
-                // Switch to the selected mode
-                switchMode(selectedStartMode);
+                document.getElementById('welcomePage').style.display = '';
             } else {
+                // Not accepted - show disclaimer, hide welcome page
+                document.documentElement.classList.add('disclaimer-pending');
                 document.getElementById('disclaimerModal').style.display = 'flex';
             }
         }
@@ -1921,9 +1935,13 @@
         function acceptDisclaimer() {
             localStorage.setItem('disclaimerAccepted', 'true');
             document.getElementById('disclaimerModal').classList.add('disclaimer-hidden');
-            // Switch to the selected mode after accepting
+
+            // Remove pending class and show welcome page after disclaimer fades out
             setTimeout(() => {
-                switchMode(selectedStartMode);
+                document.documentElement.classList.remove('disclaimer-pending');
+                document.getElementById('disclaimerModal').style.display = 'none';
+                document.getElementById('welcomePage').style.display = '';
+                document.getElementById('welcomePage').classList.remove('fade-out');
             }, 300);
         }
 
@@ -1932,7 +1950,29 @@
             document.getElementById('rejectionPage').classList.remove('disclaimer-hidden');
         }
 
-        // Don't auto-check disclaimer - wait for welcome page mode selection
+        // Check disclaimer on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function() {
+            checkDisclaimer();
+
+            // Handle URL parameters for settings/help (from dashboard utility bar)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('settings') === 'open') {
+                // Wait for page to initialize, then open settings
+                setTimeout(function() {
+                    if (typeof showSettings === 'function') showSettings();
+                }, 500);
+                // Clean up URL
+                history.replaceState({}, '', window.location.pathname);
+            }
+            if (urlParams.get('help') === 'open') {
+                // Wait for page to initialize, then open help
+                setTimeout(function() {
+                    if (typeof showHelp === 'function') showHelp();
+                }, 500);
+                // Clean up URL
+                history.replaceState({}, '', window.location.pathname);
+            }
+        });
 
         let eventSource = null;
         let isRunning = false;
