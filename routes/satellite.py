@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import math
 import urllib.request
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import urlparse
+
+import requests
 
 from flask import Blueprint, jsonify, request, render_template, Response
 
@@ -24,6 +27,94 @@ ALLOWED_TLE_HOSTS = ['celestrak.org', 'celestrak.com', 'www.celestrak.org', 'www
 
 # Local TLE cache (can be updated via API)
 _tle_cache = dict(TLE_SATELLITES)
+
+
+def _fetch_iss_realtime(observer_lat: Optional[float] = None, observer_lon: Optional[float] = None) -> Optional[dict]:
+    """
+    Fetch real-time ISS position from external APIs.
+
+    Returns position data dict or None if all APIs fail.
+    """
+    iss_lat = None
+    iss_lon = None
+    iss_alt = 420  # Default altitude in km
+    source = None
+
+    # Try primary API: Open Notify
+    try:
+        response = requests.get('http://api.open-notify.org/iss-now.json', timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('message') == 'success':
+                iss_lat = float(data['iss_position']['latitude'])
+                iss_lon = float(data['iss_position']['longitude'])
+                source = 'open-notify'
+    except Exception as e:
+        logger.debug(f"Open Notify API failed: {e}")
+
+    # Try fallback API: Where The ISS At
+    if iss_lat is None:
+        try:
+            response = requests.get('https://api.wheretheiss.at/v1/satellites/25544', timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                iss_lat = float(data['latitude'])
+                iss_lon = float(data['longitude'])
+                iss_alt = float(data.get('altitude', 420))
+                source = 'wheretheiss'
+        except Exception as e:
+            logger.debug(f"Where The ISS At API failed: {e}")
+
+    if iss_lat is None:
+        return None
+
+    result = {
+        'satellite': 'ISS',
+        'lat': iss_lat,
+        'lon': iss_lon,
+        'altitude': iss_alt,
+        'source': source
+    }
+
+    # Calculate observer-relative data if location provided
+    if observer_lat is not None and observer_lon is not None:
+        # Earth radius in km
+        earth_radius = 6371
+
+        # Convert to radians
+        lat1 = math.radians(observer_lat)
+        lat2 = math.radians(iss_lat)
+        lon1 = math.radians(observer_lon)
+        lon2 = math.radians(iss_lon)
+
+        # Haversine for ground distance
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        ground_distance = earth_radius * c
+
+        # Calculate slant range
+        slant_range = math.sqrt(ground_distance**2 + iss_alt**2)
+
+        # Calculate elevation angle (simplified)
+        if ground_distance > 0:
+            elevation = math.degrees(math.atan2(iss_alt - (ground_distance**2 / (2 * earth_radius)), ground_distance))
+        else:
+            elevation = 90.0
+
+        # Calculate azimuth
+        y = math.sin(dlon) * math.cos(lat2)
+        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+        azimuth = math.degrees(math.atan2(y, x))
+        azimuth = (azimuth + 360) % 360
+
+        result['elevation'] = round(elevation, 1)
+        result['azimuth'] = round(azimuth, 1)
+        result['distance'] = round(slant_range, 1)
+        result['visible'] = elevation > 0
+
+    return result
 
 
 @satellite_bp.route('/dashboard')
@@ -239,6 +330,35 @@ def get_satellite_position():
     positions = []
 
     for sat_name in satellites:
+        # Special handling for ISS - use real-time API for accurate position
+        if sat_name == 'ISS':
+            iss_data = _fetch_iss_realtime(lat, lon)
+            if iss_data:
+                # Add orbit track if requested (using TLE for track prediction)
+                if include_track and 'ISS' in _tle_cache:
+                    try:
+                        tle_data = _tle_cache['ISS']
+                        satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
+                        orbit_track = []
+                        for minutes_offset in range(-45, 46, 1):
+                            t_point = ts.utc(now_dt + timedelta(minutes=minutes_offset))
+                            try:
+                                geo = satellite.at(t_point)
+                                sp = wgs84.subpoint(geo)
+                                orbit_track.append({
+                                    'lat': float(sp.latitude.degrees),
+                                    'lon': float(sp.longitude.degrees),
+                                    'past': minutes_offset < 0
+                                })
+                            except Exception:
+                                continue
+                        iss_data['track'] = orbit_track
+                    except Exception:
+                        pass
+                positions.append(iss_data)
+            continue
+
+        # Other satellites - use TLE data
         if sat_name not in _tle_cache:
             continue
 
