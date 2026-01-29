@@ -384,204 +384,173 @@ const SSTV = (function() {
     };
 
     /**
-     * Project lat/lon to x/y on globe with rotation
+     * Convert lat/lon to canvas x/y (equirectangular projection)
+     * This is a simple, accurate 1:1 mapping
      */
-    function projectPoint(lat, lon, cx, cy, radius, rotation) {
-        // Apply rotation to longitude (negative to rotate globe eastward)
-        const adjustedLon = lon - rotation;
-        const lonRad = adjustedLon * Math.PI / 180;
-        const latRad = lat * Math.PI / 180;
+    function latLonToXY(lat, lon, width, height, padding) {
+        // Simple linear mapping - guaranteed accurate
+        // Longitude: -180 to 180 maps to padding to width-padding
+        // Latitude: 90 to -90 maps to padding to height-padding
+        const mapWidth = width - 2 * padding;
+        const mapHeight = height - 2 * padding;
 
-        // Check if point is on visible hemisphere (front of globe)
-        const z3d = Math.cos(latRad) * Math.cos(lonRad);
-        if (z3d < 0) return null; // Behind globe
+        const x = padding + ((lon + 180) / 360) * mapWidth;
+        const y = padding + ((90 - lat) / 180) * mapHeight;
 
-        // Project to 2D - negate x for correct left/right orientation when viewing globe
-        const x3d = Math.cos(latRad) * Math.sin(lonRad);
-        const x = cx - x3d * radius;  // Negated for correct globe orientation
-        const y = cy - Math.sin(latRad) * radius;
-
-        return { x, y, z: z3d };
+        return { x, y };
     }
 
     /**
-     * Render 3D globe with ISS position and world map
+     * Render 2D world map with ISS position
      */
     function renderGlobe() {
         const canvas = document.getElementById('sstvGlobe');
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-        const radius = Math.min(cx, cy) - 10;
-
-        // Globe rotation - center on ISS longitude
-        const globeRotation = issPosition ? issPosition.lon : 0;
+        const width = canvas.width;
+        const height = canvas.height;
+        const padding = 5;
 
         // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, width, height);
 
         // Draw ocean background
-        const oceanGradient = ctx.createRadialGradient(cx - radius * 0.3, cy - radius * 0.3, 0, cx, cy, radius);
-        oceanGradient.addColorStop(0, '#1a5a8e');
-        oceanGradient.addColorStop(0.5, '#0d3a5a');
-        oceanGradient.addColorStop(1, '#061828');
+        ctx.fillStyle = '#0a1628';
+        ctx.fillRect(0, 0, width, height);
 
+        // Inner map area
+        ctx.fillStyle = '#0d2847';
+        ctx.fillRect(padding, padding, width - 2 * padding, height - 2 * padding);
+
+        // Draw grid lines
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
+        ctx.lineWidth = 0.5;
+
+        // Latitude lines every 30 degrees
+        for (let lat = -60; lat <= 60; lat += 30) {
+            const p = latLonToXY(lat, -180, width, height, padding);
+            const p2 = latLonToXY(lat, 180, width, height, padding);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+        }
+
+        // Longitude lines every 30 degrees
+        for (let lon = -180; lon <= 180; lon += 30) {
+            const p = latLonToXY(90, lon, width, height, padding);
+            const p2 = latLonToXY(-90, lon, width, height, padding);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+        }
+
+        // Draw equator slightly brighter
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+        const eq1 = latLonToXY(0, -180, width, height, padding);
+        const eq2 = latLonToXY(0, 180, width, height, padding);
         ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = oceanGradient;
-        ctx.fill();
+        ctx.moveTo(eq1.x, eq1.y);
+        ctx.lineTo(eq2.x, eq2.y);
+        ctx.stroke();
 
         // Draw continents
-        ctx.fillStyle = 'rgba(34, 139, 87, 0.7)';
+        ctx.fillStyle = 'rgba(34, 139, 87, 0.6)';
         ctx.strokeStyle = 'rgba(50, 180, 120, 0.8)';
         ctx.lineWidth = 1;
 
         for (const [name, coords] of Object.entries(continents)) {
             ctx.beginPath();
-            let started = false;
-            let lastVisible = false;
-
             for (let i = 0; i < coords.length; i++) {
                 const [lon, lat] = coords[i];
-                const point = projectPoint(lat, lon, cx, cy, radius, globeRotation);
-
-                if (point) {
-                    if (!started || !lastVisible) {
-                        ctx.moveTo(point.x, point.y);
-                        started = true;
-                    } else {
-                        ctx.lineTo(point.x, point.y);
-                    }
-                    lastVisible = true;
+                const p = latLonToXY(lat, lon, width, height, padding);
+                if (i === 0) {
+                    ctx.moveTo(p.x, p.y);
                 } else {
-                    lastVisible = false;
+                    ctx.lineTo(p.x, p.y);
                 }
             }
-
+            ctx.closePath();
             ctx.fill();
             ctx.stroke();
         }
 
-        // Draw latitude/longitude grid
-        ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
-        ctx.lineWidth = 0.5;
-
-        // Latitude lines
-        for (let lat = -60; lat <= 60; lat += 30) {
-            ctx.beginPath();
-            for (let lon = -180; lon <= 180; lon += 5) {
-                const point = projectPoint(lat, lon, cx, cy, radius, globeRotation);
-                if (point) {
-                    if (lon === -180 || !projectPoint(lat, lon - 5, cx, cy, radius, globeRotation)) {
-                        ctx.moveTo(point.x, point.y);
-                    } else {
-                        ctx.lineTo(point.x, point.y);
-                    }
-                }
-            }
-            ctx.stroke();
-        }
-
-        // Longitude lines
-        for (let lon = -180; lon < 180; lon += 30) {
-            ctx.beginPath();
-            for (let lat = -90; lat <= 90; lat += 5) {
-                const point = projectPoint(lat, lon, cx, cy, radius, globeRotation);
-                if (point) {
-                    if (lat === -90 || !projectPoint(lat - 5, lon, cx, cy, radius, globeRotation)) {
-                        ctx.moveTo(point.x, point.y);
-                    } else {
-                        ctx.lineTo(point.x, point.y);
-                    }
-                }
-            }
-            ctx.stroke();
-        }
-
-        // Draw ISS position
+        // Draw ISS ground track (orbit path)
         if (issPosition) {
-            const issLat = issPosition.lat;
-            const issLon = issPosition.lon;
-            // Project ISS using same rotation as continents
-            const point = projectPoint(issLat, issLon, cx, cy, radius, globeRotation);
+            // Draw approximate orbit path (ISS completes orbit in ~92 minutes)
+            // Orbit is inclined at 51.6 degrees
+            ctx.strokeStyle = 'rgba(255, 200, 0, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
 
-            if (point) {
-                const x = point.x;
-                const y = point.y;
+            let lastX = null;
+            for (let offset = -180; offset <= 180; offset += 2) {
+                // ISS moves ~360° longitude per 92 minutes, latitude oscillates ±51.6°
+                const orbitLon = issPosition.lon + offset;
+                // Normalize longitude to -180 to 180
+                let normLon = orbitLon;
+                while (normLon > 180) normLon -= 360;
+                while (normLon < -180) normLon += 360;
 
-                // ISS orbit trail (where it's been)
-                // ISS orbit is inclined at 51.6 degrees
-                ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([4, 4]);
-                ctx.beginPath();
-                let trailStarted = false;
-                for (let offset = -60; offset <= 0; offset += 3) {
-                    // Calculate trail position accounting for orbital inclination
-                    const trailLon = issLon + offset;
-                    // Approximate latitude change based on orbit inclination (51.6°)
-                    const orbitPhase = (offset / 360) * 2 * Math.PI;
-                    const trailLat = issLat - Math.sin(orbitPhase) * 20;
-                    const trailPoint = projectPoint(trailLat, trailLon, cx, cy, radius, globeRotation);
-                    if (trailPoint) {
-                        if (!trailStarted) {
-                            ctx.moveTo(trailPoint.x, trailPoint.y);
-                            trailStarted = true;
-                        } else {
-                            ctx.lineTo(trailPoint.x, trailPoint.y);
-                        }
-                    }
+                // Calculate latitude based on orbit (sinusoidal pattern)
+                const phase = (offset / 360) * 2 * Math.PI;
+                const orbitLat = 51.6 * Math.sin(phase + Math.asin(issPosition.lat / 51.6));
+
+                // Clamp latitude to valid range
+                const clampedLat = Math.max(-90, Math.min(90, orbitLat));
+
+                const p = latLonToXY(clampedLat, normLon, width, height, padding);
+
+                // Handle wrap-around (don't draw line across the map)
+                if (lastX !== null && Math.abs(p.x - lastX) > width / 2) {
+                    ctx.moveTo(p.x, p.y);
+                } else if (offset === -180) {
+                    ctx.moveTo(p.x, p.y);
+                } else {
+                    ctx.lineTo(p.x, p.y);
                 }
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                // ISS glow
-                const issGradient = ctx.createRadialGradient(x, y, 0, x, y, 25);
-                issGradient.addColorStop(0, 'rgba(255, 200, 0, 0.9)');
-                issGradient.addColorStop(0.3, 'rgba(255, 150, 0, 0.5)');
-                issGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
-
-                ctx.beginPath();
-                ctx.arc(x, y, 25, 0, Math.PI * 2);
-                ctx.fillStyle = issGradient;
-                ctx.fill();
-
-                // ISS dot
-                ctx.beginPath();
-                ctx.arc(x, y, 6, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffcc00';
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // ISS label
-                ctx.fillStyle = '#ffcc00';
-                ctx.font = 'bold 10px JetBrains Mono, monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('ISS', x, y - 18);
+                lastX = p.x;
             }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw ISS position marker
+            const issP = latLonToXY(issPosition.lat, issPosition.lon, width, height, padding);
+
+            // ISS glow
+            const issGradient = ctx.createRadialGradient(issP.x, issP.y, 0, issP.x, issP.y, 15);
+            issGradient.addColorStop(0, 'rgba(255, 200, 0, 0.9)');
+            issGradient.addColorStop(0.4, 'rgba(255, 150, 0, 0.4)');
+            issGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+
+            ctx.beginPath();
+            ctx.arc(issP.x, issP.y, 15, 0, Math.PI * 2);
+            ctx.fillStyle = issGradient;
+            ctx.fill();
+
+            // ISS dot
+            ctx.beginPath();
+            ctx.arc(issP.x, issP.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffcc00';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // ISS label
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = 'bold 9px JetBrains Mono, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('ISS', issP.x, issP.y - 10);
         }
 
-        // Draw globe edge highlight
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        // Draw border
         ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Atmospheric glow
-        const atmoGradient = ctx.createRadialGradient(cx, cy, radius - 5, cx, cy, radius + 12);
-        atmoGradient.addColorStop(0, 'rgba(100, 180, 255, 0)');
-        atmoGradient.addColorStop(0.5, 'rgba(100, 180, 255, 0.15)');
-        atmoGradient.addColorStop(1, 'rgba(100, 180, 255, 0)');
-
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius + 12, 0, Math.PI * 2);
-        ctx.fillStyle = atmoGradient;
-        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeRect(padding, padding, width - 2 * padding, height - 2 * padding);
     }
 
     /**

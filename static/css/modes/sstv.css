@@ -465,13 +465,13 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 12px;
-    min-width: 220px;
+    min-width: 320px;
 }
 
 #sstvGlobe {
-    border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, #1a3a5c, #0a1929);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), inset 0 0 40px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    background: #0a1628;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
 }
 
 .sstv-globe-info {
