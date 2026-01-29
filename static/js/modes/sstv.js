@@ -387,16 +387,18 @@ const SSTV = (function() {
      * Project lat/lon to x/y on globe with rotation
      */
     function projectPoint(lat, lon, cx, cy, radius, rotation) {
-        const lonRad = (lon + rotation) * Math.PI / 180;
+        // Apply rotation to longitude (negative to rotate globe eastward)
+        const adjustedLon = lon - rotation;
+        const lonRad = adjustedLon * Math.PI / 180;
         const latRad = lat * Math.PI / 180;
 
-        // Check if point is on visible hemisphere
-        const x3d = Math.cos(latRad) * Math.sin(lonRad);
+        // Check if point is on visible hemisphere (front of globe)
         const z3d = Math.cos(latRad) * Math.cos(lonRad);
-
         if (z3d < 0) return null; // Behind globe
 
-        const x = cx + x3d * radius;
+        // Project to 2D - negate x for correct left/right orientation when viewing globe
+        const x3d = Math.cos(latRad) * Math.sin(lonRad);
+        const x = cx - x3d * radius;  // Negated for correct globe orientation
         const y = cy - Math.sin(latRad) * radius;
 
         return { x, y, z: z3d };
@@ -414,8 +416,8 @@ const SSTV = (function() {
         const cy = canvas.height / 2;
         const radius = Math.min(cx, cy) - 10;
 
-        // Globe rotation - center on ISS longitude if available
-        const globeRotation = issPosition ? -issPosition.lon : 0;
+        // Globe rotation - center on ISS longitude
+        const globeRotation = issPosition ? issPosition.lon : 0;
 
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
