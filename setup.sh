@@ -673,6 +673,34 @@ install_aiscatcher_from_source_debian() {
   )
 }
 
+install_slowrx_from_source_debian() {
+  info "slowrx not available via APT. Building from source..."
+
+  apt_install build-essential git cmake \
+    libfftw3-dev libsndfile1-dev libgtk-3-dev libasound2-dev libpulse-dev
+
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning slowrx..."
+    git clone --depth 1 https://github.com/windytan/slowrx.git "$tmp_dir/slowrx" >/dev/null 2>&1 \
+      || { warn "Failed to clone slowrx"; exit 1; }
+
+    cd "$tmp_dir/slowrx"
+    mkdir -p build && cd build
+
+    info "Compiling slowrx..."
+    if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
+      $SUDO install -m 0755 slowrx /usr/local/bin/slowrx
+      ok "slowrx installed successfully."
+    else
+      warn "Failed to build slowrx from source. ISS SSTV decoding will not be available."
+    fi
+  )
+}
+
 install_ubertooth_from_source_debian() {
   info "Building Ubertooth from source..."
 
@@ -875,7 +903,7 @@ install_debian_packages() {
   apt_install direwolf || true
 
   progress "Installing slowrx (SSTV decoder)"
-  apt_install slowrx || warn "slowrx not available via apt - ISS SSTV decoding will not be available"
+  apt_install slowrx || cmd_exists slowrx || install_slowrx_from_source_debian
 
   progress "Installing ffmpeg"
   apt_install ffmpeg
