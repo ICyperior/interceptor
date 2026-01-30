@@ -4,6 +4,8 @@ This module provides SSTV decoding capabilities for receiving images
 from the International Space Station during special events.
 
 ISS SSTV typically transmits on 145.800 MHz FM.
+
+Includes real-time Doppler shift compensation for improved reception.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -25,8 +27,149 @@ logger = get_logger('intercept.sstv')
 # ISS SSTV frequency
 ISS_SSTV_FREQ = 145.800  # MHz
 
+# Speed of light in m/s
+SPEED_OF_LIGHT = 299_792_458
+
 # Common SSTV modes used by ISS
 SSTV_MODES = ['PD120', 'PD180', 'Martin1', 'Martin2', 'Scottie1', 'Scottie2', 'Robot36']
+
+
+@dataclass
+class DopplerInfo:
+    """Doppler shift information."""
+    frequency_hz: float  # Doppler-corrected frequency in Hz
+    shift_hz: float  # Doppler shift in Hz (positive = approaching)
+    range_rate_km_s: float  # Range rate in km/s (negative = approaching)
+    elevation: float  # Current elevation in degrees
+    azimuth: float  # Current azimuth in degrees
+    timestamp: datetime
+
+    def to_dict(self) -> dict:
+        return {
+            'frequency_hz': self.frequency_hz,
+            'shift_hz': round(self.shift_hz, 1),
+            'range_rate_km_s': round(self.range_rate_km_s, 3),
+            'elevation': round(self.elevation, 1),
+            'azimuth': round(self.azimuth, 1),
+            'timestamp': self.timestamp.isoformat(),
+        }
+
+
+class DopplerTracker:
+    """
+    Real-time Doppler shift calculator for satellite tracking.
+
+    Uses skyfield to calculate the range rate between observer and satellite,
+    then computes the Doppler-shifted receive frequency.
+    """
+
+    def __init__(self, satellite_name: str = 'ISS'):
+        self._satellite_name = satellite_name
+        self._observer_lat: float | None = None
+        self._observer_lon: float | None = None
+        self._satellite = None
+        self._observer = None
+        self._ts = None
+        self._enabled = False
+
+    def configure(self, latitude: float, longitude: float) -> bool:
+        """
+        Configure the Doppler tracker with observer location.
+
+        Args:
+            latitude: Observer latitude in degrees
+            longitude: Observer longitude in degrees
+
+        Returns:
+            True if configured successfully
+        """
+        try:
+            from skyfield.api import load, wgs84, EarthSatellite
+            from data.satellites import TLE_SATELLITES
+
+            # Get satellite TLE
+            tle_data = TLE_SATELLITES.get(self._satellite_name)
+            if not tle_data:
+                logger.error(f"No TLE data for satellite: {self._satellite_name}")
+                return False
+
+            self._ts = load.timescale()
+            self._satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], self._ts)
+            self._observer = wgs84.latlon(latitude, longitude)
+            self._observer_lat = latitude
+            self._observer_lon = longitude
+            self._enabled = True
+
+            logger.info(f"Doppler tracker configured for {self._satellite_name} at ({latitude}, {longitude})")
+            return True
+
+        except ImportError:
+            logger.warning("skyfield not available - Doppler tracking disabled")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to configure Doppler tracker: {e}")
+            return False
+
+    @property
+    def is_enabled(self) -> bool:
+        return self._enabled
+
+    def calculate(self, nominal_freq_mhz: float) -> DopplerInfo | None:
+        """
+        Calculate current Doppler-shifted frequency.
+
+        Args:
+            nominal_freq_mhz: Nominal transmit frequency in MHz
+
+        Returns:
+            DopplerInfo with corrected frequency, or None if unavailable
+        """
+        if not self._enabled or not self._satellite or not self._observer:
+            return None
+
+        try:
+            # Get current time
+            t = self._ts.now()
+
+            # Calculate satellite position relative to observer
+            difference = self._satellite - self._observer
+            topocentric = difference.at(t)
+
+            # Get altitude/azimuth
+            alt, az, distance = topocentric.altaz()
+
+            # Get velocity (range rate) - negative means approaching
+            # We need the rate of change of distance
+            # Calculate positions slightly apart to get velocity
+            dt_seconds = 1.0
+            t_future = self._ts.utc(t.utc_datetime() + timedelta(seconds=dt_seconds))
+
+            topocentric_future = difference.at(t_future)
+            _, _, distance_future = topocentric_future.altaz()
+
+            # Range rate in km/s (negative = approaching = positive Doppler)
+            range_rate_km_s = (distance_future.km - distance.km) / dt_seconds
+
+            # Calculate Doppler shift
+            # f_received = f_transmitted * (1 - v_radial / c)
+            # When approaching (negative range_rate), frequency is higher
+            nominal_freq_hz = nominal_freq_mhz * 1_000_000
+            doppler_factor = 1 - (range_rate_km_s * 1000 / SPEED_OF_LIGHT)
+            corrected_freq_hz = nominal_freq_hz * doppler_factor
+            shift_hz = corrected_freq_hz - nominal_freq_hz
+
+            return DopplerInfo(
+                frequency_hz=corrected_freq_hz,
+                shift_hz=shift_hz,
+                range_rate_km_s=range_rate_km_s,
+                elevation=alt.degrees,
+                azimuth=az.degrees,
+                timestamp=datetime.now(timezone.utc)
+            )
+
+        except Exception as e:
+            logger.error(f"Doppler calculation failed: {e}")
+            return None
 
 
 @dataclass
@@ -76,18 +219,33 @@ class DecodeProgress:
 
 
 class SSTVDecoder:
-    """SSTV decoder using external tools (slowrx or qsstv)."""
+    """SSTV decoder using external tools (slowrx) with Doppler compensation."""
+
+    # Minimum frequency change (Hz) before retuning rtl_fm
+    RETUNE_THRESHOLD_HZ = 500
+
+    # How often to check/update Doppler (seconds)
+    DOPPLER_UPDATE_INTERVAL = 5
 
     def __init__(self, output_dir: str | Path | None = None):
         self._process = None
+        self._rtl_process = None
         self._running = False
         self._lock = threading.Lock()
         self._callback: Callable[[DecodeProgress], None] | None = None
         self._output_dir = Path(output_dir) if output_dir else Path('instance/sstv_images')
         self._images: list[SSTVImage] = []
         self._reader_thread = None
+        self._watcher_thread = None
+        self._doppler_thread = None
         self._frequency = ISS_SSTV_FREQ
+        self._current_tuned_freq_hz: int = 0
         self._device_index = 0
+
+        # Doppler tracking
+        self._doppler_tracker = DopplerTracker('ISS')
+        self._doppler_enabled = False
+        self._last_doppler_info: DopplerInfo | None = None
 
         # Ensure output directory exists
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -114,13 +272,7 @@ class SSTVDecoder:
         except Exception:
             pass
 
-        # Check for qsstv (if available as CLI)
-        try:
-            result = subprocess.run(['which', 'qsstv'], capture_output=True, timeout=5)
-            if result.returncode == 0:
-                return 'qsstv'
-        except Exception:
-            pass
+        # Note: qsstv is GUI-only and not suitable for headless/server operation
 
         # Check for Python sstv package
         try:
@@ -129,20 +281,28 @@ class SSTVDecoder:
         except ImportError:
             pass
 
-        logger.warning("No SSTV decoder found. Install slowrx or python sstv package.")
+        logger.warning("No SSTV decoder found. Install slowrx (apt install slowrx) or python sstv package. Note: qsstv is GUI-only and not supported for headless operation.")
         return None
 
     def set_callback(self, callback: Callable[[DecodeProgress], None]) -> None:
         """Set callback for decode progress updates."""
         self._callback = callback
 
-    def start(self, frequency: float = ISS_SSTV_FREQ, device_index: int = 0) -> bool:
+    def start(
+        self,
+        frequency: float = ISS_SSTV_FREQ,
+        device_index: int = 0,
+        latitude: float | None = None,
+        longitude: float | None = None,
+    ) -> bool:
         """
         Start SSTV decoder listening on specified frequency.
 
         Args:
             frequency: Frequency in MHz (default: 145.800 for ISS)
             device_index: RTL-SDR device index
+            latitude: Observer latitude for Doppler correction (optional)
+            longitude: Observer longitude for Doppler correction (optional)
 
         Returns:
             True if started successfully
@@ -162,6 +322,15 @@ class SSTVDecoder:
             self._frequency = frequency
             self._device_index = device_index
 
+            # Configure Doppler tracking if location provided
+            self._doppler_enabled = False
+            if latitude is not None and longitude is not None:
+                if self._doppler_tracker.configure(latitude, longitude):
+                    self._doppler_enabled = True
+                    logger.info(f"Doppler tracking enabled for location ({latitude}, {longitude})")
+                else:
+                    logger.warning("Doppler tracking unavailable - using fixed frequency")
+
             try:
                 if self._decoder == 'slowrx':
                     self._start_slowrx()
@@ -172,11 +341,23 @@ class SSTVDecoder:
                     return False
 
                 self._running = True
-                logger.info(f"SSTV decoder started on {frequency} MHz")
-                self._emit_progress(DecodeProgress(
-                    status='detecting',
-                    message=f'Listening on {frequency} MHz...'
-                ))
+
+                # Start Doppler tracking thread if enabled
+                if self._doppler_enabled:
+                    self._doppler_thread = threading.Thread(target=self._doppler_tracking_loop, daemon=True)
+                    self._doppler_thread.start()
+                    logger.info(f"SSTV decoder started on {frequency} MHz with Doppler tracking")
+                    self._emit_progress(DecodeProgress(
+                        status='detecting',
+                        message=f'Listening on {frequency} MHz with Doppler tracking...'
+                    ))
+                else:
+                    logger.info(f"SSTV decoder started on {frequency} MHz (no Doppler tracking)")
+                    self._emit_progress(DecodeProgress(
+                        status='detecting',
+                        message=f'Listening on {frequency} MHz...'
+                    ))
+
                 return True
 
             except Exception as e:
@@ -189,9 +370,32 @@ class SSTVDecoder:
 
     def _start_slowrx(self) -> None:
         """Start slowrx decoder with rtl_fm piped input."""
-        # Convert frequency to Hz
-        freq_hz = int(self._frequency * 1_000_000)
+        # Calculate initial frequency (with Doppler correction if enabled)
+        freq_hz = self._get_doppler_corrected_freq_hz()
+        self._current_tuned_freq_hz = freq_hz
 
+        self._start_rtl_fm_pipeline(freq_hz)
+
+    def _get_doppler_corrected_freq_hz(self) -> int:
+        """Get the Doppler-corrected frequency in Hz."""
+        nominal_freq_hz = int(self._frequency * 1_000_000)
+
+        if self._doppler_enabled:
+            doppler_info = self._doppler_tracker.calculate(self._frequency)
+            if doppler_info:
+                self._last_doppler_info = doppler_info
+                corrected_hz = int(doppler_info.frequency_hz)
+                logger.info(
+                    f"Doppler correction: {doppler_info.shift_hz:+.1f} Hz "
+                    f"(range rate: {doppler_info.range_rate_km_s:+.3f} km/s, "
+                    f"el: {doppler_info.elevation:.1f}°)"
+                )
+                return corrected_hz
+
+        return nominal_freq_hz
+
+    def _start_rtl_fm_pipeline(self, freq_hz: int) -> None:
+        """Start the rtl_fm -> slowrx pipeline at the specified frequency."""
         # Build rtl_fm command for FM demodulation
         rtl_cmd = [
             'rtl_fm',
@@ -236,6 +440,106 @@ class SSTVDecoder:
         # Start image watcher thread
         self._watcher_thread = threading.Thread(target=self._watch_images, daemon=True)
         self._watcher_thread.start()
+
+    def _doppler_tracking_loop(self) -> None:
+        """Background thread that monitors Doppler shift and retunes when needed."""
+        logger.info("Doppler tracking thread started")
+
+        while self._running and self._doppler_enabled:
+            time.sleep(self.DOPPLER_UPDATE_INTERVAL)
+
+            if not self._running:
+                break
+
+            try:
+                doppler_info = self._doppler_tracker.calculate(self._frequency)
+                if not doppler_info:
+                    continue
+
+                self._last_doppler_info = doppler_info
+                new_freq_hz = int(doppler_info.frequency_hz)
+                freq_diff = abs(new_freq_hz - self._current_tuned_freq_hz)
+
+                # Log current Doppler status
+                logger.debug(
+                    f"Doppler: {doppler_info.shift_hz:+.1f} Hz, "
+                    f"el: {doppler_info.elevation:.1f}°, "
+                    f"diff from tuned: {freq_diff} Hz"
+                )
+
+                # Emit Doppler update to callback
+                self._emit_progress(DecodeProgress(
+                    status='detecting',
+                    message=f'Doppler: {doppler_info.shift_hz:+.0f} Hz, elevation: {doppler_info.elevation:.1f}°'
+                ))
+
+                # Retune if frequency has drifted enough
+                if freq_diff >= self.RETUNE_THRESHOLD_HZ:
+                    logger.info(
+                        f"Retuning: {self._current_tuned_freq_hz} -> {new_freq_hz} Hz "
+                        f"(Doppler shift: {doppler_info.shift_hz:+.1f} Hz)"
+                    )
+                    self._retune_rtl_fm(new_freq_hz)
+
+            except Exception as e:
+                logger.error(f"Doppler tracking error: {e}")
+
+        logger.info("Doppler tracking thread stopped")
+
+    def _retune_rtl_fm(self, new_freq_hz: int) -> None:
+        """
+        Retune rtl_fm to a new frequency.
+
+        Since rtl_fm doesn't support dynamic frequency changes, we need to
+        restart the rtl_fm process. The slowrx process continues running
+        and will resume decoding when audio resumes.
+        """
+        with self._lock:
+            if not self._running:
+                return
+
+            # Terminate old rtl_fm process
+            if self._rtl_process:
+                try:
+                    self._rtl_process.terminate()
+                    self._rtl_process.wait(timeout=2)
+                except Exception:
+                    try:
+                        self._rtl_process.kill()
+                    except Exception:
+                        pass
+
+            # Start new rtl_fm at new frequency
+            rtl_cmd = [
+                'rtl_fm',
+                '-d', str(self._device_index),
+                '-f', str(new_freq_hz),
+                '-M', 'fm',
+                '-s', '48000',
+                '-r', '48000',
+                '-l', '0',
+                '-'
+            ]
+
+            logger.debug(f"Restarting rtl_fm: {' '.join(rtl_cmd)}")
+
+            self._rtl_process = subprocess.Popen(
+                rtl_cmd,
+                stdout=self._process.stdin if self._process else subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+
+            self._current_tuned_freq_hz = new_freq_hz
+
+    @property
+    def last_doppler_info(self) -> DopplerInfo | None:
+        """Get the most recent Doppler calculation."""
+        return self._last_doppler_info
+
+    @property
+    def doppler_enabled(self) -> bool:
+        """Check if Doppler tracking is enabled."""
+        return self._doppler_enabled
 
     def _start_python_sstv(self) -> None:
         """Start Python SSTV decoder (requires audio file input)."""

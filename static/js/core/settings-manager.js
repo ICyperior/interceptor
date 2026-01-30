@@ -565,6 +565,17 @@ function loadObserverLocation() {
     if (currentLonDisplay) {
         currentLonDisplay.textContent = lon ? parseFloat(lon).toFixed(4) + '°' : 'Not set';
     }
+
+    // Sync dashboard-specific location keys for backward compatibility
+    if (lat && lon) {
+        const locationObj = JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) });
+        if (!localStorage.getItem('observerLocation')) {
+            localStorage.setItem('observerLocation', locationObj);
+        }
+        if (!localStorage.getItem('ais_observerLocation')) {
+            localStorage.setItem('ais_observerLocation', locationObj);
+        }
+    }
 }
 
 /**
@@ -649,6 +660,11 @@ function saveObserverLocation() {
 
     localStorage.setItem('observerLat', lat.toString());
     localStorage.setItem('observerLon', lon.toString());
+
+    // Also update dashboard-specific location keys for ADS-B and AIS
+    const locationObj = JSON.stringify({ lat: lat, lon: lon });
+    localStorage.setItem('observerLocation', locationObj);      // ADS-B dashboard
+    localStorage.setItem('ais_observerLocation', locationObj);  // AIS dashboard
 
     // Update display
     const currentLatDisplay = document.getElementById('currentLatDisplay');

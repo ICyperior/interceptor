@@ -204,6 +204,7 @@ check_tools() {
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
+  check_optional "slowrx"      "SSTV decoder (ISS images)" slowrx
 
   echo
   info "GPS:"
@@ -385,6 +386,39 @@ install_rtlamr_from_source() {
   fi
 }
 
+install_slowrx_from_source_macos() {
+  info "slowrx not available via Homebrew. Building from source..."
+
+  # Ensure build dependencies are installed
+  brew_install cmake
+  brew_install fftw
+  brew_install libsndfile
+  brew_install gtk+3
+
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning slowrx..."
+    git clone --depth 1 https://github.com/windytan/slowrx.git "$tmp_dir/slowrx" >/dev/null 2>&1 \
+      || { warn "Failed to clone slowrx"; exit 1; }
+
+    cd "$tmp_dir/slowrx"
+    info "Compiling slowrx..."
+    mkdir -p build && cd build
+    cmake .. >/dev/null 2>&1 || { warn "cmake failed for slowrx"; exit 1; }
+    make >/dev/null 2>&1 || { warn "make failed for slowrx"; exit 1; }
+
+    # Install to /usr/local/bin
+    if [[ -w /usr/local/bin ]]; then
+      install -m 0755 slowrx /usr/local/bin/slowrx
+    else
+      sudo install -m 0755 slowrx /usr/local/bin/slowrx
+    fi
+    ok "slowrx installed successfully from source"
+  )
+}
+
 install_multimon_ng_from_source_macos() {
   info "multimon-ng not available via Homebrew. Building from source..."
 
@@ -417,7 +451,7 @@ install_multimon_ng_from_source_macos() {
 }
 
 install_macos_packages() {
-  TOTAL_STEPS=15
+  TOTAL_STEPS=16
   CURRENT_STEP=0
 
   progress "Checking Homebrew"
@@ -436,6 +470,13 @@ install_macos_packages() {
 
   progress "Installing direwolf (APRS decoder)"
   (brew_install direwolf) || warn "direwolf not available via Homebrew"
+
+  progress "Installing slowrx (SSTV decoder)"
+  if ! cmd_exists slowrx; then
+    install_slowrx_from_source_macos || warn "slowrx build failed - ISS SSTV decoding will not be available"
+  else
+    ok "slowrx already installed"
+  fi
 
   progress "Installing ffmpeg"
   brew_install ffmpeg
@@ -767,7 +808,7 @@ install_debian_packages() {
     export NEEDRESTART_MODE=a
   fi
 
-  TOTAL_STEPS=20
+  TOTAL_STEPS=21
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -832,6 +873,9 @@ install_debian_packages() {
 
   progress "Installing direwolf (APRS decoder)"
   apt_install direwolf || true
+
+  progress "Installing slowrx (SSTV decoder)"
+  apt_install slowrx || warn "slowrx not available via apt - ISS SSTV decoding will not be available"
 
   progress "Installing ffmpeg"
   apt_install ffmpeg

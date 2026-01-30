@@ -20,6 +20,7 @@ from utils.sstv import (
     is_sstv_available,
     ISS_SSTV_FREQ,
     DecodeProgress,
+    DopplerInfo,
 )
 
 logger = get_logger('intercept.sstv')
@@ -53,13 +54,21 @@ def get_status():
     available = is_sstv_available()
     decoder = get_sstv_decoder()
 
-    return jsonify({
+    result = {
         'available': available,
         'decoder': decoder.decoder_available,
         'running': decoder.is_running,
         'iss_frequency': ISS_SSTV_FREQ,
         'image_count': len(decoder.get_images()),
-    })
+        'doppler_enabled': decoder.doppler_enabled,
+    }
+
+    # Include Doppler info if available
+    doppler_info = decoder.last_doppler_info
+    if doppler_info:
+        result['doppler'] = doppler_info.to_dict()
+
+    return jsonify(result)
 
 
 @sstv_bp.route('/start', methods=['POST'])
@@ -70,8 +79,14 @@ def start_decoder():
     JSON body (optional):
         {
             "frequency": 145.800,  // Frequency in MHz (default: ISS 145.800)
-            "device": 0            // RTL-SDR device index
+            "device": 0,           // RTL-SDR device index
+            "latitude": 40.7128,   // Observer latitude for Doppler correction
+            "longitude": -74.0060  // Observer longitude for Doppler correction
         }
+
+    If latitude and longitude are provided, real-time Doppler shift compensation
+    will be enabled, which improves reception by tracking the ISS frequency shift
+    as it passes overhead (up to ±3.5 kHz at 145.800 MHz).
 
     Returns:
         JSON with start status.
@@ -87,7 +102,8 @@ def start_decoder():
     if decoder.is_running:
         return jsonify({
             'status': 'already_running',
-            'frequency': ISS_SSTV_FREQ
+            'frequency': ISS_SSTV_FREQ,
+            'doppler_enabled': decoder.doppler_enabled
         })
 
     # Clear queue
@@ -101,6 +117,8 @@ def start_decoder():
     data = request.get_json(silent=True) or {}
     frequency = data.get('frequency', ISS_SSTV_FREQ)
     device_index = data.get('device', 0)
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
 
     # Validate frequency
     try:
@@ -116,16 +134,52 @@ def start_decoder():
             'message': 'Invalid frequency'
         }), 400
 
+    # Validate location if provided
+    if latitude is not None and longitude is not None:
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+            if not (-90 <= latitude <= 90):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Latitude must be between -90 and 90'
+                }), 400
+            if not (-180 <= longitude <= 180):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Longitude must be between -180 and 180'
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid latitude or longitude'
+            }), 400
+    else:
+        latitude = None
+        longitude = None
+
     # Set callback and start
     decoder.set_callback(_progress_callback)
-    success = decoder.start(frequency=frequency, device_index=device_index)
+    success = decoder.start(
+        frequency=frequency,
+        device_index=device_index,
+        latitude=latitude,
+        longitude=longitude
+    )
 
     if success:
-        return jsonify({
+        result = {
             'status': 'started',
             'frequency': frequency,
-            'device': device_index
-        })
+            'device': device_index,
+            'doppler_enabled': decoder.doppler_enabled
+        }
+
+        # Include initial Doppler info if available
+        if decoder.doppler_enabled and decoder.last_doppler_info:
+            result['doppler'] = decoder.last_doppler_info.to_dict()
+
+        return jsonify(result)
     else:
         return jsonify({
             'status': 'error',
@@ -144,6 +198,39 @@ def stop_decoder():
     decoder = get_sstv_decoder()
     decoder.stop()
     return jsonify({'status': 'stopped'})
+
+
+@sstv_bp.route('/doppler')
+def get_doppler():
+    """
+    Get current Doppler shift information.
+
+    Returns real-time Doppler shift data if tracking is enabled.
+
+    Returns:
+        JSON with Doppler shift information.
+    """
+    decoder = get_sstv_decoder()
+
+    if not decoder.doppler_enabled:
+        return jsonify({
+            'status': 'disabled',
+            'message': 'Doppler tracking not enabled. Provide latitude/longitude when starting decoder.'
+        })
+
+    doppler_info = decoder.last_doppler_info
+    if not doppler_info:
+        return jsonify({
+            'status': 'unavailable',
+            'message': 'Doppler data not yet available'
+        })
+
+    return jsonify({
+        'status': 'ok',
+        'doppler': doppler_info.to_dict(),
+        'nominal_frequency_mhz': ISS_SSTV_FREQ,
+        'corrected_frequency_mhz': doppler_info.frequency_hz / 1_000_000
+    })
 
 
 @sstv_bp.route('/images')
