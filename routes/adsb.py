@@ -34,6 +34,7 @@ from config import (
     ADSB_DB_PORT,
     ADSB_DB_USER,
     ADSB_HISTORY_ENABLED,
+    SHARED_OBSERVER_LOCATION_ENABLED,
 )
 from utils.logging import adsb_logger as logger
 from utils.validation import (
@@ -812,7 +813,10 @@ def stream_adsb():
 @adsb_bp.route('/dashboard')
 def adsb_dashboard():
     """Popout ADS-B dashboard."""
-    return render_template('adsb_dashboard.html')
+    return render_template(
+        'adsb_dashboard.html',
+        shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
+    )
 
 
 @adsb_bp.route('/history')

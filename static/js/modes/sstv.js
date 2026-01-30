@@ -41,8 +41,13 @@ const SSTV = (function() {
         const latInput = document.getElementById('sstvObsLat');
         const lonInput = document.getElementById('sstvObsLon');
 
-        const storedLat = localStorage.getItem('observerLat');
-        const storedLon = localStorage.getItem('observerLon');
+        let storedLat = localStorage.getItem('observerLat');
+        let storedLon = localStorage.getItem('observerLon');
+        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+            const shared = ObserverLocation.getShared();
+            storedLat = shared.lat.toString();
+            storedLon = shared.lon.toString();
+        }
 
         if (latInput && storedLat) latInput.value = storedLat;
         if (lonInput && storedLon) lonInput.value = storedLon;
@@ -64,8 +69,12 @@ const SSTV = (function() {
 
         if (!isNaN(lat) && lat >= -90 && lat <= 90 &&
             !isNaN(lon) && lon >= -180 && lon <= 180) {
-            localStorage.setItem('observerLat', lat.toString());
-            localStorage.setItem('observerLon', lon.toString());
+            if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+                ObserverLocation.setShared({ lat, lon });
+            } else {
+                localStorage.setItem('observerLat', lat.toString());
+                localStorage.setItem('observerLon', lon.toString());
+            }
             loadIssSchedule(); // Refresh pass predictions
         }
     }
@@ -94,8 +103,12 @@ const SSTV = (function() {
                 if (latInput) latInput.value = lat;
                 if (lonInput) lonInput.value = lon;
 
-                localStorage.setItem('observerLat', lat);
-                localStorage.setItem('observerLon', lon);
+                if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+                    ObserverLocation.setShared({ lat: parseFloat(lat), lon: parseFloat(lon) });
+                } else {
+                    localStorage.setItem('observerLat', lat);
+                    localStorage.setItem('observerLon', lon);
+                }
 
                 btn.innerHTML = originalText;
                 btn.disabled = false;

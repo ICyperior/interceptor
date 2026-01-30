@@ -32,6 +32,9 @@ let muted = localStorage.getItem('audioMuted') === 'true';
 
 // Observer location (load from localStorage or default to London)
 let observerLocation = (function() {
+    if (window.ObserverLocation && ObserverLocation.getForModule) {
+        return ObserverLocation.getForModule('observerLocation');
+    }
     const saved = localStorage.getItem('observerLocation');
     if (saved) {
         try {

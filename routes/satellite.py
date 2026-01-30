@@ -13,6 +13,8 @@ import requests
 
 from flask import Blueprint, jsonify, request, render_template, Response
 
+from config import SHARED_OBSERVER_LOCATION_ENABLED
+
 from data.satellites import TLE_SATELLITES
 from utils.logging import satellite_logger as logger
 from utils.validation import validate_latitude, validate_longitude, validate_hours, validate_elevation
@@ -120,7 +122,10 @@ def _fetch_iss_realtime(observer_lat: Optional[float] = None, observer_lon: Opti
 @satellite_bp.route('/dashboard')
 def satellite_dashboard():
     """Popout satellite tracking dashboard."""
-    return render_template('satellite_dashboard.html')
+    return render_template(
+        'satellite_dashboard.html',
+        shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
+    )
 
 
 @satellite_bp.route('/predict', methods=['POST'])

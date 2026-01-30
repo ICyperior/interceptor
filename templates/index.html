@@ -14,6 +14,10 @@
             window._showDisclaimerOnLoad = true;
         }
     </script>
+    <script>
+        window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
     <!-- Fonts - Conditional CDN/Local loading -->
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
@@ -2252,6 +2256,9 @@
 
         // Observer location for distance calculations (load from localStorage or default to London)
         let observerLocation = (function () {
+            if (window.ObserverLocation && ObserverLocation.getForModule) {
+                return ObserverLocation.getForModule('observerLocation');
+            }
             const saved = localStorage.getItem('observerLocation');
             if (saved) {
                 try {
@@ -8364,8 +8371,15 @@
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     position => {
-                        document.getElementById('obsLat').value = position.coords.latitude.toFixed(4);
-                        document.getElementById('obsLon').value = position.coords.longitude.toFixed(4);
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        document.getElementById('obsLat').value = lat.toFixed(4);
+                        document.getElementById('obsLon').value = lon.toFixed(4);
+                        observerLocation.lat = lat;
+                        observerLocation.lon = lon;
+                        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+                            ObserverLocation.setShared({ lat, lon });
+                        }
                         showInfo('Location updated!');
                     },
                     error => {
@@ -8465,6 +8479,9 @@
             // Update observerLocation
             observerLocation.lat = position.latitude;
             observerLocation.lon = position.longitude;
+            if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+                ObserverLocation.setShared({ lat: position.latitude, lon: position.longitude });
+            }
 
             // Update APRS user location
             updateAprsUserLocation(position);

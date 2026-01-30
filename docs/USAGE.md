@@ -65,6 +65,8 @@ INTERCEPT automatically detects known trackers:
    - **Manual Entry** - Type coordinates directly
    - **Browser GPS** - Use browser's built-in geolocation (requires HTTPS)
    - **USB GPS Dongle** - Connect a USB GPS receiver for continuous updates
+   - **Shared Location** - By default, the observer location is shared across modules
+     (disable with `INTERCEPT_SHARED_OBSERVER_LOCATION=false`)
 4. **Start Tracking** - Click "Start Tracking" to begin ADS-B reception
 5. **View Map** - Aircraft appear on the interactive Leaflet map
 6. **Click Aircraft** - Click markers for detailed information

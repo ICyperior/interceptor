@@ -20,6 +20,10 @@
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ais_dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <script>
+        window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
 </head>
 <body>
     <!-- Radar background effects -->
@@ -219,7 +223,12 @@
         const MAX_TRAIL_POINTS = 50;
 
         // Observer location
-        let observerLocation = { lat: 51.5074, lon: -0.1278 };
+        let observerLocation = (function() {
+            if (window.ObserverLocation && ObserverLocation.getForModule) {
+                return ObserverLocation.getForModule('ais_observerLocation');
+            }
+            return { lat: 51.5074, lon: -0.1278 };
+        })();
         let rangeRingsLayer = null;
         let observerMarker = null;
 
@@ -376,17 +385,9 @@
 
         // Initialize map
         function initMap() {
-            // Load saved observer location
-            const saved = localStorage.getItem('ais_observerLocation');
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    if (parsed.lat && parsed.lon) {
-                        observerLocation = parsed;
-                        document.getElementById('obsLat').value = parsed.lat;
-                        document.getElementById('obsLon').value = parsed.lon;
-                    }
-                } catch (e) {}
+            if (observerLocation) {
+                document.getElementById('obsLat').value = observerLocation.lat;
+                document.getElementById('obsLon').value = observerLocation.lon;
             }
 
             vesselMap = L.map('vesselMap', {
@@ -470,7 +471,11 @@
             const lon = parseFloat(document.getElementById('obsLon').value);
             if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
                 observerLocation = { lat, lon };
-                localStorage.setItem('ais_observerLocation', JSON.stringify(observerLocation));
+                if (window.ObserverLocation) {
+                    ObserverLocation.setForModule('ais_observerLocation', observerLocation);
+                } else {
+                    localStorage.setItem('ais_observerLocation', JSON.stringify(observerLocation));
+                }
                 if (observerMarker) {
                     observerMarker.setLatLng([lat, lon]);
                 }
@@ -1058,7 +1063,11 @@
             drawRangeRings();
 
             // Save to localStorage
-            localStorage.setItem('ais_observerLocation', JSON.stringify(observerLocation));
+            if (window.ObserverLocation) {
+                ObserverLocation.setForModule('ais_observerLocation', observerLocation);
+            } else {
+                localStorage.setItem('ais_observerLocation', JSON.stringify(observerLocation));
+            }
         }
 
         function showGpsIndicator(show) {
