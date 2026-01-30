@@ -159,20 +159,63 @@ const Meshtastic = (function() {
     }
 
     /**
+     * Handle connection type change (serial vs TCP)
+     */
+    function onConnectionTypeChange() {
+        const connTypeSelect = document.getElementById('meshStripConnType');
+        const deviceSelect = document.getElementById('meshStripDevice');
+        const hostnameInput = document.getElementById('meshStripHostname');
+
+        if (!connTypeSelect) return;
+
+        const connType = connTypeSelect.value;
+
+        if (connType === 'tcp') {
+            // Show hostname input, hide device select
+            if (deviceSelect) deviceSelect.style.display = 'none';
+            if (hostnameInput) hostnameInput.style.display = 'block';
+        } else {
+            // Show device select, hide hostname input
+            if (deviceSelect) deviceSelect.style.display = 'block';
+            if (hostnameInput) hostnameInput.style.display = 'none';
+        }
+    }
+
+    /**
      * Start Meshtastic connection
      */
     async function start() {
-        // Try strip device select first, then sidebar
-        const stripDeviceSelect = document.getElementById('meshStripDevice');
-        const sidebarDeviceSelect = document.getElementById('meshDeviceSelect');
-        let device = stripDeviceSelect?.value || sidebarDeviceSelect?.value || null;
+        // Get connection type
+        const connTypeSelect = document.getElementById('meshStripConnType');
+        const connectionType = connTypeSelect?.value || 'serial';
 
-        // Check if auto-detect is selected but multiple ports exist
-        if (!device && stripDeviceSelect && stripDeviceSelect.options.length > 2) {
-            // Multiple ports available - prompt user to select one
-            showStatusMessage('Multiple ports detected. Please select a specific device from the dropdown.', 'warning');
-            updateStatusIndicator('disconnected', 'Select a device');
-            return;
+        // Get connection parameters based on type
+        let device = null;
+        let hostname = null;
+
+        if (connectionType === 'tcp') {
+            // TCP connection - get hostname
+            const hostnameInput = document.getElementById('meshStripHostname');
+            hostname = hostnameInput?.value?.trim() || null;
+
+            if (!hostname) {
+                showStatusMessage('Please enter a hostname or IP address for TCP connection', 'error');
+                updateStatusIndicator('disconnected', 'Enter hostname');
+                return;
+            }
+        } else {
+            // Serial connection - get device
+            const stripDeviceSelect = document.getElementById('meshStripDevice');
+            const sidebarDeviceSelect = document.getElementById('meshDeviceSelect');
+            device = stripDeviceSelect?.value || sidebarDeviceSelect?.value || null;
+
+            // Check if auto-detect is selected but multiple ports exist
+            if (!device && stripDeviceSelect && stripDeviceSelect.options.length > 2) {
+                // Multiple ports available - prompt user to select one
+                showStatusMessage('Multiple ports detected. Please select a specific device from the dropdown.', 'warning');
+                updateStatusIndicator('disconnected', 'Select a device');
+                return;
+            }
         }
 
         updateStatusIndicator('connecting', 'Connecting...');
@@ -184,17 +227,27 @@ const Meshtastic = (function() {
         if (stripStatus) stripStatus.textContent = 'Connecting...';
 
         try {
+            const requestBody = {
+                connection_type: connectionType
+            };
+
+            if (connectionType === 'tcp') {
+                requestBody.hostname = hostname;
+            } else if (device) {
+                requestBody.device = device;
+            }
+
             const response = await fetch('/meshtastic/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device: device || undefined })
+                body: JSON.stringify(requestBody)
             });
 
             const data = await response.json();
 
             if (data.status === 'started' || data.status === 'already_running') {
                 isConnected = true;
-                updateConnectionUI(true, data.device);
+                updateConnectionUI(true, data.device, data.connection_type);
                 if (data.node_info) {
                     updateNodeInfo(data.node_info);
                     localNodeId = data.node_info.num;
@@ -202,7 +255,8 @@ const Meshtastic = (function() {
                 loadChannels();
                 loadNodes();
                 startStream();
-                showNotification('Meshtastic', 'Connected to device');
+                const connLabel = data.connection_type === 'tcp' ? 'TCP' : 'Serial';
+                showNotification('Meshtastic', `Connected via ${connLabel}`);
             } else {
                 updateStatusIndicator('disconnected', data.message || 'Connection failed');
                 showStatusMessage(data.message || 'Failed to connect', 'error');
@@ -232,7 +286,7 @@ const Meshtastic = (function() {
     /**
      * Update connection UI state
      */
-    function updateConnectionUI(connected, device) {
+    function updateConnectionUI(connected, device, connectionType) {
         const connectBtn = document.getElementById('meshConnectBtn');
         const disconnectBtn = document.getElementById('meshDisconnectBtn');
         const nodeSection = document.getElementById('meshNodeSection');
@@ -248,7 +302,9 @@ const Meshtastic = (function() {
         const stripStatus = document.getElementById('meshStripStatus');
 
         if (connected) {
-            updateStatusIndicator('connected', device ? `Connected to ${device}` : 'Connected');
+            const connLabel = connectionType === 'tcp' ? 'TCP' : 'Serial';
+            const statusText = device ? `${device} (${connLabel})` : `Connected (${connLabel})`;
+            updateStatusIndicator('connected', statusText);
             if (connectBtn) connectBtn.style.display = 'none';
             if (disconnectBtn) disconnectBtn.style.display = 'block';
             if (nodeSection) nodeSection.style.display = 'block';
@@ -263,7 +319,7 @@ const Meshtastic = (function() {
             if (stripDot) {
                 stripDot.className = 'mesh-strip-dot connected';
             }
-            if (stripStatus) stripStatus.textContent = device || 'Connected';
+            if (stripStatus) stripStatus.textContent = statusText;
         } else {
             updateStatusIndicator('disconnected', 'Disconnected');
             if (connectBtn) connectBtn.style.display = 'block';
@@ -2200,6 +2256,7 @@ const Meshtastic = (function() {
         init,
         start,
         stop,
+        onConnectionTypeChange,
         loadPorts,
         refreshChannels,
         openChannelModal,

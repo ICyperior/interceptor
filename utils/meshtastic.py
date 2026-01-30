@@ -3,7 +3,10 @@
 This module provides integration with Meshtastic mesh networking devices,
 allowing INTERCEPT to receive and decode messages from LoRa mesh networks.
 
-Requires a physical Meshtastic device connected via USB/Serial.
+Supports multiple connection types:
+- USB/Serial: Physical device connected via USB
+- TCP: WiFi-enabled devices (T-Beam, Heltec WiFi LoRa, etc.)
+
 Install SDK with: pip install meshtastic
 """
 
@@ -28,6 +31,7 @@ logger = get_logger('intercept.meshtastic')
 try:
     import meshtastic
     import meshtastic.serial_interface
+    import meshtastic.tcp_interface
     from meshtastic import BROADCAST_ADDR
     from pubsub import pub
     HAS_MESHTASTIC = True
@@ -278,6 +282,7 @@ class MeshtasticClient:
         self._lock = threading.Lock()
         self._nodes: dict[int, MeshNode] = {}  # num -> MeshNode
         self._device_path: str | None = None
+        self._connection_type: str | None = None  # 'serial' or 'tcp'
         self._error: str | None = None
         self._traceroute_results: list[TracerouteResult] = []
         self._max_traceroute_results = 50
@@ -310,6 +315,10 @@ class MeshtasticClient:
         return self._device_path
 
     @property
+    def connection_type(self) -> str | None:
+        return self._connection_type
+
+    @property
     def error(self) -> str | None:
         return self._error
 
@@ -317,13 +326,16 @@ class MeshtasticClient:
         """Set callback for received messages."""
         self._callback = callback
 
-    def connect(self, device: str | None = None) -> bool:
+    def connect(self, device: str | None = None, connection_type: str = 'serial',
+                hostname: str | None = None) -> bool:
         """
         Connect to a Meshtastic device.
 
         Args:
             device: Serial port path (e.g., /dev/ttyUSB0, /dev/ttyACM0).
-                    If None, auto-discovers first available device.
+                    Only used for serial connections. If None, auto-discovers.
+            connection_type: Connection type - 'serial' or 'tcp' (default: 'serial')
+            hostname: Hostname or IP address for TCP connections (e.g., '192.168.1.100')
 
         Returns:
             True if connected successfully.
@@ -342,18 +354,30 @@ class MeshtasticClient:
                 pub.subscribe(self._on_connection, "meshtastic.connection.established")
                 pub.subscribe(self._on_disconnect, "meshtastic.connection.lost")
 
-                # Connect to device
-                if device:
-                    self._interface = meshtastic.serial_interface.SerialInterface(device)
-                    self._device_path = device
+                # Connect based on connection type
+                if connection_type == 'tcp':
+                    if not hostname:
+                        self._error = "Hostname is required for TCP connections"
+                        self._cleanup_subscriptions()
+                        return False
+                    self._interface = meshtastic.tcp_interface.TCPInterface(hostname=hostname)
+                    self._device_path = hostname
+                    self._connection_type = 'tcp'
+                    logger.info(f"Connected to Meshtastic device via TCP: {hostname}")
                 else:
-                    # Auto-discover
-                    self._interface = meshtastic.serial_interface.SerialInterface()
-                    self._device_path = "auto"
+                    # Serial connection (default)
+                    if device:
+                        self._interface = meshtastic.serial_interface.SerialInterface(device)
+                        self._device_path = device
+                    else:
+                        # Auto-discover
+                        self._interface = meshtastic.serial_interface.SerialInterface()
+                        self._device_path = "auto"
+                    self._connection_type = 'serial'
+                    logger.info(f"Connected to Meshtastic device via serial: {self._device_path}")
 
                 self._running = True
                 self._error = None
-                logger.info(f"Connected to Meshtastic device: {self._device_path}")
                 return True
 
             except Exception as e:
@@ -375,6 +399,7 @@ class MeshtasticClient:
             self._cleanup_subscriptions()
             self._running = False
             self._device_path = None
+            self._connection_type = None
             logger.info("Disconnected from Meshtastic device")
 
     def _cleanup_subscriptions(self) -> None:
@@ -1502,13 +1527,17 @@ def get_meshtastic_client() -> MeshtasticClient | None:
 
 
 def start_meshtastic(device: str | None = None,
-                     callback: Callable[[MeshtasticMessage], None] | None = None) -> bool:
+                     callback: Callable[[MeshtasticMessage], None] | None = None,
+                     connection_type: str = 'serial',
+                     hostname: str | None = None) -> bool:
     """
     Start the Meshtastic client.
 
     Args:
         device: Serial port path (optional, auto-discovers if not provided)
         callback: Function to call when messages are received
+        connection_type: Connection type - 'serial' or 'tcp' (default: 'serial')
+        hostname: Hostname or IP address for TCP connections
 
     Returns:
         True if started successfully
@@ -1522,7 +1551,7 @@ def start_meshtastic(device: str | None = None,
     if callback:
         _client.set_callback(callback)
 
-    return _client.connect(device)
+    return _client.connect(device, connection_type=connection_type, hostname=hostname)
 
 
 def stop_meshtastic() -> None:

@@ -3,8 +3,9 @@
 Provides endpoints for connecting to Meshtastic devices, configuring
 channels with encryption keys, and streaming received messages.
 
-Requires a physical Meshtastic device (Heltec, T-Beam, RAK, etc.)
-connected via USB/Serial.
+Supports multiple connection types:
+- USB/Serial: Physical device connected via USB
+- TCP: WiFi-enabled devices accessible via IP address
 """
 
 from __future__ import annotations
@@ -95,7 +96,7 @@ def get_status():
     Get Meshtastic connection status.
 
     Returns:
-        JSON with connection status, device info, and node information.
+        JSON with connection status, device info, connection type, and node information.
     """
     if not is_meshtastic_available():
         return jsonify({
@@ -111,6 +112,7 @@ def get_status():
             'available': True,
             'running': False,
             'device': None,
+            'connection_type': None,
             'node_info': None,
         })
 
@@ -120,6 +122,7 @@ def get_status():
         'available': True,
         'running': client.is_running,
         'device': client.device_path,
+        'connection_type': client.connection_type,
         'error': client.error,
         'node_info': node_info.to_dict() if node_info else None,
     })
@@ -131,12 +134,19 @@ def start_mesh():
     Start Meshtastic listener.
 
     Connects to a Meshtastic device and begins receiving messages.
-    The device must be connected via USB/Serial.
+    Supports both USB/Serial and TCP connections.
 
     JSON body (optional):
         {
-            "device": "/dev/ttyUSB0"  // Serial port path. Auto-discovers if not provided.
+            "connection_type": "serial",   // 'serial' (default) or 'tcp'
+            "device": "/dev/ttyUSB0",      // Serial port path. Auto-discovers if not provided.
+            "hostname": "192.168.1.100"    // IP address or hostname for TCP connections
         }
+
+    Examples:
+        Serial (auto-discover): {}
+        Serial (specific port): {"device": "/dev/ttyUSB0"}
+        TCP: {"connection_type": "tcp", "hostname": "192.168.1.100"}
 
     Returns:
         JSON with connection status.
@@ -151,7 +161,8 @@ def start_mesh():
     if client and client.is_running:
         return jsonify({
             'status': 'already_running',
-            'device': client.device_path
+            'device': client.device_path,
+            'connection_type': client.connection_type
         })
 
     # Clear queue and history
@@ -162,18 +173,46 @@ def start_mesh():
             break
     _recent_messages.clear()
 
-    # Get optional device path
+    # Parse connection parameters
     data = request.get_json(silent=True) or {}
+    connection_type = data.get('connection_type', 'serial').lower().strip()
     device = data.get('device')
+    hostname = data.get('hostname')
 
-    # Validate device path if provided
+    # Validate connection type
+    if connection_type not in ('serial', 'tcp'):
+        return jsonify({
+            'status': 'error',
+            'message': f"Invalid connection_type: {connection_type}. Must be 'serial' or 'tcp'"
+        }), 400
+
+    # Validate TCP parameters
+    if connection_type == 'tcp':
+        if not hostname:
+            return jsonify({
+                'status': 'error',
+                'message': 'hostname is required for TCP connections'
+            }), 400
+        hostname = str(hostname).strip()
+        if not hostname:
+            return jsonify({
+                'status': 'error',
+                'message': 'hostname cannot be empty'
+            }), 400
+
+    # Validate serial device path if provided
     if device:
         device = str(device).strip()
         if not device:
             device = None
 
     # Start client
-    success = start_meshtastic(device=device, callback=_message_callback)
+    success = start_meshtastic(
+        device=device,
+        callback=_message_callback,
+        connection_type=connection_type,
+        hostname=hostname
+    )
 
     if success:
         client = get_meshtastic_client()
@@ -181,6 +220,7 @@ def start_mesh():
         return jsonify({
             'status': 'started',
             'device': client.device_path if client else None,
+            'connection_type': client.connection_type if client else None,
             'node_info': node_info.to_dict() if node_info else None,
         })
     else:

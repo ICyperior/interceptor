@@ -1629,9 +1629,14 @@
                                 <span class="mesh-strip-dot disconnected" id="meshStripDot"></span>
                                 <span class="mesh-strip-status-text" id="meshStripStatus">Disconnected</span>
                             </div>
+                            <select id="meshStripConnType" class="mesh-strip-select" title="Connection Type" onchange="Meshtastic.onConnectionTypeChange()" style="width: 70px;">
+                                <option value="serial">Serial</option>
+                                <option value="tcp">TCP</option>
+                            </select>
                             <select id="meshStripDevice" class="mesh-strip-select" title="Device">
                                 <option value="">Auto-detect</option>
                             </select>
+                            <input type="text" id="meshStripHostname" class="mesh-strip-input" placeholder="IP address" title="Hostname/IP for TCP" style="display: none; width: 120px;">
                             <button class="mesh-strip-btn connect" id="meshStripConnectBtn" onclick="Meshtastic.start()">Connect</button>
                             <button class="mesh-strip-btn disconnect" id="meshStripDisconnectBtn" onclick="Meshtastic.stop()" style="display: none;">Disconnect</button>
                         </div>
