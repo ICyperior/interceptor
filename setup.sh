@@ -394,6 +394,7 @@ install_slowrx_from_source_macos() {
   brew_install fftw
   brew_install libsndfile
   brew_install gtk+3
+  brew_install pkg-config
 
   (
     tmp_dir="$(mktemp -d)"
@@ -406,8 +407,17 @@ install_slowrx_from_source_macos() {
     cd "$tmp_dir/slowrx"
     info "Compiling slowrx..."
     mkdir -p build && cd build
-    cmake .. >/dev/null 2>&1 || { warn "cmake failed for slowrx"; exit 1; }
-    make >/dev/null 2>&1 || { warn "make failed for slowrx"; exit 1; }
+    local cmake_log make_log
+    cmake_log=$(cmake .. 2>&1) || {
+      warn "cmake failed for slowrx:"
+      echo "$cmake_log" | tail -20
+      exit 1
+    }
+    make_log=$(make 2>&1) || {
+      warn "make failed for slowrx:"
+      echo "$make_log" | tail -20
+      exit 1
+    }
 
     # Install to /usr/local/bin
     if [[ -w /usr/local/bin ]]; then
@@ -676,7 +686,7 @@ install_aiscatcher_from_source_debian() {
 install_slowrx_from_source_debian() {
   info "slowrx not available via APT. Building from source..."
 
-  apt_install build-essential git cmake \
+  apt_install build-essential git cmake pkg-config \
     libfftw3-dev libsndfile1-dev libgtk-3-dev libasound2-dev libpulse-dev
 
   # Run in subshell to isolate EXIT trap
@@ -692,12 +702,21 @@ install_slowrx_from_source_debian() {
     mkdir -p build && cd build
 
     info "Compiling slowrx..."
-    if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
-      $SUDO install -m 0755 slowrx /usr/local/bin/slowrx
-      ok "slowrx installed successfully."
-    else
-      warn "Failed to build slowrx from source. ISS SSTV decoding will not be available."
-    fi
+    local cmake_log make_log
+    cmake_log=$(cmake .. 2>&1) || {
+      warn "cmake failed for slowrx:"
+      echo "$cmake_log" | tail -20
+      warn "ISS SSTV decoding will not be available."
+      exit 1
+    }
+    make_log=$(make 2>&1) || {
+      warn "make failed for slowrx:"
+      echo "$make_log" | tail -20
+      warn "ISS SSTV decoding will not be available."
+      exit 1
+    }
+    $SUDO install -m 0755 slowrx /usr/local/bin/slowrx
+    ok "slowrx installed successfully."
   )
 }
 
