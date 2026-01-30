@@ -686,7 +686,8 @@ install_aiscatcher_from_source_debian() {
 install_slowrx_from_source_debian() {
   info "slowrx not available via APT. Building from source..."
 
-  apt_install build-essential git cmake pkg-config \
+  # slowrx uses a simple Makefile, not CMake
+  apt_install build-essential git pkg-config \
     libfftw3-dev libsndfile1-dev libgtk-3-dev libasound2-dev libpulse-dev
 
   # Run in subshell to isolate EXIT trap
@@ -699,16 +700,9 @@ install_slowrx_from_source_debian() {
       || { warn "Failed to clone slowrx"; exit 1; }
 
     cd "$tmp_dir/slowrx"
-    mkdir -p build && cd build
 
     info "Compiling slowrx..."
-    local cmake_log make_log
-    cmake_log=$(cmake .. 2>&1) || {
-      warn "cmake failed for slowrx:"
-      echo "$cmake_log" | tail -20
-      warn "ISS SSTV decoding will not be available."
-      exit 1
-    }
+    local make_log
     make_log=$(make 2>&1) || {
       warn "make failed for slowrx:"
       echo "$make_log" | tail -20
