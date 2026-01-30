@@ -139,6 +139,7 @@ BT_UPDATE_INTERVAL = _get_env_float('BT_UPDATE_INTERVAL', 2.0)
 # ADS-B settings
 ADSB_SBS_PORT = _get_env_int('ADSB_SBS_PORT', 30003)
 ADSB_UPDATE_INTERVAL = _get_env_float('ADSB_UPDATE_INTERVAL', 1.0)
+ADSB_AUTO_START = _get_env_bool('ADSB_AUTO_START', False)
 ADSB_HISTORY_ENABLED = _get_env_bool('ADSB_HISTORY_ENABLED', False)
 ADSB_DB_HOST = _get_env('ADSB_DB_HOST', 'localhost')
 ADSB_DB_PORT = _get_env_int('ADSB_DB_PORT', 5432)

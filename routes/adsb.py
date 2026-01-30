@@ -33,6 +33,7 @@ from config import (
     ADSB_DB_PASSWORD,
     ADSB_DB_PORT,
     ADSB_DB_USER,
+    ADSB_AUTO_START,
     ADSB_HISTORY_ENABLED,
     SHARED_OBSERVER_LOCATION_ENABLED,
 )
@@ -816,6 +817,7 @@ def adsb_dashboard():
     return render_template(
         'adsb_dashboard.html',
         shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
+        adsb_auto_start=ADSB_AUTO_START,
     )
 
 

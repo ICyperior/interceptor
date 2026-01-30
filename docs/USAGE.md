@@ -74,6 +74,9 @@ INTERCEPT automatically detects known trackers:
 8. **Filter Aircraft** - Use dropdown to show all, military, civil, or emergency only
 9. **Full Dashboard** - Click "Full Screen Dashboard" for dedicated radar view
 
+> Note: ADS-B auto-start is disabled by default. To enable auto-start on dashboard load,
+> set `INTERCEPT_ADSB_AUTO_START=true`.
+
 ### Emergency Squawks
 
 The system highlights aircraft transmitting emergency squawks:

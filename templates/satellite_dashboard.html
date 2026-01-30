@@ -452,6 +452,12 @@
                     subdomains: 'abcd'
                 }).addTo(groundMap);
             }
+
+            const lat = parseFloat(document.getElementById('obsLat')?.value);
+            const lon = parseFloat(document.getElementById('obsLon')?.value);
+            if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+                groundMap.setView([lat, lon], 3);
+            }
         }
 
         function getLocation() {
