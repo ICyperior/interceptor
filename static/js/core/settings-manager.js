@@ -548,8 +548,13 @@ document.addEventListener('DOMContentLoaded', () => {
  * Load and display current observer location
  */
 function loadObserverLocation() {
-    const lat = localStorage.getItem('observerLat');
-    const lon = localStorage.getItem('observerLon');
+    let lat = localStorage.getItem('observerLat');
+    let lon = localStorage.getItem('observerLon');
+    if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+        const shared = ObserverLocation.getShared();
+        lat = shared.lat.toString();
+        lon = shared.lon.toString();
+    }
 
     const latInput = document.getElementById('observerLatInput');
     const lonInput = document.getElementById('observerLonInput');
@@ -658,8 +663,12 @@ function saveObserverLocation() {
         return;
     }
 
-    localStorage.setItem('observerLat', lat.toString());
-    localStorage.setItem('observerLon', lon.toString());
+    if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+        ObserverLocation.setShared({ lat, lon });
+    } else {
+        localStorage.setItem('observerLat', lat.toString());
+        localStorage.setItem('observerLon', lon.toString());
+    }
 
     // Also update dashboard-specific location keys for ADS-B and AIS
     const locationObj = JSON.stringify({ lat: lat, lon: lon });
@@ -674,6 +683,11 @@ function saveObserverLocation() {
 
     if (typeof showNotification === 'function') {
         showNotification('Location', 'Observer location saved');
+    }
+
+    if (window.observerLocation) {
+        window.observerLocation.lat = lat;
+        window.observerLocation.lon = lon;
     }
 
     // Refresh SSTV ISS schedule if available

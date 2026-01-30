@@ -20,6 +20,11 @@
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_dashboard.css') }}">
+    <script>
+        window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
+        window.INTERCEPT_ADSB_AUTO_START = {{ adsb_auto_start | tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
 </head>
 <body>
     <div class="radar-bg"></div>
@@ -518,6 +523,9 @@
 
         // Observer location and range rings (load from localStorage or default to London)
         let observerLocation = (function() {
+            if (window.ObserverLocation && ObserverLocation.getForModule) {
+                return ObserverLocation.getForModule('observerLocation');
+            }
             const saved = localStorage.getItem('observerLocation');
             if (saved) {
                 try {
@@ -1803,7 +1811,11 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 observerLocation.lon = lon;
 
                 // Save to localStorage for persistence
-                localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
+                if (window.ObserverLocation) {
+                    ObserverLocation.setForModule('observerLocation', observerLocation);
+                } else {
+                    localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
+                }
 
                 if (radarMap) {
                     radarMap.setView([lat, lon], radarMap.getZoom());
@@ -1831,7 +1843,11 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     observerLocation.lon = position.coords.longitude;
 
                     // Save to localStorage for persistence
-                    localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
+                    if (window.ObserverLocation) {
+                        ObserverLocation.setForModule('observerLocation', observerLocation);
+                    } else {
+                        localStorage.setItem('observerLocation', JSON.stringify(observerLocation));
+                    }
 
                     document.getElementById('obsLat').value = observerLocation.lat.toFixed(4);
                     document.getElementById('obsLon').value = observerLocation.lon.toFixed(4);
@@ -1925,6 +1941,9 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             observerLocation.lon = position.longitude;
             document.getElementById('obsLat').value = position.latitude.toFixed(4);
             document.getElementById('obsLon').value = position.longitude.toFixed(4);
+            if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+                ObserverLocation.setShared({ lat: position.latitude, lon: position.longitude });
+            }
 
             // Center map on GPS location (on first fix)
             if (radarMap && !radarMap._gpsInitialized) {
@@ -2537,9 +2556,13 @@ sudo make install</code>
             try {
                 const response = await fetch('/adsb/session');
                 if (!response.ok) {
-                    // No session info - try to auto-start if SDR available
-                    console.log('[ADS-B] No session found, attempting auto-start...');
-                    await tryAutoStartLocal();
+                    // No session info - only auto-start if enabled
+                    if (window.INTERCEPT_ADSB_AUTO_START) {
+                        console.log('[ADS-B] No session found, attempting auto-start...');
+                        await tryAutoStartLocal();
+                    } else {
+                        console.log('[ADS-B] No session found; auto-start disabled');
+                    }
                     return;
                 }
                 const data = await response.json();
@@ -2581,15 +2604,21 @@ sudo make install</code>
                     const statusEl = document.getElementById('trackingStatus');
                     statusEl.textContent = 'TRACKING';
                 } else {
-                    // Session not active - try to auto-start
-                    console.log('[ADS-B] No active session, attempting auto-start...');
-                    await tryAutoStartLocal();
+                    // Session not active - only auto-start if enabled
+                    if (window.INTERCEPT_ADSB_AUTO_START) {
+                        console.log('[ADS-B] No active session, attempting auto-start...');
+                        await tryAutoStartLocal();
+                    } else {
+                        console.log('[ADS-B] No active session; auto-start disabled');
+                    }
                 }
 
             } catch (err) {
                 console.warn('[ADS-B] Failed to sync tracking status:', err);
-                // Try auto-start anyway
-                await tryAutoStartLocal();
+                // Try auto-start only if enabled
+                if (window.INTERCEPT_ADSB_AUTO_START) {
+                    await tryAutoStartLocal();
+                }
             }
         }
 
