@@ -3004,7 +3004,18 @@
             if (data.pressure_hPa !== undefined) {
                 msg.pressure = data.pressure_hPa;
                 msg.pressure_unit = 'hPa';
+            } else if (data.pressure_PSI !== undefined) {
+                msg.pressure = data.pressure_PSI;
+                msg.pressure_unit = 'PSI';
+            } else if (data.pressure_kPa !== undefined) {
+                msg.pressure = data.pressure_kPa;
+                msg.pressure_unit = 'kPa';
+            } else if (data.tire_pressure_kPa !== undefined) {
+                msg.pressure = data.tire_pressure_kPa;
+                msg.pressure_unit = 'kPa';
             }
+            if (data.flags !== undefined) msg.state = data.flags;
+            else if (data.state !== undefined) msg.state = data.state;
             if (data.wind_avg_km_h !== undefined) {
                 msg.wind_speed = data.wind_avg_km_h;
                 msg.wind_unit = 'km/h';
