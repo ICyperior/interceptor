@@ -1380,9 +1380,19 @@ const WiFiMode = (function() {
 
         console.log('[WiFiMode] Agent changed from', lastAgentId, 'to', currentAgentId);
 
-        // Stop any running scan
+        // Stop UI polling only - don't stop the actual scan on the agent
+        // The agent should continue running independently
         if (isScanning) {
-            stopScan();
+            stopAgentDeepScanPolling();
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            setScanning(false);
         }
 
         // Clear existing data when switching agents (unless "Show All" is enabled)
