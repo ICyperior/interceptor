@@ -5459,15 +5459,28 @@
                         if (interfaces.length === 0) {
                             select.innerHTML = '<option value="">No WiFi interfaces on agent</option>';
                             showNotification('WiFi', 'No WiFi interfaces found on remote agent.');
+                            monitorInterface = null;
+                            updateMonitorStatus(false);
                         } else {
                             select.innerHTML = interfaces.map(i => {
                                 let label = i.name || i;
                                 if (i.display_name) label = i.display_name;
                                 else if (i.type) label += ` (${i.type})`;
                                 if (i.monitor_capable) label += ' [Monitor OK]';
-                                return `<option value="${i.name || i}">${label}</option>`;
+                                return `<option value="${i.name || i}" data-type="${i.type || 'managed'}">${label}</option>`;
                             }).join('');
                             showNotification('WiFi', `Found ${interfaces.length} interface(s) on agent`);
+
+                            // Check if any interface is already in monitor mode
+                            const monitorIface = interfaces.find(i => i.type === 'monitor');
+                            if (monitorIface) {
+                                monitorInterface = monitorIface.name;
+                                updateMonitorStatus(true);
+                                select.value = monitorIface.name;
+                            } else {
+                                monitorInterface = null;
+                                updateMonitorStatus(false);
+                            }
                         }
                     })
                     .catch(err => {
