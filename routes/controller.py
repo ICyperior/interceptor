@@ -493,6 +493,24 @@ def proxy_wifi_monitor(agent_id: int):
         client = create_client_from_agent(agent)
         result = client.post('/wifi/monitor', data)
 
+        # Refresh agent capabilities after monitor mode toggle so UI stays in sync
+        if result.get('status') == 'success':
+            try:
+                metadata = client.refresh_metadata()
+                if metadata.get('healthy'):
+                    caps = metadata.get('capabilities') or {}
+                    agent_interfaces = caps.get('interfaces', {})
+                    if not agent_interfaces.get('sdr_devices') and caps.get('devices'):
+                        agent_interfaces['sdr_devices'] = caps.get('devices', [])
+                    update_agent(
+                        agent_id,
+                        capabilities=caps.get('modes'),
+                        interfaces=agent_interfaces,
+                        update_last_seen=True
+                    )
+            except Exception:
+                pass  # Non-fatal if refresh fails
+
         return jsonify({
             'status': result.get('status', 'error'),
             'agent_id': agent_id,
