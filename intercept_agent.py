@@ -971,6 +971,7 @@ class ModeManager:
                         }
 
                     self.wifi_monitor_interface = monitor_iface
+                    self._capabilities = None  # Invalidate cache so interfaces refresh
                     logger.info(f"Monitor mode enabled on {monitor_iface}")
                     return {'status': 'success', 'monitor_interface': monitor_iface}
 
@@ -984,6 +985,7 @@ class ModeManager:
                     subprocess.run([iw_path, interface, 'set', 'monitor', 'control'], capture_output=True)
                     subprocess.run(['ip', 'link', 'set', interface, 'up'], capture_output=True)
                     self.wifi_monitor_interface = interface
+                    self._capabilities = None  # Invalidate cache
                     return {'status': 'success', 'monitor_interface': interface}
                 except Exception as e:
                     return {'status': 'error', 'message': str(e)}
@@ -997,6 +999,7 @@ class ModeManager:
                     subprocess.run([airmon_path, 'stop', current_iface],
                                   capture_output=True, text=True, timeout=15)
                     self.wifi_monitor_interface = None
+                    self._capabilities = None  # Invalidate cache
                     return {'status': 'success', 'message': 'Monitor mode disabled'}
                 except Exception as e:
                     return {'status': 'error', 'message': str(e)}
@@ -1006,6 +1009,7 @@ class ModeManager:
                     subprocess.run([iw_path, current_iface, 'set', 'type', 'managed'], capture_output=True)
                     subprocess.run(['ip', 'link', 'set', current_iface, 'up'], capture_output=True)
                     self.wifi_monitor_interface = None
+                    self._capabilities = None  # Invalidate cache
                     return {'status': 'success', 'message': 'Monitor mode disabled'}
                 except Exception as e:
                     return {'status': 'error', 'message': str(e)}
