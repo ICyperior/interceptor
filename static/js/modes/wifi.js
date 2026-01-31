@@ -594,7 +594,10 @@ const WiFiMode = (function() {
 
             if (status.is_scanning || status.running) {
                 // Agent returns scan_type in params, local returns scan_mode
-                const detectedMode = status.scan_mode || (status.params && status.params.scan_type) || 'deep';
+                // Normalize: agent may return 'deepscan' or 'deep', UI expects 'deep' or 'quick'
+                let detectedMode = status.scan_mode || (status.params && status.params.scan_type) || 'deep';
+                if (detectedMode === 'deepscan') detectedMode = 'deep';
+
                 setScanning(true, detectedMode);
                 if (detectedMode === 'deep') {
                     startEventStream();
