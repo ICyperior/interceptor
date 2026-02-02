@@ -686,6 +686,16 @@ def start_adsb():
         app_module.adsb_process = None
         logger.info("Killed stale ADS-B process")
 
+    # Check if device is available before starting local dump1090
+    device_int = int(device)
+    error = app_module.claim_sdr_device(device_int, 'adsb')
+    if error:
+        return jsonify({
+            'status': 'error',
+            'error_type': 'DEVICE_BUSY',
+            'message': error
+        }), 409
+
     # Create device object and build command via abstraction layer
     sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
     builder = SDRFactory.get_builder(sdr_type)
@@ -714,7 +724,8 @@ def start_adsb():
         time.sleep(DUMP1090_START_WAIT)
 
         if app_module.adsb_process.poll() is not None:
-            # Process exited - try to get error message
+            # Process exited - release device and get error message
+            app_module.release_sdr_device(device_int)
             stderr_output = ''
             if app_module.adsb_process.stderr:
                 try:
@@ -752,6 +763,8 @@ def start_adsb():
             'session': session
         })
     except Exception as e:
+        # Release device on failure
+        app_module.release_sdr_device(device_int)
         return jsonify({'status': 'error', 'message': str(e)})
 
 
@@ -779,6 +792,11 @@ def stop_adsb():
                     pass
             app_module.adsb_process = None
             logger.info("ADS-B process stopped")
+
+        # Release device from registry
+        if adsb_active_device is not None:
+            app_module.release_sdr_device(adsb_active_device)
+
         adsb_using_service = False
         adsb_active_device = None
 

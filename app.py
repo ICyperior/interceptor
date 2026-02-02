@@ -216,6 +216,52 @@ cleanup_manager.register(adsb_aircraft)
 cleanup_manager.register(ais_vessels)
 cleanup_manager.register(dsc_messages)
 
+# ============================================
+# SDR DEVICE REGISTRY
+# ============================================
+# Tracks which mode is using which SDR device to prevent conflicts
+# Key: device_index (int), Value: mode_name (str)
+sdr_device_registry: dict[int, str] = {}
+sdr_device_registry_lock = threading.Lock()
+
+
+def claim_sdr_device(device_index: int, mode_name: str) -> str | None:
+    """Claim an SDR device for a mode.
+
+    Args:
+        device_index: The SDR device index to claim
+        mode_name: Name of the mode claiming the device (e.g., 'sensor', 'rtlamr')
+
+    Returns:
+        Error message if device is in use, None if successfully claimed
+    """
+    with sdr_device_registry_lock:
+        if device_index in sdr_device_registry:
+            in_use_by = sdr_device_registry[device_index]
+            return f'SDR device {device_index} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.'
+        sdr_device_registry[device_index] = mode_name
+        return None
+
+
+def release_sdr_device(device_index: int) -> None:
+    """Release an SDR device from the registry.
+
+    Args:
+        device_index: The SDR device index to release
+    """
+    with sdr_device_registry_lock:
+        sdr_device_registry.pop(device_index, None)
+
+
+def get_sdr_device_status() -> dict[int, str]:
+    """Get current SDR device allocations.
+
+    Returns:
+        Dictionary mapping device indices to mode names
+    """
+    with sdr_device_registry_lock:
+        return dict(sdr_device_registry)
+
 
 # ============================================
 # MAIN ROUTES
@@ -628,6 +674,10 @@ def kill_all() -> Response:
     with dsc_lock:
         dsc_process = None
         dsc_rtl_process = None
+
+    # Clear SDR device registry
+    with sdr_device_registry_lock:
+        sdr_device_registry.clear()
 
     return jsonify({'status': 'killed', 'processes': killed})
 
