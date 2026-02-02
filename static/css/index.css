@@ -978,6 +978,18 @@ header h1 {
     color: var(--accent-cyan);
 }
 
+/* Donate button - warm amber accent */
+.nav-tool-btn--donate {
+    text-decoration: none;
+    color: var(--accent-amber);
+}
+
+.nav-tool-btn--donate:hover {
+    color: var(--accent-orange);
+    border-color: var(--accent-amber);
+    background: rgba(212, 168, 83, 0.1);
+}
+
 /* Theme toggle icon states in nav bar */
 .nav-tool-btn .icon-sun,
 .nav-tool-btn .icon-moon {

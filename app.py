@@ -38,6 +38,7 @@ from utils.constants import (
     MAX_BT_DEVICE_AGE_SECONDS,
     MAX_VESSEL_AGE_SECONDS,
     MAX_DSC_MESSAGE_AGE_SECONDS,
+    MAX_DEAUTH_ALERTS_AGE_SECONDS,
     QUEUE_MAX_SIZE,
 )
 import logging
@@ -175,6 +176,11 @@ dsc_lock = threading.Lock()
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
 
+# Deauth Attack Detection
+deauth_detector = None
+deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+deauth_detector_lock = threading.Lock()
+
 # ============================================
 # GLOBAL STATE DICTIONARIES
 # ============================================
@@ -204,6 +210,9 @@ ais_vessels = DataStore(max_age_seconds=MAX_VESSEL_AGE_SECONDS, name='ais_vessel
 # DSC (Digital Selective Calling) state - using DataStore for automatic cleanup
 dsc_messages = DataStore(max_age_seconds=MAX_DSC_MESSAGE_AGE_SECONDS, name='dsc_messages')
 
+# Deauth alerts - using DataStore for automatic cleanup
+deauth_alerts = DataStore(max_age_seconds=MAX_DEAUTH_ALERTS_AGE_SECONDS, name='deauth_alerts')
+
 # Satellite state
 satellite_passes = []  # Predicted satellite passes (not auto-cleaned, calculated)
 
@@ -215,6 +224,7 @@ cleanup_manager.register(bt_beacons)
 cleanup_manager.register(adsb_aircraft)
 cleanup_manager.register(ais_vessels)
 cleanup_manager.register(dsc_messages)
+cleanup_manager.register(deauth_alerts)
 
 # ============================================
 # SDR DEVICE REGISTRY

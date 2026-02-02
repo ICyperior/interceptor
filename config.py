@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.12.0"
+VERSION = "2.12.1"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.12.1",
+        "date": "February 2026",
+        "highlights": [
+            "Bug fixes and improvements",
+        ]
+    },
     {
         "version": "2.12.0",
         "date": "January 2026",

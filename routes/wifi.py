@@ -1413,3 +1413,143 @@ def v2_clear_data():
     except Exception as e:
         logger.exception("Error clearing data")
         return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# V2 Deauth Detection Endpoints
+# =============================================================================
+
+@wifi_bp.route('/v2/deauth/status')
+def v2_deauth_status():
+    """
+    Get deauth detection status and recent alerts.
+
+    Returns:
+        - is_running: Whether deauth detector is active
+        - interface: Monitor interface being used
+        - stats: Detection statistics
+        - recent_alerts: Recent deauth alerts
+    """
+    try:
+        scanner = get_wifi_scanner()
+        detector = scanner.deauth_detector
+
+        if detector:
+            stats = detector.stats
+            alerts = detector.get_alerts(limit=50)
+        else:
+            stats = {
+                'is_running': False,
+                'interface': None,
+                'packets_captured': 0,
+                'alerts_generated': 0,
+            }
+            alerts = []
+
+        return jsonify({
+            'is_running': stats.get('is_running', False),
+            'interface': stats.get('interface'),
+            'started_at': stats.get('started_at'),
+            'stats': {
+                'packets_captured': stats.get('packets_captured', 0),
+                'alerts_generated': stats.get('alerts_generated', 0),
+                'active_trackers': stats.get('active_trackers', 0),
+            },
+            'recent_alerts': alerts,
+        })
+    except Exception as e:
+        logger.exception("Error getting deauth status")
+        return jsonify({'error': str(e)}), 500
+
+
+@wifi_bp.route('/v2/deauth/stream')
+def v2_deauth_stream():
+    """
+    SSE stream for real-time deauth alerts.
+
+    Events:
+        - deauth_alert: A deauth attack was detected
+        - deauth_detector_started: Detector started
+        - deauth_detector_stopped: Detector stopped
+        - deauth_error: An error occurred
+        - keepalive: Periodic keepalive
+    """
+    def generate():
+        last_keepalive = time.time()
+        keepalive_interval = SSE_KEEPALIVE_INTERVAL
+
+        while True:
+            try:
+                # Try to get from the dedicated deauth queue
+                msg = app_module.deauth_detector_queue.get(timeout=SSE_QUEUE_TIMEOUT)
+                last_keepalive = time.time()
+                yield format_sse(msg)
+            except queue.Empty:
+                now = time.time()
+                if now - last_keepalive >= keepalive_interval:
+                    yield format_sse({'type': 'keepalive'})
+                    last_keepalive = now
+
+    response = Response(generate(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
+
+
+@wifi_bp.route('/v2/deauth/alerts')
+def v2_deauth_alerts():
+    """
+    Get historical deauth alerts.
+
+    Query params:
+        - limit: Maximum number of alerts to return (default 100)
+    """
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        limit = max(1, min(limit, 1000))  # Clamp between 1 and 1000
+
+        scanner = get_wifi_scanner()
+        alerts = scanner.get_deauth_alerts(limit=limit)
+
+        # Also include alerts from DataStore that might have been persisted
+        try:
+            stored_alerts = list(app_module.deauth_alerts.values())
+            # Merge and deduplicate by ID
+            alert_ids = {a.get('id') for a in alerts}
+            for alert in stored_alerts:
+                if alert.get('id') not in alert_ids:
+                    alerts.append(alert)
+            # Sort by timestamp descending
+            alerts.sort(key=lambda a: a.get('timestamp', 0), reverse=True)
+            alerts = alerts[:limit]
+        except Exception:
+            pass
+
+        return jsonify({
+            'alerts': alerts,
+            'count': len(alerts),
+        })
+    except Exception as e:
+        logger.exception("Error getting deauth alerts")
+        return jsonify({'error': str(e)}), 500
+
+
+@wifi_bp.route('/v2/deauth/clear', methods=['POST'])
+def v2_deauth_clear():
+    """Clear deauth alert history."""
+    try:
+        scanner = get_wifi_scanner()
+        scanner.clear_deauth_alerts()
+
+        # Clear the queue
+        while not app_module.deauth_detector_queue.empty():
+            try:
+                app_module.deauth_detector_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        return jsonify({'status': 'cleared'})
+    except Exception as e:
+        logger.exception("Error clearing deauth alerts")
+        return jsonify({'error': str(e)}), 500
