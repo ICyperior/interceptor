@@ -347,6 +347,22 @@ def get_devices() -> Response:
     return jsonify([d.to_dict() for d in devices])
 
 
+@app.route('/devices/status')
+def get_devices_status() -> Response:
+    """Get all SDR devices with usage status."""
+    devices = SDRFactory.detect_devices()
+    registry = get_sdr_device_status()
+
+    result = []
+    for device in devices:
+        d = device.to_dict()
+        d['in_use'] = device.index in registry
+        d['used_by'] = registry.get(device.index)
+        result.append(d)
+
+    return jsonify(result)
+
+
 @app.route('/devices/debug')
 def get_devices_debug() -> Response:
     """Get detailed SDR device detection diagnostics."""

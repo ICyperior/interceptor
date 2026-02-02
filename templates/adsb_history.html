@@ -558,11 +558,9 @@
             }
             devices.forEach((dev, idx) => {
                 const index = dev.index !== undefined ? dev.index : idx;
-                const type = (dev.sdr_type || dev.driver || 'RTL-SDR').toUpperCase();
-                const serial = dev.serial ? ` (${dev.serial.slice(-4)})` : '';
                 const opt = document.createElement('option');
                 opt.value = index;
-                opt.textContent = `${type} #${index}${serial}`;
+                opt.textContent = `SDR ${index}: ${dev.name}`;
                 sessionDeviceSelect.appendChild(opt);
             });
             sessionDeviceSelect.disabled = false;

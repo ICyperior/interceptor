@@ -269,6 +269,7 @@
                     <select id="adsbDeviceSelect" title="SDR device for ADS-B (1090 MHz)">
                         <option value="0">SDR 0</option>
                     </select>
+                    <label class="bias-t-label" title="Enable Bias-T power for external LNA/preamp"><input type="checkbox" id="adsbBiasT" onchange="saveAdsbBiasTSetting()"> Bias-T</label>
                     <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
                 </div>
             </div>
@@ -322,10 +323,23 @@
 
     <script>
         // ============================================
-        // BIAS-T HELPER (reads from main dashboard localStorage)
+        // BIAS-T HELPER
         // ============================================
         function getBiasTEnabled() {
-            return localStorage.getItem('biasTEnabled') === 'true';
+            return document.getElementById('adsbBiasT')?.checked || false;
+        }
+
+        function saveAdsbBiasTSetting() {
+            const enabled = document.getElementById('adsbBiasT')?.checked || false;
+            localStorage.setItem('adsbBiasTEnabled', enabled);
+        }
+
+        function loadAdsbBiasTSetting() {
+            const saved = localStorage.getItem('adsbBiasTEnabled');
+            if (saved === 'true') {
+                const checkbox = document.getElementById('adsbBiasT');
+                if (checkbox) checkbox.checked = true;
+            }
         }
 
         // ============================================
@@ -2008,6 +2022,9 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             const detectionToggle = document.getElementById('detectionSoundToggle');
             if (detectionToggle) detectionToggle.checked = detectionSoundEnabled;
 
+            // Load Bias-T setting from localStorage
+            loadAdsbBiasTSetting();
+
             initMap();
             initDeviceSelectors();
             updateClock();
@@ -2046,27 +2063,18 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     } else {
                         devices.forEach((dev, i) => {
                             const idx = dev.index !== undefined ? dev.index : i;
-
-                            // Build descriptive label
-                            const type = dev.sdr_type || dev.driver || 'RTL-SDR';
-                            const typeName = type.toUpperCase().replace('RTLSDR', 'RTL-SDR');
-                            const shortSerial = dev.serial ? ` (${dev.serial.slice(-4)})` : '';
-                            const displayName = `${typeName} #${idx}${shortSerial}`;
-                            const fullName = dev.name || `${typeName} Device ${idx}`;
-                            const tooltip = `${fullName}${dev.serial ? ' - Serial: ' + dev.serial : ''}`;
+                            const displayName = `SDR ${idx}: ${dev.name}`;
 
                             // Add to ADS-B selector
                             const adsbOpt = document.createElement('option');
                             adsbOpt.value = idx;
                             adsbOpt.textContent = displayName;
-                            adsbOpt.title = tooltip;
                             adsbSelect.appendChild(adsbOpt);
 
                             // Add to Airband selector
                             const airbandOpt = document.createElement('option');
                             airbandOpt.value = idx;
                             airbandOpt.textContent = displayName;
-                            airbandOpt.title = tooltip;
                             airbandSelect.appendChild(airbandOpt);
                         });
 
@@ -4004,7 +4012,7 @@ sudo make install</code>
                         devices.forEach((d, i) => {
                             const opt = document.createElement('option');
                             opt.value = d.index || i;
-                            opt.textContent = `Device ${d.index || i}: ${d.name || d.type || 'SDR'}`;
+                            opt.textContent = `SDR ${d.index || i}: ${d.name || d.type || 'SDR'}`;
                             select.appendChild(opt);
                         });
                         // Default to device 1 if available (device 0 likely used for ADS-B)
@@ -4774,7 +4782,7 @@ sudo make install</code>
                     devices.forEach(device => {
                         const opt = document.createElement('option');
                         opt.value = device.index;
-                        opt.textContent = `Device ${device.index}: ${device.name || device.type || 'SDR'}`;
+                        opt.textContent = `SDR ${device.index}: ${device.name || device.type || 'SDR'}`;
                         select.appendChild(opt);
                     });
                 }

@@ -537,6 +537,14 @@
                         Refresh Devices
                     </button>
 
+                    <!-- SDR Device Status -->
+                    <div id="sdrStatusPanel" style="margin-top: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
+                        <div id="sdrStatusList" style="max-height: 150px; overflow-y: auto;"></div>
+                        <div style="padding: 6px 8px; background: var(--bg-tertiary); border-top: 1px solid var(--border-color); font-size: 10px; color: #666;">
+                            Auto-refreshes every 5s
+                        </div>
+                    </div>
+
                     <!-- Remote SDR (rtl_tcp) -->
                     <div class="form-group" style="margin-top: 10px;">
                         <label class="inline-checkbox">
@@ -2445,6 +2453,9 @@
 
             // Initialize dropdown nav active state
             updateDropdownActiveState();
+
+            // Start SDR device status polling
+            startSdrStatusPolling();
         });
 
         // Toggle section collapse
@@ -3717,12 +3728,80 @@
 
                     // Trigger filter update
                     onSDRTypeChanged();
+
+                    // Also refresh SDR status panel
+                    fetchSdrStatus();
                 })
                 .catch(err => {
                     console.error('Failed to refresh devices:', err);
                     const select = document.getElementById('deviceSelect');
                     select.innerHTML = '<option value="0">Error loading devices</option>';
                 });
+        }
+
+        // SDR Device Status Panel
+        let sdrStatusPollingInterval = null;
+
+        function renderSdrStatus(devices) {
+            const container = document.getElementById('sdrStatusList');
+            if (!container) return;
+
+            if (!devices || devices.length === 0) {
+                container.innerHTML = '<div style="padding: 8px; color: #888; font-size: 11px; text-align: center;">No SDR devices detected</div>';
+                return;
+            }
+
+            const html = devices.map(d => {
+                const isActive = d.in_use;
+                const statusDot = isActive
+                    ? '<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 6px #00ff88; margin-right: 6px;"></span>'
+                    : '<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #555; margin-right: 6px;"></span>';
+                const modeName = d.used_by ? d.used_by.toUpperCase() : 'IDLE';
+                const modeColor = isActive ? '#00ff88' : '#666';
+                const sdrType = (d.sdr_type || 'RTL').toUpperCase().replace('RTLSDR', 'RTL');
+
+                return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--border-color);">
+                    <div style="display: flex; align-items: center;">
+                        ${statusDot}
+                        <span style="font-size: 11px;">#${d.index} ${d.name || 'Unknown'}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 10px; color: ${modeColor}; font-weight: bold;">${modeName}</span>
+                        <span style="font-size: 9px; padding: 1px 4px; background: var(--bg-tertiary); border-radius: 3px; color: #888;">${sdrType}</span>
+                    </div>
+                </div>`;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        function fetchSdrStatus() {
+            fetch('/devices/status')
+                .then(r => r.json())
+                .then(devices => {
+                    renderSdrStatus(devices);
+                })
+                .catch(err => {
+                    console.error('Failed to fetch SDR status:', err);
+                    const container = document.getElementById('sdrStatusList');
+                    if (container) {
+                        container.innerHTML = '<div style="padding: 8px; color: #ff6666; font-size: 11px; text-align: center;">Error loading status</div>';
+                    }
+                });
+        }
+
+        function startSdrStatusPolling() {
+            // Initial fetch
+            fetchSdrStatus();
+            // Poll every 5 seconds
+            sdrStatusPollingInterval = setInterval(fetchSdrStatus, 5000);
+        }
+
+        function stopSdrStatusPolling() {
+            if (sdrStatusPollingInterval) {
+                clearInterval(sdrStatusPollingInterval);
+                sdrStatusPollingInterval = null;
+            }
         }
 
         function getSelectedDevice() {
