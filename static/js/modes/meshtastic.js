@@ -143,7 +143,7 @@ const Meshtastic = (function() {
 
             if (data.running) {
                 isConnected = true;
-                updateConnectionUI(true, data.device);
+                updateConnectionUI(true, data.device, data.connection_type);
                 if (data.node_info) {
                     updateNodeInfo(data.node_info);
                     localNodeId = data.node_info.num;
