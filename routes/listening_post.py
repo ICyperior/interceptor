@@ -467,7 +467,7 @@ def scanner_loop_power():
                 noise_floor = sorted_vals[mid]
 
                 # SNR threshold (dB) based on squelch
-                snr_threshold = 8 + (squelch * 0.3)
+                snr_threshold = float(scanner_config.get('snr_threshold', 12))
 
                 # Emit progress updates (throttled)
                 emit_stride = max(1, len(bin_values) // 60)
@@ -800,6 +800,8 @@ def start_scanner() -> Response:
         scanner_config['bias_t'] = bool(data.get('bias_t', False))
         scanner_config['sdr_type'] = str(data.get('sdr_type', 'rtlsdr')).lower()
         scanner_config['scan_method'] = str(data.get('scan_method', '')).lower().strip()
+        if data.get('snr_threshold') is not None:
+            scanner_config['snr_threshold'] = float(data.get('snr_threshold'))
     except (ValueError, TypeError) as e:
         return jsonify({
             'status': 'error',

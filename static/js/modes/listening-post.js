@@ -28,6 +28,7 @@ let audioQueue = [];
 let isWebSocketAudio = false;
 let audioFetchController = null;
 let audioUnlockRequested = false;
+let scannerSnrThreshold = 12;
 
 // Visualizer state
 let visualizerContext = null;
@@ -154,6 +155,7 @@ function startScanner() {
     const dwellSelect = document.getElementById('radioScanDwell');
     const dwell = dwellSelect ? parseInt(dwellSelect.value) : 10;
     const device = getSelectedDevice();
+    const snrThreshold = scannerSnrThreshold || 12;
 
     // Check if using agent mode
     const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
@@ -215,7 +217,9 @@ function startScanner() {
             gain: gain,
             dwell_time: dwell,
             device: device,
-            bias_t: typeof getBiasTEnabled === 'function' ? getBiasTEnabled() : false
+            bias_t: typeof getBiasTEnabled === 'function' ? getBiasTEnabled() : false,
+            snr_threshold: snrThreshold,
+            scan_method: 'power'
         })
     })
     .then(r => r.json())
@@ -1721,6 +1725,7 @@ function getStreamUrl(freq, mod) {
 function initListeningPost() {
     checkScannerTools();
     checkAudioTools();
+    initSnrThresholdControl();
 
     // WebSocket audio disabled for now - using HTTP streaming
     // initWebSocketAudio();
@@ -1822,6 +1827,29 @@ function initListeningPost() {
 
     // Check if we arrived from Spy Stations with a tune request
     checkIncomingTuneRequest();
+}
+
+function initSnrThresholdControl() {
+    const slider = document.getElementById('snrThresholdSlider');
+    const valueEl = document.getElementById('snrThresholdValue');
+    if (!slider || !valueEl) return;
+
+    const stored = localStorage.getItem('scannerSnrThreshold');
+    if (stored) {
+        const parsed = parseInt(stored, 10);
+        if (!Number.isNaN(parsed)) {
+            scannerSnrThreshold = parsed;
+        }
+    }
+
+    slider.value = scannerSnrThreshold;
+    valueEl.textContent = String(scannerSnrThreshold);
+
+    slider.addEventListener('input', () => {
+        scannerSnrThreshold = parseInt(slider.value, 10);
+        valueEl.textContent = String(scannerSnrThreshold);
+        localStorage.setItem('scannerSnrThreshold', String(scannerSnrThreshold));
+    });
 }
 
 /**
