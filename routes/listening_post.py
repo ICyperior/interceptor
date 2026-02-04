@@ -436,11 +436,9 @@ def _start_audio_stream(frequency: float, modulation: str):
             '-ar', str(resample_rate),
             '-ac', '1',
             '-i', 'pipe:0',
-            '-acodec', 'libmp3lame',
-            '-b:a', '128k',
+            '-acodec', 'pcm_s16le',
             '-ar', '44100',
-            '-f', 'mp3',
-            '-flush_packets', '1',
+            '-f', 'wav',
             'pipe:1'
         ]
 
@@ -904,7 +902,7 @@ def audio_debug() -> Response:
 
 @listening_post_bp.route('/audio/stream')
 def stream_audio() -> Response:
-    """Stream MP3 audio."""
+    """Stream WAV audio."""
     # Wait for audio to be ready (up to 2 seconds for modulation/squelch changes)
     for _ in range(40):
         if audio_running and audio_process:
@@ -946,9 +944,9 @@ def stream_audio() -> Response:
 
     return Response(
         generate(),
-        mimetype='audio/mpeg',
+        mimetype='audio/wav',
         headers={
-            'Content-Type': 'audio/mpeg',
+            'Content-Type': 'audio/wav',
             'Cache-Control': 'no-cache, no-store',
             'X-Accel-Buffering': 'no',
             'Transfer-Encoding': 'chunked',
