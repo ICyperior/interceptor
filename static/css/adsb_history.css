@@ -20,7 +20,7 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-sans);
     background: var(--bg-dark);
     color: var(--text-primary);
     min-height: 100vh;

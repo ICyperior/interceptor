@@ -22,7 +22,7 @@
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
     {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
     <!-- Leaflet.js for APRS map - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}
@@ -4223,7 +4223,7 @@
 
             const infoEl = document.createElement('div');
             infoEl.className = 'info-msg';
-            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "Terminus", monospace; font-size: 11px; color: #888; word-break: break-all;';
+            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #888; word-break: break-all;';
             infoEl.textContent = text;
             output.insertBefore(infoEl, output.firstChild);
         }
@@ -4239,7 +4239,7 @@
 
             const errorEl = document.createElement('div');
             errorEl.className = 'error-msg';
-            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "Terminus", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
+            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
             errorEl.textContent = '⚠ ' + text;
             output.insertBefore(errorEl, output.firstChild);
         }
@@ -6855,7 +6855,7 @@
 
             // Draw total in center
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 16px Terminus';
+            ctx.font = 'bold 16px JetBrains Mono';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(total, cx, cy);
@@ -8625,7 +8625,7 @@
                 // Label
                 if (el > 0) {
                     ctx.fillStyle = '#444';
-                    ctx.font = '10px Terminus';
+                    ctx.font = '10px JetBrains Mono';
                     ctx.textAlign = 'center';
                     ctx.fillText(el + '°', cx, cy - r + 12);
                 }
@@ -8698,7 +8698,7 @@
 
                 // Label
                 ctx.fillStyle = '#fff';
-                ctx.font = '11px Terminus';
+                ctx.font = '11px JetBrains Mono';
                 ctx.fillText(pass.satellite, maxX + 10, maxY - 5);
             }
         }

@@ -8,7 +8,7 @@
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
     {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
     <!-- Leaflet.js - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}
@@ -1387,7 +1387,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Range label
                     const rangeNm = Math.round(maxRange * ratio);
                     ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-                    ctx.font = '10px Terminus';
+                    ctx.font = '10px JetBrains Mono';
                     ctx.fillText(`${rangeNm}`, this.centerX + r + 5, this.centerY + 4);
                 });
             }
@@ -1528,7 +1528,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Label
                     if (blip.callsign || blip.selected) {
                         ctx.fillStyle = '#00ffff';
-                        ctx.font = '9px Terminus';
+                        ctx.font = '9px JetBrains Mono';
                         ctx.textAlign = 'left';
                         ctx.fillText(blip.callsign || blip.icao, blip.x + 8, blip.y - 5);
                         if (blip.altitude) {
@@ -1646,7 +1646,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 // Range label
                 const rangeNm = Math.round(maxRange * ratio);
                 ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
-                ctx.font = '10px Terminus';
+                ctx.font = '10px JetBrains Mono';
                 ctx.fillText(`${rangeNm}nm`, centerX + r + 5, centerY);
             });
 

@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Network Monitor // INTERCEPT</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    {% if offline_settings.fonts_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    {% else %}
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/agents.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">

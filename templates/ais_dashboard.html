@@ -8,7 +8,7 @@
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
     {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
     <!-- Leaflet.js - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}

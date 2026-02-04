@@ -1,13 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-@font-face {
-    font-family: 'Terminus';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url('/static/vendor/fonts/Terminus.ttf') format('truetype');
-}
-
 * {
     box-sizing: border-box;
     margin: 0;
@@ -81,7 +71,7 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-sans);
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
@@ -348,7 +338,7 @@ body {
 }
 
 .changelog-date {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 0.7rem;
     color: var(--text-dim);
 }
@@ -360,7 +350,7 @@ body {
 }
 
 .changelog-list li {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin-bottom: 6px;
@@ -452,7 +442,7 @@ body {
 }
 
 .mode-card .mode-desc {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 0.65rem;
     color: var(--text-dim);
     margin-top: 4px;
@@ -525,7 +515,7 @@ body {
 }
 
 .welcome-footer p {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 0.7rem;
     color: var(--text-dim);
     letter-spacing: 0.1em;
@@ -739,7 +729,7 @@ header h1 {
     border: 1px solid transparent;
     border-radius: 4px;
     color: var(--text-secondary);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
@@ -786,7 +776,7 @@ header h1 {
     border: 1px solid var(--accent-cyan);
     border-radius: 4px;
     color: var(--accent-cyan);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 11px;
     font-weight: 500;
     text-decoration: none;
@@ -822,7 +812,7 @@ header h1 {
     border: 1px solid transparent;
     border-radius: 4px;
     color: var(--text-secondary);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
@@ -1665,7 +1655,7 @@ header h1 .tagline {
     background: var(--accent-green);
     border: none;
     color: #fff;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
@@ -1702,7 +1692,7 @@ header h1 .tagline {
     background: var(--accent-red);
     border: none;
     color: #fff;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
@@ -2097,7 +2087,7 @@ header h1 .tagline {
     text-transform: uppercase;
     letter-spacing: 1px;
     transition: all 0.2s ease;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
 }
 
 .control-btn:hover {
@@ -2512,7 +2502,7 @@ header h1 .tagline {
     border-radius: 4px;
     color: var(--text-secondary);
     cursor: pointer;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 11px;
     text-transform: uppercase;
     transition: all 0.2s ease;
@@ -4892,7 +4882,7 @@ body::before {
     color: #000;
     border: none;
     padding: 12px 40px;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     font-size: 14px;
     font-weight: 600;
     letter-spacing: 2px;
@@ -6027,7 +6017,7 @@ body::before {
 }
 
 .module-header {
-    font-family: 'Orbitron', 'Terminus', monospace;
+    font-family: 'Orbitron', 'JetBrains Mono', monospace;
     font-size: 10px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -6194,7 +6184,7 @@ body::before {
 /* Listening Mode Selector Buttons */
 .radio-mode-btn {
     padding: 12px 24px;
-    font-family: 'Orbitron', 'Terminus', monospace;
+    font-family: 'Orbitron', 'JetBrains Mono', monospace;
     font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;

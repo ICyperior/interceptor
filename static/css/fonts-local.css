@@ -65,12 +65,3 @@
     font-display: swap;
     src: url('/static/vendor/fonts/JetBrainsMono-Bold.woff2') format('woff2');
 }
-
-/* Terminus - Monospace UI font */
-@font-face {
-    font-family: 'Terminus';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url('/static/vendor/fonts/Terminus.ttf') format('truetype');
-}

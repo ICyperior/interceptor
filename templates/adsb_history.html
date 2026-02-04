@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ADS-B History // INTERCEPT</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    {% if offline_settings.fonts_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    {% else %}
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_history.css') }}">
@@ -466,7 +470,7 @@
 
             if (!points.length) {
                 ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
-                ctx.font = '12px "Terminus", monospace';
+                ctx.font = '12px "JetBrains Mono", monospace';
                 ctx.fillText(`No ${label.toLowerCase()} data`, 12, height / 2);
                 return;
             }
@@ -474,7 +478,7 @@
             const series = points.map(p => p[field]).filter(v => v !== null && v !== undefined);
             if (!series.length) {
                 ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
-                ctx.font = '12px "Terminus", monospace';
+                ctx.font = '12px "JetBrains Mono", monospace';
                 ctx.fillText(`No ${label.toLowerCase()} data`, 12, height / 2);
                 return;
             }
@@ -515,7 +519,7 @@
             }
 
             ctx.fillStyle = 'rgba(226, 232, 240, 0.8)';
-            ctx.font = '11px "Terminus", monospace';
+            ctx.font = '11px "JetBrains Mono", monospace';
             ctx.fillText(`${maxVal} ${unit}`, 12, padding);
             ctx.fillText(`${minVal} ${unit}`, 12, height - padding);
         }

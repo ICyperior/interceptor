@@ -3,15 +3,6 @@
    Shared responsive foundation for all pages
    ============================================ */
 
-/* Terminus - bundled monospace */
-@font-face {
-    font-family: 'Terminus';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url('/static/vendor/fonts/Terminus.ttf') format('truetype');
-}
-
 /* ============== CSS VARIABLES ============== */
 :root {
     /* Touch targets */
