@@ -19,6 +19,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_dashboard.css') }}">
     <script>
         window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
@@ -50,6 +51,9 @@
             <a href="/?mode=aircraft" class="back-link">Main Dashboard</a>
         </div>
     </header>
+
+    {% set active_mode = 'adsb' %}
+    {% include 'partials/nav.html' with context %}
 
     <!-- Slim Statistics Bar -->
     <div class="stats-strip">
@@ -4517,6 +4521,7 @@ sudo make install</code>
 
     <!-- Agent Manager -->
     <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
     <script>
         // ADS-B specific agent integration
         let adsbCurrentAgent = 'local';

@@ -8,6 +8,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/agents.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <style>
         .agents-container {
             max-width: 1200px;
@@ -300,6 +301,8 @@
         </h1>
     </header>
 
+    {% include 'partials/nav.html' with context %}
+
     <div class="agents-container">
         <div class="nav-links">
             <a href="#" onclick="history.back(); return false;" class="back-link">
@@ -584,5 +587,6 @@
         // Load agents on page load
         document.addEventListener('DOMContentLoaded', loadAgents);
     </script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
 </body>
 </html>

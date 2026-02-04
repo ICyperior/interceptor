@@ -20,6 +20,7 @@
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ais_dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <script>
         window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
     </script>
@@ -50,6 +51,9 @@
             <a href="/" class="back-link">Main Dashboard</a>
         </div>
     </header>
+
+    {% set active_mode = 'ais' %}
+    {% include 'partials/nav.html' with context %}
 
     <div class="stats-strip">
         <div class="stats-strip-inner">
@@ -1549,6 +1553,7 @@
 
     <!-- Agent Manager -->
     <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
     <script>
         // AIS-specific agent integration
         let aisCurrentAgent = 'local';

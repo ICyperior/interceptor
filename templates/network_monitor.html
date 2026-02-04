@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/agents.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -513,12 +514,9 @@
             NETWORK MONITOR
             <span>// MULTI-AGENT VIEW</span>
         </div>
-        <nav class="header-nav">
-            <a href="#" onclick="history.back(); return false;">Back</a>
-            <a href="/">Dashboard</a>
-            <a href="/controller/manage">Manage Agents</a>
-        </nav>
     </header>
+
+    {% include 'partials/nav.html' with context %}
 
     <div class="status-bar">
         <div class="status-item">
@@ -1102,5 +1100,6 @@
         connectStream();
         addLogEntry('system', 'Network Monitor initialized');
     </script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
 </body>
 </html>
