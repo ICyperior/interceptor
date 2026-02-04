@@ -920,6 +920,8 @@ def stream_audio() -> Response:
         if not proc or not proc.stdout:
             return
         try:
+            # First byte timeout to avoid hanging clients forever
+            first_chunk_deadline = time.time() + 3.0
             while audio_running and proc.poll() is None:
                 # Use select to avoid blocking forever
                 ready, _, _ = select.select([proc.stdout], [], [], 2.0)
@@ -930,6 +932,10 @@ def stream_audio() -> Response:
                     else:
                         break
                 else:
+                    # If no data arrives shortly after start, exit so caller can retry
+                    if time.time() > first_chunk_deadline:
+                        logger.warning("Audio stream timed out waiting for first chunk")
+                        break
                     # Timeout - check if process died
                     if proc.poll() is not None:
                         break
