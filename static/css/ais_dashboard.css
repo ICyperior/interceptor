@@ -677,7 +677,7 @@ body {
     background: var(--bg-panel);
     border-top: 1px solid rgba(74, 158, 255, 0.3);
     font-size: 11px;
-    overflow-x: auto;
+    overflow: hidden;
 }
 
 .controls-bar > .control-group {
