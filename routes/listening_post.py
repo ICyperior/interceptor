@@ -480,6 +480,14 @@ def _start_audio_stream(frequency: float, modulation: str):
                 logger.error(f"Audio pipeline exited immediately. rtl_fm stderr: {rtl_stderr}, ffmpeg stderr: {ffmpeg_stderr}")
                 return
 
+            # Validate that audio is producing data quickly
+            try:
+                ready, _, _ = select.select([audio_process.stdout], [], [], 2.0)
+                if not ready:
+                    logger.warning("Audio pipeline produced no data in startup window")
+            except Exception as e:
+                logger.warning(f"Audio startup check failed: {e}")
+
             audio_running = True
             audio_frequency = frequency
             audio_modulation = modulation
@@ -878,6 +886,7 @@ def audio_debug() -> Response:
     """Get audio debug status and recent stderr logs."""
     rtl_log_path = '/tmp/rtl_fm_stderr.log'
     ffmpeg_log_path = '/tmp/ffmpeg_stderr.log'
+    sample_path = '/tmp/audio_probe.bin'
 
     def _read_log(path: str) -> str:
         try:
@@ -897,7 +906,34 @@ def audio_debug() -> Response:
         'audio_process_alive': bool(audio_process and audio_process.poll() is None),
         'rtl_fm_stderr': _read_log(rtl_log_path),
         'ffmpeg_stderr': _read_log(ffmpeg_log_path),
+        'audio_probe_bytes': os.path.getsize(sample_path) if os.path.exists(sample_path) else 0,
     })
+
+
+@listening_post_bp.route('/audio/probe')
+def audio_probe() -> Response:
+    """Grab a small chunk of audio bytes from the pipeline for debugging."""
+    global audio_process
+
+    if not audio_process or not audio_process.stdout:
+        return jsonify({'status': 'error', 'message': 'audio process not running'}), 400
+
+    sample_path = '/tmp/audio_probe.bin'
+    size = 0
+    try:
+        ready, _, _ = select.select([audio_process.stdout], [], [], 2.0)
+        if not ready:
+            return jsonify({'status': 'error', 'message': 'no data available'}), 504
+        data = audio_process.stdout.read(4096)
+        if not data:
+            return jsonify({'status': 'error', 'message': 'no data read'}), 504
+        with open(sample_path, 'wb') as handle:
+            handle.write(data)
+        size = len(data)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'ok', 'bytes': size})
 
 
 @listening_post_bp.route('/audio/stream')
