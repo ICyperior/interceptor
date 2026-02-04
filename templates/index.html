@@ -707,7 +707,7 @@
                                 </div>
                             </div>
                             <div class="wifi-detail-clients" id="wifiDetailClientList" style="display: none;">
-                                <h6>Connected Clients</h6>
+                                <h6>Connected Clients <span class="wifi-client-count-badge" id="wifiClientCountBadge"></span></h6>
                                 <div class="wifi-client-list"></div>
                             </div>
                         </div>
@@ -4259,7 +4259,7 @@
 
             const infoEl = document.createElement('div');
             infoEl.className = 'info-msg';
-            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #888; word-break: break-all;';
+            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "Space Mono", monospace; font-size: 11px; color: #888; word-break: break-all;';
             infoEl.textContent = text;
             output.insertBefore(infoEl, output.firstChild);
         }
@@ -4275,7 +4275,7 @@
 
             const errorEl = document.createElement('div');
             errorEl.className = 'error-msg';
-            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
+            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "Space Mono", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
             errorEl.textContent = '⚠ ' + text;
             output.insertBefore(errorEl, output.firstChild);
         }
@@ -6891,7 +6891,7 @@
 
             // Draw total in center
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 16px JetBrains Mono';
+            ctx.font = 'bold 16px Space Mono';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(total, cx, cy);
@@ -8661,7 +8661,7 @@
                 // Label
                 if (el > 0) {
                     ctx.fillStyle = '#444';
-                    ctx.font = '10px JetBrains Mono';
+                    ctx.font = '10px Space Mono';
                     ctx.textAlign = 'center';
                     ctx.fillText(el + '°', cx, cy - r + 12);
                 }
@@ -8734,7 +8734,7 @@
 
                 // Label
                 ctx.fillStyle = '#fff';
-                ctx.font = '11px JetBrains Mono';
+                ctx.font = '11px Space Mono';
                 ctx.fillText(pass.satellite, maxX + 10, maxY - 5);
             }
         }
@@ -9319,14 +9319,10 @@
         // Theme toggle functions
         function toggleTheme() {
             const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
+            const currentTheme = html.getAttribute('data-theme') || 'dark';
             const newTheme = currentTheme === 'light' ? 'dark' : 'light';
 
-            if (newTheme === 'dark') {
-                html.removeAttribute('data-theme');
-            } else {
-                html.setAttribute('data-theme', newTheme);
-            }
+            html.setAttribute('data-theme', newTheme);
 
             // Save to localStorage for instant load on next visit
             localStorage.setItem('intercept-theme', newTheme);
@@ -9358,10 +9354,8 @@
         // Load saved theme and animations on page load
         (function () {
             // First apply localStorage theme for instant load (no flash)
-            const localTheme = localStorage.getItem('intercept-theme');
-            if (localTheme === 'light') {
-                document.documentElement.setAttribute('data-theme', 'light');
-            }
+            const localTheme = localStorage.getItem('intercept-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', localTheme);
 
             // Apply animations preference
             const localAnimations = localStorage.getItem('intercept-animations');
@@ -9377,11 +9371,7 @@
                         const serverTheme = data.value;
                         if (serverTheme !== localTheme) {
                             // Server has different theme, apply it
-                            if (serverTheme === 'light') {
-                                document.documentElement.setAttribute('data-theme', 'light');
-                            } else {
-                                document.documentElement.removeAttribute('data-theme');
-                            }
+                            document.documentElement.setAttribute('data-theme', serverTheme);
                             localStorage.setItem('intercept-theme', serverTheme);
                         }
                     }

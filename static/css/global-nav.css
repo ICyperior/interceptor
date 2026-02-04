@@ -323,10 +323,74 @@
     box-shadow: 0 6px 14px rgba(5, 9, 15, 0.35);
 }
 
+/* Position relative needed for absolute positioned icon children */
+.nav-tool-btn {
+    position: relative;
+}
+
 .mode-nav-btn:focus-visible,
 .mode-nav-dropdown-btn:focus-visible,
 .nav-action-btn:focus-visible,
 .nav-tool-btn:focus-visible {
     outline: 2px solid var(--accent-cyan, #4d7dbf);
     outline-offset: 2px;
+}
+
+/* Nav tool button SVG sizing and styling */
+.nav-tool-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+}
+
+.nav-tool-btn .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-tool-btn .icon svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+}
+
+/* Theme toggle icon states */
+.nav-tool-btn .icon-sun,
+.nav-tool-btn .icon-moon {
+    position: absolute;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.nav-tool-btn .icon-sun {
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+.nav-tool-btn .icon-moon {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+[data-theme="light"] .nav-tool-btn .icon-sun {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+[data-theme="light"] .nav-tool-btn .icon-moon {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
+/* Effects/animations toggle icon states */
+.nav-tool-btn .icon-effects-off {
+    display: none;
+}
+
+[data-animations="off"] .nav-tool-btn .icon-effects-on {
+    display: none;
+}
+
+[data-animations="off"] .nav-tool-btn .icon-effects-off {
+    display: flex;
 }

@@ -229,7 +229,7 @@
             const current = html.getAttribute('data-theme') || 'dark';
             const next = current === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', next);
-            localStorage.setItem('theme', next);
+            localStorage.setItem('intercept-theme', next);
         };
     }
 
@@ -257,12 +257,12 @@
 
     // Apply saved preferences and start clock
     (function() {
-        const savedTheme = localStorage.getItem('theme');
+        const savedTheme = localStorage.getItem('intercept-theme');
         if (savedTheme) {
             document.documentElement.setAttribute('data-theme', savedTheme);
         }
 
-        const savedAnimations = localStorage.getItem('animations');
+        const savedAnimations = localStorage.getItem('intercept-animations');
         if (savedAnimations) {
             document.documentElement.setAttribute('data-animations', savedAnimations);
         }

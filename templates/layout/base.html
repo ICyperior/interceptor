@@ -10,7 +10,7 @@
     {% if offline_settings and offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
     {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     {% endif %}
 
     {# Core CSS (Design System) #}
@@ -137,7 +137,7 @@
         }
 
         // Apply saved theme
-        const savedTheme = localStorage.getItem('theme');
+        const savedTheme = localStorage.getItem('intercept-theme');
         if (savedTheme) {
             document.documentElement.setAttribute('data-theme', savedTheme);
         }

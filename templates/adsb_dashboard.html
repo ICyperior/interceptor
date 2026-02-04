@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     {% endif %}
+    <!-- Core CSS variables -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_dashboard.css') }}">
@@ -1387,7 +1389,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Range label
                     const rangeNm = Math.round(maxRange * ratio);
                     ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-                    ctx.font = '10px JetBrains Mono';
+                    ctx.font = '10px Space Mono';
                     ctx.fillText(`${rangeNm}`, this.centerX + r + 5, this.centerY + 4);
                 });
             }
@@ -1528,7 +1530,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Label
                     if (blip.callsign || blip.selected) {
                         ctx.fillStyle = '#00ffff';
-                        ctx.font = '9px JetBrains Mono';
+                        ctx.font = '9px Space Mono';
                         ctx.textAlign = 'left';
                         ctx.fillText(blip.callsign || blip.icao, blip.x + 8, blip.y - 5);
                         if (blip.altitude) {
@@ -1646,7 +1648,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 // Range label
                 const rangeNm = Math.round(maxRange * ratio);
                 ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Space Mono';
                 ctx.fillText(`${rangeNm}nm`, centerX + r + 5, centerY);
             });
 

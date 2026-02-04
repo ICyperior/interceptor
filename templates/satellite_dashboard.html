@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     {% endif %}
+    <!-- Core CSS variables -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/satellite_dashboard.css') }}">
@@ -593,7 +595,7 @@
                 ctx.stroke();
 
                 ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Space Mono';
                 ctx.fillText(el + '°', cx + 5, cy - r + 12);
             }
 
@@ -961,7 +963,7 @@
                 ctx.stroke();
 
                 ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Space Mono';
                 ctx.fillText(elRing + '°', cx + 5, cy - r + 12);
             }
 
@@ -1028,7 +1030,7 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(satellites[selectedSatellite]?.name || 'SAT', x, y - 20);
 
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Space Mono';
                 ctx.fillStyle = el > 0 ? '#00ff88' : '#ff4444';
                 ctx.fillText(el.toFixed(1) + '°', x, y + 25);
             } else {
@@ -1077,7 +1079,7 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(satellites[selectedSatellite]?.name || 'SAT', x, y - 20);
 
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Space Mono';
                 ctx.fillStyle = el > 0 ? '#00ff88' : '#ff4444';
                 ctx.fillText(el.toFixed(1) + '°', x, y + 25);
             }

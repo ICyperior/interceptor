@@ -7,10 +7,19 @@ import os
 import sys
 
 # Application version
-VERSION = "2.12.1"
+VERSION = "2.13.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.13.0",
+        "date": "February 2026",
+        "highlights": [
+            "WiFi client display in AP detail drawer",
+            "Real-time client updates via SSE streaming",
+            "Probed SSID badges for connected clients",
+        ]
+    },
     {
         "version": "2.12.1",
         "date": "February 2026",
