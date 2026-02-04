@@ -1856,6 +1856,14 @@ function toggleDirectListen() {
     if (isDirectListening) {
         stopDirectListen();
     } else {
+        const audioPlayer = document.getElementById('scannerAudioPlayer');
+        if (audioPlayer) {
+            audioPlayer.muted = false;
+            audioPlayer.autoplay = true;
+            audioPlayer.preload = 'auto';
+            // Ensure Chrome treats this as a user-initiated playback
+            audioPlayer.play().catch(() => {});
+        }
         // First press - start immediately, don't debounce
         startDirectListenImmediate();
     }
