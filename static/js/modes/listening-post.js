@@ -2147,6 +2147,20 @@ async function _startDirectListenInternal() {
             console.log('[LISTEN] Initial play blocked, waiting for canplay');
         });
 
+        // Fallback: if stream never starts, switch to WebSocket audio
+        setTimeout(async () => {
+            if (!isDirectListening || !audioPlayer) return;
+            if (audioPlayer.readyState > 0) return;
+            console.warn('[LISTEN] HTTP stream not ready, attempting WebSocket audio fallback');
+            await startWebSocketListen({
+                frequency: freq,
+                modulation: currentModulation,
+                squelch: squelch,
+                gain: gain,
+                device: device
+            }, audioPlayer);
+        }, 1500);
+
         // Initialize audio visualizer to feed signal levels to synthesizer
         initAudioVisualizer();
 
@@ -2162,6 +2176,35 @@ async function _startDirectListenInternal() {
     } finally {
         isRestarting = false;
     }
+}
+
+async function startWebSocketListen(config, audioPlayer) {
+    const selectedType = typeof getSelectedSDRType === 'function'
+        ? getSelectedSDRType()
+        : getSelectedSDRTypeForScanner();
+    if (selectedType && selectedType !== 'rtlsdr') {
+        console.warn('[LISTEN] WebSocket audio supports RTL-SDR only');
+        return;
+    }
+
+    try {
+        // Stop HTTP audio stream before switching
+        await fetch('/listening/audio/stop', { method: 'POST' });
+    } catch (e) {}
+
+    // Reset audio element for MediaSource
+    try {
+        audioPlayer.pause();
+    } catch (e) {}
+    audioPlayer.removeAttribute('src');
+    audioPlayer.load();
+
+    const ws = initWebSocketAudio();
+    if (!ws) return;
+
+    // Ensure MediaSource is set up
+    setupMediaSource(audioPlayer);
+    sendWebSocketCommand('start', config);
 }
 
 /**
