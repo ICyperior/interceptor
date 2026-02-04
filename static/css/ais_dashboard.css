@@ -670,7 +670,7 @@ body {
     grid-column: 1 / -1;
     grid-row: 2;
     display: flex;
-    align-items: stretch;
+    align-items: stretch !important;
     flex-wrap: nowrap;
     gap: 8px;
     padding: 8px 15px;
@@ -680,10 +680,26 @@ body {
     overflow-x: auto;
 }
 
+.controls-bar > .control-group {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 6px 10px;
+    background: rgba(74, 158, 255, 0.03);
+    border: 1px solid rgba(74, 158, 255, 0.1);
+    border-radius: 6px;
+}
+
+.controls-bar > .control-group > .control-group-items {
+    margin-top: auto;
+}
+
 .control-group {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     align-items: flex-start;
     gap: 4px;
     padding: 6px 10px;
