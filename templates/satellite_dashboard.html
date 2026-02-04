@@ -8,7 +8,7 @@
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
     {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
     <!-- Leaflet.js - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}
@@ -19,6 +19,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/satellite_dashboard.css') }}">
     <script>
         window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
@@ -69,6 +70,9 @@
             <a href="/?mode=satellite" class="back-link">Main Dashboard</a>
         </div>
     </header>
+
+    {% set active_mode = 'satellite' %}
+    {% include 'partials/nav.html' with context %}
 
     <main class="dashboard">
         <!-- Polar Plot -->
@@ -217,7 +221,7 @@
         .location-label {
             font-size: 11px;
             color: var(--text-secondary, #8899aa);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
         }
         .location-select {
             background: rgba(0, 40, 60, 0.8);
@@ -226,7 +230,7 @@
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 11px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             cursor: pointer;
             min-width: 140px;
         }
@@ -1079,5 +1083,6 @@
             }
         }
     </script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
 </body>
 </html>

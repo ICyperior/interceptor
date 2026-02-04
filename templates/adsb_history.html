@@ -4,8 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ADS-B History // INTERCEPT</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    {% if offline_settings.fonts_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    {% else %}
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_history.css') }}">
 </head>
 <body>
@@ -21,6 +26,9 @@
             <a href="/adsb/dashboard" class="back-link">Live Radar</a>
         </div>
     </header>
+
+    {% set active_mode = 'adsb' %}
+    {% include 'partials/nav.html' with context %}
 
     <main class="history-shell">
         <section class="summary-strip">
@@ -761,5 +769,6 @@
             }
         });
     </script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
 </body>
 </html>

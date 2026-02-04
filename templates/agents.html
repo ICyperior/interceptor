@@ -8,6 +8,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/agents.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <style>
         .agents-container {
             max-width: 1200px;
@@ -94,7 +95,7 @@
         .agent-url {
             font-size: 12px;
             color: #888;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             margin-bottom: 10px;
         }
 
@@ -202,7 +203,7 @@
             border: 1px solid var(--border-color);
             border-radius: 4px;
             color: var(--text-primary);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
         }
 
         .form-group input:focus {
@@ -299,6 +300,8 @@
             iNTERCEPT <span class="tagline">// Remote Agents</span>
         </h1>
     </header>
+
+    {% include 'partials/nav.html' with context %}
 
     <div class="agents-container">
         <div class="nav-links">
@@ -584,5 +587,6 @@
         // Load agents on page load
         document.addEventListener('DOMContentLoaded', loadAgents);
     </script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
     {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
     <!-- Leaflet.js for APRS map - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}
@@ -290,7 +290,7 @@
 ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝╚══════╝╚═════╝</pre>
             <div style="margin: 25px 0; padding: 15px; background: #0a0a0a; border-left: 3px solid var(--accent-red);">
                 <p
-                    style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-align: left; margin: 0;">
+                    style="font-family: var(--font-mono); font-size: 11px; color: #888; text-align: left; margin: 0;">
                     <span style="color: var(--accent-red);">root@intercepted:</span><span
                         style="color: var(--accent-cyan);">~#</span> sudo access --grant-permission<br>
                     <span style="color: #666;">[sudo] password for user: ********</span><br>
@@ -348,107 +348,9 @@
     </header>
 
     <!-- Mode Navigation Bar -->
-    <nav class="mode-nav">
-        <div class="mode-nav-dropdown" data-group="sdr">
-            <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('sdr')">
-                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
-                <span class="nav-label">SDR / RF</span>
-                <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-            </button>
-            <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn active" onclick="switchMode('pager')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span><span class="nav-label">Pager</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('sensor')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span><span class="nav-label">433MHz</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('rtlamr')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="nav-label">Meters</span></button>
-                <a href="/adsb/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span><span class="nav-label">Aircraft</span></a>
-                <a href="/ais/dashboard" class="mode-nav-btn" style="text-decoration: none;"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l2 2h14l2-2"/><path d="M5 18v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M12 12V6"/><path d="M12 6l4 3"/></svg></span><span class="nav-label">Vessels</span></a>
-                <button class="mode-nav-btn" onclick="switchMode('aprs')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><span class="nav-label">APRS</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('listening')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span><span class="nav-label">Listening Post</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('spystations')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></span><span class="nav-label">Spy Stations</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('meshtastic')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span><span class="nav-label">Meshtastic</span></button>
-            </div>
-        </div>
-        <div class="mode-nav-dropdown" data-group="wireless">
-            <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('wireless')">
-                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span>
-                <span class="nav-label">Wireless</span>
-                <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-            </button>
-            <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn" onclick="switchMode('wifi')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">WiFi</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('bluetooth')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span><span class="nav-label">Bluetooth</span></button>
-            </div>
-        </div>
-        <div class="mode-nav-dropdown" data-group="security">
-            <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('security')">
-                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-                <span class="nav-label">Security</span>
-                <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-            </button>
-            <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn" onclick="switchMode('tscm')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><span class="nav-label">TSCM</span></button>
-            </div>
-        </div>
-        <div class="mode-nav-dropdown" data-group="space">
-            <button class="mode-nav-dropdown-btn" onclick="toggleNavDropdown('space')">
-                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
-                <span class="nav-label">Space</span>
-                <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-            </button>
-            <div class="mode-nav-dropdown-menu">
-                <button class="mode-nav-btn" onclick="switchMode('satellite')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></span><span class="nav-label">Satellite</span></button>
-                <button class="mode-nav-btn" onclick="switchMode('sstv')"><span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M3 9h2"/><path d="M19 9h2"/><path d="M3 15h2"/><path d="M19 15h2"/></svg></span><span class="nav-label">ISS SSTV</span></button>
-            </div>
-        </div>
-        <div class="mode-nav-actions">
-            <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn"
-                style="display: none;">
-                <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="nav-label">Full Dashboard</span>
-            </a>
-        </div>
-        <div class="nav-utilities">
-            <div class="nav-clock">
-                <span class="utc-label">UTC</span>
-                <span class="utc-time" id="headerUtcTime">--:--:--</span>
-            </div>
-            <div class="nav-divider"></div>
-            <div class="nav-tools">
-                <button class="nav-tool-btn" onclick="toggleAnimations()" title="Toggle Animations">
-                    <span class="icon-effects-on icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>
-                    <span class="icon-effects-off icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/><line x1="2" y1="2" x2="22" y2="22"/></svg></span>
-                </button>
-                <button class="nav-tool-btn" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
-                    <span class="icon-moon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
-                    <span class="icon-sun icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
-                </button>
-                <a href="/controller/monitor" class="nav-tool-btn" title="Network Monitor - Multi-Agent View" style="text-decoration: none;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span></a>
-                <a href="/controller/manage" class="nav-tool-btn" title="Manage Remote Agents" style="text-decoration: none;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span></a>
-                <button class="nav-tool-btn" onclick="showSettings()" title="Settings"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></button>
-                <a href="https://buymeacoffee.com/smittix" target="_blank" rel="noopener noreferrer" class="nav-tool-btn nav-tool-btn--donate" title="Support the Project"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></span></a>
-                <button class="nav-tool-btn" onclick="showHelp()" title="Help & Documentation">?</button>
-                <button class="nav-tool-btn" onclick="logout(event)" title="Logout">
-                    <span class="power-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
-                </button>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Mobile Navigation Bar (simplified mode switching) -->
-    <nav class="mobile-nav-bar" id="mobileNavBar">
-        <button class="mobile-nav-btn active" data-mode="pager" onclick="switchMode('pager')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> Pager</button>
-        <button class="mobile-nav-btn" data-mode="sensor" onclick="switchMode('sensor')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span> 433MHz</button>
-        <button class="mobile-nav-btn" data-mode="rtlamr" onclick="switchMode('rtlamr')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Meters</button>
-        <a href="/adsb/dashboard" class="mobile-nav-btn" style="text-decoration: none;"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span> Aircraft</a>
-        <a href="/ais/dashboard" class="mobile-nav-btn" style="text-decoration: none;"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18l2 2h14l2-2"/><path d="M5 18v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M12 12V6"/><path d="M12 6l4 3"/></svg></span> Vessels</a>
-        <button class="mobile-nav-btn" data-mode="aprs" onclick="switchMode('aprs')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span> APRS</button>
-        <button class="mobile-nav-btn" data-mode="wifi" onclick="switchMode('wifi')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span> WiFi</button>
-        <button class="mobile-nav-btn" data-mode="bluetooth" onclick="switchMode('bluetooth')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span> BT</button>
-        <button class="mobile-nav-btn" data-mode="tscm" onclick="switchMode('tscm')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span> TSCM</button>
-        <button class="mobile-nav-btn" data-mode="satellite" onclick="switchMode('satellite')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> Sat</button>
-        <button class="mobile-nav-btn" data-mode="sstv" onclick="switchMode('sstv')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg></span> SSTV</button>
-        <button class="mobile-nav-btn" data-mode="listening" onclick="switchMode('listening')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> Scanner</button>
-        <button class="mobile-nav-btn" data-mode="spystations" onclick="switchMode('spystations')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><circle cx="12" cy="12" r="2"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></span> Spy</button>
-        <button class="mobile-nav-btn" data-mode="meshtastic" onclick="switchMode('meshtastic')"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span> Mesh</button>
-    </nav>
+    {% set is_index_page = true %}
+    {% set active_mode = 'pager' %}
+    {% include 'partials/nav.html' with context %}
 
     <!-- Mobile Drawer Overlay -->
     <div class="drawer-overlay" id="drawerOverlay"></div>
@@ -1087,7 +989,7 @@
                             style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange); margin-bottom: 8px;">
                             PACKET LOG</h5>
                         <div id="aprsPacketLog"
-                            style="flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
+                            style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
                             <div style="color: var(--text-muted);">Waiting for packets...</div>
                         </div>
                     </div>
@@ -1107,7 +1009,7 @@
                                     STOPPED</div>
                                 <div style="display: flex; justify-content: center; align-items: baseline; gap: 8px;">
                                     <div class="freq-digits" id="mainScannerFreq"
-                                        style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: 'JetBrains Mono', monospace; letter-spacing: 3px;">
+                                        style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: var(--font-mono); letter-spacing: 3px;">
                                         118.000</div>
                                     <span class="freq-unit"
                                         style="font-size: 20px; color: var(--text-secondary); font-weight: 500;">MHz</span>
@@ -1153,6 +1055,10 @@
                                             Audio Output</div>
                                     </div>
                                     <audio id="scannerAudioPlayer" style="width: 100%; height: 28px;" controls></audio>
+                                    <button id="audioUnlockBtn" type="button"
+                                        style="display: none; margin-top: 8px; width: 100%; padding: 6px 10px; font-size: 10px; letter-spacing: 1px; background: var(--accent-cyan); color: #000; border: 1px solid var(--accent-cyan); border-radius: 4px; cursor: pointer;">
+                                        CLICK TO ENABLE AUDIO
+                                    </button>
                                     <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
                                         <span style="font-size: 7px; color: var(--text-muted);">LEVEL</span>
                                         <div
@@ -1164,6 +1070,13 @@
                                         <span id="audioSignalDb"
                                             style="font-size: 8px; color: var(--text-muted); min-width: 40px; text-align: right;">--
                                             dB</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                                        <span style="font-size: 7px; color: var(--text-muted); letter-spacing: 1px;">SNR THRESH</span>
+                                        <input type="range" id="snrThresholdSlider" min="6" max="20" step="1" value="8"
+                                            style="flex: 1;" />
+                                        <span id="snrThresholdValue"
+                                            style="font-size: 8px; color: var(--text-muted); min-width: 26px; text-align: right;">8</span>
                                     </div>
                                     <!-- Signal Alert inline -->
                                     <div id="mainSignalAlert"
@@ -1259,10 +1172,10 @@
                                 <!-- SQL, Gain, Vol Knobs -->
                                 <div style="display: flex; gap: 15px;">
                                     <div class="knob-container">
-                                        <div class="radio-knob" id="radioSquelchKnob" data-value="30" data-min="0"
+                                        <div class="radio-knob" id="radioSquelchKnob" data-value="0" data-min="0"
                                             data-max="100" data-step="1"></div>
                                         <div class="knob-label">SQL</div>
-                                        <div class="knob-value" id="radioSquelchValue">30</div>
+                                        <div class="knob-value" id="radioSquelchValue">0</div>
                                     </div>
                                     <div class="knob-container">
                                         <div class="radio-knob" id="radioGainKnob" data-value="40" data-min="0"
@@ -1335,7 +1248,7 @@
                                                 START</div>
                                             <input type="number" id="radioScanStart" value="118" step="0.1"
                                                 class="radio-input"
-                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
+                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: var(--font-mono); font-weight: bold; color: var(--accent-cyan);">
                                         </div>
                                         <span
                                             style="color: var(--text-muted); font-size: 16px; padding-top: 12px;">→</span>
@@ -1344,15 +1257,17 @@
                                                 END</div>
                                             <input type="number" id="radioScanEnd" value="137" step="0.1"
                                                 class="radio-input"
-                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
+                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: var(--font-mono); font-weight: bold; color: var(--accent-cyan);">
                                         </div>
                                     </div>
                                 </div>
                                 <!-- Action Buttons -->
-                                <button class="radio-action-btn scan" id="radioScanBtn" onclick="toggleScanner()"
-                                    style="padding: 12px; font-size: 13px; width: 100%; font-weight: bold;"><span class="icon icon--sm" style="margin-right: 4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>SCAN</button>
-                                <button class="radio-action-btn" id="radioListenBtn" onclick="toggleDirectListen()"
-                                    style="padding: 10px; font-size: 12px; width: 100%; background: var(--accent-green); border: none; color: #fff;"><span class="icon icon--sm" style="margin-right: 4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>LISTEN</button>
+                                <button class="radio-action-btn scan" id="radioScanBtn" onclick="toggleScanner()">
+                                    <span class="icon icon--sm" style="margin-right: 4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>SCAN
+                                </button>
+                                <button class="radio-action-btn listen" id="radioListenBtn" onclick="toggleDirectListen()">
+                                    <span class="icon icon--sm" style="margin-right: 4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>LISTEN
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1410,19 +1325,19 @@
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">SIGNALS</span>
                                 <span
-                                    style="color: var(--accent-green); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    style="color: var(--accent-green); font-size: 18px; font-weight: bold; font-family: var(--font-mono);"
                                     id="mainSignalCount">0</span>
                             </div>
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">SCANNED</span>
                                 <span
-                                    style="color: var(--accent-cyan); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    style="color: var(--accent-cyan); font-size: 18px; font-weight: bold; font-family: var(--font-mono);"
                                     id="mainFreqsScanned">0</span>
                             </div>
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">CYCLES</span>
                                 <span
-                                    style="color: var(--accent-orange); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    style="color: var(--accent-orange); font-size: 18px; font-weight: bold; font-family: var(--font-mono);"
                                     id="mainScanCycles">0</span>
                             </div>
                         </div>
@@ -2117,13 +2032,42 @@
             // After fade out, hide welcome and switch to mode
             setTimeout(() => {
                 welcome.style.display = 'none';
-                switchMode(mode);
+                switchMode(mode, { updateUrl: true });
             }, 400);
         }
 
         // Disclaimer handling - show on page load if not accepted
         function showDisclaimer() {
             document.getElementById('disclaimerModal').style.display = 'flex';
+        }
+
+        // Mode from query string (e.g., /?mode=wifi)
+        let pendingStartMode = null;
+        const validModes = new Set([
+            'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
+            'spystations', 'meshtastic', 'wifi', 'bluetooth',
+            'tscm', 'satellite', 'sstv'
+        ]);
+
+        function getModeFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode');
+            if (!mode || !validModes.has(mode)) return null;
+            return mode;
+        }
+
+        function applyModeFromQuery() {
+            const mode = getModeFromQuery();
+            if (!mode) return;
+            const accepted = localStorage.getItem('disclaimerAccepted') === 'true';
+            if (accepted) {
+                const welcome = document.getElementById('welcomePage');
+                if (welcome) welcome.style.display = 'none';
+                switchMode(mode, { updateUrl: false });
+                updateModeUrl(mode, true);
+            } else {
+                pendingStartMode = mode;
+            }
         }
 
         function acceptDisclaimer() {
@@ -2137,7 +2081,14 @@
                 const gateStyle = document.getElementById('disclaimer-gate');
                 if (gateStyle) gateStyle.remove();
                 // Ensure welcome page is visible
-                document.getElementById('welcomePage').style.display = '';
+                const welcome = document.getElementById('welcomePage');
+                if (welcome) welcome.style.display = '';
+                if (pendingStartMode) {
+                    // Bypass welcome and jump to requested mode
+                    welcome.style.display = 'none';
+                switchMode(pendingStartMode, { updateUrl: true });
+                pendingStartMode = null;
+                }
             }, 300);
         }
 
@@ -2456,6 +2407,9 @@
 
             // Start SDR device status polling
             startSdrStatusPolling();
+
+            // Apply mode from URL query (e.g., /?mode=wifi)
+            applyModeFromQuery();
         });
 
         // Toggle section collapse
@@ -2511,8 +2465,20 @@
             }
         });
 
+        function updateModeUrl(mode, replace = false) {
+            if (!validModes.has(mode)) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('mode', mode);
+            if (replace) {
+                window.history.replaceState({ mode }, '', url);
+            } else {
+                window.history.pushState({ mode }, '', url);
+            }
+        }
+
         // Mode switching
-        function switchMode(mode) {
+        function switchMode(mode, options = {}) {
+            const { updateUrl = true } = options;
             // Only stop local scans if in local mode (not agent mode)
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
             if (!isAgentMode) {
@@ -2525,6 +2491,9 @@
             }
 
             currentMode = mode;
+            if (updateUrl) {
+                updateModeUrl(mode);
+            }
 
             // Sync mode state with current agent/local after switching
             if (isAgentMode && typeof syncAgentModeStates === 'function') {
@@ -2755,6 +2724,13 @@
         window.addEventListener('resize', function () {
             if (aprsMap) aprsMap.invalidateSize();
             if (typeof Meshtastic !== 'undefined') Meshtastic.invalidateMap();
+        });
+
+        window.addEventListener('popstate', function () {
+            const mode = getModeFromQuery();
+            if (mode && mode !== currentMode) {
+                switchMode(mode, { updateUrl: false });
+            }
         });
 
         // Also handle orientation changes explicitly for mobile
@@ -12205,7 +12181,7 @@
                 <textarea id="tleInput" placeholder="ISS (ZARYA)
 1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9002
 2 25544  51.6400 208.9163 0006703 296.5855  63.4606 15.49995465478450"
-                    style="width: 100%; height: 150px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; resize: vertical;"></textarea>
+                    style="width: 100%; height: 150px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; font-family: var(--font-mono); font-size: 11px; resize: vertical;"></textarea>
                 <button class="preset-btn" onclick="addFromTLE()" style="margin-top: 10px; width: 100%;">Add
                     Satellite</button>
             </div>

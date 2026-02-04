@@ -282,6 +282,10 @@ def require_login():
     # Routes that don't require login (to avoid infinite redirect loop)
     allowed_routes = ['login', 'static', 'favicon', 'health', 'health_check']
 
+    # Allow audio streaming endpoints without session auth
+    if request.path.startswith('/listening/audio/'):
+        return None
+
     # Controller API endpoints use API key auth, not session auth
     # Allow agent push/pull endpoints without session login
     if request.path.startswith('/controller/'):

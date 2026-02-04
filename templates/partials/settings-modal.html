@@ -52,7 +52,7 @@
                 <div class="settings-row">
                     <div class="settings-label">
                         <span class="settings-label-text">Web Fonts</span>
-                        <span class="settings-label-desc">Inter, JetBrains Mono</span>
+                        <span class="settings-label-desc">JetBrains Mono</span>
                     </div>
                     <select id="fontsSource" class="settings-select" onchange="Settings.setFontsSource(this.value)">
                         <option value="cdn">Google Fonts (Online)</option>
@@ -168,7 +168,7 @@
 
             <div class="settings-group">
                 <div class="settings-group-title">Current Location</div>
-                <div id="currentLocationDisplay" style="padding: 12px; background: var(--bg-tertiary); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+                <div id="currentLocationDisplay" style="padding: 12px; background: var(--bg-tertiary); border-radius: 6px; font-family: var(--font-mono); font-size: 12px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                         <span style="color: var(--text-dim);">Latitude</span>
                         <span id="currentLatDisplay" style="color: var(--accent-cyan);">Not set</span>
@@ -315,4 +315,3 @@
         </div>
     </div>
 </div>
-
