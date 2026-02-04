@@ -105,7 +105,7 @@ def inject_offline_settings():
             'enabled': get_setting('offline.enabled', False),
             'assets_source': get_setting('offline.assets_source', 'cdn'),
             'fonts_source': get_setting('offline.fonts_source', 'cdn'),
-            'tile_provider': get_setting('offline.tile_provider', 'openstreetmap'),
+            'tile_provider': get_setting('offline.tile_provider', 'cartodb_dark_cyan'),
             'tile_server_url': get_setting('offline.tile_server_url', '')
         }
     }

@@ -421,6 +421,11 @@
     color: var(--accent-cyan, #00d4ff);
 }
 
+/* Map tile variants */
+.tile-layer-cyan {
+    filter: sepia(0.35) hue-rotate(185deg) saturate(1.75) brightness(1.06) contrast(1.05);
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .settings-modal.active {

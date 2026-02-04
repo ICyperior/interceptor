@@ -8,7 +8,7 @@ const Settings = {
         'offline.enabled': false,
         'offline.assets_source': 'cdn',
         'offline.fonts_source': 'cdn',
-        'offline.tile_provider': 'cartodb_dark',
+        'offline.tile_provider': 'cartodb_dark_cyan',
         'offline.tile_server_url': ''
     },
 
@@ -23,6 +23,14 @@ const Settings = {
             url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
             subdomains: 'abcd'
+        },
+        cartodb_dark_cyan: {
+            url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+            subdomains: 'abcd',
+            options: {
+                className: 'tile-layer-cyan'
+            }
         },
         cartodb_light: {
             url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
@@ -213,7 +221,8 @@ const Settings = {
         const config = this.getTileConfig();
         const options = {
             attribution: config.attribution,
-            maxZoom: 19
+            maxZoom: 19,
+            ...(config.options || {})
         };
         if (config.subdomains) {
             options.subdomains = config.subdomains;
@@ -351,7 +360,8 @@ const Settings = {
             // Add new tile layer
             const options = {
                 attribution: config.attribution,
-                maxZoom: 19
+                maxZoom: 19,
+                ...(config.options || {})
             };
             if (config.subdomains) {
                 options.subdomains = config.subdomains;
