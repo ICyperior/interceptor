@@ -467,6 +467,7 @@ def scanner_loop_power():
                 continue
 
             lines = stdout.decode(errors='ignore').splitlines()
+            segments = []
             for line in lines:
                 if not line or line.startswith('#'):
                     continue
@@ -503,25 +504,35 @@ def scanner_loop_power():
                     continue
 
                 if not bin_values:
-                    add_activity_log('error', start_mhz, 'Power sweep bins missing')
-                    try:
-                        scanner_queue.put_nowait({
-                            'type': 'scan_update',
-                            'frequency': end_mhz,
-                            'level': 0,
-                            'threshold': int(float(scanner_config.get('snr_threshold', 12)) * 100),
-                            'detected': False
-                        })
-                    except queue.Full:
-                        pass
                     continue
 
+                segments.append((sweep_start, sweep_end, sweep_bin, bin_values))
+
+            if not segments:
+                add_activity_log('error', start_mhz, 'Power sweep bins missing')
+                try:
+                    scanner_queue.put_nowait({
+                        'type': 'scan_update',
+                        'frequency': end_mhz,
+                        'level': 0,
+                        'threshold': int(float(scanner_config.get('snr_threshold', 12)) * 100),
+                        'detected': False
+                    })
+                except queue.Full:
+                    pass
+                time.sleep(0.2)
+                continue
+
+            # Process segments in ascending frequency order to avoid backtracking in UI
+            segments.sort(key=lambda s: s[0])
+
+            for sweep_start, sweep_end, sweep_bin, bin_values in segments:
                 # Noise floor (median)
                 sorted_vals = sorted(bin_values)
                 mid = len(sorted_vals) // 2
                 noise_floor = sorted_vals[mid]
 
-                # SNR threshold (dB) based on squelch
+                # SNR threshold (dB)
                 snr_threshold = float(scanner_config.get('snr_threshold', 12))
 
                 # Emit progress updates (throttled)
@@ -550,13 +561,11 @@ def scanner_loop_power():
                 in_cluster = False
                 peak_idx = None
                 peak_val = None
-                cluster_start = 0
                 for idx, val in enumerate(bin_values):
                     snr = val - noise_floor
                     if snr >= snr_threshold:
                         if not in_cluster:
                             in_cluster = True
-                            cluster_start = idx
                             peak_idx = idx
                             peak_val = val
                         else:
