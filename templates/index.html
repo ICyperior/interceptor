@@ -2028,6 +2028,34 @@
             document.getElementById('disclaimerModal').style.display = 'flex';
         }
 
+        // Mode from query string (e.g., /?mode=wifi)
+        let pendingStartMode = null;
+        const validModes = new Set([
+            'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
+            'spystations', 'meshtastic', 'wifi', 'bluetooth',
+            'tscm', 'satellite', 'sstv'
+        ]);
+
+        function getModeFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode');
+            if (!mode || !validModes.has(mode)) return null;
+            return mode;
+        }
+
+        function applyModeFromQuery() {
+            const mode = getModeFromQuery();
+            if (!mode) return;
+            const accepted = localStorage.getItem('disclaimerAccepted') === 'true';
+            if (accepted) {
+                const welcome = document.getElementById('welcomePage');
+                if (welcome) welcome.style.display = 'none';
+                switchMode(mode);
+            } else {
+                pendingStartMode = mode;
+            }
+        }
+
         function acceptDisclaimer() {
             localStorage.setItem('disclaimerAccepted', 'true');
             document.getElementById('disclaimerModal').classList.add('disclaimer-hidden');
@@ -2039,7 +2067,14 @@
                 const gateStyle = document.getElementById('disclaimer-gate');
                 if (gateStyle) gateStyle.remove();
                 // Ensure welcome page is visible
-                document.getElementById('welcomePage').style.display = '';
+                const welcome = document.getElementById('welcomePage');
+                if (welcome) welcome.style.display = '';
+                if (pendingStartMode) {
+                    // Bypass welcome and jump to requested mode
+                    welcome.style.display = 'none';
+                    switchMode(pendingStartMode);
+                    pendingStartMode = null;
+                }
             }, 300);
         }
 
@@ -2358,6 +2393,9 @@
 
             // Start SDR device status polling
             startSdrStatusPolling();
+
+            // Apply mode from URL query (e.g., /?mode=wifi)
+            applyModeFromQuery();
         });
 
         // Toggle section collapse
