@@ -2155,22 +2155,15 @@ async function _startDirectListenInternal() {
         // Also try to play immediately (some browsers need this)
         attemptAudioPlay(audioPlayer);
 
-        // Fallback: if stream never starts, try fetch-based stream
+        // If stream is slow, retry play and prompt for manual unlock
         setTimeout(async () => {
             if (!isDirectListening || !audioPlayer) return;
             if (audioPlayer.readyState > 0) return;
-            console.warn('[LISTEN] HTTP stream not ready, attempting fetch stream fallback');
-            const fetchOk = await startFetchAudioStream(streamUrl, audioPlayer);
-            if (fetchOk) return;
-            console.warn('[LISTEN] Fetch stream failed, attempting WebSocket audio fallback');
-            await startWebSocketListen({
-                frequency: freq,
-                modulation: currentModulation,
-                squelch: squelch,
-                gain: gain,
-                device: device
-            }, audioPlayer);
-        }, 1500);
+            console.warn('[LISTEN] Stream slow to start, retrying playback');
+            audioPlayer.load();
+            attemptAudioPlay(audioPlayer);
+            showAudioUnlock(audioPlayer);
+        }, 2500);
 
         // Initialize audio visualizer to feed signal levels to synthesizer
         initAudioVisualizer();
