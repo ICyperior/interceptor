@@ -615,6 +615,15 @@ function handleFrequencyUpdate(data) {
 }
 
 function handleSignalFound(data) {
+    // Only treat signals as "interesting" if they exceed threshold and match modulation
+    const threshold = data.threshold !== undefined ? data.threshold : signalLevelThreshold;
+    if (data.level !== undefined && threshold !== undefined && data.level < threshold) {
+        return;
+    }
+    if (data.modulation && currentModulation && data.modulation !== currentModulation) {
+        return;
+    }
+
     scannerSignalCount++;
     scannerSignalActive = true;
     const freqStr = data.frequency.toFixed(3);
