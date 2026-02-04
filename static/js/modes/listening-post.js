@@ -2159,7 +2159,6 @@ async function _startDirectListenInternal() {
         setTimeout(async () => {
             if (!isDirectListening || !audioPlayer) return;
             if (audioPlayer.readyState > 0) return;
-            console.warn('[LISTEN] Stream slow to start, retrying playback');
             audioPlayer.load();
             attemptAudioPlay(audioPlayer);
             showAudioUnlock(audioPlayer);
