@@ -616,8 +616,41 @@ function handleScannerEvent(data) {
 }
 
 function handleFrequencyUpdate(data) {
+    if (data.range_start !== undefined && data.range_end !== undefined) {
+        const newStart = parseFloat(data.range_start);
+        const newEnd = parseFloat(data.range_end);
+        if (Number.isFinite(newStart) && Number.isFinite(newEnd) && newEnd > newStart) {
+            scannerStartFreq = newStart;
+            scannerEndFreq = newEnd;
+            scannerTotalSteps = Math.max(1, Math.round(((scannerEndFreq - scannerStartFreq) * 1000) / (scannerStepKhz || 1)));
+
+            const rangeStart = document.getElementById('scannerRangeStart');
+            if (rangeStart) rangeStart.textContent = newStart.toFixed(1);
+            const rangeEnd = document.getElementById('scannerRangeEnd');
+            if (rangeEnd) rangeEnd.textContent = newEnd.toFixed(1);
+            const mainRangeStart = document.getElementById('mainRangeStart');
+            if (mainRangeStart) mainRangeStart.textContent = newStart.toFixed(1) + ' MHz';
+            const mainRangeEnd = document.getElementById('mainRangeEnd');
+            if (mainRangeEnd) mainRangeEnd.textContent = newEnd.toFixed(1) + ' MHz';
+
+            const startInput = document.getElementById('radioScanStart');
+            if (startInput && document.activeElement !== startInput) {
+                startInput.value = newStart.toFixed(3);
+            }
+            const endInput = document.getElementById('radioScanEnd');
+            if (endInput && document.activeElement !== endInput) {
+                endInput.value = newEnd.toFixed(3);
+            }
+        }
+    }
+
     const range = scannerEndFreq - scannerStartFreq;
     if (range <= 0) {
+        return;
+    }
+
+    const effectiveRange = scannerEndFreq - scannerStartFreq;
+    if (effectiveRange <= 0) {
         return;
     }
 
@@ -648,7 +681,7 @@ function handleFrequencyUpdate(data) {
             }
         }
         lastScanFreq = freqValue;
-        progressValue = (freqValue - scannerStartFreq) / range;
+        progressValue = (freqValue - scannerStartFreq) / effectiveRange;
         lastScanProgress = Math.max(0, Math.min(1, progressValue));
     } else {
         if (scannerMethod === 'power') {
@@ -664,7 +697,7 @@ function handleFrequencyUpdate(data) {
         && freqValue >= (scannerStartFreq - freqTolerance)
         && freqValue <= (scannerEndFreq + freqTolerance))
         ? freqValue
-        : scannerStartFreq + (clampedProgress * range);
+        : scannerStartFreq + (clampedProgress * effectiveRange);
     const freqStr = displayFreq.toFixed(3);
 
     const currentFreq = document.getElementById('scannerCurrentFreq');

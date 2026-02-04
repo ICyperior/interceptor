@@ -172,7 +172,9 @@ def scanner_loop():
                 scanner_queue.put_nowait({
                     'type': 'freq_change',
                     'frequency': current_freq,
-                    'scanning': not signal_detected
+                    'scanning': not signal_detected,
+                    'range_start': scanner_config['start_freq'],
+                    'range_end': scanner_config['end_freq']
                 })
             except queue.Full:
                 pass
@@ -265,7 +267,9 @@ def scanner_loop():
                         'frequency': current_freq,
                         'level': int(rms),
                         'threshold': int(effective_threshold) if 'effective_threshold' in dir() else 0,
-                        'detected': audio_detected
+                        'detected': audio_detected,
+                        'range_start': scanner_config['start_freq'],
+                        'range_end': scanner_config['end_freq']
                     })
                 except queue.Full:
                     pass
@@ -282,17 +286,19 @@ def scanner_loop():
                         # Start audio streaming for user
                         _start_audio_stream(current_freq, mod)
 
-                        try:
-                            scanner_queue.put_nowait({
-                                'type': 'signal_found',
-                                'frequency': current_freq,
-                                'modulation': mod,
-                                'audio_streaming': True,
-                                'level': int(rms),
-                                'threshold': int(effective_threshold)
-                            })
-                        except queue.Full:
-                            pass
+                    try:
+                        scanner_queue.put_nowait({
+                            'type': 'signal_found',
+                            'frequency': current_freq,
+                            'modulation': mod,
+                            'audio_streaming': True,
+                            'level': int(rms),
+                            'threshold': int(effective_threshold),
+                            'range_start': scanner_config['start_freq'],
+                            'range_end': scanner_config['end_freq']
+                        })
+                    except queue.Full:
+                        pass
 
                     # Check for skip signal
                     if scanner_skip_signal:
@@ -328,7 +334,9 @@ def scanner_loop():
                         try:
                             scanner_queue.put_nowait({
                                 'type': 'signal_lost',
-                                'frequency': current_freq
+                                'frequency': current_freq,
+                                'range_start': scanner_config['start_freq'],
+                                'range_end': scanner_config['end_freq']
                             })
                         except queue.Full:
                             pass
@@ -446,7 +454,9 @@ def scanner_loop_power():
                         'frequency': end_mhz,
                         'level': 0,
                         'threshold': int(float(scanner_config.get('snr_threshold', 12)) * 100),
-                        'detected': False
+                        'detected': False,
+                        'range_start': scanner_config['start_freq'],
+                        'range_end': scanner_config['end_freq']
                     })
                 except queue.Full:
                     pass
@@ -503,7 +513,9 @@ def scanner_loop_power():
                         'frequency': end_mhz,
                         'level': 0,
                         'threshold': int(float(scanner_config.get('snr_threshold', 12)) * 100),
-                        'detected': False
+                        'detected': False,
+                        'range_start': scanner_config['start_freq'],
+                        'range_end': scanner_config['end_freq']
                     })
                 except queue.Full:
                     pass
@@ -545,7 +557,9 @@ def scanner_loop_power():
                             'level': level,
                             'threshold': threshold,
                             'detected': snr >= snr_threshold,
-                            'progress': progress
+                            'progress': progress,
+                            'range_start': scanner_config['start_freq'],
+                            'range_end': scanner_config['end_freq']
                         })
                     except queue.Full:
                         pass
@@ -591,7 +605,9 @@ def scanner_loop_power():
                             'modulation': mod,
                             'audio_streaming': False,
                             'level': level,
-                            'threshold': threshold
+                            'threshold': threshold,
+                            'range_start': scanner_config['start_freq'],
+                            'range_end': scanner_config['end_freq']
                         })
                     except queue.Full:
                         pass
