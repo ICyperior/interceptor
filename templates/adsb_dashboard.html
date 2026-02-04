@@ -2259,7 +2259,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 z-index: 10000;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.3);
                 max-width: 320px;
-                font-family: 'Inter', sans-serif;
+                font-family: var(--font-sans);
             `;
 
             if (type === 'not_installed') {
@@ -2344,7 +2344,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                 max-width: 500px;
                 text-align: left;
-                font-family: 'Inter', sans-serif;
+                font-family: var(--font-sans);
             `;
             warning.innerHTML = `
                 <div style="font-weight: bold; margin-bottom: 8px;">⚠️ ${typeList} Detected - readsb Required</div>
