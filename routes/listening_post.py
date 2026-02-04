@@ -458,7 +458,16 @@ def scanner_loop_power():
                     sweep_start = float(parts[start_idx])
                     sweep_end = float(parts[start_idx + 1])
                     sweep_bin = float(parts[start_idx + 2])
-                    bin_values = [float(v) for v in parts[start_idx + 4:] if v]
+                    raw_values = []
+                    for v in parts[start_idx + 3:]:
+                        try:
+                            raw_values.append(float(v))
+                        except ValueError:
+                            continue
+                    # rtl_power may include a samples field before the power list
+                    if raw_values and raw_values[0] >= 0 and any(val < 0 for val in raw_values[1:]):
+                        raw_values = raw_values[1:]
+                    bin_values = raw_values
                 except ValueError:
                     continue
 
