@@ -428,6 +428,10 @@ def _start_audio_stream(frequency: float, modulation: str):
             ffmpeg_path,
             '-hide_banner',
             '-loglevel', 'error',
+            '-fflags', 'nobuffer',
+            '-flags', 'low_delay',
+            '-probesize', '32',
+            '-analyzeduration', '0',
             '-f', 's16le',
             '-ar', str(resample_rate),
             '-ac', '1',
@@ -436,6 +440,7 @@ def _start_audio_stream(frequency: float, modulation: str):
             '-b:a', '128k',
             '-ar', '44100',
             '-f', 'mp3',
+            '-flush_packets', '1',
             'pipe:1'
         ]
 
