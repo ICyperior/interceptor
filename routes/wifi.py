@@ -1240,10 +1240,32 @@ def v2_get_networks():
 
 @wifi_bp.route('/v2/clients')
 def v2_get_clients():
-    """Get all discovered clients."""
+    """Get discovered clients with optional filtering."""
     try:
         scanner = get_wifi_scanner()
         clients = scanner.clients
+
+        # Filter by association status
+        associated = request.args.get('associated')
+        if associated == 'true':
+            clients = [c for c in clients if c.is_associated]
+        elif associated == 'false':
+            clients = [c for c in clients if not c.is_associated]
+
+        # Filter by associated BSSID
+        bssid = request.args.get('bssid')
+        if bssid:
+            clients = [c for c in clients if c.associated_bssid == bssid.upper()]
+
+        # Filter by minimum RSSI
+        min_rssi = request.args.get('min_rssi')
+        if min_rssi:
+            try:
+                min_rssi = int(min_rssi)
+                clients = [c for c in clients if c.rssi_current and c.rssi_current >= min_rssi]
+            except ValueError:
+                pass
+
         return jsonify({
             'clients': [c.to_dict() for c in clients],
             'total': len(clients),
