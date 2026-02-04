@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import queue
 import select
@@ -287,6 +288,7 @@ def scanner_loop():
                         _start_audio_stream(current_freq, mod)
 
                     try:
+                        snr_db = round(10 * math.log10(rms / effective_threshold), 1) if rms > 0 and effective_threshold > 0 else 0.0
                         scanner_queue.put_nowait({
                             'type': 'signal_found',
                             'frequency': current_freq,
@@ -294,6 +296,7 @@ def scanner_loop():
                             'audio_streaming': True,
                             'level': int(rms),
                             'threshold': int(effective_threshold),
+                            'snr': snr_db,
                             'range_start': scanner_config['start_freq'],
                             'range_end': scanner_config['end_freq']
                         })
@@ -606,6 +609,7 @@ def scanner_loop_power():
                             'audio_streaming': False,
                             'level': level,
                             'threshold': threshold,
+                            'snr': round(snr, 1),
                             'range_start': scanner_config['start_freq'],
                             'range_end': scanner_config['end_freq']
                         })

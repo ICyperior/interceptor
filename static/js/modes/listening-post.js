@@ -985,11 +985,15 @@ function addSignalHit(data) {
     }
 
     const mod = data.modulation || 'fm';
+    const snr = data.snr != null ? data.snr : null;
+    const snrText = snr != null ? `${snr > 0 ? '+' : ''}${snr.toFixed(1)} dB` : '---';
+    const snrColor = snr != null ? (snr >= 10 ? 'var(--accent-green)' : snr >= 3 ? 'var(--accent-cyan)' : 'var(--accent-orange, #f0a030)') : 'var(--text-muted)';
     const row = document.createElement('tr');
     row.style.borderBottom = '1px solid var(--border-color)';
     row.innerHTML = `
         <td style="padding: 4px; color: var(--text-secondary); font-size: 9px;">${timestamp}</td>
         <td style="padding: 4px; color: var(--accent-green); font-weight: bold;">${data.frequency.toFixed(3)}</td>
+        <td style="padding: 4px; color: ${snrColor}; font-weight: bold; font-size: 9px;">${snrText}</td>
         <td style="padding: 4px; color: var(--text-secondary);">${mod.toUpperCase()}</td>
         <td style="padding: 4px; text-align: center;">
             <button class="preset-btn" onclick="tuneToFrequency(${data.frequency}, '${mod}')" style="padding: 2px 6px; font-size: 9px; background: var(--accent-green); border: none; color: #000; cursor: pointer; border-radius: 3px;">Listen</button>
