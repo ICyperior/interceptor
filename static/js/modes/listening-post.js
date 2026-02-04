@@ -2059,8 +2059,13 @@ async function _startDirectListenInternal() {
         const freq = freqInput ? parseFloat(freqInput.value) : 118.0;
         const squelch = parseInt(document.getElementById('radioSquelchValue')?.textContent) || 30;
         const gain = parseInt(document.getElementById('radioGainValue')?.textContent) || 40;
+        const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
+        const sdrType = typeof getSelectedSDRType === 'function'
+            ? getSelectedSDRType()
+            : getSelectedSDRTypeForScanner();
+        const biasT = typeof getBiasTEnabled === 'function' ? getBiasTEnabled() : false;
 
-        console.log('[LISTEN] Tuning to:', freq, 'MHz', currentModulation);
+        console.log('[LISTEN] Tuning to:', freq, 'MHz', currentModulation, 'device', device, 'sdr', sdrType);
 
         const listenBtn = document.getElementById('radioListenBtn');
         if (listenBtn) {
@@ -2092,7 +2097,10 @@ async function _startDirectListenInternal() {
                 frequency: freq,
                 modulation: currentModulation,
                 squelch: squelch,
-                gain: gain
+                gain: gain,
+                device: device,
+                sdr_type: sdrType,
+                bias_t: biasT
             })
         });
 
@@ -2596,4 +2604,3 @@ window.removeBookmark = removeBookmark;
 window.tuneToFrequency = tuneToFrequency;
 window.clearScannerLog = clearScannerLog;
 window.exportScannerLog = exportScannerLog;
-
