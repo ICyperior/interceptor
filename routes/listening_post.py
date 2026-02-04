@@ -870,6 +870,33 @@ def audio_status() -> Response:
     })
 
 
+@listening_post_bp.route('/audio/debug')
+def audio_debug() -> Response:
+    """Get audio debug status and recent stderr logs."""
+    rtl_log_path = '/tmp/rtl_fm_stderr.log'
+    ffmpeg_log_path = '/tmp/ffmpeg_stderr.log'
+
+    def _read_log(path: str) -> str:
+        try:
+            with open(path, 'r') as handle:
+                return handle.read().strip()
+        except Exception:
+            return ''
+
+    return jsonify({
+        'running': audio_running,
+        'frequency': audio_frequency,
+        'modulation': audio_modulation,
+        'sdr_type': scanner_config.get('sdr_type', 'rtlsdr'),
+        'device': scanner_config.get('device', 0),
+        'gain': scanner_config.get('gain', 0),
+        'squelch': scanner_config.get('squelch', 0),
+        'audio_process_alive': bool(audio_process and audio_process.poll() is None),
+        'rtl_fm_stderr': _read_log(rtl_log_path),
+        'ffmpeg_stderr': _read_log(ffmpeg_log_path),
+    })
+
+
 @listening_post_bp.route('/audio/stream')
 def stream_audio() -> Response:
     """Stream MP3 audio."""
