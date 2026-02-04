@@ -15,6 +15,7 @@ let scannerCycles = 0;
 let scannerStartFreq = 118;
 let scannerEndFreq = 137;
 let scannerSignalActive = false;
+let lastScanFreq = null;
 
 // Audio state
 let isAudioPlaying = false;
@@ -181,6 +182,7 @@ function startScanner() {
     scannerEndFreq = endFreq;
     scannerFreqsScanned = 0;
     scannerCycles = 0;
+    lastScanFreq = null;
 
     // Update sidebar display
     updateScannerDisplay('STARTING...', 'var(--accent-orange)');
@@ -294,6 +296,7 @@ function stopScanner() {
             isScannerPaused = false;
             scannerSignalActive = false;
             currentSignalLevel = 0;
+            lastScanFreq = null;
 
             // Re-enable listen button (will be in local mode after stop)
             updateListenButtonState(false);
@@ -571,6 +574,18 @@ function handleScannerEvent(data) {
 
 function handleFrequencyUpdate(data) {
     const freqStr = data.frequency.toFixed(3);
+
+    // Prevent jitter from out-of-order sweep segments
+    if (lastScanFreq !== null) {
+        const range = scannerEndFreq - scannerStartFreq;
+        if (range > 0 && data.frequency < lastScanFreq) {
+            const drop = lastScanFreq - data.frequency;
+            if (drop < range * 0.5) {
+                return; // ignore backward blip within sweep
+            }
+        }
+    }
+    lastScanFreq = data.frequency;
 
     const currentFreq = document.getElementById('scannerCurrentFreq');
     if (currentFreq) currentFreq.textContent = freqStr + ' MHz';
