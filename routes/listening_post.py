@@ -704,7 +704,7 @@ def _start_audio_stream(frequency: float, modulation: str):
 
             # Validate that audio is producing data quickly
             try:
-                ready, _, _ = select.select([audio_process.stdout], [], [], 2.0)
+                ready, _, _ = select.select([audio_process.stdout], [], [], 4.0)
                 if not ready:
                     logger.warning("Audio pipeline produced no data in startup window")
             except Exception as e:
@@ -1084,7 +1084,7 @@ def get_presets() -> Response:
 @listening_post_bp.route('/audio/start', methods=['POST'])
 def start_audio() -> Response:
     """Start audio at specific frequency (manual mode)."""
-    global scanner_running, scanner_active_device, listening_active_device, scanner_power_process
+    global scanner_running, scanner_active_device, listening_active_device, scanner_power_process, scanner_thread
 
     # Stop scanner if running
     if scanner_running:
@@ -1092,6 +1092,11 @@ def start_audio() -> Response:
         if scanner_active_device is not None:
             app_module.release_sdr_device(scanner_active_device)
             scanner_active_device = None
+        if scanner_thread and scanner_thread.is_alive():
+            try:
+                scanner_thread.join(timeout=2.0)
+            except Exception:
+                pass
         if scanner_power_process and scanner_power_process.poll() is None:
             try:
                 scanner_power_process.terminate()
@@ -1102,6 +1107,10 @@ def start_audio() -> Response:
                 except Exception:
                     pass
             scanner_power_process = None
+        try:
+            subprocess.run(['pkill', '-9', 'rtl_power'], capture_output=True, timeout=0.5)
+        except Exception:
+            pass
         time.sleep(0.5)
 
     data = request.json or {}
