@@ -6083,14 +6083,25 @@ body::before {
     cursor: not-allowed;
 }
 
-.radio-action-btn.scan {
+.radio-action-btn.scan,
+.radio-action-btn.listen {
     background: var(--accent-green);
     border-color: var(--accent-green);
     color: #000;
 }
 
-.radio-action-btn.scan:hover:not(:disabled) {
+.radio-action-btn.scan:hover:not(:disabled),
+.radio-action-btn.listen:hover:not(:disabled) {
     box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+}
+
+.radio-action-btn.listen.active {
+    background: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+.radio-action-btn.listen.active:hover:not(:disabled) {
+    box-shadow: 0 0 20px var(--accent-red-dim);
 }
 
 /* Statistics Box */

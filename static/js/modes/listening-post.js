@@ -2387,12 +2387,10 @@ function updateDirectListenUI(isPlaying, freq) {
     if (listenBtn) {
         if (isPlaying) {
             listenBtn.innerHTML = Icons.stop('icon--sm') + ' STOP';
-            listenBtn.style.background = 'var(--accent-red)';
-            listenBtn.style.borderColor = 'var(--accent-red)';
+            listenBtn.classList.add('active');
         } else {
             listenBtn.innerHTML = Icons.headphones('icon--sm') + ' LISTEN';
-            listenBtn.style.background = 'var(--accent-purple)';
-            listenBtn.style.borderColor = 'var(--accent-purple)';
+            listenBtn.classList.remove('active');
         }
     }
 
