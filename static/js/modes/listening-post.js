@@ -15,6 +15,9 @@ let scannerCycles = 0;
 let scannerStartFreq = 118;
 let scannerEndFreq = 137;
 let scannerSignalActive = false;
+let lastScanProgress = null;
+let scannerTotalSteps = 0;
+let scannerMethod = null;
 
 // Audio state
 let isAudioPlaying = false;
@@ -181,6 +184,8 @@ function startScanner() {
     scannerEndFreq = endFreq;
     scannerFreqsScanned = 0;
     scannerCycles = 0;
+    lastScanProgress = null;
+    scannerTotalSteps = Math.max(1, Math.round(((endFreq - startFreq) * 1000) / step));
 
     // Update sidebar display
     updateScannerDisplay('STARTING...', 'var(--accent-orange)');
@@ -232,6 +237,7 @@ function startScanner() {
             isScannerRunning = true;
             isScannerPaused = false;
             scannerSignalActive = false;
+            scannerMethod = (scanResult.config && scanResult.config.scan_method) ? scanResult.config.scan_method : 'power';
 
             // Update controls (with null checks)
             const startBtn = document.getElementById('scannerStartBtn');
@@ -294,6 +300,11 @@ function stopScanner() {
             isScannerPaused = false;
             scannerSignalActive = false;
             currentSignalLevel = 0;
+            lastScanProgress = null;
+            scannerTotalSteps = 0;
+            scannerMethod = null;
+            scannerCycles = 0;
+            scannerFreqsScanned = 0;
 
             // Re-enable listen button (will be in local mode after stop)
             updateListenButtonState(false);
@@ -559,6 +570,12 @@ function handleScannerEvent(data) {
         case 'log':
             if (data.entry && data.entry.type === 'scan_cycle') {
                 scannerCycles++;
+                lastScanProgress = null;
+                if (scannerTotalSteps > 0) {
+                    scannerFreqsScanned = scannerCycles * scannerTotalSteps;
+                    const freqsEl = document.getElementById('mainFreqsScanned');
+                    if (freqsEl) freqsEl.textContent = scannerFreqsScanned;
+                }
                 const cyclesEl = document.getElementById('mainScanCycles');
                 if (cyclesEl) cyclesEl.textContent = scannerCycles;
             }
@@ -570,10 +587,25 @@ function handleScannerEvent(data) {
 }
 
 function handleFrequencyUpdate(data) {
+    if (scannerMethod === 'power' && data.progress === undefined) {
+        return;
+    }
     const progressValue = (data.progress !== undefined)
         ? data.progress
         : ((data.frequency - scannerStartFreq) / (scannerEndFreq - scannerStartFreq));
-    const displayFreq = scannerStartFreq + (progressValue * (scannerEndFreq - scannerStartFreq));
+    const clampedProgress = Math.max(0, Math.min(1, progressValue));
+    if (lastScanProgress !== null && clampedProgress < lastScanProgress) {
+        const isCycleReset = lastScanProgress > 0.85 && clampedProgress < 0.15;
+        if (!isCycleReset) {
+            return;
+        }
+    }
+    lastScanProgress = clampedProgress;
+    const nextScanned = (scannerCycles * scannerTotalSteps) + Math.round(clampedProgress * scannerTotalSteps);
+    scannerFreqsScanned = Math.max(scannerFreqsScanned, nextScanned);
+    const freqsEl = document.getElementById('mainFreqsScanned');
+    if (freqsEl) freqsEl.textContent = scannerFreqsScanned;
+    const displayFreq = scannerStartFreq + (clampedProgress * (scannerEndFreq - scannerStartFreq));
     const freqStr = displayFreq.toFixed(3);
 
     const currentFreq = document.getElementById('scannerCurrentFreq');
@@ -583,16 +615,14 @@ function handleFrequencyUpdate(data) {
     if (mainFreq) mainFreq.textContent = freqStr;
 
     // Update progress bar
-    const progress = Math.max(0, Math.min(100, progressValue * 100));
+    const progress = Math.max(0, Math.min(100, clampedProgress * 100));
     const progressBar = document.getElementById('scannerProgressBar');
     if (progressBar) progressBar.style.width = Math.max(0, Math.min(100, progress)) + '%';
 
     const mainProgressBar = document.getElementById('mainProgressBar');
     if (mainProgressBar) mainProgressBar.style.width = Math.max(0, Math.min(100, progress)) + '%';
 
-    scannerFreqsScanned++;
-    const freqsEl = document.getElementById('mainFreqsScanned');
-    if (freqsEl) freqsEl.textContent = scannerFreqsScanned;
+    // freqs scanned updated via progress above
 
     // Update level meter if present
     if (data.level !== undefined) {

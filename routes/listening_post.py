@@ -425,19 +425,6 @@ def scanner_loop_power():
                 '-d', str(device),
             ]
 
-            # Emit an initial progress update for UI
-            try:
-                scanner_current_freq = start_mhz
-                scanner_queue.put_nowait({
-                    'type': 'scan_update',
-                    'frequency': scanner_current_freq,
-                    'level': 0,
-                    'threshold': int(float(scanner_config.get('snr_threshold', 12)) * 100),
-                    'detected': False
-                })
-            except queue.Full:
-                pass
-
             try:
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
                 scanner_power_process = proc
