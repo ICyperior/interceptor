@@ -731,35 +731,48 @@ def _start_audio_stream(frequency: float, modulation: str):
             shell_cmd = f"{' '.join(sdr_cmd)} 2>{rtl_stderr_log} | {' '.join(encoder_cmd)} 2>{ffmpeg_stderr_log}"
             logger.info(f"Starting audio: {frequency} MHz, mod={modulation}, device={scanner_config['device']}")
 
-            audio_rtl_process = None  # Not used in shell mode
-            audio_process = subprocess.Popen(
-                shell_cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=0,
-                start_new_session=True  # Create new process group for clean shutdown
-            )
+            # Retry loop for USB device contention (device may not be
+            # released immediately after a previous process exits)
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                audio_rtl_process = None  # Not used in shell mode
+                audio_process = subprocess.Popen(
+                    shell_cmd,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    bufsize=0,
+                    start_new_session=True  # Create new process group for clean shutdown
+                )
 
-            # Brief delay to check if process started successfully
-            time.sleep(0.3)
+                # Brief delay to check if process started successfully
+                time.sleep(0.3)
 
-            if audio_process.poll() is not None:
-                # Read stderr from temp files
-                rtl_stderr = ''
-                ffmpeg_stderr = ''
-                try:
-                    with open(rtl_stderr_log, 'r') as f:
-                        rtl_stderr = f.read().strip()
-                except:
-                    pass
-                try:
-                    with open(ffmpeg_stderr_log, 'r') as f:
-                        ffmpeg_stderr = f.read().strip()
-                except:
-                    pass
-                logger.error(f"Audio pipeline exited immediately. rtl_fm stderr: {rtl_stderr}, ffmpeg stderr: {ffmpeg_stderr}")
-                return
+                if audio_process.poll() is not None:
+                    # Read stderr from temp files
+                    rtl_stderr = ''
+                    ffmpeg_stderr = ''
+                    try:
+                        with open(rtl_stderr_log, 'r') as f:
+                            rtl_stderr = f.read().strip()
+                    except Exception:
+                        pass
+                    try:
+                        with open(ffmpeg_stderr_log, 'r') as f:
+                            ffmpeg_stderr = f.read().strip()
+                    except Exception:
+                        pass
+
+                    if 'usb_claim_interface' in rtl_stderr and attempt < max_attempts - 1:
+                        logger.warning(f"USB device busy (attempt {attempt + 1}/{max_attempts}), waiting for release...")
+                        time.sleep(1.0)
+                        continue
+
+                    logger.error(f"Audio pipeline exited immediately. rtl_fm stderr: {rtl_stderr}, ffmpeg stderr: {ffmpeg_stderr}")
+                    return
+
+                # Pipeline started successfully
+                break
 
             # Validate that audio is producing data quickly
             try:
@@ -807,18 +820,19 @@ def _stop_audio_stream_internal():
     audio_process = None
     audio_rtl_process = None
 
-    # Kill any orphaned rtl_fm and ffmpeg processes
-    try:
-        subprocess.run(['pkill', '-9', 'rtl_fm'], capture_output=True, timeout=0.5)
-    except:
-        pass
+    # Kill any orphaned rtl_fm, rtl_power, and ffmpeg processes
+    for proc_pattern in ['rtl_fm', 'rtl_power']:
+        try:
+            subprocess.run(['pkill', '-9', proc_pattern], capture_output=True, timeout=0.5)
+        except Exception:
+            pass
     try:
         subprocess.run(['pkill', '-9', '-f', 'ffmpeg.*pipe:0'], capture_output=True, timeout=0.5)
-    except:
+    except Exception:
         pass
 
-    # Pause for SDR device to be released (important for frequency/modulation changes)
-    time.sleep(0.7)
+    # Pause for SDR device USB interface to be released by kernel
+    time.sleep(1.0)
 
 
 # ============================================
