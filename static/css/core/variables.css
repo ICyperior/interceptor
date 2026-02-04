@@ -74,7 +74,7 @@
        TYPOGRAPHY
        ============================================ */
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --font-mono: 'Terminus', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 
     /* Font sizes */
     --text-xs: 10px;

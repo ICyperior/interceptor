@@ -37,7 +37,7 @@
 }
 
 .function-strip .strip-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -250,7 +250,7 @@
 
 /* Time display */
 .function-strip .strip-time {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     color: var(--text-muted);
     padding: 4px 8px;

@@ -134,7 +134,7 @@ body {
     display: flex;
     gap: 20px;
     align-items: center;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
 }
 
@@ -183,7 +183,7 @@ body {
 }
 
 .strip-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -287,7 +287,7 @@ body {
     font-size: 11px;
     font-weight: 500;
     color: var(--accent-cyan);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     padding-left: 8px;
     border-left: 1px solid rgba(74, 158, 255, 0.2);
     white-space: nowrap;
@@ -367,7 +367,7 @@ body {
 /* Leaflet overrides - Dark map styling */
 .leaflet-container {
     background: var(--bg-dark) !important;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 /* Using actual dark tiles now - no filter needed */
@@ -438,7 +438,7 @@ body {
     padding: 10px 15px;
     background: rgba(74, 158, 255, 0.05);
     border-bottom: 1px solid rgba(74, 158, 255, 0.1);
-    font-family: 'Orbitron', 'JetBrains Mono', monospace;
+    font-family: 'Orbitron', 'Terminus', monospace;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 2px;
@@ -510,7 +510,7 @@ body {
 }
 
 .vessel-name {
-    font-family: 'Orbitron', 'JetBrains Mono', monospace;
+    font-family: 'Orbitron', 'Terminus', monospace;
     font-size: 16px;
     font-weight: 700;
     color: var(--accent-cyan);
@@ -518,7 +518,7 @@ body {
 }
 
 .vessel-mmsi {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     color: var(--text-secondary);
     background: rgba(74, 158, 255, 0.1);
@@ -548,7 +548,7 @@ body {
 }
 
 .detail-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--accent-cyan);
 }
@@ -604,20 +604,20 @@ body {
 }
 
 .vessel-item-name {
-    font-family: 'Orbitron', 'JetBrains Mono', monospace;
+    font-family: 'Orbitron', 'Terminus', monospace;
     font-size: 12px;
     font-weight: 600;
     color: var(--accent-cyan);
 }
 
 .vessel-item-type {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 9px;
     color: var(--text-secondary);
 }
 
 .vessel-item-speed {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--accent-cyan);
     text-align: right;
@@ -687,7 +687,7 @@ body {
     border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
     color: var(--accent-cyan);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
@@ -698,7 +698,7 @@ body {
     border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
     color: var(--accent-cyan);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
@@ -717,7 +717,7 @@ body {
     border: none;
     background: var(--accent-green);
     color: #fff;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
@@ -1004,7 +1004,7 @@ body {
     padding: 6px 12px;
     background: rgba(0, 0, 0, 0.2);
     border-bottom: 1px solid rgba(245, 158, 11, 0.1);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 9px;
 }
 
@@ -1079,7 +1079,7 @@ body {
 }
 
 .dsc-message-category {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
@@ -1096,13 +1096,13 @@ body {
 }
 
 .dsc-message-time {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 9px;
     color: var(--text-dim);
 }
 
 .dsc-message-mmsi {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--accent-orange);
 }
@@ -1120,7 +1120,7 @@ body {
 }
 
 .dsc-message-pos {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 9px;
     color: var(--text-secondary);
 }
@@ -1148,7 +1148,7 @@ body {
 }
 
 .dsc-distress-alert .dsc-alert-header {
-    font-family: 'Orbitron', 'JetBrains Mono', monospace;
+    font-family: 'Orbitron', 'Terminus', monospace;
     font-size: 24px;
     font-weight: 700;
     color: var(--accent-red);
@@ -1157,7 +1157,7 @@ body {
 }
 
 .dsc-distress-alert .dsc-alert-mmsi {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 16px;
     color: var(--accent-cyan);
     margin-bottom: 8px;
@@ -1177,7 +1177,7 @@ body {
 }
 
 .dsc-distress-alert .dsc-alert-position {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 14px;
     color: var(--accent-cyan);
     margin-bottom: 16px;
@@ -1188,7 +1188,7 @@ body {
     border: none;
     color: white;
     padding: 10px 24px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;

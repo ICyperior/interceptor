@@ -50,7 +50,7 @@
     letter-spacing: 1px;
     margin-right: 8px;
     font-weight: 500;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 .mode-nav-divider {
@@ -80,7 +80,7 @@
 .mode-nav-btn .nav-label {
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
@@ -127,7 +127,7 @@
 .nav-action-btn .nav-label {
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
@@ -162,7 +162,7 @@
 .mode-nav-dropdown-btn .nav-label {
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
@@ -268,7 +268,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     flex-shrink: 0;
     white-space: nowrap;

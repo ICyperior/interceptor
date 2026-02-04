@@ -55,7 +55,7 @@
 .agent-indicator-label {
     font-size: 11px;
     color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 .agent-indicator-count {
@@ -178,7 +178,7 @@
 .agent-selector-item-url {
     font-size: 10px;
     color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -203,7 +203,7 @@
     background: rgba(0, 212, 255, 0.1);
     color: var(--accent-cyan);
     border-radius: 10px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 .agent-badge.local,

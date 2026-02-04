@@ -1387,7 +1387,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Range label
                     const rangeNm = Math.round(maxRange * ratio);
                     ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-                    ctx.font = '10px JetBrains Mono';
+                    ctx.font = '10px Terminus';
                     ctx.fillText(`${rangeNm}`, this.centerX + r + 5, this.centerY + 4);
                 });
             }
@@ -1528,7 +1528,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Label
                     if (blip.callsign || blip.selected) {
                         ctx.fillStyle = '#00ffff';
-                        ctx.font = '9px JetBrains Mono';
+                        ctx.font = '9px Terminus';
                         ctx.textAlign = 'left';
                         ctx.fillText(blip.callsign || blip.icao, blip.x + 8, blip.y - 5);
                         if (blip.altitude) {
@@ -1646,7 +1646,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 // Range label
                 const rangeNm = Math.round(maxRange * ratio);
                 ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Terminus';
                 ctx.fillText(`${rangeNm}nm`, centerX + r + 5, centerY);
             });
 
@@ -2352,7 +2352,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 <details style="font-size: 11px;">
                     <summary style="cursor: pointer; margin-bottom: 8px;">Installation Instructions</summary>
                     <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; margin-top: 5px;">
-                        <code style="display: block; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 10px;">sudo apt install build-essential libsoapysdr-dev librtlsdr-dev
+                        <code style="display: block; white-space: pre-wrap; font-family: var(--font-mono); font-size: 10px;">sudo apt install build-essential libsoapysdr-dev librtlsdr-dev
 git clone https://github.com/wiedehopf/readsb.git
 cd readsb
 make HAVE_SOAPYSDR=1
@@ -4204,7 +4204,7 @@ sudo make install</code>
             background: var(--bg-tertiary, #252525);
         }
         .squawk-current-code {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 32px;
             font-weight: bold;
         }
@@ -4251,7 +4251,7 @@ sudo make install</code>
             background: rgba(255, 0, 0, 0.2);
         }
         .squawk-ref-table .squawk-code {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-weight: bold;
             color: var(--accent-cyan, #00d4ff);
         }
@@ -4399,7 +4399,7 @@ sudo make install</code>
             flex-wrap: wrap;
         }
         .watchlist-value {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-weight: bold;
             color: var(--accent-cyan, #00d4ff);
             font-size: 13px;
@@ -4467,7 +4467,7 @@ sudo make install</code>
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 11px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             cursor: pointer;
         }
         .agent-select-sm:focus {

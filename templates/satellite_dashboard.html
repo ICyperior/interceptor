@@ -221,7 +221,7 @@
         .location-label {
             font-size: 11px;
             color: var(--text-secondary, #8899aa);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
         }
         .location-select {
             background: rgba(0, 40, 60, 0.8);
@@ -230,7 +230,7 @@
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 11px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             cursor: pointer;
             min-width: 140px;
         }
@@ -593,7 +593,7 @@
                 ctx.stroke();
 
                 ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Terminus';
                 ctx.fillText(el + '°', cx + 5, cy - r + 12);
             }
 
@@ -961,7 +961,7 @@
                 ctx.stroke();
 
                 ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Terminus';
                 ctx.fillText(elRing + '°', cx + 5, cy - r + 12);
             }
 
@@ -1028,7 +1028,7 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(satellites[selectedSatellite]?.name || 'SAT', x, y - 20);
 
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Terminus';
                 ctx.fillStyle = el > 0 ? '#00ff88' : '#ff4444';
                 ctx.fillText(el.toFixed(1) + '°', x, y + 25);
             } else {
@@ -1077,7 +1077,7 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(satellites[selectedSatellite]?.name || 'SAT', x, y - 20);
 
-                ctx.font = '10px JetBrains Mono';
+                ctx.font = '10px Terminus';
                 ctx.fillStyle = el > 0 ? '#00ff88' : '#ff4444';
                 ctx.fillText(el.toFixed(1) + '°', x, y + 25);
             }

@@ -132,7 +132,7 @@ body {
     display: flex;
     gap: 20px;
     align-items: center;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
 }
 
@@ -624,7 +624,7 @@ body {
 }
 
 .telemetry-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--accent-cyan);
 }
@@ -680,7 +680,7 @@ body {
 }
 
 .aircraft-icao {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 9px;
     color: var(--text-secondary);
     background: rgba(74, 158, 255, 0.1);
@@ -700,7 +700,7 @@ body {
 }
 
 .aircraft-detail-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     color: var(--accent-cyan);
     font-size: 11px;
 }
@@ -790,7 +790,7 @@ body {
     border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
     color: var(--accent-cyan);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
@@ -801,7 +801,7 @@ body {
     border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
     color: var(--accent-cyan);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
 }
 
@@ -879,7 +879,7 @@ body {
     border: none;
     background: var(--accent-green);
     color: #fff;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
@@ -911,7 +911,7 @@ body {
     border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
     color: var(--accent-cyan);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     cursor: pointer;
 }
@@ -1023,7 +1023,7 @@ body {
     cursor: pointer;
     font-size: 11px;
     font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     display: flex;
     align-items: center;
     gap: 5px;
@@ -1057,7 +1057,7 @@ body {
 }
 
 .airband-status {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     padding: 0 8px;
     color: var(--text-muted);
@@ -1407,7 +1407,7 @@ body {
 }
 
 .strip-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -1545,7 +1545,7 @@ body {
 
 .report-grid span:nth-child(even) {
     color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 .report-highlights {
@@ -1784,7 +1784,7 @@ body {
     font-size: 11px;
     font-weight: 500;
     color: var(--accent-cyan);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     padding-left: 8px;
     border-left: 1px solid rgba(74, 158, 255, 0.2);
     white-space: nowrap;
@@ -1938,7 +1938,7 @@ body {
 }
 
 .squawk-code {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     color: var(--accent-cyan);
     font-size: 12px;

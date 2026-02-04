@@ -364,7 +364,7 @@
 }
 
 .about-version {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     color: var(--accent-cyan, #00d4ff);
 }
 

@@ -290,7 +290,7 @@
 ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝╚══════╝╚═════╝</pre>
             <div style="margin: 25px 0; padding: 15px; background: #0a0a0a; border-left: 3px solid var(--accent-red);">
                 <p
-                    style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-align: left; margin: 0;">
+                    style="font-family: var(--font-mono); font-size: 11px; color: #888; text-align: left; margin: 0;">
                     <span style="color: var(--accent-red);">root@intercepted:</span><span
                         style="color: var(--accent-cyan);">~#</span> sudo access --grant-permission<br>
                     <span style="color: #666;">[sudo] password for user: ********</span><br>
@@ -989,7 +989,7 @@
                             style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange); margin-bottom: 8px;">
                             PACKET LOG</h5>
                         <div id="aprsPacketLog"
-                            style="flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
+                            style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px;">
                             <div style="color: var(--text-muted);">Waiting for packets...</div>
                         </div>
                     </div>
@@ -1009,7 +1009,7 @@
                                     STOPPED</div>
                                 <div style="display: flex; justify-content: center; align-items: baseline; gap: 8px;">
                                     <div class="freq-digits" id="mainScannerFreq"
-                                        style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: 'JetBrains Mono', monospace; letter-spacing: 3px;">
+                                        style="font-size: 52px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 30px var(--accent-cyan); font-family: var(--font-mono); letter-spacing: 3px;">
                                         118.000</div>
                                     <span class="freq-unit"
                                         style="font-size: 20px; color: var(--text-secondary); font-weight: 500;">MHz</span>
@@ -1237,7 +1237,7 @@
                                                 START</div>
                                             <input type="number" id="radioScanStart" value="118" step="0.1"
                                                 class="radio-input"
-                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
+                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: var(--font-mono); font-weight: bold; color: var(--accent-cyan);">
                                         </div>
                                         <span
                                             style="color: var(--text-muted); font-size: 16px; padding-top: 12px;">→</span>
@@ -1246,7 +1246,7 @@
                                                 END</div>
                                             <input type="number" id="radioScanEnd" value="137" step="0.1"
                                                 class="radio-input"
-                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--accent-cyan);">
+                                                style="width: 100%; font-size: 16px; padding: 8px 6px; text-align: center; font-family: var(--font-mono); font-weight: bold; color: var(--accent-cyan);">
                                         </div>
                                     </div>
                                 </div>
@@ -1312,19 +1312,19 @@
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">SIGNALS</span>
                                 <span
-                                    style="color: var(--accent-green); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    style="color: var(--accent-green); font-size: 18px; font-weight: bold; font-family: var(--font-mono);"
                                     id="mainSignalCount">0</span>
                             </div>
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">SCANNED</span>
                                 <span
-                                    style="color: var(--accent-cyan); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    style="color: var(--accent-cyan); font-size: 18px; font-weight: bold; font-family: var(--font-mono);"
                                     id="mainFreqsScanned">0</span>
                             </div>
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <span style="font-size: 9px; color: var(--text-muted);">CYCLES</span>
                                 <span
-                                    style="color: var(--accent-orange); font-size: 18px; font-weight: bold; font-family: 'JetBrains Mono', monospace;"
+                                    style="color: var(--accent-orange); font-size: 18px; font-weight: bold; font-family: var(--font-mono);"
                                     id="mainScanCycles">0</span>
                             </div>
                         </div>
@@ -4223,7 +4223,7 @@
 
             const infoEl = document.createElement('div');
             infoEl.className = 'info-msg';
-            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #888; word-break: break-all;';
+            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "Terminus", monospace; font-size: 11px; color: #888; word-break: break-all;';
             infoEl.textContent = text;
             output.insertBefore(infoEl, output.firstChild);
         }
@@ -4239,7 +4239,7 @@
 
             const errorEl = document.createElement('div');
             errorEl.className = 'error-msg';
-            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
+            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "Terminus", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
             errorEl.textContent = '⚠ ' + text;
             output.insertBefore(errorEl, output.firstChild);
         }
@@ -6855,7 +6855,7 @@
 
             // Draw total in center
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 16px JetBrains Mono';
+            ctx.font = 'bold 16px Terminus';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(total, cx, cy);
@@ -8625,7 +8625,7 @@
                 // Label
                 if (el > 0) {
                     ctx.fillStyle = '#444';
-                    ctx.font = '10px JetBrains Mono';
+                    ctx.font = '10px Terminus';
                     ctx.textAlign = 'center';
                     ctx.fillText(el + '°', cx, cy - r + 12);
                 }
@@ -8698,7 +8698,7 @@
 
                 // Label
                 ctx.fillStyle = '#fff';
-                ctx.font = '11px JetBrains Mono';
+                ctx.font = '11px Terminus';
                 ctx.fillText(pass.satellite, maxX + 10, maxY - 5);
             }
         }
@@ -12145,7 +12145,7 @@
                 <textarea id="tleInput" placeholder="ISS (ZARYA)
 1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9002
 2 25544  51.6400 208.9163 0006703 296.5855  63.4606 15.49995465478450"
-                    style="width: 100%; height: 150px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; resize: vertical;"></textarea>
+                    style="width: 100%; height: 150px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; font-family: var(--font-mono); font-size: 11px; resize: vertical;"></textarea>
                 <button class="preset-btn" onclick="addFromTLE()" style="margin-top: 10px; width: 100%;">Add
                     Satellite</button>
             </div>
