@@ -2058,7 +2058,8 @@ async function _startDirectListenInternal() {
 
         const freqInput = document.getElementById('radioScanStart');
         const freq = freqInput ? parseFloat(freqInput.value) : 118.0;
-        const squelch = parseInt(document.getElementById('radioSquelchValue')?.textContent) || 30;
+        const squelchValue = parseInt(document.getElementById('radioSquelchValue')?.textContent);
+        const squelch = Number.isFinite(squelchValue) ? squelchValue : 0;
         const gain = parseInt(document.getElementById('radioGainValue')?.textContent) || 40;
         const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
         const sdrType = typeof getSelectedSDRType === 'function'
@@ -2097,7 +2098,7 @@ async function _startDirectListenInternal() {
             body: JSON.stringify({
                 frequency: freq,
                 modulation: currentModulation,
-                squelch: squelch,
+                squelch: 0,
                 gain: gain,
                 device: device,
                 sdr_type: sdrType,
