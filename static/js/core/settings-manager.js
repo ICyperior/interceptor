@@ -325,12 +325,12 @@ const Settings = {
             window.map,
             window.leafletMap,
             window.aprsMap,
-            window.adsbMap,
             window.radarMap,
             window.vesselMap,
             window.groundMap,
             window.groundTrackMap,
-            window.meshMap
+            window.meshMap,
+            window.issMap
         ].filter(m => m && typeof m.eachLayer === 'function');
 
         // Combine with registered maps, removing duplicates

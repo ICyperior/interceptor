@@ -22,6 +22,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_dashboard.css') }}">
     <script>
         window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
@@ -49,8 +51,6 @@
                     <input type="checkbox" id="showAllAgents" onchange="toggleShowAllAgents()"> All
                 </label>
             </div>
-            <a href="#" onclick="history.back(); return false;" class="back-link">Back</a>
-            <a href="/?mode=aircraft" class="back-link">Main Dashboard</a>
         </div>
     </header>
 
@@ -2372,7 +2372,7 @@ sudo make install</code>
                 now.toISOString().substring(11, 19) + ' UTC';
         }
 
-        function initMap() {
+        async function initMap() {
             radarMap = L.map('radarMap', {
                 center: [observerLocation.lat, observerLocation.lon],
                 zoom: 7,
@@ -2382,7 +2382,9 @@ sudo make install</code>
 
             // Use settings manager for tile layer (allows runtime changes)
             window.radarMap = radarMap;
-            if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+            if (typeof Settings !== 'undefined') {
+                // Wait for settings to load from server before applying tiles
+                await Settings.init();
                 Settings.createTileLayer().addTo(radarMap);
                 Settings.registerMap(radarMap);
             } else {
@@ -4520,6 +4522,14 @@ sudo make install</code>
             cursor: pointer;
         }
     </style>
+
+    <!-- Settings Modal -->
+    {% include 'partials/settings-modal.html' %}
+
+    <!-- Help Modal -->
+    {% include 'partials/help-modal.html' %}
+
+    <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}"></script>
 
     <!-- Agent Manager -->
     <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>

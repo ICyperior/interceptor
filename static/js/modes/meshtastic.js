@@ -97,7 +97,7 @@ const Meshtastic = (function() {
     /**
      * Initialize the Leaflet map
      */
-    function initMap() {
+    async function initMap() {
         if (meshMap) return;
 
         const mapContainer = document.getElementById('meshMap');
@@ -111,7 +111,9 @@ const Meshtastic = (function() {
         window.meshMap = meshMap;
 
         // Use settings manager for tile layer (allows runtime changes)
-        if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+        if (typeof Settings !== 'undefined') {
+            // Wait for settings to load from server before applying tiles
+            await Settings.init();
             Settings.createTileLayer().addTo(meshMap);
             Settings.registerMap(meshMap);
         } else {

@@ -23,6 +23,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ais_dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
     <script>
         window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
     </script>
@@ -49,8 +51,6 @@
                     <input type="checkbox" id="showAllAgents" onchange="toggleShowAllAgents()"> All
                 </label>
             </div>
-            <a href="#" onclick="history.back(); return false;" class="back-link">Back</a>
-            <a href="/" class="back-link">Main Dashboard</a>
         </div>
     </header>
 
@@ -390,7 +390,7 @@
         };
 
         // Initialize map
-        function initMap() {
+        async function initMap() {
             if (observerLocation) {
                 document.getElementById('obsLat').value = observerLocation.lat;
                 document.getElementById('obsLon').value = observerLocation.lon;
@@ -404,7 +404,9 @@
 
             // Use settings manager for tile layer (allows runtime changes)
             window.vesselMap = vesselMap;
-            if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+            if (typeof Settings !== 'undefined') {
+                // Wait for settings to load from server before applying tiles
+                await Settings.init();
                 Settings.createTileLayer().addTo(vesselMap);
                 Settings.registerMap(vesselMap);
             } else {
@@ -1552,6 +1554,14 @@
             cursor: pointer;
         }
     </style>
+
+    <!-- Settings Modal -->
+    {% include 'partials/settings-modal.html' %}
+
+    <!-- Help Modal -->
+    {% include 'partials/help-modal.html' %}
+
+    <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}"></script>
 
     <!-- Agent Manager -->
     <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>

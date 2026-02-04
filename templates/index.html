@@ -39,6 +39,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/acars.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/aprs.css') }}">
@@ -2070,6 +2071,24 @@
             }
         }
 
+        function applySettingsFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('settings') === '1') {
+                // Remove settings param from URL to avoid reopening on refresh
+                params.delete('settings');
+                const newUrl = params.toString()
+                    ? window.location.pathname + '?' + params.toString()
+                    : window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
+                // Open settings modal after a brief delay to ensure page is ready
+                setTimeout(() => {
+                    if (typeof showSettings === 'function') {
+                        showSettings();
+                    }
+                }, 100);
+            }
+        }
+
         function acceptDisclaimer() {
             localStorage.setItem('disclaimerAccepted', 'true');
             document.getElementById('disclaimerModal').classList.add('disclaimer-hidden');
@@ -2410,6 +2429,9 @@
 
             // Apply mode from URL query (e.g., /?mode=wifi)
             applyModeFromQuery();
+
+            // Check for settings=1 query param (from dashboard settings button)
+            applySettingsFromQuery();
         });
 
         // Toggle section collapse
@@ -7923,7 +7945,7 @@
                 });
         }
 
-        function initAprsMap() {
+        async function initAprsMap() {
             if (aprsMap) return;
 
             const mapContainer = document.getElementById('aprsMap');
@@ -7938,7 +7960,9 @@
             window.aprsMap = aprsMap;
 
             // Use settings manager for tile layer (allows runtime changes)
-            if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+            if (typeof Settings !== 'undefined') {
+                // Wait for settings to load from server before applying tiles
+                await Settings.init();
                 Settings.createTileLayer().addTo(aprsMap);
                 Settings.registerMap(aprsMap);
             } else {
@@ -8846,7 +8870,7 @@
         let observerMarker = null;
         let satPositionInterval = null;
 
-        function initGroundTrackMap() {
+        async function initGroundTrackMap() {
             const mapContainer = document.getElementById('groundTrackMap');
             if (!mapContainer || groundTrackMap) return;
 
@@ -8859,7 +8883,9 @@
             window.groundTrackMap = groundTrackMap;
 
             // Use settings manager for tile layer (allows runtime changes)
-            if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+            if (typeof Settings !== 'undefined') {
+                // Wait for settings to load from server before applying tiles
+                await Settings.init();
                 Settings.createTileLayer().addTo(groundTrackMap);
                 Settings.registerMap(groundTrackMap);
             } else {

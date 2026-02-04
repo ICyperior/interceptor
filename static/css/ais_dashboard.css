@@ -134,10 +134,49 @@ body {
 
 .status-bar {
     display: flex;
-    gap: 20px;
+    gap: 12px;
     align-items: center;
     font-family: var(--font-mono);
     font-size: 11px;
+    flex-wrap: nowrap;
+}
+
+.agent-selector-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.agent-selector-compact .agent-select-sm {
+    padding: 4px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+
+.agent-selector-compact .agent-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+}
+
+.agent-selector-compact .agent-status-dot.offline {
+    background: var(--accent-red);
+    box-shadow: 0 0 6px var(--accent-red);
+}
+
+.agent-selector-compact .show-all-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
 }
 
 .back-link {
@@ -322,14 +361,15 @@ body {
 }
 
 /* Main dashboard grid - Mobile first */
+/* Header ~52px + Nav 44px + Stats strip ~55px = ~151px, using 160px for safety */
 .dashboard {
     position: relative;
     z-index: 10;
     display: flex;
     flex-direction: column;
     gap: 0;
-    height: calc(100dvh - 95px);
-    height: calc(100vh - 95px);
+    height: calc(100dvh - 160px);
+    height: calc(100vh - 160px);
     min-height: 400px;
 }
 
@@ -836,7 +876,7 @@ body {
         display: flex !important;
         flex-direction: column !important;
         height: auto !important;
-        min-height: calc(100dvh - 95px);
+        min-height: calc(100dvh - 160px);
         overflow-y: auto !important;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;

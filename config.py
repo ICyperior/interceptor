@@ -7,10 +7,20 @@ import os
 import sys
 
 # Application version
-VERSION = "2.13.0"
+VERSION = "2.13.1"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.13.1",
+        "date": "February 2026",
+        "highlights": [
+            "Help modal system with keyboard shortcuts reference",
+            "Main Dashboard button in navigation bar",
+            "Settings modal accessible from all dashboards",
+            "Dashboard CSS improvements and consistency fixes",
+        ]
+    },
     {
         "version": "2.13.0",
         "date": "February 2026",

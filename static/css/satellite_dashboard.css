@@ -164,10 +164,45 @@ body {
 
 .status-bar {
     display: flex;
-    gap: 20px;
+    gap: 12px;
     align-items: center;
     font-family: var(--font-mono);
     font-size: 11px;
+    flex-wrap: nowrap;
+}
+
+.location-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.location-selector .location-label {
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.location-selector .location-select {
+    padding: 4px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+
+.location-selector .location-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+}
+
+.location-selector .location-status-dot.offline {
+    background: var(--accent-red);
+    box-shadow: 0 0 6px var(--accent-red);
 }
 
 .status-item {
@@ -213,6 +248,7 @@ body {
 }
 
 /* Main dashboard grid */
+/* Header ~52px + Nav 44px = ~96px, using 100px for safety */
 .dashboard {
     position: relative;
     z-index: 10;
@@ -220,7 +256,7 @@ body {
     grid-template-columns: 1fr 1fr 340px;
     grid-template-rows: 1fr auto;
     gap: 0;
-    height: calc(100vh - 60px);
+    height: calc(100vh - 100px);
     min-height: 500px;
 }
 
@@ -698,7 +734,7 @@ body {
         display: flex;
         flex-direction: column;
         height: auto;
-        min-height: calc(100vh - 60px);
+        min-height: calc(100vh - 100px);
     }
 
     .polar-container,

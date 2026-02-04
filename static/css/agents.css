@@ -1,22 +1,8 @@
 /*
  * Agents Management CSS
  * Styles for the remote agent management interface
+ * Inherits CSS variables from core/variables.css
  */
-
-/* CSS Variables (inherited from main theme) */
-:root {
-    --font-sans: 'Space Mono', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-mono: 'Space Mono', 'Fira Code', 'Consolas', monospace;
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #12121a;
-    --text-primary: #e0e0e0;
-    --text-secondary: #888;
-    --border-color: #1a1a2e;
-    --accent-cyan: #00d4ff;
-    --accent-green: #00ff88;
-    --accent-red: #ff3366;
-    --accent-orange: #ff9f1c;
-}
 
 /* Agent indicator in navigation */
 .agent-indicator {

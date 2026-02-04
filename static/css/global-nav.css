@@ -394,3 +394,46 @@
 [data-animations="off"] .nav-tool-btn .icon-effects-off {
     display: flex;
 }
+
+/* Main Dashboard Button in Nav */
+a.nav-dashboard-btn,
+a.nav-dashboard-btn:link,
+a.nav-dashboard-btn:visited {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(20, 33, 53, 0.6) !important;
+    border: 1px solid rgba(77, 125, 191, 0.12) !important;
+    color: #b7c1cf !important;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-decoration: none !important;
+}
+
+a.nav-dashboard-btn:hover {
+    background: rgba(27, 36, 51, 0.9) !important;
+    border-color: #4d7dbf !important;
+    color: #4d7dbf !important;
+    box-shadow: 0 6px 14px rgba(5, 9, 15, 0.35);
+}
+
+.nav-dashboard-btn .icon {
+    width: 14px;
+    height: 14px;
+}
+
+.nav-dashboard-btn .icon svg {
+    width: 100%;
+    height: 100%;
+    stroke: currentColor;
+}
+
+.nav-dashboard-btn .nav-label {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    letter-spacing: 0.5px;
+}

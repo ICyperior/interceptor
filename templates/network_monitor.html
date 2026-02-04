@@ -12,22 +12,25 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/agents.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
             --font-sans: 'Space Mono', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             --font-mono: 'Space Mono', 'Fira Code', 'Consolas', monospace;
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a2e;
-            --text-primary: #e0e0e0;
-            --text-secondary: #888;
-            --border-color: #2a2a3e;
-            --accent-cyan: #00d4ff;
-            --accent-green: #00ff88;
-            --accent-red: #ff3366;
-            --accent-orange: #ff9f1c;
+            --bg-primary: #0a0c10;
+            --bg-secondary: #0f1218;
+            --bg-tertiary: #151a23;
+            --text-primary: #e8eaed;
+            --text-secondary: #9ca3af;
+            --text-dim: #4b5563;
+            --border-color: #1f2937;
+            --accent-cyan: #4a9eff;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
             --accent-purple: #a855f7;
         }
 
@@ -120,12 +123,13 @@
             font-family: var(--font-mono);
         }
 
+        /* Header ~50px + Nav 44px + Status bar ~40px = ~134px, using 150px for safety */
         .main-grid {
             display: grid;
             grid-template-columns: 1fr 300px;
             gap: 20px;
             padding: 20px;
-            height: calc(100vh - 110px);
+            height: calc(100vh - 150px);
         }
 
         .data-panel {
@@ -157,7 +161,7 @@
         .panel-count {
             font-size: 10px;
             padding: 2px 8px;
-            background: rgba(0, 212, 255, 0.2);
+            background: rgba(74, 158, 255, 0.2);
             color: var(--accent-cyan);
             border-radius: 10px;
             font-family: var(--font-mono);
@@ -188,7 +192,7 @@
         }
 
         .panel-tab.active {
-            background: rgba(0, 212, 255, 0.1);
+            background: rgba(74, 158, 255, 0.1);
             color: var(--accent-cyan);
             border-color: var(--accent-cyan);
         }
@@ -226,7 +230,7 @@
         }
 
         .data-table tr:hover {
-            background: rgba(0, 212, 255, 0.05);
+            background: rgba(74, 158, 255, 0.05);
         }
 
         .mono {
@@ -245,7 +249,7 @@
             gap: 4px;
             padding: 2px 6px;
             font-size: 9px;
-            background: rgba(0, 212, 255, 0.15);
+            background: rgba(74, 158, 255, 0.15);
             color: var(--accent-cyan);
             border-radius: 8px;
             font-family: var(--font-mono);
@@ -260,7 +264,7 @@
 
         /* Different colors for different agents */
         .source-badge:nth-child(2) {
-            background: rgba(0, 255, 136, 0.15);
+            background: rgba(34, 197, 94, 0.15);
             color: var(--accent-green);
         }
         .source-badge:nth-child(2) .dot {
@@ -276,7 +280,7 @@
         }
 
         .source-badge:nth-child(4) {
-            background: rgba(255, 159, 28, 0.15);
+            background: rgba(245, 158, 11, 0.15);
             color: var(--accent-orange);
         }
         .source-badge:nth-child(4) .dot {
@@ -435,23 +439,23 @@
             gap: 6px;
             margin-top: 4px;
             padding: 3px 8px;
-            background: rgba(0, 212, 255, 0.1);
+            background: rgba(74, 158, 255, 0.1);
             border-radius: 4px;
             font-size: 10px;
         }
 
         .location-estimate.high {
-            background: rgba(0, 255, 136, 0.15);
+            background: rgba(34, 197, 94, 0.15);
             border-left: 2px solid var(--accent-green);
         }
 
         .location-estimate.medium {
-            background: rgba(255, 159, 28, 0.15);
+            background: rgba(245, 158, 11, 0.15);
             border-left: 2px solid var(--accent-orange);
         }
 
         .location-estimate.low {
-            background: rgba(255, 51, 102, 0.15);
+            background: rgba(239, 68, 68, 0.15);
             border-left: 2px solid var(--accent-red);
         }
 
@@ -493,11 +497,11 @@
             letter-spacing: 0.5px;
         }
 
-        .type-badge.type-wifi { background: rgba(0, 212, 255, 0.2); color: var(--accent-cyan); }
+        .type-badge.type-wifi { background: rgba(74, 158, 255, 0.2); color: var(--accent-cyan); }
         .type-badge.type-bluetooth { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
-        .type-badge.type-adsb { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
-        .type-badge.type-ais { background: rgba(255, 159, 28, 0.2); color: var(--accent-orange); }
-        .type-badge.type-sensor { background: rgba(255, 51, 102, 0.2); color: var(--accent-red); }
+        .type-badge.type-adsb { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
+        .type-badge.type-ais { background: rgba(245, 158, 11, 0.2); color: var(--accent-orange); }
+        .type-badge.type-sensor { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
 
         @media (max-width: 1024px) {
             .main-grid {
@@ -1106,6 +1110,14 @@
         connectStream();
         addLogEntry('system', 'Network Monitor initialized');
     </script>
+
+    <!-- Settings Modal -->
+    {% include 'partials/settings-modal.html' %}
+
+    <!-- Help Modal -->
+    {% include 'partials/help-modal.html' %}
+
+    <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
 </body>
 </html>
