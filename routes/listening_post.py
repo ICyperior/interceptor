@@ -238,11 +238,14 @@ def scanner_loop():
                     if mod == 'wfm':
                         # WFM: threshold 500-10000 based on squelch
                         threshold = 500 + (squelch * 95)
+                        min_threshold = 1500
                     else:
                         # AM/NFM: threshold 300-6500 based on squelch
                         threshold = 300 + (squelch * 62)
+                        min_threshold = 900
 
-                    audio_detected = rms > threshold
+                    effective_threshold = max(threshold, min_threshold)
+                    audio_detected = rms > effective_threshold
 
                 # Send level info to clients
                 try:
@@ -250,7 +253,7 @@ def scanner_loop():
                         'type': 'scan_update',
                         'frequency': current_freq,
                         'level': int(rms),
-                        'threshold': int(threshold) if 'threshold' in dir() else 0,
+                        'threshold': int(effective_threshold) if 'effective_threshold' in dir() else 0,
                         'detected': audio_detected
                     })
                 except queue.Full:
@@ -273,7 +276,9 @@ def scanner_loop():
                                 'type': 'signal_found',
                                 'frequency': current_freq,
                                 'modulation': mod,
-                                'audio_streaming': True
+                                'audio_streaming': True,
+                                'level': int(rms),
+                                'threshold': int(effective_threshold)
                             })
                         except queue.Full:
                             pass
