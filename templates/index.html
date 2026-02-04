@@ -2019,7 +2019,7 @@
             // After fade out, hide welcome and switch to mode
             setTimeout(() => {
                 welcome.style.display = 'none';
-                switchMode(mode);
+                switchMode(mode, { updateUrl: true });
             }, 400);
         }
 
@@ -2050,7 +2050,8 @@
             if (accepted) {
                 const welcome = document.getElementById('welcomePage');
                 if (welcome) welcome.style.display = 'none';
-                switchMode(mode);
+                switchMode(mode, { updateUrl: false });
+                updateModeUrl(mode, true);
             } else {
                 pendingStartMode = mode;
             }
@@ -2072,8 +2073,8 @@
                 if (pendingStartMode) {
                     // Bypass welcome and jump to requested mode
                     welcome.style.display = 'none';
-                    switchMode(pendingStartMode);
-                    pendingStartMode = null;
+                switchMode(pendingStartMode, { updateUrl: true });
+                pendingStartMode = null;
                 }
             }, 300);
         }
@@ -2451,8 +2452,20 @@
             }
         });
 
+        function updateModeUrl(mode, replace = false) {
+            if (!validModes.has(mode)) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('mode', mode);
+            if (replace) {
+                window.history.replaceState({ mode }, '', url);
+            } else {
+                window.history.pushState({ mode }, '', url);
+            }
+        }
+
         // Mode switching
-        function switchMode(mode) {
+        function switchMode(mode, options = {}) {
+            const { updateUrl = true } = options;
             // Only stop local scans if in local mode (not agent mode)
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
             if (!isAgentMode) {
@@ -2465,6 +2478,9 @@
             }
 
             currentMode = mode;
+            if (updateUrl) {
+                updateModeUrl(mode);
+            }
 
             // Sync mode state with current agent/local after switching
             if (isAgentMode && typeof syncAgentModeStates === 'function') {
@@ -2695,6 +2711,13 @@
         window.addEventListener('resize', function () {
             if (aprsMap) aprsMap.invalidateSize();
             if (typeof Meshtastic !== 'undefined') Meshtastic.invalidateMap();
+        });
+
+        window.addEventListener('popstate', function () {
+            const mode = getModeFromQuery();
+            if (mode && mode !== currentMode) {
+                switchMode(mode, { updateUrl: false });
+            }
         });
 
         // Also handle orientation changes explicitly for mobile
