@@ -26,7 +26,15 @@ body {
     font-size: var(--text-base);
     line-height: var(--leading-normal);
     color: var(--text-primary);
-    background: var(--bg-primary);
+    background-color: var(--bg-primary);
+    background-image:
+        var(--noise-image),
+        radial-gradient(circle at 15% 0%, var(--grid-dot), transparent 45%),
+        linear-gradient(180deg, var(--grid-dot), transparent 35%),
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px, auto, auto, 48px 48px, 48px 48px;
+    background-attachment: fixed;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -39,6 +47,7 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: var(--font-semibold);
     line-height: var(--leading-tight);
     color: var(--text-primary);
+    letter-spacing: 0.01em;
 }
 
 h1 { font-size: var(--text-4xl); }
@@ -81,13 +90,15 @@ code, kbd, pre, samp {
 }
 
 code {
-    background: var(--bg-tertiary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
     padding: 2px 6px;
     border-radius: var(--radius-sm);
 }
 
 pre {
-    background: var(--bg-tertiary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
     padding: var(--space-4);
     border-radius: var(--radius-md);
     overflow-x: auto;
@@ -125,7 +136,7 @@ button:disabled {
 input,
 select,
 textarea {
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: var(--space-2) var(--space-3);
@@ -138,7 +149,7 @@ select:focus,
 textarea:focus {
     outline: none;
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 0 3px var(--accent-cyan-dim);
+    box-shadow: 0 0 0 2px var(--accent-cyan-dim);
 }
 
 input::placeholder,
@@ -149,7 +160,7 @@ textarea::placeholder {
 select {
     cursor: pointer;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239fb0c7' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 8px center;
     padding-right: 28px;
@@ -191,14 +202,14 @@ td {
 th {
     font-weight: var(--font-semibold);
     color: var(--text-secondary);
-    background: var(--bg-secondary);
+    background: var(--bg-tertiary);
     text-transform: uppercase;
     font-size: var(--text-xs);
     letter-spacing: 0.05em;
 }
 
 tr:hover td {
-    background: var(--bg-tertiary);
+    background: var(--bg-elevated);
 }
 
 /* ============================================

@@ -28,11 +28,24 @@
     justify-content: space-between;
     height: var(--header-height);
     padding: 0 var(--space-4);
-    background: var(--bg-secondary);
+    background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-secondary) 100%);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
+    box-shadow: var(--shadow-sm);
+}
+
+.app-header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    opacity: 0.6;
+    pointer-events: none;
 }
 
 .app-header-left {
@@ -119,12 +132,25 @@
 .app-nav {
     display: flex;
     align-items: center;
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     padding: 0 var(--space-4);
     height: var(--nav-height);
     gap: var(--space-1);
     overflow-x: auto;
+    position: relative;
+}
+
+.app-nav::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    opacity: 0.5;
+    pointer-events: none;
 }
 
 .app-nav::-webkit-scrollbar {
@@ -181,7 +207,7 @@
     top: 100%;
     left: 0;
     min-width: 180px;
-    background: var(--bg-card);
+    background: var(--bg-elevated);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-lg);
@@ -275,11 +301,24 @@
    ============================================ */
 .mobile-nav {
     display: none;
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     padding: var(--space-2) var(--space-3);
     overflow-x: auto;
     gap: var(--space-2);
+    position: relative;
+}
+
+.mobile-nav::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    opacity: 0.45;
+    pointer-events: none;
 }
 
 .mobile-nav::-webkit-scrollbar {
@@ -359,7 +398,7 @@
 /* Sidebar */
 .app-sidebar {
     width: var(--sidebar-width);
-    background: var(--bg-secondary);
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
     border-right: 1px solid var(--border-color);
     overflow-y: auto;
     flex-shrink: 0;
@@ -413,9 +452,22 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-2) var(--space-4);
-    background: var(--bg-secondary);
+    background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-secondary) 100%);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    position: relative;
+}
+
+.dashboard-header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    opacity: 0.55;
+    pointer-events: none;
 }
 
 .dashboard-header-logo {
@@ -445,7 +497,7 @@
 
 .dashboard-sidebar {
     width: 320px;
-    background: var(--bg-secondary);
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
     border-left: 1px solid var(--border-color);
     overflow-y: auto;
     display: flex;
@@ -589,11 +641,23 @@
 /* Mode Navigation Bar */
 .mode-nav {
     display: none;
-    background: #151a23 !important; /* Explicit color - forced to ensure consistency */
+    background: var(--bg-secondary) !important; /* Explicit color - forced to ensure consistency */
     border-bottom: 1px solid var(--border-color);
     padding: 0 20px;
     position: relative;
     z-index: 100;
+}
+
+.mode-nav::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    opacity: 0.5;
+    pointer-events: none;
 }
 
 @media (min-width: 1024px) {
