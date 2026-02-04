@@ -2218,34 +2218,48 @@ async function startFetchAudioStream(streamUrl, audioPlayer) {
             }
 
             try {
-                const response = await fetch(streamUrl, {
-                    cache: 'no-store',
-                    signal: audioFetchController.signal
-                });
-                if (!response.ok || !response.body) {
-                    console.warn('[LISTEN] Fetch stream response invalid', response.status);
-                    resolve(false);
+                let attempts = 0;
+                while (attempts < 5) {
+                    attempts += 1;
+                    const response = await fetch(streamUrl, {
+                        cache: 'no-store',
+                        signal: audioFetchController.signal
+                    });
+
+                    if (response.status === 204) {
+                        console.warn('[LISTEN] Stream not ready (204), retrying...', attempts);
+                        await new Promise(r => setTimeout(r, 500));
+                        continue;
+                    }
+
+                    if (!response.ok || !response.body) {
+                        console.warn('[LISTEN] Fetch stream response invalid', response.status);
+                        resolve(false);
+                        return;
+                    }
+
+                    const reader = response.body.getReader();
+                    const appendChunk = async (chunk) => {
+                        if (!chunk || chunk.length === 0) return;
+                        if (!sourceBuffer.updating) {
+                            sourceBuffer.appendBuffer(chunk);
+                            return;
+                        }
+                        await new Promise(r => sourceBuffer.addEventListener('updateend', r, { once: true }));
+                        sourceBuffer.appendBuffer(chunk);
+                    };
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        await appendChunk(value);
+                    }
+
+                    resolve(true);
                     return;
                 }
 
-                const reader = response.body.getReader();
-                const appendChunk = async (chunk) => {
-                    if (!chunk || chunk.length === 0) return;
-                    if (!sourceBuffer.updating) {
-                        sourceBuffer.appendBuffer(chunk);
-                        return;
-                    }
-                    await new Promise(r => sourceBuffer.addEventListener('updateend', r, { once: true }));
-                    sourceBuffer.appendBuffer(chunk);
-                };
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    await appendChunk(value);
-                }
-
-                resolve(true);
+                resolve(false);
             } catch (e) {
                 if (e.name !== 'AbortError') {
                     console.error('[LISTEN] Fetch stream error:', e);
