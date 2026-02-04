@@ -16,6 +16,7 @@ from typing import Generator, Optional, List, Dict
 
 from flask import Blueprint, jsonify, request, Response
 
+import app as app_module
 from utils.logging import get_logger
 from utils.sse import format_sse
 from utils.constants import (
@@ -47,12 +48,14 @@ scanner_running = False
 scanner_lock = threading.Lock()
 scanner_paused = False
 scanner_current_freq = 0.0
+scanner_active_device: Optional[int] = None
+listening_active_device: Optional[int] = None
 scanner_config = {
     'start_freq': 88.0,
     'end_freq': 108.0,
     'step': 0.1,
     'modulation': 'wfm',
-    'squelch': 20,
+    'squelch': 0,
     'dwell_time': 10.0,  # Seconds to stay on active frequency
     'scan_delay': 0.1,  # Seconds between frequency hops (keep low for fast scanning)
     'device': 0,
@@ -60,6 +63,7 @@ scanner_config = {
     'bias_t': False,  # Bias-T power for external LNA
     'sdr_type': 'rtlsdr',  # SDR type: rtlsdr, hackrf, airspy, limesdr, sdrplay
     'scan_method': 'power',  # power (rtl_power) or classic (rtl_fm hop)
+    'snr_threshold': 12,
 }
 
 # Activity log
@@ -775,7 +779,7 @@ def check_tools() -> Response:
 @listening_post_bp.route('/scanner/start', methods=['POST'])
 def start_scanner() -> Response:
     """Start the frequency scanner."""
-    global scanner_thread, scanner_running, scanner_config
+    global scanner_thread, scanner_running, scanner_config, scanner_active_device, listening_active_device
 
     with scanner_lock:
         if scanner_running:
@@ -792,7 +796,7 @@ def start_scanner() -> Response:
         scanner_config['end_freq'] = float(data.get('end_freq', 108.0))
         scanner_config['step'] = float(data.get('step', 0.1))
         scanner_config['modulation'] = str(data.get('modulation', 'wfm')).lower()
-        scanner_config['squelch'] = int(data.get('squelch', 20))
+        scanner_config['squelch'] = int(data.get('squelch', 0))
         scanner_config['dwell_time'] = float(data.get('dwell_time', 3.0))
         scanner_config['scan_delay'] = float(data.get('scan_delay', 0.5))
         scanner_config['device'] = int(data.get('device', 0))
@@ -833,6 +837,19 @@ def start_scanner() -> Response:
                 'status': 'error',
                 'message': 'rtl_power not found. Install rtl-sdr tools.'
             }), 503
+        # Release listening device if active
+        if listening_active_device is not None:
+            app_module.release_sdr_device(listening_active_device)
+            listening_active_device = None
+        # Claim device for scanner
+        error = app_module.claim_sdr_device(scanner_config['device'], 'scanner')
+        if error:
+            return jsonify({
+                'status': 'error',
+                'error_type': 'DEVICE_BUSY',
+                'message': error
+            }), 409
+        scanner_active_device = scanner_config['device']
         scanner_running = True
         scanner_thread = threading.Thread(target=scanner_loop_power, daemon=True)
         scanner_thread.start()
@@ -849,6 +866,17 @@ def start_scanner() -> Response:
                     'status': 'error',
                     'message': f'rx_fm not found. Install SoapySDR utilities for {sdr_type}.'
                 }), 503
+        if listening_active_device is not None:
+            app_module.release_sdr_device(listening_active_device)
+            listening_active_device = None
+        error = app_module.claim_sdr_device(scanner_config['device'], 'scanner')
+        if error:
+            return jsonify({
+                'status': 'error',
+                'error_type': 'DEVICE_BUSY',
+                'message': error
+            }), 409
+        scanner_active_device = scanner_config['device']
 
         scanner_running = True
         scanner_thread = threading.Thread(target=scanner_loop, daemon=True)
@@ -863,10 +891,13 @@ def start_scanner() -> Response:
 @listening_post_bp.route('/scanner/stop', methods=['POST'])
 def stop_scanner() -> Response:
     """Stop the frequency scanner."""
-    global scanner_running
+    global scanner_running, scanner_active_device
 
     scanner_running = False
     _stop_audio_stream()
+    if scanner_active_device is not None:
+        app_module.release_sdr_device(scanner_active_device)
+        scanner_active_device = None
 
     return jsonify({'status': 'stopped'})
 
@@ -1027,11 +1058,14 @@ def get_presets() -> Response:
 @listening_post_bp.route('/audio/start', methods=['POST'])
 def start_audio() -> Response:
     """Start audio at specific frequency (manual mode)."""
-    global scanner_running
+    global scanner_running, scanner_active_device, listening_active_device
 
     # Stop scanner if running
     if scanner_running:
         scanner_running = False
+        if scanner_active_device is not None:
+            app_module.release_sdr_device(scanner_active_device)
+            scanner_active_device = None
         time.sleep(0.5)
 
     data = request.json or {}
@@ -1075,6 +1109,19 @@ def start_audio() -> Response:
     scanner_config['device'] = device
     scanner_config['sdr_type'] = sdr_type
 
+    # Claim device for listening audio
+    if listening_active_device is None or listening_active_device != device:
+        if listening_active_device is not None:
+            app_module.release_sdr_device(listening_active_device)
+        error = app_module.claim_sdr_device(device, 'listening')
+        if error:
+            return jsonify({
+                'status': 'error',
+                'error_type': 'DEVICE_BUSY',
+                'message': error
+            }), 409
+        listening_active_device = device
+
     _start_audio_stream(frequency, modulation)
 
     if audio_running:
@@ -1093,7 +1140,11 @@ def start_audio() -> Response:
 @listening_post_bp.route('/audio/stop', methods=['POST'])
 def stop_audio() -> Response:
     """Stop audio."""
+    global listening_active_device
     _stop_audio_stream()
+    if listening_active_device is not None:
+        app_module.release_sdr_device(listening_active_device)
+        listening_active_device = None
     return jsonify({'status': 'stopped'})
 
 
