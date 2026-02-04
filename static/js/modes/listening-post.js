@@ -26,6 +26,7 @@ const MAX_AUDIO_RECONNECT = 3;
 let audioWebSocket = null;
 let audioQueue = [];
 let isWebSocketAudio = false;
+let audioFetchController = null;
 
 // Visualizer state
 let visualizerContext = null;
@@ -2147,11 +2148,14 @@ async function _startDirectListenInternal() {
             console.log('[LISTEN] Initial play blocked, waiting for canplay');
         });
 
-        // Fallback: if stream never starts, switch to WebSocket audio
+        // Fallback: if stream never starts, try fetch-based stream
         setTimeout(async () => {
             if (!isDirectListening || !audioPlayer) return;
             if (audioPlayer.readyState > 0) return;
-            console.warn('[LISTEN] HTTP stream not ready, attempting WebSocket audio fallback');
+            console.warn('[LISTEN] HTTP stream not ready, attempting fetch stream fallback');
+            const fetchOk = await startFetchAudioStream(streamUrl, audioPlayer);
+            if (fetchOk) return;
+            console.warn('[LISTEN] Fetch stream failed, attempting WebSocket audio fallback');
             await startWebSocketListen({
                 frequency: freq,
                 modulation: currentModulation,
@@ -2176,6 +2180,80 @@ async function _startDirectListenInternal() {
     } finally {
         isRestarting = false;
     }
+}
+
+async function startFetchAudioStream(streamUrl, audioPlayer) {
+    if (!window.MediaSource) {
+        console.warn('[LISTEN] MediaSource not supported for fetch fallback');
+        return false;
+    }
+
+    // Abort any previous fetch stream
+    if (audioFetchController) {
+        audioFetchController.abort();
+    }
+    audioFetchController = new AbortController();
+
+    // Reset audio element for MediaSource
+    try {
+        audioPlayer.pause();
+    } catch (e) {}
+    audioPlayer.removeAttribute('src');
+    audioPlayer.load();
+
+    const mediaSource = new MediaSource();
+    audioPlayer.src = URL.createObjectURL(mediaSource);
+    audioPlayer.muted = false;
+    audioPlayer.autoplay = true;
+
+    return new Promise((resolve) => {
+        mediaSource.addEventListener('sourceopen', async () => {
+            let sourceBuffer;
+            try {
+                sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+            } catch (e) {
+                console.error('[LISTEN] Failed to create source buffer:', e);
+                resolve(false);
+                return;
+            }
+
+            try {
+                const response = await fetch(streamUrl, {
+                    cache: 'no-store',
+                    signal: audioFetchController.signal
+                });
+                if (!response.ok || !response.body) {
+                    console.warn('[LISTEN] Fetch stream response invalid', response.status);
+                    resolve(false);
+                    return;
+                }
+
+                const reader = response.body.getReader();
+                const appendChunk = async (chunk) => {
+                    if (!chunk || chunk.length === 0) return;
+                    if (!sourceBuffer.updating) {
+                        sourceBuffer.appendBuffer(chunk);
+                        return;
+                    }
+                    await new Promise(r => sourceBuffer.addEventListener('updateend', r, { once: true }));
+                    sourceBuffer.appendBuffer(chunk);
+                };
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    await appendChunk(value);
+                }
+
+                resolve(true);
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    console.error('[LISTEN] Fetch stream error:', e);
+                }
+                resolve(false);
+            }
+        }, { once: true });
+    });
 }
 
 async function startWebSocketListen(config, audioPlayer) {
@@ -2234,6 +2312,10 @@ function stopDirectListen() {
         audioPlayer.src = '';
     }
     audioQueue = [];
+    if (audioFetchController) {
+        audioFetchController.abort();
+        audioFetchController = null;
+    }
 
     // Stop via WebSocket if connected
     if (audioWebSocket && audioWebSocket.readyState === WebSocket.OPEN) {
