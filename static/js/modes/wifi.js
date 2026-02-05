@@ -879,6 +879,7 @@ const WiFiMode = (function() {
         updateNetworkRow(network);
         updateStats();
         updateProximityRadar();
+        updateChannelChart();
 
         if (onNetworkUpdate) onNetworkUpdate(network);
     }
@@ -1420,8 +1421,14 @@ const WiFiMode = (function() {
         return Object.values(stats).filter(s => s.ap_count > 0 || [1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161, 165].includes(s.channel));
     }
 
-    function updateChannelChart(band = '2.4') {
+    function updateChannelChart(band) {
         if (typeof ChannelChart === 'undefined') return;
+
+        // Use the currently active band tab if no band specified
+        if (!band) {
+            const activeTab = elements.channelBandTabs && elements.channelBandTabs.querySelector('.channel-band-tab.active');
+            band = activeTab ? activeTab.dataset.band : '2.4';
+        }
 
         // Recalculate channel stats from networks if needed
         if (channelStats.length === 0 && networks.size > 0) {

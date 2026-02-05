@@ -1215,6 +1215,112 @@ def delete_known_device(identifier: str) -> bool:
         return cursor.rowcount > 0
 
 
+# =============================================================================
+# TSCM Schedule Functions
+# =============================================================================
+
+def create_tscm_schedule(
+    name: str,
+    cron_expression: str,
+    sweep_type: str = 'standard',
+    baseline_id: int | None = None,
+    zone_name: str | None = None,
+    enabled: bool = True,
+    notify_on_threat: bool = True,
+    notify_email: str | None = None,
+    last_run: str | None = None,
+    next_run: str | None = None,
+) -> int:
+    """Create a new TSCM sweep schedule."""
+    with get_db() as conn:
+        cursor = conn.execute('''
+            INSERT INTO tscm_schedules
+            (name, baseline_id, zone_name, cron_expression, sweep_type,
+             enabled, last_run, next_run, notify_on_threat, notify_email)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            name,
+            baseline_id,
+            zone_name,
+            cron_expression,
+            sweep_type,
+            1 if enabled else 0,
+            last_run,
+            next_run,
+            1 if notify_on_threat else 0,
+            notify_email,
+        ))
+        return cursor.lastrowid
+
+
+def get_tscm_schedule(schedule_id: int) -> dict | None:
+    """Get a TSCM schedule by ID."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'SELECT * FROM tscm_schedules WHERE id = ?',
+            (schedule_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_all_tscm_schedules(
+    enabled: bool | None = None,
+    limit: int = 200
+) -> list[dict]:
+    """Get all TSCM schedules."""
+    conditions = []
+    params = []
+
+    if enabled is not None:
+        conditions.append('enabled = ?')
+        params.append(1 if enabled else 0)
+
+    where_clause = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+    params.append(limit)
+
+    with get_db() as conn:
+        cursor = conn.execute(f'''
+            SELECT * FROM tscm_schedules
+            {where_clause}
+            ORDER BY id DESC
+            LIMIT ?
+        ''', params)
+        return [dict(row) for row in cursor]
+
+
+def update_tscm_schedule(schedule_id: int, **fields) -> bool:
+    """Update a TSCM schedule."""
+    if not fields:
+        return False
+
+    updates = []
+    params = []
+
+    for key, value in fields.items():
+        updates.append(f'{key} = ?')
+        params.append(value)
+
+    params.append(schedule_id)
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            f'UPDATE tscm_schedules SET {", ".join(updates)} WHERE id = ?',
+            params
+        )
+        return cursor.rowcount > 0
+
+
+def delete_tscm_schedule(schedule_id: int) -> bool:
+    """Delete a TSCM schedule."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'DELETE FROM tscm_schedules WHERE id = ?',
+            (schedule_id,)
+        )
+        return cursor.rowcount > 0
+
+
 def is_known_good_device(identifier: str, location: str | None = None) -> dict | None:
     """Check if a device is in the known-good registry for a location."""
     with get_db() as conn:

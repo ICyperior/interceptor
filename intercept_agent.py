@@ -3122,6 +3122,7 @@ class ModeManager:
         wifi_interface = params.get('wifi_interface') or params.get('interface')
         bt_adapter = params.get('bt_interface') or params.get('adapter', 'hci0')
         sdr_device = params.get('sdr_device', params.get('device', 0))
+        sweep_type = params.get('sweep_type')
 
         # Get baseline_id for comparison (same as local mode)
         baseline_id = params.get('baseline_id')
@@ -3131,7 +3132,7 @@ class ModeManager:
         # Start the combined TSCM scanner thread using existing Intercept functions
         thread = threading.Thread(
             target=self._tscm_scanner_thread,
-            args=(scan_wifi, scan_bt, scan_rf, wifi_interface, bt_adapter, sdr_device, baseline_id),
+            args=(scan_wifi, scan_bt, scan_rf, wifi_interface, bt_adapter, sdr_device, baseline_id, sweep_type),
             daemon=True
         )
         thread.start()
@@ -3154,7 +3155,7 @@ class ModeManager:
 
     def _tscm_scanner_thread(self, scan_wifi: bool, scan_bt: bool, scan_rf: bool,
                               wifi_interface: str | None, bt_adapter: str, sdr_device: int,
-                              baseline_id: int | None = None):
+                              baseline_id: int | None = None, sweep_type: str | None = None):
         """Combined TSCM scanner using existing Intercept functions.
 
         NOTE: This matches local mode behavior exactly:
@@ -3169,6 +3170,15 @@ class ModeManager:
         # Import existing Intercept TSCM functions
         from routes.tscm import _scan_wifi_networks, _scan_bluetooth_devices, _scan_rf_signals
         logger.info("TSCM imports successful")
+
+        sweep_ranges = None
+        if sweep_type:
+            try:
+                from data.tscm_frequencies import get_sweep_preset, SWEEP_PRESETS
+                preset = get_sweep_preset(sweep_type) or SWEEP_PRESETS.get('standard')
+                sweep_ranges = preset.get('ranges') if preset else None
+            except Exception:
+                sweep_ranges = None
 
         # Load baseline if specified (same as local mode)
         baseline = None
@@ -3243,6 +3253,9 @@ class ModeManager:
                                     profile = self._tscm_correlation.analyze_wifi_device(enriched)
                                     enriched['classification'] = profile.risk_level.value
                                     enriched['score'] = profile.total_score
+                                    enriched['score_modifier'] = profile.score_modifier
+                                    enriched['known_device'] = profile.known_device
+                                    enriched['known_device_name'] = profile.known_device_name
                                     enriched['indicators'] = [
                                         {'type': i.type.value, 'desc': i.description}
                                         for i in profile.indicators
@@ -3289,6 +3302,9 @@ class ModeManager:
                                     profile = self._tscm_correlation.analyze_bluetooth_device(enriched)
                                     enriched['classification'] = profile.risk_level.value
                                     enriched['score'] = profile.total_score
+                                    enriched['score_modifier'] = profile.score_modifier
+                                    enriched['known_device'] = profile.known_device
+                                    enriched['known_device_name'] = profile.known_device_name
                                     enriched['indicators'] = [
                                         {'type': i.type.value, 'desc': i.description}
                                         for i in profile.indicators
@@ -3304,7 +3320,11 @@ class ModeManager:
                     try:
                         # Pass a stop check that uses our stop_event (not the module's _sweep_running)
                         agent_stop_check = lambda: stop_event and stop_event.is_set()
-                        rf_signals = _scan_rf_signals(sdr_device, stop_check=agent_stop_check)
+                        rf_signals = _scan_rf_signals(
+                            sdr_device,
+                            stop_check=agent_stop_check,
+                            sweep_ranges=sweep_ranges
+                        )
 
                         # Analyze each RF signal like local mode does
                         analyzed_signals = []
@@ -3328,6 +3348,9 @@ class ModeManager:
                                 profile = self._tscm_correlation.analyze_rf_signal(signal)
                                 analyzed['classification'] = profile.risk_level.value
                                 analyzed['score'] = profile.total_score
+                                analyzed['score_modifier'] = profile.score_modifier
+                                analyzed['known_device'] = profile.known_device
+                                analyzed['known_device_name'] = profile.known_device_name
                                 analyzed['indicators'] = [
                                     {'type': i.type.value, 'desc': i.description}
                                     for i in profile.indicators

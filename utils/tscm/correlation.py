@@ -157,6 +157,9 @@ class DeviceProfile:
     # Output
     confidence: float = 0.0
     recommended_action: str = 'monitor'
+    known_device: bool = False
+    known_device_name: Optional[str] = None
+    score_modifier: int = 0
 
     def add_rssi_sample(self, rssi: int) -> None:
         """Add an RSSI sample with timestamp."""
@@ -208,6 +211,26 @@ class DeviceProfile:
         indicator_count = len(self.indicators)
         self.confidence = min(1.0, (indicator_count * 0.15) + (self.total_score * 0.05))
 
+    def apply_score_modifier(self, modifier: int | None) -> None:
+        """Apply a score modifier (e.g., known-good device adjustment)."""
+        base_score = sum(i.score for i in self.indicators)
+        modifier_val = int(modifier) if modifier is not None else 0
+        self.score_modifier = modifier_val
+        self.total_score = max(0, base_score + modifier_val)
+
+        if self.total_score >= 6:
+            self.risk_level = RiskLevel.HIGH_INTEREST
+            self.recommended_action = 'investigate'
+        elif self.total_score >= 3:
+            self.risk_level = RiskLevel.NEEDS_REVIEW
+            self.recommended_action = 'review'
+        else:
+            self.risk_level = RiskLevel.INFORMATIONAL
+            self.recommended_action = 'monitor'
+
+        indicator_count = len(self.indicators)
+        self.confidence = min(1.0, (indicator_count * 0.15) + (self.total_score * 0.05))
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -232,10 +255,13 @@ class DeviceProfile:
                 for i in self.indicators
             ],
             'total_score': self.total_score,
+            'score_modifier': self.score_modifier,
             'risk_level': self.risk_level.value,
             'confidence': round(self.confidence, 2),
             'recommended_action': self.recommended_action,
             'correlated_devices': self.correlated_devices,
+            'known_device': self.known_device,
+            'known_device_name': self.known_device_name,
         }
 
 
@@ -286,6 +312,7 @@ class CorrelationEngine:
         self.device_profiles: dict[str, DeviceProfile] = {}
         self.meeting_windows: list[tuple[datetime, datetime]] = []
         self.correlation_window = timedelta(minutes=5)
+        self._known_device_cache: dict[str, dict | None] = {}
 
     def start_meeting_window(self) -> None:
         """Mark the start of a sensitive period (meeting)."""
@@ -309,6 +336,54 @@ class CorrelationEngine:
             elif start <= ts <= end:
                 return True
         return False
+
+    def _lookup_known_device(self, identifier: str, protocol: str) -> dict | None:
+        """Lookup known-good device details with light normalization."""
+        cache_key = f"{protocol}:{identifier}"
+        if cache_key in self._known_device_cache:
+            return self._known_device_cache[cache_key]
+
+        try:
+            from utils.database import is_known_good_device
+
+            candidates = []
+            if identifier:
+                candidates.append(str(identifier))
+
+            if protocol == 'rf':
+                try:
+                    freq_val = float(identifier)
+                    candidates.append(f"{freq_val:.3f}")
+                    candidates.append(f"{freq_val:.1f}")
+                except (ValueError, TypeError):
+                    pass
+
+            known = None
+            for cand in candidates:
+                if not cand:
+                    continue
+                known = is_known_good_device(str(cand).upper())
+                if known:
+                    break
+        except Exception:
+            known = None
+
+        self._known_device_cache[cache_key] = known
+        return known
+
+    def _apply_known_device_modifier(self, profile: DeviceProfile, identifier: str, protocol: str) -> None:
+        """Apply known-good score modifier and update profile metadata."""
+        known = self._lookup_known_device(identifier, protocol)
+        if known:
+            profile.known_device = True
+            profile.known_device_name = known.get('name') if isinstance(known, dict) else None
+            modifier = known.get('score_modifier', 0) if isinstance(known, dict) else 0
+        else:
+            profile.known_device = False
+            profile.known_device_name = None
+            modifier = 0
+
+        profile.apply_score_modifier(modifier)
 
     def get_or_create_profile(self, identifier: str, protocol: str) -> DeviceProfile:
         """Get existing profile or create new one."""
@@ -583,6 +658,8 @@ class CorrelationEngine:
                 )
                 profile.device_type = 'Samsung SmartTag'
 
+        self._apply_known_device_modifier(profile, mac, 'bluetooth')
+
         return profile
 
     def analyze_wifi_device(self, device: dict) -> DeviceProfile:
@@ -695,6 +772,8 @@ class CorrelationEngine:
                     {'rssi': latest_rssi}
                 )
 
+        self._apply_known_device_modifier(profile, bssid, 'wifi')
+
         return profile
 
     def analyze_rf_signal(self, signal: dict) -> DeviceProfile:
@@ -784,6 +863,8 @@ class CorrelationEngine:
                 'Signal detected during sensitive period',
                 {'during_meeting': True}
             )
+
+        self._apply_known_device_modifier(profile, freq_key, 'rf')
 
         return profile
 
@@ -886,6 +967,10 @@ class CorrelationEngine:
                             'significance': 'medium',
                         }
                         correlations.append(correlation)
+
+        # Re-apply known-good modifiers after correlation boosts
+        for profile in self.device_profiles.values():
+            self._apply_known_device_modifier(profile, profile.identifier, profile.protocol)
 
         return correlations
 

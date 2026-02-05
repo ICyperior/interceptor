@@ -13,6 +13,11 @@
             document.write('<style id="disclaimer-gate">.welcome-overlay{display:none !important}</style>');
             window._showDisclaimerOnLoad = true;
         }
+        // If navigating with a mode param (e.g. /?mode=listening), hide welcome immediately
+        // to prevent flash of welcome screen before JS applies the mode
+        else if (new URLSearchParams(window.location.search).get('mode')) {
+            document.write('<style id="mode-gate">.welcome-overlay{display:none !important}</style>');
+        }
     </script>
     <script>
         window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
@@ -1397,6 +1402,11 @@
                             <span id="tscmMeetingBannerName"></span>
                             <span id="tscmMeetingBannerTime"></span>
                         </div>
+                        <div class="meeting-actions">
+                            <button class="preset-btn" onclick="tscmShowMeetingSummary()" style="font-size: 10px; padding: 6px 8px;">
+                                Summary
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Capabilities Summary Bar -->
@@ -1432,6 +1442,45 @@
                         <span class="health-age" id="baselineHealthAge"></span>
                     </div>
 
+                    <!-- Filters -->
+                    <div class="tscm-filter-bar">
+                        <div class="tscm-filter-group">
+                            <label for="tscmFilterProtocol">Protocol</label>
+                            <select id="tscmFilterProtocol">
+                                <option value="all">All</option>
+                                <option value="wifi">WiFi</option>
+                                <option value="bluetooth">Bluetooth</option>
+                                <option value="rf">RF</option>
+                            </select>
+                        </div>
+                        <div class="tscm-filter-group">
+                            <label for="tscmFilterRisk">Risk</label>
+                            <select id="tscmFilterRisk">
+                                <option value="all">All</option>
+                                <option value="high_interest">High Interest</option>
+                                <option value="review">Needs Review</option>
+                                <option value="informational">Informational</option>
+                            </select>
+                        </div>
+                        <div class="tscm-filter-group">
+                            <label for="tscmFilterStatus">Status</label>
+                            <select id="tscmFilterStatus">
+                                <option value="all">All</option>
+                                <option value="new">New</option>
+                                <option value="baseline">Baseline</option>
+                            </select>
+                        </div>
+                        <div class="tscm-filter-group">
+                            <label for="tscmFilterKnown">Known</label>
+                            <select id="tscmFilterKnown">
+                                <option value="all">All</option>
+                                <option value="known">Known</option>
+                                <option value="unknown">Unknown</option>
+                            </select>
+                        </div>
+                        <div class="tscm-filter-status" id="tscmFilterStatusText">Filters: none</div>
+                    </div>
+
                     <!-- Risk Summary Banner (new scoring model) - clickable cards -->
                     <div class="tscm-threat-banner">
                         <div class="threat-card critical clickable" id="tscmHighInterestCard"
@@ -1456,6 +1505,11 @@
                             <span class="count" id="tscmCorrelationsCount">0</span>
                             <span class="label">Correlations</span>
                         </div>
+                        <div class="threat-card medium clickable" id="tscmIdentityCard"
+                            onclick="showDevicesByCategory('identity')" title="Click to view identity clusters">
+                            <span class="count" id="tscmIdentityCount">0</span>
+                            <span class="label">Identity Clusters</span>
+                        </div>
                     </div>
 
                     <!-- Sweep Summary (shown after sweep completes) -->
@@ -1470,7 +1524,7 @@
                     <!-- Main Content Grid -->
                     <div class="tscm-main-grid">
                         <!-- WiFi Panel -->
-                        <div class="tscm-panel">
+                        <div class="tscm-panel" id="tscmWifiPanel">
                             <div class="tscm-panel-header">
                                 WiFi Networks
                                 <span class="badge" id="tscmWifiCount">0</span>
@@ -1481,7 +1535,7 @@
                         </div>
 
                         <!-- Bluetooth Panel -->
-                        <div class="tscm-panel">
+                        <div class="tscm-panel" id="tscmBtPanel">
                             <div class="tscm-panel-header">
                                 Bluetooth Devices
                                 <span class="badge" id="tscmBtCount">0</span>
@@ -1492,7 +1546,7 @@
                         </div>
 
                         <!-- RF Signals Panel -->
-                        <div class="tscm-panel">
+                        <div class="tscm-panel" id="tscmRfPanel">
                             <div class="tscm-panel-header">
                                 RF Signals
                                 <span class="badge" id="tscmRfCount">0</span>
@@ -1503,7 +1557,7 @@
                         </div>
 
                         <!-- Threats Panel -->
-                        <div class="tscm-panel" style="grid-column: span 2;">
+                        <div class="tscm-panel" id="tscmThreatPanel" style="grid-column: span 2;">
                             <div class="tscm-panel-header">
                                 Detected Threats
                                 <span class="badge" id="tscmThreatCount">0</span>
@@ -2065,6 +2119,9 @@
             if (accepted) {
                 const welcome = document.getElementById('welcomePage');
                 if (welcome) welcome.style.display = 'none';
+                // Remove mode-gate style injected to prevent welcome flash
+                const modeGate = document.getElementById('mode-gate');
+                if (modeGate) modeGate.remove();
                 switchMode(mode, { updateUrl: false });
                 updateModeUrl(mode, true);
             } else {
@@ -9446,6 +9503,18 @@
         let tscmThreats = [];
         let tscmWifiDevices = [];
         let tscmBtDevices = [];
+        let tscmBaselineComparison = null;
+        let tscmIdentityClusters = [];
+        let tscmIdentitySummary = null;
+        let tscmCaseLinkContext = null;
+        let tscmLastSweepId = null;
+        let tscmLastMeetingId = null;
+        const tscmFilters = {
+            protocol: 'all',
+            risk: 'all',
+            status: 'all',
+            known: 'all',
+        };
         let isRecordingBaseline = false;
         let tscmSweepStartTime = null;
         let tscmSweepEndTime = null;
@@ -9638,6 +9707,9 @@
                 // Handle controller proxy response (agent response is nested in 'result')
                 const scanResult = isAgentMode && data.result ? data.result : data;
                 if (scanResult.status === 'success' || scanResult.status === 'started') {
+                    if (scanResult.sweep_id) {
+                        tscmLastSweepId = scanResult.sweep_id;
+                    }
                     isTscmRunning = true;
                     tscmSweepStartTime = new Date();
                     tscmSweepEndTime = null;
@@ -9667,7 +9739,19 @@
                     tscmBtDevices = [];
                     tscmRfSignals = [];
                     tscmRfStatusMessage = null;
+                    tscmCorrelations = [];
+                    tscmBaselineComparison = null;
+                    tscmIdentityClusters = [];
+                    tscmIdentitySummary = null;
                     updateTscmDisplays();
+                    updateTscmThreatCounts();
+
+                    // Update capabilities bar for this sweep
+                    updateTscmCapabilitiesBar(wifiInterface, btInterface);
+                    // Update baseline health indicator if baseline selected
+                    if (baselineId) {
+                        updateTscmBaselineHealth(baselineId);
+                    }
 
                     // Start SSE stream
                     startTscmStream();
@@ -10347,7 +10431,8 @@
                     // Process Bluetooth devices
                     if (data.bt_devices) {
                         data.bt_devices.forEach(device => {
-                            if (!tscmBtDevices.find(d => d.address === device.address)) {
+                            const deviceMac = device.mac || device.address;
+                            if (!tscmBtDevices.find(d => (d.mac || d.address) === deviceMac)) {
                                 handleTscmEvent({ type: 'bt_device', ...device });
                             }
                         });
@@ -10412,6 +10497,12 @@
                 case 'correlation_findings':
                     handleCorrelationFindings(data);
                     break;
+                case 'baseline_comparison':
+                    handleBaselineComparison(data);
+                    break;
+                case 'identity_clusters':
+                    handleIdentityClusters(data);
+                    break;
                 case 'sweep_completed':
                     completeTscmSweep(data);
                     break;
@@ -10425,6 +10516,53 @@
         function handleCorrelationFindings(data) {
             tscmCorrelations = data.correlations || [];
             updateCorrelationsDisplay();
+            updateTscmThreatCounts();
+        }
+
+        function handleBaselineComparison(data) {
+            tscmBaselineComparison = data || null;
+        }
+
+        function handleIdentityClusters(data) {
+            tscmIdentitySummary = {
+                total: data.total_clusters || 0,
+                high: data.high_risk_count || 0,
+                medium: data.medium_risk_count || 0,
+                unique_fingerprints: data.unique_fingerprints || 0,
+            };
+            tscmIdentityClusters = data.clusters || [];
+            updateCorrelationsDisplay();
+            updateTscmThreatCounts();
+        }
+
+        async function tscmRefreshIdentityClusters() {
+            try {
+                const [clusterRes, summaryRes] = await Promise.all([
+                    fetch('/tscm/identity/clusters'),
+                    fetch('/tscm/identity/summary')
+                ]);
+
+                const clusterData = await clusterRes.json();
+                if (clusterData.status === 'success') {
+                    tscmIdentityClusters = clusterData.clusters || [];
+                }
+
+                const summaryData = await summaryRes.json();
+                if (summaryData.status === 'success' && summaryData.summary) {
+                    const stats = summaryData.summary.statistics || {};
+                    tscmIdentitySummary = {
+                        total: stats.total_clusters || tscmIdentityClusters.length,
+                        high: stats.high_risk_count || 0,
+                        medium: stats.medium_risk_count || 0,
+                        unique_fingerprints: stats.unique_fingerprints || 0,
+                    };
+                }
+
+                updateCorrelationsDisplay();
+                updateTscmThreatCounts();
+            } catch (e) {
+                console.error('Failed to refresh identity clusters:', e);
+            }
         }
 
         function addTscmWifiDevice(device) {
@@ -10454,9 +10592,11 @@
         }
 
         function addTscmBtDevice(device) {
+            const mac = device.mac || device.address || '';
             // Check if already exists
-            const exists = tscmBtDevices.some(d => d.mac === device.mac);
+            const exists = tscmBtDevices.some(d => (d.mac || d.address) === mac);
             if (!exists) {
+                if (!device.mac && mac) device.mac = mac;
                 tscmBtDevices.push(device);
                 updateTscmDisplays();
                 updateTscmThreatCounts();
@@ -10486,6 +10626,10 @@
             tscmRfStatusMessage = null;
             // Check if already exists (within 0.1 MHz)
             const exists = tscmRfSignals.some(s => Math.abs(s.frequency - signal.frequency) < 0.1);
+            const powerDbm = signal.power_dbm ?? signal.power ?? signal.level;
+            const strength = powerDbm !== undefined && powerDbm !== null
+                ? Math.min(5, Math.max(1, Math.ceil((powerDbm + 60) / 15)))
+                : 3;
             if (!exists) {
                 tscmRfSignals.push(signal);
                 updateTscmDisplays();
@@ -10503,11 +10647,9 @@
                     }).catch(e => console.error('Baseline feed error:', e));
                 }
                 // Add to signal timeline
-                const strength = signal.power_dbm ? Math.min(5, Math.max(1, Math.ceil((signal.power_dbm + 60) / 15))) : 3;
                 SignalTimeline.addEvent(String(signal.frequency), strength, 1000, signal.classification || 'RF Signal');
             } else {
                 // Update existing signal on timeline (show recurring transmission)
-                const strength = signal.power_dbm ? Math.min(5, Math.max(1, Math.ceil((signal.power_dbm + 60) / 15))) : 3;
                 SignalTimeline.addEvent(String(signal.frequency), strength, 500, signal.classification || 'RF Signal');
             }
         }
@@ -10616,12 +10758,89 @@
             updateTscmDisplays();
         }
 
+        function readTscmFilters() {
+            const protocolSelect = document.getElementById('tscmFilterProtocol');
+            const riskSelect = document.getElementById('tscmFilterRisk');
+            const statusSelect = document.getElementById('tscmFilterStatus');
+            const knownSelect = document.getElementById('tscmFilterKnown');
+
+            tscmFilters.protocol = protocolSelect ? protocolSelect.value : 'all';
+            tscmFilters.risk = riskSelect ? riskSelect.value : 'all';
+            tscmFilters.status = statusSelect ? statusSelect.value : 'all';
+            tscmFilters.known = knownSelect ? knownSelect.value : 'all';
+        }
+
+        function updateTscmFilterStatus() {
+            const statusEl = document.getElementById('tscmFilterStatusText');
+            if (!statusEl) return;
+
+            const parts = [];
+            if (tscmFilters.protocol !== 'all') parts.push(tscmFilters.protocol.toUpperCase());
+            if (tscmFilters.risk !== 'all') parts.push(tscmFilters.risk.replace(/_/g, ' ').toUpperCase());
+            if (tscmFilters.status !== 'all') parts.push(tscmFilters.status.toUpperCase());
+            if (tscmFilters.known !== 'all') parts.push(tscmFilters.known.toUpperCase());
+
+            statusEl.textContent = parts.length > 0 ? `Filters: ${parts.join(' • ')}` : 'Filters: none';
+        }
+
+        function updateTscmPanelVisibility() {
+            const protocol = tscmFilters.protocol;
+            const showWifi = protocol === 'all' || protocol === 'wifi';
+            const showBt = protocol === 'all' || protocol === 'bluetooth';
+            const showRf = protocol === 'all' || protocol === 'rf';
+
+            const wifiPanel = document.getElementById('tscmWifiPanel');
+            const btPanel = document.getElementById('tscmBtPanel');
+            const rfPanel = document.getElementById('tscmRfPanel');
+
+            if (wifiPanel) wifiPanel.style.display = showWifi ? '' : 'none';
+            if (btPanel) btPanel.style.display = showBt ? '' : 'none';
+            if (rfPanel) rfPanel.style.display = showRf ? '' : 'none';
+        }
+
+        function matchesTscmFilters(device, protocol, options = {}) {
+            if (tscmFilters.protocol !== 'all' && protocol !== tscmFilters.protocol) return false;
+
+            if (!options.ignoreRisk && tscmFilters.risk !== 'all') {
+                if ((device.classification || 'review') !== tscmFilters.risk) return false;
+            }
+
+            if (tscmFilters.status === 'new' && device.is_new !== true) return false;
+            if (tscmFilters.status === 'baseline' && device.is_new !== false) return false;
+
+            if (tscmFilters.known === 'known' && !device.known_device) return false;
+            if (tscmFilters.known === 'unknown' && device.known_device) return false;
+
+            return true;
+        }
+
+        function getFilteredDevices(options = {}) {
+            const wifi = tscmWifiDevices.filter(d => matchesTscmFilters(d, 'wifi', options));
+            const bt = tscmBtDevices.filter(d => matchesTscmFilters(d, 'bluetooth', options));
+            const rf = tscmRfSignals.filter(d => matchesTscmFilters(d, 'rf', options));
+            return {
+                wifi,
+                bt,
+                rf,
+                all: [...wifi, ...bt, ...rf],
+            };
+        }
+
+        function applyTscmFilters() {
+            readTscmFilters();
+            updateTscmFilterStatus();
+            updateTscmPanelVisibility();
+            updateTscmDisplays();
+            updateTscmThreatCounts();
+        }
+
         function updateTscmThreatCounts() {
             // Count devices by new scoring model classification
             const counts = { high_interest: 0, review: 0, informational: 0 };
 
             // Count from all device lists
-            [...tscmWifiDevices, ...tscmBtDevices, ...tscmRfSignals].forEach(d => {
+            const filtered = getFilteredDevices();
+            filtered.all.forEach(d => {
                 const classification = d.classification || 'review';
                 if (classification === 'high_interest') counts.high_interest++;
                 else if (classification === 'review') counts.review++;
@@ -10632,11 +10851,13 @@
             document.getElementById('tscmNeedsReviewCount').textContent = counts.review;
             document.getElementById('tscmInformationalCount').textContent = counts.informational;
             document.getElementById('tscmCorrelationsCount').textContent = tscmCorrelations.length;
+            document.getElementById('tscmIdentityCount').textContent = tscmIdentityClusters.length;
 
             document.getElementById('tscmHighInterestCard').classList.toggle('active', counts.high_interest > 0);
             document.getElementById('tscmNeedsReviewCard').classList.toggle('active', counts.review > 0);
             document.getElementById('tscmInformationalCard').classList.toggle('active', counts.informational > 0);
             document.getElementById('tscmCorrelationsCard').classList.toggle('active', tscmCorrelations.length > 0);
+            document.getElementById('tscmIdentityCard').classList.toggle('active', tscmIdentityClusters.length > 0);
 
             // Update threat panel count (shows high interest items only)
             document.getElementById('tscmThreatCount').textContent = counts.high_interest;
@@ -10745,6 +10966,15 @@
                     <tr><td>Signal Strength</td><td>+${(device.signal_strength || 0).toFixed(1)} dB above noise</td></tr>
                 `;
             }
+
+            if (device.known_device) {
+                const knownLabel = device.known_device_name ? `Yes (${escapeHtml(device.known_device_name)})` : 'Yes';
+                html += `<tr><td>Known Device</td><td>${knownLabel}</td></tr>`;
+            }
+            if (device.score_modifier && device.score_modifier !== 0) {
+                const modLabel = `${device.score_modifier > 0 ? '+' : ''}${device.score_modifier}`;
+                html += `<tr><td>Score Modifier</td><td>${modLabel}</td></tr>`;
+            }
             html += `</table></div>`;
 
             // Actions section - always show with "Add to Known Devices"
@@ -10774,12 +11004,39 @@
                         <button class="tscm-action-btn" style="background: var(--accent-cyan);" onclick="tscmAddToKnownDevices('${escapeHtml(deviceIdentifier)}', '${escapeHtml(deviceName)}', '${protocol}')">
                             Add to Known Devices
                         </button>
+                        <button class="tscm-action-btn" style="background: var(--accent-orange);" onclick="tscmShowInvestigateById('${escapeHtml(deviceIdentifier)}', '${protocol}')">
+                            Investigate
+                        </button>
                     </div>
                     <div style="font-size: 10px; color: var(--text-secondary); margin-top: 8px;">
                         ${protocol === 'rf' ? 'Listen buttons open Listening Post. ' : ''}Known devices are excluded from threat scoring in future sweeps.
                     </div>
                 </div>
             `;
+
+            // Timeline section (loaded async)
+            html += `
+                <div class="device-detail-section" id="tscmTimelineSection">
+                    <h4>Timeline</h4>
+                    <div class="tscm-empty">Loading timeline...</div>
+                </div>
+            `;
+
+            if (protocol === 'wifi') {
+                html += `
+                    <div class="device-detail-section" id="tscmWifiAdvancedSection">
+                        <h4>WiFi Advanced Indicators</h4>
+                        <div class="tscm-empty">Analyzing network...</div>
+                    </div>
+                `;
+            } else if (protocol === 'bluetooth') {
+                html += `
+                    <div class="device-detail-section" id="tscmBleExplainSection">
+                        <h4>Bluetooth Risk Explanation</h4>
+                        <div class="tscm-empty">Analyzing device...</div>
+                    </div>
+                `;
+            }
 
             // Add indicators section
             if (device.indicators && device.indicators.length > 0) {
@@ -10820,10 +11077,522 @@
 
             content.innerHTML = html;
             modal.style.display = 'flex';
+
+            const timelineIdentifier = tscmNormalizeIdentifier(id, protocol, device);
+            loadTscmTimeline(timelineIdentifier, protocol);
+            loadTscmAdvancedAnalysis(device, protocol);
+        }
+
+        function tscmNormalizeIdentifier(identifier, protocol, device) {
+            let value = identifier;
+            if ((value === undefined || value === null || value === '') && device) {
+                value = device.bssid || device.mac || device.frequency || '';
+            }
+
+            if (protocol === 'rf') {
+                const freq = device && device.frequency !== undefined ? device.frequency : parseFloat(value);
+                if (!isNaN(freq)) return freq.toFixed(3);
+                return String(value || '');
+            }
+
+            if (value === undefined || value === null) return '';
+            return String(value).toUpperCase();
+        }
+
+        function tscmShowInvestigateById(id, protocol) {
+            const devices = getAllTscmDevices();
+            const key = `${protocol}:${id}`;
+            let device = devices[key];
+
+            if (!device && protocol === 'rf') {
+                const freq = parseFloat(id);
+                if (!isNaN(freq)) {
+                    const all = Object.values(devices);
+                    device = all.find(d => d.protocol === 'rf' && d.frequency && Math.abs(d.frequency - freq) < 0.01);
+                }
+            }
+
+            if (!device) {
+                const normalized = tscmNormalizeIdentifier(id, protocol);
+                const all = Object.values(devices);
+                device = all.find(d => tscmNormalizeIdentifier(null, protocol, d) === normalized);
+            }
+
+            if (!device) {
+                console.warn('Investigate device not found:', key);
+                return;
+            }
+
+            tscmShowInvestigate(device, protocol);
+        }
+
+        async function tscmShowInvestigate(device, protocol) {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            const identifier = tscmNormalizeIdentifier(null, protocol, device);
+            const displayName = device.name || device.essid || device.ssid || device.mac || device.bssid ||
+                (device.frequency ? `${device.frequency.toFixed(3)} MHz` : 'Unknown Device');
+
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading triage sheet...</div>';
+            modal.style.display = 'flex';
+
+            let cases = [];
+            try {
+                const response = await fetch('/tscm/cases');
+                const data = await response.json();
+                cases = data.cases || [];
+            } catch (e) {
+                console.warn('Failed to load cases for triage:', e);
+            }
+
+            const caseOptions = cases.length
+                ? `<option value="">Select a case...</option>` +
+                  cases.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
+                : '<option value="">No cases available</option>';
+
+            const noteTemplate = [
+                `Device: ${displayName}`,
+                `Protocol: ${protocol.toUpperCase()}`,
+                `Identifier: ${identifier}`,
+                `Score: ${device.score || 0}`,
+                `Recommended Action: ${device.recommended_action || 'monitor'}`,
+                'Notes:'
+            ].join('\n');
+
+            const indicatorList = (device.indicators || []).map(i => `
+                <div class="indicator-item">
+                    <span class="indicator-type">${escapeHtml(i.type || 'indicator')}</span>
+                    <span class="indicator-desc">${escapeHtml(i.desc || i.description || '')}</span>
+                </div>
+            `).join('');
+
+            content.innerHTML = `
+                <div class="device-detail-header ${getClassificationClass(device.classification)}">
+                    <h3>${getClassificationIcon(device.classification)} ${escapeHtml(displayName)}</h3>
+                    <span class="device-detail-protocol">${protocol.toUpperCase()}</span>
+                </div>
+                <div class="device-detail-score">
+                    <div class="score-circle ${device.score >= 6 ? 'high' : device.score >= 3 ? 'medium' : 'low'}">
+                        <span class="score-value">${device.score || 0}</span>
+                        <span class="score-label">SCORE</span>
+                    </div>
+                    <div class="score-breakdown">
+                        <strong>Risk Level:</strong> ${device.classification === 'high_interest' ? 'HIGH INTEREST' : device.classification === 'review' ? 'NEEDS REVIEW' : 'INFORMATIONAL'}<br>
+                        <strong>Recommended Action:</strong> ${device.recommended_action || 'Monitor'}
+                    </div>
+                </div>
+
+                <div class="device-detail-section">
+                    <h4>Device Profile</h4>
+                    <div id="tscmTriageProfileSection" class="tscm-empty">Loading profile...</div>
+                </div>
+
+                <div class="device-detail-section" id="tscmTriageTimelineSection">
+                    <h4>Timeline</h4>
+                    <div class="tscm-empty">Loading timeline...</div>
+                </div>
+
+                ${indicatorList ? `
+                <div class="device-detail-section">
+                    <h4>Indicators</h4>
+                    <div class="indicator-list">${indicatorList}</div>
+                </div>
+                ` : ''}
+
+                <div class="device-detail-section">
+                    <h4>Case Actions</h4>
+                    ${cases.length === 0 ? `
+                        <div class="tscm-empty">No cases available. Create a case to attach notes.</div>
+                        <button class="preset-btn" onclick="tscmCreateCase()" style="margin-top: 8px; font-size: 10px;">+ New Case</button>
+                    ` : `
+                        <div class="tscm-case-note-form">
+                            <label>Case</label>
+                            <select id="tscmTriageCaseSelect">${caseOptions}</select>
+                            <label>Note Type</label>
+                            <select id="tscmTriageNoteType">
+                                <option value="general" selected>General</option>
+                                <option value="observation">Observation</option>
+                                <option value="action">Action</option>
+                                <option value="follow_up">Follow-up</option>
+                            </select>
+                            <label>Case Note</label>
+                            <textarea id="tscmTriageNote" rows="5">${escapeHtml(noteTemplate)}</textarea>
+                            <div class="tscm-case-note-actions">
+                                <button class="preset-btn" onclick="tscmAddTriageNote()" style="font-size: 10px;">Add Note</button>
+                                <button class="preset-btn" onclick="tscmOpenSelectedCase()" style="font-size: 10px;">Open Case</button>
+                                ${tscmLastSweepId ? `<button class="preset-btn" onclick="tscmPromptLinkSweep(${tscmLastSweepId})" style="font-size: 10px;" title="Link the current sweep to a case">Link to Case</button>` : ''}
+                            </div>
+                        </div>
+                    `}
+                </div>
+                <div class="device-detail-disclaimer">
+                    <strong>Disclaimer:</strong> This triage sheet surfaces indicators only. It does NOT confirm surveillance activity.
+                </div>
+            `;
+
+            loadTscmTimeline(identifier, protocol, 'tscmTriageTimelineSection');
+            tscmLoadTriageProfile(identifier);
+        }
+
+        async function tscmLoadTriageProfile(identifier) {
+            const section = document.getElementById('tscmTriageProfileSection');
+            if (!section || !identifier) return;
+
+            try {
+                const response = await fetch(`/tscm/findings/device/${encodeURIComponent(identifier)}`);
+                const data = await response.json();
+
+                if (data.status !== 'success' || !data.profile) {
+                    section.innerHTML = '<div class="tscm-empty">No profile available.</div>';
+                    return;
+                }
+
+                const profile = data.profile;
+                section.innerHTML = `
+                    <table class="device-detail-table">
+                        <tr><td>Identifier</td><td>${escapeHtml(profile.identifier || '')}</td></tr>
+                        <tr><td>Name</td><td>${escapeHtml(profile.name || 'N/A')}</td></tr>
+                        <tr><td>Manufacturer</td><td>${escapeHtml(profile.manufacturer || 'N/A')}</td></tr>
+                        <tr><td>Device Type</td><td>${escapeHtml(profile.device_type || 'N/A')}</td></tr>
+                        <tr><td>First Seen</td><td>${profile.first_seen ? new Date(profile.first_seen).toLocaleString() : 'N/A'}</td></tr>
+                        <tr><td>Last Seen</td><td>${profile.last_seen ? new Date(profile.last_seen).toLocaleString() : 'N/A'}</td></tr>
+                        <tr><td>Detections</td><td>${profile.detection_count || 0}</td></tr>
+                        <tr><td>Risk Level</td><td>${escapeHtml(profile.risk_level || 'informational')}</td></tr>
+                        <tr><td>Score</td><td>${profile.total_score || 0}</td></tr>
+                        <tr><td>Confidence</td><td>${profile.confidence !== undefined ? Math.round(profile.confidence * 100) + '%' : 'N/A'}</td></tr>
+                        ${profile.known_device ? `<tr><td>Known Device</td><td>${escapeHtml(profile.known_device_name || 'Yes')}</td></tr>` : ''}
+                    </table>
+                    ${profile.indicators && profile.indicators.length > 0 ? `
+                        <div style="margin-top: 12px;">
+                            <h4>Profile Indicators</h4>
+                            <div class="indicator-list">
+                                ${profile.indicators.map(i => `
+                                    <div class="indicator-item">
+                                        <span class="indicator-type">${escapeHtml(i.type || 'indicator')}</span>
+                                        <span class="indicator-desc">${escapeHtml(i.description || '')}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+            } catch (e) {
+                console.error('Failed to load triage profile:', e);
+                section.innerHTML = '<div class="tscm-empty">Failed to load profile.</div>';
+            }
+        }
+
+        async function tscmSubmitCaseNote(caseId, content, noteType) {
+            if (!caseId) return false;
+            if (!content) {
+                alert('Note content is required.');
+                return false;
+            }
+
+            try {
+                const response = await fetch(`/tscm/cases/${caseId}/notes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: content,
+                        note_type: noteType || 'general'
+                    })
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    return true;
+                }
+                alert(data.message || 'Failed to add note');
+                return false;
+            } catch (e) {
+                console.error('Failed to add case note:', e);
+                alert('Failed to add note');
+                return false;
+            }
+        }
+
+        async function tscmAddTriageNote() {
+            const caseSelect = document.getElementById('tscmTriageCaseSelect');
+            const noteInput = document.getElementById('tscmTriageNote');
+            const typeSelect = document.getElementById('tscmTriageNoteType');
+
+            if (!caseSelect || !noteInput || !typeSelect) return;
+            const caseId = caseSelect.value;
+            const content = noteInput.value.trim();
+            const noteType = typeSelect.value;
+
+            if (!caseId) {
+                alert('Select a case to attach this note.');
+                return;
+            }
+
+            const ok = await tscmSubmitCaseNote(caseId, content, noteType);
+            if (ok) {
+                noteInput.value = '';
+                alert('Note added to case.');
+            }
+        }
+
+        function tscmOpenSelectedCase() {
+            const caseSelect = document.getElementById('tscmTriageCaseSelect');
+            if (!caseSelect || !caseSelect.value) {
+                alert('Select a case to open.');
+                return;
+            }
+            tscmViewCase(caseSelect.value);
+        }
+
+        function formatTscmTimestamp(ts) {
+            if (!ts) return 'N/A';
+            try {
+                return new Date(ts).toLocaleString();
+            } catch (e) {
+                return ts;
+            }
+        }
+
+        async function loadTscmTimeline(identifier, protocol, targetId = 'tscmTimelineSection') {
+            const section = document.getElementById(targetId);
+            const normalizedIdentifier = tscmNormalizeIdentifier(identifier, protocol);
+            if (!section || !normalizedIdentifier) return;
+
+            try {
+                const response = await fetch(`/tscm/device/${encodeURIComponent(normalizedIdentifier)}/timeline?protocol=${encodeURIComponent(protocol)}`);
+                const data = await response.json();
+
+                if (data.status !== 'success' || !data.timeline) {
+                    section.innerHTML = `
+                        <h4>Timeline</h4>
+                        <div class="tscm-empty">No timeline data available.</div>
+                    `;
+                    return;
+                }
+
+                const timeline = data.timeline;
+                const metrics = timeline.metrics || {};
+                const signal = timeline.signal || {};
+                const movement = timeline.movement || {};
+                const meeting = timeline.meeting_correlation || {};
+                const observations = timeline.observations || [];
+                const recent = observations.slice(-5);
+
+                const metricsRows = [];
+                if (metrics.first_seen) metricsRows.push(`<tr><td>First Seen</td><td>${formatTscmTimestamp(metrics.first_seen)}</td></tr>`);
+                if (metrics.last_seen) metricsRows.push(`<tr><td>Last Seen</td><td>${formatTscmTimestamp(metrics.last_seen)}</td></tr>`);
+                if (metrics.total_observations !== undefined) metricsRows.push(`<tr><td>Observations</td><td>${metrics.total_observations}</td></tr>`);
+                if (metrics.presence_ratio !== undefined) metricsRows.push(`<tr><td>Presence Ratio</td><td>${Math.round(metrics.presence_ratio * 100)}%</td></tr>`);
+
+                const signalRows = [];
+                if (signal.rssi_min !== undefined && signal.rssi_min !== null) signalRows.push(`<tr><td>RSSI Min</td><td>${signal.rssi_min} dBm</td></tr>`);
+                if (signal.rssi_max !== undefined && signal.rssi_max !== null) signalRows.push(`<tr><td>RSSI Max</td><td>${signal.rssi_max} dBm</td></tr>`);
+                if (signal.rssi_mean !== undefined && signal.rssi_mean !== null) signalRows.push(`<tr><td>RSSI Mean</td><td>${signal.rssi_mean} dBm</td></tr>`);
+                if (signal.stability !== undefined && signal.stability !== null) signalRows.push(`<tr><td>Stability</td><td>${Math.round(signal.stability * 100)}%</td></tr>`);
+
+                const movementRows = [];
+                if (movement.pattern) movementRows.push(`<tr><td>Movement</td><td>${escapeHtml(movement.pattern)}</td></tr>`);
+                if (movement.appears_stationary !== undefined) {
+                    movementRows.push(`<tr><td>Stationary</td><td>${movement.appears_stationary ? 'Yes' : 'No'}</td></tr>`);
+                }
+                if (meeting.correlated !== undefined) {
+                    movementRows.push(`<tr><td>Meeting Correlated</td><td>${meeting.correlated ? 'Yes' : 'No'}</td></tr>`);
+                }
+
+                let observationsHtml = '';
+                if (recent.length > 0) {
+                    observationsHtml = `
+                        <div style="margin-top: 12px;">
+                            <h4>Recent Observations</h4>
+                            <table class="device-detail-table">
+                                ${recent.map(o => `
+                                    <tr>
+                                        <td>${formatTscmTimestamp(o.timestamp)}</td>
+                                        <td>${o.rssi !== null && o.rssi !== undefined ? `${o.rssi} dBm` : '--'}</td>
+                                        <td>${o.channel || o.frequency || '--'}</td>
+                                    </tr>
+                                `).join('')}
+                            </table>
+                        </div>
+                    `;
+                }
+
+                const noMetrics = metricsRows.length === 0 && signalRows.length === 0 && movementRows.length === 0;
+
+                section.innerHTML = `
+                    <h4>Timeline</h4>
+                    ${noMetrics ? '<div class="tscm-empty">No timeline metrics available yet.</div>' : `
+                        <table class="device-detail-table">
+                            ${metricsRows.join('')}
+                            ${signalRows.join('')}
+                            ${movementRows.join('')}
+                        </table>
+                    `}
+                    ${observationsHtml}
+                `;
+            } catch (e) {
+                section.innerHTML = `
+                    <h4>Timeline</h4>
+                    <div class="tscm-empty">Failed to load timeline data.</div>
+                `;
+            }
+        }
+
+        async function loadTscmAdvancedAnalysis(device, protocol) {
+            if (protocol === 'wifi') {
+                const section = document.getElementById('tscmWifiAdvancedSection');
+                if (!section) return;
+
+                try {
+                    const payload = {
+                        bssid: device.bssid,
+                        ssid: device.ssid || device.essid,
+                        channel: device.channel,
+                        encryption: device.security,
+                        power: device.signal,
+                        signal: device.signal,
+                    };
+
+                    const response = await fetch('/tscm/wifi/analyze-network', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json();
+
+                    if (data.status !== 'success') {
+                        section.innerHTML = `
+                            <h4>WiFi Advanced Indicators</h4>
+                            <div class="tscm-empty">No advanced indicators available.</div>
+                        `;
+                        return;
+                    }
+
+                    const indicators = data.indicators || [];
+                    if (indicators.length === 0) {
+                        section.innerHTML = `
+                            <h4>WiFi Advanced Indicators</h4>
+                            <div class="tscm-empty">No advanced indicators detected.</div>
+                        `;
+                        return;
+                    }
+
+                    section.innerHTML = `
+                        <h4>WiFi Advanced Indicators</h4>
+                        <div class="indicator-list">
+                            ${indicators.map(i => `
+                                <div class="indicator-item">
+                                    <span class="indicator-type">${escapeHtml((i.type || 'indicator') + (i.severity ? ` • ${i.severity}` : ''))}</span>
+                                    <span class="indicator-desc">${escapeHtml(i.description || '')}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } catch (e) {
+                    section.innerHTML = `
+                        <h4>WiFi Advanced Indicators</h4>
+                        <div class="tscm-empty">Failed to analyze network.</div>
+                    `;
+                }
+                return;
+            }
+
+            if (protocol === 'bluetooth') {
+                const section = document.getElementById('tscmBleExplainSection');
+                if (!section) return;
+                const mac = device.mac || device.address;
+                if (!mac) {
+                    section.innerHTML = `
+                        <h4>Bluetooth Risk Explanation</h4>
+                        <div class="tscm-empty">No identifier available for explanation.</div>
+                    `;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/tscm/bluetooth/${encodeURIComponent(mac)}/explain`);
+                    const data = await response.json();
+
+                    if (data.status !== 'success' || !data.explanation) {
+                        section.innerHTML = `
+                            <h4>Bluetooth Risk Explanation</h4>
+                            <div class="tscm-empty">No explanation available.</div>
+                        `;
+                        return;
+                    }
+
+                    const exp = data.explanation;
+                    const risk = exp.risk || {};
+                    let proximity = exp.proximity || {};
+                    let proximityNote = proximity.explanation || '';
+                    let proximityDistance = proximity.estimated_distance || '';
+                    let proximityRssi = null;
+                    let proximityDisclaimer = '';
+                    const tracker = exp.tracker || {};
+                    const meeting = exp.meeting_correlation || {};
+                    const action = exp.recommended_action || {};
+                    const indicators = exp.indicators || [];
+
+                    try {
+                        const proxResponse = await fetch(`/tscm/bluetooth/${encodeURIComponent(mac)}/proximity`);
+                        const proxData = await proxResponse.json();
+                        if (proxData.status === 'success' && proxData.proximity) {
+                            proximity = proxData.proximity;
+                            proximityNote = proxData.proximity.explanation || proximityNote;
+                            proximityDistance = proxData.proximity.estimated_distance || proximityDistance;
+                            proximityRssi = proxData.proximity.rssi_used;
+                            proximityDisclaimer = proxData.disclaimer || '';
+                        }
+                    } catch (e) {
+                        console.warn('BLE proximity lookup failed:', e);
+                    }
+
+                    section.innerHTML = `
+                        <h4>Bluetooth Risk Explanation</h4>
+                        <table class="device-detail-table">
+                            <tr><td>Risk Level</td><td>${escapeHtml(risk.level || 'unknown').toUpperCase()} (${risk.score || 0})</td></tr>
+                            <tr><td>Risk Rationale</td><td>${escapeHtml(risk.explanation || 'N/A')}</td></tr>
+                            <tr><td>Proximity</td><td>${escapeHtml(proximity.estimate || 'unknown')} ${proximityDistance ? `(${escapeHtml(proximityDistance)})` : ''}${proximityRssi !== null ? ` — RSSI ${proximityRssi} dBm` : ''}</td></tr>
+                            <tr><td>Proximity Note</td><td>${escapeHtml(proximityNote || 'N/A')}</td></tr>
+                            <tr><td>Tracker</td><td>${tracker.is_tracker ? `Yes (${escapeHtml(tracker.type || 'unknown')})` : 'No'}</td></tr>
+                            <tr><td>Meeting Correlated</td><td>${meeting.correlated ? 'Yes' : 'No'}</td></tr>
+                            <tr><td>Recommended Action</td><td>${escapeHtml(action.action || 'monitor')} — ${escapeHtml(action.rationale || '')}</td></tr>
+                        </table>
+                        ${indicators.length > 0 ? `
+                            <div style="margin-top: 12px;">
+                                <h4>Indicators</h4>
+                                <div class="indicator-list">
+                                    ${indicators.map(i => `
+                                        <div class="indicator-item">
+                                            <span class="indicator-type">${escapeHtml(i.type || 'indicator')}</span>
+                                            <span class="indicator-desc">${escapeHtml(i.description || i.explanation || '')}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${proximityDisclaimer ? `
+                            <div class="device-detail-disclaimer">
+                                <strong>Note:</strong> ${escapeHtml(proximityDisclaimer)}
+                            </div>
+                        ` : ''}
+                        ${exp.disclaimer ? `
+                            <div class="device-detail-disclaimer">
+                                <strong>Note:</strong> ${escapeHtml(exp.disclaimer)}
+                            </div>
+                        ` : ''}
+                    `;
+                } catch (e) {
+                    section.innerHTML = `
+                        <h4>Bluetooth Risk Explanation</h4>
+                        <div class="tscm-empty">Failed to load explanation.</div>
+                    `;
+                }
+            }
         }
 
         function closeTscmDeviceModal() {
             document.getElementById('tscmDeviceModal').style.display = 'none';
+            if (tscmCaseLinkContext) tscmCaseLinkContext = null;
         }
 
         function listenToRfSignal(frequency, modulation) {
@@ -10848,7 +11617,7 @@
             }, 300);
         }
 
-        function showDevicesByCategory(category) {
+        async function showDevicesByCategory(category) {
             const modal = document.getElementById('tscmDeviceModal');
             const content = document.getElementById('tscmDeviceModalContent');
 
@@ -10892,11 +11661,59 @@
                 return;
             }
 
+            if (category === 'identity') {
+                title = 'Identity Clusters (MAC-Randomization Resistant)';
+                titleClass = 'classification-cyan';
+
+                if (tscmIdentityClusters.length === 0) {
+                    await tscmRefreshIdentityClusters();
+                }
+
+                if (tscmIdentityClusters.length === 0) {
+                    content.innerHTML = `
+                        <div class="device-detail-header ${titleClass}">
+                            <h3>${title}</h3>
+                        </div>
+                        <div class="device-detail-section">
+                            <p style="text-align: center; color: var(--text-muted);">No identity clusters detected yet.</p>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `
+                        <div class="device-detail-header ${titleClass}">
+                            <h3>${title} (${tscmIdentityClusters.length})</h3>
+                            <button class="preset-btn" onclick="tscmRefreshIdentityClusters().then(() => showDevicesByCategory('identity'))" style="font-size: 10px; padding: 6px 8px;">
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="device-detail-section">
+                            ${tscmIdentityClusters.map(c => `
+                                <div class="correlation-item">
+                                    <strong>${escapeHtml(c.best_name || c.manufacturer_name || c.cluster_id)}</strong>
+                                    <div class="correlation-devices">
+                                        Risk: ${escapeHtml(c.risk_level || 'informational')} (${c.risk_score || 0}) |
+                                        MACs: ${(c.linked_macs || []).length} |
+                                        Observations: ${c.total_observations || 0} |
+                                        Confidence: ${c.confidence !== undefined ? (c.confidence * 100).toFixed(0) + '%' : 'n/a'}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="device-detail-disclaimer">
+                            <strong>Note:</strong> Identity clustering is probabilistic. It links observations by passive fingerprints and timing patterns.
+                        </div>
+                    `;
+                }
+                modal.style.display = 'flex';
+                return;
+            }
+
             // Filter devices by classification
+            const filteredForCategory = getFilteredDevices({ ignoreRisk: true });
             const allDevices = [
-                ...tscmWifiDevices.map(d => ({ ...d, protocol: 'wifi', id: d.bssid })),
-                ...tscmBtDevices.map(d => ({ ...d, protocol: 'bluetooth', id: d.mac })),
-                ...tscmRfSignals.map(d => ({ ...d, protocol: 'rf', id: d.frequency }))
+                ...filteredForCategory.wifi.map(d => ({ ...d, protocol: 'wifi', id: d.bssid })),
+                ...filteredForCategory.bt.map(d => ({ ...d, protocol: 'bluetooth', id: d.mac })),
+                ...filteredForCategory.rf.map(d => ({ ...d, protocol: 'rf', id: d.frequency }))
             ];
 
             if (category === 'high_interest') {
@@ -10952,20 +11769,117 @@
             modal.style.display = 'flex';
         }
 
+        function showBaselineComparison() {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            if (!tscmBaselineComparison) {
+                content.innerHTML = `
+                    <div class="device-detail-header classification-orange">
+                        <h3>Baseline Comparison</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        <p style="text-align: center; color: var(--text-muted);">No baseline comparison data available.</p>
+                    </div>
+                `;
+                modal.style.display = 'flex';
+                return;
+            }
+
+            const comparison = tscmBaselineComparison;
+            const baselineName = comparison.baseline_name || 'Baseline';
+
+            const formatItem = (item, protocol) => {
+                if (protocol === 'wifi') {
+                    const name = item.essid || item.ssid || 'Hidden SSID';
+                    const id = item.bssid || item.mac || '';
+                    return `${escapeHtml(name)} ${id ? `<span class="device-detail-id">${escapeHtml(id)}</span>` : ''}`;
+                }
+                if (protocol === 'bluetooth') {
+                    const name = item.name || 'Unknown';
+                    const id = item.mac || item.address || '';
+                    return `${escapeHtml(name)} ${id ? `<span class="device-detail-id">${escapeHtml(id)}</span>` : ''}`;
+                }
+                if (protocol === 'rf') {
+                    const freq = item.frequency ? `${item.frequency} MHz` : 'Unknown Frequency';
+                    const band = item.band || '';
+                    return `${escapeHtml(freq)} ${band ? `<span class="device-detail-id">${escapeHtml(band)}</span>` : ''}`;
+                }
+                return escapeHtml(item.name || item.identifier || 'Unknown');
+            };
+
+            const renderList = (items, protocol, limit = 10) => {
+                if (!items || items.length === 0) {
+                    return '<div class="tscm-empty">None</div>';
+                }
+                const listItems = items.slice(0, limit).map(i => `<li>${formatItem(i, protocol)}</li>`).join('');
+                const more = items.length > limit
+                    ? `<div class="tscm-more-hint">+${items.length - limit} more</div>`
+                    : '';
+                return `<ul class="device-reasons-list">${listItems}</ul>${more}`;
+            };
+
+            const sections = [
+                { key: 'wifi', label: 'WiFi' },
+                { key: 'bluetooth', label: 'Bluetooth' },
+                { key: 'rf', label: 'RF' },
+            ];
+
+            content.innerHTML = `
+                <div class="device-detail-header classification-orange">
+                    <h3>Baseline Comparison — ${escapeHtml(baselineName)}</h3>
+                </div>
+                <div class="device-detail-section">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">
+                        New: ${comparison.total_new || 0} | Missing: ${comparison.total_missing || 0}
+                    </div>
+                    ${sections.map(section => {
+                        const data = comparison[section.key] || {};
+                        return `
+                            <div style="margin-bottom: 16px;">
+                                <h4>${section.label}</h4>
+                                <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px;">
+                                    New: ${data.new_count || 0} | Missing: ${data.missing_count || 0}
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div>
+                                        <strong style="font-size: 10px; color: var(--text-secondary);">New</strong>
+                                        ${renderList(data.new || [], section.key)}
+                                    </div>
+                                    <div>
+                                        <strong style="font-size: 10px; color: var(--text-secondary);">Missing</strong>
+                                        ${renderList(data.missing || [], section.key)}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="device-detail-disclaimer">
+                    <strong>Note:</strong> Baseline comparisons indicate environmental changes, not confirmed threats. Validate before action.
+                </div>
+            `;
+            modal.style.display = 'flex';
+        }
+
         function updateTscmDisplays() {
+            const filtered = getFilteredDevices();
+            const filtersActive = tscmFilters.protocol !== 'all' || tscmFilters.risk !== 'all' ||
+                tscmFilters.status !== 'all' || tscmFilters.known !== 'all';
             // Update WiFi list
             const wifiList = document.getElementById('tscmWifiList');
-            if (tscmWifiDevices.length === 0) {
-                wifiList.innerHTML = '<div class="tscm-empty">No WiFi networks detected</div>';
+            if (filtered.wifi.length === 0) {
+                wifiList.innerHTML = `<div class="tscm-empty">${filtersActive ? 'No WiFi networks match filters' : 'No WiFi networks detected'}</div>`;
             } else {
                 // Sort by score (highest first)
-                const sorted = [...tscmWifiDevices].sort((a, b) => (b.score || 0) - (a.score || 0));
+                const sorted = [...filtered.wifi].sort((a, b) => (b.score || 0) - (a.score || 0));
                 wifiList.innerHTML = sorted.map(d => `
                     <div class="tscm-device-item ${getClassificationClass(d.classification)}" onclick="showDeviceDetails('${d.bssid}', 'wifi')">
                         <div class="tscm-device-header">
                             <div class="tscm-device-name">
                                 <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
                                 ${escapeHtml(d.ssid || d.bssid || 'Hidden')}
+                                ${d.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(d.score)}
                         </div>
@@ -10979,15 +11893,15 @@
                     </div>
                 `).join('');
             }
-            document.getElementById('tscmWifiCount').textContent = tscmWifiDevices.length;
+            document.getElementById('tscmWifiCount').textContent = filtered.wifi.length;
 
             // Update BT list
             const btList = document.getElementById('tscmBtList');
-            if (tscmBtDevices.length === 0) {
-                btList.innerHTML = '<div class="tscm-empty">No Bluetooth devices detected</div>';
+            if (filtered.bt.length === 0) {
+                btList.innerHTML = `<div class="tscm-empty">${filtersActive ? 'No Bluetooth devices match filters' : 'No Bluetooth devices detected'}</div>`;
             } else {
                 // Sort by score (highest first)
-                const sorted = [...tscmBtDevices].sort((a, b) => (b.score || 0) - (a.score || 0));
+                const sorted = [...filtered.bt].sort((a, b) => (b.score || 0) - (a.score || 0));
                 btList.innerHTML = sorted.map(d => `
                     <div class="tscm-device-item ${getClassificationClass(d.classification)}" onclick="showDeviceDetails('${d.mac}', 'bluetooth')">
                         <div class="tscm-device-header">
@@ -10995,6 +11909,7 @@
                                 <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
                                 ${escapeHtml(d.name || 'Unknown')}
                                 ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">AUDIO</span>' : ''}
+                                ${d.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(d.score)}
                         </div>
@@ -11008,25 +11923,26 @@
                     </div>
                 `).join('');
             }
-            document.getElementById('tscmBtCount').textContent = tscmBtDevices.length;
+            document.getElementById('tscmBtCount').textContent = filtered.bt.length;
 
             // Update RF list
             const rfList = document.getElementById('tscmRfList');
-            if (tscmRfSignals.length === 0) {
+            if (filtered.rf.length === 0) {
                 if (tscmRfStatusMessage) {
                     rfList.innerHTML = `<div class="tscm-status-message">${escapeHtml(tscmRfStatusMessage)}</div>`;
                 } else {
-                    rfList.innerHTML = '<div class="tscm-empty">No RF signals detected</div>';
+                    rfList.innerHTML = `<div class="tscm-empty">${filtersActive ? 'No RF signals match filters' : 'No RF signals detected'}</div>`;
                 }
             } else {
                 // Sort by score (highest first)
-                const sorted = [...tscmRfSignals].sort((a, b) => (b.score || 0) - (a.score || 0));
+                const sorted = [...filtered.rf].sort((a, b) => (b.score || 0) - (a.score || 0));
                 rfList.innerHTML = sorted.map(s => `
                     <div class="tscm-device-item ${getClassificationClass(s.classification)}" onclick="showDeviceDetails('${s.frequency}', 'rf')">
                         <div class="tscm-device-header">
                             <div class="tscm-device-name">
                                 <span class="classification-indicator">${getClassificationIcon(s.classification)}</span>
                                 ${s.frequency.toFixed(3)} MHz
+                                ${s.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(s.score)}
                         </div>
@@ -11040,18 +11956,27 @@
                     </div>
                 `).join('');
             }
-            document.getElementById('tscmRfCount').textContent = tscmRfSignals.length;
+            document.getElementById('tscmRfCount').textContent = filtered.rf.length;
 
             // Update threats list
             const threatList = document.getElementById('tscmThreatList');
-            if (tscmThreats.length === 0) {
+            let threatItems = tscmThreats;
+            if (tscmFilters.protocol !== 'all') {
+                threatItems = threatItems.filter(t => t.source === tscmFilters.protocol);
+            }
+            if (threatItems.length === 0) {
                 threatList.innerHTML = '<div class="tscm-empty"><div class="tscm-empty-primary">Monitoring active — nothing flagged</div><div class="tscm-empty-secondary">Signals are being analyzed against baseline thresholds. This does not rule out passive or dormant devices.</div></div>';
             } else {
-                threatList.innerHTML = '<div class="tscm-threat-list">' + tscmThreats.map(t => `
+                threatList.innerHTML = '<div class="tscm-threat-list">' + threatItems.map(t => `
                     <div class="tscm-threat-item ${t.severity}">
                         <div class="tscm-threat-header">
                             <span class="tscm-threat-type">${escapeHtml(t.threat_type || 'Unknown')}</span>
                             <span class="tscm-threat-severity">${t.severity}</span>
+                            ${t.threat_id ? `
+                                <button class="tscm-case-link-btn" onclick="event.stopPropagation(); tscmPromptLinkThreat(${t.threat_id})">
+                                    Link
+                                </button>
+                            ` : ''}
                         </div>
                         <div class="tscm-threat-details">
                             <strong>${escapeHtml(t.name || t.identifier)}</strong><br>
@@ -11066,26 +11991,64 @@
             const container = document.getElementById('tscmCorrelationsContainer');
             if (!container) return;
 
-            if (tscmCorrelations.length === 0) {
+            const hasCorrelations = tscmCorrelations.length > 0;
+            const hasIdentity = tscmIdentityClusters.length > 0;
+
+            if (!hasCorrelations && !hasIdentity) {
                 container.innerHTML = '';
                 container.style.display = 'none';
                 return;
             }
 
             container.style.display = 'block';
-            container.innerHTML = `
-                <div class="tscm-correlations">
-                    <h4>Cross-Protocol Correlations (${tscmCorrelations.length})</h4>
-                    ${tscmCorrelations.map(c => `
-                        <div class="correlation-item">
-                            <strong>${escapeHtml(c.description)}</strong>
-                            <div class="correlation-devices">
-                                Devices: ${c.devices.join(', ')} | Protocols: ${c.protocols.join(', ')}
+            const sections = [];
+
+            if (hasCorrelations) {
+                sections.push(`
+                    <div class="tscm-correlations">
+                        <h4>Cross-Protocol Correlations (${tscmCorrelations.length})</h4>
+                        ${tscmCorrelations.map(c => `
+                            <div class="correlation-item">
+                                <strong>${escapeHtml(c.description)}</strong>
+                                <div class="correlation-devices">
+                                    Devices: ${c.devices.join(', ')} | Protocols: ${c.protocols.join(', ')}
+                                </div>
                             </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+                        `).join('')}
+                    </div>
+                `);
+            }
+
+            if (hasIdentity) {
+                const sortedClusters = [...tscmIdentityClusters]
+                    .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
+                const topClusters = sortedClusters.slice(0, 10);
+                const summaryText = tscmIdentitySummary
+                    ? `High: ${tscmIdentitySummary.high || 0} | Medium: ${tscmIdentitySummary.medium || 0} | Total: ${tscmIdentitySummary.total || tscmIdentityClusters.length}`
+                    : `Total: ${tscmIdentityClusters.length}`;
+
+                sections.push(`
+                    <div class="tscm-correlations">
+                        <h4>Identity Clusters (MAC-Randomization Resistant) — ${summaryText}</h4>
+                        ${topClusters.map(c => `
+                            <div class="correlation-item">
+                                <strong>${escapeHtml(c.best_name || c.manufacturer_name || c.cluster_id)}</strong>
+                                <div class="correlation-devices">
+                                    Risk: ${escapeHtml(c.risk_level || 'informational')} (${c.risk_score || 0}) |
+                                    MACs: ${(c.linked_macs || []).length} |
+                                    Observations: ${c.total_observations || 0} |
+                                    Confidence: ${c.confidence !== undefined ? (c.confidence * 100).toFixed(0) + '%' : 'n/a'}
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${tscmIdentityClusters.length > topClusters.length ? `
+                            <div class="tscm-more-hint">Showing top ${topClusters.length} clusters. Use the Identity Clusters card for full list.</div>
+                        ` : ''}
+                    </div>
+                `);
+            }
+
+            container.innerHTML = sections.join('');
         }
 
         function completeTscmSweep(data) {
@@ -11108,9 +12071,15 @@
             // Display sweep summary with correlation results
             const summaryContainer = document.getElementById('tscmSweepSummary');
             if (summaryContainer && data) {
+                if (data.sweep_id) {
+                    tscmLastSweepId = data.sweep_id;
+                }
                 const highInterest = data.high_interest_devices || 0;
                 const needsReview = data.needs_review_devices || 0;
                 const correlations = data.correlations_found || 0;
+                const identityClusters = data.identity_clusters || (tscmIdentitySummary ? tscmIdentitySummary.total : 0);
+                const baselineNew = data.baseline_new_devices || 0;
+                const baselineMissing = data.baseline_missing_devices || 0;
 
                 let assessment = 'BASELINE ENVIRONMENT';
                 let assessmentClass = 'informational';
@@ -11139,10 +12108,34 @@
                             <div class="count">${correlations}</div>
                             <div class="label">Correlations</div>
                         </div>
+                        <div class="summary-stat">
+                            <div class="count">${identityClusters}</div>
+                            <div class="label">Identity Clusters</div>
+                        </div>
+                        ${(baselineNew || baselineMissing) ? `
+                        <div class="summary-stat">
+                            <div class="count">+${baselineNew} / -${baselineMissing}</div>
+                            <div class="label">Baseline Delta</div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div class="tscm-assessment ${assessmentClass}">
                         <strong>Assessment:</strong> ${assessment}
                     </div>
+                    ${(baselineNew || baselineMissing) && tscmBaselineComparison ? `
+                    <div style="margin-top: 8px;">
+                        <button class="preset-btn" onclick="showBaselineComparison()" style="font-size: 10px;">
+                            View Baseline Diff
+                        </button>
+                    </div>
+                    ` : ''}
+                    ${data.sweep_id ? `
+                    <div style="margin-top: 8px;">
+                        <button class="preset-btn" onclick="tscmPromptLinkSweep(${data.sweep_id})" style="font-size: 10px;">
+                            Link Sweep to Case
+                        </button>
+                    </div>
+                    ` : ''}
                     <div class="tscm-disclaimer">
                         This screening identifies wireless/RF anomalies, NOT confirmed surveillance devices.
                         Findings require professional verification.
@@ -11234,19 +12227,24 @@
                 if (data.status === 'success') {
                     tscmActiveMeetingId = data.meeting_id;
                     tscmMeetingStartTime = new Date();
+                    tscmLastMeetingId = null;
 
                     // Update UI
                     document.getElementById('tscmStartMeetingBtn').style.display = 'none';
                     document.getElementById('tscmEndMeetingBtn').style.display = 'block';
                     document.getElementById('tscmMeetingStatus').innerHTML =
                         `<span style="color: #ff9933;">Meeting active: ${escapeHtml(meetingName)}</span>`;
+                    const summaryBtn = document.getElementById('tscmMeetingSummaryBtn');
+                    if (summaryBtn) summaryBtn.style.display = 'block';
 
                     // Show meeting banner
                     const banner = document.getElementById('tscmMeetingBanner');
                     if (banner) {
                         banner.style.display = 'flex';
-                        const nameSpan = document.getElementById('tscmMeetingName_display');
+                        const nameSpan = document.getElementById('tscmMeetingBannerName');
                         if (nameSpan) nameSpan.textContent = meetingName;
+                        const timeSpan = document.getElementById('tscmMeetingBannerTime');
+                        if (timeSpan) timeSpan.textContent = `Started ${new Date().toLocaleTimeString()}`;
                     }
                 } else {
                     alert(data.message || 'Failed to start meeting window');
@@ -11289,10 +12287,114 @@
                     document.getElementById('tscmMeetingStatus').textContent = 'Meeting ended';
                 }
 
+                tscmLastMeetingId = tscmActiveMeetingId;
                 tscmActiveMeetingId = null;
                 tscmMeetingStartTime = null;
+
+                const summaryBtn = document.getElementById('tscmMeetingSummaryBtn');
+                if (summaryBtn) summaryBtn.style.display = tscmLastMeetingId ? 'block' : 'none';
             } catch (e) {
                 console.error('Failed to end meeting:', e);
+            }
+        }
+
+        async function tscmShowMeetingSummary(meetingId) {
+            let id = meetingId || tscmActiveMeetingId || tscmLastMeetingId;
+
+            if (!id) {
+                try {
+                    const activeRes = await fetch('/tscm/meeting/active');
+                    const activeData = await activeRes.json();
+                    if (activeData && activeData.meeting) {
+                        id = activeData.meeting.id;
+                        tscmActiveMeetingId = id;
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch active meeting:', e);
+                }
+            }
+
+            if (!id) {
+                alert('No meeting window available for summary.');
+                return;
+            }
+
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading meeting summary...</div>';
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch(`/tscm/meeting/${id}/summary`);
+                const data = await response.json();
+
+                if (data.status !== 'success' || !data.summary) {
+                    content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load meeting summary.</div>';
+                    return;
+                }
+
+                const summary = data.summary;
+                const metrics = summary.summary || {};
+                const firstSeen = summary.devices_first_seen || [];
+                const behavior = summary.devices_behavior_change || [];
+
+                content.innerHTML = `
+                    <div class="device-detail-header classification-cyan">
+                        <h3>${escapeHtml(summary.name || 'Meeting Summary')}</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        <table class="device-detail-table">
+                            <tr><td>Start</td><td>${summary.start_time ? new Date(summary.start_time).toLocaleString() : 'N/A'}</td></tr>
+                            <tr><td>End</td><td>${summary.end_time ? new Date(summary.end_time).toLocaleString() : 'In progress'}</td></tr>
+                            <tr><td>Duration</td><td>${summary.duration_minutes ? `${summary.duration_minutes} min` : 'N/A'}</td></tr>
+                            <tr><td>Total Active Devices</td><td>${metrics.total_devices_active || 0}</td></tr>
+                            <tr><td>New During Meeting</td><td>${metrics.new_devices || 0}</td></tr>
+                            <tr><td>Behavior Changes</td><td>${metrics.behavior_changes || 0}</td></tr>
+                            <tr><td>High Interest</td><td>${metrics.high_interest || 0}</td></tr>
+                        </table>
+                    </div>
+                    <div class="device-detail-section">
+                        <h4>Devices First Seen During Meeting (${firstSeen.length})</h4>
+                        ${firstSeen.length === 0
+                        ? '<div class="tscm-empty">No devices first seen during meeting.</div>'
+                        : `<div class="tscm-summary-list">
+                                ${firstSeen.map(d => `
+                                    <div class="tscm-summary-item">
+                                        <strong>${escapeHtml(d.name || d.identifier)}</strong>
+                                        <div class="tscm-summary-meta">
+                                            ${escapeHtml(d.protocol || 'unknown')} • ${escapeHtml(d.description || '')}
+                                        </div>
+                                        ${d.risk_modifier ? `<div class="tscm-summary-risk">${escapeHtml(d.risk_modifier)}</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>`
+                        }
+                    </div>
+                    <div class="device-detail-section">
+                        <h4>Behavior Changes (${behavior.length})</h4>
+                        ${behavior.length === 0
+                        ? '<div class="tscm-empty">No behavior changes detected.</div>'
+                        : `<div class="tscm-summary-list">
+                                ${behavior.map(d => `
+                                    <div class="tscm-summary-item">
+                                        <strong>${escapeHtml(d.name || d.identifier)}</strong>
+                                        <div class="tscm-summary-meta">
+                                            ${escapeHtml(d.protocol || 'unknown')} • ${escapeHtml(d.description || '')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>`
+                        }
+                    </div>
+                    ${summary.disclaimer ? `
+                        <div class="device-detail-disclaimer">
+                            <strong>Note:</strong> ${escapeHtml(summary.disclaimer)}
+                        </div>
+                    ` : ''}
+                `;
+            } catch (e) {
+                console.error('Failed to load meeting summary:', e);
+                content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load meeting summary.</div>';
             }
         }
 
@@ -11419,6 +12521,62 @@
             }
         }
 
+        async function tscmShowWifiIndicators() {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading WiFi indicators...</div>';
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch('/tscm/wifi/advanced-indicators');
+                const data = await response.json();
+
+                if (data.status !== 'success') {
+                    content.innerHTML = `<div style="padding: 20px; color: #ff6666;">Failed to load indicators: ${escapeHtml(data.message || 'Unknown error')}</div>`;
+                    return;
+                }
+
+                const indicators = data.indicators || [];
+                const unavailable = data.unavailable_features || [];
+                const disclaimer = data.disclaimer || 'Indicators are heuristic signals, not confirmations.';
+
+                content.innerHTML = `
+                    <div class="device-detail-header classification-yellow">
+                        <h3>WiFi Advanced Indicators (${indicators.length})</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        ${indicators.length === 0 ? `
+                            <div class="tscm-empty">No advanced indicators detected.</div>
+                        ` : `
+                            <div class="indicator-list">
+                                ${indicators.map(i => `
+                                    <div class="indicator-item">
+                                        <span class="indicator-type">${escapeHtml(i.type || 'indicator')}${i.severity ? ` • ${escapeHtml(i.severity)}` : ''}</span>
+                                        <span class="indicator-desc">${escapeHtml(i.description || '')}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `}
+                    </div>
+                    ${unavailable.length > 0 ? `
+                        <div class="device-detail-section">
+                            <h4>Unavailable Features</h4>
+                            <ul class="device-reasons-list">
+                                ${unavailable.map(u => `<li>${escapeHtml(u)}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    <div class="device-detail-disclaimer">
+                        <strong>Note:</strong> ${escapeHtml(disclaimer)}
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load WiFi indicators:', e);
+                content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load WiFi indicators</div>';
+            }
+        }
+
         // Known Devices Management
         async function tscmShowKnownDevices() {
             const modal = document.getElementById('tscmDeviceModal');
@@ -11453,7 +12611,7 @@
                                             <span class="known-device-type">${d.device_type}</span>
                                         </div>
                                         <div class="known-device-actions">
-                                            <button class="preset-btn" onclick="tscmRemoveKnownDevice(${d.id})" style="font-size: 10px; background: #ff4444;">
+                                            <button class="preset-btn" onclick="tscmRemoveKnownDevice('${encodeURIComponent(d.identifier)}')" style="font-size: 10px; background: #ff4444;">
                                                 Remove
                                             </button>
                                         </div>
@@ -11499,11 +12657,11 @@
             }
         }
 
-        async function tscmRemoveKnownDevice(deviceId) {
+        async function tscmRemoveKnownDevice(identifier) {
             if (!confirm('Remove this device from known devices list?')) return;
 
             try {
-                const response = await fetch(`/tscm/known-devices/${deviceId}`, {
+                const response = await fetch(`/tscm/known-devices/${identifier}`, {
                     method: 'DELETE'
                 });
 
@@ -11549,6 +12707,46 @@
             }
         }
 
+        // Case Linking Helpers
+        function tscmPromptLinkSweep(sweepId) {
+            if (!sweepId) return;
+            tscmCaseLinkContext = { type: 'sweep', id: sweepId };
+            tscmShowCases();
+        }
+
+        function tscmPromptLinkThreat(threatId) {
+            if (!threatId) return;
+            tscmCaseLinkContext = { type: 'threat', id: threatId };
+            tscmShowCases();
+        }
+
+        function tscmCancelCaseLink() {
+            tscmCaseLinkContext = null;
+            tscmShowCases();
+        }
+
+        async function tscmLinkCase(caseId) {
+            if (!tscmCaseLinkContext || !caseId) return;
+            const ctx = tscmCaseLinkContext;
+            const endpoint = ctx.type === 'sweep'
+                ? `/tscm/cases/${caseId}/sweeps/${ctx.id}`
+                : `/tscm/cases/${caseId}/threats/${ctx.id}`;
+
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmCaseLinkContext = null;
+                    tscmViewCase(caseId);
+                } else {
+                    alert(data.message || 'Failed to link case');
+                }
+            } catch (e) {
+                console.error('Failed to link case:', e);
+                alert('Failed to link case');
+            }
+        }
+
         // Cases Management
         async function tscmShowCases() {
             const modal = document.getElementById('tscmDeviceModal');
@@ -11562,11 +12760,18 @@
                 const data = await response.json();
 
                 const cases = data.cases || [];
+                const linkBanner = tscmCaseLinkContext ? `
+                    <div class="tscm-case-link-banner">
+                        <span>Linking ${tscmCaseLinkContext.type} ${tscmCaseLinkContext.id}. Select a case.</span>
+                        <button class="preset-btn" onclick="tscmCancelCaseLink()" style="font-size: 10px; padding: 4px 6px;">Cancel</button>
+                    </div>
+                ` : '';
                 content.innerHTML = `
                     <div class="device-detail-header classification-cyan">
                         <h3>TSCM Cases (${cases.length})</h3>
                     </div>
                     <div class="device-detail-section">
+                        ${linkBanner}
                         <div style="margin-bottom: 12px;">
                             <button class="preset-btn" onclick="tscmCreateCase()" style="font-size: 11px;">
                                 + New Case
@@ -11589,6 +12794,13 @@
                                         <div class="case-date">
                                             Created: ${new Date(c.created_at).toLocaleDateString()}
                                         </div>
+                                        ${tscmCaseLinkContext ? `
+                                            <div class="case-actions">
+                                                <button class="preset-btn" onclick="event.stopPropagation(); tscmLinkCase(${c.id})" style="font-size: 10px; padding: 4px 6px;">
+                                                    Link
+                                                </button>
+                                            </div>
+                                        ` : ''}
                                     </div>
                                 `).join('')}
                             </div>`
@@ -11667,6 +12879,36 @@
                             `<ul>${(c.threats || []).map(t => `<li>${escapeHtml(t.identifier)} - ${t.threat_type}</li>`).join('')}</ul>`
                         }
                         </div>
+                        <div class="device-detail-section">
+                            <h4>Case Notes (${(c.case_notes || []).length})</h4>
+                            ${(c.case_notes || []).length === 0
+                                ? '<div class="tscm-empty">No notes added yet.</div>'
+                                : `<div class="tscm-case-notes">
+                                    ${(c.case_notes || []).map(n => `
+                                        <div class="tscm-case-note">
+                                            <div class="tscm-case-note-meta">
+                                                <span class="tscm-case-note-type">${escapeHtml(n.note_type || 'general')}</span>
+                                                <span>${n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span>
+                                            </div>
+                                            <div class="tscm-case-note-content">${escapeHtml(n.content || '')}</div>
+                                            ${n.created_by ? `<div class="tscm-case-note-author">By ${escapeHtml(n.created_by)}</div>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>`
+                            }
+                            <div class="tscm-case-note-form">
+                                <label>Note Type</label>
+                                <select id="tscmCaseNoteType">
+                                    <option value="general" selected>General</option>
+                                    <option value="observation">Observation</option>
+                                    <option value="action">Action</option>
+                                    <option value="follow_up">Follow-up</option>
+                                </select>
+                                <label>Add Note</label>
+                                <textarea id="tscmCaseNoteInput" rows="4" placeholder="Add a note to this case..."></textarea>
+                                <button class="preset-btn" onclick="tscmAddCaseNote(${c.id})" style="margin-top: 6px; font-size: 10px;">Add Note</button>
+                            </div>
+                        </div>
                         <div style="margin-top: 16px;">
                             <button class="preset-btn" onclick="tscmShowCases()">← Back to Cases</button>
                         </div>
@@ -11674,6 +12916,281 @@
                 }
             } catch (e) {
                 console.error('Failed to view case:', e);
+            }
+        }
+
+        async function tscmAddCaseNote(caseId) {
+            const noteInput = document.getElementById('tscmCaseNoteInput');
+            const typeSelect = document.getElementById('tscmCaseNoteType');
+            if (!noteInput || !typeSelect) return;
+
+            const content = noteInput.value.trim();
+            const noteType = typeSelect.value;
+
+            const ok = await tscmSubmitCaseNote(caseId, content, noteType);
+            if (ok) {
+                tscmViewCase(caseId);
+            }
+        }
+
+        // Schedules Management
+        async function tscmShowSchedules() {
+            const modal = document.getElementById('tscmDeviceModal');
+            const content = document.getElementById('tscmDeviceModalContent');
+
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading schedules...</div>';
+            modal.style.display = 'flex';
+
+            try {
+                const [scheduleRes, baselineRes] = await Promise.all([
+                    fetch('/tscm/schedules'),
+                    fetch('/tscm/baselines')
+                ]);
+
+                const scheduleData = await scheduleRes.json();
+                const baselineData = await baselineRes.json();
+
+                const schedules = scheduleData.schedules || [];
+                const baselines = baselineData.baselines || [];
+                const baselineMap = {};
+                baselines.forEach(b => { baselineMap[String(b.id)] = b.name; });
+
+                const baselineOptions = [
+                    '<option value="">No Baseline</option>',
+                    ...baselines.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`)
+                ].join('');
+
+                content.innerHTML = `
+                    <div class="device-detail-header classification-cyan">
+                        <h3>TSCM Schedules (${schedules.length})</h3>
+                    </div>
+                    <div class="device-detail-section">
+                        <div class="tscm-schedule-form">
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" id="tscmScheduleName" placeholder="Daily sweep">
+                            </div>
+                            <div class="form-group">
+                                <label>Sweep Type</label>
+                                <select id="tscmScheduleSweepType">
+                                    <option value="quick">Quick Scan (2 min)</option>
+                                    <option value="standard" selected>Standard (5 min)</option>
+                                    <option value="full">Full Sweep (15 min)</option>
+                                    <option value="wireless_cameras">Wireless Cameras</option>
+                                    <option value="body_worn">Body-Worn Devices</option>
+                                    <option value="gps_trackers">GPS Trackers</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Baseline</label>
+                                <select id="tscmScheduleBaseline">
+                                    ${baselineOptions}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Cadence</label>
+                                <select id="tscmScheduleCadence" onchange="tscmScheduleCadenceChanged()">
+                                    <option value="daily" selected>Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="hourly">Every N Hours</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="tscmScheduleTimeRow">
+                                <label>Time</label>
+                                <input type="time" id="tscmScheduleTime" value="09:00">
+                            </div>
+                            <div class="form-group" id="tscmScheduleDayRow" style="display: none;">
+                                <label>Day of Week</label>
+                                <select id="tscmScheduleDay">
+                                    <option value="0">Sunday</option>
+                                    <option value="1">Monday</option>
+                                    <option value="2">Tuesday</option>
+                                    <option value="3">Wednesday</option>
+                                    <option value="4">Thursday</option>
+                                    <option value="5">Friday</option>
+                                    <option value="6">Saturday</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="tscmScheduleIntervalRow" style="display: none;">
+                                <label>Interval (hours)</label>
+                                <input type="number" id="tscmScheduleInterval" min="1" max="24" value="6">
+                            </div>
+                            <button class="preset-btn" onclick="tscmCreateScheduleFromForm()" style="margin-top: 6px; font-size: 11px;">
+                                Create Schedule
+                            </button>
+                        </div>
+                    </div>
+                    <div class="device-detail-section">
+                        <h4>Existing Schedules</h4>
+                        ${schedules.length === 0
+                        ? '<div class="tscm-empty">No schedules created.</div>'
+                        : `<div class="tscm-schedule-list">
+                            ${schedules.map(s => {
+                                const isEnabled = !!s.enabled;
+                                const baselineName = baselineMap[String(s.baseline_id)] || 'None';
+                                const nextRun = s.next_run ? new Date(s.next_run).toLocaleString() : 'Not scheduled';
+                                const lastRun = s.last_run ? new Date(s.last_run).toLocaleString() : 'Never';
+                                return `
+                                    <div class="tscm-schedule-item ${isEnabled ? 'enabled' : 'disabled'}">
+                                        <div class="tscm-schedule-header">
+                                            <strong>${escapeHtml(s.name)}</strong>
+                                            <span class="tscm-schedule-status">${isEnabled ? 'Enabled' : 'Disabled'}</span>
+                                        </div>
+                                        <div class="tscm-schedule-meta">
+                                            Sweep: ${escapeHtml(s.sweep_type || 'standard')} | Baseline: ${escapeHtml(baselineName)}
+                                        </div>
+                                        <div class="tscm-schedule-meta">
+                                            Cron: ${escapeHtml(s.cron_expression || '')}
+                                        </div>
+                                        <div class="tscm-schedule-meta">
+                                            Next: ${nextRun} | Last: ${lastRun}
+                                        </div>
+                                        <div class="tscm-schedule-actions">
+                                            <button class="preset-btn" onclick="tscmRunScheduleNow(${s.id})" style="font-size: 10px; padding: 4px 6px;">
+                                                Run Now
+                                            </button>
+                                            <button class="preset-btn" onclick="tscmToggleSchedule(${s.id}, ${isEnabled ? 'false' : 'true'})" style="font-size: 10px; padding: 4px 6px;">
+                                                ${isEnabled ? 'Disable' : 'Enable'}
+                                            </button>
+                                            <button class="preset-btn" onclick="tscmDeleteSchedule(${s.id})" style="font-size: 10px; padding: 4px 6px;">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>`
+                        }
+                    </div>
+                `;
+                tscmScheduleCadenceChanged();
+            } catch (e) {
+                console.error('Failed to load schedules:', e);
+                content.innerHTML = '<div style="padding: 20px; color: #ff6666;">Failed to load schedules</div>';
+            }
+        }
+
+        function tscmScheduleCadenceChanged() {
+            const cadence = document.getElementById('tscmScheduleCadence')?.value || 'daily';
+            const timeRow = document.getElementById('tscmScheduleTimeRow');
+            const dayRow = document.getElementById('tscmScheduleDayRow');
+            const intervalRow = document.getElementById('tscmScheduleIntervalRow');
+
+            if (timeRow) timeRow.style.display = cadence === 'hourly' ? 'none' : 'block';
+            if (dayRow) dayRow.style.display = cadence === 'weekly' ? 'block' : 'none';
+            if (intervalRow) intervalRow.style.display = cadence === 'hourly' ? 'block' : 'none';
+        }
+
+        async function tscmCreateScheduleFromForm() {
+            const name = document.getElementById('tscmScheduleName')?.value.trim();
+            if (!name) {
+                alert('Schedule name required');
+                return;
+            }
+            const sweepType = document.getElementById('tscmScheduleSweepType')?.value || 'standard';
+            const baselineId = document.getElementById('tscmScheduleBaseline')?.value || null;
+            const cadence = document.getElementById('tscmScheduleCadence')?.value || 'daily';
+
+            let cronExpression = '';
+            if (cadence === 'hourly') {
+                const interval = parseInt(document.getElementById('tscmScheduleInterval')?.value || '6', 10);
+                if (isNaN(interval) || interval < 1 || interval > 24) {
+                    alert('Interval must be between 1 and 24 hours');
+                    return;
+                }
+                cronExpression = `0 */${interval} * * *`;
+            } else {
+                const timeValue = document.getElementById('tscmScheduleTime')?.value || '09:00';
+                const [hourStr, minStr] = timeValue.split(':');
+                const hour = parseInt(hourStr, 10);
+                const minute = parseInt(minStr, 10);
+                if (isNaN(hour) || isNaN(minute)) {
+                    alert('Invalid time');
+                    return;
+                }
+                if (cadence === 'weekly') {
+                    const day = document.getElementById('tscmScheduleDay')?.value || '0';
+                    cronExpression = `${minute} ${hour} * * ${day}`;
+                } else {
+                    cronExpression = `${minute} ${hour} * * *`;
+                }
+            }
+
+            const zoneName = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+
+            try {
+                const response = await fetch('/tscm/schedules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        sweep_type: sweepType,
+                        baseline_id: baselineId ? Number(baselineId) : null,
+                        cron_expression: cronExpression,
+                        zone_name: zoneName
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmShowSchedules();
+                } else {
+                    alert(data.message || 'Failed to create schedule');
+                }
+            } catch (e) {
+                console.error('Failed to create schedule:', e);
+                alert('Failed to create schedule');
+            }
+        }
+
+        async function tscmToggleSchedule(scheduleId, enabled) {
+            try {
+                const response = await fetch(`/tscm/schedules/${scheduleId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmShowSchedules();
+                } else {
+                    alert(data.message || 'Failed to update schedule');
+                }
+            } catch (e) {
+                console.error('Failed to update schedule:', e);
+                alert('Failed to update schedule');
+            }
+        }
+
+        async function tscmRunScheduleNow(scheduleId) {
+            try {
+                const response = await fetch(`/tscm/schedules/${scheduleId}/run`, { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    alert('Scheduled sweep started');
+                    tscmShowSchedules();
+                } else {
+                    alert(data.message || 'Failed to run schedule');
+                }
+            } catch (e) {
+                console.error('Failed to run schedule:', e);
+                alert('Failed to run schedule');
+            }
+        }
+
+        async function tscmDeleteSchedule(scheduleId) {
+            if (!confirm('Delete this schedule?')) return;
+            try {
+                const response = await fetch(`/tscm/schedules/${scheduleId}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    tscmShowSchedules();
+                } else {
+                    alert(data.message || 'Failed to delete schedule');
+                }
+            } catch (e) {
+                console.error('Failed to delete schedule:', e);
+                alert('Failed to delete schedule');
             }
         }
 
@@ -11826,9 +13343,13 @@
         }
 
         // Update capabilities bar on sweep start
-        async function updateTscmCapabilitiesBar() {
+        async function updateTscmCapabilitiesBar(wifiInterface = '', btInterface = '') {
             try {
-                const response = await fetch('/tscm/capabilities');
+                const params = new URLSearchParams();
+                if (wifiInterface) params.append('wifi_interface', wifiInterface);
+                if (btInterface) params.append('bt_adapter', btInterface);
+                const query = params.toString();
+                const response = await fetch(`/tscm/capabilities${query ? `?${query}` : ''}`);
                 const data = await response.json();
 
                 if (data.status === 'success') {
@@ -11836,14 +13357,27 @@
                     const bar = document.getElementById('tscmCapabilitiesBar');
 
                     if (bar) {
-                        document.getElementById('capWifiStatus').textContent = caps.wifi_available ? 'ON' : 'OFF';
-                        document.getElementById('capWifi').classList.toggle('active', caps.wifi_available);
+                        const wifiAvailable = caps.wifi && caps.wifi.mode && caps.wifi.mode !== 'unavailable';
+                        const btAvailable = caps.bluetooth && caps.bluetooth.mode && caps.bluetooth.mode !== 'unavailable';
+                        const rfAvailable = caps.rf && caps.rf.available;
+                        const isRoot = caps.system && caps.system.is_root;
 
-                        document.getElementById('capBtStatus').textContent = caps.bluetooth_available ? 'ON' : 'OFF';
-                        document.getElementById('capBt').classList.toggle('active', caps.bluetooth_available);
+                        const normalizeMode = (mode) => mode ? mode.replace(/_/g, ' ').toUpperCase() : 'ON';
 
-                        document.getElementById('capSdrStatus').textContent = caps.sdr_available ? 'ON' : 'OFF';
-                        document.getElementById('capSdr').classList.toggle('active', caps.sdr_available);
+                        document.getElementById('capWifiStatus').textContent = wifiAvailable ? normalizeMode(caps.wifi.mode) : 'OFF';
+                        document.getElementById('capWifi').classList.toggle('active', wifiAvailable);
+
+                        document.getElementById('capBtStatus').textContent = btAvailable ? normalizeMode(caps.bluetooth.mode) : 'OFF';
+                        document.getElementById('capBt').classList.toggle('active', btAvailable);
+
+                        document.getElementById('capRfStatus').textContent = rfAvailable ? 'ON' : 'OFF';
+                        document.getElementById('capRf').classList.toggle('active', rfAvailable);
+
+                        document.getElementById('capRootStatus').textContent = isRoot ? 'ROOT' : 'USER';
+                        document.getElementById('capRoot').classList.toggle('active', isRoot);
+
+                        const limitationCount = (caps.all_limitations || []).length;
+                        document.getElementById('capLimitationCount').textContent = limitationCount;
 
                         bar.style.display = 'flex';
                     }
@@ -11868,10 +13402,37 @@
                 if (data.status === 'success') {
                     const healthDiv = document.getElementById('tscmBaselineHealth');
                     const badge = document.getElementById('baselineHealthBadge');
+                    const nameEl = document.getElementById('baselineHealthName');
+                    const ageEl = document.getElementById('baselineHealthAge');
 
                     if (healthDiv && badge) {
-                        badge.textContent = data.health_status || 'Unknown';
-                        badge.className = `health-badge health-${(data.health_status || 'unknown').toLowerCase()}`;
+                        const health = data.health || {};
+                        const status = (health.status || 'unknown').toLowerCase();
+                        const displayStatus = status.replace(/_/g, ' ');
+
+                        badge.textContent = displayStatus.toUpperCase();
+                        badge.className = `health-badge health-${status}`;
+                        if (health.reasons && health.reasons.length > 0) {
+                            badge.title = health.reasons.join(' • ');
+                        }
+
+                        if (nameEl) {
+                            const baselineSelect = document.getElementById('tscmBaselineSelect');
+                            const selectedOption = baselineSelect ? baselineSelect.options[baselineSelect.selectedIndex] : null;
+                            const selectedName = selectedOption ? selectedOption.textContent.replace(' (Active)', '') : 'Baseline';
+                            nameEl.textContent = selectedName || 'Baseline';
+                        }
+                        if (ageEl) {
+                            const ageHours = health.age_hours;
+                            if (ageHours !== undefined && ageHours !== null) {
+                                const ageLabel = ageHours >= 48
+                                    ? `${(ageHours / 24).toFixed(1)}d`
+                                    : `${Math.round(ageHours)}h`;
+                                ageEl.textContent = `• ${ageLabel} old`;
+                            } else {
+                                ageEl.textContent = '';
+                            }
+                        }
                         healthDiv.style.display = 'block';
                     }
                 }
@@ -11888,6 +13449,15 @@
                     updateTscmBaselineHealth(this.value);
                 });
             }
+
+            const filterIds = ['tscmFilterProtocol', 'tscmFilterRisk', 'tscmFilterStatus', 'tscmFilterKnown'];
+            filterIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', applyTscmFilters);
+                }
+            });
+            applyTscmFilters();
         });
     </script>
 

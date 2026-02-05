@@ -246,6 +246,7 @@ class SSTVDecoder:
         self._doppler_tracker = DopplerTracker('ISS')
         self._doppler_enabled = False
         self._last_doppler_info: DopplerInfo | None = None
+        self._file_decoder: str | None = None
 
         # Ensure output directory exists
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -268,6 +269,7 @@ class SSTVDecoder:
         try:
             result = subprocess.run(['which', 'slowrx'], capture_output=True, timeout=5)
             if result.returncode == 0:
+                self._file_decoder = 'slowrx'
                 return 'slowrx'
         except Exception:
             pass
@@ -277,7 +279,8 @@ class SSTVDecoder:
         # Check for Python sstv package
         try:
             import sstv
-            return 'python-sstv'
+            self._file_decoder = 'python-sstv'
+            return None
         except ImportError:
             pass
 
@@ -693,7 +696,9 @@ class SSTVDecoder:
 
         images = []
 
-        if self._decoder == 'slowrx':
+        decoder = self._decoder or self._file_decoder
+
+        if decoder == 'slowrx':
             # Use slowrx with file input
             output_file = self._output_dir / f"sstv_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
 
@@ -715,7 +720,7 @@ class SSTVDecoder:
                         )
                         images.append(image)
 
-        elif self._decoder == 'python-sstv':
+        elif decoder == 'python-sstv':
             # Use Python sstv library
             try:
                 from sstv.decode import SSTVDecoder as PythonSSTVDecoder
