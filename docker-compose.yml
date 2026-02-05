@@ -2,7 +2,7 @@
 # Docker Compose configuration for easy deployment
 #
 # Basic usage:
-#   docker compose up -d
+#   docker compose --profile basic up -d
 #
 # With ADS-B history (Postgres):
 #   docker compose --profile history up -d
@@ -11,14 +11,15 @@ services:
   intercept:
     build: .
     container_name: intercept
+    profiles:
+      - basic
     ports:
       - "5050:5050"
     # Privileged mode required for USB SDR device access
-    # Alternatively, use device mapping (see below)
     privileged: true
-    # USB device mapping (alternative to privileged mode)
-    # devices:
-    #   - /dev/bus/usb:/dev/bus/usb
+    # USB device mapping for all USB devices
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
     # volumes:
       # Persist data directory
       # - ./data:/app/data
@@ -54,14 +55,18 @@ services:
   # Enable with: docker compose --profile history up -d
   intercept-history:
     build: .
-    container_name: intercept
+    container_name: intercept-history
     profiles:
       - history
     depends_on:
       - adsb_db
     ports:
       - "5050:5050"
+    # Privileged mode required for USB SDR device access
     privileged: true
+    # USB device mapping for all USB devices
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
     environment:
       - INTERCEPT_HOST=0.0.0.0
       - INTERCEPT_PORT=5050

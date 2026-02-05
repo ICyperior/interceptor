@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     multimon-ng \
     # Audio tools for Listening Post
     ffmpeg \
+    # SSTV decoder runtime libs
+    libsndfile1 \
     # WiFi tools (aircrack-ng suite)
     aircrack-ng \
     iw \
@@ -56,9 +58,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libncurses-dev \
     libsndfile1-dev \
+    libgtk-3-dev \
+    libasound2-dev \
     libsoapysdr-dev \
     libhackrf-dev \
     liblimesuite-dev \
+    libfftw3-dev \
     libsqlite3-dev \
     libcurl4-openssl-dev \
     zlib1g-dev \
@@ -109,6 +114,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && make \
     && cp acarsdec /usr/bin/acarsdec \
     && rm -rf /tmp/acarsdec \
+    # Build slowrx (SSTV decoder)
+    && cd /tmp \
+    && git clone --depth 1 https://github.com/windytan/slowrx.git \
+    && cd slowrx \
+    && make \
+    && install -m 0755 slowrx /usr/local/bin/slowrx \
+    && rm -rf /tmp/slowrx \
     # Cleanup build tools to reduce image size
     && apt-get remove -y \
     build-essential \
@@ -117,6 +129,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libncurses-dev \
     libsndfile1-dev \
+    libasound2-dev \
     libsoapysdr-dev \
     libhackrf-dev \
     liblimesuite-dev \
