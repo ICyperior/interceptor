@@ -11968,7 +11968,7 @@
                 threatList.innerHTML = '<div class="tscm-empty"><div class="tscm-empty-primary">Monitoring active — nothing flagged</div><div class="tscm-empty-secondary">Signals are being analyzed against baseline thresholds. This does not rule out passive or dormant devices.</div></div>';
             } else {
                 threatList.innerHTML = '<div class="tscm-threat-list">' + threatItems.map(t => `
-                    <div class="tscm-threat-item ${t.severity}">
+                    <div class="tscm-threat-item ${t.severity}" onclick="showDeviceDetails('${escapeHtml(t.identifier)}', '${escapeHtml(t.source)}')" style="cursor: pointer;">
                         <div class="tscm-threat-header">
                             <span class="tscm-threat-type">${escapeHtml(t.threat_type || 'Unknown')}</span>
                             <span class="tscm-threat-severity">${t.severity}</span>
