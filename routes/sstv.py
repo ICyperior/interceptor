@@ -467,7 +467,32 @@ def iss_position():
     observer_lat = request.args.get('latitude', type=float)
     observer_lon = request.args.get('longitude', type=float)
 
-    # Try primary API: Open Notify
+    # Try primary API: Where The ISS At
+    try:
+        response = requests.get('https://api.wheretheiss.at/v1/satellites/25544', timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            iss_lat = float(data['latitude'])
+            iss_lon = float(data['longitude'])
+
+            result = {
+                'status': 'ok',
+                'lat': iss_lat,
+                'lon': iss_lon,
+                'altitude': float(data.get('altitude', 420)),
+                'timestamp': datetime.utcnow().isoformat(),
+                'source': 'wheretheiss'
+            }
+
+            # Calculate observer-relative data if location provided
+            if observer_lat is not None and observer_lon is not None:
+                result.update(_calculate_observer_data(iss_lat, iss_lon, observer_lat, observer_lon))
+
+            return jsonify(result)
+    except Exception as e:
+        logger.warning(f"Where The ISS At API failed: {e}")
+
+    # Try fallback API: Open Notify
     try:
         response = requests.get('http://api.open-notify.org/iss-now.json', timeout=5)
         if response.status_code == 200:
@@ -492,31 +517,6 @@ def iss_position():
                 return jsonify(result)
     except Exception as e:
         logger.warning(f"Open Notify API failed: {e}")
-
-    # Try fallback API: Where The ISS At
-    try:
-        response = requests.get('https://api.wheretheiss.at/v1/satellites/25544', timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            iss_lat = float(data['latitude'])
-            iss_lon = float(data['longitude'])
-
-            result = {
-                'status': 'ok',
-                'lat': iss_lat,
-                'lon': iss_lon,
-                'altitude': float(data.get('altitude', 420)),
-                'timestamp': datetime.utcnow().isoformat(),
-                'source': 'wheretheiss'
-            }
-
-            # Calculate observer-relative data if location provided
-            if observer_lat is not None and observer_lon is not None:
-                result.update(_calculate_observer_data(iss_lat, iss_lon, observer_lat, observer_lon))
-
-            return jsonify(result)
-    except Exception as e:
-        logger.warning(f"Where The ISS At API failed: {e}")
 
     # Both APIs failed
     return jsonify({
