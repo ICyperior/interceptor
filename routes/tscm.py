@@ -365,87 +365,19 @@ def _check_available_devices(wifi: bool, bt: bool, rf: bool) -> dict:
         'rf_reason': 'Not checked',
     }
 
-    # Check WiFi
+    # Check WiFi - use the same scanner singleton that performs actual scans
     if wifi:
-        if platform.system() == 'Darwin':
-            # macOS: Use networksetup to detect WiFi interfaces (same as /tscm/devices endpoint)
-            try:
-                result = subprocess.run(
-                    ['networksetup', '-listallhardwareports'],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                if result.returncode == 0 and ('Wi-Fi' in result.stdout or 'AirPort' in result.stdout):
-                    available['wifi'] = True
-                    available['wifi_reason'] = 'macOS WiFi available'
-                else:
-                    available['wifi_reason'] = 'No WiFi hardware port found'
-            except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
-                available['wifi_reason'] = 'Cannot detect WiFi interfaces'
-        else:
-            # Linux: Check for wireless tools
-            if shutil.which('airodump-ng') or shutil.which('iwlist') or shutil.which('iw'):
-                try:
-                    result = subprocess.run(
-                        ['iwconfig'],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    if 'no wireless extensions' not in result.stderr.lower() and result.stdout.strip():
-                        available['wifi'] = True
-                        available['wifi_reason'] = 'Wireless interface detected'
-                    else:
-                        available['wifi_reason'] = 'No wireless interfaces found'
-                except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
-                    # Try iw as fallback
-                    try:
-                        result = subprocess.run(
-                            ['iw', 'dev'],
-                            capture_output=True,
-                            text=True,
-                            timeout=5
-                        )
-                        if 'Interface' in result.stdout:
-                            available['wifi'] = True
-                            available['wifi_reason'] = 'Wireless interface detected'
-                        else:
-                            # Check /sys/class/net for wireless interfaces
-                            try:
-                                import glob
-                                wireless_devs = glob.glob('/sys/class/net/*/wireless')
-                                if wireless_devs:
-                                    available['wifi'] = True
-                                    available['wifi_reason'] = 'Wireless interface detected'
-                                else:
-                                    available['wifi_reason'] = 'No wireless interfaces found'
-                            except Exception:
-                                available['wifi_reason'] = 'No wireless interfaces found'
-                    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
-                        # Last resort: check /sys/class/net
-                        try:
-                            import glob
-                            wireless_devs = glob.glob('/sys/class/net/*/wireless')
-                            if wireless_devs:
-                                available['wifi'] = True
-                                available['wifi_reason'] = 'Wireless interface detected'
-                            else:
-                                available['wifi_reason'] = 'Cannot detect wireless interfaces'
-                        except Exception:
-                            available['wifi_reason'] = 'Cannot detect wireless interfaces'
+        try:
+            from utils.wifi.scanner import get_wifi_scanner
+            scanner = get_wifi_scanner()
+            interfaces = scanner._detect_interfaces()
+            if interfaces:
+                available['wifi'] = True
+                available['wifi_reason'] = f'WiFi available ({interfaces[0]["name"]})'
             else:
-                # Fallback: check /sys/class/net even without tools
-                try:
-                    import glob
-                    wireless_devs = glob.glob('/sys/class/net/*/wireless')
-                    if wireless_devs:
-                        available['wifi'] = True
-                        available['wifi_reason'] = 'Wireless interface detected (no scan tools)'
-                    else:
-                        available['wifi_reason'] = 'WiFi tools not installed (wireless-tools)'
-                except Exception:
-                    available['wifi_reason'] = 'WiFi tools not installed (wireless-tools)'
+                available['wifi_reason'] = 'No wireless interfaces found'
+        except Exception as e:
+            available['wifi_reason'] = f'WiFi detection error: {e}'
 
     # Check Bluetooth
     if bt:
