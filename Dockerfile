@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng16-16 \
     libtiff6 \
     libjemalloc2 \
-    libvolk2-bin \
+    libvolk-bin \
     libnng1 \
     libzstd1 \
     # WiFi tools (aircrack-ng suite)
