@@ -20,9 +20,9 @@ services:
     # USB device mapping for all USB devices
     devices:
       - /dev/bus/usb:/dev/bus/usb
-    # volumes:
-      # Persist data directory
-      # - ./data:/app/data
+    volumes:
+      # Persist decoded images and database across container rebuilds
+      - ./data:/app/data
       # Optional: mount logs directory
       # - ./logs:/app/logs
     environment:
@@ -67,6 +67,8 @@ services:
     # USB device mapping for all USB devices
     devices:
       - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - ./data:/app/data
     environment:
       - INTERCEPT_HOST=0.0.0.0
       - INTERCEPT_PORT=5050
