@@ -1,14 +1,18 @@
 # INTERCEPT - Signal Intelligence Platform
 # Docker Compose configuration for easy deployment
 #
-# Basic usage:
-#   docker compose --profile basic up -d
+# Basic usage (build locally):
+#   docker compose --profile basic up -d --build
+#
+# Basic usage (pre-built image from registry):
+#   INTERCEPT_IMAGE=ghcr.io/user/intercept:latest docker compose --profile basic up -d
 #
 # With ADS-B history (Postgres):
 #   docker compose --profile history up -d
 
 services:
   intercept:
+    image: ${INTERCEPT_IMAGE:-}
     build: .
     container_name: intercept
     profiles:
@@ -54,6 +58,7 @@ services:
   # ADS-B history with Postgres persistence
   # Enable with: docker compose --profile history up -d
   intercept-history:
+    image: ${INTERCEPT_IMAGE:-}
     build: .
     container_name: intercept-history
     profiles:
