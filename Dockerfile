@@ -74,7 +74,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libtiff-dev \
     libjemalloc-dev \
-    libvolk2-dev \
+    libvolk-dev \
     libnng-dev \
     libzstd-dev \
     libsqlite3-dev \
@@ -157,7 +157,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libtiff-dev \
     libjemalloc-dev \
-    libvolk2-dev \
+    libvolk-dev \
     libnng-dev \
     libzstd-dev \
     libsoapysdr-dev \
