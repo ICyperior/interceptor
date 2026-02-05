@@ -57,6 +57,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/spy-stations.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/meshtastic.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/weather-satellite.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
 </head>
@@ -223,6 +224,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('sstv')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M3 9h2"/><path d="M19 9h2"/><path d="M3 15h2"/><path d="M19 15h2"/></svg></span>
                                 <span class="mode-name">ISS SSTV</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('weathersat')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                                <span class="mode-name">Weather Sat</span>
                             </button>
                         </div>
                     </div>
@@ -505,6 +510,8 @@
                 {% include 'partials/modes/satellite.html' %}
 
                 {% include 'partials/modes/sstv.html' %}
+
+                {% include 'partials/modes/weather-satellite.html' %}
 
                 {% include 'partials/modes/listening-post.html' %}
 
@@ -1880,6 +1887,93 @@
                     </div>
                 </div>
 
+                <!-- Weather Satellite visuals (pass predictions + image gallery) -->
+                <div id="weatherSatVisuals" class="wxsat-visuals-container" style="display: none;">
+                    <!-- Stats strip -->
+                    <div class="wxsat-stats-strip">
+                        <div class="wxsat-strip-group">
+                            <div class="wxsat-strip-status">
+                                <span class="wxsat-strip-dot" id="wxsatStripDot"></span>
+                                <span class="wxsat-strip-status-text" id="wxsatStripStatus">Idle</span>
+                            </div>
+                            <button class="wxsat-strip-btn start" id="wxsatStartBtn" onclick="WeatherSat.start()">Start</button>
+                            <button class="wxsat-strip-btn stop" id="wxsatStopBtn" onclick="WeatherSat.stop()" style="display: none;">Stop</button>
+                        </div>
+                        <div class="wxsat-strip-divider"></div>
+                        <div class="wxsat-strip-group">
+                            <div class="wxsat-strip-stat">
+                                <span class="wxsat-strip-value accent-cyan" id="wxsatStripFreq">--</span>
+                                <span class="wxsat-strip-label">MHZ</span>
+                            </div>
+                            <div class="wxsat-strip-stat">
+                                <span class="wxsat-strip-value" id="wxsatStripMode">--</span>
+                                <span class="wxsat-strip-label">MODE</span>
+                            </div>
+                            <div class="wxsat-strip-stat">
+                                <span class="wxsat-strip-value" id="wxsatStripImageCount">0</span>
+                                <span class="wxsat-strip-label">IMAGES</span>
+                            </div>
+                        </div>
+                        <div class="wxsat-strip-divider"></div>
+                        <div class="wxsat-strip-group">
+                            <div class="wxsat-strip-location">
+                                <span class="wxsat-strip-label" style="margin-right: 6px;">LOC</span>
+                                <input type="number" id="wxsatObsLat" class="wxsat-loc-input" step="0.0001" placeholder="Lat" title="Latitude">
+                                <input type="number" id="wxsatObsLon" class="wxsat-loc-input" step="0.0001" placeholder="Lon" title="Longitude">
+                                <button class="wxsat-strip-btn gps" onclick="WeatherSat.useGPS(this)" title="Use GPS location">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Capture progress -->
+                    <div class="wxsat-capture-status" id="wxsatCaptureStatus">
+                        <div class="wxsat-capture-info">
+                            <span class="wxsat-capture-message" id="wxsatCaptureMsg">--</span>
+                            <span class="wxsat-capture-elapsed" id="wxsatCaptureElapsed">0:00</span>
+                        </div>
+                        <div class="wxsat-progress-bar">
+                            <div class="progress" id="wxsatProgressFill" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Main content: passes + gallery -->
+                    <div class="wxsat-content">
+                        <!-- Pass predictions -->
+                        <div class="wxsat-passes-panel">
+                            <div class="wxsat-passes-header">
+                                <span class="wxsat-passes-title">Upcoming Passes</span>
+                                <span class="wxsat-passes-count" id="wxsatPassesCount">0</span>
+                            </div>
+                            <div class="wxsat-passes-list" id="wxsatPassesList">
+                                <div class="wxsat-gallery-empty">
+                                    <p>Set location to see pass predictions</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Image gallery -->
+                        <div class="wxsat-gallery-panel">
+                            <div class="wxsat-gallery-header">
+                                <span class="wxsat-gallery-title">Decoded Images</span>
+                                <span class="wxsat-gallery-count" id="wxsatImageCount">0</span>
+                            </div>
+                            <div class="wxsat-gallery-grid" id="wxsatGallery">
+                                <div class="wxsat-gallery-empty">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M2 12h20"/>
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                    </svg>
+                                    <p>No images decoded yet</p>
+                                    <p style="margin-top: 4px; font-size: 11px;">Select a satellite pass and start capturing</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
                 <div class="recon-panel collapsed" id="reconPanel">
                     <div class="recon-header" onclick="toggleReconCollapse()" style="cursor: pointer;">
@@ -1967,6 +2061,7 @@
     <script src="{{ url_for('static', filename='js/modes/spy-stations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/meshtastic.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/sstv.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/weather-satellite.js') }}"></script>
 
     <script>
         // ============================================
@@ -2102,7 +2197,7 @@
         const validModes = new Set([
             'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
             'spystations', 'meshtastic', 'wifi', 'bluetooth',
-            'tscm', 'satellite', 'sstv'
+            'tscm', 'satellite', 'sstv', 'weathersat'
         ]);
 
         function getModeFromQuery() {
@@ -2524,7 +2619,7 @@
                 'tscm': 'security',
                 'rtlamr': 'sdr', 'ais': 'sdr', 'spystations': 'sdr',
                 'meshtastic': 'sdr',
-                'satellite': 'space', 'sstv': 'space'
+                'satellite': 'space', 'sstv': 'space', 'weathersat': 'space'
             };
 
             // Remove has-active from all dropdowns
@@ -2606,6 +2701,7 @@
             document.getElementById('rtlamrMode')?.classList.toggle('active', mode === 'rtlamr');
             document.getElementById('satelliteMode')?.classList.toggle('active', mode === 'satellite');
             document.getElementById('sstvMode')?.classList.toggle('active', mode === 'sstv');
+            document.getElementById('weatherSatMode')?.classList.toggle('active', mode === 'weathersat');
             document.getElementById('wifiMode')?.classList.toggle('active', mode === 'wifi');
             document.getElementById('bluetoothMode')?.classList.toggle('active', mode === 'bluetooth');
             document.getElementById('listeningPostMode')?.classList.toggle('active', mode === 'listening');
@@ -2640,6 +2736,7 @@
                 'rtlamr': 'METERS',
                 'satellite': 'SATELLITE',
                 'sstv': 'ISS SSTV',
+                'weathersat': 'WEATHER SAT',
                 'wifi': 'WIFI',
                 'bluetooth': 'BLUETOOTH',
                 'listening': 'LISTENING POST',
@@ -2660,6 +2757,7 @@
             const spyStationsVisuals = document.getElementById('spyStationsVisuals');
             const meshtasticVisuals = document.getElementById('meshtasticVisuals');
             const sstvVisuals = document.getElementById('sstvVisuals');
+            const weatherSatVisuals = document.getElementById('weatherSatVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -2669,6 +2767,7 @@
             if (spyStationsVisuals) spyStationsVisuals.style.display = mode === 'spystations' ? 'flex' : 'none';
             if (meshtasticVisuals) meshtasticVisuals.style.display = mode === 'meshtastic' ? 'flex' : 'none';
             if (sstvVisuals) sstvVisuals.style.display = mode === 'sstv' ? 'flex' : 'none';
+            if (weatherSatVisuals) weatherSatVisuals.style.display = mode === 'weathersat' ? 'flex' : 'none';
 
             // Hide sidebar by default for Meshtastic mode, show for others
             const mainContent = document.querySelector('.main-content');
@@ -2693,6 +2792,7 @@
                 'rtlamr': 'Utility Meter Monitor',
                 'satellite': 'Satellite Monitor',
                 'sstv': 'ISS SSTV Decoder',
+                'weathersat': 'Weather Satellite Decoder',
                 'wifi': 'WiFi Scanner',
                 'bluetooth': 'Bluetooth Scanner',
                 'listening': 'Listening Post',
@@ -2718,7 +2818,7 @@
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -2738,7 +2838,7 @@
 
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
-            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv') ? 'block' : 'none';
+            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat') ? 'block' : 'none';
 
             // Toggle mode-specific tool status displays
             const toolStatusPager = document.getElementById('toolStatusPager');
@@ -2749,7 +2849,7 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic') ? 'none' : 'block';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic') ? 'none' : 'block';
             if (statusBar) statusBar.style.display = (mode === 'satellite') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
@@ -2797,6 +2897,8 @@
                 }, 100);
             } else if (mode === 'sstv') {
                 SSTV.init();
+            } else if (mode === 'weathersat') {
+                WeatherSat.init();
             }
         }
 

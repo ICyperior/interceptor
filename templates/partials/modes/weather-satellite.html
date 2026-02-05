@@ -1,0 +1,82 @@
+<!-- WEATHER SATELLITE MODE -->
+<div id="weatherSatMode" class="mode-content">
+    <div class="section">
+        <h3>Weather Satellite Decoder</h3>
+        <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">
+            Receive and decode weather images from NOAA and Meteor satellites.
+            Uses SatDump for live SDR capture and image processing.
+        </p>
+    </div>
+
+    <div class="section">
+        <h3>Satellite</h3>
+        <div class="form-group">
+            <label>Select Satellite</label>
+            <select id="weatherSatSelect" class="mode-select">
+                <option value="NOAA-15">NOAA-15 (137.620 MHz APT)</option>
+                <option value="NOAA-18" selected>NOAA-18 (137.9125 MHz APT)</option>
+                <option value="NOAA-19">NOAA-19 (137.100 MHz APT)</option>
+                <option value="METEOR-M2-3">Meteor-M2-3 (137.900 MHz LRPT)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Gain (dB)</label>
+            <input type="number" id="weatherSatGain" value="40" step="0.1" min="0" max="50">
+        </div>
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="weatherSatBiasT" style="width: auto;">
+                Bias-T (power LNA)
+            </label>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Antenna Guide (137 MHz)</h3>
+        <div style="font-size: 11px; color: var(--text-dim);">
+            <p style="margin-bottom: 8px; color: var(--accent-cyan);">Weather satellites transmit at ~137 MHz. Your stock SDR antenna likely won't work well at this frequency.</p>
+
+            <div style="margin-bottom: 8px;">
+                <strong style="color: var(--text-primary);">V-Dipole (Easiest Build)</strong>
+                <ul style="margin: 4px 0 0 16px; padding: 0;">
+                    <li>Two elements, ~53.4 cm each (quarter wavelength)</li>
+                    <li>Spread at 120 angle, laid flat or tilted</li>
+                    <li>Connect to SDR via coax with a BNC/SMA adapter</li>
+                    <li>Cost: ~$5 in wire</li>
+                </ul>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+                <strong style="color: var(--text-primary);">QFH Antenna (Best)</strong>
+                <ul style="margin: 4px 0 0 16px; padding: 0;">
+                    <li>Quadrifilar helix - omnidirectional RHCP</li>
+                    <li>Best for overhead passes, rejects ground noise</li>
+                    <li>Build from copper pipe or coax</li>
+                    <li>Cost: ~$20-30 in materials</li>
+                </ul>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+                <strong style="color: var(--text-primary);">Tips</strong>
+                <ul style="margin: 4px 0 0 16px; padding: 0;">
+                    <li>Outdoors with clear sky view is critical</li>
+                    <li>LNA (e.g. Nooelec SAWbird) helps a lot</li>
+                    <li>Enable Bias-T if using a powered LNA</li>
+                    <li>Passes >30 elevation give best images</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Resources</h3>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+            <a href="https://github.com/SatDump/SatDump" target="_blank" rel="noopener" class="preset-btn" style="text-decoration: none; text-align: center;">
+                SatDump Documentation
+            </a>
+            <a href="https://www.rtl-sdr.com/rtl-sdr-tutorial-receiving-noaa-weather-satellite-images/" target="_blank" rel="noopener" class="preset-btn" style="text-decoration: none; text-align: center;">
+                NOAA Reception Guide
+            </a>
+        </div>
+    </div>
+</div>

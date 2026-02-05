@@ -176,6 +176,10 @@ dsc_lock = threading.Lock()
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
 
+# Weather Satellite (NOAA/Meteor)
+weather_sat_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+weather_sat_lock = threading.Lock()
+
 # Deauth Attack Detection
 deauth_detector = None
 deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
@@ -663,7 +667,7 @@ def kill_all() -> Response:
         'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
         'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher',
-        'hcitool', 'bluetoothctl'
+        'hcitool', 'bluetoothctl', 'satdump'
     ]
 
     for proc in processes_to_kill:

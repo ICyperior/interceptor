@@ -23,6 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     # SSTV decoder runtime libs
     libsndfile1 \
+    # SatDump runtime libs (weather satellite decoding)
+    libpng16-16 \
+    libtiff6 \
+    libjemalloc2 \
+    libvolk2-bin \
+    libnng1 \
+    libzstd1 \
     # WiFi tools (aircrack-ng suite)
     aircrack-ng \
     iw \
@@ -64,6 +71,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libhackrf-dev \
     liblimesuite-dev \
     libfftw3-dev \
+    libpng-dev \
+    libtiff-dev \
+    libjemalloc-dev \
+    libvolk2-dev \
+    libnng-dev \
+    libzstd-dev \
     libsqlite3-dev \
     libcurl4-openssl-dev \
     zlib1g-dev \
@@ -121,6 +134,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && make \
     && install -m 0755 slowrx /usr/local/bin/slowrx \
     && rm -rf /tmp/slowrx \
+    # Build SatDump (weather satellite decoder - NOAA APT & Meteor LRPT)
+    && cd /tmp \
+    && git clone --depth 1 https://github.com/SatDump/SatDump.git \
+    && cd SatDump \
+    && mkdir build && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF .. \
+    && make -j$(nproc) \
+    && make install \
+    && ldconfig \
+    && cd /tmp \
+    && rm -rf /tmp/SatDump \
     # Cleanup build tools to reduce image size
     && apt-get remove -y \
     build-essential \
@@ -130,6 +154,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libncurses-dev \
     libsndfile1-dev \
     libasound2-dev \
+    libpng-dev \
+    libtiff-dev \
+    libjemalloc-dev \
+    libvolk2-dev \
+    libnng-dev \
+    libzstd-dev \
     libsoapysdr-dev \
     libhackrf-dev \
     liblimesuite-dev \
@@ -148,7 +178,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create data directory for persistence
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data /app/data/weather_sat
 
 # Expose web interface port
 EXPOSE 5050
