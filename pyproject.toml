@@ -57,7 +57,8 @@ optionals = [
     "qrcode[pil]>=7.4",
     "numpy>=1.24.0",
     "meshtastic>=2.0.0",
-    "psycopg2-binary>=2.9.9"
+    "psycopg2-binary>=2.9.9",
+    "scapy>=2.4.5",
 ]
 
 [project.scripts]
