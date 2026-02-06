@@ -1299,18 +1299,10 @@
                         <option value="Europe" selected>Europe</option>
                         <option value="Asia">Asia</option>
                     </select>
-                    <button class="start-btn" id="startBtn" onclick="toggleScanner()">START</button>
-                </div>
-
-                <!-- Band Selector -->
-                <div style="margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;">BANDS TO SCAN:</div>
-                    <div id="bandCheckboxes" style="display: flex; flex-direction: column; gap: 6px;">
+                    <select id="bandSelector" title="Select band to scan">
                         <!-- Dynamically populated based on region -->
-                    </div>
-                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; font-style: italic;">
-                        💡 Tip: Uncheck unused bands for faster scanning
-                    </div>
+                    </select>
+                    <button class="start-btn" id="startBtn" onclick="toggleScanner()">START</button>
                 </div>
             </div>
         </div>
@@ -1452,42 +1444,52 @@
         function updateBandSelector() {
             const region = document.getElementById('scannerRegion').value;
             const bands = BAND_CONFIG[region] || [];
-            const container = document.getElementById('bandCheckboxes');
+            const selector = document.getElementById('bandSelector');
 
-            container.innerHTML = '';
+            selector.innerHTML = '';
 
+            // Add "All Bands" option
+            const allOption = document.createElement('option');
+            allOption.value = 'ALL';
+            allOption.textContent = 'All Bands (Slower)';
+            selector.appendChild(allOption);
+
+            // Add individual bands
             bands.forEach(band => {
-                const checkbox = document.createElement('label');
-                checkbox.style.cssText = 'display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; color: var(--text-primary);';
+                const option = document.createElement('option');
+                option.value = band.name;
+                option.textContent = band.label;
 
-                const input = document.createElement('input');
-                input.type = 'checkbox';
-                input.value = band.name;
-                input.checked = band.recommended; // Recommended bands checked by default
-                input.style.cssText = 'cursor: pointer;';
-
-                const labelText = document.createElement('span');
-                labelText.textContent = band.label;
-
-                const badge = document.createElement('span');
-                if (band.common) {
-                    badge.textContent = '⭐ PRIMARY';
-                    badge.style.cssText = 'font-size: 8px; padding: 2px 6px; background: rgba(56, 193, 128, 0.2); color: #38c180; border-radius: 3px; font-weight: 600;';
-                } else {
-                    badge.textContent = 'SECONDARY';
-                    badge.style.cssText = 'font-size: 8px; padding: 2px 6px; background: rgba(159, 176, 199, 0.1); color: var(--text-dim); border-radius: 3px;';
+                // Select first primary band by default
+                if (band.recommended && selector.value !== 'ALL' && !selector.querySelector('option:checked')) {
+                    option.selected = true;
                 }
 
-                checkbox.appendChild(input);
-                checkbox.appendChild(labelText);
-                checkbox.appendChild(badge);
-                container.appendChild(checkbox);
+                selector.appendChild(option);
             });
+
+            // If no band selected, select first primary band
+            if (!selector.value || selector.value === 'ALL') {
+                const firstPrimary = bands.find(b => b.recommended);
+                if (firstPrimary) {
+                    selector.value = firstPrimary.name;
+                }
+            }
         }
 
         function getSelectedBands() {
-            const checkboxes = document.querySelectorAll('#bandCheckboxes input[type="checkbox"]:checked');
-            return Array.from(checkboxes).map(cb => cb.value);
+            const selector = document.getElementById('bandSelector');
+            const selected = selector.value;
+
+            if (selected === 'ALL') {
+                // Return all bands for the region
+                const region = document.getElementById('scannerRegion').value;
+                const bands = BAND_CONFIG[region] || [];
+                return bands.map(b => b.name);
+            } else {
+                // Return single selected band
+                return [selected];
+            }
         }
 
         // ============================================
