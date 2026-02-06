@@ -34,6 +34,8 @@ REGIONAL_BANDS = {
         'PCS1900': {'start': 1930e6, 'end': 1990e6, 'arfcn_start': 512, 'arfcn_end': 810}
     },
     'Europe': {
+        'GSM800': {'start': 832e6, 'end': 862e6, 'arfcn_start': 438, 'arfcn_end': 511},  # E-GSM800 downlink
+        'GSM850': {'start': 869e6, 'end': 894e6, 'arfcn_start': 128, 'arfcn_end': 251},  # Also used in some EU countries
         'EGSM900': {'start': 925e6, 'end': 960e6, 'arfcn_start': 0, 'arfcn_end': 124},
         'DCS1800': {'start': 1805e6, 'end': 1880e6, 'arfcn_start': 512, 'arfcn_end': 885}
     },
@@ -226,6 +228,7 @@ def start_scanner():
         data = request.get_json() or {}
         device_index = data.get('device', 0)
         region = data.get('region', 'Americas')
+        selected_bands = data.get('bands', [])  # Get user-selected bands
 
         # Validate device index
         try:
@@ -242,21 +245,24 @@ def start_scanner():
                 'error_type': 'DEVICE_BUSY'
             }), 409
 
-        # Get frequency range for region
-        bands = REGIONAL_BANDS.get(region, REGIONAL_BANDS['Americas'])
+        # If no bands selected, use all bands for the region (backwards compatibility)
+        if not selected_bands:
+            region_bands = REGIONAL_BANDS.get(region, REGIONAL_BANDS['Americas'])
+            selected_bands = list(region_bands.keys())
+            logger.warning(f"No bands specified, using all bands for {region}: {selected_bands}")
 
         # Build grgsm_scanner command
-        # Example: grgsm_scanner --args="rtl=0" -b GSM850 -b PCS1900
+        # Example: grgsm_scanner --args="rtl=0" -b GSM900
         try:
             cmd = ['grgsm_scanner']
 
             # Add device argument (--args for RTL-SDR device selection)
             cmd.extend(['--args', f'rtl={device_index}'])
 
-            # Add band arguments (grgsm_scanner uses band names, not frequencies)
+            # Add selected band arguments
             # Map EGSM900 to GSM900 since that's what grgsm_scanner expects
-            for band_name in bands.keys():
-                # Normalize band name (EGSM900 -> GSM900)
+            for band_name in selected_bands:
+                # Normalize band name (EGSM900 -> GSM900, remove EGSM prefix)
                 normalized_band = band_name.replace('EGSM', 'GSM')
                 cmd.extend(['-b', normalized_band])
 

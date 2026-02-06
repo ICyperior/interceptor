@@ -1294,12 +1294,23 @@
             <div class="control-group">
                 <span class="control-group-label">GSM SCANNER</span>
                 <div class="control-group-items">
-                    <select id="scannerRegion" title="GSM frequency region">
+                    <select id="scannerRegion" title="GSM frequency region" onchange="updateBandSelector()">
                         <option value="Americas">Americas</option>
-                        <option value="Europe">Europe</option>
+                        <option value="Europe" selected>Europe</option>
                         <option value="Asia">Asia</option>
                     </select>
                     <button class="start-btn" id="startBtn" onclick="toggleScanner()">START</button>
+                </div>
+
+                <!-- Band Selector -->
+                <div style="margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;">BANDS TO SCAN:</div>
+                    <div id="bandCheckboxes" style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- Dynamically populated based on region -->
+                    </div>
+                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; font-style: italic;">
+                        💡 Tip: Uncheck unused bands for faster scanning
+                    </div>
                 </div>
             </div>
         </div>
@@ -1329,6 +1340,24 @@
             totalSignals: 0
         };
 
+        // Band configurations by region
+        const BAND_CONFIG = {
+            'Europe': [
+                { name: 'GSM900', label: 'GSM900 (925-960 MHz)', freq: '925-960 MHz', common: true, recommended: true },
+                { name: 'GSM850', label: 'GSM850 (869-894 MHz)', freq: '869-894 MHz', common: true, recommended: true },
+                { name: 'GSM800', label: 'GSM800 (832-862 MHz)', freq: '832-862 MHz', common: true, recommended: true },
+                { name: 'DCS1800', label: 'DCS1800 (1805-1880 MHz)', freq: '1805-1880 MHz', common: false, recommended: false }
+            ],
+            'Americas': [
+                { name: 'GSM850', label: 'GSM850 (869-894 MHz)', freq: '869-894 MHz', common: true, recommended: true },
+                { name: 'PCS1900', label: 'PCS1900 (1930-1990 MHz)', freq: '1930-1990 MHz', common: true, recommended: true }
+            ],
+            'Asia': [
+                { name: 'GSM900', label: 'GSM900 (925-960 MHz)', freq: '925-960 MHz', common: true, recommended: true },
+                { name: 'DCS1800', label: 'DCS1800 (1805-1880 MHz)', freq: '1805-1880 MHz', common: true, recommended: true }
+            ]
+        };
+
         // ============================================
         // INITIALIZATION
         // ============================================
@@ -1337,6 +1366,7 @@
             loadObserverLocation();
             initDeviceSelector();
             startUtcClock();
+            updateBandSelector();  // Initialize band selector with default region (Europe)
         });
 
         function initMap() {
@@ -1417,6 +1447,50 @@
         }
 
         // ============================================
+        // BAND SELECTOR
+        // ============================================
+        function updateBandSelector() {
+            const region = document.getElementById('scannerRegion').value;
+            const bands = BAND_CONFIG[region] || [];
+            const container = document.getElementById('bandCheckboxes');
+
+            container.innerHTML = '';
+
+            bands.forEach(band => {
+                const checkbox = document.createElement('label');
+                checkbox.style.cssText = 'display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; color: var(--text-primary);';
+
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.value = band.name;
+                input.checked = band.recommended; // Recommended bands checked by default
+                input.style.cssText = 'cursor: pointer;';
+
+                const labelText = document.createElement('span');
+                labelText.textContent = band.label;
+
+                const badge = document.createElement('span');
+                if (band.common) {
+                    badge.textContent = '⭐ PRIMARY';
+                    badge.style.cssText = 'font-size: 8px; padding: 2px 6px; background: rgba(56, 193, 128, 0.2); color: #38c180; border-radius: 3px; font-weight: 600;';
+                } else {
+                    badge.textContent = 'SECONDARY';
+                    badge.style.cssText = 'font-size: 8px; padding: 2px 6px; background: rgba(159, 176, 199, 0.1); color: var(--text-dim); border-radius: 3px;';
+                }
+
+                checkbox.appendChild(input);
+                checkbox.appendChild(labelText);
+                checkbox.appendChild(badge);
+                container.appendChild(checkbox);
+            });
+        }
+
+        function getSelectedBands() {
+            const checkboxes = document.querySelectorAll('#bandCheckboxes input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        // ============================================
         // SCANNER CONTROL
         // ============================================
         function toggleScanner() {
@@ -1432,9 +1506,15 @@
             const region = document.getElementById('scannerRegion').value;
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
+            const selectedBands = getSelectedBands();
 
             if (isNaN(lat) || isNaN(lon)) {
                 alert('Please enter valid GPS coordinates');
+                return;
+            }
+
+            if (selectedBands.length === 0) {
+                alert('Please select at least one band to scan');
                 return;
             }
 
@@ -1446,6 +1526,7 @@
                     body: JSON.stringify({
                         device: device,
                         region: region,
+                        bands: selectedBands,  // Send selected bands
                         lat: lat,
                         lon: lon
                     })
