@@ -82,6 +82,30 @@ def can_use_api():
     return current_usage < config.GSM_API_DAILY_LIMIT
 
 
+def arfcn_to_frequency(arfcn):
+    """Convert ARFCN to downlink frequency in Hz.
+
+    Uses REGIONAL_BANDS to determine the correct band and conversion formula.
+    Returns frequency in Hz (e.g., 925800000 for 925.8 MHz).
+    """
+    arfcn = int(arfcn)
+
+    # Search all bands to find which one this ARFCN belongs to
+    for region_bands in REGIONAL_BANDS.values():
+        for band_name, band_info in region_bands.items():
+            arfcn_start = band_info['arfcn_start']
+            arfcn_end = band_info['arfcn_end']
+
+            if arfcn_start <= arfcn <= arfcn_end:
+                # Found the right band, calculate frequency
+                # Downlink frequency = band_start + (arfcn - arfcn_start) * 200kHz
+                freq_hz = band_info['start'] + (arfcn - arfcn_start) * 200000
+                return int(freq_hz)
+
+    # If ARFCN not found in any band, raise error
+    raise ValueError(f"ARFCN {arfcn} not found in any known GSM band")
+
+
 @gsm_spy_bp.route('/dashboard')
 def dashboard():
     """Render GSM Spy dashboard."""
@@ -123,19 +147,19 @@ def start_scanner():
         bands = REGIONAL_BANDS.get(region, REGIONAL_BANDS['Americas'])
 
         # Build grgsm_scanner command
-        # Example: grgsm_scanner -d 0 --freq-range 869000000:894000000
-        freq_ranges = []
-        for band_name, band_info in bands.items():
-            freq_ranges.append(f"{int(band_info['start'])}:{int(band_info['end'])}")
-
-        freq_range_arg = ','.join(freq_ranges)
-
+        # Example: grgsm_scanner --args="rtl=0" -b GSM850 -b PCS1900
         try:
-            cmd = [
-                'grgsm_scanner',
-                '-d', str(device_index),
-                '--freq-range', freq_range_arg
-            ]
+            cmd = ['grgsm_scanner']
+
+            # Add device argument (--args for RTL-SDR device selection)
+            cmd.extend(['--args', f'rtl={device_index}'])
+
+            # Add band arguments (grgsm_scanner uses band names, not frequencies)
+            # Map EGSM900 to GSM900 since that's what grgsm_scanner expects
+            for band_name in bands.keys():
+                # Normalize band name (EGSM900 -> GSM900)
+                normalized_band = band_name.replace('EGSM', 'GSM')
+                cmd.extend(['-b', normalized_band])
 
             logger.info(f"Starting GSM scanner: {' '.join(cmd)}")
 
@@ -193,11 +217,15 @@ def start_monitor():
             return jsonify({'error': 'ARFCN required'}), 400
 
         try:
-            # grgsm_livemon -a ARFCN -d DEVICE | tshark -i lo -Y "gsm_a.rr.timing_advance || gsm_a.tmsi || gsm_a.imsi"
+            # Convert ARFCN to frequency
+            frequency_hz = arfcn_to_frequency(arfcn)
+            frequency_mhz = frequency_hz / 1e6
+
+            # grgsm_livemon --args="rtl=0" -f 925.8M | tshark -i lo -Y "..."
             grgsm_cmd = [
                 'grgsm_livemon',
-                '-a', str(arfcn),
-                '-d', str(device_index)
+                '--args', f'rtl={device_index}',
+                '-f', f'{frequency_mhz}M'
             ]
 
             tshark_cmd = [
@@ -972,11 +1000,15 @@ def auto_start_monitor(tower_data):
 
             device_index = app_module.gsm_spy_active_device or 0
 
+            # Convert ARFCN to frequency
+            frequency_hz = arfcn_to_frequency(arfcn)
+            frequency_mhz = frequency_hz / 1e6
+
             # Start grgsm_livemon
             grgsm_cmd = [
                 'grgsm_livemon',
-                '-a', str(arfcn),
-                '-d', str(device_index)
+                '--args', f'rtl={device_index}',
+                '-f', f'{frequency_mhz}M'
             ]
 
             tshark_cmd = [
