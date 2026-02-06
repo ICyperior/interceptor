@@ -27,7 +27,7 @@ from typing import Any
 
 from flask import Flask, render_template, jsonify, send_file, Response, request,redirect, url_for, flash, session
 from werkzeug.security import check_password_hash
-from config import VERSION, CHANGELOG, SHARED_OBSERVER_LOCATION_ENABLED
+from config import VERSION, CHANGELOG, SHARED_OBSERVER_LOCATION_ENABLED, DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
 from utils.process import cleanup_stale_processes
 from utils.sdr import SDRFactory
@@ -350,6 +350,8 @@ def index() -> str:
         version=VERSION,
         changelog=CHANGELOG,
         shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
+        default_latitude=DEFAULT_LATITUDE,
+        default_longitude=DEFAULT_LONGITUDE,
     )
 
 

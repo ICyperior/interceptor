@@ -45,6 +45,9 @@ services:
       - INTERCEPT_ADSB_AUTO_START=${INTERCEPT_ADSB_AUTO_START:-false}
       # Shared observer location across modules
       - INTERCEPT_SHARED_OBSERVER_LOCATION=${INTERCEPT_SHARED_OBSERVER_LOCATION:-true}
+      # Default observer coordinates (set to your location to skip the GPS prompt)
+      # - INTERCEPT_DEFAULT_LAT=${INTERCEPT_DEFAULT_LAT:-0}
+      # - INTERCEPT_DEFAULT_LON=${INTERCEPT_DEFAULT_LON:-0}
     # Network mode for WiFi scanning (requires host network)
     # network_mode: host
     restart: unless-stopped
@@ -88,6 +91,9 @@ services:
       - INTERCEPT_ADSB_AUTO_START=${INTERCEPT_ADSB_AUTO_START:-false}
       # Shared observer location across modules
       - INTERCEPT_SHARED_OBSERVER_LOCATION=${INTERCEPT_SHARED_OBSERVER_LOCATION:-true}
+      # Default observer coordinates (set to your location to skip the GPS prompt)
+      # - INTERCEPT_DEFAULT_LAT=${INTERCEPT_DEFAULT_LAT:-0}
+      # - INTERCEPT_DEFAULT_LON=${INTERCEPT_DEFAULT_LON:-0}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5050/health"]
