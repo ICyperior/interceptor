@@ -264,14 +264,12 @@ def start_dmr() -> Response:
     ]
 
     # Build DSD command
-    dsd_cmd = [dsd_path]
+    # Use -o - to send decoded audio to stdout (piped to DEVNULL)
+    # instead of PulseAudio which may not be available under sudo
+    dsd_cmd = [dsd_path, '-i', '-', '-o', '-']
     if is_fme:
-        # dsd-fme: -N disables ncurses (required for stdin pipe),
-        # -o /dev/null suppresses PulseAudio audio output
-        dsd_cmd.extend(['-N', '-i', '-', '-o', '/dev/null'])
         dsd_cmd.extend(_DSD_FME_PROTOCOL_FLAGS.get(protocol, []))
     else:
-        dsd_cmd.extend(['-i', '-', '-o', '/dev/null'])
         dsd_cmd.extend(_DSD_PROTOCOL_FLAGS.get(protocol, []))
 
     try:
@@ -293,12 +291,21 @@ def start_dmr() -> Response:
 
         time.sleep(0.3)
 
-        if dmr_rtl_process.poll() is not None or dmr_dsd_process.poll() is not None:
-            # Process died
+        rtl_rc = dmr_rtl_process.poll()
+        dsd_rc = dmr_dsd_process.poll()
+        if rtl_rc is not None or dsd_rc is not None:
+            # Process died — capture stderr for diagnostics
+            dsd_err = ''
+            if dmr_dsd_process.stderr:
+                dsd_err = dmr_dsd_process.stderr.read().decode('utf-8', errors='replace')[:500]
+            logger.error(f"DSD pipeline died: rtl_fm rc={rtl_rc}, dsd rc={dsd_rc}, dsd stderr={dsd_err!r}")
             if dmr_active_device is not None:
                 app_module.release_sdr_device(dmr_active_device)
                 dmr_active_device = None
-            return jsonify({'status': 'error', 'message': 'Failed to start DSD pipeline'}), 500
+            msg = 'Failed to start DSD pipeline'
+            if dsd_err:
+                msg += f': {dsd_err.strip()}'
+            return jsonify({'status': 'error', 'message': msg}), 500
 
         dmr_running = True
         dmr_thread = threading.Thread(
