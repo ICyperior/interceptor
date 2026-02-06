@@ -7,10 +7,23 @@ import os
 import sys
 
 # Application version
-VERSION = "2.13.1"
+VERSION = "2.14.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.14.0",
+        "date": "February 2026",
+        "highlights": [
+            "DMR/P25/NXDN/D-STAR digital voice decoder with dsd-fme",
+            "DMR visual synthesizer with event-driven spring-physics bars",
+            "HF SSTV general mode with predefined shortwave frequencies",
+            "WebSDR integration for remote HF/shortwave listening",
+            "Listening Post signal scanner and audio pipeline improvements",
+            "TSCM sweep resilience, WiFi detection, and correlation fixes",
+            "APRS rtl_fm startup and SDR device conflict fixes",
+        ]
+    },
     {
         "version": "2.13.1",
         "date": "February 2026",

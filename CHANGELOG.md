@@ -2,6 +2,44 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.14.0] - 2026-02-06
+
+### Added
+- **DMR Digital Voice Decoder** - Decode DMR, P25, NXDN, and D-STAR protocols
+  - Integration with dsd-fme (Digital Speech Decoder - Florida Man Edition)
+  - Real-time SSE streaming of sync, call, voice, and slot events
+  - Call history table with talkgroup, source ID, and protocol tracking
+  - Protocol auto-detection or manual selection
+  - Pipeline error diagnostics with rtl_fm stderr capture
+- **DMR Visual Synthesizer** - Canvas-based signal activity visualization
+  - Spring-physics animated bars reacting to SSE decoder events
+  - Color-coded by event type: cyan (sync), green (call), orange (voice)
+  - Center-outward ripple bursts on sync events
+  - Smooth decay and idle breathing animation
+  - Responsive canvas with window resize handling
+- **HF SSTV General Mode** - Terrestrial slow-scan TV on shortwave frequencies
+  - Predefined HF SSTV frequencies (14.230, 21.340, 28.680 MHz, etc.)
+  - Modulation support for USB/LSB reception
+- **WebSDR Integration** - Remote HF/shortwave listening via WebSDR servers
+- **Listening Post Enhancements** - Improved signal scanner and audio handling
+
+### Fixed
+- APRS rtl_fm startup failure and SDR device conflicts
+- DSD voice decoder detection for dsd-fme and PulseAudio errors
+- dsd-fme protocol flags and ncurses disable for headless operation
+- dsd-fme audio output flag for pipeline compatibility
+- TSCM sweep scan resilience with per-device error isolation
+- TSCM WiFi detection using scanner singleton for device availability
+- TSCM correlation and cluster emission fixes
+- Detected Threats panel items now clickable to show device details
+- Proximity radar tooltip flicker on hover
+- Radar blip flicker by deferring renders during hover
+- ISS position API priority swap to avoid timeout delays
+- Updater settings panel error when updater.js is blocked
+- Missing scapy in optionals dependency group
+
+---
+
 ## [2.13.1] - 2026-02-04
 
 ### Added
