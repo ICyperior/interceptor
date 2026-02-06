@@ -39,6 +39,7 @@ from utils.constants import (
     MAX_VESSEL_AGE_SECONDS,
     MAX_DSC_MESSAGE_AGE_SECONDS,
     MAX_DEAUTH_ALERTS_AGE_SECONDS,
+    MAX_GSM_AGE_SECONDS,
     QUEUE_MAX_SIZE,
 )
 import logging
@@ -181,6 +182,15 @@ deauth_detector = None
 deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 deauth_detector_lock = threading.Lock()
 
+# GSM Spy
+gsm_spy_process = None
+gsm_spy_monitor_process = None  # For grgsm_livemon when monitoring specific tower
+gsm_spy_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+gsm_spy_lock = threading.Lock()
+gsm_spy_active_device = None
+gsm_spy_selected_arfcn = None
+gsm_spy_region = 'Americas'  # Default band
+
 # ============================================
 # GLOBAL STATE DICTIONARIES
 # ============================================
@@ -213,6 +223,16 @@ dsc_messages = DataStore(max_age_seconds=MAX_DSC_MESSAGE_AGE_SECONDS, name='dsc_
 # Deauth alerts - using DataStore for automatic cleanup
 deauth_alerts = DataStore(max_age_seconds=MAX_DEAUTH_ALERTS_AGE_SECONDS, name='deauth_alerts')
 
+# GSM Spy data stores
+gsm_spy_towers = DataStore(
+    max_age_seconds=MAX_GSM_AGE_SECONDS,
+    name='gsm_spy_towers'
+)
+gsm_spy_devices = DataStore(
+    max_age_seconds=MAX_GSM_AGE_SECONDS,
+    name='gsm_spy_devices'
+)
+
 # Satellite state
 satellite_passes = []  # Predicted satellite passes (not auto-cleaned, calculated)
 
@@ -225,6 +245,8 @@ cleanup_manager.register(adsb_aircraft)
 cleanup_manager.register(ais_vessels)
 cleanup_manager.register(dsc_messages)
 cleanup_manager.register(deauth_alerts)
+cleanup_manager.register(gsm_spy_towers)
+cleanup_manager.register(gsm_spy_devices)
 
 # ============================================
 # SDR DEVICE REGISTRY
@@ -652,6 +674,7 @@ def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
+    global gsm_spy_process, gsm_spy_monitor_process
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -663,7 +686,8 @@ def kill_all() -> Response:
         'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
         'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher',
-        'hcitool', 'bluetoothctl'
+        'hcitool', 'bluetoothctl', 'grgsm_scanner', 'grgsm_livemon',
+        'tshark'
     ]
 
     for proc in processes_to_kill:
@@ -726,6 +750,24 @@ def kill_all() -> Response:
         killed.append('bluetooth_scanner')
     except Exception:
         pass
+
+    # Reset GSM Spy state
+    with gsm_spy_lock:
+        if gsm_spy_process:
+            try:
+                safe_terminate(gsm_spy_process, 'grgsm_scanner')
+                killed.append('grgsm_scanner')
+            except Exception:
+                pass
+        gsm_spy_process = None
+
+        if gsm_spy_monitor_process:
+            try:
+                safe_terminate(gsm_spy_monitor_process, 'grgsm_livemon')
+                killed.append('grgsm_livemon')
+            except Exception:
+                pass
+        gsm_spy_monitor_process = None
 
     # Clear SDR device registry
     with sdr_device_registry_lock:

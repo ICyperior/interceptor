@@ -1,0 +1,2194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSM SPY // INTERCEPT - See the Invisible</title>
+    <!-- Fonts - Conditional CDN/Local loading -->
+    {% if offline_settings.fonts_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    {% else %}
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% endif %}
+    <!-- Leaflet.js - Conditional CDN/Local loading -->
+    {% if offline_settings.assets_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+    <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+    {% else %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    {% endif %}
+    <!-- Core CSS variables -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
+    <script>
+        window.INTERCEPT_SHARED_OBSERVER_LOCATION = {{ shared_observer_location | tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --font-sans: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', 'Consolas', 'Menlo', monospace;
+            --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', 'Consolas', 'Menlo', monospace;
+            --bg-dark: #0b1118;
+            --bg-panel: #101823;
+            --bg-card: #151f2b;
+            --border-color: #263246;
+            --border-glow: #4aa3ff;
+            --text-primary: #d7e0ee;
+            --text-secondary: #9fb0c7;
+            --text-muted: #9fb0c7;
+            --text-dim: #6f7f94;
+            --accent-green: #38c180;
+            --accent-cyan: #4aa3ff;
+            --accent-orange: #d6a85e;
+            --accent-red: #e25d5d;
+            --accent-yellow: #e1c26b;
+            --grid-line: rgba(74, 163, 255, 0.1);
+            --noise-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='40'%20height='40'%20viewBox='0%200%2040%2040'%3E%3Cg%20fill='%23ffffff'%20fill-opacity='0.05'%3E%3Ccircle%20cx='3'%20cy='5'%20r='1'/%3E%3Ccircle%20cx='11'%20cy='9'%20r='1'/%3E%3Ccircle%20cx='18'%20cy='3'%20r='1'/%3E%3Ccircle%20cx='26'%20cy='12'%20r='1'/%3E%3Ccircle%20cx='34'%20cy='6'%20r='1'/%3E%3Ccircle%20cx='7'%20cy='19'%20r='1'/%3E%3Ccircle%20cx='15'%20cy='24'%20r='1'/%3E%3Ccircle%20cx='28'%20cy='22'%20r='1'/%3E%3Ccircle%20cx='36'%20cy='18'%20r='1'/%3E%3Ccircle%20cx='5'%20cy='33'%20r='1'/%3E%3Ccircle%20cx='19'%20cy='32'%20r='1'/%3E%3Ccircle%20cx='31'%20cy='34'%20r='1'/%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated radar sweep background */
+        .radar-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                var(--noise-image),
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 40px 40px, 50px 50px, 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Scan line effect */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            color: var(--accent-cyan);
+            animation: scan 6s linear infinite;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.25;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        @keyframes scan {
+            0% { top: -4px; }
+            100% { top: 100vh; }
+        }
+
+        /* Header */
+        .header {
+            position: relative;
+            z-index: 10;
+            padding: 10px 12px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            min-height: 52px;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .logo {
+            font-family: var(--font-sans);
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--text-primary);
+            text-transform: uppercase;
+        }
+
+        .logo span {
+            color: var(--text-secondary);
+            font-weight: 400;
+            font-size: 12px;
+            margin-left: 10px;
+            letter-spacing: 1px;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--accent-cyan);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.inactive {
+            background: var(--accent-red);
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Stats Strip */
+        .stats-strip {
+            position: relative;
+            z-index: 10;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 12px;
+            overflow-x: auto;
+        }
+
+        .stats-strip-inner {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            min-width: fit-content;
+        }
+
+        .strip-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 50px;
+        }
+
+        .strip-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+        }
+
+        .strip-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+            font-family: var(--font-mono);
+        }
+
+        .strip-divider {
+            width: 1px;
+            height: 30px;
+            background: var(--border-color);
+        }
+
+        .strip-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .strip-time {
+            font-size: 11px;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+        }
+
+        .strip-btn {
+            padding: 6px 12px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .strip-btn:hover {
+            background: var(--bg-panel);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        /* Analytics Overview Modal */
+        .analytics-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(11, 17, 24, 0.95);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .analytics-modal-overlay.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .analytics-modal {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            max-width: 1200px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 40px rgba(74, 163, 255, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .analytics-modal-header {
+            padding: 16px 20px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .analytics-modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+        }
+
+        .analytics-modal-close {
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-dark);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .analytics-modal-close:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .analytics-modal-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .analytics-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            transition: all 0.2s;
+        }
+
+        .analytics-card:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 16px rgba(74, 163, 255, 0.2);
+        }
+
+        .analytics-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .analytics-card-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--accent-cyan);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .analytics-card-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .analytics-card-description {
+            font-size: 11px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .analytics-card-stats {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .analytics-card-stat {
+            flex: 1;
+        }
+
+        .analytics-card-stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-green);
+            font-family: var(--font-mono);
+        }
+
+        .analytics-card-stat-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Main Dashboard Layout */
+        .dashboard {
+            position: relative;
+            z-index: 10;
+            display: grid;
+            grid-template-columns: 280px 1fr 300px;
+            grid-template-rows: 1fr auto;
+            gap: 0;
+            height: calc(100vh - 160px);
+            min-height: 500px;
+        }
+
+        /* Left Sidebar */
+        .left-sidebar {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            overflow-y: auto;
+            grid-row: 1;
+        }
+
+        /* Main Display (Map) */
+        .main-display {
+            position: relative;
+            grid-row: 1;
+            background: var(--bg-dark);
+        }
+
+        #gsmMap {
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+        }
+
+        /* Right Sidebar */
+        .right-sidebar {
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            overflow-y: auto;
+            grid-row: 1;
+        }
+
+        /* Panel Styles */
+        .panel {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-header {
+            padding: 10px 12px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .panel-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        .panel-content {
+            padding: 12px;
+            font-size: 11px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Signal Source Panel */
+        .signal-source-panel {
+            flex-shrink: 0;
+        }
+
+        .signal-source-content {
+            padding: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 11px;
+            font-family: var(--font-mono);
+        }
+
+        /* Region Selector Panel */
+        .region-panel {
+            flex-shrink: 0;
+        }
+
+        .region-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
+        }
+
+        .region-btn {
+            padding: 10px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .region-btn:hover {
+            background: var(--bg-panel);
+            border-color: var(--accent-cyan);
+        }
+
+        .region-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+            border-color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        /* Advanced Analysis Panel - Same style as Region Buttons */
+        .advanced-analysis-panel {
+            flex-shrink: 0;
+        }
+
+        .analysis-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
+        }
+
+        .analysis-btn {
+            padding: 10px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .analysis-btn:hover {
+            background: var(--bg-panel);
+            border-color: var(--accent-cyan);
+        }
+
+        .analysis-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+            border-color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        /* Selected Tower Panel */
+        .selected-tower-panel {
+            flex-shrink: 0;
+            min-height: 200px;
+        }
+
+        .no-selection {
+            padding: 30px 20px;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 11px;
+        }
+
+        .tower-info {
+            padding: 12px;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .tower-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tower-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .tower-info-label {
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-size: 9px;
+            letter-spacing: 0.5px;
+        }
+
+        .tower-info-value {
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+
+        .tower-rogue-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--accent-red);
+            color: white;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Tracked Lists */
+        .tracked-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tracked-list-content {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .list-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 11px;
+        }
+
+        .list-item:hover {
+            background: var(--bg-panel);
+        }
+
+        .list-item.selected {
+            background: rgba(74, 163, 255, 0.1);
+            border-left: 3px solid var(--accent-cyan);
+        }
+
+        .list-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .list-item-id {
+            font-weight: 700;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+        }
+
+        .list-item-meta {
+            font-size: 9px;
+            color: var(--text-dim);
+        }
+
+        .list-item-details {
+            font-size: 10px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .rogue-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            box-shadow: 0 0 6px var(--accent-red);
+            animation: blink 1s infinite;
+            margin-left: 6px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .no-data {
+            padding: 30px 20px;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 11px;
+        }
+
+        /* Alerts Panel */
+        .alerts-panel {
+            flex-shrink: 0;
+            max-height: 250px;
+        }
+
+        .alert-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(226, 93, 93, 0.05);
+            border-left: 3px solid var(--accent-red);
+            font-size: 10px;
+            line-height: 1.5;
+        }
+
+        .alert-time {
+            color: var(--text-dim);
+            font-size: 9px;
+            margin-bottom: 4px;
+        }
+
+        .alert-message {
+            color: var(--accent-red);
+            font-weight: 600;
+        }
+
+        /* Controls Bar */
+        .controls-bar {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border-color);
+            padding: 12px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-right: 6px;
+        }
+
+        .control-group-items {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group input[type="text"],
+        .control-group input[type="number"] {
+            padding: 6px 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 11px;
+            font-family: var(--font-mono);
+        }
+
+        .control-group select {
+            padding: 6px 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 11px;
+            font-family: var(--font-mono);
+        }
+
+        .start-btn {
+            padding: 8px 20px;
+            background: var(--accent-green);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .start-btn:hover {
+            background: #2da868;
+            box-shadow: 0 0 12px var(--accent-green);
+        }
+
+        .start-btn.active {
+            background: var(--accent-red);
+            animation: pulse-btn 2s infinite;
+        }
+
+        .start-btn.active:hover {
+            background: #c94545;
+        }
+
+        @keyframes pulse-btn {
+            0%, 100% { box-shadow: 0 0 8px var(--accent-red); }
+            50% { box-shadow: 0 0 20px var(--accent-red); }
+        }
+
+        .gps-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: var(--accent-green);
+        }
+
+        .gps-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        /* Map marker animations */
+        @keyframes marker-pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.3;
+            }
+        }
+
+        /* Device blip pulse animation */
+        .device-blip {
+            animation: device-pulse 5s ease-out forwards;
+        }
+
+        @keyframes device-pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+
+        /* Custom Leaflet marker styles */
+        .tower-marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-green);
+            background: rgba(56, 193, 128, 0.3);
+            box-shadow: 0 0 10px var(--accent-green);
+        }
+
+        .tower-marker.rogue {
+            border-color: var(--accent-red);
+            background: rgba(226, 93, 93, 0.3);
+            box-shadow: 0 0 10px var(--accent-red);
+            animation: blink 1s infinite;
+        }
+
+        .device-marker {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            box-shadow: 0 0 8px var(--accent-red);
+        }
+
+        /* Scrollbar styling */
+        .tracked-list-content::-webkit-scrollbar,
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .tracked-list-content::-webkit-scrollbar-track,
+        .panel-content::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        .tracked-list-content::-webkit-scrollbar-thumb,
+        .panel-content::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .tracked-list-content::-webkit-scrollbar-thumb:hover,
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-cyan);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1400px) {
+            .dashboard {
+                grid-template-columns: 250px 1fr 280px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+
+            .left-sidebar,
+            .right-sidebar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="radar-bg"></div>
+    <div class="scanline"></div>
+
+    <header class="header">
+        <div class="logo">
+            GSM SPY
+            <span>// INTERCEPT - See the Invisible</span>
+        </div>
+        <div class="status-bar">
+            <div class="status-dot inactive" id="scannerDot"></div>
+            <span id="scannerStatus">STANDBY</span>
+        </div>
+    </header>
+
+    {% set active_mode = 'gsm' %}
+    {% include 'partials/nav.html' with context %}
+
+    <!-- Statistics Strip -->
+    <div class="stats-strip">
+        <div class="stats-strip-inner">
+            <div class="strip-stat">
+                <span class="strip-value" id="stripTowers">0</span>
+                <span class="strip-label">TOWERS</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripDevices">0</span>
+                <span class="strip-label">DEVICES</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripRogues">0</span>
+                <span class="strip-label">ROGUES</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripSignals">0</span>
+                <span class="strip-label">SIGNALS</span>
+            </div>
+            <div class="strip-stat">
+                <span class="strip-value" id="stripCrowd">-</span>
+                <span class="strip-label">CROWD</span>
+            </div>
+            <div class="strip-divider"></div>
+            <div class="strip-status">
+                <div class="status-dot inactive" id="trackingDot"></div>
+                <span id="trackingStatus">STANDBY</span>
+            </div>
+            <div class="strip-time" id="utcTime">--:--:-- UTC</div>
+            <button class="strip-btn" onclick="openAnalyticsModal()">
+                Analytics Overview
+            </button>
+        </div>
+    </div>
+
+    <!-- Analytics Overview Modal -->
+    <div class="analytics-modal-overlay" id="analyticsModal">
+        <div class="analytics-modal">
+            <div class="analytics-modal-header">
+                <div class="analytics-modal-title">Analytics Overview</div>
+                <button class="analytics-modal-close" onclick="closeAnalyticsModal()">&times;</button>
+            </div>
+            <div class="analytics-modal-content">
+                <div class="analytics-grid">
+                    <!-- Velocity Tracking Card -->
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <div class="analytics-card-icon">📍</div>
+                            <div class="analytics-card-title">Velocity Tracking</div>
+                        </div>
+                        <div class="analytics-card-description">
+                            Track device movement by analyzing Timing Advance transitions and cell handovers.
+                            Estimates velocity and direction based on TA delta and cell sector patterns.
+                        </div>
+                        <div class="analytics-card-stats">
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="velocityDevices">0</div>
+                                <div class="analytics-card-stat-label">Devices Tracked</div>
+                            </div>
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="velocityAvg">- km/h</div>
+                                <div class="analytics-card-stat-label">Avg Velocity</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Crowd Density Card -->
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <div class="analytics-card-icon">👥</div>
+                            <div class="analytics-card-title">Crowd Density</div>
+                        </div>
+                        <div class="analytics-card-description">
+                            Aggregate TMSI pings per cell sector to estimate crowd density.
+                            Visualizes hotspots and congestion patterns across towers.
+                        </div>
+                        <div class="analytics-card-stats">
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="crowdTotal">0</div>
+                                <div class="analytics-card-stat-label">Total Devices</div>
+                            </div>
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="crowdPeak">0</div>
+                                <div class="analytics-card-stat-label">Peak Sector</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Life Patterns Card -->
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <div class="analytics-card-icon">📊</div>
+                            <div class="analytics-card-title">Life Patterns</div>
+                        </div>
+                        <div class="analytics-card-description">
+                            Analyze 60-day historical data to identify recurring patterns in device behavior.
+                            Detects work locations, commute routes, and daily routines.
+                        </div>
+                        <div class="analytics-card-stats">
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="patternsFound">0</div>
+                                <div class="analytics-card-stat-label">Patterns Found</div>
+                            </div>
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="patternsConfidence">0%</div>
+                                <div class="analytics-card-stat-label">Confidence</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Neighbor Audit Card -->
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <div class="analytics-card-icon">🔍</div>
+                            <div class="analytics-card-title">Neighbor Audit</div>
+                        </div>
+                        <div class="analytics-card-description">
+                            Validate neighbor cell lists against expected network topology.
+                            Detects inconsistencies that may indicate rogue towers.
+                        </div>
+                        <div class="analytics-card-stats">
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="neighborTotal">0</div>
+                                <div class="analytics-card-stat-label">Neighbors</div>
+                            </div>
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="neighborAnomalies">0</div>
+                                <div class="analytics-card-stat-label">Anomalies</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Traffic Correlation Card -->
+                    <div class="analytics-card">
+                        <div class="analytics-card-header">
+                            <div class="analytics-card-icon">📡</div>
+                            <div class="analytics-card-title">Traffic Correlation</div>
+                        </div>
+                        <div class="analytics-card-description">
+                            Correlate uplink and downlink timing to identify communication patterns.
+                            Maps device-to-device interactions and network flows.
+                        </div>
+                        <div class="analytics-card-stats">
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="trafficPairs">0</div>
+                                <div class="analytics-card-stat-label">Paired Flows</div>
+                            </div>
+                            <div class="analytics-card-stat">
+                                <div class="analytics-card-stat-value" id="trafficActive">0</div>
+                                <div class="analytics-card-stat-label">Active Now</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="dashboard">
+        <!-- Left Sidebar -->
+        <div class="left-sidebar">
+            <!-- Signal Source Panel -->
+            <div class="panel signal-source-panel">
+                <div class="panel-header">
+                    <span>SIGNAL SOURCE</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="signal-source-content">
+                    <div class="form-group">
+                        <label>RTL-SDR Device</label>
+                        <select id="deviceSelect">
+                            <option value="0">Device 0</option>
+                            <option value="1">Device 1</option>
+                            <option value="2">Device 2</option>
+                            <option value="3">Device 3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Region Selector Panel -->
+            <div class="panel region-panel">
+                <div class="panel-header">
+                    <span>REGION / BANDS</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="region-buttons">
+                    <button class="region-btn active" data-region="americas" onclick="selectRegion('americas')">
+                        Americas (850/1900 MHz)
+                    </button>
+                    <button class="region-btn" data-region="europe" onclick="selectRegion('europe')">
+                        Europe (900/1800 MHz)
+                    </button>
+                    <button class="region-btn" data-region="asia" onclick="selectRegion('asia')">
+                        Asia (900/1800 MHz)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Advanced Analysis -->
+            <div class="panel advanced-analysis-panel">
+                <div class="panel-header">
+                    <span>ADVANCED ANALYSIS</span>
+                    <div class="panel-indicator" style="background: var(--accent-cyan);"></div>
+                </div>
+                <div class="analysis-buttons">
+                    <button class="analysis-btn" onclick="showVelocityTracking()">
+                        Velocity Tracking
+                    </button>
+                    <button class="analysis-btn" onclick="showCrowdDensity()">
+                        Crowd Density
+                    </button>
+                    <button class="analysis-btn" onclick="showLifePatterns()">
+                        Life Patterns
+                    </button>
+                    <button class="analysis-btn" onclick="showNeighborAudit()">
+                        Neighbor Audit
+                    </button>
+                    <button class="analysis-btn" onclick="showTrafficCorrelation()">
+                        Traffic Correlation
+                    </button>
+                </div>
+                <div id="analysisResults" class="analysis-results" style="display: none;">
+                    <div class="analysis-header">
+                        <span id="analysisTitle">Analysis Results</span>
+                        <button onclick="closeAnalysis()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 0; font-size: 18px;">&times;</button>
+                    </div>
+                    <div id="analysisContent" class="analysis-content">
+                        <!-- Dynamic content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Display (Map) -->
+        <div class="main-display">
+            <div id="gsmMap"></div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="right-sidebar">
+            <!-- Selected Tower Info -->
+            <div class="panel selected-tower-panel">
+                <div class="panel-header">
+                    <span>SELECTED TOWER</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div id="selectedTowerInfo">
+                    <div class="no-selection">
+                        <div style="font-size: 24px; margin-bottom: 8px;">📡</div>
+                        <div>Click a tower on the map</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tracked Towers -->
+            <div class="panel tracked-list">
+                <div class="panel-header">
+                    <span>TRACKED TOWERS</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="tracked-list-content" id="towersList">
+                    <div class="no-data">
+                        <div>No towers detected</div>
+                        <div style="font-size: 9px; margin-top: 5px;">Start scanner to begin</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tracked Devices -->
+            <div class="panel tracked-list">
+                <div class="panel-header">
+                    <span>TRACKED DEVICES</span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="tracked-list-content" id="devicesList">
+                    <div class="no-data">
+                        <div>No devices tracked</div>
+                        <div style="font-size: 9px; margin-top: 5px;">Devices will appear here</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="panel alerts-panel">
+                <div class="panel-header">
+                    <span>ALERTS</span>
+                    <div class="panel-indicator" style="background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red);"></div>
+                </div>
+                <div class="panel-content" id="alertsList">
+                    <div class="no-data">
+                        <div>No alerts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <!-- Location Group -->
+            <div class="control-group">
+                <span class="control-group-label">GPS LOCATION</span>
+                <div class="control-group-items">
+                    <input type="text" id="obsLat" value="51.5074" style="width: 90px;" placeholder="Latitude" title="Observer Latitude">
+                    <input type="text" id="obsLon" value="-0.1278" style="width: 90px;" placeholder="Longitude" title="Observer Longitude">
+                    <span id="gpsIndicator" class="gps-indicator" style="display: none;">
+                        <span class="gps-dot"></span> GPS
+                    </span>
+                </div>
+            </div>
+
+            <!-- GSM Scanner Group -->
+            <div class="control-group">
+                <span class="control-group-label">GSM SCANNER</span>
+                <div class="control-group-items">
+                    <select id="scannerDevice" title="SDR device for GSM scanning">
+                        <option value="0">Device 0</option>
+                        <option value="1">Device 1</option>
+                        <option value="2">Device 2</option>
+                        <option value="3">Device 3</option>
+                    </select>
+                    <select id="scannerRegion" title="GSM frequency region">
+                        <option value="americas">Americas</option>
+                        <option value="europe">Europe</option>
+                        <option value="asia">Asia</option>
+                    </select>
+                    <button class="start-btn" id="startBtn" onclick="toggleScanner()">START</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ============================================
+        // STATE
+        // ============================================
+        let gsmMap = null;
+        let towers = {};          // key -> tower data
+        let devices = {};         // key -> device data
+        let towerMarkers = {};    // key -> L.marker
+        let deviceMarkers = {};   // key -> L.marker
+        let sectorArcs = {};      // key -> L.polygon
+        let taRings = {};         // key -> array of L.circle
+        let selectedTowerKey = null;
+        let eventSource = null;
+        let isScanning = false;
+        let currentRegion = 'americas';
+
+        // Statistics
+        let stats = {
+            totalTowers: 0,
+            totalDevices: 0,
+            totalRogues: 0,
+            totalSignals: 0
+        };
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            loadObserverLocation();
+            startUtcClock();
+        });
+
+        function initMap() {
+            // Initialize Leaflet map with dark theme
+            gsmMap = L.map('gsmMap', {
+                center: [51.5074, -0.1278],
+                zoom: 13,
+                zoomControl: true
+            });
+
+            // CartoDB Dark Matter tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(gsmMap);
+
+            console.log('[GSM SPY] Map initialized');
+        }
+
+        function loadObserverLocation() {
+            // Load from shared observer location if available
+            if (window.INTERCEPT_SHARED_OBSERVER_LOCATION) {
+                const loc = window.INTERCEPT_SHARED_OBSERVER_LOCATION;
+                if (loc.lat && loc.lon) {
+                    document.getElementById('obsLat').value = loc.lat;
+                    document.getElementById('obsLon').value = loc.lon;
+                    gsmMap.setView([loc.lat, loc.lon], 13);
+                }
+
+                if (loc.gps_enabled) {
+                    document.getElementById('gpsIndicator').style.display = 'flex';
+                }
+            }
+        }
+
+        function startUtcClock() {
+            function updateClock() {
+                const now = new Date();
+                const utc = now.toISOString().slice(11, 19);
+                document.getElementById('utcTime').textContent = utc + ' UTC';
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+        }
+
+        // ============================================
+        // SCANNER CONTROL
+        // ============================================
+        function toggleScanner() {
+            if (isScanning) {
+                stopScanner();
+            } else {
+                startScanner();
+            }
+        }
+
+        function startScanner() {
+            const device = document.getElementById('scannerDevice').value;
+            const region = document.getElementById('scannerRegion').value;
+            const lat = parseFloat(document.getElementById('obsLat').value);
+            const lon = parseFloat(document.getElementById('obsLon').value);
+
+            if (isNaN(lat) || isNaN(lon)) {
+                alert('Please enter valid GPS coordinates');
+                return;
+            }
+
+            // Start backend scanner
+            fetch('/gsm_spy/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    device: parseInt(device),
+                    region: region,
+                    lat: lat,
+                    lon: lon
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    isScanning = true;
+                    updateScannerUI(true);
+                    startEventStream();
+                    console.log('[GSM SPY] Scanner started');
+                } else {
+                    alert('Failed to start scanner: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('[GSM SPY] Error starting scanner:', error);
+                alert('Error starting scanner');
+            });
+        }
+
+        function stopScanner() {
+            fetch('/gsm_spy/stop', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                isScanning = false;
+                updateScannerUI(false);
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+                console.log('[GSM SPY] Scanner stopped');
+            })
+            .catch(error => {
+                console.error('[GSM SPY] Error stopping scanner:', error);
+            });
+        }
+
+        function updateScannerUI(active) {
+            const startBtn = document.getElementById('startBtn');
+            const scannerDot = document.getElementById('scannerDot');
+            const scannerStatus = document.getElementById('scannerStatus');
+            const trackingDot = document.getElementById('trackingDot');
+            const trackingStatus = document.getElementById('trackingStatus');
+
+            if (active) {
+                startBtn.textContent = 'STOP';
+                startBtn.classList.add('active');
+                scannerDot.classList.remove('inactive');
+                scannerStatus.textContent = 'SCANNING';
+                trackingDot.classList.remove('inactive');
+                trackingStatus.textContent = 'ACTIVE';
+            } else {
+                startBtn.textContent = 'START';
+                startBtn.classList.remove('active');
+                scannerDot.classList.add('inactive');
+                scannerStatus.textContent = 'STANDBY';
+                trackingDot.classList.add('inactive');
+                trackingStatus.textContent = 'STANDBY';
+            }
+        }
+
+        // ============================================
+        // EVENT STREAM (SSE)
+        // ============================================
+        function startEventStream() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/gsm_spy/stream');
+
+            eventSource.onmessage = function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+
+                    if (data.type === 'keepalive') {
+                        return;
+                    }
+
+                    if (data.type === 'tower') {
+                        updateTower(data);
+                    } else if (data.type === 'device') {
+                        updateDevice(data);
+                    } else if (data.type === 'rogue_alert') {
+                        addRogueAlert(data);
+                    } else if (data.type === 'stats') {
+                        updateStats(data);
+                    }
+                } catch (error) {
+                    console.error('[GSM SPY] Error parsing event:', error);
+                }
+            };
+
+            eventSource.onerror = function(e) {
+                console.error('[GSM SPY] EventSource error:', e);
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    console.log('[GSM SPY] EventSource closed, reconnecting...');
+                    setTimeout(startEventStream, 3000);
+                }
+            };
+        }
+
+        // ============================================
+        // TOWER HANDLING
+        // ============================================
+        function updateTower(data) {
+            const key = `${data.mcc}-${data.mnc}-${data.lac}-${data.cid}`;
+            towers[key] = data;
+
+            // Create or update marker
+            if (!towerMarkers[key]) {
+                // Create new marker
+                const marker = L.circleMarker([data.lat, data.lon], {
+                    radius: 10,
+                    fillColor: data.rogue ? '#e25d5d' : '#38c180',
+                    color: data.rogue ? '#e25d5d' : '#38c180',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.3
+                });
+
+                marker.on('click', function() {
+                    selectTower(key);
+                });
+
+                marker.bindPopup(`
+                    <strong>${data.rogue ? '⚠ ROGUE ' : ''}Tower ${data.cid}</strong><br>
+                    MCC: ${data.mcc} MNC: ${data.mnc}<br>
+                    LAC: ${data.lac} ARFCN: ${data.arfcn}
+                `);
+
+                marker.addTo(gsmMap);
+                towerMarkers[key] = marker;
+
+                // Draw sector arc
+                drawSectorArc(key, data);
+
+                // Draw TA rings
+                drawTARings(key, data);
+            } else {
+                // Update existing marker
+                const marker = towerMarkers[key];
+                marker.setLatLng([data.lat, data.lon]);
+
+                // Update color if rogue status changed
+                const color = data.rogue ? '#e25d5d' : '#38c180';
+                marker.setStyle({
+                    fillColor: color,
+                    color: color
+                });
+            }
+
+            // Update towers list
+            updateTowersList();
+
+            // Update stats
+            stats.totalTowers = Object.keys(towers).length;
+            stats.totalRogues = Object.values(towers).filter(t => t.rogue).length;
+            updateStatsDisplay();
+        }
+
+        function drawSectorArc(key, tower) {
+            // Calculate sector direction based on CID modulo 3
+            const sectorIndex = tower.cid % 3;
+            const startAngle = sectorIndex * 120;
+            const endAngle = startAngle + 120;
+            const radius = 1000; // meters
+
+            const wedge = createWedge([tower.lat, tower.lon], radius, startAngle, endAngle);
+
+            const arc = L.polygon(wedge, {
+                color: '#4aa3ff',
+                fillColor: '#4aa3ff',
+                fillOpacity: 0.1,
+                weight: 1,
+                opacity: 0.3
+            });
+
+            arc.addTo(gsmMap);
+            sectorArcs[key] = arc;
+        }
+
+        function drawTARings(key, tower) {
+            // Draw concentric circles for Timing Advance rings
+            // TA range: 0-63, each unit = ~554 meters
+            const rings = [];
+            const taMax = 63;
+            const metersPerTa = 554;
+
+            for (let ta = 15; ta <= taMax; ta += 15) {
+                const radius = ta * metersPerTa;
+                const circle = L.circle([tower.lat, tower.lon], {
+                    radius: radius,
+                    color: '#38c180',
+                    weight: 1,
+                    fillOpacity: 0,
+                    opacity: 0.2
+                });
+                circle.addTo(gsmMap);
+                rings.push(circle);
+            }
+
+            taRings[key] = rings;
+        }
+
+        function createWedge(center, radius, startAngle, endAngle) {
+            // Create wedge polygon for sector arc
+            const points = [center];
+            const segments = 32;
+
+            for (let i = 0; i <= segments; i++) {
+                const angle = startAngle + (endAngle - startAngle) * i / segments;
+                const rad = angle * Math.PI / 180;
+                const latOffset = (radius / 111320) * Math.cos(rad);
+                const lonOffset = (radius / (111320 * Math.cos(center[0] * Math.PI / 180))) * Math.sin(rad);
+                points.push([center[0] + latOffset, center[1] + lonOffset]);
+            }
+
+            points.push(center);
+            return points;
+        }
+
+        function selectTower(key) {
+            selectedTowerKey = key;
+            const tower = towers[key];
+
+            if (!tower) return;
+
+            // Update selected tower panel
+            const infoDiv = document.getElementById('selectedTowerInfo');
+            infoDiv.innerHTML = `
+                <div class="tower-info">
+                    <div class="tower-info-row">
+                        <span class="tower-info-label">Cell ID</span>
+                        <span class="tower-info-value">${tower.cid} ${tower.rogue ? '<span class="tower-rogue-badge">ROGUE</span>' : ''}</span>
+                    </div>
+                    <div class="tower-info-row">
+                        <span class="tower-info-label">MCC / MNC</span>
+                        <span class="tower-info-value">${tower.mcc} / ${tower.mnc}</span>
+                    </div>
+                    <div class="tower-info-row">
+                        <span class="tower-info-label">LAC</span>
+                        <span class="tower-info-value">${tower.lac}</span>
+                    </div>
+                    <div class="tower-info-row">
+                        <span class="tower-info-label">ARFCN</span>
+                        <span class="tower-info-value">${tower.arfcn}</span>
+                    </div>
+                    <div class="tower-info-row">
+                        <span class="tower-info-label">Signal (dBm)</span>
+                        <span class="tower-info-value">${tower.signal || 'N/A'}</span>
+                    </div>
+                    <div class="tower-info-row">
+                        <span class="tower-info-label">Location</span>
+                        <span class="tower-info-value">${tower.lat.toFixed(6)}, ${tower.lon.toFixed(6)}</span>
+                    </div>
+                    <div class="tower-info-row">
+                        <span class="tower-info-label">First Seen</span>
+                        <span class="tower-info-value">${new Date(tower.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                </div>
+            `;
+
+            // Update list selection
+            updateTowersList();
+        }
+
+        function updateTowersList() {
+            const listDiv = document.getElementById('towersList');
+
+            if (Object.keys(towers).length === 0) {
+                listDiv.innerHTML = '<div class="no-data"><div>No towers detected</div></div>';
+                return;
+            }
+
+            let html = '';
+            for (const [key, tower] of Object.entries(towers)) {
+                const selected = key === selectedTowerKey ? 'selected' : '';
+                html += `
+                    <div class="list-item ${selected}" onclick="selectTower('${key}')">
+                        <div class="list-item-header">
+                            <span class="list-item-id">CID ${tower.cid}</span>
+                            <span class="list-item-meta">${tower.mcc}-${tower.mnc}</span>
+                            ${tower.rogue ? '<span class="rogue-indicator"></span>' : ''}
+                        </div>
+                        <div class="list-item-details">
+                            LAC ${tower.lac} | ARFCN ${tower.arfcn} | ${tower.signal || 'N/A'} dBm
+                        </div>
+                    </div>
+                `;
+            }
+
+            listDiv.innerHTML = html;
+        }
+
+        // ============================================
+        // DEVICE HANDLING
+        // ============================================
+        function updateDevice(data) {
+            const key = data.imsi || data.tmsi || `device_${Date.now()}`;
+            devices[key] = data;
+
+            // Create device "blip" marker
+            const marker = L.circleMarker([data.lat, data.lon], {
+                radius: 5,
+                fillColor: '#e25d5d',
+                color: '#e25d5d',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8,
+                className: 'device-blip'
+            });
+
+            marker.bindPopup(`
+                <strong>Device</strong><br>
+                ${data.imsi ? 'IMSI: ' + data.imsi : 'TMSI: ' + data.tmsi}<br>
+                Tower: ${data.cid}
+            `);
+
+            marker.addTo(gsmMap);
+            deviceMarkers[key] = marker;
+
+            // Remove marker after 5 seconds (pulse animation duration)
+            setTimeout(() => {
+                if (deviceMarkers[key]) {
+                    gsmMap.removeLayer(deviceMarkers[key]);
+                    delete deviceMarkers[key];
+                }
+            }, 5000);
+
+            // Update devices list
+            updateDevicesList();
+
+            // Update stats
+            stats.totalDevices = Object.keys(devices).length;
+            updateStatsDisplay();
+        }
+
+        function updateDevicesList() {
+            const listDiv = document.getElementById('devicesList');
+
+            if (Object.keys(devices).length === 0) {
+                listDiv.innerHTML = '<div class="no-data"><div>No devices tracked</div></div>';
+                return;
+            }
+
+            let html = '';
+            for (const [key, device] of Object.entries(devices)) {
+                const identifier = device.imsi || device.tmsi || 'Unknown';
+                html += `
+                    <div class="list-item">
+                        <div class="list-item-header">
+                            <span class="list-item-id">${identifier}</span>
+                            <span class="list-item-meta">${new Date(device.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="list-item-details">
+                            Tower CID ${device.cid} | ${device.lat.toFixed(6)}, ${device.lon.toFixed(6)}
+                        </div>
+                    </div>
+                `;
+            }
+
+            listDiv.innerHTML = html;
+        }
+
+        // ============================================
+        // ALERTS
+        // ============================================
+        function addRogueAlert(data) {
+            const listDiv = document.getElementById('alertsList');
+
+            if (listDiv.querySelector('.no-data')) {
+                listDiv.innerHTML = '';
+            }
+
+            const alertItem = document.createElement('div');
+            alertItem.className = 'alert-item';
+            alertItem.innerHTML = `
+                <div class="alert-time">${new Date(data.timestamp).toLocaleTimeString()}</div>
+                <div class="alert-message">
+                    ⚠ ROGUE TOWER DETECTED<br>
+                    CID ${data.cid} | MCC ${data.mcc} MNC ${data.mnc} | ${data.reason || 'Unknown threat'}
+                </div>
+            `;
+
+            listDiv.insertBefore(alertItem, listDiv.firstChild);
+
+            // Keep only last 20 alerts
+            while (listDiv.children.length > 20) {
+                listDiv.removeChild(listDiv.lastChild);
+            }
+        }
+
+        // ============================================
+        // STATS
+        // ============================================
+        function updateStats(data) {
+            if (data.total_signals !== undefined) {
+                stats.totalSignals = data.total_signals;
+            }
+            updateStatsDisplay();
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('stripTowers').textContent = stats.totalTowers;
+            document.getElementById('stripDevices').textContent = stats.totalDevices;
+            document.getElementById('stripRogues').textContent = stats.totalRogues;
+            document.getElementById('stripSignals').textContent = stats.totalSignals;
+        }
+
+        // ============================================
+        // REGION SELECTION
+        // ============================================
+        function selectRegion(region) {
+            currentRegion = region;
+
+            // Update UI
+            document.querySelectorAll('.region-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.region-btn[data-region="${region}"]`).classList.add('active');
+
+            // Update scanner region select
+            document.getElementById('scannerRegion').value = region;
+
+            console.log('[GSM SPY] Region selected:', region);
+        }
+
+        // ============================================
+        // ANALYTICS OVERVIEW MODAL
+        // ============================================
+
+        function openAnalyticsModal() {
+            document.getElementById('analyticsModal').classList.add('active');
+            updateAnalyticsStats();
+        }
+
+        function closeAnalyticsModal() {
+            document.getElementById('analyticsModal').classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('analyticsModal');
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeAnalyticsModal();
+                }
+            });
+
+            // Close modal on ESC key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('active')) {
+                    closeAnalyticsModal();
+                }
+            });
+        });
+
+        async function updateAnalyticsStats() {
+            try {
+                // Velocity Tracking stats
+                const velocityResp = await fetch('/gsm_spy/velocity?minutes=60');
+                const velocityData = await velocityResp.json();
+                if (velocityData && velocityData.length > 0) {
+                    document.getElementById('velocityDevices').textContent = velocityData.length;
+                    const avgVelocity = velocityData.reduce((sum, item) => sum + item.estimated_velocity, 0) / velocityData.length;
+                    document.getElementById('velocityAvg').textContent = (avgVelocity * 3.6).toFixed(1) + ' km/h';
+                }
+
+                // Crowd Density stats
+                const crowdResp = await fetch('/gsm_spy/crowd_density?hours=24');
+                const crowdData = await crowdResp.json();
+                if (crowdData && crowdData.length > 0) {
+                    const totalDevices = crowdData.reduce((sum, item) => sum + item.device_count, 0);
+                    const peakSector = Math.max(...crowdData.map(item => item.device_count));
+                    document.getElementById('crowdTotal').textContent = totalDevices;
+                    document.getElementById('crowdPeak').textContent = peakSector;
+                }
+
+                // Life Patterns stats
+                const patternsResp = await fetch('/gsm_spy/life_patterns?days=60');
+                const patternsData = await patternsResp.json();
+                if (patternsData && patternsData.length > 0) {
+                    document.getElementById('patternsFound').textContent = patternsData.length;
+                    // Calculate average confidence if available
+                    if (patternsData[0].confidence) {
+                        const avgConfidence = patternsData.reduce((sum, item) => sum + item.confidence, 0) / patternsData.length;
+                        document.getElementById('patternsConfidence').textContent = avgConfidence.toFixed(0) + '%';
+                    }
+                }
+
+                // Neighbor Audit stats
+                const neighborResp = await fetch('/gsm_spy/neighbor_audit');
+                const neighborData = await neighborResp.json();
+                if (neighborData) {
+                    document.getElementById('neighborTotal').textContent = neighborData.total_neighbors || 0;
+                    document.getElementById('neighborAnomalies').textContent = neighborData.anomalies || 0;
+                }
+
+                // Traffic Correlation stats
+                const trafficResp = await fetch('/gsm_spy/traffic_correlation?minutes=30');
+                const trafficData = await trafficResp.json();
+                if (trafficData && trafficData.length > 0) {
+                    document.getElementById('trafficPairs').textContent = trafficData.length;
+                    const activeNow = trafficData.filter(item => item.is_active).length;
+                    document.getElementById('trafficActive').textContent = activeNow;
+                }
+            } catch (error) {
+                console.error('Error updating analytics stats:', error);
+            }
+        }
+
+        // ============================================
+        // ADVANCED ANALYSIS FEATURES
+        // ============================================
+
+        function closeAnalysis() {
+            document.getElementById('analysisResults').style.display = 'none';
+        }
+
+        async function showVelocityTracking() {
+            const resultsDiv = document.getElementById('analysisResults');
+            const contentDiv = document.getElementById('analysisContent');
+            document.getElementById('analysisTitle').textContent = 'Velocity Tracking';
+
+            try {
+                const response = await fetch('/gsm_spy/velocity?minutes=60');
+                const data = await response.json();
+
+                if (!data || data.length === 0) {
+                    contentDiv.innerHTML = '<div class="no-data">No velocity data available</div>';
+                } else {
+                    let html = '<div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 10px;">Last 60 minutes</div>';
+                    data.slice(0, 10).forEach(item => {
+                        const velocity_kmh = (item.estimated_velocity * 3.6).toFixed(2);
+                        html += `
+                            <div class="analysis-device-item">
+                                <div style="font-weight: 600; color: var(--accent-cyan);">${item.device_id}</div>
+                                <div class="analysis-stat">
+                                    <span class="analysis-stat-label">Velocity:</span>
+                                    <span class="analysis-stat-value">${velocity_kmh} km/h</span>
+                                </div>
+                                <div class="analysis-stat">
+                                    <span class="analysis-stat-label">TA Change:</span>
+                                    <span class="analysis-stat-value">${item.prev_ta} → ${item.curr_ta}</span>
+                                </div>
+                                <div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">${new Date(item.timestamp).toLocaleString()}</div>
+                            </div>
+                        `;
+                    });
+                    contentDiv.innerHTML = html;
+                }
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching velocity data:', error);
+                contentDiv.innerHTML = '<div class="analysis-warning">Error loading velocity data</div>';
+                resultsDiv.style.display = 'block';
+            }
+        }
+
+        async function showCrowdDensity() {
+            const resultsDiv = document.getElementById('analysisResults');
+            const contentDiv = document.getElementById('analysisContent');
+            document.getElementById('analysisTitle').textContent = 'Crowd Density';
+
+            try {
+                const response = await fetch('/gsm_spy/crowd_density?hours=1');
+                const data = await response.json();
+
+                if (!data || data.length === 0) {
+                    contentDiv.innerHTML = '<div class="no-data">No crowd data available</div>';
+                } else {
+                    let html = '<div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 10px;">Last 1 hour</div>';
+                    data.forEach(item => {
+                        const densityColor = item.density_level === 'high' ? 'var(--accent-red)' :
+                                           item.density_level === 'medium' ? 'var(--accent-yellow)' : 'var(--accent-green)';
+                        html += `
+                            <div class="analysis-device-item" style="border-left-color: ${densityColor};">
+                                <div style="font-weight: 600; color: var(--accent-cyan);">Cell ${item.cid}</div>
+                                <div class="analysis-stat">
+                                    <span class="analysis-stat-label">Unique Devices:</span>
+                                    <span class="analysis-stat-value">${item.unique_devices}</span>
+                                </div>
+                                <div class="analysis-stat">
+                                    <span class="analysis-stat-label">Total Pings:</span>
+                                    <span class="analysis-stat-value">${item.total_pings}</span>
+                                </div>
+                                <div class="analysis-stat">
+                                    <span class="analysis-stat-label">Density:</span>
+                                    <span class="analysis-stat-value" style="color: ${densityColor}; text-transform: uppercase;">${item.density_level}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    contentDiv.innerHTML = html;
+                }
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching crowd density:', error);
+                contentDiv.innerHTML = '<div class="analysis-warning">Error loading crowd density data</div>';
+                resultsDiv.style.display = 'block';
+            }
+        }
+
+        async function showLifePatterns() {
+            const resultsDiv = document.getElementById('analysisResults');
+            const contentDiv = document.getElementById('analysisContent');
+            document.getElementById('analysisTitle').textContent = 'Life Patterns';
+
+            // Prompt for device ID
+            const deviceId = prompt('Enter device IMSI or TMSI:');
+            if (!deviceId) return;
+
+            try {
+                const response = await fetch(`/gsm_spy/life_patterns?device_id=${encodeURIComponent(deviceId)}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    contentDiv.innerHTML = `<div class="analysis-warning">${data.error}</div>`;
+                } else if (data.regular_locations && data.regular_locations.length > 0) {
+                    let html = `
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 10px;">
+                            ${data.total_observations} total observations
+                        </div>
+                        <div style="font-weight: 600; margin-bottom: 8px;">Regular Locations:</div>
+                    `;
+                    data.regular_locations.forEach(loc => {
+                        html += `
+                            <div class="analysis-device-item">
+                                <div style="font-weight: 600; color: var(--accent-cyan);">Cell ${loc.cid}</div>
+                                <div class="analysis-stat">
+                                    <span class="analysis-stat-label">Typical Time:</span>
+                                    <span class="analysis-stat-value">${loc.typical_time}</span>
+                                </div>
+                                <div class="analysis-stat">
+                                    <span class="analysis-stat-label">Frequency:</span>
+                                    <span class="analysis-stat-value">${loc.frequency} times</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    contentDiv.innerHTML = html;
+                } else {
+                    contentDiv.innerHTML = '<div class="no-data">No regular patterns detected</div>';
+                }
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching life patterns:', error);
+                contentDiv.innerHTML = '<div class="analysis-warning">Error loading life patterns</div>';
+                resultsDiv.style.display = 'block';
+            }
+        }
+
+        async function showNeighborAudit() {
+            const resultsDiv = document.getElementById('analysisResults');
+            const contentDiv = document.getElementById('analysisContent');
+            document.getElementById('analysisTitle').textContent = 'Neighbor Audit';
+
+            // Prompt for CID
+            const cid = prompt('Enter Cell ID (CID) to audit:');
+            if (!cid) return;
+
+            try {
+                const response = await fetch(`/gsm_spy/neighbor_audit?cid=${encodeURIComponent(cid)}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    contentDiv.innerHTML = `<div class="analysis-warning">${data.error}</div>`;
+                } else {
+                    const statusColor = data.status === 'suspicious' ? 'var(--accent-red)' : 'var(--accent-green)';
+                    let html = `
+                        <div class="analysis-stat">
+                            <span class="analysis-stat-label">Status:</span>
+                            <span class="analysis-stat-value" style="color: ${statusColor}; text-transform: uppercase;">${data.status}</span>
+                        </div>
+                        <div class="analysis-stat">
+                            <span class="analysis-stat-label">Neighbor Count:</span>
+                            <span class="analysis-stat-value">${data.neighbor_count}</span>
+                        </div>
+                    `;
+
+                    if (data.issues && data.issues.length > 0) {
+                        html += '<div style="font-weight: 600; margin: 10px 0 5px 0;">Issues Found:</div>';
+                        data.issues.forEach(issue => {
+                            html += `
+                                <div class="analysis-warning">
+                                    <div style="font-weight: 600;">${issue.type}</div>
+                                    <div>${issue.message}</div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        html += '<div style="color: var(--accent-green); margin-top: 10px;">✓ No issues detected</div>';
+                    }
+
+                    contentDiv.innerHTML = html;
+                }
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching neighbor audit:', error);
+                contentDiv.innerHTML = '<div class="analysis-warning">Error loading audit data</div>';
+                resultsDiv.style.display = 'block';
+            }
+        }
+
+        async function showTrafficCorrelation() {
+            const resultsDiv = document.getElementById('analysisResults');
+            const contentDiv = document.getElementById('analysisContent');
+            document.getElementById('analysisTitle').textContent = 'Traffic Correlation';
+
+            // Prompt for CID
+            const cid = prompt('Enter Cell ID (CID) to analyze:');
+            if (!cid) return;
+
+            try {
+                const response = await fetch(`/gsm_spy/traffic_correlation?cid=${encodeURIComponent(cid)}&minutes=5`);
+                const data = await response.json();
+
+                if (data.error) {
+                    contentDiv.innerHTML = `<div class="analysis-warning">${data.error}</div>`;
+                } else {
+                    let html = `
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 10px;">
+                            Last ${data.time_window_minutes} minutes
+                        </div>
+                        <div class="analysis-stat">
+                            <span class="analysis-stat-label">Active Devices:</span>
+                            <span class="analysis-stat-value">${data.active_devices}</span>
+                        </div>
+                    `;
+
+                    if (data.correlations && data.correlations.length > 0) {
+                        html += '<div style="font-weight: 600; margin: 10px 0 5px 0;">Device Activity:</div>';
+                        data.correlations.slice(0, 10).forEach(corr => {
+                            const activityColor = corr.activity_level === 'high' ? 'var(--accent-red)' :
+                                                corr.activity_level === 'medium' ? 'var(--accent-yellow)' : 'var(--accent-green)';
+                            html += `
+                                <div class="analysis-device-item">
+                                    <div style="font-weight: 600; color: var(--accent-cyan);">${corr.device_id}</div>
+                                    <div class="analysis-stat">
+                                        <span class="analysis-stat-label">Burst Count:</span>
+                                        <span class="analysis-stat-value">${corr.burst_count}</span>
+                                    </div>
+                                    <div class="analysis-stat">
+                                        <span class="analysis-stat-label">Activity:</span>
+                                        <span class="analysis-stat-value" style="color: ${activityColor}; text-transform: uppercase;">${corr.activity_level}</span>
+                                    </div>
+                                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">TA: ${corr.ta_value}</div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        html += '<div class="no-data">No active devices in time window</div>';
+                    }
+
+                    contentDiv.innerHTML = html;
+                }
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching traffic correlation:', error);
+                contentDiv.innerHTML = '<div class="analysis-warning">Error loading correlation data</div>';
+                resultsDiv.style.display = 'block';
+            }
+        }
+
+    </script>
+
+    <!-- Global Navigation Script -->
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
+</body>
+</html>

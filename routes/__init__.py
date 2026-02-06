@@ -26,6 +26,7 @@ def register_blueprints(app):
     from .offline import offline_bp
     from .updater import updater_bp
     from .sstv import sstv_bp
+    from .gsm_spy import gsm_spy_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -51,6 +52,7 @@ def register_blueprints(app):
     app.register_blueprint(offline_bp)  # Offline mode settings
     app.register_blueprint(updater_bp)  # GitHub update checking
     app.register_blueprint(sstv_bp)  # ISS SSTV decoder
+    app.register_blueprint(gsm_spy_bp)  # GSM cellular intelligence
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module

@@ -200,6 +200,14 @@ UPDATE_CHECK_INTERVAL_HOURS = _get_env_int('UPDATE_CHECK_INTERVAL_HOURS', 6)
 ADMIN_USERNAME = _get_env('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = _get_env('ADMIN_PASSWORD', 'admin')
 
+# GSM Spy settings
+GSM_OPENCELLID_API_KEY = _get_env('GSM_OPENCELLID_API_KEY', 'pk.68c92ecb85886de7b50ed5a4c73f9504')
+GSM_OPENCELLID_API_URL = _get_env('GSM_OPENCELLID_API_URL', 'https://opencellid.org/cell/get')
+GSM_API_DAILY_LIMIT = _get_env_int('GSM_API_DAILY_LIMIT', 1000)
+GSM_TA_METERS_PER_UNIT = _get_env_int('GSM_TA_METERS_PER_UNIT', 554)
+GSM_UPDATE_INTERVAL = _get_env_float('GSM_UPDATE_INTERVAL', 2.0)
+GSM_MAX_AGE_SECONDS = _get_env_int('GSM_MAX_AGE_SECONDS', 300)
+
 def configure_logging() -> None:
     """Configure application logging."""
     logging.basicConfig(

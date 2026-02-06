@@ -274,3 +274,14 @@ MAX_DEAUTH_ALERTS_AGE_SECONDS = 300  # 5 minutes
 
 # Deauth detector sniff timeout (seconds)
 DEAUTH_SNIFF_TIMEOUT = 0.5
+
+
+# =============================================================================
+# GSM SPY (Cellular Intelligence)
+# =============================================================================
+
+# Maximum age for GSM tower/device data in DataStore (seconds)
+MAX_GSM_AGE_SECONDS = 300  # 5 minutes
+
+# Timing Advance conversion to meters
+GSM_TA_METERS_PER_UNIT = 554
