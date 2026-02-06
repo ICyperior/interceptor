@@ -1151,12 +1151,9 @@
                 </div>
                 <div class="signal-source-content">
                     <div class="form-group">
-                        <label>RTL-SDR Device</label>
-                        <select id="deviceSelect">
-                            <option value="0">Device 0</option>
-                            <option value="1">Device 1</option>
-                            <option value="2">Device 2</option>
-                            <option value="3">Device 3</option>
+                        <label>SDR Device</label>
+                        <select id="deviceSelect" title="SDR device for GSM scanning">
+                            <option value="0">Detecting devices...</option>
                         </select>
                     </div>
                 </div>
@@ -1297,16 +1294,10 @@
             <div class="control-group">
                 <span class="control-group-label">GSM SCANNER</span>
                 <div class="control-group-items">
-                    <select id="scannerDevice" title="SDR device for GSM scanning">
-                        <option value="0">Device 0</option>
-                        <option value="1">Device 1</option>
-                        <option value="2">Device 2</option>
-                        <option value="3">Device 3</option>
-                    </select>
                     <select id="scannerRegion" title="GSM frequency region">
-                        <option value="americas">Americas</option>
-                        <option value="europe">Europe</option>
-                        <option value="asia">Asia</option>
+                        <option value="Americas">Americas</option>
+                        <option value="Europe">Europe</option>
+                        <option value="Asia">Asia</option>
                     </select>
                     <button class="start-btn" id="startBtn" onclick="toggleScanner()">START</button>
                 </div>
@@ -1344,6 +1335,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
             loadObserverLocation();
+            initDeviceSelector();
             startUtcClock();
         });
 
@@ -1391,6 +1383,39 @@
             updateClock();
         }
 
+        async function initDeviceSelector() {
+            try {
+                const response = await fetch('/devices');
+                const devices = await response.json();
+
+                const deviceSelect = document.getElementById('deviceSelect');
+                deviceSelect.innerHTML = '';
+
+                if (!devices || devices.length === 0) {
+                    deviceSelect.innerHTML = '<option value="0">No SDR devices detected</option>';
+                    console.warn('[GSM SPY] No SDR devices detected');
+                    return;
+                }
+
+                // Populate dropdown with detected devices
+                devices.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.index;
+                    option.textContent = `${device.name} (${device.sdr_type})`;
+                    if (device.serial) {
+                        option.textContent += ` - ${device.serial}`;
+                    }
+                    deviceSelect.appendChild(option);
+                });
+
+                console.log(`[GSM SPY] Detected ${devices.length} SDR device(s)`);
+            } catch (error) {
+                console.error('[GSM SPY] Error fetching devices:', error);
+                const deviceSelect = document.getElementById('deviceSelect');
+                deviceSelect.innerHTML = '<option value="0">Error detecting devices</option>';
+            }
+        }
+
         // ============================================
         // SCANNER CONTROL
         // ============================================
@@ -1402,8 +1427,8 @@
             }
         }
 
-        function startScanner() {
-            const device = document.getElementById('scannerDevice').value;
+        async function startScanner() {
+            const device = parseInt(document.getElementById('deviceSelect').value) || 0;
             const region = document.getElementById('scannerRegion').value;
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
@@ -1414,31 +1439,47 @@
             }
 
             // Start backend scanner
-            fetch('/gsm_spy/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    device: parseInt(device),
-                    region: region,
-                    lat: lat,
-                    lon: lon
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
+            try {
+                const response = await fetch('/gsm_spy/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device: device,
+                        region: region,
+                        lat: lat,
+                        lon: lon
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+
+                    if (response.status === 409 && error.error_type === 'DEVICE_BUSY') {
+                        alert(`Device Conflict: ${error.error}\n\nStop the other mode before starting GSM scanner.`);
+                    } else {
+                        alert(`Error: ${error.error || 'Failed to start GSM scanner'}`);
+                    }
+                    return;
+                }
+
+                const data = await response.json();
                 if (data.status === 'started') {
                     isScanning = true;
                     updateScannerUI(true);
+
+                    // Disable controls during scanning
+                    document.getElementById('deviceSelect').disabled = true;
+                    document.getElementById('scannerRegion').disabled = true;
+
                     startEventStream();
                     console.log('[GSM SPY] Scanner started');
                 } else {
                     alert('Failed to start scanner: ' + (data.error || 'Unknown error'));
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('[GSM SPY] Error starting scanner:', error);
                 alert('Error starting scanner');
-            });
+            }
         }
 
         function stopScanner() {
@@ -1447,6 +1488,11 @@
             .then(data => {
                 isScanning = false;
                 updateScannerUI(false);
+
+                // Re-enable controls
+                document.getElementById('deviceSelect').disabled = false;
+                document.getElementById('scannerRegion').disabled = false;
+
                 if (eventSource) {
                     eventSource.close();
                     eventSource = null;
@@ -1837,6 +1883,9 @@
         function selectRegion(region) {
             currentRegion = region;
 
+            // Capitalize first letter to match API expectations
+            const regionCapitalized = region.charAt(0).toUpperCase() + region.slice(1);
+
             // Update UI
             document.querySelectorAll('.region-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -1844,9 +1893,9 @@
             document.querySelector(`.region-btn[data-region="${region}"]`).classList.add('active');
 
             // Update scanner region select
-            document.getElementById('scannerRegion').value = region;
+            document.getElementById('scannerRegion').value = regionCapitalized;
 
-            console.log('[GSM SPY] Region selected:', region);
+            console.log('[GSM SPY] Region selected:', regionCapitalized);
         }
 
         // ============================================

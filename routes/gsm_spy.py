@@ -114,7 +114,10 @@ def start_scanner():
         from app import claim_sdr_device
         claim_error = claim_sdr_device(device_index, 'GSM Spy')
         if claim_error:
-            return jsonify({'error': claim_error}), 409
+            return jsonify({
+                'error': claim_error,
+                'error_type': 'DEVICE_BUSY'
+            }), 409
 
         # Get frequency range for region
         bands = REGIONAL_BANDS.get(region, REGIONAL_BANDS['Americas'])
