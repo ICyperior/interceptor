@@ -841,7 +841,12 @@ def get_life_patterns():
     try:
         device_id = request.args.get('device_id')
         if not device_id:
-            return jsonify({'error': 'device_id required'}), 400
+            # Return empty results gracefully when no device selected
+            return jsonify({
+                'device_id': None,
+                'patterns': [],
+                'message': 'No device selected'
+            }), 200
 
         with get_db() as conn:
             # Get historical signal data
@@ -898,7 +903,13 @@ def neighbor_audit():
     try:
         cid = request.args.get('cid')
         if not cid:
-            return jsonify({'error': 'cid required'}), 400
+            # Return empty results gracefully when no tower selected
+            return jsonify({
+                'cid': None,
+                'neighbors': [],
+                'inconsistencies': [],
+                'message': 'No tower selected'
+            }), 200
 
         with get_db() as conn:
             # Get tower info with metadata (neighbor list stored in metadata JSON)
