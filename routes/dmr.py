@@ -40,7 +40,9 @@ dmr_queue: queue.Queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 dmr_active_device: Optional[int] = None
 
 VALID_PROTOCOLS = ['auto', 'dmr', 'p25', 'nxdn', 'dstar', 'provoice']
-PROTOCOL_FLAGS = {
+
+# Classic dsd flags
+_DSD_PROTOCOL_FLAGS = {
     'auto': [],
     'dmr': ['-fd'],
     'p25': ['-fp'],
@@ -49,17 +51,34 @@ PROTOCOL_FLAGS = {
     'provoice': ['-fv'],
 }
 
+# dsd-fme uses different flag names
+_DSD_FME_PROTOCOL_FLAGS = {
+    'auto': ['-ft'],
+    'dmr': ['-fs'],
+    'p25': ['-f1'],
+    'nxdn': ['-fi'],
+    'dstar': [],
+    'provoice': ['-fp'],
+}
+
 # ============================================
 # HELPERS
 # ============================================
 
 
-def find_dsd() -> str | None:
+def find_dsd() -> tuple[str | None, bool]:
     """Find DSD (Digital Speech Decoder) binary.
 
     Checks for dsd-fme first (common fork), then falls back to dsd.
+    Returns (path, is_fme) tuple.
     """
-    return shutil.which('dsd-fme') or shutil.which('dsd')
+    path = shutil.which('dsd-fme')
+    if path:
+        return path, True
+    path = shutil.which('dsd')
+    if path:
+        return path, False
+    return None, False
 
 
 def find_rtl_fm() -> str | None:
@@ -174,12 +193,12 @@ def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Pop
 @dmr_bp.route('/tools')
 def check_tools() -> Response:
     """Check for required tools."""
-    dsd = find_dsd()
+    dsd_path, _ = find_dsd()
     rtl_fm = find_rtl_fm()
     return jsonify({
-        'dsd': dsd is not None,
+        'dsd': dsd_path is not None,
         'rtl_fm': rtl_fm is not None,
-        'available': dsd is not None and rtl_fm is not None,
+        'available': dsd_path is not None and rtl_fm is not None,
         'protocols': VALID_PROTOCOLS,
     })
 
@@ -193,9 +212,9 @@ def start_dmr() -> Response:
         if dmr_running:
             return jsonify({'status': 'error', 'message': 'Already running'}), 409
 
-    dsd_path = find_dsd()
+    dsd_path, is_fme = find_dsd()
     if not dsd_path:
-        return jsonify({'status': 'error', 'message': 'dsd not found. Install Digital Speech Decoder.'}), 503
+        return jsonify({'status': 'error', 'message': 'dsd not found. Install dsd-fme or dsd.'}), 503
 
     rtl_fm_path = find_rtl_fm()
     if not rtl_fm_path:
@@ -244,9 +263,16 @@ def start_dmr() -> Response:
         '-l', '1',  # squelch level
     ]
 
-    # Build DSD command (-o /dev/null to avoid PulseAudio dependency)
-    dsd_cmd = [dsd_path, '-i', '-', '-o', '/dev/null']
-    dsd_cmd.extend(PROTOCOL_FLAGS.get(protocol, []))
+    # Build DSD command
+    dsd_cmd = [dsd_path]
+    if is_fme:
+        # dsd-fme: -N disables ncurses (required for stdin pipe),
+        # -o /dev/null suppresses PulseAudio audio output
+        dsd_cmd.extend(['-N', '-i', '-', '-o', '/dev/null'])
+        dsd_cmd.extend(_DSD_FME_PROTOCOL_FLAGS.get(protocol, []))
+    else:
+        dsd_cmd.extend(['-i', '-', '-o', '/dev/null'])
+        dsd_cmd.extend(_DSD_PROTOCOL_FLAGS.get(protocol, []))
 
     try:
         dmr_rtl_process = subprocess.Popen(
