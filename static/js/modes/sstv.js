@@ -491,7 +491,7 @@ const SSTV = (function() {
 
             if (!data.available) {
                 updateStatusUI('unavailable', 'Decoder not installed');
-                showStatusMessage('SSTV decoder not available. Install slowrx: apt install slowrx', 'warning');
+                showStatusMessage('SSTV decoder not available. Install numpy and Pillow: pip install numpy Pillow', 'warning');
                 return;
             }
 

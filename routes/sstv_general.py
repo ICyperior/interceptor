@@ -99,7 +99,7 @@ def start_decoder():
     if decoder.decoder_available is None:
         return jsonify({
             'status': 'error',
-            'message': 'SSTV decoder not available. Install slowrx: apt install slowrx',
+            'message': 'SSTV decoder not available. Install numpy and Pillow: pip install numpy Pillow',
         }), 400
 
     if decoder.is_running:

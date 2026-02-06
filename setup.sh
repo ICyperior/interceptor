@@ -204,8 +204,6 @@ check_tools() {
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
-  check_optional "slowrx"      "SSTV decoder (ISS images)" slowrx
-
   echo
   info "GPS:"
   check_required "gpsd" "GPS daemon" gpsd
@@ -390,42 +388,6 @@ install_rtlamr_from_source() {
   fi
 }
 
-install_slowrx_from_source_macos() {
-  info "slowrx not available via Homebrew. Building from source..."
-
-  # Ensure build dependencies are installed
-  brew_install fftw
-  brew_install libsndfile
-  brew_install gtk+3
-  brew_install pkg-config
-
-  (
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' EXIT
-
-    info "Cloning slowrx..."
-    git clone --depth 1 https://github.com/windytan/slowrx.git "$tmp_dir/slowrx" >/dev/null 2>&1 \
-      || { warn "Failed to clone slowrx"; exit 1; }
-
-    cd "$tmp_dir/slowrx"
-    info "Compiling slowrx..."
-    # slowrx uses a plain Makefile, not CMake
-    local make_log
-    make_log=$(make 2>&1) || {
-      warn "make failed for slowrx:"
-      echo "$make_log" | tail -20
-      exit 1
-    }
-
-    # Install to /usr/local/bin
-    if [[ -w /usr/local/bin ]]; then
-      install -m 0755 slowrx /usr/local/bin/slowrx
-    else
-      sudo install -m 0755 slowrx /usr/local/bin/slowrx
-    fi
-    ok "slowrx installed successfully from source"
-  )
-}
 
 install_multimon_ng_from_source_macos() {
   info "multimon-ng not available via Homebrew. Building from source..."
@@ -663,8 +625,8 @@ install_macos_packages() {
   progress "Installing direwolf (APRS decoder)"
   (brew_install direwolf) || warn "direwolf not available via Homebrew"
 
-  progress "Skipping slowrx (SSTV decoder)"
-  warn "slowrx requires ALSA (Linux-only) and cannot build on macOS. Skipping."
+  progress "SSTV decoder"
+  ok "SSTV uses built-in pure Python decoder (no external tools needed)"
 
   progress "Installing DSD (Digital Speech Decoder, optional)"
   if ! cmd_exists dsd && ! cmd_exists dsd-fme; then
@@ -882,37 +844,6 @@ install_aiscatcher_from_source_debian() {
   )
 }
 
-install_slowrx_from_source_debian() {
-  info "slowrx not available via APT. Building from source..."
-
-  # slowrx uses a simple Makefile, not CMake
-  apt_install build-essential git pkg-config \
-    libfftw3-dev libsndfile1-dev libgtk-3-dev libasound2-dev libpulse-dev
-
-  # Run in subshell to isolate EXIT trap
-  (
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' EXIT
-
-    info "Cloning slowrx..."
-    git clone --depth 1 https://github.com/windytan/slowrx.git "$tmp_dir/slowrx" >/dev/null 2>&1 \
-      || { warn "Failed to clone slowrx"; exit 1; }
-
-    cd "$tmp_dir/slowrx"
-
-    info "Compiling slowrx..."
-    local make_log
-    make_log=$(make 2>&1) || {
-      warn "make failed for slowrx:"
-      echo "$make_log" | tail -20
-      warn "ISS SSTV decoding will not be available."
-      exit 1
-    }
-    $SUDO install -m 0755 slowrx /usr/local/bin/slowrx
-    ok "slowrx installed successfully."
-  )
-}
-
 install_ubertooth_from_source_debian() {
   info "Building Ubertooth from source..."
 
@@ -1104,8 +1035,8 @@ install_debian_packages() {
   progress "Installing direwolf (APRS decoder)"
   apt_install direwolf || true
 
-  progress "Installing slowrx (SSTV decoder)"
-  apt_install slowrx || cmd_exists slowrx || install_slowrx_from_source_debian || warn "slowrx not available. ISS SSTV decoding will not be available."
+  progress "SSTV decoder"
+  ok "SSTV uses built-in pure Python decoder (no external tools needed)"
 
   progress "Installing DSD (Digital Speech Decoder, optional)"
   if ! cmd_exists dsd && ! cmd_exists dsd-fme; then
