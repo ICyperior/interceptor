@@ -41,6 +41,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     soapysdr-module-rtlsdr \
     soapysdr-module-hackrf \
     soapysdr-module-lms7 \
+    soapysdr-module-airspy \
+    airspy \
     limesuite \
     hackrf \
     # Utilities
