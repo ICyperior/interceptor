@@ -752,6 +752,11 @@ async function checkForUpdatesManual() {
     const content = document.getElementById('updateStatusContent');
     if (!content) return;
 
+    if (typeof Updater === 'undefined') {
+        content.innerHTML = `<div style="color: var(--text-dim); padding: 10px;">Update checking is unavailable. If you use a content blocker, try allowing <code>updater.js</code> to load.</div>`;
+        return;
+    }
+
     content.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-dim);">Checking for updates...</div>';
 
     try {
@@ -768,6 +773,11 @@ async function checkForUpdatesManual() {
 async function loadUpdateStatus() {
     const content = document.getElementById('updateStatusContent');
     if (!content) return;
+
+    if (typeof Updater === 'undefined') {
+        content.innerHTML = `<div style="color: var(--text-dim); padding: 10px;">Update checking is unavailable. If you use a content blocker, try allowing <code>updater.js</code> to load.</div>`;
+        return;
+    }
 
     try {
         const data = await Updater.getStatus();
