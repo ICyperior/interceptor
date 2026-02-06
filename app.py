@@ -184,7 +184,8 @@ deauth_detector_lock = threading.Lock()
 
 # GSM Spy
 gsm_spy_process = None
-gsm_spy_monitor_process = None  # For grgsm_livemon when monitoring specific tower
+gsm_spy_livemon_process = None  # For grgsm_livemon process
+gsm_spy_monitor_process = None  # For tshark monitoring process
 gsm_spy_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 gsm_spy_lock = threading.Lock()
 gsm_spy_active_device = None
@@ -674,7 +675,7 @@ def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
-    global gsm_spy_process, gsm_spy_monitor_process
+    global gsm_spy_process, gsm_spy_livemon_process, gsm_spy_monitor_process
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -761,10 +762,18 @@ def kill_all() -> Response:
                 pass
         gsm_spy_process = None
 
+        if gsm_spy_livemon_process:
+            try:
+                safe_terminate(gsm_spy_livemon_process, 'grgsm_livemon')
+                killed.append('grgsm_livemon')
+            except Exception:
+                pass
+        gsm_spy_livemon_process = None
+
         if gsm_spy_monitor_process:
             try:
-                safe_terminate(gsm_spy_monitor_process, 'grgsm_livemon')
-                killed.append('grgsm_livemon')
+                safe_terminate(gsm_spy_monitor_process, 'tshark')
+                killed.append('tshark')
             except Exception:
                 pass
         gsm_spy_monitor_process = None

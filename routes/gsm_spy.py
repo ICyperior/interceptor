@@ -230,6 +230,7 @@ def start_monitor():
                 bufsize=1
             )
 
+            app_module.gsm_spy_livemon_process = grgsm_proc
             app_module.gsm_spy_monitor_process = tshark_proc
             app_module.gsm_spy_selected_arfcn = arfcn
 
@@ -273,6 +274,18 @@ def stop_scanner():
                 except Exception:
                     pass
             app_module.gsm_spy_process = None
+
+        if app_module.gsm_spy_livemon_process:
+            try:
+                app_module.gsm_spy_livemon_process.terminate()
+                app_module.gsm_spy_livemon_process.wait(timeout=5)
+                killed.append('livemon')
+            except Exception:
+                try:
+                    app_module.gsm_spy_livemon_process.kill()
+                except Exception:
+                    pass
+            app_module.gsm_spy_livemon_process = None
 
         if app_module.gsm_spy_monitor_process:
             try:
@@ -996,6 +1009,7 @@ def auto_start_monitor(tower_data):
                 bufsize=1
             )
 
+            app_module.gsm_spy_livemon_process = grgsm_proc
             app_module.gsm_spy_monitor_process = tshark_proc
             app_module.gsm_spy_selected_arfcn = arfcn
 
@@ -1066,6 +1080,23 @@ def scanner_thread(process):
     except Exception as e:
         logger.error(f"Scanner thread error: {e}")
     finally:
+        # Reap the process to prevent zombie
+        try:
+            if process.poll() is None:
+                # Process still running, terminate it
+                process.terminate()
+                process.wait(timeout=5)
+            else:
+                # Process already terminated, just collect exit status
+                process.wait()
+            logger.info(f"Scanner process terminated with exit code {process.returncode}")
+        except Exception as e:
+            logger.error(f"Error cleaning up scanner process: {e}")
+            try:
+                process.kill()
+                process.wait()
+            except Exception:
+                pass
         logger.info("Scanner thread terminated")
 
 
@@ -1171,4 +1202,21 @@ def monitor_thread(process):
     except Exception as e:
         logger.error(f"Monitor thread error: {e}")
     finally:
+        # Reap the process to prevent zombie
+        try:
+            if process.poll() is None:
+                # Process still running, terminate it
+                process.terminate()
+                process.wait(timeout=5)
+            else:
+                # Process already terminated, just collect exit status
+                process.wait()
+            logger.info(f"Monitor process terminated with exit code {process.returncode}")
+        except Exception as e:
+            logger.error(f"Error cleaning up monitor process: {e}")
+            try:
+                process.kill()
+                process.wait()
+            except Exception:
+                pass
         logger.info("Monitor thread terminated")
