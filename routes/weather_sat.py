@@ -162,8 +162,18 @@ def start_capture():
         except queue.Empty:
             break
 
-    # Set callback and start
+    # Set callback and on-complete handler for SDR release
     decoder.set_callback(_progress_callback)
+
+    def _release_device():
+        try:
+            import app as app_module
+            app_module.release_sdr_device(device_index)
+        except ImportError:
+            pass
+
+    decoder.set_on_complete(_release_device)
+
     success = decoder.start(
         satellite=satellite,
         device_index=device_index,
@@ -182,11 +192,7 @@ def start_capture():
         })
     else:
         # Release device on failure
-        try:
-            import app as app_module
-            app_module.release_sdr_device(device_index)
-        except ImportError:
-            pass
+        _release_device()
         return jsonify({
             'status': 'error',
             'message': 'Failed to start capture'
@@ -333,6 +339,8 @@ def get_passes():
         longitude: Observer longitude (required)
         hours: Hours to predict ahead (default: 24, max: 72)
         min_elevation: Minimum elevation in degrees (default: 15)
+        trajectory: Include az/el trajectory points (default: false)
+        ground_track: Include lat/lon ground track points (default: false)
 
     Returns:
         JSON with upcoming passes for all weather satellites.
@@ -341,6 +349,8 @@ def get_passes():
     lon = request.args.get('longitude', type=float)
     hours = request.args.get('hours', 24, type=int)
     min_elevation = request.args.get('min_elevation', 15, type=float)
+    include_trajectory = request.args.get('trajectory', 'false').lower() in ('true', '1')
+    include_ground_track = request.args.get('ground_track', 'false').lower() in ('true', '1')
 
     if lat is None or lon is None:
         return jsonify({
@@ -357,119 +367,16 @@ def get_passes():
     min_elevation = max(0, min(min_elevation, 90))
 
     try:
-        from skyfield.api import load, wgs84, EarthSatellite
-        from skyfield.almanac import find_discrete
-        from data.satellites import TLE_SATELLITES
+        from utils.weather_sat_predict import predict_passes
 
-        ts = load.timescale()
-        observer = wgs84.latlon(lat, lon)
-        t0 = ts.now()
-        t1 = ts.utc(t0.utc_datetime() + __import__('datetime').timedelta(hours=hours))
-
-        all_passes = []
-
-        for sat_key, sat_info in WEATHER_SATELLITES.items():
-            if not sat_info['active']:
-                continue
-
-            tle_data = TLE_SATELLITES.get(sat_info['tle_key'])
-            if not tle_data:
-                continue
-
-            satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
-
-            def above_horizon(t, _sat=satellite):
-                diff = _sat - observer
-                topocentric = diff.at(t)
-                alt, _, _ = topocentric.altaz()
-                return alt.degrees > 0
-
-            above_horizon.step_days = 1 / 720
-
-            try:
-                times, events = find_discrete(t0, t1, above_horizon)
-            except Exception:
-                continue
-
-            i = 0
-            while i < len(times):
-                if i < len(events) and events[i]:  # Rising
-                    rise_time = times[i]
-                    set_time = None
-
-                    for j in range(i + 1, len(times)):
-                        if not events[j]:  # Setting
-                            set_time = times[j]
-                            i = j
-                            break
-                    else:
-                        i += 1
-                        continue
-
-                    if set_time is None:
-                        i += 1
-                        continue
-
-                    # Calculate max elevation
-                    max_el = 0
-                    max_el_az = 0
-                    duration_seconds = (
-                        set_time.utc_datetime() - rise_time.utc_datetime()
-                    ).total_seconds()
-                    duration_minutes = round(duration_seconds / 60, 1)
-
-                    for k in range(30):
-                        frac = k / 29
-                        t_point = ts.utc(
-                            rise_time.utc_datetime()
-                            + __import__('datetime').timedelta(
-                                seconds=duration_seconds * frac
-                            )
-                        )
-                        diff = satellite - observer
-                        topocentric = diff.at(t_point)
-                        alt, az, _ = topocentric.altaz()
-                        if alt.degrees > max_el:
-                            max_el = alt.degrees
-                            max_el_az = az.degrees
-
-                    if max_el >= min_elevation:
-                        # Calculate rise/set azimuth
-                        rise_diff = satellite - observer
-                        rise_topo = rise_diff.at(rise_time)
-                        _, rise_az, _ = rise_topo.altaz()
-
-                        set_diff = satellite - observer
-                        set_topo = set_diff.at(set_time)
-                        _, set_az, _ = set_topo.altaz()
-
-                        pass_data = {
-                            'satellite': sat_key,
-                            'name': sat_info['name'],
-                            'frequency': sat_info['frequency'],
-                            'mode': sat_info['mode'],
-                            'startTime': rise_time.utc_datetime().strftime(
-                                '%Y-%m-%d %H:%M UTC'
-                            ),
-                            'startTimeISO': rise_time.utc_datetime().isoformat(),
-                            'endTimeISO': set_time.utc_datetime().isoformat(),
-                            'maxEl': round(max_el, 1),
-                            'maxElAz': round(max_el_az, 1),
-                            'riseAz': round(rise_az.degrees, 1),
-                            'setAz': round(set_az.degrees, 1),
-                            'duration': duration_minutes,
-                            'quality': (
-                                'excellent' if max_el >= 60
-                                else 'good' if max_el >= 30
-                                else 'fair'
-                            ),
-                        }
-                        all_passes.append(pass_data)
-
-                i += 1
-
-        # Sort by start time
-        all_passes.sort(key=lambda p: p['startTimeISO'])
+        all_passes = predict_passes(
+            lat=lat,
+            lon=lon,
+            hours=hours,
+            min_elevation=min_elevation,
+            include_trajectory=include_trajectory,
+            include_ground_track=include_ground_track,
+        )
 
         return jsonify({
             'status': 'ok',
@@ -492,3 +399,124 @@ def get_passes():
             'status': 'error',
             'message': str(e)
         }), 500
+
+
+# ========================
+# Auto-Scheduler Endpoints
+# ========================
+
+
+def _scheduler_event_callback(event: dict) -> None:
+    """Forward scheduler events to the SSE queue."""
+    try:
+        _weather_sat_queue.put_nowait(event)
+    except queue.Full:
+        try:
+            _weather_sat_queue.get_nowait()
+            _weather_sat_queue.put_nowait(event)
+        except queue.Empty:
+            pass
+
+
+@weather_sat_bp.route('/schedule/enable', methods=['POST'])
+def enable_schedule():
+    """Enable auto-scheduling of weather satellite captures.
+
+    JSON body:
+        {
+            "latitude": 51.5,         // Required
+            "longitude": -0.1,        // Required
+            "min_elevation": 15,      // Minimum pass elevation (default: 15)
+            "device": 0,              // RTL-SDR device index (default: 0)
+            "gain": 40.0,             // SDR gain (default: 40)
+            "bias_t": false           // Enable bias-T (default: false)
+        }
+
+    Returns:
+        JSON with scheduler status.
+    """
+    from utils.weather_sat_scheduler import get_weather_sat_scheduler
+
+    data = request.get_json(silent=True) or {}
+
+    lat = data.get('latitude')
+    lon = data.get('longitude')
+
+    if lat is None or lon is None:
+        return jsonify({
+            'status': 'error',
+            'message': 'latitude and longitude required'
+        }), 400
+
+    try:
+        lat = float(lat)
+        lon = float(lon)
+        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid coordinates'
+        }), 400
+
+    scheduler = get_weather_sat_scheduler()
+    scheduler.set_callbacks(_progress_callback, _scheduler_event_callback)
+
+    result = scheduler.enable(
+        lat=lat,
+        lon=lon,
+        min_elevation=float(data.get('min_elevation', 15)),
+        device=int(data.get('device', 0)),
+        gain=float(data.get('gain', 40.0)),
+        bias_t=bool(data.get('bias_t', False)),
+    )
+
+    return jsonify({'status': 'ok', **result})
+
+
+@weather_sat_bp.route('/schedule/disable', methods=['POST'])
+def disable_schedule():
+    """Disable auto-scheduling."""
+    from utils.weather_sat_scheduler import get_weather_sat_scheduler
+
+    scheduler = get_weather_sat_scheduler()
+    result = scheduler.disable()
+    return jsonify(result)
+
+
+@weather_sat_bp.route('/schedule/status')
+def schedule_status():
+    """Get current scheduler state."""
+    from utils.weather_sat_scheduler import get_weather_sat_scheduler
+
+    scheduler = get_weather_sat_scheduler()
+    return jsonify(scheduler.get_status())
+
+
+@weather_sat_bp.route('/schedule/passes')
+def schedule_passes():
+    """List scheduled passes."""
+    from utils.weather_sat_scheduler import get_weather_sat_scheduler
+
+    scheduler = get_weather_sat_scheduler()
+    passes = scheduler.get_passes()
+    return jsonify({
+        'status': 'ok',
+        'passes': passes,
+        'count': len(passes),
+    })
+
+
+@weather_sat_bp.route('/schedule/skip/<pass_id>', methods=['POST'])
+def skip_pass(pass_id: str):
+    """Skip a scheduled pass."""
+    from utils.weather_sat_scheduler import get_weather_sat_scheduler
+
+    if not pass_id.replace('_', '').replace('-', '').isalnum():
+        return jsonify({'status': 'error', 'message': 'Invalid pass ID'}), 400
+
+    scheduler = get_weather_sat_scheduler()
+    if scheduler.skip_pass(pass_id):
+        return jsonify({'status': 'skipped', 'pass_id': pass_id})
+    else:
+        return jsonify({'status': 'error', 'message': 'Pass not found or already processed'}), 404

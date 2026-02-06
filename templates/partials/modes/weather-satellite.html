@@ -175,6 +175,23 @@
     </div>
 
     <div class="section">
+        <h3>Auto-Scheduler</h3>
+        <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">
+            Automatically capture satellite passes based on predictions.
+            Set your location above and toggle AUTO in the strip bar.
+        </p>
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="wxsatSidebarAutoSchedule" onchange="WeatherSat.toggleScheduler()" style="width: auto;">
+                Enable Auto-Capture
+            </label>
+        </div>
+        <div id="wxsatSchedulerStatus" style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">
+            Disabled
+        </div>
+    </div>
+
+    <div class="section">
         <h3>Resources</h3>
         <div style="display: flex; flex-direction: column; gap: 6px;">
             <a href="https://github.com/SatDump/SatDump" target="_blank" rel="noopener" class="preset-btn" style="text-decoration: none; text-align: center;">

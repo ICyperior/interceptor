@@ -149,6 +149,7 @@ class WeatherSatDecoder:
         self._capture_start_time: float = 0
         self._device_index: int = 0
         self._capture_output_dir: Path | None = None
+        self._on_complete_callback: Callable[[], None] | None = None
 
         # Ensure output directory exists
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -188,6 +189,10 @@ class WeatherSatDecoder:
     def set_callback(self, callback: Callable[[CaptureProgress], None]) -> None:
         """Set callback for capture progress updates."""
         self._callback = callback
+
+    def set_on_complete(self, callback: Callable[[], None]) -> None:
+        """Set callback invoked when capture process ends (for SDR release)."""
+        self._on_complete_callback = callback
 
     def start(
         self,
@@ -320,6 +325,8 @@ class WeatherSatDecoder:
         if not self._process or not self._process.stdout:
             return
 
+        last_emit_time = 0.0
+
         try:
             for line in iter(self._process.stdout.readline, ''):
                 if not self._running:
@@ -331,12 +338,11 @@ class WeatherSatDecoder:
 
                 logger.debug(f"satdump: {line}")
 
-                # Parse progress from SatDump output
                 elapsed = int(time.time() - self._capture_start_time)
+                now = time.time()
 
-                # SatDump outputs progress info - parse key indicators
+                # Parse progress from SatDump output
                 if 'Progress' in line or 'progress' in line:
-                    # Try to extract percentage
                     match = re.search(r'(\d+(?:\.\d+)?)\s*%', line)
                     pct = int(float(match.group(1))) if match else 0
                     self._emit_progress(CaptureProgress(
@@ -348,6 +354,7 @@ class WeatherSatDecoder:
                         progress_percent=pct,
                         elapsed_seconds=elapsed,
                     ))
+                    last_emit_time = now
                 elif 'Saved' in line or 'saved' in line or 'Writing' in line:
                     self._emit_progress(CaptureProgress(
                         status='decoding',
@@ -357,6 +364,7 @@ class WeatherSatDecoder:
                         message=line,
                         elapsed_seconds=elapsed,
                     ))
+                    last_emit_time = now
                 elif 'error' in line.lower() or 'fail' in line.lower():
                     self._emit_progress(CaptureProgress(
                         status='capturing',
@@ -366,25 +374,29 @@ class WeatherSatDecoder:
                         message=line,
                         elapsed_seconds=elapsed,
                     ))
+                    last_emit_time = now
                 else:
-                    # Generic progress update every ~10 seconds
-                    if elapsed % 10 == 0:
+                    # Emit all output lines, throttled to every 2 seconds
+                    if now - last_emit_time >= 2.0:
                         self._emit_progress(CaptureProgress(
                             status='capturing',
                             satellite=self._current_satellite,
                             frequency=self._current_frequency,
                             mode=self._current_mode,
-                            message=f"Capturing... ({elapsed}s elapsed)",
+                            message=line,
                             elapsed_seconds=elapsed,
                         ))
+                        last_emit_time = now
 
         except Exception as e:
             logger.error(f"Error reading SatDump output: {e}")
         finally:
-            # Process ended
-            if self._running:
-                self._running = False
-                elapsed = int(time.time() - self._capture_start_time)
+            # Process ended — release resources
+            was_running = self._running
+            self._running = False
+            elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
+
+            if was_running:
                 self._emit_progress(CaptureProgress(
                     status='complete',
                     satellite=self._current_satellite,
@@ -393,6 +405,13 @@ class WeatherSatDecoder:
                     message=f"Capture complete ({elapsed}s)",
                     elapsed_seconds=elapsed,
                 ))
+
+            # Notify route layer to release SDR device
+            if self._on_complete_callback:
+                try:
+                    self._on_complete_callback()
+                except Exception as e:
+                    logger.error(f"Error in on_complete callback: {e}")
 
     def _watch_images(self) -> None:
         """Watch output directory for new decoded images."""

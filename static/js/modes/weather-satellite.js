@@ -1,6 +1,7 @@
 /**
  * Weather Satellite Mode
- * NOAA APT and Meteor LRPT decoder interface
+ * NOAA APT and Meteor LRPT decoder interface with auto-scheduler,
+ * polar plot, ground track map, countdown, and timeline.
  */
 
 const WeatherSat = (function() {
@@ -9,7 +10,13 @@ const WeatherSat = (function() {
     let eventSource = null;
     let images = [];
     let passes = [];
+    let selectedPassIndex = -1;
     let currentSatellite = null;
+    let countdownInterval = null;
+    let schedulerEnabled = false;
+    let groundMap = null;
+    let groundTrackLayer = null;
+    let observerMarker = null;
 
     /**
      * Initialize the Weather Satellite mode
@@ -19,6 +26,9 @@ const WeatherSat = (function() {
         loadImages();
         loadLocationInputs();
         loadPasses();
+        startCountdownTimer();
+        checkSchedulerStatus();
+        initGroundMap();
     }
 
     /**
@@ -261,6 +271,8 @@ const WeatherSat = (function() {
                 const data = JSON.parse(e.data);
                 if (data.type === 'weather_sat_progress') {
                     handleProgress(data);
+                } else if (data.type && data.type.startsWith('schedule_')) {
+                    handleSchedulerSSE(data);
                 }
             } catch (err) {
                 console.error('Failed to parse SSE:', err);
@@ -269,7 +281,7 @@ const WeatherSat = (function() {
 
         eventSource.onerror = () => {
             setTimeout(() => {
-                if (isRunning) startStream();
+                if (isRunning || schedulerEnabled) startStream();
             }, 3000);
         };
     }
@@ -312,7 +324,7 @@ const WeatherSat = (function() {
             if (!data.image) {
                 // Capture ended
                 isRunning = false;
-                stopStream();
+                if (!schedulerEnabled) stopStream();
                 updateStatusUI('idle', 'Capture complete');
                 if (captureStatus) captureStatus.classList.remove('active');
             }
@@ -321,6 +333,26 @@ const WeatherSat = (function() {
             updateStatusUI('idle', 'Error');
             showNotification('Weather Sat', data.message || 'Capture error');
             if (captureStatus) captureStatus.classList.remove('active');
+        }
+    }
+
+    /**
+     * Handle scheduler SSE events
+     */
+    function handleSchedulerSSE(data) {
+        if (data.type === 'schedule_capture_start') {
+            isRunning = true;
+            const p = data.pass || {};
+            currentSatellite = p.satellite;
+            updateStatusUI('capturing', `Auto: ${p.name || p.satellite} ${p.frequency} MHz`);
+            showNotification('Weather Sat', `Auto-capture started: ${p.name || p.satellite}`);
+        } else if (data.type === 'schedule_capture_complete') {
+            showNotification('Weather Sat', `Auto-capture complete: ${(data.pass || {}).name || ''}`);
+            loadImages();
+        } else if (data.type === 'schedule_capture_skipped') {
+            const reason = data.reason || 'unknown';
+            const p = data.pass || {};
+            showNotification('Weather Sat', `Pass skipped (${reason}): ${p.name || p.satellite}`);
         }
     }
 
@@ -334,7 +366,7 @@ const WeatherSat = (function() {
     }
 
     /**
-     * Load pass predictions
+     * Load pass predictions (with trajectory + ground track)
      */
     async function loadPasses() {
         const storedLat = localStorage.getItem('observerLat');
@@ -346,17 +378,47 @@ const WeatherSat = (function() {
         }
 
         try {
-            const url = `/weather-sat/passes?latitude=${storedLat}&longitude=${storedLon}&hours=24&min_elevation=15`;
+            const url = `/weather-sat/passes?latitude=${storedLat}&longitude=${storedLon}&hours=24&min_elevation=15&trajectory=true&ground_track=true`;
             const response = await fetch(url);
             const data = await response.json();
 
             if (data.status === 'ok') {
                 passes = data.passes || [];
                 renderPasses(passes);
+                renderTimeline(passes);
+                updateCountdownFromPasses();
+                // Auto-select first pass
+                if (passes.length > 0 && selectedPassIndex < 0) {
+                    selectPass(0);
+                }
             }
         } catch (err) {
             console.error('Failed to load passes:', err);
         }
+    }
+
+    /**
+     * Select a pass to display in polar plot and map
+     */
+    function selectPass(index) {
+        if (index < 0 || index >= passes.length) return;
+        selectedPassIndex = index;
+        const pass = passes[index];
+
+        // Highlight active card
+        document.querySelectorAll('.wxsat-pass-card').forEach((card, i) => {
+            card.classList.toggle('selected', i === index);
+        });
+
+        // Update polar plot
+        drawPolarPlot(pass);
+
+        // Update ground track
+        updateGroundTrack(pass);
+
+        // Update polar panel subtitle
+        const polarSat = document.getElementById('wxsatPolarSat');
+        if (polarSat) polarSat.textContent = `${pass.name} ${pass.maxEl}\u00b0`;
     }
 
     /**
@@ -387,6 +449,7 @@ const WeatherSat = (function() {
             const passStart = new Date(pass.startTimeISO);
             const diffMs = passStart - now;
             const diffMins = Math.floor(diffMs / 60000);
+            const isSelected = idx === selectedPassIndex;
 
             let countdown = '';
             if (diffMs < 0) {
@@ -400,7 +463,7 @@ const WeatherSat = (function() {
             }
 
             return `
-                <div class="wxsat-pass-card" onclick="WeatherSat.startPass('${escapeHtml(pass.satellite)}')">
+                <div class="wxsat-pass-card${isSelected ? ' selected' : ''}" onclick="WeatherSat.selectPass(${idx})">
                     <div class="wxsat-pass-sat">
                         <span class="wxsat-pass-sat-name">${escapeHtml(pass.name)}</span>
                         <span class="wxsat-pass-mode ${modeClass}">${escapeHtml(pass.mode)}</span>
@@ -419,10 +482,478 @@ const WeatherSat = (function() {
                         <span class="wxsat-pass-quality ${pass.quality}">${pass.quality}</span>
                         <span style="font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">${countdown}</span>
                     </div>
+                    <div style="margin-top: 6px; text-align: right;">
+                        <button class="wxsat-strip-btn" onclick="event.stopPropagation(); WeatherSat.startPass('${escapeHtml(pass.satellite)}')" style="font-size: 10px; padding: 2px 8px;">Capture</button>
+                    </div>
                 </div>
             `;
         }).join('');
     }
+
+    // ========================
+    // Polar Plot
+    // ========================
+
+    /**
+     * Draw polar plot for a pass trajectory
+     */
+    function drawPolarPlot(pass) {
+        const canvas = document.getElementById('wxsatPolarCanvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        const r = Math.min(cx, cy) - 20;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Background
+        ctx.fillStyle = '#0d1117';
+        ctx.fillRect(0, 0, w, h);
+
+        // Grid circles (30, 60, 90 deg elevation)
+        ctx.strokeStyle = '#2a3040';
+        ctx.lineWidth = 0.5;
+        [90, 60, 30].forEach((el, i) => {
+            const gr = r * (1 - el / 90);
+            ctx.beginPath();
+            ctx.arc(cx, cy, gr, 0, Math.PI * 2);
+            ctx.stroke();
+            // Label
+            ctx.fillStyle = '#555';
+            ctx.font = '9px JetBrains Mono, monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(el + '\u00b0', cx + gr + 3, cy - 2);
+        });
+
+        // Horizon circle
+        ctx.strokeStyle = '#3a4050';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Cardinal directions
+        ctx.fillStyle = '#666';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('N', cx, cy - r - 10);
+        ctx.fillText('S', cx, cy + r + 10);
+        ctx.fillText('E', cx + r + 10, cy);
+        ctx.fillText('W', cx - r - 10, cy);
+
+        // Cross hairs
+        ctx.strokeStyle = '#2a3040';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - r);
+        ctx.lineTo(cx, cy + r);
+        ctx.moveTo(cx - r, cy);
+        ctx.lineTo(cx + r, cy);
+        ctx.stroke();
+
+        // Trajectory
+        const trajectory = pass.trajectory;
+        if (!trajectory || trajectory.length === 0) return;
+
+        const color = pass.mode === 'LRPT' ? '#00ff88' : '#00d4ff';
+
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+
+        trajectory.forEach((pt, i) => {
+            const elRad = (90 - pt.el) / 90;
+            const azRad = (pt.az - 90) * Math.PI / 180; // offset: N is up
+            const px = cx + r * elRad * Math.cos(azRad);
+            const py = cy + r * elRad * Math.sin(azRad);
+
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+
+        // Start point (green dot)
+        const start = trajectory[0];
+        const startR = (90 - start.el) / 90;
+        const startAz = (start.az - 90) * Math.PI / 180;
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath();
+        ctx.arc(cx + r * startR * Math.cos(startAz), cy + r * startR * Math.sin(startAz), 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // End point (red dot)
+        const end = trajectory[trajectory.length - 1];
+        const endR = (90 - end.el) / 90;
+        const endAz = (end.az - 90) * Math.PI / 180;
+        ctx.fillStyle = '#ff4444';
+        ctx.beginPath();
+        ctx.arc(cx + r * endR * Math.cos(endAz), cy + r * endR * Math.sin(endAz), 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Max elevation marker
+        let maxEl = 0;
+        let maxPt = trajectory[0];
+        trajectory.forEach(pt => { if (pt.el > maxEl) { maxEl = pt.el; maxPt = pt; } });
+        const maxR = (90 - maxPt.el) / 90;
+        const maxAz = (maxPt.az - 90) * Math.PI / 180;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(cx + r * maxR * Math.cos(maxAz), cy + r * maxR * Math.sin(maxAz), 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = color;
+        ctx.font = '9px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.round(maxEl) + '\u00b0', cx + r * maxR * Math.cos(maxAz), cy + r * maxR * Math.sin(maxAz) - 8);
+    }
+
+    // ========================
+    // Ground Track Map
+    // ========================
+
+    /**
+     * Initialize Leaflet ground track map
+     */
+    function initGroundMap() {
+        const container = document.getElementById('wxsatGroundMap');
+        if (!container || groundMap) return;
+        if (typeof L === 'undefined') return;
+
+        groundMap = L.map(container, {
+            center: [20, 0],
+            zoom: 2,
+            zoomControl: false,
+            attributionControl: false,
+        });
+
+        // Check tile provider from settings
+        let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        try {
+            const provider = localStorage.getItem('tileProvider');
+            if (provider === 'osm') {
+                tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+            }
+        } catch (e) {}
+
+        L.tileLayer(tileUrl, { maxZoom: 10 }).addTo(groundMap);
+
+        groundTrackLayer = L.layerGroup().addTo(groundMap);
+
+        // Delayed invalidation to fix sizing
+        setTimeout(() => { if (groundMap) groundMap.invalidateSize(); }, 200);
+    }
+
+    /**
+     * Update ground track on the map
+     */
+    function updateGroundTrack(pass) {
+        if (!groundMap || !groundTrackLayer) return;
+
+        groundTrackLayer.clearLayers();
+
+        const track = pass.groundTrack;
+        if (!track || track.length === 0) return;
+
+        const color = pass.mode === 'LRPT' ? '#00ff88' : '#00d4ff';
+
+        // Draw polyline
+        const latlngs = track.map(p => [p.lat, p.lon]);
+        L.polyline(latlngs, { color, weight: 2, opacity: 0.8 }).addTo(groundTrackLayer);
+
+        // Start marker
+        L.circleMarker(latlngs[0], {
+            radius: 5, color: '#00ff88', fillColor: '#00ff88', fillOpacity: 1, weight: 0,
+        }).addTo(groundTrackLayer);
+
+        // End marker
+        L.circleMarker(latlngs[latlngs.length - 1], {
+            radius: 5, color: '#ff4444', fillColor: '#ff4444', fillOpacity: 1, weight: 0,
+        }).addTo(groundTrackLayer);
+
+        // Observer marker
+        const lat = parseFloat(localStorage.getItem('observerLat'));
+        const lon = parseFloat(localStorage.getItem('observerLon'));
+        if (!isNaN(lat) && !isNaN(lon)) {
+            L.circleMarker([lat, lon], {
+                radius: 6, color: '#ffbb00', fillColor: '#ffbb00', fillOpacity: 0.8, weight: 1,
+            }).addTo(groundTrackLayer);
+        }
+
+        // Fit bounds
+        try {
+            const bounds = L.latLngBounds(latlngs);
+            if (!isNaN(lat) && !isNaN(lon)) bounds.extend([lat, lon]);
+            groundMap.fitBounds(bounds, { padding: [20, 20] });
+        } catch (e) {}
+    }
+
+    // ========================
+    // Countdown
+    // ========================
+
+    /**
+     * Start the countdown interval timer
+     */
+    function startCountdownTimer() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        countdownInterval = setInterval(updateCountdownFromPasses, 1000);
+    }
+
+    /**
+     * Update countdown display from passes array
+     */
+    function updateCountdownFromPasses() {
+        const now = new Date();
+        let nextPass = null;
+        let isActive = false;
+
+        for (const pass of passes) {
+            const start = new Date(pass.startTimeISO);
+            const end = new Date(pass.endTimeISO);
+            if (end > now) {
+                nextPass = pass;
+                isActive = start <= now;
+                break;
+            }
+        }
+
+        const daysEl = document.getElementById('wxsatCdDays');
+        const hoursEl = document.getElementById('wxsatCdHours');
+        const minsEl = document.getElementById('wxsatCdMins');
+        const secsEl = document.getElementById('wxsatCdSecs');
+        const satEl = document.getElementById('wxsatCountdownSat');
+        const detailEl = document.getElementById('wxsatCountdownDetail');
+        const boxes = document.getElementById('wxsatCountdownBoxes');
+
+        if (!nextPass) {
+            if (daysEl) daysEl.textContent = '--';
+            if (hoursEl) hoursEl.textContent = '--';
+            if (minsEl) minsEl.textContent = '--';
+            if (secsEl) secsEl.textContent = '--';
+            if (satEl) satEl.textContent = '--';
+            if (detailEl) detailEl.textContent = 'No passes predicted';
+            if (boxes) boxes.querySelectorAll('.wxsat-countdown-box').forEach(b => {
+                b.classList.remove('imminent', 'active');
+            });
+            return;
+        }
+
+        const target = new Date(nextPass.startTimeISO);
+        let diffMs = target - now;
+
+        if (isActive) {
+            diffMs = 0;
+        }
+
+        const totalSec = Math.max(0, Math.floor(diffMs / 1000));
+        const d = Math.floor(totalSec / 86400);
+        const h = Math.floor((totalSec % 86400) / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+
+        if (daysEl) daysEl.textContent = d.toString().padStart(2, '0');
+        if (hoursEl) hoursEl.textContent = h.toString().padStart(2, '0');
+        if (minsEl) minsEl.textContent = m.toString().padStart(2, '0');
+        if (secsEl) secsEl.textContent = s.toString().padStart(2, '0');
+        if (satEl) satEl.textContent = `${nextPass.name} ${nextPass.frequency} MHz`;
+        if (detailEl) {
+            if (isActive) {
+                detailEl.textContent = `ACTIVE - ${nextPass.maxEl}\u00b0 max el`;
+            } else {
+                detailEl.textContent = `${nextPass.maxEl}\u00b0 max el / ${nextPass.duration} min`;
+            }
+        }
+
+        // Countdown box states
+        if (boxes) {
+            const isImminent = totalSec < 600 && totalSec > 0; // < 10 min
+            boxes.querySelectorAll('.wxsat-countdown-box').forEach(b => {
+                b.classList.toggle('imminent', isImminent);
+                b.classList.toggle('active', isActive);
+            });
+        }
+    }
+
+    // ========================
+    // Timeline
+    // ========================
+
+    /**
+     * Render 24h timeline with pass markers
+     */
+    function renderTimeline(passList) {
+        const track = document.getElementById('wxsatTimelineTrack');
+        const cursor = document.getElementById('wxsatTimelineCursor');
+        if (!track) return;
+
+        // Clear existing pass markers
+        track.querySelectorAll('.wxsat-timeline-pass').forEach(el => el.remove());
+
+        const now = new Date();
+        const dayStart = new Date(now);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayMs = 24 * 60 * 60 * 1000;
+
+        passList.forEach((pass, idx) => {
+            const start = new Date(pass.startTimeISO);
+            const end = new Date(pass.endTimeISO);
+
+            const startPct = Math.max(0, Math.min(100, ((start - dayStart) / dayMs) * 100));
+            const endPct = Math.max(0, Math.min(100, ((end - dayStart) / dayMs) * 100));
+            const widthPct = Math.max(0.5, endPct - startPct);
+
+            const marker = document.createElement('div');
+            marker.className = `wxsat-timeline-pass ${pass.mode === 'LRPT' ? 'lrpt' : 'apt'}`;
+            marker.style.left = startPct + '%';
+            marker.style.width = widthPct + '%';
+            marker.title = `${pass.name} ${pass.startTime} (${pass.maxEl}\u00b0)`;
+            marker.onclick = () => selectPass(idx);
+            track.appendChild(marker);
+        });
+
+        // Update cursor position
+        updateTimelineCursor();
+    }
+
+    /**
+     * Update timeline cursor to current time
+     */
+    function updateTimelineCursor() {
+        const cursor = document.getElementById('wxsatTimelineCursor');
+        if (!cursor) return;
+
+        const now = new Date();
+        const dayStart = new Date(now);
+        dayStart.setHours(0, 0, 0, 0);
+        const pct = ((now - dayStart) / (24 * 60 * 60 * 1000)) * 100;
+        cursor.style.left = pct + '%';
+    }
+
+    // ========================
+    // Auto-Scheduler
+    // ========================
+
+    /**
+     * Toggle auto-scheduler
+     */
+    async function toggleScheduler() {
+        const stripCheckbox = document.getElementById('wxsatAutoSchedule');
+        const sidebarCheckbox = document.getElementById('wxsatSidebarAutoSchedule');
+        const checked = stripCheckbox?.checked || sidebarCheckbox?.checked;
+
+        // Sync both checkboxes
+        if (stripCheckbox) stripCheckbox.checked = checked;
+        if (sidebarCheckbox) sidebarCheckbox.checked = checked;
+
+        if (checked) {
+            await enableScheduler();
+        } else {
+            await disableScheduler();
+        }
+    }
+
+    /**
+     * Enable auto-scheduler
+     */
+    async function enableScheduler() {
+        const lat = parseFloat(localStorage.getItem('observerLat'));
+        const lon = parseFloat(localStorage.getItem('observerLon'));
+
+        if (isNaN(lat) || isNaN(lon)) {
+            showNotification('Weather Sat', 'Set observer location first');
+            const stripCheckbox = document.getElementById('wxsatAutoSchedule');
+            const sidebarCheckbox = document.getElementById('wxsatSidebarAutoSchedule');
+            if (stripCheckbox) stripCheckbox.checked = false;
+            if (sidebarCheckbox) sidebarCheckbox.checked = false;
+            return;
+        }
+
+        const deviceSelect = document.getElementById('deviceSelect');
+        const gainInput = document.getElementById('weatherSatGain');
+        const biasTInput = document.getElementById('weatherSatBiasT');
+
+        try {
+            const response = await fetch('/weather-sat/schedule/enable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: lat,
+                    longitude: lon,
+                    device: parseInt(deviceSelect?.value || '0', 10),
+                    gain: parseFloat(gainInput?.value || '40'),
+                    bias_t: biasTInput?.checked || false,
+                }),
+            });
+
+            const data = await response.json();
+            schedulerEnabled = true;
+            updateSchedulerUI(data);
+            startStream();
+            showNotification('Weather Sat', `Auto-scheduler enabled (${data.scheduled_count || 0} passes)`);
+        } catch (err) {
+            console.error('Failed to enable scheduler:', err);
+            showNotification('Weather Sat', 'Failed to enable auto-scheduler');
+        }
+    }
+
+    /**
+     * Disable auto-scheduler
+     */
+    async function disableScheduler() {
+        try {
+            await fetch('/weather-sat/schedule/disable', { method: 'POST' });
+            schedulerEnabled = false;
+            updateSchedulerUI({ enabled: false });
+            if (!isRunning) stopStream();
+            showNotification('Weather Sat', 'Auto-scheduler disabled');
+        } catch (err) {
+            console.error('Failed to disable scheduler:', err);
+        }
+    }
+
+    /**
+     * Check current scheduler status
+     */
+    async function checkSchedulerStatus() {
+        try {
+            const response = await fetch('/weather-sat/schedule/status');
+            const data = await response.json();
+            schedulerEnabled = data.enabled;
+            updateSchedulerUI(data);
+            if (schedulerEnabled) startStream();
+        } catch (err) {
+            // Scheduler endpoint may not exist yet
+        }
+    }
+
+    /**
+     * Update scheduler UI elements
+     */
+    function updateSchedulerUI(data) {
+        const stripCheckbox = document.getElementById('wxsatAutoSchedule');
+        const sidebarCheckbox = document.getElementById('wxsatSidebarAutoSchedule');
+        const statusEl = document.getElementById('wxsatSchedulerStatus');
+
+        if (stripCheckbox) stripCheckbox.checked = data.enabled;
+        if (sidebarCheckbox) sidebarCheckbox.checked = data.enabled;
+        if (statusEl) {
+            if (data.enabled) {
+                statusEl.textContent = `Active: ${data.scheduled_count || 0} passes queued`;
+                statusEl.style.color = '#00ff88';
+            } else {
+                statusEl.textContent = 'Disabled';
+                statusEl.style.color = '';
+            }
+        }
+    }
+
+    // ========================
+    // Images
+    // ========================
 
     /**
      * Load decoded images
@@ -544,17 +1075,29 @@ const WeatherSat = (function() {
         return div.innerHTML;
     }
 
+    /**
+     * Invalidate ground map size (call after container becomes visible)
+     */
+    function invalidateMap() {
+        if (groundMap) {
+            setTimeout(() => groundMap.invalidateSize(), 100);
+        }
+    }
+
     // Public API
     return {
         init,
         start,
         stop,
         startPass,
+        selectPass,
         loadImages,
         loadPasses,
         showImage,
         closeImage,
         useGPS,
+        toggleScheduler,
+        invalidateMap,
     };
 })();
 

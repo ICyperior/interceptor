@@ -1925,6 +1925,36 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="wxsat-strip-divider"></div>
+                        <div class="wxsat-strip-group">
+                            <label class="wxsat-schedule-toggle" title="Auto-capture passes">
+                                <input type="checkbox" id="wxsatAutoSchedule" onchange="WeatherSat.toggleScheduler()">
+                                <span class="wxsat-toggle-label">AUTO</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Countdown + Timeline -->
+                    <div class="wxsat-countdown-bar">
+                        <div class="wxsat-countdown-next">
+                            <div class="wxsat-countdown-boxes" id="wxsatCountdownBoxes">
+                                <div class="wxsat-countdown-box"><span class="wxsat-cd-value" id="wxsatCdDays">--</span><span class="wxsat-cd-unit">DAYS</span></div>
+                                <div class="wxsat-countdown-box"><span class="wxsat-cd-value" id="wxsatCdHours">--</span><span class="wxsat-cd-unit">HRS</span></div>
+                                <div class="wxsat-countdown-box"><span class="wxsat-cd-value" id="wxsatCdMins">--</span><span class="wxsat-cd-unit">MIN</span></div>
+                                <div class="wxsat-countdown-box"><span class="wxsat-cd-value" id="wxsatCdSecs">--</span><span class="wxsat-cd-unit">SEC</span></div>
+                            </div>
+                            <div class="wxsat-countdown-info" id="wxsatCountdownInfo">
+                                <span class="wxsat-countdown-sat" id="wxsatCountdownSat">--</span>
+                                <span class="wxsat-countdown-detail" id="wxsatCountdownDetail">No passes predicted</span>
+                            </div>
+                        </div>
+                        <div class="wxsat-timeline" id="wxsatTimeline">
+                            <div class="wxsat-timeline-track" id="wxsatTimelineTrack"></div>
+                            <div class="wxsat-timeline-cursor" id="wxsatTimelineCursor"></div>
+                            <div class="wxsat-timeline-labels">
+                                <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Capture progress -->
@@ -1938,9 +1968,9 @@
                         </div>
                     </div>
 
-                    <!-- Main content: passes + gallery -->
+                    <!-- Main content: 3-column layout -->
                     <div class="wxsat-content">
-                        <!-- Pass predictions -->
+                        <!-- Left: Pass predictions -->
                         <div class="wxsat-passes-panel">
                             <div class="wxsat-passes-header">
                                 <span class="wxsat-passes-title">Upcoming Passes</span>
@@ -1953,7 +1983,24 @@
                             </div>
                         </div>
 
-                        <!-- Image gallery -->
+                        <!-- Center: Polar plot + Ground track map -->
+                        <div class="wxsat-center-panel">
+                            <div class="wxsat-polar-container">
+                                <div class="wxsat-panel-header">
+                                    <span class="wxsat-panel-title">Polar Plot</span>
+                                    <span class="wxsat-panel-subtitle" id="wxsatPolarSat">--</span>
+                                </div>
+                                <canvas id="wxsatPolarCanvas" width="300" height="300"></canvas>
+                            </div>
+                            <div class="wxsat-map-container">
+                                <div class="wxsat-panel-header">
+                                    <span class="wxsat-panel-title">Ground Track</span>
+                                </div>
+                                <div id="wxsatGroundMap" class="wxsat-ground-map"></div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Image gallery -->
                         <div class="wxsat-gallery-panel">
                             <div class="wxsat-gallery-header">
                                 <span class="wxsat-gallery-title">Decoded Images</span>
@@ -2899,6 +2946,9 @@
                 SSTV.init();
             } else if (mode === 'weathersat') {
                 WeatherSat.init();
+                setTimeout(() => {
+                    WeatherSat.invalidateMap();
+                }, 100);
             }
         }
 

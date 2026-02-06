@@ -145,6 +145,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ldconfig \
     && cd /tmp \
     && rm -rf /tmp/SatDump \
+    # Build rtlamr (utility meter decoder - requires Go)
+    && cd /tmp \
+    && curl -fsSL "https://go.dev/dl/go1.22.5.linux-$(dpkg --print-architecture).tar.gz" | tar -C /usr/local -xz \
+    && export PATH="$PATH:/usr/local/go/bin" \
+    && export GOPATH=/tmp/gopath \
+    && go install github.com/bemasher/rtlamr@latest \
+    && cp /tmp/gopath/bin/rtlamr /usr/bin/rtlamr \
+    && rm -rf /usr/local/go /tmp/gopath \
     # Cleanup build tools to reduce image size
     && apt-get remove -y \
     build-essential \
