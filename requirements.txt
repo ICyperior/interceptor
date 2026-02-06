@@ -35,4 +35,6 @@ qrcode[pil]>=7.4
 # ruff>=0.1.0
 # black>=23.0.0
 # mypy>=1.0.0
+# WebSocket support for in-app audio streaming (KiwiSDR, Listening Post)
 flask-sock
+websocket-client>=1.6.0
