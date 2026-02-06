@@ -1616,6 +1616,14 @@
 
                 <!-- DMR / Digital Voice Dashboard -->
                 <div id="dmrVisuals" style="display: none; padding: 12px; flex-direction: column; gap: 12px; flex: 1; min-height: 0;">
+                    <!-- DMR Synthesizer -->
+                    <div class="radio-module-box" style="padding: 10px;">
+                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px;">
+                            <span>SIGNAL ACTIVITY</span>
+                            <span id="dmrSynthStatus" style="color: var(--text-muted); font-size: 9px; font-family: var(--font-mono);">IDLE</span>
+                        </div>
+                        <canvas id="dmrSynthCanvas" style="width: 100%; height: 70px; background: rgba(0,0,0,0.4); border-radius: 4px; display: block;"></canvas>
+                    </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                         <!-- Call History Panel -->
                         <div class="radio-module-box" style="padding: 10px;">
@@ -3057,6 +3065,7 @@
                 SSTVGeneral.init();
             } else if (mode === 'dmr') {
                 if (typeof checkDmrTools === 'function') checkDmrTools();
+                if (typeof initDmrSynthesizer === 'function') setTimeout(initDmrSynthesizer, 100);
             } else if (mode === 'websdr') {
                 if (typeof initWebSDR === 'function') initWebSDR();
             }
