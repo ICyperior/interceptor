@@ -55,8 +55,11 @@ PROTOCOL_FLAGS = {
 
 
 def find_dsd() -> str | None:
-    """Find DSD (Digital Speech Decoder) binary."""
-    return shutil.which('dsd')
+    """Find DSD (Digital Speech Decoder) binary.
+
+    Checks for dsd-fme first (common fork), then falls back to dsd.
+    """
+    return shutil.which('dsd-fme') or shutil.which('dsd')
 
 
 def find_rtl_fm() -> str | None:
@@ -241,8 +244,8 @@ def start_dmr() -> Response:
         '-l', '1',  # squelch level
     ]
 
-    # Build DSD command
-    dsd_cmd = [dsd_path, '-i', '-']
+    # Build DSD command (-o /dev/null to avoid PulseAudio dependency)
+    dsd_cmd = [dsd_path, '-i', '-', '-o', '/dev/null']
     dsd_cmd.extend(PROTOCOL_FLAGS.get(protocol, []))
 
     try:
