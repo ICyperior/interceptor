@@ -181,6 +181,7 @@ class SSTVImage:
     timestamp: datetime
     frequency: float
     size_bytes: int = 0
+    url_prefix: str = '/sstv'
 
     def to_dict(self) -> dict:
         return {
@@ -190,7 +191,7 @@ class SSTVImage:
             'timestamp': self.timestamp.isoformat(),
             'frequency': self.frequency,
             'size_bytes': self.size_bytes,
-            'url': f'/sstv/images/{self.filename}'
+            'url': f'{self.url_prefix}/images/{self.filename}'
         }
 
 
@@ -227,18 +228,20 @@ class SSTVDecoder:
     # How often to check/update Doppler (seconds)
     DOPPLER_UPDATE_INTERVAL = 5
 
-    def __init__(self, output_dir: str | Path | None = None):
+    def __init__(self, output_dir: str | Path | None = None, url_prefix: str = '/sstv'):
         self._process = None
         self._rtl_process = None
         self._running = False
         self._lock = threading.Lock()
         self._callback: Callable[[DecodeProgress], None] | None = None
         self._output_dir = Path(output_dir) if output_dir else Path('instance/sstv_images')
+        self._url_prefix = url_prefix
         self._images: list[SSTVImage] = []
         self._reader_thread = None
         self._watcher_thread = None
         self._doppler_thread = None
         self._frequency = ISS_SSTV_FREQ
+        self._modulation = 'fm'
         self._current_tuned_freq_hz: int = 0
         self._device_index = 0
 
@@ -297,6 +300,7 @@ class SSTVDecoder:
         device_index: int = 0,
         latitude: float | None = None,
         longitude: float | None = None,
+        modulation: str = 'fm',
     ) -> bool:
         """
         Start SSTV decoder listening on specified frequency.
@@ -306,6 +310,7 @@ class SSTVDecoder:
             device_index: RTL-SDR device index
             latitude: Observer latitude for Doppler correction (optional)
             longitude: Observer longitude for Doppler correction (optional)
+            modulation: Demodulation mode for rtl_fm (fm, usb, lsb). Default: fm
 
         Returns:
             True if started successfully
@@ -324,6 +329,7 @@ class SSTVDecoder:
 
             self._frequency = frequency
             self._device_index = device_index
+            self._modulation = modulation
 
             # Configure Doppler tracking if location provided
             self._doppler_enabled = False
@@ -399,12 +405,12 @@ class SSTVDecoder:
 
     def _start_rtl_fm_pipeline(self, freq_hz: int) -> None:
         """Start the rtl_fm -> slowrx pipeline at the specified frequency."""
-        # Build rtl_fm command for FM demodulation
+        # Build rtl_fm command for demodulation
         rtl_cmd = [
             'rtl_fm',
             '-d', str(self._device_index),
             '-f', str(freq_hz),
-            '-M', 'fm',
+            '-M', self._modulation,
             '-s', '48000',
             '-r', '48000',
             '-l', '0',  # No squelch
@@ -517,7 +523,7 @@ class SSTVDecoder:
                 'rtl_fm',
                 '-d', str(self._device_index),
                 '-f', str(new_freq_hz),
-                '-M', 'fm',
+                '-M', self._modulation,
                 '-s', '48000',
                 '-r', '48000',
                 '-l', '0',
@@ -607,7 +613,8 @@ class SSTVDecoder:
                             mode='Unknown',  # Would need to parse from slowrx output
                             timestamp=datetime.now(timezone.utc),
                             frequency=self._frequency,
-                            size_bytes=filepath.stat().st_size
+                            size_bytes=filepath.stat().st_size,
+                            url_prefix=self._url_prefix,
                         )
                         self._images.append(image)
 
@@ -665,8 +672,9 @@ class SSTVDecoder:
                         path=filepath,
                         mode='Unknown',
                         timestamp=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
-                        frequency=ISS_SSTV_FREQ,
-                        size_bytes=stat.st_size
+                        frequency=self._frequency,
+                        size_bytes=stat.st_size,
+                        url_prefix=self._url_prefix,
                     )
                     self._images.append(image)
                 except Exception as e:
@@ -767,3 +775,18 @@ def is_sstv_available() -> bool:
     """Check if SSTV decoding is available."""
     decoder = get_sstv_decoder()
     return decoder.decoder_available is not None
+
+
+# Global general SSTV decoder instance (separate from ISS)
+_general_decoder: SSTVDecoder | None = None
+
+
+def get_general_sstv_decoder() -> SSTVDecoder:
+    """Get or create the global general SSTV decoder instance."""
+    global _general_decoder
+    if _general_decoder is None:
+        _general_decoder = SSTVDecoder(
+            output_dir='instance/sstv_general_images',
+            url_prefix='/sstv-general',
+        )
+    return _general_decoder
