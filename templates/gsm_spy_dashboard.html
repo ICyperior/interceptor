@@ -1548,6 +1548,10 @@
 
                     if (data.type === 'tower') {
                         updateTower(data);
+                    } else if (data.type === 'tower_update') {
+                        // Background geocoding resolved coordinates for a tower
+                        console.log(`Tower coordinates resolved via API: MCC=${data.mcc} MNC=${data.mnc} LAC=${data.lac} CID=${data.cid}`);
+                        updateTower(data);
                     } else if (data.type === 'device') {
                         updateDevice(data);
                     } else if (data.type === 'rogue_alert') {
@@ -1575,6 +1579,14 @@
         function updateTower(data) {
             const key = `${data.mcc}-${data.mnc}-${data.lac}-${data.cid}`;
             towers[key] = data;
+
+            // Validate coordinates before creating map marker
+            if (!data.lat || !data.lon || isNaN(parseFloat(data.lat)) || isNaN(parseFloat(data.lon))) {
+                console.log(`Tower ${data.cid} pending geocoding (status: ${data.status || 'unknown'})`);
+                // Update towers list but skip map marker
+                updateTowersList();
+                return;
+            }
 
             // Create or update marker
             if (!towerMarkers[key]) {
