@@ -139,10 +139,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && git clone --depth 1 https://github.com/SatDump/SatDump.git \
     && cd SatDump \
     && mkdir build && cd build \
-    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF .. \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. \
     && make -j$(nproc) \
     && make install \
     && ldconfig \
+    # Ensure SatDump plugins are in the expected path (handles multiarch differences)
+    && mkdir -p /usr/local/lib/satdump/plugins \
+    && if [ -z "$(ls /usr/local/lib/satdump/plugins/*.so 2>/dev/null)" ]; then \
+        for dir in /usr/local/lib/*/satdump/plugins /usr/lib/*/satdump/plugins /usr/lib/satdump/plugins; do \
+            if [ -d "$dir" ] && [ -n "$(ls "$dir"/*.so 2>/dev/null)" ]; then \
+                ln -sf "$dir"/*.so /usr/local/lib/satdump/plugins/; \
+                break; \
+            fi; \
+        done; \
+    fi \
     && cd /tmp \
     && rm -rf /tmp/SatDump \
     # Build rtlamr (utility meter decoder - requires Go)

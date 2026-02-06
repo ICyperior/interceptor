@@ -285,15 +285,19 @@ class WeatherSatDecoder:
 
         freq_hz = int(sat_info['frequency'] * 1_000_000)
 
+        # SatDump v1.2+ uses string source_id (device serial) not numeric index.
+        # Auto-detect serial by querying rtl_eeprom, fall back to string index.
+        source_id = self._resolve_device_id(device_index)
+
         cmd = [
             'satdump', 'live',
             sat_info['pipeline'],
-            'rtlsdr',
-            '--source_id', str(device_index),
-            '--frequency', str(freq_hz),
+            str(self._capture_output_dir),
+            '--source', 'rtlsdr',
             '--samplerate', str(sample_rate),
-            '--gain', str(gain),
-            '--output_folder', str(self._capture_output_dir),
+            '--frequency', str(freq_hz),
+            '--gain', str(int(gain)),
+            '--source_id', source_id,
         ]
 
         if bias_t:
@@ -308,6 +312,27 @@ class WeatherSatDecoder:
             text=True,
         )
 
+        # Check for early exit (SatDump errors out immediately)
+        try:
+            retcode = self._process.wait(timeout=3)
+            # Process already died — read whatever output it produced
+            output = ''
+            if self._process.stdout:
+                output = self._process.stdout.read()
+            error_msg = f"SatDump exited immediately (code {retcode})"
+            if output:
+                # Extract the most useful error line
+                for line in output.strip().splitlines():
+                    if 'error' in line.lower() or 'could not' in line.lower() or 'cannot' in line.lower():
+                        error_msg = line.strip()
+                        break
+                logger.error(f"SatDump output:\n{output}")
+            self._process = None
+            raise RuntimeError(error_msg)
+        except subprocess.TimeoutExpired:
+            # Good — process is still running after 3 seconds
+            pass
+
         # Start reader thread to monitor output
         self._reader_thread = threading.Thread(
             target=self._read_satdump_output, daemon=True
@@ -319,6 +344,41 @@ class WeatherSatDecoder:
             target=self._watch_images, daemon=True
         )
         self._watcher_thread.start()
+
+    @staticmethod
+    def _resolve_device_id(device_index: int) -> str:
+        """Resolve RTL-SDR device index to serial number string for SatDump v1.2+.
+
+        SatDump v1.2+ expects --source_id as a device serial string, not a
+        numeric index. Try to look up the serial via rtl_test, fall back to
+        the string representation of the index.
+        """
+        try:
+            result = subprocess.run(
+                ['rtl_test', '-d', str(device_index), '-t'],
+                capture_output=True, text=True, timeout=5,
+            )
+            # rtl_test outputs: "Found 2 device(s):" then
+            # "  0:  RTLSDRBlog, Blog V4, SN: 00004000"
+            output = result.stdout + result.stderr
+            for line in output.splitlines():
+                # Match SN: <serial> pattern
+                match = re.search(r'SN:\s*(\S+)', line)
+                if match:
+                    serial = match.group(1)
+                    logger.info(f"RTL-SDR device {device_index} serial: {serial}")
+                    return serial
+                # Also match "Using device #N: ..." then "Serial number is <serial>"
+                match = re.search(r'Serial number is\s+(\S+)', line)
+                if match:
+                    serial = match.group(1)
+                    logger.info(f"RTL-SDR device {device_index} serial: {serial}")
+                    return serial
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            logger.debug(f"Could not detect device serial: {e}")
+
+        # Fall back to string index
+        return str(device_index)
 
     def _read_satdump_output(self) -> None:
         """Read SatDump stdout/stderr for progress updates."""
