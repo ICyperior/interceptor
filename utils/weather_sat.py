@@ -318,6 +318,8 @@ class WeatherSatDecoder:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            bufsize=1,  # line-buffered
+            env={**os.environ, 'PYTHONUNBUFFERED': '1'},
         )
 
         # Check for early exit (SatDump errors out immediately)
@@ -406,6 +408,30 @@ class WeatherSatDecoder:
         # Fall back to string index
         return str(device_index)
 
+    @staticmethod
+    def _read_lines(stream):
+        """Read lines from stream, splitting on both \\n and \\r.
+
+        SatDump uses \\r carriage returns for progress updates that overwrite
+        the same terminal line. Python's readline() only splits on \\n, so
+        those updates never arrive. This reads char-by-char and yields
+        complete lines on either delimiter.
+        """
+        buf = []
+        while True:
+            ch = stream.read(1)
+            if not ch:
+                # EOF
+                if buf:
+                    yield ''.join(buf)
+                return
+            if ch in ('\n', '\r'):
+                if buf:
+                    yield ''.join(buf)
+                    buf = []
+            else:
+                buf.append(ch)
+
     def _read_satdump_output(self) -> None:
         """Read SatDump stdout/stderr for progress updates."""
         if not self._process or not self._process.stdout:
@@ -414,7 +440,7 @@ class WeatherSatDecoder:
         last_emit_time = 0.0
 
         try:
-            for line in iter(self._process.stdout.readline, ''):
+            for line in self._read_lines(self._process.stdout):
                 if not self._running:
                     break
 
