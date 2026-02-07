@@ -41,13 +41,17 @@ function initWebSDR() {
     websdrMap = L.map('websdrMap', {
         center: [30, 0],
         zoom: 2,
+        minZoom: 2,
         zoomControl: true,
+        maxBounds: [[-85, -Infinity], [85, Infinity]],
+        maxBoundsViscosity: 1.0,
     });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 19,
+        noWrap: false,
     }).addTo(websdrMap);
 
     websdrInitialized = true;
