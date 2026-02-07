@@ -947,6 +947,17 @@ def get_tscm_bluetooth_snapshot(duration: int = 8) -> list[dict]:
     # Convert to TSCM format with tracker detection data
     tscm_devices = []
     for device in devices:
+        manufacturer_name = device.manufacturer_name
+        if (not manufacturer_name) or str(manufacturer_name).lower().startswith('unknown'):
+            if device.address and not device.is_randomized_mac:
+                try:
+                    from data.oui import get_manufacturer
+                    oui_vendor = get_manufacturer(device.address)
+                    if oui_vendor and oui_vendor != 'Unknown':
+                        manufacturer_name = oui_vendor
+                except Exception:
+                    pass
+
         device_data = {
             'mac': device.address,
             'address_type': device.address_type,
@@ -956,7 +967,7 @@ def get_tscm_bluetooth_snapshot(duration: int = 8) -> list[dict]:
             'rssi_median': device.rssi_median,
             'rssi_ema': round(device.rssi_ema, 1) if device.rssi_ema else None,
             'type': _classify_device_type(device),
-            'manufacturer': device.manufacturer_name,
+            'manufacturer': manufacturer_name,
             'manufacturer_id': device.manufacturer_id,
             'manufacturer_data': device.manufacturer_bytes.hex() if device.manufacturer_bytes else None,
             'protocol': device.protocol,
@@ -1178,6 +1189,30 @@ def _classify_device_type(device: BTDeviceAggregate) -> str:
     """Classify device type from available data."""
     name_lower = (device.name or '').lower()
     manufacturer_lower = (device.manufacturer_name or '').lower()
+    service_uuids = device.service_uuids or []
+
+    if (not manufacturer_lower) or manufacturer_lower.startswith('unknown'):
+        if device.address and not device.is_randomized_mac:
+            try:
+                from data.oui import get_manufacturer
+                oui_vendor = get_manufacturer(device.address)
+                if oui_vendor and oui_vendor != 'Unknown':
+                    manufacturer_lower = oui_vendor.lower()
+            except Exception:
+                pass
+
+    def normalize_uuid(uuid: str) -> str:
+        if not uuid:
+            return ''
+        value = str(uuid).lower().strip()
+        if value.startswith('0x'):
+            value = value[2:]
+        # Bluetooth Base UUID normalization (16-bit UUIDs)
+        if value.endswith('-0000-1000-8000-00805f9b34fb') and len(value) >= 8:
+            return value[4:8]
+        if len(value) == 4:
+            return value
+        return value
 
     # Check by name patterns
     if any(x in name_lower for x in ['airpods', 'headphone', 'earbuds', 'buds', 'beats']):
@@ -1196,6 +1231,29 @@ def _classify_device_type(device: BTDeviceAggregate) -> str:
         return 'speaker'
     if any(x in name_lower for x in ['tv', 'chromecast', 'roku', 'firestick']):
         return 'media'
+
+    # Tracker signals (metadata or Find My service)
+    if getattr(device, 'is_tracker', False) or getattr(device, 'tracker_type', None):
+        return 'tracker'
+
+    normalized_uuids = {normalize_uuid(u) for u in service_uuids if u}
+    if 'fd6f' in normalized_uuids:
+        return 'tracker'
+
+    # Service UUIDs (GATT / classic)
+    audio_uuids = {'110b', '110a', '111e', '111f', '1108', '1203'}
+    wearable_uuids = {'180d', '1814', '1816'}
+    hid_uuids = {'1812'}
+    beacon_uuids = {'feaa', 'feab', 'feb1', 'febe'}
+
+    if normalized_uuids & audio_uuids:
+        return 'audio'
+    if normalized_uuids & hid_uuids:
+        return 'peripheral'
+    if normalized_uuids & wearable_uuids:
+        return 'wearable'
+    if normalized_uuids & beacon_uuids:
+        return 'beacon'
 
     # Check by manufacturer
     if 'apple' in manufacturer_lower:

@@ -1565,6 +1565,17 @@
                             </div>
                         </div>
 
+                        <!-- WiFi Clients Panel -->
+                        <div class="tscm-panel" id="tscmWifiClientPanel">
+                            <div class="tscm-panel-header">
+                                WiFi Clients
+                                <span class="badge" id="tscmWifiClientCount">0</span>
+                            </div>
+                            <div class="tscm-panel-content" id="tscmWifiClientList">
+                                <div class="tscm-empty">Start a sweep to scan for WiFi clients</div>
+                            </div>
+                        </div>
+
                         <!-- Bluetooth Panel -->
                         <div class="tscm-panel" id="tscmBtPanel">
                             <div class="tscm-panel-header">
@@ -9779,6 +9790,7 @@
         let tscmEventSource = null;
         let tscmThreats = [];
         let tscmWifiDevices = [];
+        let tscmWifiClients = [];
         let tscmBtDevices = [];
         let tscmBaselineComparison = null;
         let tscmIdentityClusters = [];
@@ -10013,6 +10025,7 @@
                     // Reset displays
                     tscmThreats = [];
                     tscmWifiDevices = [];
+                    tscmWifiClients = [];
                     tscmBtDevices = [];
                     tscmRfSignals = [];
                     tscmRfStatusMessage = null;
@@ -10704,6 +10717,14 @@
                             }
                         });
                     }
+                    if (data.wifi_clients) {
+                        data.wifi_clients.forEach(client => {
+                            const clientMac = client.mac || client.address;
+                            if (!tscmWifiClients.find(d => (d.mac || d.address) === clientMac)) {
+                                handleTscmEvent({ type: 'wifi_client', ...client });
+                            }
+                        });
+                    }
 
                     // Process Bluetooth devices
                     if (data.bt_devices) {
@@ -10758,6 +10779,9 @@
                     break;
                 case 'wifi_device':
                     addTscmWifiDevice(data);
+                    break;
+                case 'wifi_client':
+                    addTscmWifiClient(data);
                     break;
                 case 'bt_device':
                     addTscmBtDevice(data);
@@ -10865,6 +10889,22 @@
                 const freq = device.channel <= 14 ? '2400' : '5000';
                 const strength = Math.min(5, Math.max(1, Math.ceil((device.signal + 100) / 20)));
                 SignalTimeline.addEvent(freq, strength, 2000, device.ssid || 'Hidden WiFi');
+            }
+        }
+
+        function addTscmWifiClient(client) {
+            const mac = client.mac || client.address || '';
+            if (!mac) return;
+            const exists = tscmWifiClients.some(d => (d.mac || d.address) === mac);
+            if (!exists) {
+                if (!client.mac) client.mac = mac;
+                client.is_client = true;
+                tscmWifiClients.push(client);
+                updateTscmDisplays();
+                updateTscmThreatCounts();
+                if (client.score >= 3) {
+                    addHighInterestDevice(client, 'wifi');
+                }
             }
         }
 
@@ -11067,10 +11107,12 @@
             const showRf = protocol === 'all' || protocol === 'rf';
 
             const wifiPanel = document.getElementById('tscmWifiPanel');
+            const wifiClientPanel = document.getElementById('tscmWifiClientPanel');
             const btPanel = document.getElementById('tscmBtPanel');
             const rfPanel = document.getElementById('tscmRfPanel');
 
             if (wifiPanel) wifiPanel.style.display = showWifi ? '' : 'none';
+            if (wifiClientPanel) wifiClientPanel.style.display = showWifi ? '' : 'none';
             if (btPanel) btPanel.style.display = showBt ? '' : 'none';
             if (rfPanel) rfPanel.style.display = showRf ? '' : 'none';
         }
@@ -11093,13 +11135,15 @@
 
         function getFilteredDevices(options = {}) {
             const wifi = tscmWifiDevices.filter(d => matchesTscmFilters(d, 'wifi', options));
+            const wifi_clients = tscmWifiClients.filter(d => matchesTscmFilters(d, 'wifi', options));
             const bt = tscmBtDevices.filter(d => matchesTscmFilters(d, 'bluetooth', options));
             const rf = tscmRfSignals.filter(d => matchesTscmFilters(d, 'rf', options));
             return {
                 wifi,
+                wifi_clients,
                 bt,
                 rf,
-                all: [...wifi, ...bt, ...rf],
+                all: [...wifi, ...wifi_clients, ...bt, ...rf],
             };
         }
 
@@ -11165,6 +11209,18 @@
             return indicators.map(i => `<span class="indicator-tag">${escapeHtml(i.desc || i.type)}</span>`).join(' ');
         }
 
+        function getTrackerLabel(device) {
+            if (!device) return null;
+            return (device.tracker && (device.tracker.name || device.tracker.type)) ||
+                device.tracker_type || device.tracker_name || null;
+        }
+
+        function formatTrackerBadge(device) {
+            const label = getTrackerLabel(device);
+            if (!label) return '';
+            return `<span class="tracker-badge" title="Tracker">${escapeHtml(label)}</span>`;
+        }
+
         function getScoreBadge(score) {
             if (score === undefined || score === null) return '';
             let scoreClass = 'score-low';
@@ -11177,6 +11233,7 @@
         function getAllTscmDevices() {
             const devices = {};
             tscmWifiDevices.forEach(d => { devices[`wifi:${d.bssid}`] = { ...d, protocol: 'wifi' }; });
+            tscmWifiClients.forEach(d => { devices[`wifi:${d.mac}`] = { ...d, protocol: 'wifi' }; });
             tscmBtDevices.forEach(d => { devices[`bluetooth:${d.mac}`] = { ...d, protocol: 'bluetooth' }; });
             tscmRfSignals.forEach(d => { devices[`rf:${d.frequency}`] = { ...d, protocol: 'rf' }; });
             return devices;
@@ -11220,18 +11277,32 @@
 
             // Add device-specific fields
             if (protocol === 'wifi') {
-                html += `
-                    <tr><td>BSSID</td><td>${device.bssid || 'Unknown'}</td></tr>
-                    <tr><td>SSID</td><td>${escapeHtml(device.ssid || '[Hidden]')}</td></tr>
-                    <tr><td>Channel</td><td>${device.channel || 'Unknown'}</td></tr>
-                    <tr><td>Signal</td><td>${device.signal || '--'} dBm</td></tr>
-                    <tr><td>Security</td><td>${device.security || 'Unknown'}</td></tr>
-                `;
+                if (device.is_client) {
+                    html += `
+                        <tr><td>Client MAC</td><td>${device.mac || 'Unknown'}</td></tr>
+                        <tr><td>Vendor</td><td>${escapeHtml(device.vendor || 'Unknown')}</td></tr>
+                        <tr><td>RSSI</td><td>${device.rssi || '--'} dBm</td></tr>
+                        <tr><td>Associated BSSID</td><td>${device.associated_bssid || 'Unassociated'}</td></tr>
+                        <tr><td>Probed SSIDs</td><td>${device.probe_count || (device.probed_ssids ? device.probed_ssids.length : 0)}</td></tr>
+                    `;
+                } else {
+                    html += `
+                        <tr><td>BSSID</td><td>${device.bssid || 'Unknown'}</td></tr>
+                        <tr><td>SSID</td><td>${escapeHtml(device.ssid || '[Hidden]')}</td></tr>
+                        <tr><td>Vendor</td><td>${escapeHtml(device.vendor || 'Unknown')}</td></tr>
+                        <tr><td>Channel</td><td>${device.channel || 'Unknown'}</td></tr>
+                        <tr><td>Signal</td><td>${device.signal || '--'} dBm</td></tr>
+                        <tr><td>Security</td><td>${device.security || 'Unknown'}</td></tr>
+                    `;
+                }
             } else if (protocol === 'bluetooth') {
+                const trackerLabel = getTrackerLabel(device);
                 html += `
                     <tr><td>MAC Address</td><td>${device.mac || 'Unknown'}</td></tr>
                     <tr><td>Name</td><td>${escapeHtml(device.name || 'Unknown')}</td></tr>
                     <tr><td>Type</td><td>${device.device_type || 'Unknown'}</td></tr>
+                    <tr><td>Manufacturer</td><td>${escapeHtml(device.manufacturer || 'Unknown')}</td></tr>
+                    <tr><td>Tracker</td><td>${trackerLabel ? escapeHtml(trackerLabel) : 'No'}</td></tr>
                     <tr><td>RSSI</td><td>${device.rssi || '--'} dBm</td></tr>
                     <tr><td>Audio Capable</td><td>${device.is_audio_capable ? 'Yes' : 'No'}</td></tr>
                 `;
@@ -11564,6 +11635,8 @@
                         <tr><td>Name</td><td>${escapeHtml(profile.name || 'N/A')}</td></tr>
                         <tr><td>Manufacturer</td><td>${escapeHtml(profile.manufacturer || 'N/A')}</td></tr>
                         <tr><td>Device Type</td><td>${escapeHtml(profile.device_type || 'N/A')}</td></tr>
+                        ${(profile.tracker_name || profile.tracker_type) ? `<tr><td>Tracker</td><td>${escapeHtml(profile.tracker_name || profile.tracker_type)}</td></tr>` : ''}
+                        ${profile.tracker_confidence ? `<tr><td>Tracker Confidence</td><td>${escapeHtml(profile.tracker_confidence)}</td></tr>` : ''}
                         <tr><td>First Seen</td><td>${profile.first_seen ? new Date(profile.first_seen).toLocaleString() : 'N/A'}</td></tr>
                         <tr><td>Last Seen</td><td>${profile.last_seen ? new Date(profile.last_seen).toLocaleString() : 'N/A'}</td></tr>
                         <tr><td>Detections</td><td>${profile.detection_count || 0}</td></tr>
@@ -11896,6 +11969,14 @@
             if (protocol === 'wifi') {
                 const section = document.getElementById('tscmWifiAdvancedSection');
                 if (!section) return;
+
+                if (device && device.is_client) {
+                    section.innerHTML = `
+                        <h4>WiFi Advanced Indicators</h4>
+                        <div class="tscm-empty">Client devices do not have AP indicators.</div>
+                    `;
+                    return;
+                }
 
                 try {
                     const payload = {
@@ -12341,7 +12422,7 @@
                         <div class="tscm-device-meta">
                             <span>${d.bssid}</span>
                             <span>${d.signal || '--'} dBm</span>
-                            <span>${d.security || 'Open'}</span>
+                            <span>${escapeHtml(d.vendor || 'Unknown')} • ${escapeHtml(d.security || 'Open')}</span>
                         </div>
                         ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
                         ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
@@ -12349,6 +12430,35 @@
                 `).join('');
             }
             document.getElementById('tscmWifiCount').textContent = filtered.wifi.length;
+
+            // Update WiFi clients list
+            const wifiClientList = document.getElementById('tscmWifiClientList');
+            if (filtered.wifi_clients.length === 0) {
+                wifiClientList.innerHTML = `<div class="tscm-empty">${filtersActive ? 'No WiFi clients match filters' : 'No WiFi clients detected'}</div>`;
+            } else {
+                const sortedClients = [...filtered.wifi_clients].sort((a, b) => (b.score || 0) - (a.score || 0));
+                wifiClientList.innerHTML = sortedClients.map(c => `
+                    <div class="tscm-device-item ${getClassificationClass(c.classification)}" onclick="showDeviceDetails('${c.mac}', 'wifi')">
+                        <div class="tscm-device-header">
+                            <div class="tscm-device-name">
+                                <span class="classification-indicator">${getClassificationIcon(c.classification)}</span>
+                                ${escapeHtml(c.vendor || 'WiFi Client')}
+                                <span class="client-badge" title="WiFi client">CLIENT</span>
+                                ${c.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
+                            </div>
+                            ${getScoreBadge(c.score)}
+                        </div>
+                        <div class="tscm-device-meta">
+                            <span>${c.mac}</span>
+                            <span>${c.rssi || '--'} dBm</span>
+                            <span>${c.associated_bssid ? `Assoc: ${c.associated_bssid}` : `Probes: ${c.probe_count || 0}`}</span>
+                        </div>
+                        ${c.indicators && c.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(c.indicators)}</div>` : ''}
+                        ${c.recommended_action && c.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${c.recommended_action}</div>` : ''}
+                    </div>
+                `).join('');
+            }
+            document.getElementById('tscmWifiClientCount').textContent = filtered.wifi_clients.length;
 
             // Update BT list
             const btList = document.getElementById('tscmBtList');
@@ -12364,6 +12474,7 @@
                                 <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
                                 ${escapeHtml(d.name || 'Unknown')}
                                 ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">AUDIO</span>' : ''}
+                                ${formatTrackerBadge(d)}
                                 ${d.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(d.score)}
@@ -12371,7 +12482,7 @@
                         <div class="tscm-device-meta">
                             <span>${d.mac}</span>
                             <span>${d.rssi || '--'} dBm</span>
-                            <span>${d.device_type || 'Unknown'}</span>
+                            <span>${escapeHtml([d.device_type, d.manufacturer].filter(Boolean).join(' • ') || 'Unknown')}</span>
                         </div>
                         ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
                         ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
@@ -12535,6 +12646,10 @@
                 const identityClusters = data.identity_clusters || (tscmIdentitySummary ? tscmIdentitySummary.total : 0);
                 const baselineNew = data.baseline_new_devices || 0;
                 const baselineMissing = data.baseline_missing_devices || 0;
+                const wifiCount = data.wifi_count ?? tscmWifiDevices.length;
+                const wifiClientCount = data.wifi_client_count ?? tscmWifiClients.length;
+                const btCount = data.bt_count ?? tscmBtDevices.length;
+                const rfCount = data.rf_count ?? tscmRfSignals.length;
 
                 let assessment = 'BASELINE ENVIRONMENT';
                 let assessmentClass = 'informational';
@@ -12573,6 +12688,9 @@
                             <div class="label">Baseline Delta</div>
                         </div>
                         ` : ''}
+                    </div>
+                    <div class="tscm-summary-meta" style="margin-top: 8px; font-size: 10px; color: var(--text-muted);">
+                        Devices: ${wifiCount} WiFi AP • ${wifiClientCount} WiFi Clients • ${btCount} BT • ${rfCount} RF
                     </div>
                     <div class="tscm-assessment ${assessmentClass}">
                         <strong>Assessment:</strong> ${assessment}

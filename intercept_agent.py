@@ -843,6 +843,7 @@ class ModeManager:
                 'anomalies': getattr(self, 'tscm_anomalies', []),
                 'baseline': getattr(self, 'tscm_baseline', {}),
                 'wifi_devices': list(self.wifi_networks.values()),
+                'wifi_clients': list(getattr(self, 'tscm_wifi_clients', {}).values()),
                 'bt_devices': list(self.bluetooth_devices.values()),
                 'rf_signals': getattr(self, 'tscm_rf_signals', []),
             }
@@ -1116,6 +1117,7 @@ class ModeManager:
             self.tscm_anomalies = []
             self.tscm_baseline = {}
             self.tscm_rf_signals = []
+            self.tscm_wifi_clients = {}
             # Clear reported threat tracking sets
             if hasattr(self, '_tscm_reported_wifi'):
                 self._tscm_reported_wifi.clear()
@@ -3113,7 +3115,10 @@ class ModeManager:
             self.tscm_anomalies = []
         if not hasattr(self, 'tscm_rf_signals'):
             self.tscm_rf_signals = []
+        if not hasattr(self, 'tscm_wifi_clients'):
+            self.tscm_wifi_clients = {}
         self.tscm_anomalies.clear()
+        self.tscm_wifi_clients.clear()
 
         # Get params for what to scan
         scan_wifi = params.get('wifi', True)
@@ -3168,7 +3173,7 @@ class ModeManager:
         stop_event = self.stop_events.get(mode)
 
         # Import existing Intercept TSCM functions
-        from routes.tscm import _scan_wifi_networks, _scan_bluetooth_devices, _scan_rf_signals
+        from routes.tscm import _scan_wifi_networks, _scan_wifi_clients, _scan_bluetooth_devices, _scan_rf_signals
         logger.info("TSCM imports successful")
 
         sweep_ranges = None
@@ -3203,6 +3208,7 @@ class ModeManager:
 
         # Track devices seen during this sweep (like local mode's all_wifi/all_bt dicts)
         seen_wifi = {}
+        seen_wifi_clients = {}
         seen_bt = {}
 
         last_rf_scan = 0
@@ -3263,6 +3269,47 @@ class ModeManager:
                                     enriched['recommended_action'] = profile.recommended_action
 
                                 self.wifi_networks[bssid] = enriched
+
+                        # WiFi clients (monitor mode only)
+                        try:
+                            wifi_clients = _scan_wifi_clients(wifi_interface or '')
+                            for client in wifi_clients:
+                                mac = (client.get('mac') or '').upper()
+                                if not mac or mac in seen_wifi_clients:
+                                    continue
+                                seen_wifi_clients[mac] = client
+
+                                rssi_val = client.get('rssi_current')
+                                if rssi_val is None:
+                                    rssi_val = client.get('rssi_median') or client.get('rssi_ema')
+
+                                client_device = {
+                                    'mac': mac,
+                                    'vendor': client.get('vendor'),
+                                    'name': client.get('vendor') or 'WiFi Client',
+                                    'rssi': rssi_val,
+                                    'associated_bssid': client.get('associated_bssid'),
+                                    'probed_ssids': client.get('probed_ssids', []),
+                                    'probe_count': client.get('probe_count', len(client.get('probed_ssids', []))),
+                                    'is_client': True,
+                                }
+
+                                if self._tscm_correlation:
+                                    profile = self._tscm_correlation.analyze_wifi_device(client_device)
+                                    client_device['classification'] = profile.risk_level.value
+                                    client_device['score'] = profile.total_score
+                                    client_device['score_modifier'] = profile.score_modifier
+                                    client_device['known_device'] = profile.known_device
+                                    client_device['known_device_name'] = profile.known_device_name
+                                    client_device['indicators'] = [
+                                        {'type': i.type.value, 'desc': i.description}
+                                        for i in profile.indicators
+                                    ]
+                                    client_device['recommended_action'] = profile.recommended_action
+
+                                self.tscm_wifi_clients[mac] = client_device
+                        except Exception as e:
+                            logger.debug(f"WiFi client scan error: {e}")
                     except Exception as e:
                         logger.debug(f"WiFi scan error: {e}")
 

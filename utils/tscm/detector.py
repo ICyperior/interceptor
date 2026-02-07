@@ -479,6 +479,7 @@ class ThreatDetector:
         manufacturer = device.get('manufacturer', '')
         device_type = device.get('type', '')
         manufacturer_data = device.get('manufacturer_data')
+        tracker_data = device.get('tracker', {}) or {}
 
         threats = []
 
@@ -490,7 +491,20 @@ class ThreatDetector:
                 'reason': 'Device not present in baseline',
             })
 
-        # Check for known trackers
+        # Check for known trackers (v2 tracker data if available)
+        if tracker_data.get('is_tracker'):
+            tracker_label = tracker_data.get('name') or tracker_data.get('type') or 'Tracker'
+            confidence = str(tracker_data.get('confidence') or '').lower()
+            severity = 'high' if confidence in ('high', 'medium') else 'medium'
+            threats.append({
+                'type': 'tracker',
+                'severity': severity,
+                'reason': f"Tracker detected: {tracker_label}",
+                'tracker_type': tracker_label,
+                'details': tracker_data.get('evidence', []),
+            })
+
+        # Check for known trackers (legacy patterns)
         tracker_info = is_known_tracker(name, manufacturer_data)
         if tracker_info:
             threats.append({
