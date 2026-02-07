@@ -31,13 +31,17 @@ Support the developer of this open-source project
 - **Aircraft Tracking** - ADS-B via dump1090 with real-time map and radar
 - **Vessel Tracking** - AIS ship tracking with VHF DSC distress monitoring
 - **ACARS Messaging** - Aircraft datalink messages via acarsdec
+- **DMR Digital Voice** - DMR/P25/NXDN/D-STAR decoding via dsd-fme with visual synthesizer
 - **Listening Post** - Frequency scanner with audio monitoring
 - **Weather Satellites** - NOAA APT and Meteor LRPT image decoding via SatDump
+- **WebSDR** - Remote HF/shortwave listening via WebSDR servers
 - **ISS SSTV** - Slow-scan TV image reception from the International Space Station
+- **HF SSTV** - Terrestrial SSTV on shortwave frequencies
 - **Satellite Tracking** - Pass prediction using TLE data
 - **ADS-B History** - Persistent aircraft history with reporting dashboard (Postgres optional)
 - **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
 - **Bluetooth Scanning** - Device discovery and tracker detection (with Ubertooth support)
+- **TSCM** - Counter-surveillance with RF baseline comparison and threat detection
 - **Meshtastic** - LoRa mesh network integration
 - **Spy Stations** - Number stations and diplomatic HF network database
 - **Remote Agents** - Distributed SIGINT with remote sensor nodes

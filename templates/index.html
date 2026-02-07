@@ -45,6 +45,8 @@
     {% else %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     {% endif %}
+    <!-- Chart.js date adapter for time-scale axes -->
+    <script src="{{ url_for('static', filename='vendor/chartjs/chartjs-adapter-date-fns.bundle.min.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
@@ -60,6 +62,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/meshtastic.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/weather-satellite.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv-general.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
 </head>
@@ -186,6 +189,14 @@
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span>
                                 <span class="mode-name">Meshtastic</span>
                             </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('dmr')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></span>
+                                <span class="mode-name">Digital Voice</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('websdr')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                                <span class="mode-name">WebSDR</span>
+                            </button>
                         </div>
                     </div>
 
@@ -230,6 +241,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('weathersat')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                                 <span class="mode-name">Weather Sat</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('sstv_general')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span>
+                                <span class="mode-name">HF SSTV</span>
                             </button>
                         </div>
                     </div>
@@ -515,6 +530,8 @@
 
                 {% include 'partials/modes/weather-satellite.html' %}
 
+                {% include 'partials/modes/sstv-general.html' %}
+
                 {% include 'partials/modes/listening-post.html' %}
 
                 {% include 'partials/modes/tscm.html' %}
@@ -524,6 +541,10 @@
                 {% include 'partials/modes/spy-stations.html' %}
 
                 {% include 'partials/modes/meshtastic.html' %}
+
+                {% include 'partials/modes/dmr.html' %}
+
+                {% include 'partials/modes/websdr.html' %}
 
                 <button class="preset-btn" onclick="killAll()"
                     style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
@@ -794,7 +815,8 @@
                                         <div class="bt-detail-services" id="btDetailServices" style="display: none;">
                                             <span class="bt-detail-services-list" id="btDetailServicesList"></span>
                                         </div>
-                                        <button class="bt-detail-btn" onclick="BluetoothMode.copyAddress()">Copy</button>
+                                        <button class="bt-detail-btn" id="btDetailWatchBtn" onclick="BluetoothMode.toggleWatchlist()">Watchlist</button>
+                                        <button class="bt-detail-btn" id="btDetailCopyBtn" onclick="BluetoothMode.copyAddress()">Copy</button>
                                     </div>
                                 </div>
                             </div>
@@ -1381,6 +1403,16 @@
                     <div class="radio-module-box" style="grid-column: span 4; padding: 10px;">
                         <div id="listeningPostTimelineContainer"></div>
                     </div>
+
+                    <!-- WATERFALL / SPECTROGRAM PANEL -->
+                    <div id="waterfallPanel" class="radio-module-box" style="grid-column: span 4; padding: 10px; display: none;">
+                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
+                            <span>WATERFALL / SPECTROGRAM</span>
+                            <span id="waterfallFreqRange" style="font-size: 9px; color: var(--accent-cyan);"></span>
+                        </div>
+                        <canvas id="spectrumCanvas" width="800" height="120" style="width: 100%; height: 120px; border-radius: 4px; background: rgba(0,0,0,0.8);"></canvas>
+                        <canvas id="waterfallCanvas" width="800" height="400" style="width: 100%; height: 400px; border-radius: 4px; margin-top: 4px; background: rgba(0,0,0,0.9);"></canvas>
+                    </div>
                 </div>
 
                 <!-- Satellite Dashboard (Embedded) -->
@@ -1543,6 +1575,17 @@
                             </div>
                         </div>
 
+                        <!-- WiFi Clients Panel -->
+                        <div class="tscm-panel" id="tscmWifiClientPanel">
+                            <div class="tscm-panel-header">
+                                WiFi Clients
+                                <span class="badge" id="tscmWifiClientCount">0</span>
+                            </div>
+                            <div class="tscm-panel-content" id="tscmWifiClientList">
+                                <div class="tscm-empty">Start a sweep to scan for WiFi clients</div>
+                            </div>
+                        </div>
+
                         <!-- Bluetooth Panel -->
                         <div class="tscm-panel" id="tscmBtPanel">
                             <div class="tscm-panel-header">
@@ -1575,6 +1618,138 @@
                                 <div class="tscm-empty">
                                     <div class="tscm-empty-primary">No anomalies detected</div>
                                     <div class="tscm-empty-secondary">Start a sweep to scan for signals of interest</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device Timelines Overview -->
+                    <div class="tscm-panel" id="tscmDeviceTimelinesPanel" style="margin-top: 12px;">
+                        <div class="tscm-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            Device Timelines
+                            <button class="preset-btn" onclick="loadDeviceTimelines()" style="font-size: 9px; padding: 3px 8px;">Refresh</button>
+                        </div>
+                        <div class="tscm-panel-content" id="tscmDeviceTimelinesList">
+                            <div class="tscm-empty">Run a sweep to see device timelines</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DMR / Digital Voice Dashboard -->
+                <div id="dmrVisuals" style="display: none; padding: 12px; flex-direction: column; gap: 12px; flex: 1; min-height: 0;">
+                    <!-- DMR Synthesizer -->
+                    <div class="radio-module-box" style="padding: 10px;">
+                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px;">
+                            <span>SIGNAL ACTIVITY</span>
+                            <span id="dmrSynthStatus" style="color: var(--text-muted); font-size: 9px; font-family: var(--font-mono);">IDLE</span>
+                        </div>
+                        <canvas id="dmrSynthCanvas" style="width: 100%; height: 70px; background: rgba(0,0,0,0.4); border-radius: 4px; display: block;"></canvas>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <!-- Call History Panel -->
+                        <div class="radio-module-box" style="padding: 10px;">
+                            <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
+                                <span>CALL HISTORY</span>
+                                <span id="dmrHistoryCount" style="color: var(--accent-cyan);">0 calls</span>
+                            </div>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
+                                            <th style="text-align: left; padding: 4px;">Time</th>
+                                            <th style="text-align: left; padding: 4px;">Talkgroup</th>
+                                            <th style="text-align: left; padding: 4px;">Source</th>
+                                            <th style="text-align: left; padding: 4px;">Protocol</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dmrHistoryBody">
+                                        <tr><td colspan="4" style="padding: 15px; text-align: center; color: var(--text-muted);">No calls recorded</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- Protocol Info Panel -->
+                        <div class="radio-module-box" style="padding: 10px;">
+                            <div class="module-header" style="margin-bottom: 8px; font-size: 10px;">
+                                <span>DECODER STATUS</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 12px; padding: 10px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">PROTOCOL</div>
+                                    <div id="dmrMainProtocol" style="font-size: 28px; font-weight: bold; color: var(--accent-cyan); font-family: var(--font-mono);">--</div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                    <div style="text-align: center; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px;">
+                                        <div style="font-size: 9px; color: var(--text-muted);">CALLS</div>
+                                        <div id="dmrMainCallCount" style="font-size: 22px; font-weight: bold; color: var(--accent-green); font-family: var(--font-mono);">0</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px;">
+                                        <div style="font-size: 9px; color: var(--text-muted);">SYNCS</div>
+                                        <div id="dmrSyncCount" style="font-size: 22px; font-weight: bold; color: var(--accent-orange); font-family: var(--font-mono);">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WebSDR Dashboard -->
+                <div id="websdrVisuals" style="display: none; padding: 12px; flex-direction: column; gap: 12px; flex: 1; min-height: 0; overflow: hidden;">
+                    <!-- Audio Control Bar (hidden until connected) -->
+                    <div id="kiwiAudioControls" class="radio-module-box" style="display: none; padding: 8px 12px; flex-shrink: 0;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <!-- Live indicator -->
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <div id="kiwiLiveIndicator" style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); animation: pulse 1.5s infinite;"></div>
+                                <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">LIVE</span>
+                            </div>
+                            <!-- Receiver name -->
+                            <span id="kiwiBarReceiverName" style="font-size: 11px; color: var(--accent-cyan); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                            <!-- Frequency input -->
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <input type="number" id="kiwiBarFrequency" step="1" style="width: 80px; font-size: 12px; font-family: var(--font-mono); padding: 2px 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">
+                                <span style="font-size: 10px; color: var(--text-muted);">kHz</span>
+                            </div>
+                            <!-- Mode selector -->
+                            <select id="kiwiBarMode" style="font-size: 11px; padding: 2px 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">
+                                <option value="am">AM</option>
+                                <option value="usb">USB</option>
+                                <option value="lsb">LSB</option>
+                                <option value="cw">CW</option>
+                            </select>
+                            <!-- Tune button -->
+                            <button class="preset-btn" onclick="tuneFromBar()" style="font-size: 10px; padding: 3px 10px;">Tune</button>
+                            <!-- Volume -->
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span style="font-size: 10px; color: var(--text-muted);">VOL</span>
+                                <input type="range" id="kiwiBarVolume" min="0" max="100" value="80" style="width: 60px;" oninput="setKiwiVolume(this.value)">
+                            </div>
+                            <!-- S-meter mini -->
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <div style="width: 50px; height: 6px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden;">
+                                    <div id="kiwiBarSmeter" style="height: 100%; width: 0%; background: linear-gradient(to right, var(--accent-green), var(--accent-orange)); transition: width 0.2s; border-radius: 3px;"></div>
+                                </div>
+                                <span id="kiwiBarSmeterValue" style="font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); min-width: 20px;">S0</span>
+                            </div>
+                            <!-- Disconnect -->
+                            <button class="stop-btn" onclick="disconnectFromReceiver()" style="font-size: 10px; padding: 3px 10px; margin-left: auto;">Disconnect</button>
+                        </div>
+                    </div>
+                    <!-- Map and receiver list side by side -->
+                    <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 12px; flex: 1; min-height: 0; overflow: hidden;">
+                        <!-- Map -->
+                        <div class="radio-module-box" style="padding: 0; overflow: hidden; position: relative; min-height: 0;">
+                            <div id="websdrMap" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></div>
+                        </div>
+                        <!-- Receiver List -->
+                        <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; overflow: hidden;">
+                            <div class="radio-module-box" style="padding: 10px; flex: 1; overflow-y: auto; min-height: 0;">
+                                <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
+                                    <span>RECEIVERS</span>
+                                    <span id="websdrReceiverCount" style="color: var(--accent-cyan);">0 found</span>
+                                </div>
+                                <div id="websdrReceiverList" style="font-size: 11px;">
+                                    <div style="color: var(--text-muted); text-align: center; padding: 20px;">Click "Find Receivers" to search</div>
                                 </div>
                             </div>
                         </div>
@@ -1873,7 +2048,10 @@
                                     </svg>
                                     Decoded Images
                                 </div>
-                                <span class="sstv-gallery-count" id="sstvImageCount">0</span>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <span class="sstv-gallery-count" id="sstvImageCount">0</span>
+                                    <button class="sstv-gallery-clear-btn" onclick="SSTV.deleteAllImages()" title="Delete all images">Clear All</button>
+                                </div>
                             </div>
                             <div class="sstv-gallery-grid" id="sstvGallery">
                                 <div class="sstv-gallery-empty">
@@ -2050,6 +2228,91 @@
                     </div>
                 </div>
 
+                <!-- SSTV General Decoder Dashboard -->
+                <div id="sstvGeneralVisuals" class="sstv-general-visuals-container" style="display: none;">
+                    <!-- Status Strip -->
+                    <div class="sstv-general-stats-strip">
+                        <div class="sstv-general-strip-group">
+                            <div class="sstv-general-strip-status">
+                                <span class="sstv-general-strip-dot idle" id="sstvGeneralStripDot"></span>
+                                <span class="sstv-general-strip-status-text" id="sstvGeneralStripStatus">Idle</span>
+                            </div>
+                            <button class="sstv-general-strip-btn start" id="sstvGeneralStartBtn" onclick="SSTVGeneral.start()">Start</button>
+                            <button class="sstv-general-strip-btn stop" id="sstvGeneralStopBtn" onclick="SSTVGeneral.stop()" style="display: none;">Stop</button>
+                        </div>
+                        <div class="sstv-general-strip-divider"></div>
+                        <div class="sstv-general-strip-group">
+                            <div class="sstv-general-strip-stat">
+                                <span class="sstv-general-strip-value accent-cyan" id="sstvGeneralStripFreq">14.230</span>
+                                <span class="sstv-general-strip-label">MHZ</span>
+                            </div>
+                            <div class="sstv-general-strip-stat">
+                                <span class="sstv-general-strip-value" id="sstvGeneralStripMod">USB</span>
+                                <span class="sstv-general-strip-label">MOD</span>
+                            </div>
+                            <div class="sstv-general-strip-stat">
+                                <span class="sstv-general-strip-value" id="sstvGeneralStripImageCount">0</span>
+                                <span class="sstv-general-strip-label">IMAGES</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Row (Live + Gallery) -->
+                    <div class="sstv-general-main-row">
+                        <!-- Live Decode Section -->
+                        <div class="sstv-general-live-section">
+                            <div class="sstv-general-live-header">
+                                <div class="sstv-general-live-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                    Live Decode
+                                </div>
+                            </div>
+                            <div class="sstv-general-live-content" id="sstvGeneralLiveContent">
+                                <div class="sstv-general-idle-state">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                        <path d="M3 9h2M19 9h2M3 15h2M19 15h2"/>
+                                    </svg>
+                                    <h4>SSTV Decoder</h4>
+                                    <p>Select a frequency and click Start to listen for SSTV transmissions</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gallery Section -->
+                        <div class="sstv-general-gallery-section">
+                            <div class="sstv-general-gallery-header">
+                                <div class="sstv-general-gallery-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    Decoded Images
+                                </div>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <span class="sstv-general-gallery-count" id="sstvGeneralImageCount">0</span>
+                                    <button class="sstv-general-gallery-clear-btn" onclick="SSTVGeneral.deleteAllImages()" title="Delete all images">Clear All</button>
+                                </div>
+                            </div>
+                            <div class="sstv-general-gallery-grid" id="sstvGeneralGallery">
+                                <div class="sstv-general-gallery-empty">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <p>No images decoded yet</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
                 <div class="recon-panel collapsed" id="reconPanel">
                     <div class="recon-header" onclick="toggleReconCollapse()" style="cursor: pointer;">
@@ -2138,6 +2401,9 @@
     <script src="{{ url_for('static', filename='js/modes/meshtastic.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/sstv.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/weather-satellite.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/sstv-general.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/dmr.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
 
     <script>
         // ============================================
@@ -2273,7 +2539,7 @@
         const validModes = new Set([
             'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
             'spystations', 'meshtastic', 'wifi', 'bluetooth',
-            'tscm', 'satellite', 'sstv', 'weathersat'
+            'tscm', 'satellite', 'sstv', 'weathersat', 'sstv_general', 'dmr', 'websdr'
         ]);
 
         function getModeFromQuery() {
@@ -2695,7 +2961,7 @@
                 'tscm': 'security',
                 'rtlamr': 'sdr', 'ais': 'sdr', 'spystations': 'sdr',
                 'meshtastic': 'sdr',
-                'satellite': 'space', 'sstv': 'space', 'weathersat': 'space'
+                'satellite': 'space', 'sstv': 'space', 'weathersat': 'space', 'sstv_general': 'space'
             };
 
             // Remove has-active from all dropdowns
@@ -2764,7 +3030,8 @@
             const modeMap = {
                 'pager': 'pager', 'sensor': '433',
                 'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth',
-                'listening': 'listening', 'aprs': 'aprs', 'tscm': 'tscm', 'meshtastic': 'meshtastic'
+                'listening': 'listening', 'aprs': 'aprs', 'tscm': 'tscm', 'meshtastic': 'meshtastic',
+                'dmr': 'dmr', 'websdr': 'websdr', 'sstv_general': 'hf sstv'
             };
             document.querySelectorAll('.mode-nav-btn').forEach(btn => {
                 const label = btn.querySelector('.nav-label');
@@ -2778,6 +3045,7 @@
             document.getElementById('satelliteMode')?.classList.toggle('active', mode === 'satellite');
             document.getElementById('sstvMode')?.classList.toggle('active', mode === 'sstv');
             document.getElementById('weatherSatMode')?.classList.toggle('active', mode === 'weathersat');
+            document.getElementById('sstvGeneralMode')?.classList.toggle('active', mode === 'sstv_general');
             document.getElementById('wifiMode')?.classList.toggle('active', mode === 'wifi');
             document.getElementById('bluetoothMode')?.classList.toggle('active', mode === 'bluetooth');
             document.getElementById('listeningPostMode')?.classList.toggle('active', mode === 'listening');
@@ -2786,6 +3054,8 @@
             document.getElementById('aisMode')?.classList.toggle('active', mode === 'ais');
             document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
             document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
+            document.getElementById('dmrMode')?.classList.toggle('active', mode === 'dmr');
+            document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
             const pagerStats = document.getElementById('pagerStats');
             const sensorStats = document.getElementById('sensorStats');
             const satelliteStats = document.getElementById('satelliteStats');
@@ -2813,6 +3083,7 @@
                 'satellite': 'SATELLITE',
                 'sstv': 'ISS SSTV',
                 'weathersat': 'WEATHER SAT',
+                'sstv_general': 'HF SSTV',
                 'wifi': 'WIFI',
                 'bluetooth': 'BLUETOOTH',
                 'listening': 'LISTENING POST',
@@ -2820,7 +3091,9 @@
                 'tscm': 'TSCM',
                 'ais': 'AIS VESSELS',
                 'spystations': 'SPY STATIONS',
-                'meshtastic': 'MESHTASTIC'
+                'meshtastic': 'MESHTASTIC',
+                'dmr': 'DIGITAL VOICE',
+                'websdr': 'WEBSDR'
             };
             const activeModeIndicator = document.getElementById('activeModeIndicator');
             if (activeModeIndicator) activeModeIndicator.innerHTML = '<span class="pulse-dot"></span>' + (modeNames[mode] || mode.toUpperCase());
@@ -2834,6 +3107,9 @@
             const meshtasticVisuals = document.getElementById('meshtasticVisuals');
             const sstvVisuals = document.getElementById('sstvVisuals');
             const weatherSatVisuals = document.getElementById('weatherSatVisuals');
+            const sstvGeneralVisuals = document.getElementById('sstvGeneralVisuals');
+            const dmrVisuals = document.getElementById('dmrVisuals');
+            const websdrVisuals = document.getElementById('websdrVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -2844,6 +3120,9 @@
             if (meshtasticVisuals) meshtasticVisuals.style.display = mode === 'meshtastic' ? 'flex' : 'none';
             if (sstvVisuals) sstvVisuals.style.display = mode === 'sstv' ? 'flex' : 'none';
             if (weatherSatVisuals) weatherSatVisuals.style.display = mode === 'weathersat' ? 'flex' : 'none';
+            if (sstvGeneralVisuals) sstvGeneralVisuals.style.display = mode === 'sstv_general' ? 'flex' : 'none';
+            if (dmrVisuals) dmrVisuals.style.display = mode === 'dmr' ? 'flex' : 'none';
+            if (websdrVisuals) websdrVisuals.style.display = mode === 'websdr' ? 'flex' : 'none';
 
             // Hide sidebar by default for Meshtastic mode, show for others
             const mainContent = document.querySelector('.main-content');
@@ -2869,6 +3148,7 @@
                 'satellite': 'Satellite Monitor',
                 'sstv': 'ISS SSTV Decoder',
                 'weathersat': 'Weather Satellite Decoder',
+                'sstv_general': 'HF SSTV Decoder',
                 'wifi': 'WiFi Scanner',
                 'bluetooth': 'Bluetooth Scanner',
                 'listening': 'Listening Post',
@@ -2876,7 +3156,9 @@
                 'tscm': 'TSCM Counter-Surveillance',
                 'ais': 'AIS Vessel Tracker',
                 'spystations': 'Spy Stations',
-                'meshtastic': 'Meshtastic Mesh Monitor'
+                'meshtastic': 'Meshtastic Mesh Monitor',
+                'dmr': 'Digital Voice Decoder',
+                'websdr': 'HF/Shortwave WebSDR'
             };
             const outputTitle = document.getElementById('outputTitle');
             if (outputTitle) outputTitle.textContent = titles[mode] || 'Signal Monitor';
@@ -2894,7 +3176,7 @@
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -2914,7 +3196,7 @@
 
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
-            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat') ? 'block' : 'none';
+            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'dmr') ? 'block' : 'none';
 
             // Toggle mode-specific tool status displays
             const toolStatusPager = document.getElementById('toolStatusPager');
@@ -2925,8 +3207,8 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic') ? 'none' : 'block';
-            if (statusBar) statusBar.style.display = (mode === 'satellite') ? 'none' : 'flex';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr') ? 'none' : 'block';
+            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'dmr') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
             if (mode !== 'meshtastic') {
@@ -2978,6 +3260,13 @@
                 setTimeout(() => {
                     WeatherSat.invalidateMap();
                 }, 100);
+            } else if (mode === 'sstv_general') {
+                SSTVGeneral.init();
+            } else if (mode === 'dmr') {
+                if (typeof checkDmrTools === 'function') checkDmrTools();
+                if (typeof initDmrSynthesizer === 'function') setTimeout(initDmrSynthesizer, 100);
+            } else if (mode === 'websdr') {
+                if (typeof initWebSDR === 'function') initWebSDR();
             }
         }
 
@@ -5951,11 +6240,44 @@
                 : 'Monitor mode: <span style="color: var(--accent-red);">Inactive</span>';
         }
 
+        function getWifiChannelPresetList(preset) {
+            switch (preset) {
+                case '2.4-common':
+                    return '1,6,11';
+                case '2.4-all':
+                    return '1,2,3,4,5,6,7,8,9,10,11,12,13';
+                case '5-low':
+                    return '36,40,44,48';
+                case '5-mid':
+                    return '52,56,60,64';
+                case '5-high':
+                    return '149,153,157,161,165';
+                default:
+                    return '';
+            }
+        }
+
+        function buildWifiChannelConfig() {
+            const preset = document.getElementById('wifiChannelPreset')?.value || '';
+            const listInput = document.getElementById('wifiChannelList')?.value || '';
+            const singleInput = document.getElementById('wifiChannel')?.value || '';
+
+            const listValue = listInput.trim();
+            const presetValue = getWifiChannelPresetList(preset);
+            const channels = listValue || presetValue || '';
+            const channel = channels ? null : (singleInput.trim() ? parseInt(singleInput.trim()) : null);
+
+            return {
+                channels: channels || null,
+                channel: Number.isFinite(channel) ? channel : null,
+            };
+        }
+
         // Start WiFi scan - auto-enables monitor mode if needed
         async function startWifiScan() {
             console.log('startWifiScan called');
             const band = document.getElementById('wifiBand').value;
-            const channel = document.getElementById('wifiChannel').value;
+            const channelConfig = buildWifiChannelConfig();
 
             // Auto-enable monitor mode if not already enabled
             if (!monitorInterface) {
@@ -6017,7 +6339,8 @@
                     body: JSON.stringify({
                         interface: monitorInterface,
                         band: band,
-                        channel: channel || null
+                        channel: channelConfig.channel,
+                        channels: channelConfig.channels,
                     })
                 });
                 const scanData = await scanResp.json();
@@ -6714,7 +7037,7 @@
 
                     if (data.handshake_found) {
                         // Handshake captured!
-                        statusSpan.textContent = '✓ HANDSHAKE CAPTURED!';
+                        statusSpan.textContent = '✓ VALID HANDSHAKE CAPTURED!';
                         statusSpan.style.color = 'var(--accent-green)';
                         handshakeCount++;
                         document.getElementById('handshakeCount').textContent = handshakeCount;
@@ -6747,7 +7070,11 @@
                         activeCapture.capturedFile = data.file;
                     } else if (data.file_exists) {
                         const sizeKB = (data.file_size / 1024).toFixed(1);
-                        statusSpan.textContent = 'Capturing... (' + sizeKB + ' KB, ' + elapsedStr + ')';
+                        let extra = '';
+                        if (data.handshake_checked && data.handshake_valid === false) {
+                            extra = data.handshake_reason ? ' • ' + data.handshake_reason : ' • No valid handshake yet';
+                        }
+                        statusSpan.textContent = 'Capturing... (' + sizeKB + ' KB, ' + elapsedStr + ')' + extra;
                         statusSpan.style.color = 'var(--accent-orange)';
                     } else if (data.status === 'stopped') {
                         statusSpan.textContent = 'Capture stopped';
@@ -9683,6 +10010,7 @@
         let tscmEventSource = null;
         let tscmThreats = [];
         let tscmWifiDevices = [];
+        let tscmWifiClients = [];
         let tscmBtDevices = [];
         let tscmBaselineComparison = null;
         let tscmIdentityClusters = [];
@@ -9917,6 +10245,7 @@
                     // Reset displays
                     tscmThreats = [];
                     tscmWifiDevices = [];
+                    tscmWifiClients = [];
                     tscmBtDevices = [];
                     tscmRfSignals = [];
                     tscmRfStatusMessage = null;
@@ -10608,6 +10937,14 @@
                             }
                         });
                     }
+                    if (data.wifi_clients) {
+                        data.wifi_clients.forEach(client => {
+                            const clientMac = client.mac || client.address;
+                            if (!tscmWifiClients.find(d => (d.mac || d.address) === clientMac)) {
+                                handleTscmEvent({ type: 'wifi_client', ...client });
+                            }
+                        });
+                    }
 
                     // Process Bluetooth devices
                     if (data.bt_devices) {
@@ -10662,6 +10999,9 @@
                     break;
                 case 'wifi_device':
                     addTscmWifiDevice(data);
+                    break;
+                case 'wifi_client':
+                    addTscmWifiClient(data);
                     break;
                 case 'bt_device':
                     addTscmBtDevice(data);
@@ -10769,6 +11109,29 @@
                 const freq = device.channel <= 14 ? '2400' : '5000';
                 const strength = Math.min(5, Math.max(1, Math.ceil((device.signal + 100) / 20)));
                 SignalTimeline.addEvent(freq, strength, 2000, device.ssid || 'Hidden WiFi');
+            }
+        }
+
+        function addTscmWifiClient(client) {
+            const mac = client.mac || client.address || '';
+            if (!mac) return;
+            const exists = tscmWifiClients.some(d => (d.mac || d.address) === mac);
+            if (!exists) {
+                if (!client.mac) client.mac = mac;
+                client.is_client = true;
+                tscmWifiClients.push(client);
+                updateTscmDisplays();
+                updateTscmThreatCounts();
+                if (client.score >= 3) {
+                    addHighInterestDevice(client, 'wifi');
+                }
+                if (isRecordingBaseline) {
+                    fetch('/tscm/feed/wifi', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(client)
+                    }).catch(e => console.error('Baseline feed error:', e));
+                }
             }
         }
 
@@ -10971,10 +11334,12 @@
             const showRf = protocol === 'all' || protocol === 'rf';
 
             const wifiPanel = document.getElementById('tscmWifiPanel');
+            const wifiClientPanel = document.getElementById('tscmWifiClientPanel');
             const btPanel = document.getElementById('tscmBtPanel');
             const rfPanel = document.getElementById('tscmRfPanel');
 
             if (wifiPanel) wifiPanel.style.display = showWifi ? '' : 'none';
+            if (wifiClientPanel) wifiClientPanel.style.display = showWifi ? '' : 'none';
             if (btPanel) btPanel.style.display = showBt ? '' : 'none';
             if (rfPanel) rfPanel.style.display = showRf ? '' : 'none';
         }
@@ -10997,13 +11362,15 @@
 
         function getFilteredDevices(options = {}) {
             const wifi = tscmWifiDevices.filter(d => matchesTscmFilters(d, 'wifi', options));
+            const wifi_clients = tscmWifiClients.filter(d => matchesTscmFilters(d, 'wifi', options));
             const bt = tscmBtDevices.filter(d => matchesTscmFilters(d, 'bluetooth', options));
             const rf = tscmRfSignals.filter(d => matchesTscmFilters(d, 'rf', options));
             return {
                 wifi,
+                wifi_clients,
                 bt,
                 rf,
-                all: [...wifi, ...bt, ...rf],
+                all: [...wifi, ...wifi_clients, ...bt, ...rf],
             };
         }
 
@@ -11069,6 +11436,18 @@
             return indicators.map(i => `<span class="indicator-tag">${escapeHtml(i.desc || i.type)}</span>`).join(' ');
         }
 
+        function getTrackerLabel(device) {
+            if (!device) return null;
+            return (device.tracker && (device.tracker.name || device.tracker.type)) ||
+                device.tracker_type || device.tracker_name || null;
+        }
+
+        function formatTrackerBadge(device) {
+            const label = getTrackerLabel(device);
+            if (!label) return '';
+            return `<span class="tracker-badge" title="Tracker">${escapeHtml(label)}</span>`;
+        }
+
         function getScoreBadge(score) {
             if (score === undefined || score === null) return '';
             let scoreClass = 'score-low';
@@ -11081,6 +11460,7 @@
         function getAllTscmDevices() {
             const devices = {};
             tscmWifiDevices.forEach(d => { devices[`wifi:${d.bssid}`] = { ...d, protocol: 'wifi' }; });
+            tscmWifiClients.forEach(d => { devices[`wifi:${d.mac}`] = { ...d, protocol: 'wifi' }; });
             tscmBtDevices.forEach(d => { devices[`bluetooth:${d.mac}`] = { ...d, protocol: 'bluetooth' }; });
             tscmRfSignals.forEach(d => { devices[`rf:${d.frequency}`] = { ...d, protocol: 'rf' }; });
             return devices;
@@ -11124,18 +11504,32 @@
 
             // Add device-specific fields
             if (protocol === 'wifi') {
-                html += `
-                    <tr><td>BSSID</td><td>${device.bssid || 'Unknown'}</td></tr>
-                    <tr><td>SSID</td><td>${escapeHtml(device.ssid || '[Hidden]')}</td></tr>
-                    <tr><td>Channel</td><td>${device.channel || 'Unknown'}</td></tr>
-                    <tr><td>Signal</td><td>${device.signal || '--'} dBm</td></tr>
-                    <tr><td>Security</td><td>${device.security || 'Unknown'}</td></tr>
-                `;
+                if (device.is_client) {
+                    html += `
+                        <tr><td>Client MAC</td><td>${device.mac || 'Unknown'}</td></tr>
+                        <tr><td>Vendor</td><td>${escapeHtml(device.vendor || 'Unknown')}</td></tr>
+                        <tr><td>RSSI</td><td>${device.rssi || '--'} dBm</td></tr>
+                        <tr><td>Associated BSSID</td><td>${device.associated_bssid || 'Unassociated'}</td></tr>
+                        <tr><td>Probed SSIDs</td><td>${device.probe_count || (device.probed_ssids ? device.probed_ssids.length : 0)}</td></tr>
+                    `;
+                } else {
+                    html += `
+                        <tr><td>BSSID</td><td>${device.bssid || 'Unknown'}</td></tr>
+                        <tr><td>SSID</td><td>${escapeHtml(device.ssid || '[Hidden]')}</td></tr>
+                        <tr><td>Vendor</td><td>${escapeHtml(device.vendor || 'Unknown')}</td></tr>
+                        <tr><td>Channel</td><td>${device.channel || 'Unknown'}</td></tr>
+                        <tr><td>Signal</td><td>${device.signal || '--'} dBm</td></tr>
+                        <tr><td>Security</td><td>${device.security || 'Unknown'}</td></tr>
+                    `;
+                }
             } else if (protocol === 'bluetooth') {
+                const trackerLabel = getTrackerLabel(device);
                 html += `
                     <tr><td>MAC Address</td><td>${device.mac || 'Unknown'}</td></tr>
                     <tr><td>Name</td><td>${escapeHtml(device.name || 'Unknown')}</td></tr>
                     <tr><td>Type</td><td>${device.device_type || 'Unknown'}</td></tr>
+                    <tr><td>Manufacturer</td><td>${escapeHtml(device.manufacturer || 'Unknown')}</td></tr>
+                    <tr><td>Tracker</td><td>${trackerLabel ? escapeHtml(trackerLabel) : 'No'}</td></tr>
                     <tr><td>RSSI</td><td>${device.rssi || '--'} dBm</td></tr>
                     <tr><td>Audio Capable</td><td>${device.is_audio_capable ? 'Yes' : 'No'}</td></tr>
                 `;
@@ -11248,6 +11642,23 @@
                 `;
             }
 
+            // Signal Timeline Chart
+            html += `
+                <div class="device-detail-section">
+                    <h4>Signal Timeline</h4>
+                    <canvas id="deviceTimelineChart" width="600" height="180" style="width: 100%; max-height: 180px;"></canvas>
+                    <div id="deviceTimelineMetrics" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
+                </div>
+            `;
+
+            // Playbook section
+            html += `
+                <div class="device-detail-section" id="devicePlaybookSection" style="display: none;">
+                    <h4>Recommended Playbook</h4>
+                    <div id="devicePlaybookContent"></div>
+                </div>
+            `;
+
             // Add disclaimer
             html += `
                 <div class="device-detail-disclaimer">
@@ -11262,6 +11673,21 @@
             const timelineIdentifier = tscmNormalizeIdentifier(id, protocol, device);
             loadTscmTimeline(timelineIdentifier, protocol);
             loadTscmAdvancedAnalysis(device, protocol);
+
+            // Load timeline chart
+            fetchDeviceTimelineChart(timelineIdentifier, protocol);
+
+            // Load playbook for this device
+            fetchDevicePlaybook(timelineIdentifier).then(playbook => {
+                if (playbook) {
+                    const section = document.getElementById('devicePlaybookSection');
+                    const pbContent = document.getElementById('devicePlaybookContent');
+                    if (section && pbContent) {
+                        section.style.display = 'block';
+                        pbContent.innerHTML = renderPlaybook(playbook);
+                    }
+                }
+            });
         }
 
         function tscmNormalizeIdentifier(identifier, protocol, device) {
@@ -11436,6 +11862,8 @@
                         <tr><td>Name</td><td>${escapeHtml(profile.name || 'N/A')}</td></tr>
                         <tr><td>Manufacturer</td><td>${escapeHtml(profile.manufacturer || 'N/A')}</td></tr>
                         <tr><td>Device Type</td><td>${escapeHtml(profile.device_type || 'N/A')}</td></tr>
+                        ${(profile.tracker_name || profile.tracker_type) ? `<tr><td>Tracker</td><td>${escapeHtml(profile.tracker_name || profile.tracker_type)}</td></tr>` : ''}
+                        ${profile.tracker_confidence ? `<tr><td>Tracker Confidence</td><td>${escapeHtml(profile.tracker_confidence)}</td></tr>` : ''}
                         <tr><td>First Seen</td><td>${profile.first_seen ? new Date(profile.first_seen).toLocaleString() : 'N/A'}</td></tr>
                         <tr><td>Last Seen</td><td>${profile.last_seen ? new Date(profile.last_seen).toLocaleString() : 'N/A'}</td></tr>
                         <tr><td>Detections</td><td>${profile.detection_count || 0}</td></tr>
@@ -11618,10 +12046,164 @@
             }
         }
 
+        async function loadDeviceTimelines() {
+            const container = document.getElementById('tscmDeviceTimelinesList');
+            if (!container) return;
+            container.innerHTML = '<div class="tscm-empty">Loading timelines...</div>';
+
+            try {
+                const response = await fetch('/tscm/timelines');
+                const data = await response.json();
+
+                if (data.status !== 'success' || !data.timelines || data.timelines.length === 0) {
+                    container.innerHTML = '<div class="tscm-empty">No device timelines available</div>';
+                    return;
+                }
+
+                const timelines = data.timelines;
+                let html = '';
+                timelines.forEach(tl => {
+                    const identifier = tl.identifier || 'Unknown';
+                    const protocol = tl.protocol || 'unknown';
+                    const presencePct = tl.presence_ratio !== undefined ? Math.round(tl.presence_ratio * 100) : 0;
+                    const pattern = tl.movement_pattern || 'UNKNOWN';
+                    const patternColors = { 'STATIONARY': '#00e676', 'MOBILE': '#ff3366', 'INTERMITTENT': '#ff9800' };
+                    const pColor = patternColors[pattern] || '#9e9e9e';
+
+                    // Create a compact swim-lane row
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; font-size: 10px;"
+                             onclick="tscmShowInvestigateById('${escapeHtml(identifier)}', '${escapeHtml(protocol)}')">
+                            <span style="width: 12px; text-transform: uppercase; color: var(--text-muted); font-size: 8px;">${protocol.charAt(0).toUpperCase()}</span>
+                            <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-family: var(--font-mono);">${escapeHtml(identifier)}</span>
+                            <div style="width: 100px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                                <div style="width: ${presencePct}%; height: 100%; background: var(--accent-cyan); border-radius: 3px;"></div>
+                            </div>
+                            <span style="width: 35px; text-align: right; color: var(--accent-cyan);">${presencePct}%</span>
+                            <span style="padding: 1px 6px; background: ${pColor}22; color: ${pColor}; border-radius: 3px; font-size: 8px; font-weight: bold;">${pattern}</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load device timelines:', e);
+                container.innerHTML = '<div class="tscm-empty">Failed to load timelines</div>';
+            }
+        }
+
+        let deviceTimelineChartInstance = null;
+
+        async function fetchDeviceTimelineChart(identifier, protocol) {
+            try {
+                const response = await fetch(`/tscm/device/${encodeURIComponent(identifier)}/timeline?protocol=${encodeURIComponent(protocol)}&since_hours=24`);
+                const data = await response.json();
+
+                if (data.status !== 'success' || !data.timeline) return;
+
+                const timeline = data.timeline;
+                const observations = timeline.observations || [];
+                const metrics = timeline.metrics || {};
+                const signal = timeline.signal || {};
+                const movement = timeline.movement || {};
+
+                // Render Chart.js RSSI timeline
+                const canvas = document.getElementById('deviceTimelineChart');
+                if (canvas && typeof Chart !== 'undefined' && observations.length > 0) {
+                    if (deviceTimelineChartInstance) {
+                        deviceTimelineChartInstance.destroy();
+                    }
+
+                    const chartData = observations.map(o => ({
+                        x: new Date(o.timestamp),
+                        y: o.rssi !== null && o.rssi !== undefined ? o.rssi : null,
+                    })).filter(d => d.y !== null);
+
+                    const pointColors = chartData.map(d => d.y !== null ? 'rgba(0, 230, 118, 0.8)' : 'rgba(158, 158, 158, 0.5)');
+
+                    deviceTimelineChartInstance = new Chart(canvas, {
+                        type: 'line',
+                        data: {
+                            datasets: [{
+                                label: 'RSSI (dBm)',
+                                data: chartData,
+                                borderColor: 'rgba(0, 212, 255, 0.8)',
+                                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                                fill: true,
+                                pointBackgroundColor: pointColors,
+                                pointRadius: 3,
+                                pointHoverRadius: 5,
+                                tension: 0.3,
+                                borderWidth: 1.5,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: { unit: 'hour', displayFormats: { hour: 'ha', minute: 'h:mm a' } },
+                                    ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 } },
+                                    grid: { color: 'rgba(255,255,255,0.05)' },
+                                },
+                                y: {
+                                    title: { display: true, text: 'dBm', color: 'rgba(255,255,255,0.5)', font: { size: 9 } },
+                                    ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 } },
+                                    grid: { color: 'rgba(255,255,255,0.05)' },
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Render metrics badges
+                renderTimelineMetrics(metrics, signal, movement);
+            } catch (e) {
+                console.error('Failed to load device timeline chart:', e);
+            }
+        }
+
+        function renderTimelineMetrics(metrics, signal, movement) {
+            const container = document.getElementById('deviceTimelineMetrics');
+            if (!container) return;
+
+            const badges = [];
+            if (metrics.total_observations !== undefined) {
+                badges.push(`<span style="padding: 4px 8px; background: rgba(0,212,255,0.15); color: var(--accent-cyan); border-radius: 4px; font-size: 10px;">${metrics.total_observations} observations</span>`);
+            }
+            if (metrics.presence_ratio !== undefined) {
+                const pct = Math.round(metrics.presence_ratio * 100);
+                badges.push(`<span style="padding: 4px 8px; background: rgba(0,230,118,0.15); color: #00e676; border-radius: 4px; font-size: 10px;">${pct}% presence</span>`);
+            }
+            if (signal.rssi_min !== undefined && signal.rssi_max !== undefined && signal.rssi_min !== null) {
+                badges.push(`<span style="padding: 4px 8px; background: rgba(255,152,0,0.15); color: #ff9800; border-radius: 4px; font-size: 10px;">${signal.rssi_min} to ${signal.rssi_max} dBm</span>`);
+            }
+            if (signal.stability !== undefined && signal.stability !== null) {
+                badges.push(`<span style="padding: 4px 8px; background: rgba(156,39,176,0.15); color: #ce93d8; border-radius: 4px; font-size: 10px;">${Math.round(signal.stability * 100)}% stability</span>`);
+            }
+            if (movement.pattern) {
+                const patternColors = { 'STATIONARY': '#00e676', 'MOBILE': '#ff3366', 'INTERMITTENT': '#ff9800' };
+                const color = patternColors[movement.pattern] || '#9e9e9e';
+                badges.push(`<span style="padding: 4px 8px; background: ${color}22; color: ${color}; border-radius: 4px; font-size: 10px; font-weight: bold;">${movement.pattern}</span>`);
+            }
+            container.innerHTML = badges.join('');
+        }
+
         async function loadTscmAdvancedAnalysis(device, protocol) {
             if (protocol === 'wifi') {
                 const section = document.getElementById('tscmWifiAdvancedSection');
                 if (!section) return;
+
+                if (device && device.is_client) {
+                    section.innerHTML = `
+                        <h4>WiFi Advanced Indicators</h4>
+                        <div class="tscm-empty">Client devices do not have AP indicators.</div>
+                    `;
+                    return;
+                }
 
                 try {
                     const payload = {
@@ -11976,6 +12558,11 @@
                     const id = item.bssid || item.mac || '';
                     return `${escapeHtml(name)} ${id ? `<span class="device-detail-id">${escapeHtml(id)}</span>` : ''}`;
                 }
+                if (protocol === 'wifi_clients') {
+                    const name = item.vendor || 'WiFi Client';
+                    const id = item.mac || item.address || '';
+                    return `${escapeHtml(name)} ${id ? `<span class="device-detail-id">${escapeHtml(id)}</span>` : ''}`;
+                }
                 if (protocol === 'bluetooth') {
                     const name = item.name || 'Unknown';
                     const id = item.mac || item.address || '';
@@ -12002,6 +12589,7 @@
 
             const sections = [
                 { key: 'wifi', label: 'WiFi' },
+                { key: 'wifi_clients', label: 'WiFi Clients' },
                 { key: 'bluetooth', label: 'Bluetooth' },
                 { key: 'rf', label: 'RF' },
             ];
@@ -12067,7 +12655,7 @@
                         <div class="tscm-device-meta">
                             <span>${d.bssid}</span>
                             <span>${d.signal || '--'} dBm</span>
-                            <span>${d.security || 'Open'}</span>
+                            <span>${escapeHtml(d.vendor || 'Unknown')} • ${escapeHtml(d.security || 'Open')}</span>
                         </div>
                         ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
                         ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
@@ -12075,6 +12663,35 @@
                 `).join('');
             }
             document.getElementById('tscmWifiCount').textContent = filtered.wifi.length;
+
+            // Update WiFi clients list
+            const wifiClientList = document.getElementById('tscmWifiClientList');
+            if (filtered.wifi_clients.length === 0) {
+                wifiClientList.innerHTML = `<div class="tscm-empty">${filtersActive ? 'No WiFi clients match filters' : 'No WiFi clients detected'}</div>`;
+            } else {
+                const sortedClients = [...filtered.wifi_clients].sort((a, b) => (b.score || 0) - (a.score || 0));
+                wifiClientList.innerHTML = sortedClients.map(c => `
+                    <div class="tscm-device-item ${getClassificationClass(c.classification)}" onclick="showDeviceDetails('${c.mac}', 'wifi')">
+                        <div class="tscm-device-header">
+                            <div class="tscm-device-name">
+                                <span class="classification-indicator">${getClassificationIcon(c.classification)}</span>
+                                ${escapeHtml(c.vendor || 'WiFi Client')}
+                                <span class="client-badge" title="WiFi client">CLIENT</span>
+                                ${c.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
+                            </div>
+                            ${getScoreBadge(c.score)}
+                        </div>
+                        <div class="tscm-device-meta">
+                            <span>${c.mac}</span>
+                            <span>${c.rssi || '--'} dBm</span>
+                            <span>${c.associated_bssid ? `Assoc: ${c.associated_bssid}` : `Probes: ${c.probe_count || 0}`}</span>
+                        </div>
+                        ${c.indicators && c.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(c.indicators)}</div>` : ''}
+                        ${c.recommended_action && c.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${c.recommended_action}</div>` : ''}
+                    </div>
+                `).join('');
+            }
+            document.getElementById('tscmWifiClientCount').textContent = filtered.wifi_clients.length;
 
             // Update BT list
             const btList = document.getElementById('tscmBtList');
@@ -12090,6 +12707,7 @@
                                 <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
                                 ${escapeHtml(d.name || 'Unknown')}
                                 ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">AUDIO</span>' : ''}
+                                ${formatTrackerBadge(d)}
                                 ${d.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(d.score)}
@@ -12097,7 +12715,7 @@
                         <div class="tscm-device-meta">
                             <span>${d.mac}</span>
                             <span>${d.rssi || '--'} dBm</span>
-                            <span>${d.device_type || 'Unknown'}</span>
+                            <span>${escapeHtml([d.device_type, d.manufacturer].filter(Boolean).join(' • ') || 'Unknown')}</span>
                         </div>
                         ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
                         ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
@@ -12261,6 +12879,10 @@
                 const identityClusters = data.identity_clusters || (tscmIdentitySummary ? tscmIdentitySummary.total : 0);
                 const baselineNew = data.baseline_new_devices || 0;
                 const baselineMissing = data.baseline_missing_devices || 0;
+                const wifiCount = data.wifi_count ?? tscmWifiDevices.length;
+                const wifiClientCount = data.wifi_client_count ?? tscmWifiClients.length;
+                const btCount = data.bt_count ?? tscmBtDevices.length;
+                const rfCount = data.rf_count ?? tscmRfSignals.length;
 
                 let assessment = 'BASELINE ENVIRONMENT';
                 let assessmentClass = 'informational';
@@ -12299,6 +12921,9 @@
                             <div class="label">Baseline Delta</div>
                         </div>
                         ` : ''}
+                    </div>
+                    <div class="tscm-summary-meta" style="margin-top: 8px; font-size: 10px; color: var(--text-muted);">
+                        Devices: ${wifiCount} WiFi AP • ${wifiClientCount} WiFi Clients • ${btCount} BT • ${rfCount} RF
                     </div>
                     <div class="tscm-assessment ${assessmentClass}">
                         <strong>Assessment:</strong> ${assessment}
@@ -12367,7 +12992,7 @@
 
                 if (data.status === 'success') {
                     document.getElementById('tscmBaselineStatus').textContent =
-                        `Baseline saved: ${data.wifi_count} WiFi, ${data.bt_count} BT, ${data.rf_count} RF`;
+                        `Baseline saved: ${data.wifi_count} WiFi, ${data.wifi_client_count || 0} Clients, ${data.bt_count} BT, ${data.rf_count} RF`;
                     document.getElementById('tscmBaselineStatus').style.color = '#00ff88';
                     loadTscmBaselines();
                 } else {
@@ -13428,52 +14053,100 @@
                 if (data.status === 'success') {
                     const p = data.playbook;
                     const content = document.getElementById('tscmDeviceModalContent');
-                    content.innerHTML = `
-                        <div class="device-detail-header classification-orange">
-                            <h3>${escapeHtml(p.title || p.name || 'Playbook')}</h3>
-                        </div>
-                        <div class="device-detail-section">
-                            <p>${escapeHtml(p.description || '')}</p>
-                        </div>
-                        <div class="device-detail-section">
-                            <h4>Steps</h4>
-                            <ol class="playbook-steps">
-                                ${(p.steps || []).map((step, i) => `
-                                    <li class="playbook-step">
-                                        <strong>${escapeHtml(step.action || step.title || `Step ${step.step || i + 1}`)}</strong>
-                                        <p>${escapeHtml(step.details || step.description || '')}</p>
-                                        ${step.safety_note ? `<div class="playbook-warning">${escapeHtml(step.safety_note)}</div>` : ''}
-                                    </li>
-                                `).join('')}
-                            </ol>
-                        </div>
-                        ${p.when_to_escalate ? `
-                        <div class="device-detail-section">
-                            <h4>When to Escalate</h4>
-                            <p>${escapeHtml(p.when_to_escalate)}</p>
-                        </div>
-                        ` : ''}
-                        ${p.documentation_required && p.documentation_required.length > 0 ? `
-                        <div class="device-detail-section">
-                            <h4>Documentation Required</h4>
-                            <ul>
-                                ${p.documentation_required.map(d => `<li>${escapeHtml(d)}</li>`).join('')}
-                            </ul>
-                        </div>
-                        ` : ''}
-                        ${p.disclaimer ? `
-                        <div class="device-detail-disclaimer">
-                            <strong>Disclaimer:</strong> ${escapeHtml(p.disclaimer)}
-                        </div>
-                        ` : ''}
-                        <div style="margin-top: 16px;">
-                            <button class="preset-btn" onclick="tscmShowPlaybooks()">← Back to Playbooks</button>
-                        </div>
-                    `;
+                    content.innerHTML = renderPlaybook(p);
                 }
             } catch (e) {
                 console.error('Failed to view playbook:', e);
             }
+        }
+
+        function renderPlaybook(p) {
+            const riskColors = { 'critical': '#ff3366', 'high': '#ff6633', 'medium': '#ff9800', 'low': '#4caf50' };
+            const riskColor = riskColors[(p.risk_level || '').toLowerCase()] || '#ff9800';
+            return `
+                <div class="device-detail-header" style="border-left: 4px solid ${riskColor};">
+                    <h3>${escapeHtml(p.title || p.name || 'Playbook')}</h3>
+                    <span style="font-size: 10px; background: ${riskColor}; color: #000; padding: 2px 8px; border-radius: 3px; font-weight: bold; text-transform: uppercase;">${escapeHtml(p.risk_level || 'MEDIUM')}</span>
+                </div>
+                <div class="device-detail-section">
+                    <p style="color: var(--text-muted);">${escapeHtml(p.description || '')}</p>
+                </div>
+                ${p.when_to_escalate ? `
+                <div style="margin: 12px 0; padding: 10px 14px; background: rgba(255,51,102,0.1); border: 1px solid rgba(255,51,102,0.4); border-radius: 6px;">
+                    <strong style="color: #ff3366; font-size: 11px; text-transform: uppercase;">Escalation Trigger</strong>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #ff6666;">${escapeHtml(p.when_to_escalate)}</p>
+                </div>
+                ` : ''}
+                <div class="device-detail-section">
+                    <h4 style="margin-bottom: 10px;">Investigation Steps</h4>
+                    <div class="playbook-checklist">
+                        ${(p.steps || []).map((step, i) => {
+                            const stepNum = step.step_number || step.step || (i + 1);
+                            return `
+                            <div class="playbook-check-step" id="pbStep${i}" style="display: flex; gap: 10px; padding: 10px; margin-bottom: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: border-color 0.3s;" onclick="togglePlaybookStep(${i})">
+                                <div style="flex-shrink: 0; display: flex; align-items: flex-start; padding-top: 2px;">
+                                    <input type="checkbox" id="pbCheck${i}" style="width: 16px; height: 16px; accent-color: #00e676; cursor: pointer;" onclick="event.stopPropagation(); togglePlaybookStep(${i})">
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                        <span style="font-size: 10px; color: var(--accent-cyan); font-weight: bold;">STEP ${stepNum}</span>
+                                        <strong style="font-size: 12px;">${escapeHtml(step.action || step.title || '')}</strong>
+                                    </div>
+                                    <p style="font-size: 11px; color: var(--text-muted); margin: 0;">${escapeHtml(step.details || step.description || '')}</p>
+                                    ${step.safety_note ? `<div style="margin-top: 6px; padding: 6px 8px; background: rgba(255,152,0,0.1); border-left: 3px solid #ff9800; border-radius: 3px; font-size: 10px; color: #ffb74d;"><strong>Safety:</strong> ${escapeHtml(step.safety_note)}</div>` : ''}
+                                    ${step.evidence_needed && step.evidence_needed.length > 0 ? `<div style="margin-top: 6px; font-size: 10px; color: var(--text-muted);"><strong>Evidence needed:</strong> ${step.evidence_needed.map(e => escapeHtml(e)).join(', ')}</div>` : ''}
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                ${p.documentation_required && p.documentation_required.length > 0 ? `
+                <div class="device-detail-section">
+                    <h4>Documentation Required</h4>
+                    <ul style="list-style: none; padding: 0;">
+                        ${p.documentation_required.map(d => `<li style="padding: 4px 0; font-size: 11px; color: var(--text-secondary);">&#9744; ${escapeHtml(d)}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                ${p.disclaimer ? `
+                <div class="device-detail-disclaimer">
+                    <strong>Disclaimer:</strong> ${escapeHtml(p.disclaimer)}
+                </div>
+                ` : ''}
+                <div style="margin-top: 16px;">
+                    <button class="preset-btn" onclick="tscmShowPlaybooks()">&#8592; Back to Playbooks</button>
+                </div>
+            `;
+        }
+
+        function togglePlaybookStep(index) {
+            const checkbox = document.getElementById('pbCheck' + index);
+            const stepEl = document.getElementById('pbStep' + index);
+            if (!checkbox || !stepEl) return;
+            // Toggle if triggered from the row (not the checkbox itself)
+            if (document.activeElement !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
+            if (checkbox.checked) {
+                stepEl.style.borderColor = '#00e676';
+                stepEl.style.background = 'rgba(0, 230, 118, 0.05)';
+            } else {
+                stepEl.style.borderColor = 'var(--border-color)';
+                stepEl.style.background = 'rgba(0,0,0,0.2)';
+            }
+        }
+
+        async function fetchDevicePlaybook(identifier) {
+            try {
+                const response = await fetch(`/tscm/findings/${encodeURIComponent(identifier)}/playbook`);
+                const data = await response.json();
+                if (data.status === 'success' && data.playbook) {
+                    return data.playbook;
+                }
+            } catch (e) {
+                console.error('Failed to fetch device playbook:', e);
+            }
+            return null;
         }
 
         // Report Downloads
@@ -13711,6 +14384,10 @@
                             scanner</span></div>
                     <div class="icon-item"><span class="icon">🔍</span><span class="desc">TSCM -
                             Counter-surveillance</span></div>
+                    <div class="icon-item"><span class="icon">📺</span><span class="desc">ISS SSTV - Space station
+                            images</span></div>
+                    <div class="icon-item"><span class="icon">📺</span><span class="desc">HF SSTV - Terrestrial
+                            SSTV images</span></div>
                 </div>
             </div>
 
@@ -13829,6 +14506,26 @@
                     <li>Configure channels with encryption keys</li>
                     <li>View connected nodes and message history</li>
                     <li>Requires: Meshtastic device + <code>pip install meshtastic</code></li>
+                </ul>
+
+                <h3>ISS SSTV Mode</h3>
+                <ul class="tip-list">
+                    <li>Decode Slow-Scan Television images from the International Space Station</li>
+                    <li>ISS transmits on 145.800 MHz FM during special ARISS events</li>
+                    <li>Real-time ISS tracking map with ground track overlay</li>
+                    <li>Next-pass countdown with elevation and duration predictions</li>
+                    <li>Optional Doppler shift compensation for improved reception</li>
+                    <li>Requires: RTL-SDR (no external decoder needed - built-in Python SSTV decoder)</li>
+                </ul>
+
+                <h3>HF SSTV Mode</h3>
+                <ul class="tip-list">
+                    <li>Decode terrestrial SSTV images on HF/VHF/UHF amateur radio frequencies</li>
+                    <li>Predefined frequencies: 14.230 MHz USB (20m, most popular), 3.845/7.171 MHz LSB, and more</li>
+                    <li>Supports USB, LSB, and FM demodulation modes</li>
+                    <li>Auto-detects correct modulation when selecting a preset frequency</li>
+                    <li>HF frequencies (below 30 MHz) require an upconverter with RTL-SDR</li>
+                    <li>Requires: RTL-SDR (+ upconverter for HF, no external decoder needed)</li>
                 </ul>
             </div>
 
@@ -14276,6 +14973,9 @@
     <script src="{{ url_for('static', filename='js/core/updater.js') }}"></script>
     <!-- Settings Manager -->
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}"></script>
+    <!-- Alerts + Recording -->
+    <script src="{{ url_for('static', filename='js/core/alerts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/recordings.js') }}"></script>
 </body>
 
 </html>

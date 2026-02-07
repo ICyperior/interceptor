@@ -7,10 +7,23 @@ import os
 import sys
 
 # Application version
-VERSION = "2.13.1"
+VERSION = "2.14.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.14.0",
+        "date": "February 2026",
+        "highlights": [
+            "DMR/P25/NXDN/D-STAR digital voice decoder with dsd-fme",
+            "DMR visual synthesizer with event-driven spring-physics bars",
+            "HF SSTV general mode with predefined shortwave frequencies",
+            "WebSDR integration for remote HF/shortwave listening",
+            "Listening Post signal scanner and audio pipeline improvements",
+            "TSCM sweep resilience, WiFi detection, and correlation fixes",
+            "APRS rtl_fm startup and SDR device conflict fixes",
+        ]
+    },
     {
         "version": "2.13.1",
         "date": "February 2026",
@@ -205,6 +218,11 @@ WEATHER_SAT_CAPTURE_BUFFER_SECONDS = _get_env_int('WEATHER_SAT_CAPTURE_BUFFER_SE
 GITHUB_REPO = _get_env('GITHUB_REPO', 'smittix/intercept')
 UPDATE_CHECK_ENABLED = _get_env_bool('UPDATE_CHECK_ENABLED', True)
 UPDATE_CHECK_INTERVAL_HOURS = _get_env_int('UPDATE_CHECK_INTERVAL_HOURS', 6)
+
+# Alerting
+ALERT_WEBHOOK_URL = _get_env('ALERT_WEBHOOK_URL', '')
+ALERT_WEBHOOK_SECRET = _get_env('ALERT_WEBHOOK_SECRET', '')
+ALERT_WEBHOOK_TIMEOUT = _get_env_int('ALERT_WEBHOOK_TIMEOUT', 5)
 
 # Admin credentials
 ADMIN_USERNAME = _get_env('ADMIN_USERNAME', 'admin')

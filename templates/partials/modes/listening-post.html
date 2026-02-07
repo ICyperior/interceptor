@@ -46,6 +46,52 @@
                         </div>
                     </div>
 
+                    <!-- Signal Identification -->
+                    <div class="section">
+                        <h3>Signal Identification</h3>
+                        <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                            <input type="text" id="signalGuessFreqInput" placeholder="Freq (MHz)" style="flex: 1; padding: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                            <button class="preset-btn" onclick="manualSignalGuess()" style="background: var(--accent-cyan); color: #000; padding: 6px 10px; font-weight: 600;">ID</button>
+                        </div>
+                        <div id="signalGuessPanel" style="display: none; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; font-size: 11px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span id="signalGuessLabel" style="font-weight: bold; color: var(--text-primary);"></span>
+                                <span id="signalGuessBadge" style="padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: bold;"></span>
+                            </div>
+                            <div id="signalGuessExplanation" style="color: var(--text-muted); font-size: 10px; margin-bottom: 6px;"></div>
+                            <div id="signalGuessTags" style="display: flex; flex-wrap: wrap; gap: 3px;"></div>
+                            <div id="signalGuessAlternatives" style="margin-top: 6px; font-size: 10px; color: var(--text-muted);"></div>
+                        </div>
+                    </div>
+
+                    <!-- Waterfall Controls -->
+                    <div class="section">
+                        <h3>Waterfall</h3>
+                        <div class="form-group" style="margin-bottom: 6px;">
+                            <label style="font-size: 10px;">Start (MHz)</label>
+                            <input type="number" id="waterfallStartFreq" value="88" step="0.1" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 6px;">
+                            <label style="font-size: 10px;">End (MHz)</label>
+                            <input type="number" id="waterfallEndFreq" value="108" step="0.1" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 6px;">
+                            <label style="font-size: 10px;">Bin Size</label>
+                            <select id="waterfallBinSize" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                                <option value="5000">5 kHz</option>
+                                <option value="10000" selected>10 kHz</option>
+                                <option value="25000">25 kHz</option>
+                                <option value="100000">100 kHz</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label style="font-size: 10px;">Gain</label>
+                            <input type="number" id="waterfallGain" value="40" min="0" max="50" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                        </div>
+                        <button class="run-btn" id="startWaterfallBtn" onclick="startWaterfall()" style="width: 100%; padding: 8px;">Start Waterfall</button>
+                        <button class="stop-btn" id="stopWaterfallBtn" onclick="stopWaterfall()" style="display: none; width: 100%; padding: 8px; margin-top: 4px;">Stop Waterfall</button>
+                    </div>
+
                     <!-- Antenna Guide -->
                     <div class="section">
                         <h3>Antenna Guide</h3>
@@ -117,5 +163,6 @@
                             </div>
                         </div>
                     </div>
+
 
                 </div>

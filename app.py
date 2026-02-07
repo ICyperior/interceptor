@@ -172,6 +172,12 @@ dsc_rtl_process = None
 dsc_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 dsc_lock = threading.Lock()
 
+# DMR / Digital Voice
+dmr_process = None
+dmr_rtl_process = None
+dmr_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+dmr_lock = threading.Lock()
+
 # TSCM (Technical Surveillance Countermeasures)
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
@@ -641,6 +647,7 @@ def health_check() -> Response:
             'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
             'bluetooth': bt_process is not None and (bt_process.poll() is None if bt_process else False),
             'dsc': dsc_process is not None and (dsc_process.poll() is None if dsc_process else False),
+            'dmr': dmr_process is not None and (dmr_process.poll() is None if dmr_process else False),
         },
         'data': {
             'aircraft_count': len(adsb_aircraft),
@@ -658,6 +665,7 @@ def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
+    global dmr_process, dmr_rtl_process
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -669,7 +677,8 @@ def kill_all() -> Response:
         'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
         'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher',
-        'hcitool', 'bluetoothctl', 'satdump'
+        'hcitool', 'bluetoothctl', 'satdump', 'dsd',
+        'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg',
     ]
 
     for proc in processes_to_kill:
@@ -712,6 +721,11 @@ def kill_all() -> Response:
     with dsc_lock:
         dsc_process = None
         dsc_rtl_process = None
+
+    # Reset DMR state
+    with dmr_lock:
+        dmr_process = None
+        dmr_rtl_process = None
 
     # Reset Bluetooth state (legacy)
     with bt_lock:
@@ -852,6 +866,14 @@ def main() -> None:
         print("WebSocket audio streaming enabled")
     except ImportError as e:
         print(f"WebSocket audio disabled (install flask-sock): {e}")
+
+    # Initialize KiwiSDR WebSocket audio proxy
+    try:
+        from routes.websdr import init_websdr_audio
+        init_websdr_audio(app)
+        print("KiwiSDR audio proxy enabled")
+    except ImportError as e:
+        print(f"KiwiSDR audio proxy disabled: {e}")
 
     print(f"Open http://localhost:{args.port} in your browser")
     print()

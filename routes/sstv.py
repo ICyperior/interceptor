@@ -13,8 +13,10 @@ from typing import Generator
 
 from flask import Blueprint, jsonify, request, Response, send_file
 
+import app as app_module
 from utils.logging import get_logger
 from utils.sse import format_sse
+from utils.event_pipeline import process_event
 from utils.sstv import (
     get_sstv_decoder,
     is_sstv_available,
@@ -29,6 +31,9 @@ sstv_bp = Blueprint('sstv', __name__, url_prefix='/sstv')
 
 # Queue for SSE progress streaming
 _sstv_queue: queue.Queue = queue.Queue(maxsize=100)
+
+# Track which device is being used
+sstv_active_device: int | None = None
 
 
 def _progress_callback(progress: DecodeProgress) -> None:
@@ -94,7 +99,7 @@ def start_decoder():
     if not is_sstv_available():
         return jsonify({
             'status': 'error',
-            'message': 'SSTV decoder not available. Install slowrx: apt install slowrx'
+            'message': 'SSTV decoder not available. Install numpy and Pillow: pip install numpy Pillow'
         }), 400
 
     decoder = get_sstv_decoder()
@@ -158,6 +163,17 @@ def start_decoder():
         latitude = None
         longitude = None
 
+    # Claim SDR device
+    global sstv_active_device
+    device_int = int(device_index)
+    error = app_module.claim_sdr_device(device_int, 'sstv')
+    if error:
+        return jsonify({
+            'status': 'error',
+            'error_type': 'DEVICE_BUSY',
+            'message': error
+        }), 409
+
     # Set callback and start
     decoder.set_callback(_progress_callback)
     success = decoder.start(
@@ -168,6 +184,8 @@ def start_decoder():
     )
 
     if success:
+        sstv_active_device = device_int
+
         result = {
             'status': 'started',
             'frequency': frequency,
@@ -181,6 +199,8 @@ def start_decoder():
 
         return jsonify(result)
     else:
+        # Release device on failure
+        app_module.release_sdr_device(device_int)
         return jsonify({
             'status': 'error',
             'message': 'Failed to start decoder'
@@ -195,8 +215,15 @@ def stop_decoder():
     Returns:
         JSON confirmation.
     """
+    global sstv_active_device
     decoder = get_sstv_decoder()
     decoder.stop()
+
+    # Release device from registry
+    if sstv_active_device is not None:
+        app_module.release_sdr_device(sstv_active_device)
+        sstv_active_device = None
+
     return jsonify({'status': 'stopped'})
 
 
@@ -287,6 +314,73 @@ def get_image(filename: str):
     return send_file(image_path, mimetype='image/png')
 
 
+@sstv_bp.route('/images/<filename>/download')
+def download_image(filename: str):
+    """
+    Download a decoded SSTV image file.
+
+    Args:
+        filename: Image filename
+
+    Returns:
+        Image file as attachment or 404.
+    """
+    decoder = get_sstv_decoder()
+
+    # Security: only allow alphanumeric filenames with .png extension
+    if not filename.replace('_', '').replace('-', '').replace('.', '').isalnum():
+        return jsonify({'status': 'error', 'message': 'Invalid filename'}), 400
+
+    if not filename.endswith('.png'):
+        return jsonify({'status': 'error', 'message': 'Only PNG files supported'}), 400
+
+    image_path = decoder._output_dir / filename
+
+    if not image_path.exists():
+        return jsonify({'status': 'error', 'message': 'Image not found'}), 404
+
+    return send_file(image_path, mimetype='image/png', as_attachment=True, download_name=filename)
+
+
+@sstv_bp.route('/images/<filename>', methods=['DELETE'])
+def delete_image(filename: str):
+    """
+    Delete a decoded SSTV image.
+
+    Args:
+        filename: Image filename
+
+    Returns:
+        JSON confirmation.
+    """
+    decoder = get_sstv_decoder()
+
+    # Security: only allow alphanumeric filenames with .png extension
+    if not filename.replace('_', '').replace('-', '').replace('.', '').isalnum():
+        return jsonify({'status': 'error', 'message': 'Invalid filename'}), 400
+
+    if not filename.endswith('.png'):
+        return jsonify({'status': 'error', 'message': 'Only PNG files supported'}), 400
+
+    if decoder.delete_image(filename):
+        return jsonify({'status': 'ok'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Image not found'}), 404
+
+
+@sstv_bp.route('/images', methods=['DELETE'])
+def delete_all_images():
+    """
+    Delete all decoded SSTV images.
+
+    Returns:
+        JSON with count of deleted images.
+    """
+    decoder = get_sstv_decoder()
+    count = decoder.delete_all_images()
+    return jsonify({'status': 'ok', 'deleted': count})
+
+
 @sstv_bp.route('/stream')
 def stream_progress():
     """
@@ -308,6 +402,10 @@ def stream_progress():
             try:
                 progress = _sstv_queue.get(timeout=1)
                 last_keepalive = time.time()
+                try:
+                    process_event('sstv', progress, progress.get('type'))
+                except Exception:
+                    pass
                 yield format_sse(progress)
             except queue.Empty:
                 now = time.time()

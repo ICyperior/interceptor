@@ -319,7 +319,7 @@ function stopScanner() {
         ? `/controller/agents/${listeningPostCurrentAgent}/listening_post/stop`
         : '/listening/scanner/stop';
 
-    fetch(endpoint, { method: 'POST' })
+    return fetch(endpoint, { method: 'POST' })
         .then(() => {
             if (!isAgentMode && typeof releaseDevice === 'function') releaseDevice('scanner');
             listeningPostCurrentAgent = null;
@@ -829,6 +829,11 @@ function handleSignalFound(data) {
 
     if (typeof showNotification === 'function') {
         showNotification('Signal Found!', `${freqStr} MHz - Audio streaming`);
+    }
+
+    // Auto-trigger signal identification
+    if (typeof guessSignal === 'function') {
+        guessSignal(data.frequency, data.modulation);
     }
 }
 
@@ -2240,8 +2245,13 @@ async function _startDirectListenInternal() {
 
     try {
         if (isScannerRunning) {
-            stopScanner();
+            await stopScanner();
         }
+
+    if (isWaterfallRunning && waterfallMode === 'rf') {
+        resumeRfWaterfallAfterListening = true;
+        await stopWaterfall();
+    }
 
         const freqInput = document.getElementById('radioScanStart');
         const freq = freqInput ? parseFloat(freqInput.value) : 118.0;
@@ -2301,6 +2311,10 @@ async function _startDirectListenInternal() {
             addScannerLogEntry('Failed: ' + (result.message || 'Unknown error'), '', 'error');
             isDirectListening = false;
             updateDirectListenUI(false);
+            if (resumeRfWaterfallAfterListening) {
+                resumeRfWaterfallAfterListening = false;
+                setTimeout(() => startWaterfall(), 200);
+            }
             return;
         }
 
@@ -2347,6 +2361,15 @@ async function _startDirectListenInternal() {
         initAudioVisualizer();
 
         isDirectListening = true;
+
+        if (resumeRfWaterfallAfterListening) {
+            isWaterfallRunning = true;
+            const waterfallPanel = document.getElementById('waterfallPanel');
+            if (waterfallPanel) waterfallPanel.style.display = 'block';
+            document.getElementById('startWaterfallBtn').style.display = 'none';
+            document.getElementById('stopWaterfallBtn').style.display = 'block';
+            startAudioWaterfall();
+        }
         updateDirectListenUI(true, freq);
         addScannerLogEntry(`${freq.toFixed(3)} MHz (${currentModulation.toUpperCase()})`, '', 'signal');
 
@@ -2355,6 +2378,10 @@ async function _startDirectListenInternal() {
         addScannerLogEntry('Error: ' + e.message, '', 'error');
         isDirectListening = false;
         updateDirectListenUI(false);
+        if (resumeRfWaterfallAfterListening) {
+            resumeRfWaterfallAfterListening = false;
+            setTimeout(() => startWaterfall(), 200);
+        }
     } finally {
         isRestarting = false;
     }
@@ -2551,6 +2578,20 @@ function stopDirectListen() {
     currentSignalLevel = 0;
     updateDirectListenUI(false);
     addScannerLogEntry('Listening stopped');
+
+    if (waterfallMode === 'audio') {
+        stopAudioWaterfall();
+    }
+
+    if (resumeRfWaterfallAfterListening) {
+        resumeRfWaterfallAfterListening = false;
+        isWaterfallRunning = false;
+        setTimeout(() => startWaterfall(), 200);
+    } else if (waterfallMode === 'audio' && isWaterfallRunning) {
+        isWaterfallRunning = false;
+        document.getElementById('startWaterfallBtn').style.display = 'block';
+        document.getElementById('stopWaterfallBtn').style.display = 'none';
+    }
 }
 
 /**
@@ -2937,6 +2978,505 @@ window.updateListenButtonState = updateListenButtonState;
 // Export functions for HTML onclick handlers
 window.toggleDirectListen = toggleDirectListen;
 window.startDirectListen = startDirectListen;
+// ============== SIGNAL IDENTIFICATION ==============
+
+function guessSignal(frequencyMhz, modulation) {
+    const body = { frequency_mhz: frequencyMhz };
+    if (modulation) body.modulation = modulation;
+
+    return fetch('/listening/signal/guess', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            renderSignalGuess(data);
+        }
+        return data;
+    })
+    .catch(err => console.error('[SIGNAL-ID] Error:', err));
+}
+
+function renderSignalGuess(result) {
+    const panel = document.getElementById('signalGuessPanel');
+    if (!panel) return;
+    panel.style.display = 'block';
+
+    const label = document.getElementById('signalGuessLabel');
+    const badge = document.getElementById('signalGuessBadge');
+    const explanation = document.getElementById('signalGuessExplanation');
+    const tagsEl = document.getElementById('signalGuessTags');
+    const altsEl = document.getElementById('signalGuessAlternatives');
+
+    if (label) label.textContent = result.primary_label || 'Unknown';
+
+    if (badge) {
+        badge.textContent = result.confidence || '';
+        const colors = { 'HIGH': '#00e676', 'MEDIUM': '#ff9800', 'LOW': '#9e9e9e' };
+        badge.style.background = colors[result.confidence] || '#9e9e9e';
+        badge.style.color = '#000';
+    }
+
+    if (explanation) explanation.textContent = result.explanation || '';
+
+    if (tagsEl) {
+        tagsEl.innerHTML = (result.tags || []).map(tag =>
+            `<span style="background: rgba(0,200,255,0.15); color: var(--accent-cyan); padding: 1px 6px; border-radius: 3px; font-size: 9px;">${tag}</span>`
+        ).join('');
+    }
+
+    if (altsEl) {
+        if (result.alternatives && result.alternatives.length > 0) {
+            altsEl.innerHTML = '<strong>Also:</strong> ' + result.alternatives.map(a =>
+                `${a.label} <span style="color: ${a.confidence === 'HIGH' ? '#00e676' : a.confidence === 'MEDIUM' ? '#ff9800' : '#9e9e9e'}">(${a.confidence})</span>`
+            ).join(', ');
+        } else {
+            altsEl.innerHTML = '';
+        }
+    }
+}
+
+function manualSignalGuess() {
+    const input = document.getElementById('signalGuessFreqInput');
+    if (!input || !input.value) return;
+    const freq = parseFloat(input.value);
+    if (isNaN(freq) || freq <= 0) return;
+    guessSignal(freq, currentModulation);
+}
+
+
+// ============== WATERFALL / SPECTROGRAM ==============
+
+let isWaterfallRunning = false;
+let waterfallEventSource = null;
+let waterfallCanvas = null;
+let waterfallCtx = null;
+let spectrumCanvas = null;
+let spectrumCtx = null;
+let waterfallStartFreq = 88;
+let waterfallEndFreq = 108;
+let waterfallRowImage = null;
+let waterfallPalette = null;
+let lastWaterfallDraw = 0;
+const WATERFALL_MIN_INTERVAL_MS = 50;
+let waterfallInteractionBound = false;
+let waterfallResizeObserver = null;
+let waterfallMode = 'rf';
+let audioWaterfallAnimId = null;
+let lastAudioWaterfallDraw = 0;
+let resumeRfWaterfallAfterListening = false;
+
+function resizeCanvasToDisplaySize(canvas) {
+    if (!canvas) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        return true;
+    }
+    return false;
+}
+
+function getWaterfallRowHeight() {
+    const dpr = window.devicePixelRatio || 1;
+    return Math.max(1, Math.round(dpr));
+}
+
+function initWaterfallCanvas() {
+    waterfallCanvas = document.getElementById('waterfallCanvas');
+    spectrumCanvas = document.getElementById('spectrumCanvas');
+    if (waterfallCanvas) {
+        resizeCanvasToDisplaySize(waterfallCanvas);
+        waterfallCtx = waterfallCanvas.getContext('2d');
+        if (waterfallCtx) {
+            waterfallCtx.imageSmoothingEnabled = false;
+            waterfallRowImage = waterfallCtx.createImageData(
+                waterfallCanvas.width,
+                getWaterfallRowHeight()
+            );
+        }
+    }
+    if (spectrumCanvas) {
+        resizeCanvasToDisplaySize(spectrumCanvas);
+        spectrumCtx = spectrumCanvas.getContext('2d');
+        if (spectrumCtx) {
+            spectrumCtx.imageSmoothingEnabled = false;
+        }
+    }
+    if (!waterfallPalette) waterfallPalette = buildWaterfallPalette();
+
+    if (!waterfallInteractionBound) {
+        bindWaterfallInteraction();
+        waterfallInteractionBound = true;
+    }
+
+    if (!waterfallResizeObserver && waterfallCanvas) {
+        const observerTarget = waterfallCanvas.parentElement;
+        if (observerTarget && typeof ResizeObserver !== 'undefined') {
+            waterfallResizeObserver = new ResizeObserver(() => {
+                const resizedWaterfall = resizeCanvasToDisplaySize(waterfallCanvas);
+                const resizedSpectrum = spectrumCanvas ? resizeCanvasToDisplaySize(spectrumCanvas) : false;
+                if (resizedWaterfall && waterfallCtx) {
+                    waterfallRowImage = waterfallCtx.createImageData(
+                        waterfallCanvas.width,
+                        getWaterfallRowHeight()
+                    );
+                }
+                if (resizedWaterfall || resizedSpectrum) {
+                    lastWaterfallDraw = 0;
+                }
+            });
+            waterfallResizeObserver.observe(observerTarget);
+        }
+    }
+}
+
+function setWaterfallMode(mode) {
+    waterfallMode = mode;
+    const header = document.getElementById('waterfallFreqRange');
+    if (!header) return;
+    if (mode === 'audio') {
+        header.textContent = 'Audio Spectrum (0 - 22 kHz)';
+    }
+}
+
+function startAudioWaterfall() {
+    if (audioWaterfallAnimId) return;
+    if (!visualizerAnalyser) {
+        initAudioVisualizer();
+    }
+    if (!visualizerAnalyser) return;
+
+    setWaterfallMode('audio');
+    initWaterfallCanvas();
+
+    const sampleRate = visualizerContext ? visualizerContext.sampleRate : 44100;
+    const maxFreqKhz = (sampleRate / 2) / 1000;
+    const dataArray = new Uint8Array(visualizerAnalyser.frequencyBinCount);
+
+    const drawFrame = (ts) => {
+        if (!isDirectListening || waterfallMode !== 'audio') {
+            stopAudioWaterfall();
+            return;
+        }
+        if (ts - lastAudioWaterfallDraw >= WATERFALL_MIN_INTERVAL_MS) {
+            lastAudioWaterfallDraw = ts;
+            visualizerAnalyser.getByteFrequencyData(dataArray);
+            const bins = Array.from(dataArray, v => v);
+            drawWaterfallRow(bins);
+            drawSpectrumLine(bins, 0, maxFreqKhz, 'kHz');
+        }
+        audioWaterfallAnimId = requestAnimationFrame(drawFrame);
+    };
+
+    audioWaterfallAnimId = requestAnimationFrame(drawFrame);
+}
+
+function stopAudioWaterfall() {
+    if (audioWaterfallAnimId) {
+        cancelAnimationFrame(audioWaterfallAnimId);
+        audioWaterfallAnimId = null;
+    }
+    if (waterfallMode === 'audio') {
+        waterfallMode = 'rf';
+    }
+}
+
+function dBmToRgb(normalized) {
+    // Viridis-inspired: dark blue -> cyan -> green -> yellow
+    const n = Math.max(0, Math.min(1, normalized));
+    let r, g, b;
+    if (n < 0.25) {
+        const t = n / 0.25;
+        r = Math.round(20 + t * 20);
+        g = Math.round(10 + t * 60);
+        b = Math.round(80 + t * 100);
+    } else if (n < 0.5) {
+        const t = (n - 0.25) / 0.25;
+        r = Math.round(40 - t * 20);
+        g = Math.round(70 + t * 130);
+        b = Math.round(180 - t * 30);
+    } else if (n < 0.75) {
+        const t = (n - 0.5) / 0.25;
+        r = Math.round(20 + t * 180);
+        g = Math.round(200 + t * 55);
+        b = Math.round(150 - t * 130);
+    } else {
+        const t = (n - 0.75) / 0.25;
+        r = Math.round(200 + t * 55);
+        g = Math.round(255 - t * 55);
+        b = Math.round(20 - t * 20);
+    }
+    return [r, g, b];
+}
+
+function buildWaterfallPalette() {
+    const palette = new Array(256);
+    for (let i = 0; i < 256; i++) {
+        palette[i] = dBmToRgb(i / 255);
+    }
+    return palette;
+}
+
+function drawWaterfallRow(bins) {
+    if (!waterfallCtx || !waterfallCanvas) return;
+    const w = waterfallCanvas.width;
+    const h = waterfallCanvas.height;
+    const rowHeight = waterfallRowImage ? waterfallRowImage.height : 1;
+
+    // Scroll existing content down by 1 pixel (GPU-accelerated)
+    waterfallCtx.drawImage(waterfallCanvas, 0, 0, w, h - rowHeight, 0, rowHeight, w, h - rowHeight);
+
+    // Find min/max for normalization
+    let minVal = Infinity, maxVal = -Infinity;
+    for (let i = 0; i < bins.length; i++) {
+        if (bins[i] < minVal) minVal = bins[i];
+        if (bins[i] > maxVal) maxVal = bins[i];
+    }
+    const range = maxVal - minVal || 1;
+
+    // Draw new row at top using ImageData
+    if (!waterfallRowImage || waterfallRowImage.width !== w || waterfallRowImage.height !== rowHeight) {
+        waterfallRowImage = waterfallCtx.createImageData(w, rowHeight);
+    }
+    const rowData = waterfallRowImage.data;
+    const palette = waterfallPalette || buildWaterfallPalette();
+    const binCount = bins.length;
+    for (let x = 0; x < w; x++) {
+        const pos = (x / (w - 1)) * (binCount - 1);
+        const i0 = Math.floor(pos);
+        const i1 = Math.min(binCount - 1, i0 + 1);
+        const t = pos - i0;
+        const val = (bins[i0] * (1 - t)) + (bins[i1] * t);
+        const normalized = (val - minVal) / range;
+        const color = palette[Math.max(0, Math.min(255, Math.floor(normalized * 255)))] || [0, 0, 0];
+        for (let y = 0; y < rowHeight; y++) {
+            const offset = (y * w + x) * 4;
+            rowData[offset] = color[0];
+            rowData[offset + 1] = color[1];
+            rowData[offset + 2] = color[2];
+            rowData[offset + 3] = 255;
+        }
+    }
+    waterfallCtx.putImageData(waterfallRowImage, 0, 0);
+}
+
+function drawSpectrumLine(bins, startFreq, endFreq, labelUnit) {
+    if (!spectrumCtx || !spectrumCanvas) return;
+    const w = spectrumCanvas.width;
+    const h = spectrumCanvas.height;
+
+    spectrumCtx.clearRect(0, 0, w, h);
+
+    // Background
+    spectrumCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    spectrumCtx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    spectrumCtx.strokeStyle = 'rgba(0, 200, 255, 0.1)';
+    spectrumCtx.lineWidth = 0.5;
+    for (let i = 0; i < 5; i++) {
+        const y = (h / 5) * i;
+        spectrumCtx.beginPath();
+        spectrumCtx.moveTo(0, y);
+        spectrumCtx.lineTo(w, y);
+        spectrumCtx.stroke();
+    }
+
+    // Frequency labels
+    const dpr = window.devicePixelRatio || 1;
+    spectrumCtx.fillStyle = 'rgba(0, 200, 255, 0.5)';
+    spectrumCtx.font = `${9 * dpr}px monospace`;
+    const freqRange = endFreq - startFreq;
+    for (let i = 0; i <= 4; i++) {
+        const freq = startFreq + (freqRange / 4) * i;
+        const x = (w / 4) * i;
+        const label = labelUnit === 'kHz' ? freq.toFixed(0) : freq.toFixed(1);
+        spectrumCtx.fillText(label, x + 2, h - 2);
+    }
+
+    if (bins.length === 0) return;
+
+    // Find min/max for scaling
+    let minVal = Infinity, maxVal = -Infinity;
+    for (let i = 0; i < bins.length; i++) {
+        if (bins[i] < minVal) minVal = bins[i];
+        if (bins[i] > maxVal) maxVal = bins[i];
+    }
+    const range = maxVal - minVal || 1;
+
+    // Draw spectrum line
+    spectrumCtx.strokeStyle = 'rgba(0, 255, 255, 0.9)';
+    spectrumCtx.lineWidth = 1.5;
+    spectrumCtx.beginPath();
+    for (let i = 0; i < bins.length; i++) {
+        const x = (i / (bins.length - 1)) * w;
+        const normalized = (bins[i] - minVal) / range;
+        const y = h - 12 - normalized * (h - 16);
+        if (i === 0) spectrumCtx.moveTo(x, y);
+        else spectrumCtx.lineTo(x, y);
+    }
+    spectrumCtx.stroke();
+
+    // Fill under line
+    const lastX = w;
+    const lastY = h - 12 - ((bins[bins.length - 1] - minVal) / range) * (h - 16);
+    spectrumCtx.lineTo(lastX, h);
+    spectrumCtx.lineTo(0, h);
+    spectrumCtx.closePath();
+    spectrumCtx.fillStyle = 'rgba(0, 255, 255, 0.08)';
+    spectrumCtx.fill();
+}
+
+function startWaterfall() {
+    const startFreq = parseFloat(document.getElementById('waterfallStartFreq')?.value || 88);
+    const endFreq = parseFloat(document.getElementById('waterfallEndFreq')?.value || 108);
+    const binSize = parseInt(document.getElementById('waterfallBinSize')?.value || 10000);
+    const gain = parseInt(document.getElementById('waterfallGain')?.value || 40);
+    const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
+    initWaterfallCanvas();
+    const maxBins = Math.min(4096, Math.max(128, waterfallCanvas ? waterfallCanvas.width : 800));
+
+    if (startFreq >= endFreq) {
+        if (typeof showNotification === 'function') showNotification('Error', 'End frequency must be greater than start');
+        return;
+    }
+
+    waterfallStartFreq = startFreq;
+    waterfallEndFreq = endFreq;
+    const rangeLabel = document.getElementById('waterfallFreqRange');
+    if (rangeLabel) {
+        rangeLabel.textContent = `${startFreq.toFixed(1)} - ${endFreq.toFixed(1)} MHz`;
+    }
+
+    if (isDirectListening) {
+        isWaterfallRunning = true;
+        const waterfallPanel = document.getElementById('waterfallPanel');
+        if (waterfallPanel) waterfallPanel.style.display = 'block';
+        document.getElementById('startWaterfallBtn').style.display = 'none';
+        document.getElementById('stopWaterfallBtn').style.display = 'block';
+        startAudioWaterfall();
+        return;
+    }
+
+    setWaterfallMode('rf');
+    const spanMhz = Math.max(0.1, waterfallEndFreq - waterfallStartFreq);
+    const segments = Math.max(1, Math.ceil(spanMhz / 2.4));
+    const targetSweepSeconds = 0.8;
+    const interval = Math.max(0.1, Math.min(0.3, targetSweepSeconds / segments));
+
+    fetch('/listening/waterfall/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            start_freq: startFreq,
+            end_freq: endFreq,
+            bin_size: binSize,
+            gain: gain,
+            device: device,
+            max_bins: maxBins,
+            interval: interval,
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'started') {
+            isWaterfallRunning = true;
+            document.getElementById('startWaterfallBtn').style.display = 'none';
+            document.getElementById('stopWaterfallBtn').style.display = 'block';
+            const waterfallPanel = document.getElementById('waterfallPanel');
+            if (waterfallPanel) waterfallPanel.style.display = 'block';
+            lastWaterfallDraw = 0;
+            initWaterfallCanvas();
+            connectWaterfallSSE();
+        } else {
+            if (typeof showNotification === 'function') showNotification('Error', data.message || 'Failed to start waterfall');
+        }
+    })
+    .catch(err => console.error('[WATERFALL] Start error:', err));
+}
+
+async function stopWaterfall() {
+    if (waterfallMode === 'audio') {
+        stopAudioWaterfall();
+        isWaterfallRunning = false;
+        document.getElementById('startWaterfallBtn').style.display = 'block';
+        document.getElementById('stopWaterfallBtn').style.display = 'none';
+        return;
+    }
+
+    try {
+        await fetch('/listening/waterfall/stop', { method: 'POST' });
+        isWaterfallRunning = false;
+        if (waterfallEventSource) { waterfallEventSource.close(); waterfallEventSource = null; }
+        document.getElementById('startWaterfallBtn').style.display = 'block';
+        document.getElementById('stopWaterfallBtn').style.display = 'none';
+    } catch (err) {
+        console.error('[WATERFALL] Stop error:', err);
+    }
+}
+
+function connectWaterfallSSE() {
+    if (waterfallEventSource) waterfallEventSource.close();
+    waterfallEventSource = new EventSource('/listening/waterfall/stream');
+    waterfallMode = 'rf';
+
+    waterfallEventSource.onmessage = function(event) {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'waterfall_sweep') {
+            if (typeof msg.start_freq === 'number') waterfallStartFreq = msg.start_freq;
+            if (typeof msg.end_freq === 'number') waterfallEndFreq = msg.end_freq;
+            const rangeLabel = document.getElementById('waterfallFreqRange');
+            if (rangeLabel) {
+                rangeLabel.textContent = `${waterfallStartFreq.toFixed(1)} - ${waterfallEndFreq.toFixed(1)} MHz`;
+            }
+            const now = Date.now();
+            if (now - lastWaterfallDraw < WATERFALL_MIN_INTERVAL_MS) return;
+            lastWaterfallDraw = now;
+            drawWaterfallRow(msg.bins);
+            drawSpectrumLine(msg.bins, msg.start_freq, msg.end_freq);
+        }
+    };
+
+    waterfallEventSource.onerror = function() {
+        if (isWaterfallRunning) {
+            setTimeout(connectWaterfallSSE, 2000);
+        }
+    };
+}
+
+function bindWaterfallInteraction() {
+    const handler = (event) => {
+        if (waterfallMode === 'audio') {
+            return;
+        }
+        const canvas = event.currentTarget;
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const ratio = Math.max(0, Math.min(1, x / rect.width));
+        const freq = waterfallStartFreq + ratio * (waterfallEndFreq - waterfallStartFreq);
+        if (typeof tuneToFrequency === 'function') {
+            tuneToFrequency(freq, typeof currentModulation !== 'undefined' ? currentModulation : undefined);
+        }
+    };
+
+    if (waterfallCanvas) {
+        waterfallCanvas.style.cursor = 'crosshair';
+        waterfallCanvas.addEventListener('click', handler);
+    }
+    if (spectrumCanvas) {
+        spectrumCanvas.style.cursor = 'crosshair';
+        spectrumCanvas.addEventListener('click', handler);
+    }
+}
+
+
 window.stopDirectListen = stopDirectListen;
 window.toggleScanner = toggleScanner;
 window.startScanner = startScanner;
@@ -2953,3 +3493,7 @@ window.removeBookmark = removeBookmark;
 window.tuneToFrequency = tuneToFrequency;
 window.clearScannerLog = clearScannerLog;
 window.exportScannerLog = exportScannerLog;
+window.manualSignalGuess = manualSignalGuess;
+window.guessSignal = guessSignal;
+window.startWaterfall = startWaterfall;
+window.stopWaterfall = stopWaterfall;

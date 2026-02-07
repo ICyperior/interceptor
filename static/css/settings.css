@@ -163,6 +163,47 @@
     color: var(--text-muted, #666);
 }
 
+/* Settings Feed Lists */
+.settings-feed {
+    background: var(--bg-tertiary, #12121f);
+    border: 1px solid var(--border-color, #1a1a2e);
+    border-radius: 6px;
+    padding: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.settings-feed-item {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 11px;
+}
+
+.settings-feed-item:last-child {
+    border-bottom: none;
+}
+
+.settings-feed-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: var(--text-primary, #e0e0e0);
+    margin-bottom: 4px;
+}
+
+.settings-feed-meta {
+    color: var(--text-muted, #666);
+    font-size: 10px;
+}
+
+.settings-feed-empty {
+    color: var(--text-dim, #666);
+    text-align: center;
+    padding: 20px 10px;
+    font-size: 11px;
+}
+
 /* Toggle Switch */
 .toggle-switch {
     position: relative;
