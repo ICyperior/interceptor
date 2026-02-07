@@ -3369,7 +3369,7 @@ function startWaterfall() {
     const spanMhz = Math.max(0.1, waterfallEndFreq - waterfallStartFreq);
     const segments = Math.max(1, Math.ceil(spanMhz / 2.4));
     const targetSweepSeconds = 0.8;
-    const interval = Math.max(0.05, Math.min(0.3, targetSweepSeconds / segments));
+    const interval = Math.max(0.1, Math.min(0.3, targetSweepSeconds / segments));
 
     fetch('/listening/waterfall/start', {
         method: 'POST',
