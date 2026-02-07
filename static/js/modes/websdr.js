@@ -38,12 +38,16 @@ function initWebSDR() {
     const mapEl = document.getElementById('websdrMap');
     if (!mapEl || typeof L === 'undefined') return;
 
+    // Calculate minimum zoom so tiles fill the container vertically
+    const mapHeight = mapEl.clientHeight || 500;
+    const minZoom = Math.ceil(Math.log2(mapHeight / 256));
+
     websdrMap = L.map('websdrMap', {
-        center: [30, 0],
-        zoom: 2,
-        minZoom: 2,
+        center: [20, 0],
+        zoom: Math.max(minZoom, 2),
+        minZoom: Math.max(minZoom, 2),
         zoomControl: true,
-        maxBounds: [[-85, -Infinity], [85, Infinity]],
+        maxBounds: [[-85, -360], [85, 360]],
         maxBoundsViscosity: 1.0,
     });
 
@@ -51,8 +55,10 @@ function initWebSDR() {
         attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 19,
-        noWrap: false,
     }).addTo(websdrMap);
+
+    // Match background to tile ocean color so any remaining edge is seamless
+    mapEl.style.background = '#1a1d29';
 
     websdrInitialized = true;
 
