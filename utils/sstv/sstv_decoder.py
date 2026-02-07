@@ -283,8 +283,10 @@ class SSTVDecoder:
             try:
                 freq_hz = self._get_doppler_corrected_freq_hz()
                 self._current_tuned_freq_hz = freq_hz
-                self._start_pipeline(freq_hz)
+                # Set _running BEFORE starting the pipeline so the decode
+                # thread sees it as True on its first loop iteration.
                 self._running = True
+                self._start_pipeline(freq_hz)
 
                 # Start Doppler tracking thread if enabled
                 if self._doppler_enabled:
@@ -306,6 +308,7 @@ class SSTVDecoder:
                 return True
 
             except Exception as e:
+                self._running = False
                 logger.error(f"Failed to start SSTV decoder: {e}")
                 self._emit_progress(DecodeProgress(
                     status='error',
@@ -433,7 +436,26 @@ class SSTVDecoder:
                     break
                 time.sleep(0.1)
 
-        logger.info("Audio decode thread stopped")
+        # Clean up if the thread exits while we thought we were running.
+        # This prevents a "ghost running" state where is_running is True
+        # but the thread has already died (e.g. rtl_fm exited).
+        with self._lock:
+            was_running = self._running
+            self._running = False
+            if was_running and self._rtl_process:
+                with contextlib.suppress(Exception):
+                    self._rtl_process.terminate()
+                    self._rtl_process.wait(timeout=2)
+                self._rtl_process = None
+
+        if was_running:
+            logger.warning("Audio decode thread stopped unexpectedly")
+            self._emit_progress(DecodeProgress(
+                status='error',
+                message='Decode pipeline stopped unexpectedly'
+            ))
+        else:
+            logger.info("Audio decode thread stopped")
 
     def _save_decoded_image(self, decoder: SSTVImageDecoder,
                             mode_name: str | None) -> None:

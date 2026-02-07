@@ -193,6 +193,8 @@ class VISDetector:
                 # Transition to BREAK; this window counts as break window 1
                 self._tone_counter = 1
                 self._state = VISState.BREAK
+            elif tone is None:
+                pass  # Ambiguous window at tone boundary — stay in state
             else:
                 self._tone_counter = 0
                 self._state = VISState.IDLE
@@ -207,6 +209,8 @@ class VISDetector:
                 # Transition to LEADER_2; this window counts
                 self._tone_counter = 1
                 self._state = VISState.LEADER_2
+            elif tone is None:
+                pass  # Ambiguous window at tone boundary — stay in state
             else:
                 self._tone_counter = 0
                 self._state = VISState.IDLE
@@ -227,6 +231,8 @@ class VISDetector:
                     self._data_bits = []
                     self._bit_accumulator = []
                     self._state = VISState.DATA_BITS
+            elif tone is None:
+                pass  # Ambiguous window at tone boundary — stay in state
             else:
                 self._tone_counter = 0
                 self._state = VISState.IDLE
