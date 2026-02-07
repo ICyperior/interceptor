@@ -20,6 +20,7 @@ from flask import Blueprint, jsonify, request, Response
 import app as app_module
 from utils.logging import get_logger
 from utils.sse import format_sse
+from utils.event_pipeline import process_event
 from utils.constants import (
     SSE_QUEUE_TIMEOUT,
     SSE_KEEPALIVE_INTERVAL,
@@ -1182,6 +1183,10 @@ def stream_scanner_events() -> Response:
             try:
                 msg = scanner_queue.get(timeout=SSE_QUEUE_TIMEOUT)
                 last_keepalive = time.time()
+                try:
+                    process_event('listening_scanner', msg, msg.get('type'))
+                except Exception:
+                    pass
                 yield format_sse(msg)
             except queue.Empty:
                 now = time.time()
@@ -1521,6 +1526,7 @@ waterfall_config = {
     'bin_size': 10000,
     'gain': 40,
     'device': 0,
+    'max_bins': 1024,
 }
 
 
@@ -1607,6 +1613,9 @@ def _waterfall_loop():
                     continue
 
             if all_bins:
+                max_bins = int(waterfall_config.get('max_bins') or 0)
+                if max_bins > 0 and len(all_bins) > max_bins:
+                    all_bins = _downsample_bins(all_bins, max_bins)
                 msg = {
                     'type': 'waterfall_sweep',
                     'start_freq': sweep_start_hz / 1e6,
@@ -1655,6 +1664,11 @@ def start_waterfall() -> Response:
         waterfall_config['bin_size'] = int(data.get('bin_size', 10000))
         waterfall_config['gain'] = int(data.get('gain', 40))
         waterfall_config['device'] = int(data.get('device', 0))
+        if data.get('max_bins') is not None:
+            max_bins = int(data.get('max_bins', waterfall_config['max_bins']))
+            if max_bins < 64 or max_bins > 4096:
+                return jsonify({'status': 'error', 'message': 'max_bins must be between 64 and 4096'}), 400
+            waterfall_config['max_bins'] = max_bins
     except (ValueError, TypeError) as e:
         return jsonify({'status': 'error', 'message': f'Invalid parameter: {e}'}), 400
 
@@ -1714,6 +1728,10 @@ def stream_waterfall() -> Response:
             try:
                 msg = waterfall_queue.get(timeout=SSE_QUEUE_TIMEOUT)
                 last_keepalive = time.time()
+                try:
+                    process_event('waterfall', msg, msg.get('type'))
+                except Exception:
+                    pass
                 yield format_sse(msg)
             except queue.Empty:
                 now = time.time()
@@ -1725,3 +1743,20 @@ def stream_waterfall() -> Response:
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response
+def _downsample_bins(values: list[float], target: int) -> list[float]:
+    """Downsample bins to a target length using simple averaging."""
+    if target <= 0 or len(values) <= target:
+        return values
+
+    out: list[float] = []
+    step = len(values) / target
+    for i in range(target):
+        start = int(i * step)
+        end = int((i + 1) * step)
+        if end <= start:
+            end = min(start + 1, len(values))
+        chunk = values[start:end]
+        if not chunk:
+            continue
+        out.append(sum(chunk) / len(chunk))
+    return out

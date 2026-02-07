@@ -3021,15 +3021,23 @@ let spectrumCanvas = null;
 let spectrumCtx = null;
 let waterfallStartFreq = 88;
 let waterfallEndFreq = 108;
+let waterfallRowImage = null;
+let waterfallPalette = null;
+let lastWaterfallDraw = 0;
+const WATERFALL_MIN_INTERVAL_MS = 80;
 
 function initWaterfallCanvas() {
     waterfallCanvas = document.getElementById('waterfallCanvas');
     spectrumCanvas = document.getElementById('spectrumCanvas');
     if (waterfallCanvas) waterfallCtx = waterfallCanvas.getContext('2d');
     if (spectrumCanvas) spectrumCtx = spectrumCanvas.getContext('2d');
+    if (waterfallCtx && waterfallCanvas) {
+        waterfallRowImage = waterfallCtx.createImageData(waterfallCanvas.width, 1);
+        if (!waterfallPalette) waterfallPalette = buildWaterfallPalette();
+    }
 }
 
-function dBmToColor(normalized) {
+function dBmToRgb(normalized) {
     // Viridis-inspired: dark blue -> cyan -> green -> yellow
     const n = Math.max(0, Math.min(1, normalized));
     let r, g, b;
@@ -3054,7 +3062,15 @@ function dBmToColor(normalized) {
         g = Math.round(255 - t * 55);
         b = Math.round(20 - t * 20);
     }
-    return `rgb(${r},${g},${b})`;
+    return [r, g, b];
+}
+
+function buildWaterfallPalette() {
+    const palette = new Array(256);
+    for (let i = 0; i < 256; i++) {
+        palette[i] = dBmToRgb(i / 255);
+    }
+    return palette;
 }
 
 function drawWaterfallRow(bins) {
@@ -3062,9 +3078,8 @@ function drawWaterfallRow(bins) {
     const w = waterfallCanvas.width;
     const h = waterfallCanvas.height;
 
-    // Scroll existing content down by 1 pixel
-    const imageData = waterfallCtx.getImageData(0, 0, w, h - 1);
-    waterfallCtx.putImageData(imageData, 0, 1);
+    // Scroll existing content down by 1 pixel (GPU-accelerated)
+    waterfallCtx.drawImage(waterfallCanvas, 0, 0, w, h - 1, 0, 1, w, h - 1);
 
     // Find min/max for normalization
     let minVal = Infinity, maxVal = -Infinity;
@@ -3074,13 +3089,24 @@ function drawWaterfallRow(bins) {
     }
     const range = maxVal - minVal || 1;
 
-    // Draw new row at top
-    const binWidth = w / bins.length;
-    for (let i = 0; i < bins.length; i++) {
-        const normalized = (bins[i] - minVal) / range;
-        waterfallCtx.fillStyle = dBmToColor(normalized);
-        waterfallCtx.fillRect(Math.floor(i * binWidth), 0, Math.ceil(binWidth) + 1, 1);
+    // Draw new row at top using ImageData
+    if (!waterfallRowImage || waterfallRowImage.width !== w) {
+        waterfallRowImage = waterfallCtx.createImageData(w, 1);
     }
+    const rowData = waterfallRowImage.data;
+    const palette = waterfallPalette || buildWaterfallPalette();
+    const binCount = bins.length;
+    for (let x = 0; x < w; x++) {
+        const idx = Math.min(binCount - 1, Math.floor((x / w) * binCount));
+        const normalized = (bins[idx] - minVal) / range;
+        const color = palette[Math.max(0, Math.min(255, Math.floor(normalized * 255)))] || [0, 0, 0];
+        const offset = x * 4;
+        rowData[offset] = color[0];
+        rowData[offset + 1] = color[1];
+        rowData[offset + 2] = color[2];
+        rowData[offset + 3] = 255;
+    }
+    waterfallCtx.putImageData(waterfallRowImage, 0, 0);
 }
 
 function drawSpectrumLine(bins, startFreq, endFreq) {
@@ -3154,6 +3180,7 @@ function startWaterfall() {
     const binSize = parseInt(document.getElementById('waterfallBinSize')?.value || 10000);
     const gain = parseInt(document.getElementById('waterfallGain')?.value || 40);
     const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
+    const maxBins = document.getElementById('waterfallCanvas')?.width || 800;
 
     if (startFreq >= endFreq) {
         if (typeof showNotification === 'function') showNotification('Error', 'End frequency must be greater than start');
@@ -3166,7 +3193,14 @@ function startWaterfall() {
     fetch('/listening/waterfall/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_freq: startFreq, end_freq: endFreq, bin_size: binSize, gain: gain, device: device })
+        body: JSON.stringify({
+            start_freq: startFreq,
+            end_freq: endFreq,
+            bin_size: binSize,
+            gain: gain,
+            device: device,
+            max_bins: maxBins,
+        })
     })
     .then(r => r.json())
     .then(data => {
@@ -3176,6 +3210,7 @@ function startWaterfall() {
             document.getElementById('stopWaterfallBtn').style.display = 'block';
             const waterfallPanel = document.getElementById('waterfallPanel');
             if (waterfallPanel) waterfallPanel.style.display = 'block';
+            lastWaterfallDraw = 0;
             initWaterfallCanvas();
             connectWaterfallSSE();
         } else {
@@ -3204,6 +3239,9 @@ function connectWaterfallSSE() {
     waterfallEventSource.onmessage = function(event) {
         const msg = JSON.parse(event.data);
         if (msg.type === 'waterfall_sweep') {
+            const now = Date.now();
+            if (now - lastWaterfallDraw < WATERFALL_MIN_INTERVAL_MS) return;
+            lastWaterfallDraw = now;
             drawWaterfallRow(msg.bins);
             drawSpectrumLine(msg.bins, msg.start_freq, msg.end_freq);
         }

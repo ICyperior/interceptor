@@ -806,7 +806,8 @@
                                         <div class="bt-detail-services" id="btDetailServices" style="display: none;">
                                             <span class="bt-detail-services-list" id="btDetailServicesList"></span>
                                         </div>
-                                        <button class="bt-detail-btn" onclick="BluetoothMode.copyAddress()">Copy</button>
+                                        <button class="bt-detail-btn" id="btDetailWatchBtn" onclick="BluetoothMode.toggleWatchlist()">Watchlist</button>
+                                        <button class="bt-detail-btn" id="btDetailCopyBtn" onclick="BluetoothMode.copyAddress()">Copy</button>
                                     </div>
                                 </div>
                             </div>
@@ -6058,11 +6059,44 @@
                 : 'Monitor mode: <span style="color: var(--accent-red);">Inactive</span>';
         }
 
+        function getWifiChannelPresetList(preset) {
+            switch (preset) {
+                case '2.4-common':
+                    return '1,6,11';
+                case '2.4-all':
+                    return '1,2,3,4,5,6,7,8,9,10,11,12,13';
+                case '5-low':
+                    return '36,40,44,48';
+                case '5-mid':
+                    return '52,56,60,64';
+                case '5-high':
+                    return '149,153,157,161,165';
+                default:
+                    return '';
+            }
+        }
+
+        function buildWifiChannelConfig() {
+            const preset = document.getElementById('wifiChannelPreset')?.value || '';
+            const listInput = document.getElementById('wifiChannelList')?.value || '';
+            const singleInput = document.getElementById('wifiChannel')?.value || '';
+
+            const listValue = listInput.trim();
+            const presetValue = getWifiChannelPresetList(preset);
+            const channels = listValue || presetValue || '';
+            const channel = channels ? null : (singleInput.trim() ? parseInt(singleInput.trim()) : null);
+
+            return {
+                channels: channels || null,
+                channel: Number.isFinite(channel) ? channel : null,
+            };
+        }
+
         // Start WiFi scan - auto-enables monitor mode if needed
         async function startWifiScan() {
             console.log('startWifiScan called');
             const band = document.getElementById('wifiBand').value;
-            const channel = document.getElementById('wifiChannel').value;
+            const channelConfig = buildWifiChannelConfig();
 
             // Auto-enable monitor mode if not already enabled
             if (!monitorInterface) {
@@ -6124,7 +6158,8 @@
                     body: JSON.stringify({
                         interface: monitorInterface,
                         band: band,
-                        channel: channel || null
+                        channel: channelConfig.channel,
+                        channels: channelConfig.channels,
                     })
                 });
                 const scanData = await scanResp.json();
@@ -6821,7 +6856,7 @@
 
                     if (data.handshake_found) {
                         // Handshake captured!
-                        statusSpan.textContent = '✓ HANDSHAKE CAPTURED!';
+                        statusSpan.textContent = '✓ VALID HANDSHAKE CAPTURED!';
                         statusSpan.style.color = 'var(--accent-green)';
                         handshakeCount++;
                         document.getElementById('handshakeCount').textContent = handshakeCount;
@@ -6854,7 +6889,11 @@
                         activeCapture.capturedFile = data.file;
                     } else if (data.file_exists) {
                         const sizeKB = (data.file_size / 1024).toFixed(1);
-                        statusSpan.textContent = 'Capturing... (' + sizeKB + ' KB, ' + elapsedStr + ')';
+                        let extra = '';
+                        if (data.handshake_checked && data.handshake_valid === false) {
+                            extra = data.handshake_reason ? ' • ' + data.handshake_reason : ' • No valid handshake yet';
+                        }
+                        statusSpan.textContent = 'Capturing... (' + sizeKB + ' KB, ' + elapsedStr + ')' + extra;
                         statusSpan.style.color = 'var(--accent-orange)';
                     } else if (data.status === 'stopped') {
                         statusSpan.textContent = 'Capture stopped';
@@ -10905,6 +10944,13 @@
                 if (client.score >= 3) {
                     addHighInterestDevice(client, 'wifi');
                 }
+                if (isRecordingBaseline) {
+                    fetch('/tscm/feed/wifi', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(client)
+                    }).catch(e => console.error('Baseline feed error:', e));
+                }
             }
         }
 
@@ -12331,6 +12377,11 @@
                     const id = item.bssid || item.mac || '';
                     return `${escapeHtml(name)} ${id ? `<span class="device-detail-id">${escapeHtml(id)}</span>` : ''}`;
                 }
+                if (protocol === 'wifi_clients') {
+                    const name = item.vendor || 'WiFi Client';
+                    const id = item.mac || item.address || '';
+                    return `${escapeHtml(name)} ${id ? `<span class="device-detail-id">${escapeHtml(id)}</span>` : ''}`;
+                }
                 if (protocol === 'bluetooth') {
                     const name = item.name || 'Unknown';
                     const id = item.mac || item.address || '';
@@ -12357,6 +12408,7 @@
 
             const sections = [
                 { key: 'wifi', label: 'WiFi' },
+                { key: 'wifi_clients', label: 'WiFi Clients' },
                 { key: 'bluetooth', label: 'Bluetooth' },
                 { key: 'rf', label: 'RF' },
             ];
@@ -12759,7 +12811,7 @@
 
                 if (data.status === 'success') {
                     document.getElementById('tscmBaselineStatus').textContent =
-                        `Baseline saved: ${data.wifi_count} WiFi, ${data.bt_count} BT, ${data.rf_count} RF`;
+                        `Baseline saved: ${data.wifi_count} WiFi, ${data.wifi_client_count || 0} Clients, ${data.bt_count} BT, ${data.rf_count} RF`;
                     document.getElementById('tscmBaselineStatus').style.color = '#00ff88';
                     loadTscmBaselines();
                 } else {
@@ -14574,6 +14626,9 @@
     <script src="{{ url_for('static', filename='js/core/updater.js') }}"></script>
     <!-- Settings Manager -->
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}"></script>
+    <!-- Alerts + Recording -->
+    <script src="{{ url_for('static', filename='js/core/alerts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/recordings.js') }}"></script>
 </body>
 
 </html>

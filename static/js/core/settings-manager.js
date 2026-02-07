@@ -922,5 +922,13 @@ function switchSettingsTab(tabName) {
         loadUpdateStatus();
     } else if (tabName === 'location') {
         loadObserverLocation();
+    } else if (tabName === 'alerts') {
+        if (typeof AlertCenter !== 'undefined') {
+            AlertCenter.loadFeed();
+        }
+    } else if (tabName === 'recording') {
+        if (typeof RecordingUI !== 'undefined') {
+            RecordingUI.refresh();
+        }
     }
 }

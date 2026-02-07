@@ -11,6 +11,8 @@ import csv
 import io
 import json
 import logging
+import threading
+import time
 from datetime import datetime
 from typing import Generator
 
@@ -28,11 +30,17 @@ from utils.bluetooth import (
 )
 from utils.database import get_db
 from utils.sse import format_sse
+from utils.event_pipeline import process_event
 
 logger = logging.getLogger('intercept.bluetooth_v2')
 
 # Blueprint
 bluetooth_v2_bp = Blueprint('bluetooth_v2', __name__, url_prefix='/api/bluetooth')
+
+# Seen-before tracking
+_bt_seen_cache: set[str] = set()
+_bt_session_seen: set[str] = set()
+_bt_seen_lock = threading.Lock()
 
 # =============================================================================
 # DATABASE FUNCTIONS
@@ -173,6 +181,13 @@ def save_observation_history(device: BTDeviceAggregate) -> None:
         ''', (device.device_id, device.rssi_current, device.seen_count))
 
 
+def load_seen_device_ids() -> set[str]:
+    """Load distinct device IDs from history for seen-before tracking."""
+    with get_db() as conn:
+        cursor = conn.execute('SELECT DISTINCT device_id FROM bt_observation_history')
+        return {row['device_id'] for row in cursor}
+
+
 # =============================================================================
 # API ENDPOINTS
 # =============================================================================
@@ -221,6 +236,28 @@ def start_scan():
     # Get scanner instance
     scanner = get_bluetooth_scanner(adapter_id)
 
+    # Initialize database tables if needed
+    init_bt_tables()
+
+    def _handle_seen_before(device: BTDeviceAggregate) -> None:
+        try:
+            with _bt_seen_lock:
+                device.seen_before = device.device_id in _bt_seen_cache
+                if device.device_id not in _bt_session_seen:
+                    save_observation_history(device)
+                    _bt_session_seen.add(device.device_id)
+        except Exception as e:
+            logger.debug(f"BT seen-before update failed: {e}")
+
+    # Setup seen-before callback
+    if scanner._on_device_updated is None:
+        scanner._on_device_updated = _handle_seen_before
+
+    # Ensure cache is initialized
+    with _bt_seen_lock:
+        if not _bt_seen_cache:
+            _bt_seen_cache.update(load_seen_device_ids())
+
     # Check if already scanning
     if scanner.is_scanning:
         return jsonify({
@@ -228,8 +265,11 @@ def start_scan():
             'scan_status': scanner.get_status().to_dict()
         })
 
-    # Initialize database tables if needed
-    init_bt_tables()
+    # Refresh seen-before cache and reset session set for a new scan
+    with _bt_seen_lock:
+        _bt_seen_cache.clear()
+        _bt_seen_cache.update(load_seen_device_ids())
+        _bt_session_seen.clear()
 
     # Load active baseline if exists
     baseline_id = get_active_baseline_id()
@@ -860,6 +900,10 @@ def stream_events():
         """Generate SSE events from scanner."""
         for event in scanner.stream_events(timeout=1.0):
             event_name, event_data = map_event_type(event)
+            try:
+                process_event('bluetooth', event_data, event_name)
+            except Exception:
+                pass
             yield format_sse(event_data, event=event_name)
 
     return Response(

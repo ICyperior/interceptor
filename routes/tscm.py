@@ -60,6 +60,7 @@ from utils.tscm.device_identity import (
     ingest_ble_dict,
     ingest_wifi_dict,
 )
+from utils.event_pipeline import process_event
 
 # Import unified Bluetooth scanner helper for TSCM integration
 try:
@@ -627,6 +628,10 @@ def sweep_stream():
             try:
                 if tscm_queue:
                     msg = tscm_queue.get(timeout=1)
+                    try:
+                        process_event('tscm', msg, msg.get('type'))
+                    except Exception:
+                        pass
                     yield f"data: {json.dumps(msg)}\n\n"
                 else:
                     time.sleep(1)
@@ -2023,6 +2028,7 @@ def _run_sweep(
                 comparator = BaselineComparator(baseline)
                 baseline_comparison = comparator.compare_all(
                     wifi_devices=list(all_wifi.values()),
+                    wifi_clients=list(all_wifi_clients.values()),
                     bt_devices=list(all_bt.values()),
                     rf_signals=all_rf
                 )
@@ -2132,6 +2138,7 @@ def _run_sweep(
                     'total_new': baseline_comparison['total_new'],
                     'total_missing': baseline_comparison['total_missing'],
                     'wifi': baseline_comparison.get('wifi'),
+                    'wifi_clients': baseline_comparison.get('wifi_clients'),
                     'bluetooth': baseline_comparison.get('bluetooth'),
                     'rf': baseline_comparison.get('rf'),
                 })
@@ -2297,6 +2304,7 @@ def compare_against_baseline():
 
     Expects JSON body with:
     - wifi_devices: list of WiFi devices (optional)
+    - wifi_clients: list of WiFi clients (optional)
     - bt_devices: list of Bluetooth devices (optional)
     - rf_signals: list of RF signals (optional)
 
@@ -2305,12 +2313,14 @@ def compare_against_baseline():
     data = request.get_json() or {}
 
     wifi_devices = data.get('wifi_devices')
+    wifi_clients = data.get('wifi_clients')
     bt_devices = data.get('bt_devices')
     rf_signals = data.get('rf_signals')
 
     # Use the convenience function that gets active baseline
     comparison = get_comparison_for_active_baseline(
         wifi_devices=wifi_devices,
+        wifi_clients=wifi_clients,
         bt_devices=bt_devices,
         rf_signals=rf_signals
     )
@@ -2404,7 +2414,10 @@ def feed_wifi():
     """Feed WiFi device data for baseline recording."""
     data = request.get_json()
     if data:
-        _baseline_recorder.add_wifi_device(data)
+        if data.get('is_client'):
+            _baseline_recorder.add_wifi_client(data)
+        else:
+            _baseline_recorder.add_wifi_device(data)
     return jsonify({'status': 'success'})
 
 
@@ -3056,12 +3069,14 @@ def get_baseline_diff(baseline_id: int, sweep_id: int):
             results = json.loads(results)
 
         current_wifi = results.get('wifi_devices', [])
+        current_wifi_clients = results.get('wifi_clients', [])
         current_bt = results.get('bt_devices', [])
         current_rf = results.get('rf_signals', [])
 
         diff = calculate_baseline_diff(
             baseline=baseline,
             current_wifi=current_wifi,
+            current_wifi_clients=current_wifi_clients,
             current_bt=current_bt,
             current_rf=current_rf,
             sweep_id=sweep_id

@@ -18,6 +18,7 @@ from utils.validation import (
     validate_frequency, validate_device_index, validate_gain, validate_ppm
 )
 from utils.sse import format_sse
+from utils.event_pipeline import process_event
 from utils.process import safe_terminate, register_process, unregister_process
 
 rtlamr_bp = Blueprint('rtlamr', __name__)
@@ -295,6 +296,10 @@ def stream_rtlamr() -> Response:
             try:
                 msg = app_module.rtlamr_queue.get(timeout=1)
                 last_keepalive = time.time()
+                try:
+                    process_event('rtlamr', msg, msg.get('type'))
+                except Exception:
+                    pass
                 yield format_sse(msg)
             except queue.Empty:
                 now = time.time()

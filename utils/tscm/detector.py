@@ -122,6 +122,10 @@ class ThreatDetector:
                     if 'mac' in client:
                         self.baseline_wifi_macs.add(client['mac'].upper())
 
+        for client in baseline.get('wifi_clients', []):
+            if 'mac' in client:
+                self.baseline_wifi_macs.add(client['mac'].upper())
+
         # Bluetooth devices
         for device in baseline.get('bt_devices', []):
             if 'mac' in device:

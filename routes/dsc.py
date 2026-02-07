@@ -36,6 +36,7 @@ from utils.database import (
 )
 from utils.dsc.parser import parse_dsc_message
 from utils.sse import format_sse
+from utils.event_pipeline import process_event
 from utils.validation import validate_device_index, validate_gain
 from utils.sdr import SDRFactory, SDRType
 from utils.dependencies import get_tool_path
@@ -525,6 +526,10 @@ def stream() -> Response:
             try:
                 msg = app_module.dsc_queue.get(timeout=1)
                 last_keepalive = time.time()
+                try:
+                    process_event('dsc', msg, msg.get('type'))
+                except Exception:
+                    pass
                 yield format_sse(msg)
             except queue.Empty:
                 now = time.time()

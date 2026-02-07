@@ -23,6 +23,7 @@ from utils.validation import (
     validate_rtl_tcp_host, validate_rtl_tcp_port
 )
 from utils.sse import format_sse
+from utils.event_pipeline import process_event
 from utils.process import safe_terminate, register_process, unregister_process
 from utils.sdr import SDRFactory, SDRType, SDRValidationError
 from utils.dependencies import get_tool_path
@@ -471,6 +472,10 @@ def stream() -> Response:
             try:
                 msg = app_module.output_queue.get(timeout=1)
                 last_keepalive = time.time()
+                try:
+                    process_event('pager', msg, msg.get('type'))
+                except Exception:
+                    pass
                 yield format_sse(msg)
             except queue.Empty:
                 now = time.time()

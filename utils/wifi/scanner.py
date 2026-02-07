@@ -667,6 +667,7 @@ class UnifiedWiFiScanner:
         interface: Optional[str] = None,
         band: str = 'all',
         channel: Optional[int] = None,
+        channels: Optional[list[int]] = None,
     ) -> bool:
         """
         Start continuous deep scan with airodump-ng.
@@ -702,7 +703,7 @@ class UnifiedWiFiScanner:
             self._deep_scan_stop_event.clear()
             self._deep_scan_thread = threading.Thread(
                 target=self._run_deep_scan,
-                args=(iface, band, channel),
+                args=(iface, band, channel, channels),
                 daemon=True,
             )
             self._deep_scan_thread.start()
@@ -766,7 +767,13 @@ class UnifiedWiFiScanner:
 
             return True
 
-    def _run_deep_scan(self, interface: str, band: str, channel: Optional[int]):
+    def _run_deep_scan(
+        self,
+        interface: str,
+        band: str,
+        channel: Optional[int],
+        channels: Optional[list[int]],
+    ):
         """Background thread for running airodump-ng."""
         from .parsers.airodump import parse_airodump_csv
 
@@ -779,7 +786,9 @@ class UnifiedWiFiScanner:
             # Build command
             cmd = ['airodump-ng', '-w', output_prefix, '--output-format', 'csv']
 
-            if channel:
+            if channels:
+                cmd.extend(['-c', ','.join(str(c) for c in channels)])
+            elif channel:
                 cmd.extend(['-c', str(channel)])
             elif band == '2.4':
                 cmd.extend(['--band', 'bg'])

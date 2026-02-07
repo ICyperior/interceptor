@@ -1543,6 +1543,7 @@ class ModeManager:
         """Start WiFi scanning using Intercept's UnifiedWiFiScanner."""
         interface = params.get('interface')
         channel = params.get('channel')
+        channels = params.get('channels')
         band = params.get('band', 'abg')
         scan_type = params.get('scan_type', 'deep')
 
@@ -1573,8 +1574,21 @@ class ModeManager:
             else:
                 scan_band = 'all'
 
+            channel_list = None
+            if channels:
+                if isinstance(channels, str):
+                    channel_list = [c.strip() for c in channels.split(',') if c.strip()]
+                elif isinstance(channels, (list, tuple, set)):
+                    channel_list = list(channels)
+                else:
+                    channel_list = [channels]
+                try:
+                    channel_list = [int(c) for c in channel_list]
+                except (TypeError, ValueError):
+                    return {'status': 'error', 'message': 'Invalid channels'}
+
             # Start deep scan
-            if scanner.start_deep_scan(interface=interface, band=scan_band, channel=channel):
+            if scanner.start_deep_scan(interface=interface, band=scan_band, channel=channel, channels=channel_list):
                 # Start thread to sync data to agent's dictionaries
                 thread = threading.Thread(
                     target=self._wifi_data_sync,
@@ -1595,7 +1609,7 @@ class ModeManager:
 
         except ImportError:
             # Fallback to direct airodump-ng
-            return self._start_wifi_fallback(interface, channel, band)
+            return self._start_wifi_fallback(interface, channel, band, channels)
         except Exception as e:
             logger.error(f"WiFi scanner error: {e}")
             return {'status': 'error', 'message': str(e)}
@@ -1632,7 +1646,13 @@ class ModeManager:
         if hasattr(self, '_wifi_scanner_instance') and self._wifi_scanner_instance:
             self._wifi_scanner_instance.stop_deep_scan()
 
-    def _start_wifi_fallback(self, interface: str | None, channel: int | None, band: str) -> dict:
+    def _start_wifi_fallback(
+        self,
+        interface: str | None,
+        channel: int | None,
+        band: str,
+        channels: list[int] | str | None = None,
+    ) -> dict:
         """Fallback WiFi deep scan using airodump-ng directly."""
         if not interface:
             return {'status': 'error', 'message': 'WiFi interface required'}
@@ -1660,7 +1680,22 @@ class ModeManager:
         cmd = [airodump_path, '-w', csv_path, '--output-format', output_formats, '--band', band]
         if gps_manager.is_running:
             cmd.append('--gpsd')
-        if channel:
+        channel_list = None
+        if channels:
+            if isinstance(channels, str):
+                channel_list = [c.strip() for c in channels.split(',') if c.strip()]
+            elif isinstance(channels, (list, tuple, set)):
+                channel_list = list(channels)
+            else:
+                channel_list = [channels]
+            try:
+                channel_list = [int(c) for c in channel_list]
+            except (TypeError, ValueError):
+                return {'status': 'error', 'message': 'Invalid channels'}
+
+        if channel_list:
+            cmd.extend(['-c', ','.join(str(c) for c in channel_list)])
+        elif channel:
             cmd.extend(['-c', str(channel)])
         cmd.append(interface)
 

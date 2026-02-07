@@ -15,6 +15,7 @@ from flask import Blueprint, Response, jsonify, request, send_file
 
 from utils.logging import get_logger
 from utils.sse import format_sse
+from utils.event_pipeline import process_event
 from utils.sstv import (
     DecodeProgress,
     get_general_sstv_decoder,
@@ -274,6 +275,10 @@ def stream_progress():
             try:
                 progress = _sstv_general_queue.get(timeout=1)
                 last_keepalive = time.time()
+                try:
+                    process_event('sstv_general', progress, progress.get('type'))
+                except Exception:
+                    pass
                 yield format_sse(progress)
             except queue.Empty:
                 now = time.time()
