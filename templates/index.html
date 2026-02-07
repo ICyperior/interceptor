@@ -3243,17 +3243,6 @@
                 waterfallPanel.style.display = (waterfallSupported && running) ? 'block' : 'none';
             }
 
-            // Show shared waterfall controls for supported modes
-            const waterfallControlsSection = document.getElementById('waterfallControlsSection');
-            const waterfallPanel = document.getElementById('waterfallPanel');
-            const waterfallModes = ['pager', 'sensor', 'rtlamr', 'dmr', 'sstv', 'sstv_general', 'listening'];
-            const waterfallSupported = waterfallModes.includes(mode);
-            if (waterfallControlsSection) waterfallControlsSection.style.display = waterfallSupported ? 'block' : 'none';
-            if (waterfallPanel) {
-                const running = (typeof isWaterfallRunning !== 'undefined' && isWaterfallRunning);
-                waterfallPanel.style.display = (waterfallSupported && running) ? 'block' : 'none';
-            }
-
             // Toggle mode-specific tool status displays
             const toolStatusPager = document.getElementById('toolStatusPager');
             const toolStatusSensor = document.getElementById('toolStatusSensor');
