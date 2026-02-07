@@ -686,6 +686,26 @@ class SSTVDecoder:
         self._scan_images()
         return list(self._images)
 
+    def delete_image(self, filename: str) -> bool:
+        """Delete a single decoded image by filename."""
+        filepath = self._output_dir / filename
+        if not filepath.exists():
+            return False
+        filepath.unlink()
+        self._images = [img for img in self._images if img.filename != filename]
+        logger.info(f"Deleted SSTV image: {filename}")
+        return True
+
+    def delete_all_images(self) -> int:
+        """Delete all decoded images. Returns count deleted."""
+        count = 0
+        for filepath in self._output_dir.glob('*.png'):
+            filepath.unlink()
+            count += 1
+        self._images.clear()
+        logger.info(f"Deleted all SSTV images ({count} files)")
+        return count
+
     def _scan_images(self) -> None:
         """Scan output directory for images."""
         known_filenames = {img.filename for img in self._images}

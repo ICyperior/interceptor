@@ -860,11 +860,21 @@ const SSTV = (function() {
         }
 
         gallery.innerHTML = images.map(img => `
-            <div class="sstv-image-card" onclick="SSTV.showImage('${escapeHtml(img.url)}')">
-                <img src="${escapeHtml(img.url)}" alt="SSTV Image" class="sstv-image-preview" loading="lazy">
+            <div class="sstv-image-card">
+                <div class="sstv-image-card-inner" onclick="SSTV.showImage('${escapeHtml(img.url)}', '${escapeHtml(img.filename)}')">
+                    <img src="${escapeHtml(img.url)}" alt="SSTV Image" class="sstv-image-preview" loading="lazy">
+                </div>
                 <div class="sstv-image-info">
                     <div class="sstv-image-mode">${escapeHtml(img.mode || 'Unknown')}</div>
                     <div class="sstv-image-timestamp">${formatTimestamp(img.timestamp)}</div>
+                </div>
+                <div class="sstv-image-actions">
+                    <button onclick="event.stopPropagation(); SSTV.downloadImage('${escapeHtml(img.url)}', '${escapeHtml(img.filename)}')" title="Download">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <button onclick="event.stopPropagation(); SSTV.deleteImage('${escapeHtml(img.filename)}')" title="Delete">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -997,18 +1007,44 @@ const SSTV = (function() {
     /**
      * Show full-size image in modal
      */
-    function showImage(url) {
+    let currentModalUrl = null;
+    let currentModalFilename = null;
+
+    function showImage(url, filename) {
+        currentModalUrl = url;
+        currentModalFilename = filename || null;
+
         let modal = document.getElementById('sstvImageModal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'sstvImageModal';
             modal.className = 'sstv-image-modal';
             modal.innerHTML = `
+                <div class="sstv-modal-toolbar">
+                    <button class="sstv-modal-btn" id="sstvModalDownload" title="Download">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download
+                    </button>
+                    <button class="sstv-modal-btn delete" id="sstvModalDelete" title="Delete">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        Delete
+                    </button>
+                </div>
                 <button class="sstv-modal-close" onclick="SSTV.closeImage()">&times;</button>
                 <img src="" alt="SSTV Image">
             `;
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeImage();
+            });
+            modal.querySelector('#sstvModalDownload').addEventListener('click', () => {
+                if (currentModalUrl && currentModalFilename) {
+                    downloadImage(currentModalUrl, currentModalFilename);
+                }
+            });
+            modal.querySelector('#sstvModalDelete').addEventListener('click', () => {
+                if (currentModalFilename) {
+                    deleteImage(currentModalFilename);
+                }
             });
             document.body.appendChild(modal);
         }
@@ -1049,6 +1085,55 @@ const SSTV = (function() {
     }
 
     /**
+     * Delete a single image
+     */
+    async function deleteImage(filename) {
+        if (!confirm('Delete this image?')) return;
+        try {
+            const response = await fetch(`/sstv/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (data.status === 'ok') {
+                images = images.filter(img => img.filename !== filename);
+                updateImageCount(images.length);
+                renderGallery();
+                closeImage();
+                showNotification('SSTV', 'Image deleted');
+            }
+        } catch (err) {
+            console.error('Failed to delete image:', err);
+        }
+    }
+
+    /**
+     * Delete all images
+     */
+    async function deleteAllImages() {
+        if (!confirm('Delete all decoded images?')) return;
+        try {
+            const response = await fetch('/sstv/images', { method: 'DELETE' });
+            const data = await response.json();
+            if (data.status === 'ok') {
+                images = [];
+                updateImageCount(0);
+                renderGallery();
+                showNotification('SSTV', `${data.deleted} image${data.deleted !== 1 ? 's' : ''} deleted`);
+            }
+        } catch (err) {
+            console.error('Failed to delete images:', err);
+        }
+    }
+
+    /**
+     * Download an image
+     */
+    function downloadImage(url, filename) {
+        const a = document.createElement('a');
+        a.href = url + '/download';
+        a.download = filename;
+        a.click();
+    }
+
+    /**
      * Show status message
      */
     function showStatusMessage(message, type) {
@@ -1068,6 +1153,9 @@ const SSTV = (function() {
         loadIssSchedule,
         showImage,
         closeImage,
+        deleteImage,
+        deleteAllImages,
+        downloadImage,
         useGPS,
         updateTLE,
         stopIssTracking,

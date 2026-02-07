@@ -287,6 +287,73 @@ def get_image(filename: str):
     return send_file(image_path, mimetype='image/png')
 
 
+@sstv_bp.route('/images/<filename>/download')
+def download_image(filename: str):
+    """
+    Download a decoded SSTV image file.
+
+    Args:
+        filename: Image filename
+
+    Returns:
+        Image file as attachment or 404.
+    """
+    decoder = get_sstv_decoder()
+
+    # Security: only allow alphanumeric filenames with .png extension
+    if not filename.replace('_', '').replace('-', '').replace('.', '').isalnum():
+        return jsonify({'status': 'error', 'message': 'Invalid filename'}), 400
+
+    if not filename.endswith('.png'):
+        return jsonify({'status': 'error', 'message': 'Only PNG files supported'}), 400
+
+    image_path = decoder._output_dir / filename
+
+    if not image_path.exists():
+        return jsonify({'status': 'error', 'message': 'Image not found'}), 404
+
+    return send_file(image_path, mimetype='image/png', as_attachment=True, download_name=filename)
+
+
+@sstv_bp.route('/images/<filename>', methods=['DELETE'])
+def delete_image(filename: str):
+    """
+    Delete a decoded SSTV image.
+
+    Args:
+        filename: Image filename
+
+    Returns:
+        JSON confirmation.
+    """
+    decoder = get_sstv_decoder()
+
+    # Security: only allow alphanumeric filenames with .png extension
+    if not filename.replace('_', '').replace('-', '').replace('.', '').isalnum():
+        return jsonify({'status': 'error', 'message': 'Invalid filename'}), 400
+
+    if not filename.endswith('.png'):
+        return jsonify({'status': 'error', 'message': 'Only PNG files supported'}), 400
+
+    if decoder.delete_image(filename):
+        return jsonify({'status': 'ok'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Image not found'}), 404
+
+
+@sstv_bp.route('/images', methods=['DELETE'])
+def delete_all_images():
+    """
+    Delete all decoded SSTV images.
+
+    Returns:
+        JSON with count of deleted images.
+    """
+    decoder = get_sstv_decoder()
+    count = decoder.delete_all_images()
+    return jsonify({'status': 'ok', 'deleted': count})
+
+
 @sstv_bp.route('/stream')
 def stream_progress():
     """

@@ -2027,7 +2027,10 @@
                                     </svg>
                                     Decoded Images
                                 </div>
-                                <span class="sstv-gallery-count" id="sstvImageCount">0</span>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <span class="sstv-gallery-count" id="sstvImageCount">0</span>
+                                    <button class="sstv-gallery-clear-btn" onclick="SSTV.deleteAllImages()" title="Delete all images">Clear All</button>
+                                </div>
                             </div>
                             <div class="sstv-gallery-grid" id="sstvGallery">
                                 <div class="sstv-gallery-empty">
@@ -2109,7 +2112,10 @@
                                     </svg>
                                     Decoded Images
                                 </div>
-                                <span class="sstv-general-gallery-count" id="sstvGeneralImageCount">0</span>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <span class="sstv-general-gallery-count" id="sstvGeneralImageCount">0</span>
+                                    <button class="sstv-general-gallery-clear-btn" onclick="SSTVGeneral.deleteAllImages()" title="Delete all images">Clear All</button>
+                                </div>
                             </div>
                             <div class="sstv-general-gallery-grid" id="sstvGeneralGallery">
                                 <div class="sstv-general-gallery-empty">
