@@ -88,9 +88,6 @@ function startDmr() {
             if (typeof reserveDevice === 'function') {
                 reserveDevice(parseInt(device), 'dmr');
             }
-            if (typeof syncWaterfallToFrequency === 'function') {
-                syncWaterfallToFrequency(frequency, { autoStart: true, restartIfRunning: true, silent: true });
-            }
             if (typeof showNotification === 'function') {
                 showNotification('DMR', `Decoding ${frequency} MHz (${protocol.toUpperCase()})`);
             }

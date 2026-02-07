@@ -1725,16 +1725,6 @@ def start_waterfall() -> Response:
     """Start the waterfall/spectrogram display."""
     global waterfall_thread, waterfall_running, waterfall_config, waterfall_active_device
 
-    # Check if a decoder is already producing FFT data via IQ pipeline
-    if app_module.waterfall_source in ('pager', 'sensor'):
-        # Decoder-driven waterfall: data is already flowing into waterfall_queue
-        waterfall_running = True
-        return jsonify({
-            'status': 'started',
-            'source': 'decoder',
-            'decoder': app_module.waterfall_source,
-        })
-
     with waterfall_lock:
         if waterfall_running:
             return jsonify({'status': 'error', 'message': 'Waterfall already running'}), 409
@@ -1789,13 +1779,6 @@ def start_waterfall() -> Response:
 @listening_post_bp.route('/waterfall/stop', methods=['POST'])
 def stop_waterfall() -> Response:
     """Stop the waterfall display."""
-    global waterfall_running
-
-    # If waterfall is decoder-driven, just disconnect (don't stop the decoder)
-    if app_module.waterfall_source in ('pager', 'sensor'):
-        waterfall_running = False
-        return jsonify({'status': 'stopped', 'source': 'decoder'})
-
     _stop_waterfall_internal()
 
     return jsonify({'status': 'stopped'})

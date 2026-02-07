@@ -3589,8 +3589,7 @@ async function startWaterfall(options = {}) {
         lastWaterfallDraw = 0;
         initWaterfallCanvas();
         connectWaterfallSSE();
-        // Only reserve device if not decoder-driven (decoder already owns the device)
-        if (data.source !== 'decoder' && typeof reserveDevice === 'function') {
+        if (typeof reserveDevice === 'function') {
             reserveDevice(parseInt(device), 'waterfall');
         }
         if (resume || resumeRfWaterfallAfterListening) {
@@ -3619,14 +3618,11 @@ async function stopWaterfall() {
     }
 
     try {
-        const resp = await fetch('/listening/waterfall/stop', { method: 'POST' });
-        let stopData = {};
-        try { stopData = await resp.json(); } catch (e) {}
+        await fetch('/listening/waterfall/stop', { method: 'POST' });
         isWaterfallRunning = false;
         if (waterfallEventSource) { waterfallEventSource.close(); waterfallEventSource = null; }
         setWaterfallControlButtons(false);
-        // Only release device if it was a standalone waterfall (not decoder-driven)
-        if (stopData.source !== 'decoder' && typeof releaseDevice === 'function') {
+        if (typeof releaseDevice === 'function') {
             releaseDevice('waterfall');
         }
     } catch (err) {

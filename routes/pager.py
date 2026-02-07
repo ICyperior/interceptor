@@ -32,8 +32,6 @@ pager_bp = Blueprint('pager', __name__)
 
 # Track which device is being used
 pager_active_device: int | None = None
-# IQ pipeline stop event (set to signal IQ processor thread to exit)
-pager_iq_stop_event: threading.Event | None = None
 
 
 def parse_multimon_output(line: str) -> dict[str, str] | None:
@@ -149,18 +147,12 @@ def stream_decoder(master_fd: int, process: subprocess.Popen[bytes]) -> None:
     except Exception as e:
         app_module.output_queue.put({'type': 'error', 'text': str(e)})
     finally:
-        global pager_active_device, pager_iq_stop_event
+        global pager_active_device
         try:
             os.close(master_fd)
         except OSError:
             pass
-        # Stop IQ pipeline if running
-        if pager_iq_stop_event is not None:
-            pager_iq_stop_event.set()
-            pager_iq_stop_event = None
-        if app_module.waterfall_source == 'pager':
-            app_module.waterfall_source = None
-        # Cleanup companion rtl_sdr/rtl_fm process and decoder
+        # Cleanup companion rtl_fm process and decoder
         with app_module.process_lock:
             rtl_proc = getattr(app_module.current_process, '_rtl_process', None)
         for proc in [rtl_proc, process]:
@@ -181,28 +173,6 @@ def stream_decoder(master_fd: int, process: subprocess.Popen[bytes]) -> None:
         if pager_active_device is not None:
             app_module.release_sdr_device(pager_active_device)
             pager_active_device = None
-
-
-def _cleanup_failed_start(rtl_process: subprocess.Popen | None) -> None:
-    """Clean up after a failed start attempt."""
-    global pager_active_device, pager_iq_stop_event
-    if rtl_process:
-        try:
-            rtl_process.terminate()
-            rtl_process.wait(timeout=2)
-        except Exception:
-            try:
-                rtl_process.kill()
-            except Exception:
-                pass
-    if pager_iq_stop_event is not None:
-        pager_iq_stop_event.set()
-        pager_iq_stop_event = None
-    if app_module.waterfall_source == 'pager':
-        app_module.waterfall_source = None
-    if pager_active_device is not None:
-        app_module.release_sdr_device(pager_active_device)
-        pager_active_device = None
 
 
 @pager_bp.route('/start', methods=['POST'])
@@ -302,196 +272,115 @@ def start_decoding() -> Response:
 
         builder = SDRFactory.get_builder(sdr_device.sdr_type)
 
+        # Build FM demodulation command
+        bias_t = data.get('bias_t', False)
+        rtl_cmd = builder.build_fm_demod_command(
+            device=sdr_device,
+            frequency_mhz=freq,
+            sample_rate=22050,
+            gain=float(gain) if gain and gain != '0' else None,
+            ppm=int(ppm) if ppm and ppm != '0' else None,
+            modulation='fm',
+            squelch=squelch if squelch and squelch != 0 else None,
+            bias_t=bias_t
+        )
+
         multimon_path = get_tool_path('multimon-ng')
         if not multimon_path:
-            if pager_active_device is not None:
-                app_module.release_sdr_device(pager_active_device)
-                pager_active_device = None
             return jsonify({'status': 'error', 'message': 'multimon-ng not found'}), 400
         multimon_cmd = [multimon_path, '-t', 'raw'] + decoders + ['-f', 'alpha', '-']
 
-        bias_t = data.get('bias_t', False)
-        gain_val = float(gain) if gain and gain != '0' else None
-        ppm_val = int(ppm) if ppm and ppm != '0' else None
+        full_cmd = ' '.join(rtl_cmd) + ' | ' + ' '.join(multimon_cmd)
+        logger.info(f"Running: {full_cmd}")
 
-        # Determine if we can use IQ pipeline for live waterfall
-        use_iq_pipeline = (
-            sdr_type == SDRType.RTL_SDR
-            and not rtl_tcp_host
-            and get_tool_path('rtl_sdr') is not None
-        )
-
-        if use_iq_pipeline:
-            # IQ pipeline: rtl_sdr -> Python IQ processor -> multimon-ng
-            iq_sample_rate = 220500  # 22050 * 10 for exact decimation
-            rtl_cmd = builder.build_raw_capture_command(
-                device=sdr_device,
-                frequency_mhz=freq,
-                sample_rate=iq_sample_rate,
-                gain=gain_val,
-                ppm=ppm_val,
-                bias_t=bias_t,
+        try:
+            # Create pipe: rtl_fm | multimon-ng
+            rtl_process = subprocess.Popen(
+                rtl_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
             )
+            register_process(rtl_process)
 
-            full_cmd = ' '.join(rtl_cmd) + ' | [iq_processor] | ' + ' '.join(multimon_cmd)
-            logger.info(f"Running (IQ pipeline): {full_cmd}")
+            # Start a thread to monitor rtl_fm stderr for errors
+            def monitor_rtl_stderr():
+                for line in rtl_process.stderr:
+                    err_text = line.decode('utf-8', errors='replace').strip()
+                    if err_text:
+                        logger.debug(f"[RTL_FM] {err_text}")
+                        app_module.output_queue.put({'type': 'raw', 'text': f'[rtl_fm] {err_text}'})
 
-            try:
-                rtl_process = subprocess.Popen(
-                    rtl_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                register_process(rtl_process)
+            rtl_stderr_thread = threading.Thread(target=monitor_rtl_stderr)
+            rtl_stderr_thread.daemon = True
+            rtl_stderr_thread.start()
 
-                # Monitor rtl_sdr stderr
-                def monitor_rtl_stderr():
-                    for line in rtl_process.stderr:
-                        err_text = line.decode('utf-8', errors='replace').strip()
-                        if err_text:
-                            logger.debug(f"[rtl_sdr] {err_text}")
-                            app_module.output_queue.put({'type': 'raw', 'text': f'[rtl_sdr] {err_text}'})
+            # Create a pseudo-terminal for multimon-ng output
+            master_fd, slave_fd = pty.openpty()
 
-                rtl_stderr_thread = threading.Thread(target=monitor_rtl_stderr, daemon=True)
-                rtl_stderr_thread.start()
-
-                # Create PTY for multimon-ng output
-                master_fd, slave_fd = pty.openpty()
-
-                multimon_process = subprocess.Popen(
-                    multimon_cmd,
-                    stdin=subprocess.PIPE,
-                    stdout=slave_fd,
-                    stderr=slave_fd,
-                    close_fds=True,
-                )
-                register_process(multimon_process)
-
-                os.close(slave_fd)
-
-                # Start IQ processor thread
-                from routes.listening_post import waterfall_queue
-                from utils.iq_processor import run_fm_iq_pipeline
-
-                stop_event = threading.Event()
-                pager_iq_stop_event = stop_event
-                app_module.waterfall_source = 'pager'
-
-                iq_thread = threading.Thread(
-                    target=run_fm_iq_pipeline,
-                    args=(
-                        rtl_process.stdout,
-                        multimon_process.stdin,
-                        waterfall_queue,
-                        freq,
-                        iq_sample_rate,
-                        stop_event,
-                    ),
-                    daemon=True,
-                )
-                iq_thread.start()
-
-                app_module.current_process = multimon_process
-                app_module.current_process._rtl_process = rtl_process
-                app_module.current_process._master_fd = master_fd
-
-                # Start decoder output thread
-                thread = threading.Thread(target=stream_decoder, args=(master_fd, multimon_process), daemon=True)
-                thread.start()
-
-                app_module.output_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
-                return jsonify({'status': 'started', 'command': full_cmd, 'waterfall_source': 'pager'})
-
-            except FileNotFoundError as e:
-                _cleanup_failed_start(rtl_process)
-                return jsonify({'status': 'error', 'message': f'Tool not found: {e.filename}'})
-            except Exception as e:
-                _cleanup_failed_start(rtl_process)
-                return jsonify({'status': 'error', 'message': str(e)})
-
-        else:
-            # Legacy pipeline: rtl_fm | multimon-ng
-            rtl_cmd = builder.build_fm_demod_command(
-                device=sdr_device,
-                frequency_mhz=freq,
-                sample_rate=22050,
-                gain=gain_val,
-                ppm=ppm_val,
-                modulation='fm',
-                squelch=squelch if squelch and squelch != 0 else None,
-                bias_t=bias_t,
+            multimon_process = subprocess.Popen(
+                multimon_cmd,
+                stdin=rtl_process.stdout,
+                stdout=slave_fd,
+                stderr=slave_fd,
+                close_fds=True
             )
+            register_process(multimon_process)
 
-            full_cmd = ' '.join(rtl_cmd) + ' | ' + ' '.join(multimon_cmd)
-            logger.info(f"Running: {full_cmd}")
+            os.close(slave_fd)
+            rtl_process.stdout.close()
 
+            app_module.current_process = multimon_process
+            app_module.current_process._rtl_process = rtl_process
+            app_module.current_process._master_fd = master_fd
+
+            # Start output thread with PTY master fd
+            thread = threading.Thread(target=stream_decoder, args=(master_fd, multimon_process))
+            thread.daemon = True
+            thread.start()
+
+            app_module.output_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
+
+            return jsonify({'status': 'started', 'command': full_cmd})
+
+        except FileNotFoundError as e:
+            # Kill orphaned rtl_fm process
             try:
-                rtl_process = subprocess.Popen(
-                    rtl_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                register_process(rtl_process)
-
-                # Start a thread to monitor rtl_fm stderr for errors
-                def monitor_rtl_stderr():
-                    for line in rtl_process.stderr:
-                        err_text = line.decode('utf-8', errors='replace').strip()
-                        if err_text:
-                            logger.debug(f"[RTL_FM] {err_text}")
-                            app_module.output_queue.put({'type': 'raw', 'text': f'[rtl_fm] {err_text}'})
-
-                rtl_stderr_thread = threading.Thread(target=monitor_rtl_stderr, daemon=True)
-                rtl_stderr_thread.start()
-
-                # Create a pseudo-terminal for multimon-ng output
-                master_fd, slave_fd = pty.openpty()
-
-                multimon_process = subprocess.Popen(
-                    multimon_cmd,
-                    stdin=rtl_process.stdout,
-                    stdout=slave_fd,
-                    stderr=slave_fd,
-                    close_fds=True,
-                )
-                register_process(multimon_process)
-
-                os.close(slave_fd)
-                rtl_process.stdout.close()
-
-                app_module.current_process = multimon_process
-                app_module.current_process._rtl_process = rtl_process
-                app_module.current_process._master_fd = master_fd
-
-                # Start output thread with PTY master fd
-                thread = threading.Thread(target=stream_decoder, args=(master_fd, multimon_process), daemon=True)
-                thread.start()
-
-                app_module.output_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
-                return jsonify({'status': 'started', 'command': full_cmd})
-
-            except FileNotFoundError as e:
-                _cleanup_failed_start(rtl_process)
-                return jsonify({'status': 'error', 'message': f'Tool not found: {e.filename}'})
-            except Exception as e:
-                _cleanup_failed_start(rtl_process)
-                return jsonify({'status': 'error', 'message': str(e)})
+                rtl_process.terminate()
+                rtl_process.wait(timeout=2)
+            except Exception:
+                try:
+                    rtl_process.kill()
+                except Exception:
+                    pass
+            # Release device on failure
+            if pager_active_device is not None:
+                app_module.release_sdr_device(pager_active_device)
+                pager_active_device = None
+            return jsonify({'status': 'error', 'message': f'Tool not found: {e.filename}'})
+        except Exception as e:
+            # Kill orphaned rtl_fm process if it was started
+            try:
+                rtl_process.terminate()
+                rtl_process.wait(timeout=2)
+            except Exception:
+                try:
+                    rtl_process.kill()
+                except Exception:
+                    pass
+            # Release device on failure
+            if pager_active_device is not None:
+                app_module.release_sdr_device(pager_active_device)
+                pager_active_device = None
+            return jsonify({'status': 'error', 'message': str(e)})
 
 
 @pager_bp.route('/stop', methods=['POST'])
 def stop_decoding() -> Response:
-    global pager_active_device, pager_iq_stop_event
+    global pager_active_device
 
     with app_module.process_lock:
         if app_module.current_process:
-            # Stop IQ pipeline if running
-            if pager_iq_stop_event is not None:
-                pager_iq_stop_event.set()
-                pager_iq_stop_event = None
-            if app_module.waterfall_source == 'pager':
-                app_module.waterfall_source = None
-
-            # Kill rtl_sdr/rtl_fm process first
+            # Kill rtl_fm process first
             if hasattr(app_module.current_process, '_rtl_process'):
                 try:
                     app_module.current_process._rtl_process.terminate()

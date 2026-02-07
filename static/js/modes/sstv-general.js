@@ -98,9 +98,6 @@ const SSTVGeneral = (function() {
                 updateStatusUI('listening', `${frequency} MHz ${modulation.toUpperCase()}`);
                 startStream();
                 showNotification('SSTV', `Listening on ${frequency} MHz ${modulation.toUpperCase()}`);
-                if (typeof syncWaterfallToFrequency === 'function') {
-                    syncWaterfallToFrequency(frequency, { autoStart: true, restartIfRunning: true, silent: true });
-                }
 
                 // Update strip
                 const stripFreq = document.getElementById('sstvGeneralStripFreq');

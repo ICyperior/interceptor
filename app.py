@@ -233,13 +233,6 @@ cleanup_manager.register(dsc_messages)
 cleanup_manager.register(deauth_alerts)
 
 # ============================================
-# WATERFALL SOURCE TRACKING
-# ============================================
-# Tracks whether waterfall data is being produced by a decoder's IQ pipeline
-# None = no active source, 'rtl_power' = standalone, 'pager'/'sensor' = decoder-driven
-waterfall_source: str | None = None
-
-# ============================================
 # SDR DEVICE REGISTRY
 # ============================================
 # Tracks which mode is using which SDR device to prevent conflicts
@@ -666,7 +659,7 @@ def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
-    global dmr_process, dmr_rtl_process, waterfall_source
+    global dmr_process, dmr_rtl_process
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -675,7 +668,7 @@ def kill_all() -> Response:
 
     killed = []
     processes_to_kill = [
-        'rtl_fm', 'multimon-ng', 'rtl_433', 'rtl_sdr',
+        'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
         'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher',
         'hcitool', 'bluetoothctl', 'dsd',
@@ -748,10 +741,9 @@ def kill_all() -> Response:
     except Exception:
         pass
 
-    # Clear SDR device registry and waterfall source
+    # Clear SDR device registry
     with sdr_device_registry_lock:
         sdr_device_registry.clear()
-    waterfall_source = None
 
     return jsonify({'status': 'killed', 'processes': killed})
 

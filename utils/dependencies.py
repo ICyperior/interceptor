@@ -121,15 +121,6 @@ TOOL_DEPENDENCIES = {
                     'manual': 'https://github.com/EliasOenal/multimon-ng'
                 }
             },
-            'rtl_sdr': {
-                'required': False,
-                'description': 'Raw IQ capture for live waterfall during decoding',
-                'install': {
-                    'apt': 'sudo apt install rtl-sdr',
-                    'brew': 'brew install librtlsdr',
-                    'manual': 'https://osmocom.org/projects/rtl-sdr/wiki'
-                }
-            },
             'rtl_test': {
                 'required': False,
                 'description': 'RTL-SDR device detection',
@@ -151,15 +142,6 @@ TOOL_DEPENDENCIES = {
                     'apt': 'sudo apt install rtl-433',
                     'brew': 'brew install rtl_433',
                     'manual': 'https://github.com/merbanan/rtl_433'
-                }
-            },
-            'rtl_sdr': {
-                'required': False,
-                'description': 'Raw IQ capture for live waterfall during decoding',
-                'install': {
-                    'apt': 'sudo apt install rtl-sdr',
-                    'brew': 'brew install librtlsdr',
-                    'manual': 'https://osmocom.org/projects/rtl-sdr/wiki'
                 }
             }
         }

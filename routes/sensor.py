@@ -22,16 +22,11 @@ from utils.sse import format_sse
 from utils.event_pipeline import process_event
 from utils.process import safe_terminate, register_process, unregister_process
 from utils.sdr import SDRFactory, SDRType
-from utils.dependencies import get_tool_path
 
 sensor_bp = Blueprint('sensor', __name__)
 
 # Track which device is being used
 sensor_active_device: int | None = None
-# IQ pipeline stop event
-sensor_iq_stop_event: threading.Event | None = None
-# Companion rtl_sdr process when using IQ pipeline
-sensor_rtl_process: subprocess.Popen | None = None
 
 
 def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
@@ -65,26 +60,8 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
     except Exception as e:
         app_module.sensor_queue.put({'type': 'error', 'text': str(e)})
     finally:
-        global sensor_active_device, sensor_iq_stop_event, sensor_rtl_process
-        # Stop IQ pipeline if running
-        if sensor_iq_stop_event is not None:
-            sensor_iq_stop_event.set()
-            sensor_iq_stop_event = None
-        if app_module.waterfall_source == 'sensor':
-            app_module.waterfall_source = None
-        # Terminate companion rtl_sdr process
-        if sensor_rtl_process is not None:
-            try:
-                sensor_rtl_process.terminate()
-                sensor_rtl_process.wait(timeout=2)
-            except Exception:
-                try:
-                    sensor_rtl_process.kill()
-                except Exception:
-                    pass
-            unregister_process(sensor_rtl_process)
-            sensor_rtl_process = None
-        # Ensure decoder process is terminated
+        global sensor_active_device
+        # Ensure process is terminated
         try:
             process.terminate()
             process.wait(timeout=2)
@@ -103,32 +80,9 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
             sensor_active_device = None
 
 
-def _cleanup_sensor_failed_start(rtl_process: subprocess.Popen | None) -> None:
-    """Clean up after a failed sensor start attempt."""
-    global sensor_active_device, sensor_iq_stop_event, sensor_rtl_process
-    if rtl_process:
-        try:
-            rtl_process.terminate()
-            rtl_process.wait(timeout=2)
-        except Exception:
-            try:
-                rtl_process.kill()
-            except Exception:
-                pass
-    if sensor_iq_stop_event is not None:
-        sensor_iq_stop_event.set()
-        sensor_iq_stop_event = None
-    if app_module.waterfall_source == 'sensor':
-        app_module.waterfall_source = None
-    sensor_rtl_process = None
-    if sensor_active_device is not None:
-        app_module.release_sdr_device(sensor_active_device)
-        sensor_active_device = None
-
-
 @sensor_bp.route('/start_sensor', methods=['POST'])
 def start_sensor() -> Response:
-    global sensor_active_device, sensor_iq_stop_event, sensor_rtl_process
+    global sensor_active_device
 
     with app_module.sensor_lock:
         if app_module.sensor_process:
@@ -190,187 +144,69 @@ def start_sensor() -> Response:
             sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
 
         builder = SDRFactory.get_builder(sdr_device.sdr_type)
-        bias_t = data.get('bias_t', False)
-        gain_val = float(gain) if gain and gain != 0 else None
-        ppm_val = int(ppm) if ppm and ppm != 0 else None
 
-        # Determine if we can use IQ pipeline for live waterfall
-        use_iq_pipeline = (
-            sdr_type == SDRType.RTL_SDR
-            and not rtl_tcp_host
-            and get_tool_path('rtl_sdr') is not None
+        # Build ISM band decoder command
+        bias_t = data.get('bias_t', False)
+        cmd = builder.build_ism_command(
+            device=sdr_device,
+            frequency_mhz=freq,
+            gain=float(gain) if gain and gain != 0 else None,
+            ppm=int(ppm) if ppm and ppm != 0 else None,
+            bias_t=bias_t
         )
 
-        if use_iq_pipeline:
-            # IQ pipeline: rtl_sdr -> Python IQ tee -> rtl_433 -r -
-            iq_sample_rate = 250000  # rtl_433 default
+        full_cmd = ' '.join(cmd)
+        logger.info(f"Running: {full_cmd}")
 
-            rtl_cmd = builder.build_raw_capture_command(
-                device=sdr_device,
-                frequency_mhz=freq,
-                sample_rate=iq_sample_rate,
-                gain=gain_val,
-                ppm=ppm_val,
-                bias_t=bias_t,
+        try:
+            app_module.sensor_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
             )
+            register_process(app_module.sensor_process)
 
-            rtl_433_path = get_tool_path('rtl_433') or 'rtl_433'
-            decoder_cmd = [rtl_433_path, '-r', '-', '-s', str(iq_sample_rate), '-F', 'json']
+            # Start output thread
+            thread = threading.Thread(target=stream_sensor_output, args=(app_module.sensor_process,))
+            thread.daemon = True
+            thread.start()
 
-            full_cmd = ' '.join(rtl_cmd) + ' | [iq_processor] | ' + ' '.join(decoder_cmd)
-            logger.info(f"Running (IQ pipeline): {full_cmd}")
+            # Monitor stderr
+            def monitor_stderr():
+                for line in app_module.sensor_process.stderr:
+                    err = line.decode('utf-8', errors='replace').strip()
+                    if err:
+                        logger.debug(f"[rtl_433] {err}")
+                        app_module.sensor_queue.put({'type': 'info', 'text': f'[rtl_433] {err}'})
 
-            try:
-                rtl_process = subprocess.Popen(
-                    rtl_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                register_process(rtl_process)
-                sensor_rtl_process = rtl_process
+            stderr_thread = threading.Thread(target=monitor_stderr)
+            stderr_thread.daemon = True
+            stderr_thread.start()
 
-                # Monitor rtl_sdr stderr
-                def monitor_rtl_stderr():
-                    for line in rtl_process.stderr:
-                        err = line.decode('utf-8', errors='replace').strip()
-                        if err:
-                            logger.debug(f"[rtl_sdr] {err}")
-                            app_module.sensor_queue.put({'type': 'info', 'text': f'[rtl_sdr] {err}'})
+            app_module.sensor_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
 
-                threading.Thread(target=monitor_rtl_stderr, daemon=True).start()
+            return jsonify({'status': 'started', 'command': full_cmd})
 
-                # Start rtl_433 reading from stdin
-                decoder_process = subprocess.Popen(
-                    decoder_cmd,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                register_process(decoder_process)
-
-                # Start IQ processor thread
-                from routes.listening_post import waterfall_queue
-                from utils.iq_processor import run_passthrough_iq_pipeline
-
-                stop_event = threading.Event()
-                sensor_iq_stop_event = stop_event
-                app_module.waterfall_source = 'sensor'
-
-                iq_thread = threading.Thread(
-                    target=run_passthrough_iq_pipeline,
-                    args=(
-                        rtl_process.stdout,
-                        decoder_process.stdin,
-                        waterfall_queue,
-                        freq,
-                        iq_sample_rate,
-                        stop_event,
-                    ),
-                    daemon=True,
-                )
-                iq_thread.start()
-
-                app_module.sensor_process = decoder_process
-
-                # Monitor rtl_433 stderr
-                def monitor_decoder_stderr():
-                    for line in decoder_process.stderr:
-                        err = line.decode('utf-8', errors='replace').strip()
-                        if err:
-                            logger.debug(f"[rtl_433] {err}")
-                            app_module.sensor_queue.put({'type': 'info', 'text': f'[rtl_433] {err}'})
-
-                threading.Thread(target=monitor_decoder_stderr, daemon=True).start()
-
-                # Start output thread
-                thread = threading.Thread(target=stream_sensor_output, args=(decoder_process,), daemon=True)
-                thread.start()
-
-                app_module.sensor_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
-                return jsonify({'status': 'started', 'command': full_cmd, 'waterfall_source': 'sensor'})
-
-            except FileNotFoundError:
-                _cleanup_sensor_failed_start(rtl_process)
-                return jsonify({'status': 'error', 'message': 'rtl_sdr or rtl_433 not found'})
-            except Exception as e:
-                _cleanup_sensor_failed_start(rtl_process)
-                return jsonify({'status': 'error', 'message': str(e)})
-
-        else:
-            # Legacy pipeline: rtl_433 directly
-            cmd = builder.build_ism_command(
-                device=sdr_device,
-                frequency_mhz=freq,
-                gain=gain_val,
-                ppm=ppm_val,
-                bias_t=bias_t,
-            )
-
-            full_cmd = ' '.join(cmd)
-            logger.info(f"Running: {full_cmd}")
-
-            try:
-                app_module.sensor_process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                register_process(app_module.sensor_process)
-
-                # Start output thread
-                thread = threading.Thread(target=stream_sensor_output, args=(app_module.sensor_process,), daemon=True)
-                thread.start()
-
-                # Monitor stderr
-                def monitor_stderr():
-                    for line in app_module.sensor_process.stderr:
-                        err = line.decode('utf-8', errors='replace').strip()
-                        if err:
-                            logger.debug(f"[rtl_433] {err}")
-                            app_module.sensor_queue.put({'type': 'info', 'text': f'[rtl_433] {err}'})
-
-                threading.Thread(target=monitor_stderr, daemon=True).start()
-
-                app_module.sensor_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
-                return jsonify({'status': 'started', 'command': full_cmd})
-
-            except FileNotFoundError:
-                if sensor_active_device is not None:
-                    app_module.release_sdr_device(sensor_active_device)
-                    sensor_active_device = None
-                return jsonify({'status': 'error', 'message': 'rtl_433 not found. Install with: brew install rtl_433'})
-            except Exception as e:
-                if sensor_active_device is not None:
-                    app_module.release_sdr_device(sensor_active_device)
-                    sensor_active_device = None
-                return jsonify({'status': 'error', 'message': str(e)})
+        except FileNotFoundError:
+            # Release device on failure
+            if sensor_active_device is not None:
+                app_module.release_sdr_device(sensor_active_device)
+                sensor_active_device = None
+            return jsonify({'status': 'error', 'message': 'rtl_433 not found. Install with: brew install rtl_433'})
+        except Exception as e:
+            # Release device on failure
+            if sensor_active_device is not None:
+                app_module.release_sdr_device(sensor_active_device)
+                sensor_active_device = None
+            return jsonify({'status': 'error', 'message': str(e)})
 
 
 @sensor_bp.route('/stop_sensor', methods=['POST'])
 def stop_sensor() -> Response:
-    global sensor_active_device, sensor_iq_stop_event, sensor_rtl_process
+    global sensor_active_device
 
     with app_module.sensor_lock:
         if app_module.sensor_process:
-            # Stop IQ pipeline if running
-            if sensor_iq_stop_event is not None:
-                sensor_iq_stop_event.set()
-                sensor_iq_stop_event = None
-            if app_module.waterfall_source == 'sensor':
-                app_module.waterfall_source = None
-
-            # Kill companion rtl_sdr process
-            if sensor_rtl_process is not None:
-                try:
-                    sensor_rtl_process.terminate()
-                    sensor_rtl_process.wait(timeout=2)
-                except (subprocess.TimeoutExpired, OSError):
-                    try:
-                        sensor_rtl_process.kill()
-                    except OSError:
-                        pass
-                sensor_rtl_process = None
-
             app_module.sensor_process.terminate()
             try:
                 app_module.sensor_process.wait(timeout=2)

@@ -2859,23 +2859,6 @@
             }
         }
 
-        function getModeWaterfallFrequency(mode) {
-            const lookup = {
-                pager: 'frequency',
-                sensor: 'sensorFrequency',
-                rtlamr: 'rtlamrFrequency',
-                dmr: 'dmrFrequency',
-                sstv: 'sstvFrequency',
-                sstv_general: 'sstvGeneralFrequency',
-                listening: 'radioScanStart'
-            };
-            const id = lookup[mode];
-            if (!id) return NaN;
-            const el = document.getElementById(id);
-            const value = parseFloat(el?.value);
-            return Number.isFinite(value) ? value : NaN;
-        }
-
         // Mode switching
         function switchMode(mode, options = {}) {
             const { updateUrl = true } = options;
@@ -3079,18 +3062,12 @@
             // Show shared waterfall controls for supported modes
             const waterfallControlsSection = document.getElementById('waterfallControlsSection');
             const waterfallPanel = document.getElementById('waterfallPanel');
-            const waterfallModes = ['pager', 'sensor', 'rtlamr', 'dmr', 'sstv', 'sstv_general', 'listening'];
+            const waterfallModes = ['listening'];
             const waterfallSupported = waterfallModes.includes(mode);
             if (waterfallControlsSection) waterfallControlsSection.style.display = waterfallSupported ? 'block' : 'none';
             if (waterfallPanel) {
                 const running = (typeof isWaterfallRunning !== 'undefined' && isWaterfallRunning);
                 waterfallPanel.style.display = (waterfallSupported && running) ? 'block' : 'none';
-            }
-            if (waterfallSupported && typeof syncWaterfallToFrequency === 'function' && typeof isWaterfallRunning !== 'undefined' && isWaterfallRunning) {
-                const modeFreq = getModeWaterfallFrequency(mode);
-                if (Number.isFinite(modeFreq)) {
-                    syncWaterfallToFrequency(modeFreq, { autoStart: true, restartIfRunning: true, silent: true });
-                }
             }
 
             // Toggle mode-specific tool status displays
@@ -3187,9 +3164,6 @@
         // Sensor frequency
         function setSensorFreq(freq) {
             document.getElementById('sensorFrequency').value = freq;
-            if (typeof syncWaterfallToFrequency === 'function') {
-                syncWaterfallToFrequency(freq, { autoStart: typeof isWaterfallRunning !== 'undefined' && isWaterfallRunning });
-            }
             if (isSensorRunning) {
                 fetch('/stop_sensor', { method: 'POST' })
                     .then(() => setTimeout(() => startSensorDecoding(), 500));
@@ -3274,9 +3248,6 @@
                         reserveDevice(parseInt(device), 'sensor');
                         setSensorRunning(true);
                         startSensorStream();
-                        if (!remoteConfig && typeof syncWaterfallToFrequency === 'function') {
-                            syncWaterfallToFrequency(freq, { autoStart: true, restartIfRunning: true, silent: true });
-                        }
 
                         // Initialize sensor filter bar
                         const filterContainer = document.getElementById('filterBarContainer');
@@ -3530,9 +3501,6 @@
 
         function setRtlamrFreq(freq) {
             document.getElementById('rtlamrFrequency').value = freq;
-            if (typeof syncWaterfallToFrequency === 'function') {
-                syncWaterfallToFrequency(freq, { autoStart: typeof isWaterfallRunning !== 'undefined' && isWaterfallRunning });
-            }
         }
 
         // RTLAMR mode polling timer for agent mode
@@ -3588,9 +3556,6 @@
                         }
                         setRtlamrRunning(true);
                         startRtlamrStream(isAgentMode);
-                        if (!isAgentMode && typeof syncWaterfallToFrequency === 'function') {
-                            syncWaterfallToFrequency(freq, { autoStart: true, restartIfRunning: true, silent: true });
-                        }
 
                         // Initialize meter filter bar (reuse sensor filter bar since same structure)
                         const filterContainer = document.getElementById('filterBarContainer');
@@ -4362,9 +4327,6 @@
                         }
                         setRunning(true);
                         startStream(isAgentMode);
-                        if (!isAgentMode && !remoteConfig && typeof syncWaterfallToFrequency === 'function') {
-                            syncWaterfallToFrequency(freq, { autoStart: true, restartIfRunning: true, silent: true });
-                        }
 
                         // Initialize filter bar
                         const filterContainer = document.getElementById('filterBarContainer');

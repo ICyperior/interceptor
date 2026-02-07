@@ -186,36 +186,6 @@ class CommandBuilder(ABC):
         """Return hardware capabilities for this SDR type."""
         pass
 
-    def build_raw_capture_command(
-        self,
-        device: SDRDevice,
-        frequency_mhz: float,
-        sample_rate: int,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
-        bias_t: bool = False
-    ) -> list[str]:
-        """
-        Build raw IQ capture command (for IQ-based waterfall during decoding).
-
-        Args:
-            device: The SDR device to use
-            frequency_mhz: Center frequency in MHz
-            sample_rate: Sample rate in Hz
-            gain: Gain in dB (None for auto)
-            ppm: PPM frequency correction
-            bias_t: Enable bias-T power (for active antennas)
-
-        Returns:
-            Command as list of strings for subprocess
-
-        Raises:
-            NotImplementedError: If the SDR type does not support raw capture
-        """
-        raise NotImplementedError(
-            f"Raw IQ capture not supported for {self.get_sdr_type().value}"
-        )
-
     @classmethod
     @abstractmethod
     def get_sdr_type(cls) -> SDRType:
