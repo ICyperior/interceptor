@@ -245,7 +245,14 @@ const SSTVGeneral = (function() {
             renderGallery();
             showNotification('SSTV', 'New image decoded!');
             updateStatusUI('listening', 'Listening...');
+            // Clear decode progress so signal monitor can take over
+            const liveContent = document.getElementById('sstvGeneralLiveContent');
+            if (liveContent) liveContent.innerHTML = '';
         } else if (data.status === 'detecting') {
+            // Ignore detecting events if currently decoding (e.g. Doppler updates)
+            const dot = document.getElementById('sstvGeneralStripDot');
+            if (dot && dot.classList.contains('decoding')) return;
+
             updateStatusUI('listening', data.message || 'Listening...');
             if (data.signal_level !== undefined) {
                 renderSignalMonitor(data);

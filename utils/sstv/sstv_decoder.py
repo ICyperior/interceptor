@@ -92,8 +92,8 @@ class DecodeProgress:
     progress_percent: int = 0
     message: str | None = None
     image: SSTVImage | None = None
-    signal_level: int = 0          # 0-100 RMS audio level
-    sstv_tone: str | None = None   # 'leader', 'sync', 'pixel', None
+    signal_level: int | None = None  # 0-100 RMS audio level, None = not measured
+    sstv_tone: str | None = None     # 'leader', 'sync', 'noise', None
 
     def to_dict(self) -> dict:
         result: dict = {
@@ -107,10 +107,10 @@ class DecodeProgress:
             result['message'] = self.message
         if self.image:
             result['image'] = self.image.to_dict()
-        if self.status == 'detecting':
+        if self.signal_level is not None:
             result['signal_level'] = self.signal_level
-            if self.sstv_tone:
-                result['sstv_tone'] = self.sstv_tone
+        if self.sstv_tone:
+            result['sstv_tone'] = self.sstv_tone
         return result
 
 
