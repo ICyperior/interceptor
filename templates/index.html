@@ -512,6 +512,34 @@
                     </div>
                 </div>
 
+                <!-- Shared Waterfall Controls -->
+                <div class="section" id="waterfallControlsSection" style="display: none;">
+                    <h3>Waterfall</h3>
+                    <div class="form-group" style="margin-bottom: 6px;">
+                        <label style="font-size: 10px;">Start (MHz)</label>
+                        <input type="number" id="waterfallStartFreq" value="88" step="0.1" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 6px;">
+                        <label style="font-size: 10px;">End (MHz)</label>
+                        <input type="number" id="waterfallEndFreq" value="108" step="0.1" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 6px;">
+                        <label style="font-size: 10px;">Bin Size</label>
+                        <select id="waterfallBinSize" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                            <option value="5000">5 kHz</option>
+                            <option value="10000" selected>10 kHz</option>
+                            <option value="25000">25 kHz</option>
+                            <option value="100000">100 kHz</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label style="font-size: 10px;">Gain</label>
+                        <input type="number" id="waterfallGain" value="40" min="0" max="50" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
+                    </div>
+                    <button class="run-btn" id="startWaterfallBtn" onclick="startWaterfall()" style="width: 100%; padding: 8px;">Start Waterfall</button>
+                    <button class="stop-btn" id="stopWaterfallBtn" onclick="stopWaterfall()" style="display: none; width: 100%; padding: 8px; margin-top: 4px;">Stop Waterfall</button>
+                </div>
+
                 {% include 'partials/modes/pager.html' %}
 
                 {% include 'partials/modes/sensor.html' %}
@@ -552,10 +580,10 @@
                 </button>
             </div>
 
-            <div class="output-panel">
-                <div class="output-header">
-                    <h3 id="outputTitle">Pager Decoder</h3>
-                    <div class="header-controls">
+                <div class="output-panel">
+                    <div class="output-header">
+                        <h3 id="outputTitle">Pager Decoder</h3>
+                        <div class="header-controls">
                         <div class="stats" id="pagerStats">
                             <div title="Total Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span> <span id="msgCount">0</span></div>
                             <div title="POCSAG Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> <span id="pocsagCount">0</span></div>
@@ -577,11 +605,21 @@
                         <div class="stats" id="satelliteStats" style="display: none;">
                             <div title="Upcoming Passes"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> <span id="passCount">0</span></div>
                         </div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- WiFi Layout Container -->
-                <div class="wifi-layout-container" id="wifiLayoutContainer" style="display: none;">
+                    <!-- WATERFALL / SPECTROGRAM PANEL -->
+                    <div id="waterfallPanel" class="radio-module-box" style="padding: 10px; display: none; margin-bottom: 12px;">
+                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
+                            <span>WATERFALL / SPECTROGRAM</span>
+                            <span id="waterfallFreqRange" style="font-size: 9px; color: var(--accent-cyan);"></span>
+                        </div>
+                        <canvas id="spectrumCanvas" width="800" height="120" style="width: 100%; height: 120px; border-radius: 4px; background: rgba(0,0,0,0.8);"></canvas>
+                        <canvas id="waterfallCanvas" width="800" height="400" style="width: 100%; height: 400px; border-radius: 4px; margin-top: 4px; background: rgba(0,0,0,0.9);"></canvas>
+                    </div>
+
+                    <!-- WiFi Layout Container -->
+                    <div class="wifi-layout-container" id="wifiLayoutContainer" style="display: none;">
                     <!-- Status Bar -->
                     <div class="wifi-status-bar">
                         <div class="wifi-status-item">
@@ -1404,15 +1442,6 @@
                         <div id="listeningPostTimelineContainer"></div>
                     </div>
 
-                    <!-- WATERFALL / SPECTROGRAM PANEL -->
-                    <div id="waterfallPanel" class="radio-module-box" style="grid-column: span 4; padding: 10px; display: none;">
-                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
-                            <span>WATERFALL / SPECTROGRAM</span>
-                            <span id="waterfallFreqRange" style="font-size: 9px; color: var(--accent-cyan);"></span>
-                        </div>
-                        <canvas id="spectrumCanvas" width="800" height="120" style="width: 100%; height: 120px; border-radius: 4px; background: rgba(0,0,0,0.8);"></canvas>
-                        <canvas id="waterfallCanvas" width="800" height="400" style="width: 100%; height: 400px; border-radius: 4px; margin-top: 4px; background: rgba(0,0,0,0.9);"></canvas>
-                    </div>
                 </div>
 
                 <!-- Satellite Dashboard (Embedded) -->
@@ -3202,6 +3231,17 @@
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
             if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'dmr') ? 'block' : 'none';
+
+            // Show shared waterfall controls for supported modes
+            const waterfallControlsSection = document.getElementById('waterfallControlsSection');
+            const waterfallPanel = document.getElementById('waterfallPanel');
+            const waterfallModes = ['pager', 'sensor', 'rtlamr', 'dmr', 'sstv', 'sstv_general', 'listening'];
+            const waterfallSupported = waterfallModes.includes(mode);
+            if (waterfallControlsSection) waterfallControlsSection.style.display = waterfallSupported ? 'block' : 'none';
+            if (waterfallPanel) {
+                const running = (typeof isWaterfallRunning !== 'undefined' && isWaterfallRunning);
+                waterfallPanel.style.display = (waterfallSupported && running) ? 'block' : 'none';
+            }
 
             // Toggle mode-specific tool status displays
             const toolStatusPager = document.getElementById('toolStatusPager');
