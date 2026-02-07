@@ -57,6 +57,33 @@ def test_parse_nac():
     assert result['nac'] == '293'
 
 
+def test_parse_talkgroup_dsd_fme_format():
+    """Should parse dsd-fme comma-separated TG/Src format."""
+    result = parse_dsd_output('TG: 12345, Src: 67890')
+    assert result is not None
+    assert result['type'] == 'call'
+    assert result['talkgroup'] == 12345
+    assert result['source_id'] == 67890
+
+
+def test_parse_talkgroup_with_slot():
+    """TG line with slot info should capture both."""
+    result = parse_dsd_output('Slot 1 Voice LC, TG: 100, Src: 200')
+    assert result is not None
+    assert result['type'] == 'call'
+    assert result['talkgroup'] == 100
+    assert result['source_id'] == 200
+    assert result['slot'] == 1
+
+
+def test_parse_voice_with_slot():
+    """Voice frame with slot info should be voice, not slot."""
+    result = parse_dsd_output('Slot 2 Voice Frame')
+    assert result is not None
+    assert result['type'] == 'voice'
+    assert result['slot'] == 2
+
+
 def test_parse_empty_line():
     """Empty lines should return None."""
     assert parse_dsd_output('') is None
@@ -64,8 +91,11 @@ def test_parse_empty_line():
 
 
 def test_parse_unrecognized():
-    """Unrecognized lines should return None."""
-    assert parse_dsd_output('some random text') is None
+    """Unrecognized lines should return raw event for diagnostics."""
+    result = parse_dsd_output('some random text')
+    assert result is not None
+    assert result['type'] == 'raw'
+    assert result['text'] == 'some random text'
 
 
 # ============================================
@@ -100,7 +130,7 @@ def test_dmr_status(auth_client):
 
 def test_dmr_start_no_dsd(auth_client):
     """Start should fail gracefully when dsd is not installed."""
-    with patch('routes.dmr.find_dsd', return_value=None):
+    with patch('routes.dmr.find_dsd', return_value=(None, False)):
         resp = auth_client.post('/dmr/start', json={
             'frequency': 462.5625,
             'protocol': 'auto',
@@ -112,7 +142,7 @@ def test_dmr_start_no_dsd(auth_client):
 
 def test_dmr_start_no_rtl_fm(auth_client):
     """Start should fail when rtl_fm is missing."""
-    with patch('routes.dmr.find_dsd', return_value='/usr/bin/dsd'), \
+    with patch('routes.dmr.find_dsd', return_value=('/usr/bin/dsd', False)), \
          patch('routes.dmr.find_rtl_fm', return_value=None):
         resp = auth_client.post('/dmr/start', json={
             'frequency': 462.5625,
@@ -122,7 +152,7 @@ def test_dmr_start_no_rtl_fm(auth_client):
 
 def test_dmr_start_invalid_protocol(auth_client):
     """Start should reject invalid protocol."""
-    with patch('routes.dmr.find_dsd', return_value='/usr/bin/dsd'), \
+    with patch('routes.dmr.find_dsd', return_value=('/usr/bin/dsd', False)), \
          patch('routes.dmr.find_rtl_fm', return_value='/usr/bin/rtl_fm'):
         resp = auth_client.post('/dmr/start', json={
             'frequency': 462.5625,

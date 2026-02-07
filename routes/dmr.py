@@ -87,10 +87,16 @@ def find_rtl_fm() -> str | None:
 
 
 def parse_dsd_output(line: str) -> dict | None:
-    """Parse a line of DSD stderr output into a structured event."""
+    """Parse a line of DSD stderr output into a structured event.
+
+    Handles output from both classic ``dsd`` and ``dsd-fme`` which use
+    different formatting for talkgroup / source / voice frame lines.
+    """
     line = line.strip()
     if not line:
         return None
+
+    ts = datetime.now().strftime('%H:%M:%S')
 
     # Sync detection: "Sync: +DMR (data)" or "Sync: +P25 Phase 1"
     sync_match = re.match(r'Sync:\s*\+?(\S+.*)', line)
@@ -98,46 +104,69 @@ def parse_dsd_output(line: str) -> dict | None:
         return {
             'type': 'sync',
             'protocol': sync_match.group(1).strip(),
-            'timestamp': datetime.now().strftime('%H:%M:%S'),
+            'timestamp': ts,
         }
 
-    # Talkgroup and Source: "TG: 12345  Src: 67890"
-    tg_match = re.match(r'.*TG:\s*(\d+)\s+Src:\s*(\d+)', line)
+    # Talkgroup and Source — check BEFORE slot so "Slot 1 Voice LC, TG: …"
+    # is captured as a call event rather than a bare slot event.
+    # Classic dsd:   "TG: 12345  Src: 67890"
+    # dsd-fme:       "TG: 12345, Src: 67890"  or  "Talkgroup: 12345, Source: 67890"
+    tg_match = re.search(
+        r'(?:TG|Talkgroup)[:\s]+(\d+)[,\s]+(?:Src|Source)[:\s]+(\d+)', line, re.IGNORECASE
+    )
     if tg_match:
-        return {
+        result = {
             'type': 'call',
             'talkgroup': int(tg_match.group(1)),
             'source_id': int(tg_match.group(2)),
-            'timestamp': datetime.now().strftime('%H:%M:%S'),
+            'timestamp': ts,
         }
+        # Extract slot if present on the same line
+        slot_inline = re.search(r'Slot\s*(\d+)', line)
+        if slot_inline:
+            result['slot'] = int(slot_inline.group(1))
+        return result
 
-    # Slot info: "Slot 1" or "Slot 2"
-    slot_match = re.match(r'.*Slot\s*(\d+)', line)
-    if slot_match:
-        return {
-            'type': 'slot',
-            'slot': int(slot_match.group(1)),
-            'timestamp': datetime.now().strftime('%H:%M:%S'),
-        }
-
-    # DMR voice frame
-    if 'Voice' in line or 'voice' in line:
-        return {
-            'type': 'voice',
-            'detail': line,
-            'timestamp': datetime.now().strftime('%H:%M:%S'),
-        }
-
-    # P25 NAC (Network Access Code)
-    nac_match = re.match(r'.*NAC:\s*(\w+)', line)
+    # P25 NAC (Network Access Code) — check before voice/slot
+    nac_match = re.search(r'NAC[:\s]+([0-9A-Fa-f]+)', line)
     if nac_match:
         return {
             'type': 'nac',
             'nac': nac_match.group(1),
-            'timestamp': datetime.now().strftime('%H:%M:%S'),
+            'timestamp': ts,
         }
 
-    return None
+    # Voice frame detection — check BEFORE bare slot match
+    # Classic dsd: "Voice" keyword in frame lines
+    # dsd-fme: "voice" or "Voice LC" or "VOICE" in output
+    if re.search(r'\bvoice\b', line, re.IGNORECASE):
+        result = {
+            'type': 'voice',
+            'detail': line,
+            'timestamp': ts,
+        }
+        slot_inline = re.search(r'Slot\s*(\d+)', line)
+        if slot_inline:
+            result['slot'] = int(slot_inline.group(1))
+        return result
+
+    # Bare slot info (only when line is *just* slot info, not voice/call)
+    slot_match = re.match(r'\s*Slot\s*(\d+)\s*$', line)
+    if slot_match:
+        return {
+            'type': 'slot',
+            'slot': int(slot_match.group(1)),
+            'timestamp': ts,
+        }
+
+    # dsd-fme status lines we can surface: "TDMA", "CACH", "PI", "BS", etc.
+    # Also catches "Closing", "Input", and other lifecycle lines.
+    # Forward as raw so the frontend can show decoder is alive.
+    return {
+        'type': 'raw',
+        'text': line[:200],
+        'timestamp': ts,
+    }
 
 
 def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Popen):

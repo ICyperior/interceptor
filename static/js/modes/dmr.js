@@ -146,6 +146,11 @@ function handleDmrMessage(msg) {
         if (mainCountEl) mainCountEl.textContent = dmrCallCount;
 
         // Update current call display
+        const slotInfo = msg.slot != null ? `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--text-muted);">Slot</span>
+                    <span style="color: var(--accent-orange); font-family: var(--font-mono);">${msg.slot}</span>
+                </div>` : '';
         const callEl = document.getElementById('dmrCurrentCall');
         if (callEl) {
             callEl.innerHTML = `
@@ -156,7 +161,7 @@ function handleDmrMessage(msg) {
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                     <span style="color: var(--text-muted);">Source ID</span>
                     <span style="color: var(--accent-cyan); font-family: var(--font-mono);">${msg.source_id}</span>
-                </div>
+                </div>${slotInfo}
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-muted);">Time</span>
                     <span style="color: var(--text-primary);">${msg.timestamp}</span>
@@ -176,6 +181,10 @@ function handleDmrMessage(msg) {
 
     } else if (msg.type === 'slot') {
         // Update slot info in current call
+    } else if (msg.type === 'raw') {
+        // Raw DSD output — update last line display for diagnostics
+        const rawEl = document.getElementById('dmrRawOutput');
+        if (rawEl) rawEl.textContent = msg.text || '';
     } else if (msg.type === 'status') {
         const statusEl = document.getElementById('dmrStatus');
         if (statusEl) {
@@ -399,6 +408,10 @@ function dmrSynthPulse(type) {
         dmrEventType = 'voice';
     } else if (type === 'slot' || type === 'nac') {
         dmrActivityTarget = Math.max(dmrActivityTarget, 0.5);
+    } else if (type === 'raw') {
+        // Any DSD output means the decoder is alive and processing
+        dmrActivityTarget = Math.max(dmrActivityTarget, 0.25);
+        if (dmrEventType === 'idle') dmrEventType = 'raw';
     }
     // keepalive and status don't change visuals
 
@@ -412,6 +425,7 @@ function updateDmrSynthStatus() {
     const labels = {
         stopped: 'STOPPED',
         idle: 'IDLE',
+        raw: 'LISTENING',
         sync: 'SYNC',
         call: 'CALL',
         voice: 'VOICE'
@@ -419,6 +433,7 @@ function updateDmrSynthStatus() {
     const colors = {
         stopped: 'var(--text-muted)',
         idle: 'var(--text-muted)',
+        raw: '#607d8b',
         sync: '#00e5ff',
         call: '#4caf50',
         voice: '#ff9800'
