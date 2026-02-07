@@ -521,6 +521,11 @@ const SSTV = (function() {
         const frequency = parseFloat(freqInput?.value || ISS_FREQ);
         const device = parseInt(deviceSelect?.value || '0', 10);
 
+        // Check if device is available
+        if (typeof checkDeviceAvailability === 'function' && !checkDeviceAvailability('sstv')) {
+            return;
+        }
+
         updateStatusUI('connecting', 'Starting...');
 
         try {
@@ -534,6 +539,9 @@ const SSTV = (function() {
 
             if (data.status === 'started' || data.status === 'already_running') {
                 isRunning = true;
+                if (typeof reserveDevice === 'function') {
+                    reserveDevice(device, 'sstv');
+                }
                 updateStatusUI('listening', `${frequency} MHz`);
                 startStream();
                 showNotification('SSTV', `Listening on ${frequency} MHz`);
@@ -555,6 +563,9 @@ const SSTV = (function() {
         try {
             await fetch('/sstv/stop', { method: 'POST' });
             isRunning = false;
+            if (typeof releaseDevice === 'function') {
+                releaseDevice('sstv');
+            }
             stopStream();
             updateStatusUI('idle', 'Stopped');
             showNotification('SSTV', 'Decoder stopped');

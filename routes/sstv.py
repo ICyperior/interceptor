@@ -13,6 +13,7 @@ from typing import Generator
 
 from flask import Blueprint, jsonify, request, Response, send_file
 
+import app as app_module
 from utils.logging import get_logger
 from utils.sse import format_sse
 from utils.sstv import (
@@ -29,6 +30,9 @@ sstv_bp = Blueprint('sstv', __name__, url_prefix='/sstv')
 
 # Queue for SSE progress streaming
 _sstv_queue: queue.Queue = queue.Queue(maxsize=100)
+
+# Track which device is being used
+sstv_active_device: int | None = None
 
 
 def _progress_callback(progress: DecodeProgress) -> None:
@@ -158,6 +162,17 @@ def start_decoder():
         latitude = None
         longitude = None
 
+    # Claim SDR device
+    global sstv_active_device
+    device_int = int(device_index)
+    error = app_module.claim_sdr_device(device_int, 'sstv')
+    if error:
+        return jsonify({
+            'status': 'error',
+            'error_type': 'DEVICE_BUSY',
+            'message': error
+        }), 409
+
     # Set callback and start
     decoder.set_callback(_progress_callback)
     success = decoder.start(
@@ -168,6 +183,8 @@ def start_decoder():
     )
 
     if success:
+        sstv_active_device = device_int
+
         result = {
             'status': 'started',
             'frequency': frequency,
@@ -181,6 +198,8 @@ def start_decoder():
 
         return jsonify(result)
     else:
+        # Release device on failure
+        app_module.release_sdr_device(device_int)
         return jsonify({
             'status': 'error',
             'message': 'Failed to start decoder'
@@ -195,8 +214,15 @@ def stop_decoder():
     Returns:
         JSON confirmation.
     """
+    global sstv_active_device
     decoder = get_sstv_decoder()
     decoder.stop()
+
+    # Release device from registry
+    if sstv_active_device is not None:
+        app_module.release_sdr_device(sstv_active_device)
+        sstv_active_device = None
+
     return jsonify({'status': 'stopped'})
 
 
