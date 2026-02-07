@@ -21,6 +21,7 @@ const WeatherSat = (function() {
     let consoleCollapsed = false;
     let currentPhase = 'idle';
     let consoleAutoHideTimer = null;
+    let currentModalFilename = null;
 
     /**
      * Initialize the Weather Satellite mode
@@ -1005,7 +1006,7 @@ const WeatherSat = (function() {
     }
 
     /**
-     * Render image gallery
+     * Render image gallery grouped by date
      */
     function renderGallery() {
         const gallery = document.getElementById('wxsatGallery');
@@ -1026,28 +1027,69 @@ const WeatherSat = (function() {
             return;
         }
 
-        gallery.innerHTML = images.map(img => `
-            <div class="wxsat-image-card" onclick="WeatherSat.showImage('${escapeHtml(img.url)}', '${escapeHtml(img.satellite)}', '${escapeHtml(img.product)}')">
-                <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.satellite)} ${escapeHtml(img.product)}" class="wxsat-image-preview" loading="lazy">
-                <div class="wxsat-image-info">
-                    <div class="wxsat-image-sat">${escapeHtml(img.satellite)}</div>
-                    <div class="wxsat-image-product">${escapeHtml(img.product || img.mode)}</div>
-                    <div class="wxsat-image-timestamp">${formatTimestamp(img.timestamp)}</div>
-                </div>
-            </div>
-        `).join('');
+        // Sort by timestamp descending
+        const sorted = [...images].sort((a, b) => {
+            return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+        });
+
+        // Group by date
+        const groups = {};
+        sorted.forEach(img => {
+            const dateKey = img.timestamp
+                ? new Date(img.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                : 'Unknown Date';
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(img);
+        });
+
+        let html = '';
+        for (const [date, imgs] of Object.entries(groups)) {
+            html += `<div class="wxsat-date-header">${escapeHtml(date)}</div>`;
+            html += imgs.map(img => {
+                const fn = escapeHtml(img.filename || img.url.split('/').pop());
+                return `
+                <div class="wxsat-image-card">
+                    <div class="wxsat-image-clickable" onclick="WeatherSat.showImage('${escapeHtml(img.url)}', '${escapeHtml(img.satellite)}', '${escapeHtml(img.product)}', '${fn}')">
+                        <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.satellite)} ${escapeHtml(img.product)}" class="wxsat-image-preview" loading="lazy">
+                        <div class="wxsat-image-info">
+                            <div class="wxsat-image-sat">${escapeHtml(img.satellite)}</div>
+                            <div class="wxsat-image-product">${escapeHtml(img.product || img.mode)}</div>
+                            <div class="wxsat-image-timestamp">${formatTimestamp(img.timestamp)}</div>
+                        </div>
+                    </div>
+                    <div class="wxsat-image-actions">
+                        <button onclick="event.stopPropagation(); WeatherSat.deleteImage('${fn}')" title="Delete image">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        gallery.innerHTML = html;
     }
 
     /**
      * Show full-size image
      */
-    function showImage(url, satellite, product) {
+    function showImage(url, satellite, product, filename) {
+        currentModalFilename = filename || null;
+
         let modal = document.getElementById('wxsatImageModal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'wxsatImageModal';
             modal.className = 'wxsat-image-modal';
             modal.innerHTML = `
+                <div class="wxsat-modal-toolbar">
+                    <button class="wxsat-modal-btn delete" onclick="WeatherSat.deleteImage(WeatherSat._getModalFilename())" title="Delete image">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                    </button>
+                </div>
                 <button class="wxsat-modal-close" onclick="WeatherSat.closeImage()">&times;</button>
                 <img src="" alt="Weather Satellite Image">
                 <div class="wxsat-modal-info"></div>
@@ -1072,6 +1114,59 @@ const WeatherSat = (function() {
     function closeImage() {
         const modal = document.getElementById('wxsatImageModal');
         if (modal) modal.classList.remove('show');
+    }
+
+    /**
+     * Delete a single image
+     */
+    async function deleteImage(filename) {
+        if (!filename) return;
+        if (!confirm(`Delete this image?`)) return;
+
+        try {
+            const response = await fetch(`/weather-sat/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+            const data = await response.json();
+
+            if (data.status === 'deleted') {
+                images = images.filter(img => {
+                    const imgFn = img.filename || img.url.split('/').pop();
+                    return imgFn !== filename;
+                });
+                updateImageCount(images.length);
+                renderGallery();
+                closeImage();
+            } else {
+                showNotification('Weather Sat', data.message || 'Failed to delete image');
+            }
+        } catch (err) {
+            console.error('Failed to delete image:', err);
+            showNotification('Weather Sat', 'Failed to delete image');
+        }
+    }
+
+    /**
+     * Delete all images
+     */
+    async function deleteAllImages() {
+        if (images.length === 0) return;
+        if (!confirm(`Delete all ${images.length} decoded images?`)) return;
+
+        try {
+            const response = await fetch('/weather-sat/images', { method: 'DELETE' });
+            const data = await response.json();
+
+            if (data.status === 'ok') {
+                images = [];
+                updateImageCount(0);
+                renderGallery();
+                showNotification('Weather Sat', `Deleted ${data.deleted} images`);
+            } else {
+                showNotification('Weather Sat', 'Failed to delete images');
+            }
+        } catch (err) {
+            console.error('Failed to delete all images:', err);
+            showNotification('Weather Sat', 'Failed to delete images');
+        }
     }
 
     /**
@@ -1218,10 +1313,13 @@ const WeatherSat = (function() {
         loadPasses,
         showImage,
         closeImage,
+        deleteImage,
+        deleteAllImages,
         useGPS,
         toggleScheduler,
         invalidateMap,
         toggleConsole,
+        _getModalFilename: () => currentModalFilename,
     };
 })();
 

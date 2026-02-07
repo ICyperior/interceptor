@@ -301,6 +301,18 @@ def delete_image(filename: str):
         return jsonify({'status': 'error', 'message': 'Image not found'}), 404
 
 
+@weather_sat_bp.route('/images', methods=['DELETE'])
+def delete_all_images():
+    """Delete all decoded weather satellite images.
+
+    Returns:
+        JSON with count of deleted images.
+    """
+    decoder = get_weather_sat_decoder()
+    count = decoder.delete_all_images()
+    return jsonify({'status': 'ok', 'deleted': count})
+
+
 @weather_sat_bp.route('/stream')
 def stream_progress():
     """SSE stream of capture/decode progress.

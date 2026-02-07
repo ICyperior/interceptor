@@ -797,6 +797,19 @@ class WeatherSatDecoder:
                 logger.error(f"Failed to delete image {filename}: {e}")
         return False
 
+    def delete_all_images(self) -> int:
+        """Delete all decoded images."""
+        count = 0
+        for ext in ('*.png', '*.jpg', '*.jpeg'):
+            for filepath in self._output_dir.glob(ext):
+                try:
+                    filepath.unlink()
+                    count += 1
+                except OSError:
+                    pass
+        self._images.clear()
+        return count
+
     def _emit_progress(self, progress: CaptureProgress) -> None:
         """Emit progress update to callback."""
         if self._callback:
