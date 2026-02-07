@@ -1970,6 +1970,33 @@
                         </div>
                     </div>
 
+                    <!-- Decoder Console -->
+                    <div class="wxsat-signal-console" id="wxsatSignalConsole">
+                        <div class="wxsat-console-header">
+                            <div class="wxsat-console-title-group">
+                                <span class="wxsat-console-title">DECODER CONSOLE</span>
+                                <div class="wxsat-phase-indicator" id="wxsatPhaseIndicator">
+                                    <span class="wxsat-phase-step" data-phase="tuning">TUNING</span>
+                                    <span class="wxsat-phase-arrow">&#x25B8;</span>
+                                    <span class="wxsat-phase-step" data-phase="listening">LISTENING</span>
+                                    <span class="wxsat-phase-arrow">&#x25B8;</span>
+                                    <span class="wxsat-phase-step" data-phase="signal_detected">SIGNAL</span>
+                                    <span class="wxsat-phase-arrow">&#x25B8;</span>
+                                    <span class="wxsat-phase-step" data-phase="decoding">DECODING</span>
+                                    <span class="wxsat-phase-arrow">&#x25B8;</span>
+                                    <span class="wxsat-phase-step" data-phase="complete">COMPLETE</span>
+                                </div>
+                            </div>
+                            <button class="wxsat-strip-btn" id="wxsatConsoleToggle"
+                                    onclick="WeatherSat.toggleConsole()" title="Toggle console">&#x25BC;</button>
+                        </div>
+                        <div class="wxsat-console-body" id="wxsatConsoleBody">
+                            <div class="wxsat-console-log" id="wxsatConsoleLog">
+                                <div class="wxsat-console-entry wxsat-log-info">Waiting for capture...</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Main content: 3-column layout -->
                     <div class="wxsat-content">
                         <!-- Left: Pass predictions -->

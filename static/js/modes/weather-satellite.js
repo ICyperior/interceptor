@@ -17,6 +17,10 @@ const WeatherSat = (function() {
     let groundMap = null;
     let groundTrackLayer = null;
     let observerMarker = null;
+    let consoleEntries = [];
+    let consoleCollapsed = false;
+    let currentPhase = 'idle';
+    let consoleAutoHideTimer = null;
 
     /**
      * Initialize the Weather Satellite mode
@@ -160,6 +164,10 @@ const WeatherSat = (function() {
         const biasT = biasTInput?.checked || false;
         const device = parseInt(deviceSelect?.value || '0', 10);
 
+        clearConsole();
+        showConsole(true);
+        updatePhaseIndicator('tuning');
+        addConsoleEntry('Starting capture...', 'info');
         updateStatusUI('connecting', 'Starting...');
 
         try {
@@ -313,6 +321,11 @@ const WeatherSat = (function() {
             if (captureElapsed) captureElapsed.textContent = formatElapsed(data.elapsed_seconds || 0);
             if (progressBar) progressBar.style.width = (data.progress || 0) + '%';
 
+            // Console updates
+            showConsole(true);
+            if (data.message) addConsoleEntry(data.message, data.log_type || 'info');
+            if (data.capture_phase) updatePhaseIndicator(data.capture_phase);
+
         } else if (data.status === 'complete') {
             if (data.image) {
                 images.unshift(data.image);
@@ -327,12 +340,20 @@ const WeatherSat = (function() {
                 if (!schedulerEnabled) stopStream();
                 updateStatusUI('idle', 'Capture complete');
                 if (captureStatus) captureStatus.classList.remove('active');
+
+                addConsoleEntry('Capture complete', 'signal');
+                updatePhaseIndicator('complete');
+                consoleAutoHideTimer = setTimeout(() => showConsole(false), 30000);
             }
 
         } else if (data.status === 'error') {
             updateStatusUI('idle', 'Error');
             showNotification('Weather Sat', data.message || 'Capture error');
             if (captureStatus) captureStatus.classList.remove('active');
+
+            if (data.message) addConsoleEntry(data.message, 'error');
+            updatePhaseIndicator('error');
+            consoleAutoHideTimer = setTimeout(() => showConsole(false), 15000);
         }
     }
 
@@ -1084,6 +1105,108 @@ const WeatherSat = (function() {
         }
     }
 
+    // ========================
+    // Decoder Console
+    // ========================
+
+    /**
+     * Add an entry to the decoder console log
+     */
+    function addConsoleEntry(message, logType) {
+        const log = document.getElementById('wxsatConsoleLog');
+        if (!log) return;
+
+        const entry = document.createElement('div');
+        entry.className = `wxsat-console-entry wxsat-log-${logType || 'info'}`;
+        entry.textContent = message;
+        log.appendChild(entry);
+
+        consoleEntries.push(entry);
+
+        // Cap at 200 entries
+        while (consoleEntries.length > 200) {
+            const old = consoleEntries.shift();
+            if (old.parentNode) old.parentNode.removeChild(old);
+        }
+
+        // Auto-scroll to bottom
+        log.scrollTop = log.scrollHeight;
+    }
+
+    /**
+     * Update the phase indicator steps
+     */
+    function updatePhaseIndicator(phase) {
+        if (!phase || phase === currentPhase) return;
+        currentPhase = phase;
+
+        const phases = ['tuning', 'listening', 'signal_detected', 'decoding', 'complete'];
+        const phaseIndex = phases.indexOf(phase);
+        const isError = phase === 'error';
+
+        document.querySelectorAll('#wxsatPhaseIndicator .wxsat-phase-step').forEach(step => {
+            const stepPhase = step.dataset.phase;
+            const stepIndex = phases.indexOf(stepPhase);
+
+            step.classList.remove('active', 'completed', 'error');
+
+            if (isError) {
+                if (stepPhase === currentPhase || stepIndex === phaseIndex) {
+                    step.classList.add('error');
+                }
+            } else if (stepIndex === phaseIndex) {
+                step.classList.add('active');
+            } else if (stepIndex < phaseIndex && phaseIndex >= 0) {
+                step.classList.add('completed');
+            }
+        });
+    }
+
+    /**
+     * Show or hide the decoder console
+     */
+    function showConsole(visible) {
+        const el = document.getElementById('wxsatSignalConsole');
+        if (el) el.classList.toggle('active', visible);
+
+        if (consoleAutoHideTimer) {
+            clearTimeout(consoleAutoHideTimer);
+            consoleAutoHideTimer = null;
+        }
+    }
+
+    /**
+     * Toggle console body collapsed state
+     */
+    function toggleConsole() {
+        const body = document.getElementById('wxsatConsoleBody');
+        const btn = document.getElementById('wxsatConsoleToggle');
+        if (!body) return;
+
+        consoleCollapsed = !consoleCollapsed;
+        body.classList.toggle('collapsed', consoleCollapsed);
+        if (btn) btn.classList.toggle('collapsed', consoleCollapsed);
+    }
+
+    /**
+     * Clear console entries and reset phase indicator
+     */
+    function clearConsole() {
+        const log = document.getElementById('wxsatConsoleLog');
+        if (log) log.innerHTML = '';
+        consoleEntries = [];
+        currentPhase = 'idle';
+
+        document.querySelectorAll('#wxsatPhaseIndicator .wxsat-phase-step').forEach(step => {
+            step.classList.remove('active', 'completed', 'error');
+        });
+
+        if (consoleAutoHideTimer) {
+            clearTimeout(consoleAutoHideTimer);
+            consoleAutoHideTimer = null;
+        }
+    }
+
     // Public API
     return {
         init,
@@ -1098,6 +1221,7 @@ const WeatherSat = (function() {
         useGPS,
         toggleScheduler,
         invalidateMap,
+        toggleConsole,
     };
 })();
 

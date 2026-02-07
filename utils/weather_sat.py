@@ -110,6 +110,8 @@ class CaptureProgress:
     progress_percent: int = 0
     elapsed_seconds: int = 0
     image: WeatherSatImage | None = None
+    log_type: str = ''       # 'info', 'debug', 'progress', 'error', 'signal', 'save', 'warning'
+    capture_phase: str = ''  # 'tuning', 'listening', 'signal_detected', 'decoding', 'complete', 'error'
 
     def to_dict(self) -> dict:
         result = {
@@ -121,6 +123,8 @@ class CaptureProgress:
             'message': self.message,
             'progress': self.progress_percent,
             'elapsed_seconds': self.elapsed_seconds,
+            'log_type': self.log_type,
+            'capture_phase': self.capture_phase,
         }
         if self.image:
             result['image'] = self.image.to_dict()
@@ -150,6 +154,7 @@ class WeatherSatDecoder:
         self._device_index: int = 0
         self._capture_output_dir: Path | None = None
         self._on_complete_callback: Callable[[], None] | None = None
+        self._capture_phase: str = 'idle'
 
         # Ensure output directory exists
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -240,6 +245,7 @@ class WeatherSatDecoder:
             self._current_mode = sat_info['mode']
             self._device_index = device_index
             self._capture_start_time = time.time()
+            self._capture_phase = 'tuning'
 
             try:
                 self._start_satdump(sat_info, device_index, gain, sample_rate, bias_t)
@@ -254,7 +260,9 @@ class WeatherSatDecoder:
                     satellite=satellite,
                     frequency=sat_info['frequency'],
                     mode=sat_info['mode'],
-                    message=f"Capturing {sat_info['name']} on {sat_info['frequency']} MHz ({sat_info['mode']})..."
+                    message=f"Capturing {sat_info['name']} on {sat_info['frequency']} MHz ({sat_info['mode']})...",
+                    log_type='info',
+                    capture_phase=self._capture_phase,
                 ))
 
                 return True
@@ -346,6 +354,24 @@ class WeatherSatDecoder:
         self._watcher_thread.start()
 
     @staticmethod
+    def _classify_log_type(line: str) -> str:
+        """Classify a SatDump output line into a log type."""
+        lower = line.lower()
+        if '(e)' in lower or 'error' in lower or 'fail' in lower:
+            return 'error'
+        if 'progress' in lower and '%' in line:
+            return 'progress'
+        if 'saved' in lower or 'writing' in lower:
+            return 'save'
+        if 'detected' in lower or 'lock' in lower or 'sync' in lower:
+            return 'signal'
+        if '(w)' in lower:
+            return 'warning'
+        if '(d)' in lower:
+            return 'debug'
+        return 'info'
+
+    @staticmethod
     def _resolve_device_id(device_index: int) -> str:
         """Resolve RTL-SDR device index to serial number string for SatDump v1.2+.
 
@@ -400,9 +426,22 @@ class WeatherSatDecoder:
 
                 elapsed = int(time.time() - self._capture_start_time)
                 now = time.time()
+                log_type = self._classify_log_type(line)
+
+                # Track phase transitions
+                lower = line.lower()
+                if log_type == 'signal':
+                    self._capture_phase = 'signal_detected'
+                elif log_type == 'progress':
+                    self._capture_phase = 'decoding'
+                elif self._capture_phase == 'tuning' and (
+                    'freq' in lower or 'processing' in lower
+                    or 'starting' in lower or 'source' in lower
+                ):
+                    self._capture_phase = 'listening'
 
                 # Parse progress from SatDump output
-                if 'Progress' in line or 'progress' in line:
+                if log_type == 'progress':
                     match = re.search(r'(\d+(?:\.\d+)?)\s*%', line)
                     pct = int(float(match.group(1))) if match else 0
                     self._emit_progress(CaptureProgress(
@@ -413,9 +452,11 @@ class WeatherSatDecoder:
                         message=line,
                         progress_percent=pct,
                         elapsed_seconds=elapsed,
+                        log_type=log_type,
+                        capture_phase=self._capture_phase,
                     ))
                     last_emit_time = now
-                elif 'Saved' in line or 'saved' in line or 'Writing' in line:
+                elif log_type == 'save':
                     self._emit_progress(CaptureProgress(
                         status='decoding',
                         satellite=self._current_satellite,
@@ -423,9 +464,11 @@ class WeatherSatDecoder:
                         mode=self._current_mode,
                         message=line,
                         elapsed_seconds=elapsed,
+                        log_type=log_type,
+                        capture_phase=self._capture_phase,
                     ))
                     last_emit_time = now
-                elif 'error' in line.lower() or 'fail' in line.lower():
+                elif log_type == 'error':
                     self._emit_progress(CaptureProgress(
                         status='capturing',
                         satellite=self._current_satellite,
@@ -433,11 +476,25 @@ class WeatherSatDecoder:
                         mode=self._current_mode,
                         message=line,
                         elapsed_seconds=elapsed,
+                        log_type=log_type,
+                        capture_phase=self._capture_phase,
+                    ))
+                    last_emit_time = now
+                elif log_type == 'signal':
+                    self._emit_progress(CaptureProgress(
+                        status='capturing',
+                        satellite=self._current_satellite,
+                        frequency=self._current_frequency,
+                        mode=self._current_mode,
+                        message=line,
+                        elapsed_seconds=elapsed,
+                        log_type=log_type,
+                        capture_phase=self._capture_phase,
                     ))
                     last_emit_time = now
                 else:
-                    # Emit all output lines, throttled to every 2 seconds
-                    if now - last_emit_time >= 2.0:
+                    # Emit other lines, throttled to every 0.5 seconds
+                    if now - last_emit_time >= 0.5:
                         self._emit_progress(CaptureProgress(
                             status='capturing',
                             satellite=self._current_satellite,
@@ -445,6 +502,8 @@ class WeatherSatDecoder:
                             mode=self._current_mode,
                             message=line,
                             elapsed_seconds=elapsed,
+                            log_type=log_type,
+                            capture_phase=self._capture_phase,
                         ))
                         last_emit_time = now
 
@@ -457,6 +516,7 @@ class WeatherSatDecoder:
             elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
 
             if was_running:
+                self._capture_phase = 'complete'
                 self._emit_progress(CaptureProgress(
                     status='complete',
                     satellite=self._current_satellite,
@@ -464,6 +524,8 @@ class WeatherSatDecoder:
                     mode=self._current_mode,
                     message=f"Capture complete ({elapsed}s)",
                     elapsed_seconds=elapsed,
+                    log_type='info',
+                    capture_phase='complete',
                 ))
 
             # Notify route layer to release SDR device
