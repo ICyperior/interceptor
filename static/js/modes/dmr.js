@@ -193,9 +193,7 @@ function handleDmrMessage(msg) {
     } else if (msg.type === 'slot') {
         // Update slot info in current call
     } else if (msg.type === 'raw') {
-        // Raw DSD output — update last line display for diagnostics
-        const rawEl = document.getElementById('dmrRawOutput');
-        if (rawEl) rawEl.textContent = msg.text || '';
+        // Raw DSD output — triggers synthesizer activity via dmrSynthPulse
     } else if (msg.type === 'heartbeat') {
         // Decoder is alive and listening — keep synthesizer in listening state
         if (isDmrRunning && dmrSynthInitialized) {
@@ -222,8 +220,6 @@ function handleDmrMessage(msg) {
             if (typeof showNotification === 'function') {
                 showNotification('DMR Error', detail);
             }
-            const rawEl = document.getElementById('dmrRawOutput');
-            if (rawEl) rawEl.textContent = detail;
         } else if (msg.text === 'stopped') {
             isDmrRunning = false;
             updateDmrUI();

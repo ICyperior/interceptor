@@ -97,6 +97,13 @@ def parse_dsd_output(line: str) -> dict | None:
     if not line:
         return None
 
+    # Skip DSD/dsd-fme startup banner lines (ASCII art, version info, etc.)
+    # These contain box-drawing characters or are pure decoration.
+    if re.search(r'[╔╗╚╝║═██▀▄╗╝╩╦╠╣╬│┤├┘└┐┌─┼█▓▒░]', line):
+        return None
+    if re.match(r'^\s*(Build Version|MBElib|CODEC2|Audio (Out|In)|Decoding )', line):
+        return None
+
     ts = datetime.now().strftime('%H:%M:%S')
 
     # Sync detection: "Sync: +DMR (data)" or "Sync: +P25 Phase 1"
