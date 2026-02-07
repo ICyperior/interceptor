@@ -3024,16 +3024,76 @@ let waterfallEndFreq = 108;
 let waterfallRowImage = null;
 let waterfallPalette = null;
 let lastWaterfallDraw = 0;
-const WATERFALL_MIN_INTERVAL_MS = 80;
+const WATERFALL_MIN_INTERVAL_MS = 50;
+let waterfallInteractionBound = false;
+let waterfallResizeObserver = null;
+
+function resizeCanvasToDisplaySize(canvas) {
+    if (!canvas) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        return true;
+    }
+    return false;
+}
+
+function getWaterfallRowHeight() {
+    const dpr = window.devicePixelRatio || 1;
+    return Math.max(1, Math.round(dpr));
+}
 
 function initWaterfallCanvas() {
     waterfallCanvas = document.getElementById('waterfallCanvas');
     spectrumCanvas = document.getElementById('spectrumCanvas');
-    if (waterfallCanvas) waterfallCtx = waterfallCanvas.getContext('2d');
-    if (spectrumCanvas) spectrumCtx = spectrumCanvas.getContext('2d');
-    if (waterfallCtx && waterfallCanvas) {
-        waterfallRowImage = waterfallCtx.createImageData(waterfallCanvas.width, 1);
-        if (!waterfallPalette) waterfallPalette = buildWaterfallPalette();
+    if (waterfallCanvas) {
+        resizeCanvasToDisplaySize(waterfallCanvas);
+        waterfallCtx = waterfallCanvas.getContext('2d');
+        if (waterfallCtx) {
+            waterfallCtx.imageSmoothingEnabled = false;
+            waterfallRowImage = waterfallCtx.createImageData(
+                waterfallCanvas.width,
+                getWaterfallRowHeight()
+            );
+        }
+    }
+    if (spectrumCanvas) {
+        resizeCanvasToDisplaySize(spectrumCanvas);
+        spectrumCtx = spectrumCanvas.getContext('2d');
+        if (spectrumCtx) {
+            spectrumCtx.imageSmoothingEnabled = false;
+        }
+    }
+    if (!waterfallPalette) waterfallPalette = buildWaterfallPalette();
+
+    if (!waterfallInteractionBound) {
+        bindWaterfallInteraction();
+        waterfallInteractionBound = true;
+    }
+
+    if (!waterfallResizeObserver && waterfallCanvas) {
+        const observerTarget = waterfallCanvas.parentElement;
+        if (observerTarget && typeof ResizeObserver !== 'undefined') {
+            waterfallResizeObserver = new ResizeObserver(() => {
+                const resizedWaterfall = resizeCanvasToDisplaySize(waterfallCanvas);
+                const resizedSpectrum = spectrumCanvas ? resizeCanvasToDisplaySize(spectrumCanvas) : false;
+                if (resizedWaterfall && waterfallCtx) {
+                    waterfallRowImage = waterfallCtx.createImageData(
+                        waterfallCanvas.width,
+                        getWaterfallRowHeight()
+                    );
+                }
+                if (resizedWaterfall || resizedSpectrum) {
+                    lastWaterfallDraw = 0;
+                }
+            });
+            waterfallResizeObserver.observe(observerTarget);
+        }
     }
 }
 
@@ -3077,9 +3137,10 @@ function drawWaterfallRow(bins) {
     if (!waterfallCtx || !waterfallCanvas) return;
     const w = waterfallCanvas.width;
     const h = waterfallCanvas.height;
+    const rowHeight = waterfallRowImage ? waterfallRowImage.height : 1;
 
     // Scroll existing content down by 1 pixel (GPU-accelerated)
-    waterfallCtx.drawImage(waterfallCanvas, 0, 0, w, h - 1, 0, 1, w, h - 1);
+    waterfallCtx.drawImage(waterfallCanvas, 0, 0, w, h - rowHeight, 0, rowHeight, w, h - rowHeight);
 
     // Find min/max for normalization
     let minVal = Infinity, maxVal = -Infinity;
@@ -3090,21 +3151,27 @@ function drawWaterfallRow(bins) {
     const range = maxVal - minVal || 1;
 
     // Draw new row at top using ImageData
-    if (!waterfallRowImage || waterfallRowImage.width !== w) {
-        waterfallRowImage = waterfallCtx.createImageData(w, 1);
+    if (!waterfallRowImage || waterfallRowImage.width !== w || waterfallRowImage.height !== rowHeight) {
+        waterfallRowImage = waterfallCtx.createImageData(w, rowHeight);
     }
     const rowData = waterfallRowImage.data;
     const palette = waterfallPalette || buildWaterfallPalette();
     const binCount = bins.length;
     for (let x = 0; x < w; x++) {
-        const idx = Math.min(binCount - 1, Math.floor((x / w) * binCount));
-        const normalized = (bins[idx] - minVal) / range;
+        const pos = (x / (w - 1)) * (binCount - 1);
+        const i0 = Math.floor(pos);
+        const i1 = Math.min(binCount - 1, i0 + 1);
+        const t = pos - i0;
+        const val = (bins[i0] * (1 - t)) + (bins[i1] * t);
+        const normalized = (val - minVal) / range;
         const color = palette[Math.max(0, Math.min(255, Math.floor(normalized * 255)))] || [0, 0, 0];
-        const offset = x * 4;
-        rowData[offset] = color[0];
-        rowData[offset + 1] = color[1];
-        rowData[offset + 2] = color[2];
-        rowData[offset + 3] = 255;
+        for (let y = 0; y < rowHeight; y++) {
+            const offset = (y * w + x) * 4;
+            rowData[offset] = color[0];
+            rowData[offset + 1] = color[1];
+            rowData[offset + 2] = color[2];
+            rowData[offset + 3] = 255;
+        }
     }
     waterfallCtx.putImageData(waterfallRowImage, 0, 0);
 }
@@ -3132,8 +3199,9 @@ function drawSpectrumLine(bins, startFreq, endFreq) {
     }
 
     // Frequency labels
+    const dpr = window.devicePixelRatio || 1;
     spectrumCtx.fillStyle = 'rgba(0, 200, 255, 0.5)';
-    spectrumCtx.font = '9px monospace';
+    spectrumCtx.font = `${9 * dpr}px monospace`;
     const freqRange = endFreq - startFreq;
     for (let i = 0; i <= 4; i++) {
         const freq = startFreq + (freqRange / 4) * i;
@@ -3180,7 +3248,8 @@ function startWaterfall() {
     const binSize = parseInt(document.getElementById('waterfallBinSize')?.value || 10000);
     const gain = parseInt(document.getElementById('waterfallGain')?.value || 40);
     const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
-    const maxBins = document.getElementById('waterfallCanvas')?.width || 800;
+    initWaterfallCanvas();
+    const maxBins = Math.min(4096, Math.max(128, waterfallCanvas ? waterfallCanvas.width : 800));
 
     if (startFreq >= endFreq) {
         if (typeof showNotification === 'function') showNotification('Error', 'End frequency must be greater than start');
@@ -3189,6 +3258,10 @@ function startWaterfall() {
 
     waterfallStartFreq = startFreq;
     waterfallEndFreq = endFreq;
+    const rangeLabel = document.getElementById('waterfallFreqRange');
+    if (rangeLabel) {
+        rangeLabel.textContent = `${startFreq.toFixed(1)} - ${endFreq.toFixed(1)} MHz`;
+    }
 
     fetch('/listening/waterfall/start', {
         method: 'POST',
@@ -3239,6 +3312,12 @@ function connectWaterfallSSE() {
     waterfallEventSource.onmessage = function(event) {
         const msg = JSON.parse(event.data);
         if (msg.type === 'waterfall_sweep') {
+            if (typeof msg.start_freq === 'number') waterfallStartFreq = msg.start_freq;
+            if (typeof msg.end_freq === 'number') waterfallEndFreq = msg.end_freq;
+            const rangeLabel = document.getElementById('waterfallFreqRange');
+            if (rangeLabel) {
+                rangeLabel.textContent = `${waterfallStartFreq.toFixed(1)} - ${waterfallEndFreq.toFixed(1)} MHz`;
+            }
             const now = Date.now();
             if (now - lastWaterfallDraw < WATERFALL_MIN_INTERVAL_MS) return;
             lastWaterfallDraw = now;
@@ -3252,6 +3331,28 @@ function connectWaterfallSSE() {
             setTimeout(connectWaterfallSSE, 2000);
         }
     };
+}
+
+function bindWaterfallInteraction() {
+    const handler = (event) => {
+        const canvas = event.currentTarget;
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const ratio = Math.max(0, Math.min(1, x / rect.width));
+        const freq = waterfallStartFreq + ratio * (waterfallEndFreq - waterfallStartFreq);
+        if (typeof tuneToFrequency === 'function') {
+            tuneToFrequency(freq, typeof currentModulation !== 'undefined' ? currentModulation : undefined);
+        }
+    };
+
+    if (waterfallCanvas) {
+        waterfallCanvas.style.cursor = 'crosshair';
+        waterfallCanvas.addEventListener('click', handler);
+    }
+    if (spectrumCanvas) {
+        spectrumCanvas.style.cursor = 'crosshair';
+        spectrumCanvas.addEventListener('click', handler);
+    }
 }
 
 
