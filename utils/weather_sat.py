@@ -297,7 +297,7 @@ class WeatherSatDecoder:
         # Auto-detect serial by querying rtl_eeprom, fall back to string index.
         source_id = self._resolve_device_id(device_index)
 
-        cmd = [
+        satdump_cmd = [
             'satdump', 'live',
             sat_info['pipeline'],
             str(self._capture_output_dir),
@@ -307,6 +307,14 @@ class WeatherSatDecoder:
             '--gain', str(int(gain)),
             '--source_id', source_id,
         ]
+
+        # Wrap with stdbuf to disable output buffering.
+        # SatDump (C++) fully buffers stdout when writing to a pipe,
+        # which prevents our reader from seeing any output until exit.
+        if shutil.which('stdbuf'):
+            cmd = ['stdbuf', '-o0', '-e0'] + satdump_cmd
+        else:
+            cmd = satdump_cmd
 
         if bias_t:
             cmd.append('--bias')
