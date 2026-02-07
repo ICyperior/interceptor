@@ -138,9 +138,16 @@ class SSTVImageDecoder:
 
         self._buffer = np.concatenate([self._buffer, samples])
 
-        # Process complete lines
+        # Process complete lines.
+        # Guard against stalls: if _decode_line() cannot consume data
+        # (e.g. sub-component samples exceed line_samples due to rounding),
+        # break out and wait for more audio.
         while not self._complete and len(self._buffer) >= self._line_samples:
+            prev_line = self._current_line
+            prev_len = len(self._buffer)
             self._decode_line()
+            if self._current_line == prev_line and len(self._buffer) == prev_len:
+                break  # No progress — need more data
 
         # Prevent unbounded buffer growth - keep at most 2 lines worth
         max_buffer = self._line_samples * 2

@@ -487,9 +487,14 @@ class SSTVDecoder:
                         sync_energy = goertzel_mag(samples, 1200.0, SAMPLE_RATE)
                         noise_floor = max(rms * 0.5, 0.001)
 
-                        if leader_energy > noise_floor * 5:
+                        # Require the tone to both exceed the noise floor AND
+                        # dominate the other tone by 2x to avoid false positives
+                        # from broadband noise.
+                        if (leader_energy > noise_floor * 5
+                                and leader_energy > sync_energy * 2):
                             sstv_tone = 'leader'
-                        elif sync_energy > noise_floor * 5:
+                        elif (sync_energy > noise_floor * 5
+                              and sync_energy > leader_energy * 2):
                             sstv_tone = 'sync'
                         elif signal_level > 10:
                             sstv_tone = 'noise'
