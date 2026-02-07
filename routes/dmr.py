@@ -334,11 +334,14 @@ def start_dmr() -> Response:
             if dmr_active_device is not None:
                 app_module.release_sdr_device(dmr_active_device)
                 dmr_active_device = None
-            # Surface the most relevant error to the user
+            # Surface a clear error to the user
             detail = rtl_err.strip() or dsd_err.strip()
-            msg = 'Failed to start DSD pipeline'
-            if detail:
-                msg += f': {detail}'
+            if 'usb_claim_interface' in rtl_err or 'Failed to open' in rtl_err:
+                msg = f'SDR device {device} is busy — it may be in use by another mode or process. Try a different device.'
+            elif detail:
+                msg = f'Failed to start DSD pipeline: {detail}'
+            else:
+                msg = 'Failed to start DSD pipeline'
             return jsonify({'status': 'error', 'message': msg}), 500
 
         # Drain rtl_fm stderr in background to prevent pipe blocking

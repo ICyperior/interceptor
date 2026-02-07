@@ -59,6 +59,11 @@ function startDmr() {
     const gain = parseInt(document.getElementById('dmrGain')?.value || 40);
     const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
 
+    // Check device availability before starting
+    if (typeof checkDeviceAvailability === 'function' && !checkDeviceAvailability('dmr')) {
+        return;
+    }
+
     fetch('/dmr/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,6 +85,9 @@ function startDmr() {
             updateDmrSynthStatus();
             const statusEl = document.getElementById('dmrStatus');
             if (statusEl) statusEl.textContent = 'DECODING';
+            if (typeof reserveDevice === 'function') {
+                reserveDevice(parseInt(device), 'dmr');
+            }
             if (typeof showNotification === 'function') {
                 showNotification('DMR', `Decoding ${frequency} MHz (${protocol.toUpperCase()})`);
             }
@@ -104,6 +112,9 @@ function stopDmr() {
         updateDmrSynthStatus();
         const statusEl = document.getElementById('dmrStatus');
         if (statusEl) statusEl.textContent = 'STOPPED';
+        if (typeof releaseDevice === 'function') {
+            releaseDevice('dmr');
+        }
     })
     .catch(err => console.error('[DMR] Stop error:', err));
 }
