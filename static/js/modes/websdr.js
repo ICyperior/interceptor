@@ -92,8 +92,6 @@ function searchReceivers(refresh) {
 
                 const countEl = document.getElementById('websdrReceiverCount');
                 if (countEl) countEl.textContent = `${websdrReceivers.length} found`;
-                const sidebarCount = document.getElementById('websdrSidebarCount');
-                if (sidebarCount) sidebarCount.textContent = websdrReceivers.length;
             }
         })
         .catch(err => console.error('[WEBSDR] Search error:', err));
