@@ -1657,6 +1657,35 @@
         }
 
         // ============================================
+        // GSM ICON DEFINITIONS
+        // ============================================
+        const GSM_ICONS = {
+            tower: 'M12 2L11 3v5h2V3l-1-1zm-1 6v2H9v2h2v2H9v2h2v2H9v2h6v-2h-2v-2h2v-2h-2v-2h2v-2h-2V8h-2zm-3 4H6v8h2v-8zm8 0h-2v8h2v-8zM5 14H3v6h2v-6zm14 0h-2v6h2v-6z',
+            device: 'M7 2v20h10V2H7zm2 2h6v12H9V4zm0 14h6v2H9v-2z'
+        };
+
+        // Create marker icon with SVG
+        function createGSMMarkerIcon(iconType, color, isSelected = false, isRogue = false) {
+            const path = GSM_ICONS[iconType] || GSM_ICONS.tower;
+            const size = iconType === 'tower' ? 24 : 20;
+            const glowColor = isSelected ? 'rgba(255,255,255,0.9)' : color;
+            const glowSize = isSelected ? '8px' : (isRogue ? '6px' : '4px');
+            const pulseRing = isRogue && !isSelected ?
+                '<div class="rogue-pulse-ring"></div>' : '';
+            const selectionRing = isSelected ?
+                '<div class="selection-ring"></div>' : '';
+
+            return L.divIcon({
+                className: `gsm-marker gsm-${iconType}${isSelected ? ' selected' : ''}${isRogue ? ' rogue' : ''}`,
+                html: `${pulseRing}${selectionRing}<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="color: ${color}; filter: drop-shadow(0 0 ${glowSize} ${glowColor});">
+                    <path fill="currentColor" d="${path}"/>
+                </svg>`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+
+        // ============================================
         // TOWER HANDLING
         // ============================================
         function updateTower(data) {
@@ -1671,16 +1700,14 @@
                 return;
             }
 
+            const color = data.rogue ? '#e25d5d' : '#38c180';
+            const isSelected = key === selectedTowerKey;
+
             // Create or update marker
             if (!towerMarkers[key]) {
-                // Create new marker
-                const marker = L.circleMarker([data.lat, data.lon], {
-                    radius: 10,
-                    fillColor: data.rogue ? '#e25d5d' : '#38c180',
-                    color: data.rogue ? '#e25d5d' : '#38c180',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.3
+                // Create new marker with vector icon
+                const marker = L.marker([data.lat, data.lon], {
+                    icon: createGSMMarkerIcon('tower', color, isSelected, data.rogue)
                 });
 
                 marker.on('click', function() {
@@ -1706,12 +1733,8 @@
                 const marker = towerMarkers[key];
                 marker.setLatLng([data.lat, data.lon]);
 
-                // Update color if rogue status changed
-                const color = data.rogue ? '#e25d5d' : '#38c180';
-                marker.setStyle({
-                    fillColor: color,
-                    color: color
-                });
+                // Update icon if rogue status or selection changed
+                marker.setIcon(createGSMMarkerIcon('tower', color, isSelected, data.rogue));
             }
 
             // Update towers list
@@ -1785,10 +1808,21 @@
         }
 
         function selectTower(key) {
+            const prevSelected = selectedTowerKey;
             selectedTowerKey = key;
             const tower = towers[key];
 
             if (!tower) return;
+
+            // Update marker icons for both previous and new selection
+            [prevSelected, key].forEach(towerKey => {
+                if (towerKey && towerMarkers[towerKey] && towers[towerKey]) {
+                    const t = towers[towerKey];
+                    const color = t.rogue ? '#e25d5d' : '#38c180';
+                    const isSelected = towerKey === selectedTowerKey;
+                    towerMarkers[towerKey].setIcon(createGSMMarkerIcon('tower', color, isSelected, t.rogue));
+                }
+            });
 
             // Update selected tower panel
             const infoDiv = document.getElementById('selectedTowerInfo');
@@ -1864,15 +1898,9 @@
             const key = data.imsi || data.tmsi || `device_${Date.now()}`;
             devices[key] = data;
 
-            // Create device "blip" marker
-            const marker = L.circleMarker([data.lat, data.lon], {
-                radius: 5,
-                fillColor: '#e25d5d',
-                color: '#e25d5d',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8,
-                className: 'device-blip'
+            // Create device marker with vector icon
+            const marker = L.marker([data.lat, data.lon], {
+                icon: createGSMMarkerIcon('device', '#00d9ff', false, false)
             });
 
             marker.bindPopup(`
@@ -1884,7 +1912,17 @@
             marker.addTo(gsmMap);
             deviceMarkers[key] = marker;
 
-            // Remove marker after 5 seconds (pulse animation duration)
+            // Fade out and remove marker after 4 seconds
+            setTimeout(() => {
+                if (deviceMarkers[key]) {
+                    const iconElement = deviceMarkers[key].getElement();
+                    if (iconElement) {
+                        iconElement.classList.add('device-fade-out');
+                    }
+                }
+            }, 4000);
+
+            // Remove marker after fade completes
             setTimeout(() => {
                 if (deviceMarkers[key]) {
                     gsmMap.removeLayer(deviceMarkers[key]);
