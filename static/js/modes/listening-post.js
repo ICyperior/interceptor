@@ -2367,8 +2367,7 @@ async function _startDirectListenInternal() {
             isWaterfallRunning = true;
             const waterfallPanel = document.getElementById('waterfallPanel');
             if (waterfallPanel) waterfallPanel.style.display = 'block';
-            document.getElementById('startWaterfallBtn').style.display = 'none';
-            document.getElementById('stopWaterfallBtn').style.display = 'block';
+            setWaterfallControlButtons(true);
             startAudioWaterfall();
         }
         updateDirectListenUI(true, freq);
@@ -2537,7 +2536,7 @@ async function startWebSocketListen(config, audioPlayer) {
 /**
  * Stop direct listening
  */
-function stopDirectListen() {
+async function stopDirectListen() {
     console.log('[LISTEN] Stopping');
 
     // Clear all pending state
@@ -2572,7 +2571,7 @@ function stopDirectListen() {
     }
 
     // Also stop via HTTP (fallback)
-    fetch('/listening/audio/stop', { method: 'POST' }).catch(() => {});
+    const audioStopPromise = fetch('/listening/audio/stop', { method: 'POST' }).catch(() => {});
 
     isDirectListening = false;
     currentSignalLevel = 0;
@@ -2585,11 +2584,15 @@ function stopDirectListen() {
 
     if (resumeRfWaterfallAfterListening) {
         isWaterfallRunning = false;
+        setWaterfallControlButtons(false);
+        await Promise.race([
+            audioStopPromise,
+            new Promise(resolve => setTimeout(resolve, 400))
+        ]);
         scheduleWaterfallResume();
     } else if (waterfallMode === 'audio' && isWaterfallRunning) {
         isWaterfallRunning = false;
-        document.getElementById('startWaterfallBtn').style.display = 'block';
-        document.getElementById('stopWaterfallBtn').style.display = 'none';
+        setWaterfallControlButtons(false);
     }
 }
 
@@ -3072,6 +3075,7 @@ const WATERFALL_RESUME_MAX_ATTEMPTS = 8;
 const WATERFALL_RESUME_RETRY_MS = 350;
 const WATERFALL_ZOOM_MIN_MHZ = 0.1;
 const WATERFALL_ZOOM_MAX_MHZ = 500;
+const WATERFALL_DEFAULT_SPAN_MHZ = 2.0;
 
 function resizeCanvasToDisplaySize(canvas) {
     if (!canvas) return false;
@@ -3142,6 +3146,14 @@ function initWaterfallCanvas() {
     }
 }
 
+function setWaterfallControlButtons(running) {
+    const startBtn = document.getElementById('startWaterfallBtn');
+    const stopBtn = document.getElementById('stopWaterfallBtn');
+    if (!startBtn || !stopBtn) return;
+    startBtn.style.display = running ? 'none' : 'block';
+    stopBtn.style.display = running ? 'block' : 'none';
+}
+
 function getWaterfallRangeFromInputs() {
     const startInput = document.getElementById('waterfallStartFreq');
     const endInput = document.getElementById('waterfallEndFreq');
@@ -3198,6 +3210,33 @@ function getWaterfallCenterForZoom(start, end) {
     const tuned = parseFloat(document.getElementById('radioScanStart')?.value || '');
     if (Number.isFinite(tuned) && tuned > 0) return tuned;
     return (start + end) / 2;
+}
+
+async function syncWaterfallToFrequency(freq, options = {}) {
+    const { autoStart = false, restartIfRunning = true, silent = true } = options;
+    const numericFreq = parseFloat(freq);
+    if (!Number.isFinite(numericFreq) || numericFreq <= 0) return { started: false };
+
+    const { start, end } = getWaterfallRangeFromInputs();
+    const span = (Number.isFinite(start) && Number.isFinite(end) && end > start)
+        ? (end - start)
+        : WATERFALL_DEFAULT_SPAN_MHZ;
+
+    setWaterfallRange(numericFreq, span);
+
+    if (!autoStart) return { started: false };
+    if (isDirectListening || waterfallMode === 'audio') return { started: false };
+
+    if (isWaterfallRunning && waterfallMode === 'rf' && restartIfRunning) {
+        await stopWaterfall();
+        return await startWaterfall({ silent: silent });
+    }
+
+    if (!isWaterfallRunning) {
+        return await startWaterfall({ silent: silent });
+    }
+
+    return { started: true };
 }
 
 async function zoomWaterfall(direction) {
@@ -3497,9 +3536,9 @@ async function startWaterfall(options = {}) {
         isWaterfallRunning = true;
         const waterfallPanel = document.getElementById('waterfallPanel');
         if (waterfallPanel) waterfallPanel.style.display = 'block';
-        document.getElementById('startWaterfallBtn').style.display = 'none';
-        document.getElementById('stopWaterfallBtn').style.display = 'block';
+        setWaterfallControlButtons(true);
         startAudioWaterfall();
+        resumeRfWaterfallAfterListening = true;
         return { started: true };
     }
 
@@ -3544,13 +3583,15 @@ async function startWaterfall(options = {}) {
         }
 
         isWaterfallRunning = true;
-        document.getElementById('startWaterfallBtn').style.display = 'none';
-        document.getElementById('stopWaterfallBtn').style.display = 'block';
+        setWaterfallControlButtons(true);
         const waterfallPanel = document.getElementById('waterfallPanel');
         if (waterfallPanel) waterfallPanel.style.display = 'block';
         lastWaterfallDraw = 0;
         initWaterfallCanvas();
         connectWaterfallSSE();
+        if (typeof reserveDevice === 'function') {
+            reserveDevice(parseInt(device), 'waterfall');
+        }
         if (resume || resumeRfWaterfallAfterListening) {
             resumeRfWaterfallAfterListening = false;
         }
@@ -3572,8 +3613,7 @@ async function stopWaterfall() {
     if (waterfallMode === 'audio') {
         stopAudioWaterfall();
         isWaterfallRunning = false;
-        document.getElementById('startWaterfallBtn').style.display = 'block';
-        document.getElementById('stopWaterfallBtn').style.display = 'none';
+        setWaterfallControlButtons(false);
         return;
     }
 
@@ -3581,8 +3621,10 @@ async function stopWaterfall() {
         await fetch('/listening/waterfall/stop', { method: 'POST' });
         isWaterfallRunning = false;
         if (waterfallEventSource) { waterfallEventSource.close(); waterfallEventSource = null; }
-        document.getElementById('startWaterfallBtn').style.display = 'block';
-        document.getElementById('stopWaterfallBtn').style.display = 'none';
+        setWaterfallControlButtons(false);
+        if (typeof releaseDevice === 'function') {
+            releaseDevice('waterfall');
+        }
     } catch (err) {
         console.error('[WATERFALL] Stop error:', err);
     }
@@ -3665,3 +3707,4 @@ window.guessSignal = guessSignal;
 window.startWaterfall = startWaterfall;
 window.stopWaterfall = stopWaterfall;
 window.zoomWaterfall = zoomWaterfall;
+window.syncWaterfallToFrequency = syncWaterfallToFrequency;

@@ -544,6 +544,9 @@ const SSTV = (function() {
                 }
                 updateStatusUI('listening', `${frequency} MHz`);
                 startStream();
+                if (typeof syncWaterfallToFrequency === 'function') {
+                    syncWaterfallToFrequency(frequency, { autoStart: true, restartIfRunning: true, silent: true });
+                }
                 showNotification('SSTV', `Listening on ${frequency} MHz`);
             } else {
                 updateStatusUI('idle', 'Start failed');
