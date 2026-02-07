@@ -30,6 +30,20 @@ ALLOWED_TLE_HOSTS = ['celestrak.org', 'celestrak.com', 'www.celestrak.org', 'www
 # Local TLE cache (can be updated via API)
 _tle_cache = dict(TLE_SATELLITES)
 
+# Auto-refresh TLEs from CelesTrak on startup (non-blocking)
+import threading
+
+def _auto_refresh_tle():
+    try:
+        updated = refresh_tle_data()
+        if updated:
+            logger.info(f"Auto-refreshed TLE data for: {', '.join(updated)}")
+    except Exception as e:
+        logger.warning(f"Auto TLE refresh failed: {e}")
+
+# Delay import — refresh_tle_data is defined later in this module
+threading.Timer(2.0, _auto_refresh_tle).start()
+
 
 def _fetch_iss_realtime(observer_lat: Optional[float] = None, observer_lon: Optional[float] = None) -> Optional[dict]:
     """

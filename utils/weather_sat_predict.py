@@ -42,6 +42,15 @@ def predict_passes(
     from skyfield.almanac import find_discrete
     from data.satellites import TLE_SATELLITES
 
+    # Use live TLE cache from satellite module if available (refreshed from CelesTrak)
+    tle_source = TLE_SATELLITES
+    try:
+        from routes.satellite import _tle_cache
+        if _tle_cache:
+            tle_source = _tle_cache
+    except ImportError:
+        pass
+
     ts = load.timescale()
     observer = wgs84.latlon(lat, lon)
     t0 = ts.now()
@@ -53,7 +62,7 @@ def predict_passes(
         if not sat_info['active']:
             continue
 
-        tle_data = TLE_SATELLITES.get(sat_info['tle_key'])
+        tle_data = tle_source.get(sat_info['tle_key'])
         if not tle_data:
             continue
 
