@@ -9,7 +9,9 @@ original monolithic utils/sstv.py.
 
 from __future__ import annotations
 
+import base64
 import contextlib
+import io
 import subprocess
 import threading
 import time
@@ -95,6 +97,7 @@ class DecodeProgress:
     signal_level: int | None = None  # 0-100 RMS audio level, None = not measured
     sstv_tone: str | None = None     # 'leader', 'sync', 'noise', None
     vis_state: str | None = None     # VIS detector state name
+    partial_image: str | None = None  # base64 data URL of partial decode
 
     def to_dict(self) -> dict:
         result: dict = {
@@ -114,6 +117,8 @@ class DecodeProgress:
             result['sstv_tone'] = self.sstv_tone
         if self.vis_state:
             result['vis_state'] = self.vis_state
+        if self.partial_image:
+            result['partial_image'] = self.partial_image
         return result
 
 
@@ -380,6 +385,7 @@ class SSTVDecoder:
         image_decoder: SSTVImageDecoder | None = None
         current_mode_name: str | None = None
         chunk_counter = 0
+        last_partial_pct = -1
 
         logger.info("Audio decode thread started")
         rtl_fm_error: str = ''
@@ -418,12 +424,28 @@ class SSTVDecoder:
                     # Currently decoding an image
                     complete = image_decoder.feed(samples)
 
+                    # Encode partial image every 5% progress
+                    pct = image_decoder.progress_percent
+                    partial_url = None
+                    if pct >= last_partial_pct + 5 or complete:
+                        last_partial_pct = pct
+                        try:
+                            img = image_decoder.get_image()
+                            if img is not None:
+                                buf = io.BytesIO()
+                                img.save(buf, format='JPEG', quality=40)
+                                b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+                                partial_url = f'data:image/jpeg;base64,{b64}'
+                        except Exception:
+                            pass
+
                     # Emit progress
                     self._emit_progress(DecodeProgress(
                         status='decoding',
                         mode=current_mode_name,
-                        progress_percent=image_decoder.progress_percent,
-                        message=f'Decoding {current_mode_name}: {image_decoder.progress_percent}%'
+                        progress_percent=pct,
+                        message=f'Decoding {current_mode_name}: {pct}%',
+                        partial_image=partial_url,
                     ))
 
                     if complete:

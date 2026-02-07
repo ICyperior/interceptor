@@ -780,18 +780,33 @@ const SSTV = (function() {
         const liveContent = document.getElementById('sstvLiveContent');
         if (!liveContent) return;
 
-        liveContent.innerHTML = `
-            <div class="sstv-canvas-container">
-                <canvas id="sstvCanvas" width="320" height="256"></canvas>
-            </div>
-            <div class="sstv-decode-info">
-                <div class="sstv-mode-label">${data.mode || 'Detecting mode...'}</div>
-                <div class="sstv-progress-bar">
-                    <div class="progress" style="width: ${data.progress || 0}%"></div>
+        let container = liveContent.querySelector('.sstv-decode-container');
+        if (!container) {
+            liveContent.innerHTML = `
+                <div class="sstv-decode-container">
+                    <div class="sstv-canvas-container">
+                        <img id="sstvDecodeImg" width="320" height="256" alt="Decoding..." style="display:block;background:#000;">
+                    </div>
+                    <div class="sstv-decode-info">
+                        <div class="sstv-mode-label"></div>
+                        <div class="sstv-progress-bar">
+                            <div class="progress" style="width: 0%"></div>
+                        </div>
+                        <div class="sstv-status-message"></div>
+                    </div>
                 </div>
-                <div class="sstv-status-message">${data.message || 'Decoding...'}</div>
-            </div>
-        `;
+            `;
+            container = liveContent.querySelector('.sstv-decode-container');
+        }
+
+        container.querySelector('.sstv-mode-label').textContent = data.mode || 'Detecting mode...';
+        container.querySelector('.progress').style.width = (data.progress || 0) + '%';
+        container.querySelector('.sstv-status-message').textContent = data.message || 'Decoding...';
+
+        if (data.partial_image) {
+            const img = container.querySelector('#sstvDecodeImg');
+            if (img) img.src = data.partial_image;
+        }
     }
 
     /**

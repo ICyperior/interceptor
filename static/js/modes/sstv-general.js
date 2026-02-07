@@ -345,18 +345,33 @@ const SSTVGeneral = (function() {
         const liveContent = document.getElementById('sstvGeneralLiveContent');
         if (!liveContent) return;
 
-        liveContent.innerHTML = `
-            <div class="sstv-general-canvas-container">
-                <canvas id="sstvGeneralCanvas" width="320" height="256"></canvas>
-            </div>
-            <div class="sstv-general-decode-info">
-                <div class="sstv-general-mode-label">${data.mode || 'Detecting mode...'}</div>
-                <div class="sstv-general-progress-bar">
-                    <div class="progress" style="width: ${data.progress || 0}%"></div>
+        let container = liveContent.querySelector('.sstv-general-decode-container');
+        if (!container) {
+            liveContent.innerHTML = `
+                <div class="sstv-general-decode-container">
+                    <div class="sstv-general-canvas-container">
+                        <img id="sstvGeneralDecodeImg" width="320" height="256" alt="Decoding..." style="display:block;background:#000;">
+                    </div>
+                    <div class="sstv-general-decode-info">
+                        <div class="sstv-general-mode-label"></div>
+                        <div class="sstv-general-progress-bar">
+                            <div class="progress" style="width: 0%"></div>
+                        </div>
+                        <div class="sstv-general-status-message"></div>
+                    </div>
                 </div>
-                <div class="sstv-general-status-message">${data.message || 'Decoding...'}</div>
-            </div>
-        `;
+            `;
+            container = liveContent.querySelector('.sstv-general-decode-container');
+        }
+
+        container.querySelector('.sstv-general-mode-label').textContent = data.mode || 'Detecting mode...';
+        container.querySelector('.progress').style.width = (data.progress || 0) + '%';
+        container.querySelector('.sstv-general-status-message').textContent = data.message || 'Decoding...';
+
+        if (data.partial_image) {
+            const img = container.querySelector('#sstvGeneralDecodeImg');
+            if (img) img.src = data.partial_image;
+        }
     }
 
     /**
