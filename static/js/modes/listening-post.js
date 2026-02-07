@@ -2248,6 +2248,11 @@ async function _startDirectListenInternal() {
             await stopScanner();
         }
 
+        if (isWaterfallRunning && waterfallMode === 'rf') {
+            resumeRfWaterfallAfterListening = true;
+            stopWaterfall();
+        }
+
         const freqInput = document.getElementById('radioScanStart');
         const freq = freqInput ? parseFloat(freqInput.value) : 118.0;
         const squelchValue = parseInt(document.getElementById('radioSquelchValue')?.textContent);
@@ -2306,6 +2311,10 @@ async function _startDirectListenInternal() {
             addScannerLogEntry('Failed: ' + (result.message || 'Unknown error'), '', 'error');
             isDirectListening = false;
             updateDirectListenUI(false);
+            if (resumeRfWaterfallAfterListening) {
+                resumeRfWaterfallAfterListening = false;
+                setTimeout(() => startWaterfall(), 200);
+            }
             return;
         }
 
@@ -2352,6 +2361,15 @@ async function _startDirectListenInternal() {
         initAudioVisualizer();
 
         isDirectListening = true;
+
+        if (resumeRfWaterfallAfterListening) {
+            isWaterfallRunning = true;
+            const waterfallPanel = document.getElementById('waterfallPanel');
+            if (waterfallPanel) waterfallPanel.style.display = 'block';
+            document.getElementById('startWaterfallBtn').style.display = 'none';
+            document.getElementById('stopWaterfallBtn').style.display = 'block';
+            startAudioWaterfall();
+        }
         updateDirectListenUI(true, freq);
         addScannerLogEntry(`${freq.toFixed(3)} MHz (${currentModulation.toUpperCase()})`, '', 'signal');
 
@@ -2360,6 +2378,10 @@ async function _startDirectListenInternal() {
         addScannerLogEntry('Error: ' + e.message, '', 'error');
         isDirectListening = false;
         updateDirectListenUI(false);
+        if (resumeRfWaterfallAfterListening) {
+            resumeRfWaterfallAfterListening = false;
+            setTimeout(() => startWaterfall(), 200);
+        }
     } finally {
         isRestarting = false;
     }
@@ -2556,6 +2578,20 @@ function stopDirectListen() {
     currentSignalLevel = 0;
     updateDirectListenUI(false);
     addScannerLogEntry('Listening stopped');
+
+    if (waterfallMode === 'audio') {
+        stopAudioWaterfall();
+    }
+
+    if (resumeRfWaterfallAfterListening) {
+        resumeRfWaterfallAfterListening = false;
+        isWaterfallRunning = false;
+        setTimeout(() => startWaterfall(), 200);
+    } else if (waterfallMode === 'audio' && isWaterfallRunning) {
+        isWaterfallRunning = false;
+        document.getElementById('startWaterfallBtn').style.display = 'block';
+        document.getElementById('stopWaterfallBtn').style.display = 'none';
+    }
 }
 
 /**
@@ -3027,6 +3063,10 @@ let lastWaterfallDraw = 0;
 const WATERFALL_MIN_INTERVAL_MS = 50;
 let waterfallInteractionBound = false;
 let waterfallResizeObserver = null;
+let waterfallMode = 'rf';
+let audioWaterfallAnimId = null;
+let lastAudioWaterfallDraw = 0;
+let resumeRfWaterfallAfterListening = false;
 
 function resizeCanvasToDisplaySize(canvas) {
     if (!canvas) return false;
@@ -3094,6 +3134,57 @@ function initWaterfallCanvas() {
             });
             waterfallResizeObserver.observe(observerTarget);
         }
+    }
+}
+
+function setWaterfallMode(mode) {
+    waterfallMode = mode;
+    const header = document.getElementById('waterfallFreqRange');
+    if (!header) return;
+    if (mode === 'audio') {
+        header.textContent = 'Audio Spectrum (0 - 22 kHz)';
+    }
+}
+
+function startAudioWaterfall() {
+    if (audioWaterfallAnimId) return;
+    if (!visualizerAnalyser) {
+        initAudioVisualizer();
+    }
+    if (!visualizerAnalyser) return;
+
+    setWaterfallMode('audio');
+    initWaterfallCanvas();
+
+    const sampleRate = visualizerContext ? visualizerContext.sampleRate : 44100;
+    const maxFreqKhz = (sampleRate / 2) / 1000;
+    const dataArray = new Uint8Array(visualizerAnalyser.frequencyBinCount);
+
+    const drawFrame = (ts) => {
+        if (!isDirectListening || waterfallMode !== 'audio') {
+            stopAudioWaterfall();
+            return;
+        }
+        if (ts - lastAudioWaterfallDraw >= WATERFALL_MIN_INTERVAL_MS) {
+            lastAudioWaterfallDraw = ts;
+            visualizerAnalyser.getByteFrequencyData(dataArray);
+            const bins = Array.from(dataArray, v => v);
+            drawWaterfallRow(bins);
+            drawSpectrumLine(bins, 0, maxFreqKhz, 'kHz');
+        }
+        audioWaterfallAnimId = requestAnimationFrame(drawFrame);
+    };
+
+    audioWaterfallAnimId = requestAnimationFrame(drawFrame);
+}
+
+function stopAudioWaterfall() {
+    if (audioWaterfallAnimId) {
+        cancelAnimationFrame(audioWaterfallAnimId);
+        audioWaterfallAnimId = null;
+    }
+    if (waterfallMode === 'audio') {
+        waterfallMode = 'rf';
     }
 }
 
@@ -3176,7 +3267,7 @@ function drawWaterfallRow(bins) {
     waterfallCtx.putImageData(waterfallRowImage, 0, 0);
 }
 
-function drawSpectrumLine(bins, startFreq, endFreq) {
+function drawSpectrumLine(bins, startFreq, endFreq, labelUnit) {
     if (!spectrumCtx || !spectrumCanvas) return;
     const w = spectrumCanvas.width;
     const h = spectrumCanvas.height;
@@ -3206,7 +3297,8 @@ function drawSpectrumLine(bins, startFreq, endFreq) {
     for (let i = 0; i <= 4; i++) {
         const freq = startFreq + (freqRange / 4) * i;
         const x = (w / 4) * i;
-        spectrumCtx.fillText(freq.toFixed(1), x + 2, h - 2);
+        const label = labelUnit === 'kHz' ? freq.toFixed(0) : freq.toFixed(1);
+        spectrumCtx.fillText(label, x + 2, h - 2);
     }
 
     if (bins.length === 0) return;
@@ -3263,6 +3355,16 @@ function startWaterfall() {
         rangeLabel.textContent = `${startFreq.toFixed(1)} - ${endFreq.toFixed(1)} MHz`;
     }
 
+    if (isDirectListening) {
+        isWaterfallRunning = true;
+        const waterfallPanel = document.getElementById('waterfallPanel');
+        if (waterfallPanel) waterfallPanel.style.display = 'block';
+        document.getElementById('startWaterfallBtn').style.display = 'none';
+        document.getElementById('stopWaterfallBtn').style.display = 'block';
+        startAudioWaterfall();
+        return;
+    }
+
     fetch('/listening/waterfall/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3273,6 +3375,7 @@ function startWaterfall() {
             gain: gain,
             device: device,
             max_bins: maxBins,
+            interval: 0.4,
         })
     })
     .then(r => r.json())
@@ -3294,6 +3397,14 @@ function startWaterfall() {
 }
 
 function stopWaterfall() {
+    if (waterfallMode === 'audio') {
+        stopAudioWaterfall();
+        isWaterfallRunning = false;
+        document.getElementById('startWaterfallBtn').style.display = 'block';
+        document.getElementById('stopWaterfallBtn').style.display = 'none';
+        return;
+    }
+
     fetch('/listening/waterfall/stop', { method: 'POST' })
     .then(r => r.json())
     .then(() => {
@@ -3308,6 +3419,7 @@ function stopWaterfall() {
 function connectWaterfallSSE() {
     if (waterfallEventSource) waterfallEventSource.close();
     waterfallEventSource = new EventSource('/listening/waterfall/stream');
+    waterfallMode = 'rf';
 
     waterfallEventSource.onmessage = function(event) {
         const msg = JSON.parse(event.data);
@@ -3335,6 +3447,9 @@ function connectWaterfallSSE() {
 
 function bindWaterfallInteraction() {
     const handler = (event) => {
+        if (waterfallMode === 'audio') {
+            return;
+        }
         const canvas = event.currentTarget;
         const rect = canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
