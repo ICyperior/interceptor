@@ -2204,6 +2204,21 @@
                 <div id="pagerTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
                 <div id="sensorTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
 
+                <!-- Pager Signal Scope -->
+                <div id="pagerScopePanel" style="display: none; margin-bottom: 12px;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                            <span>Signal Scope</span>
+                            <div style="display: flex; gap: 14px;">
+                                <span>RMS: <span id="scopeRmsLabel" style="color: #0ff; font-variant-numeric: tabular-nums;">0</span></span>
+                                <span>PEAK: <span id="scopePeakLabel" style="color: #f44; font-variant-numeric: tabular-nums;">0</span></span>
+                                <span id="scopeStatusLabel" style="color: #444;">IDLE</span>
+                            </div>
+                        </div>
+                        <canvas id="pagerScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                    </div>
+                </div>
+
                 <div class="output-content signal-feed" id="output">
                     <div class="placeholder signal-empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -4265,6 +4280,153 @@
         // Pager mode polling timer for agent mode
         let pagerPollTimer = null;
 
+        // --- Pager Signal Scope ---
+        let pagerScopeCtx = null;
+        let pagerScopeAnim = null;
+        let pagerScopeHistory = [];
+        const SCOPE_HISTORY_LEN = 200;
+        let pagerScopeRms = 0;
+        let pagerScopePeak = 0;
+        let pagerScopeTargetRms = 0;
+        let pagerScopeTargetPeak = 0;
+        let pagerScopeMsgBurst = 0;
+
+        function initPagerScope() {
+            const canvas = document.getElementById('pagerScopeCanvas');
+            if (!canvas) return;
+            // Set actual pixel resolution
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * (window.devicePixelRatio || 1);
+            canvas.height = rect.height * (window.devicePixelRatio || 1);
+            pagerScopeCtx = canvas.getContext('2d');
+            pagerScopeHistory = new Array(SCOPE_HISTORY_LEN).fill(0);
+            pagerScopeRms = 0;
+            pagerScopePeak = 0;
+            pagerScopeTargetRms = 0;
+            pagerScopeTargetPeak = 0;
+            pagerScopeMsgBurst = 0;
+            drawPagerScope();
+        }
+
+        function drawPagerScope() {
+            const ctx = pagerScopeCtx;
+            if (!ctx) return;
+            const W = ctx.canvas.width;
+            const H = ctx.canvas.height;
+            const midY = H / 2;
+
+            // Phosphor persistence: semi-transparent clear
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.3)';
+            ctx.fillRect(0, 0, W, H);
+
+            // Smooth towards target values
+            pagerScopeRms += (pagerScopeTargetRms - pagerScopeRms) * 0.25;
+            pagerScopePeak += (pagerScopeTargetPeak - pagerScopePeak) * 0.15;
+
+            // Push current RMS into history (normalized 0-1 against 32768)
+            pagerScopeHistory.push(Math.min(pagerScopeRms / 32768, 1.0));
+            if (pagerScopeHistory.length > SCOPE_HISTORY_LEN) {
+                pagerScopeHistory.shift();
+            }
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(40, 40, 80, 0.4)';
+            ctx.lineWidth = 1;
+            for (let g = 0.25; g < 1; g += 0.25) {
+                const gy = midY - g * midY;
+                const gy2 = midY + g * midY;
+                ctx.beginPath();
+                ctx.moveTo(0, gy); ctx.lineTo(W, gy);
+                ctx.moveTo(0, gy2); ctx.lineTo(W, gy2);
+                ctx.stroke();
+            }
+
+            // Center baseline
+            ctx.strokeStyle = 'rgba(60, 60, 100, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(0, midY);
+            ctx.lineTo(W, midY);
+            ctx.stroke();
+
+            // Waveform (mirrored)
+            const stepX = W / SCOPE_HISTORY_LEN;
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#0ff';
+            ctx.shadowBlur = 4;
+
+            // Upper half
+            ctx.beginPath();
+            for (let i = 0; i < pagerScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = pagerScopeHistory[i] * midY * 0.9;
+                const y = midY - amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Lower half (mirror)
+            ctx.beginPath();
+            for (let i = 0; i < pagerScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = pagerScopeHistory[i] * midY * 0.9;
+                const y = midY + amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+
+            // Peak indicator (dashed red line)
+            const peakNorm = Math.min(pagerScopePeak / 32768, 1.0);
+            if (peakNorm > 0.01) {
+                const peakY = midY - peakNorm * midY * 0.9;
+                ctx.strokeStyle = 'rgba(255, 68, 68, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, peakY);
+                ctx.lineTo(W, peakY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Message decode flash (green overlay)
+            if (pagerScopeMsgBurst > 0.01) {
+                ctx.fillStyle = `rgba(0, 255, 100, ${pagerScopeMsgBurst * 0.15})`;
+                ctx.fillRect(0, 0, W, H);
+                pagerScopeMsgBurst *= 0.88;
+            }
+
+            // Update labels
+            const rmsLabel = document.getElementById('scopeRmsLabel');
+            const peakLabel = document.getElementById('scopePeakLabel');
+            const statusLabel = document.getElementById('scopeStatusLabel');
+            if (rmsLabel) rmsLabel.textContent = Math.round(pagerScopeRms);
+            if (peakLabel) peakLabel.textContent = Math.round(pagerScopePeak);
+            if (statusLabel) {
+                if (pagerScopeRms > 500) {
+                    statusLabel.textContent = 'SIGNAL';
+                    statusLabel.style.color = '#0f0';
+                } else {
+                    statusLabel.textContent = 'MONITORING';
+                    statusLabel.style.color = '#555';
+                }
+            }
+
+            pagerScopeAnim = requestAnimationFrame(drawPagerScope);
+        }
+
+        function stopPagerScope() {
+            if (pagerScopeAnim) {
+                cancelAnimationFrame(pagerScopeAnim);
+                pagerScopeAnim = null;
+            }
+            pagerScopeCtx = null;
+        }
+
         function startDecoding() {
             const freq = document.getElementById('frequency').value;
             const gain = document.getElementById('gain').value;
@@ -4444,6 +4606,18 @@
             document.getElementById('statusText').textContent = running ? 'Decoding...' : 'Idle';
             document.getElementById('startBtn').style.display = running ? 'none' : 'block';
             document.getElementById('stopBtn').style.display = running ? 'block' : 'none';
+
+            // Signal scope
+            const scopePanel = document.getElementById('pagerScopePanel');
+            if (scopePanel) {
+                if (running) {
+                    scopePanel.style.display = 'block';
+                    initPagerScope();
+                } else {
+                    stopPagerScope();
+                    scopePanel.style.display = 'none';
+                }
+            }
         }
 
         function startStream(isAgentMode = false) {
@@ -4479,6 +4653,9 @@
                             }
                         } else if (payload.type === 'info') {
                             showInfo(`[${data.agent_name}] ${payload.text}`);
+                        } else if (payload.type === 'scope') {
+                            pagerScopeTargetRms = payload.rms;
+                            pagerScopeTargetPeak = payload.peak;
                         }
                     } else if (data.type === 'keepalive') {
                         // Ignore keepalive messages
@@ -4497,6 +4674,9 @@
                         showInfo(data.text);
                     } else if (data.type === 'raw') {
                         showInfo(data.text);
+                    } else if (data.type === 'scope') {
+                        pagerScopeTargetRms = data.rms;
+                        pagerScopeTargetPeak = data.peak;
                     }
                 }
             };
@@ -4603,6 +4783,9 @@
 
             // Update signal meter
             pulseSignal();
+
+            // Flash signal scope green on decode
+            pagerScopeMsgBurst = 1.0;
 
             // Use SignalCards component to create the message card (auto-detects status)
             const msgEl = SignalCards.createPagerCard(msg);
