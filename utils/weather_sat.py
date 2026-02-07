@@ -252,8 +252,8 @@ class WeatherSatDecoder:
             self._capture_phase = 'tuning'
 
             try:
-                self._start_satdump(sat_info, device_index, gain, sample_rate, bias_t)
                 self._running = True
+                self._start_satdump(sat_info, device_index, gain, sample_rate, bias_t)
 
                 logger.info(
                     f"Weather satellite capture started: {satellite} "
@@ -272,6 +272,7 @@ class WeatherSatDecoder:
                 return True
 
             except Exception as e:
+                self._running = False
                 logger.error(f"Failed to start weather satellite capture: {e}")
                 self._emit_progress(CaptureProgress(
                     status='error',
