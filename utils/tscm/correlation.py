@@ -22,7 +22,7 @@ logger = logging.getLogger('intercept.tscm.correlation')
 class RiskLevel(Enum):
     """Risk classification levels."""
     INFORMATIONAL = 'informational'  # Score 0-2
-    NEEDS_REVIEW = 'review'          # Score 3-5
+    NEEDS_REVIEW = 'needs_review'    # Score 3-5
     HIGH_INTEREST = 'high_interest'  # Score 6+
 
 
