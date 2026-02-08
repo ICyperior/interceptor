@@ -20,6 +20,7 @@ from utils.logging import get_logger
 from utils.sse import format_sse
 from utils.event_pipeline import process_event
 from utils.process import register_process, unregister_process
+from utils.validation import validate_frequency, validate_gain, validate_device_index
 from utils.constants import (
     SSE_QUEUE_TIMEOUT,
     SSE_KEEPALIVE_INTERVAL,
@@ -56,12 +57,12 @@ _DSD_PROTOCOL_FLAGS = {
 
 # dsd-fme uses different flag names
 _DSD_FME_PROTOCOL_FLAGS = {
-    'auto': ['-ft'],
-    'dmr': ['-fs'],
-    'p25': ['-f1'],
-    'nxdn': ['-fi'],
-    'dstar': [],
-    'provoice': ['-fp'],
+    'auto': [],
+    'dmr': ['-fd'],
+    'p25': ['-fp'],
+    'nxdn': ['-fn'],
+    'dstar': ['-fi'],
+    'provoice': ['-fv'],
 }
 
 # ============================================
@@ -321,15 +322,12 @@ def start_dmr() -> Response:
     data = request.json or {}
 
     try:
-        frequency = float(data.get('frequency', 462.5625))
-        gain = int(data.get('gain', 40))
-        device = int(data.get('device', 0))
+        frequency = validate_frequency(data.get('frequency', 462.5625))
+        gain = int(validate_gain(data.get('gain', 40)))
+        device = validate_device_index(data.get('device', 0))
         protocol = str(data.get('protocol', 'auto')).lower()
     except (ValueError, TypeError) as e:
         return jsonify({'status': 'error', 'message': f'Invalid parameter: {e}'}), 400
-
-    if frequency <= 0:
-        return jsonify({'status': 'error', 'message': 'Frequency must be positive'}), 400
 
     if protocol not in VALID_PROTOCOLS:
         return jsonify({'status': 'error', 'message': f'Invalid protocol. Use: {", ".join(VALID_PROTOCOLS)}'}), 400
@@ -402,6 +400,21 @@ def start_dmr() -> Response:
             if dmr_dsd_process.stderr:
                 dsd_err = dmr_dsd_process.stderr.read().decode('utf-8', errors='replace')[:500]
             logger.error(f"DSD pipeline died: rtl_fm rc={rtl_rc} err={rtl_err!r}, dsd rc={dsd_rc} err={dsd_err!r}")
+            # Terminate surviving process and unregister both
+            for proc in [dmr_dsd_process, dmr_rtl_process]:
+                if proc and proc.poll() is None:
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=2)
+                    except Exception:
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+                if proc:
+                    unregister_process(proc)
+            dmr_rtl_process = None
+            dmr_dsd_process = None
             if dmr_active_device is not None:
                 app_module.release_sdr_device(dmr_active_device)
                 dmr_active_device = None
