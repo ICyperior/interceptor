@@ -24,7 +24,8 @@ from utils.process import register_process, safe_terminate, unregister_process
 from utils.sse import format_sse
 from utils.validation import validate_device_index
 
-logger = logging.getLogger('intercept.gsm_spy')
+from utils.logging import get_logger
+logger = get_logger('intercept.gsm_spy')
 
 gsm_spy_bp = Blueprint('gsm_spy', __name__, url_prefix='/gsm_spy')
 
