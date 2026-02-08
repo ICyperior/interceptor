@@ -26,6 +26,7 @@ from utils.validation import validate_device_index
 
 from utils.logging import get_logger
 logger = get_logger('intercept.gsm_spy')
+logger.setLevel(logging.DEBUG)  # GSM Spy needs verbose logging for diagnostics
 
 gsm_spy_bp = Blueprint('gsm_spy', __name__, url_prefix='/gsm_spy')
 
