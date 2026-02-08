@@ -1229,7 +1229,7 @@
                 <div id="selectedTowerInfo">
                     <div class="no-selection">
                         <div style="font-size: 24px; margin-bottom: 8px;">📡</div>
-                        <div>Click a tower on the map</div>
+                        <div>Select a tower from the list</div>
                     </div>
                 </div>
             </div>
@@ -1711,11 +1711,15 @@
             console.log(`[GSM SPY] updateTower: key=${key} CID=${data.cid} signal=${data.signal_strength} lat=${data.lat} lon=${data.lon}`);
             towers[key] = data;
 
+            // Always update list and stats (regardless of coordinates)
+            updateTowersList();
+            stats.totalTowers = Object.keys(towers).length;
+            stats.totalRogues = Object.values(towers).filter(t => t.rogue).length;
+            updateStatsDisplay();
+
             // Validate coordinates before creating map marker
             if (!data.lat || !data.lon || isNaN(parseFloat(data.lat)) || isNaN(parseFloat(data.lon))) {
-                console.log(`[GSM SPY] Tower ${data.cid} pending geocoding (status: ${data.status || 'unknown'}), updating list only`);
-                // Update towers list but skip map marker
-                updateTowersList();
+                console.log(`[GSM SPY] Tower ${data.cid} pending geocoding (status: ${data.status || 'unknown'}), list updated`);
                 return;
             }
 
@@ -1755,14 +1759,6 @@
                 // Update icon if rogue status or selection changed
                 marker.setIcon(createGSMMarkerIcon('tower', color, isSelected, data.rogue));
             }
-
-            // Update towers list
-            updateTowersList();
-
-            // Update stats
-            stats.totalTowers = Object.keys(towers).length;
-            stats.totalRogues = Object.values(towers).filter(t => t.rogue).length;
-            updateStatsDisplay();
         }
 
         function drawSectorArc(key, tower) {
@@ -1827,59 +1823,77 @@
         }
 
         function selectTower(key) {
-            const prevSelected = selectedTowerKey;
-            selectedTowerKey = key;
-            const tower = towers[key];
+            try {
+                console.log(`[GSM SPY] selectTower: ${key}`);
+                const prevSelected = selectedTowerKey;
+                selectedTowerKey = key;
+                const tower = towers[key];
 
-            if (!tower) return;
-
-            // Update marker icons for both previous and new selection
-            [prevSelected, key].forEach(towerKey => {
-                if (towerKey && towerMarkers[towerKey] && towers[towerKey]) {
-                    const t = towers[towerKey];
-                    const color = t.rogue ? '#e25d5d' : '#38c180';
-                    const isSelected = towerKey === selectedTowerKey;
-                    towerMarkers[towerKey].setIcon(createGSMMarkerIcon('tower', color, isSelected, t.rogue));
+                if (!tower) {
+                    console.warn(`[GSM SPY] Tower not found for key: ${key}`);
+                    return;
                 }
-            });
 
-            // Update selected tower panel
-            const infoDiv = document.getElementById('selectedTowerInfo');
-            infoDiv.innerHTML = `
-                <div class="tower-info">
-                    <div class="tower-info-row">
-                        <span class="tower-info-label">Cell ID</span>
-                        <span class="tower-info-value">${escapeHtml(tower.cid)} ${tower.rogue ? '<span class="tower-rogue-badge">ROGUE</span>' : ''}</span>
-                    </div>
-                    <div class="tower-info-row">
-                        <span class="tower-info-label">MCC / MNC</span>
-                        <span class="tower-info-value">${escapeHtml(tower.mcc)} / ${escapeHtml(tower.mnc)}</span>
-                    </div>
-                    <div class="tower-info-row">
-                        <span class="tower-info-label">LAC</span>
-                        <span class="tower-info-value">${escapeHtml(tower.lac)}</span>
-                    </div>
-                    <div class="tower-info-row">
-                        <span class="tower-info-label">ARFCN</span>
-                        <span class="tower-info-value">${escapeHtml(tower.arfcn)}</span>
-                    </div>
-                    <div class="tower-info-row">
-                        <span class="tower-info-label">Signal (dBm)</span>
-                        <span class="tower-info-value">${escapeHtml(tower.signal_strength || 'N/A')}</span>
-                    </div>
-                    <div class="tower-info-row">
-                        <span class="tower-info-label">Location</span>
-                        <span class="tower-info-value">${tower.lat != null ? parseFloat(tower.lat).toFixed(6) + ', ' + parseFloat(tower.lon).toFixed(6) : 'Pending geocoding'}</span>
-                    </div>
-                    <div class="tower-info-row">
-                        <span class="tower-info-label">First Seen</span>
-                        <span class="tower-info-value">${new Date(tower.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                </div>
-            `;
+                // Update marker icons for both previous and new selection
+                [prevSelected, key].forEach(towerKey => {
+                    if (towerKey && towerMarkers[towerKey] && towers[towerKey]) {
+                        const t = towers[towerKey];
+                        const color = t.rogue ? '#e25d5d' : '#38c180';
+                        const isSelected = towerKey === selectedTowerKey;
+                        towerMarkers[towerKey].setIcon(createGSMMarkerIcon('tower', color, isSelected, t.rogue));
+                    }
+                });
 
-            // Update list selection
-            updateTowersList();
+                // Build info rows
+                const signalVal = tower.signal_strength != null ? escapeHtml(tower.signal_strength) : 'N/A';
+                const locationVal = tower.lat != null ? parseFloat(tower.lat).toFixed(6) + ', ' + parseFloat(tower.lon).toFixed(6) : 'Pending geocoding';
+                const timeVal = tower.timestamp ? new Date(tower.timestamp).toLocaleTimeString() : 'Unknown';
+                const operatorVal = tower.operator ? escapeHtml(tower.operator) : '';
+                const freqVal = tower.frequency ? escapeHtml(tower.frequency) + ' MHz' : '';
+                const statusVal = tower.status === 'pending' ? 'Pending geocoding' : (tower.source === 'cache' || tower.source === 'api' ? 'Resolved' : '');
+
+                // Update selected tower panel
+                const infoDiv = document.getElementById('selectedTowerInfo');
+                infoDiv.innerHTML = `
+                    <div class="tower-info">
+                        <div class="tower-info-row">
+                            <span class="tower-info-label">Cell ID</span>
+                            <span class="tower-info-value">${escapeHtml(tower.cid)} ${tower.rogue ? '<span class="tower-rogue-badge">ROGUE</span>' : ''}</span>
+                        </div>
+                        ${operatorVal ? `<div class="tower-info-row"><span class="tower-info-label">Operator</span><span class="tower-info-value">${operatorVal}</span></div>` : ''}
+                        <div class="tower-info-row">
+                            <span class="tower-info-label">MCC / MNC</span>
+                            <span class="tower-info-value">${escapeHtml(tower.mcc)} / ${escapeHtml(tower.mnc)}</span>
+                        </div>
+                        <div class="tower-info-row">
+                            <span class="tower-info-label">LAC</span>
+                            <span class="tower-info-value">${escapeHtml(tower.lac)}</span>
+                        </div>
+                        <div class="tower-info-row">
+                            <span class="tower-info-label">ARFCN</span>
+                            <span class="tower-info-value">${escapeHtml(tower.arfcn)}${freqVal ? ' (' + freqVal + ')' : ''}</span>
+                        </div>
+                        <div class="tower-info-row">
+                            <span class="tower-info-label">Signal</span>
+                            <span class="tower-info-value">${signalVal} dBm</span>
+                        </div>
+                        <div class="tower-info-row">
+                            <span class="tower-info-label">Location</span>
+                            <span class="tower-info-value">${locationVal}</span>
+                        </div>
+                        <div class="tower-info-row">
+                            <span class="tower-info-label">First Seen</span>
+                            <span class="tower-info-value">${timeVal}</span>
+                        </div>
+                        ${statusVal ? `<div class="tower-info-row"><span class="tower-info-label">Status</span><span class="tower-info-value">${statusVal}</span></div>` : ''}
+                    </div>
+                `;
+
+                // Update list selection
+                updateTowersList();
+            } catch (error) {
+                console.error('[GSM SPY] selectTower error:', error);
+            }
         }
 
         function updateTowersList() {
@@ -1895,15 +1909,18 @@
             let html = '';
             for (const [key, tower] of Object.entries(towers)) {
                 const selected = key === selectedTowerKey ? 'selected' : '';
+                const signalText = tower.signal_strength != null ? escapeHtml(tower.signal_strength) + ' dBm' : '';
+                const operatorText = tower.operator ? escapeHtml(tower.operator) : '';
+                const metaText = operatorText || (escapeHtml(tower.mcc) + '-' + escapeHtml(tower.mnc));
                 html += `
                     <div class="list-item ${selected}" onclick="selectTower('${escapeHtml(key)}')">
                         <div class="list-item-header">
                             <span class="list-item-id">CID ${escapeHtml(tower.cid)}</span>
-                            <span class="list-item-meta">${escapeHtml(tower.mcc)}-${escapeHtml(tower.mnc)}</span>
+                            <span class="list-item-meta">${metaText}</span>
                             ${tower.rogue ? '<span class="rogue-indicator"></span>' : ''}
                         </div>
                         <div class="list-item-details">
-                            LAC ${escapeHtml(tower.lac)} | ARFCN ${escapeHtml(tower.arfcn)} | ${escapeHtml(tower.signal_strength || 'N/A')} dBm
+                            LAC ${escapeHtml(tower.lac)} | ARFCN ${escapeHtml(tower.arfcn)}${signalText ? ' | ' + signalText : ''}${tower.lat != null ? ' | <span style="color:var(--accent-cyan)">Located</span>' : ''}
                         </div>
                     </div>
                 `;

@@ -1128,6 +1128,14 @@ def parse_grgsm_scanner_output(line: str) -> dict[str, Any] | None:
                 fields[key.strip()] = value.strip()
 
         if 'ARFCN' in fields and 'CID' in fields:
+            cid = int(fields.get('CID', 0))
+            mcc = int(fields.get('MCC', 0))
+
+            # Skip entries with no decoded cell identity (CID=0 means no cell info)
+            if cid == 0 or mcc == 0:
+                logger.debug(f"Skipping unresolved ARFCN (CID={cid}, MCC={mcc}): {line}")
+                return None
+
             # Freq may have 'M' suffix (e.g. "925.2M")
             freq_str = fields.get('Freq', '0').rstrip('Mm')
 
@@ -1135,9 +1143,9 @@ def parse_grgsm_scanner_output(line: str) -> dict[str, Any] | None:
                 'type': 'tower',
                 'arfcn': int(fields['ARFCN']),
                 'frequency': float(freq_str),
-                'cid': int(fields.get('CID', 0)),
+                'cid': cid,
                 'lac': int(fields.get('LAC', 0)),
-                'mcc': int(fields.get('MCC', 0)),
+                'mcc': mcc,
                 'mnc': int(fields.get('MNC', 0)),
                 'signal_strength': float(fields.get('Pwr', -999)),
                 'timestamp': datetime.now().isoformat()

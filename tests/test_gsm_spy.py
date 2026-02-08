@@ -71,6 +71,26 @@ class TestParseGrgsmScannerOutput:
         result = parse_grgsm_scanner_output(line)
         assert result is None
 
+    def test_cid_zero_filtered(self):
+        """Test that CID=0 entries (no decoded cell) are filtered out."""
+        line = "ARFCN: 115, Freq: 925.0M, CID: 0, LAC: 0, MCC: 0, MNC: 0, Pwr: -100"
+        result = parse_grgsm_scanner_output(line)
+        assert result is None
+
+    def test_mcc_zero_filtered(self):
+        """Test that MCC=0 entries (no decoded identity) are filtered out."""
+        line = "ARFCN: 113, Freq: 924.6M, CID: 1234, LAC: 5678, MCC: 0, MNC: 0, Pwr: -90"
+        result = parse_grgsm_scanner_output(line)
+        assert result is None
+
+    def test_valid_cid_nonzero(self):
+        """Test that valid non-zero CID/MCC entries pass through."""
+        line = "ARFCN: 115, Freq: 925.0M, CID: 19088, LAC: 21864, MCC: 234, MNC: 10, Pwr: -58"
+        result = parse_grgsm_scanner_output(line)
+        assert result is not None
+        assert result['cid'] == 19088
+        assert result['signal_strength'] == -58.0
+
 
 class TestParseTsharkOutput:
     """Tests for parse_tshark_output()."""
