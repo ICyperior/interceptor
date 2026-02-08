@@ -1628,12 +1628,31 @@ def monitor_thread(process):
     stderr_thread = threading.Thread(target=read_stderr, daemon=True)
     stderr_thread.start()
 
+    monitor_start_time = time.time()
+    packets_captured = 0
+    last_heartbeat = time.time()
+
     try:
         while app_module.gsm_spy_monitor_process:
             # Check if process died
             if process.poll() is not None:
                 logger.info(f"Monitor process exited (code: {process.returncode})")
                 break
+
+            # Send periodic heartbeat so frontend knows monitor is alive
+            now = time.time()
+            if now - last_heartbeat >= 5:
+                last_heartbeat = now
+                elapsed = int(now - monitor_start_time)
+                try:
+                    app_module.gsm_spy_queue.put_nowait({
+                        'type': 'monitor_heartbeat',
+                        'elapsed': elapsed,
+                        'packets': packets_captured,
+                        'devices': len(app_module.gsm_spy_devices)
+                    })
+                except queue.Full:
+                    pass
 
             # Get output from queue with timeout
             try:
@@ -1646,6 +1665,8 @@ def monitor_thread(process):
 
             parsed = parse_tshark_output(line)
             if parsed:
+                packets_captured += 1
+
                 # Store in DataStore
                 key = parsed.get('tmsi') or parsed.get('imsi') or str(time.time())
                 app_module.gsm_spy_devices[key] = parsed

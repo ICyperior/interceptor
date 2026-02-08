@@ -525,6 +525,91 @@
             box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
         }
 
+        /* Monitor Status Overlay */
+        .monitor-status-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: linear-gradient(180deg, rgba(10, 14, 20, 0.95) 0%, rgba(10, 14, 20, 0.85) 100%);
+            border-bottom: 1px solid var(--accent-green, #4caf50);
+            backdrop-filter: blur(8px);
+            padding: 10px 16px;
+        }
+
+        .monitor-status-inner {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .monitor-status-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .monitor-pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green, #4caf50);
+            box-shadow: 0 0 6px var(--accent-green, #4caf50);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--accent-green, #4caf50); }
+            50% { opacity: 0.5; box-shadow: 0 0 12px var(--accent-green, #4caf50); }
+        }
+
+        .monitor-label {
+            color: var(--accent-green, #4caf50);
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            font-size: 11px;
+        }
+
+        .monitor-arfcn {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .monitor-elapsed {
+            margin-left: auto;
+            color: var(--text-secondary);
+        }
+
+        .monitor-stats-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 5px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding-left: 18px;
+        }
+
+        .monitor-stat-sep {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .monitor-listening {
+            animation: listening-fade 2.5s ease-in-out infinite;
+        }
+
+        @keyframes listening-fade {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
         /* Right Sidebar */
         .right-sidebar {
             background: var(--bg-panel);
@@ -1293,6 +1378,23 @@
                     </div>
                 </div>
             </div>
+            <div id="monitorStatus" class="monitor-status-overlay" style="display:none;">
+                <div class="monitor-status-inner">
+                    <div class="monitor-status-row">
+                        <span class="monitor-pulse"></span>
+                        <span class="monitor-label">MONITORING</span>
+                        <span class="monitor-arfcn" id="monitorArfcn">ARFCN ---</span>
+                        <span class="monitor-elapsed" id="monitorElapsed">00:00</span>
+                    </div>
+                    <div class="monitor-stats-row">
+                        <span class="monitor-stat"><span id="monitorPackets">0</span> packets</span>
+                        <span class="monitor-stat-sep"></span>
+                        <span class="monitor-stat"><span id="monitorDevices">0</span> devices</span>
+                        <span class="monitor-stat-sep"></span>
+                        <span class="monitor-stat monitor-listening" id="monitorActivity">Listening...</span>
+                    </div>
+                </div>
+            </div>
             <div id="gsmMap"></div>
         </div>
 
@@ -1667,6 +1769,7 @@
                     eventSource = null;
                 }
                 document.getElementById('scanProgress').style.display = 'none';
+                hideMonitorStatus();
                 console.log('[GSM SPY] Scanner stopped');
             })
             .catch(error => {
@@ -1740,13 +1843,16 @@
                         updateScanStatus('Scan #' + data.scan + ' complete (' + data.towers_found + ' towers, ' + data.duration + 's)');
                         document.getElementById('scanProgressBar').style.width = '100%';
                     } else if (data.type === 'auto_monitor_started') {
-                        updateScanStatus('Monitoring ARFCN ' + data.arfcn + ' for devices...');
+                        showMonitorStatus(data.arfcn);
                         console.log('[GSM SPY] Auto-monitor started on ARFCN', data.arfcn);
+                    } else if (data.type === 'monitor_heartbeat') {
+                        updateMonitorStatus(data.elapsed, data.packets, data.devices);
                     } else if (data.type === 'error') {
                         console.error('[GSM SPY] Server error:', data.message);
                         updateScanStatus('Error: ' + data.message);
                     } else if (data.type === 'disconnected') {
                         console.warn('[GSM SPY] Server disconnected stream');
+                        hideMonitorStatus();
                     }
                 } catch (error) {
                     console.error('[GSM SPY] Error parsing event:', error, 'raw:', e.data);
@@ -2000,6 +2106,57 @@
             const statusText = document.getElementById('scanStatusText');
             progressDiv.style.display = 'block';
             statusText.textContent = message;
+        }
+
+        let monitorStartTime = null;
+        let monitorTimerInterval = null;
+
+        function showMonitorStatus(arfcn) {
+            // Hide scan progress, show monitor status
+            document.getElementById('scanProgress').style.display = 'none';
+            const overlay = document.getElementById('monitorStatus');
+            overlay.style.display = 'block';
+            document.getElementById('monitorArfcn').textContent = 'ARFCN ' + arfcn;
+            document.getElementById('monitorPackets').textContent = '0';
+            document.getElementById('monitorDevices').textContent = '0';
+            document.getElementById('monitorActivity').textContent = 'Listening...';
+
+            // Start local elapsed timer for smooth updates between heartbeats
+            monitorStartTime = Date.now();
+            if (monitorTimerInterval) clearInterval(monitorTimerInterval);
+            monitorTimerInterval = setInterval(function() {
+                const elapsed = Math.floor((Date.now() - monitorStartTime) / 1000);
+                document.getElementById('monitorElapsed').textContent = formatElapsed(elapsed);
+            }, 1000);
+        }
+
+        function updateMonitorStatus(elapsed, packets, devices) {
+            const overlay = document.getElementById('monitorStatus');
+            if (overlay.style.display === 'none') return;
+            document.getElementById('monitorElapsed').textContent = formatElapsed(elapsed);
+            document.getElementById('monitorPackets').textContent = packets;
+            document.getElementById('monitorDevices').textContent = devices;
+            // Sync local timer with server elapsed
+            monitorStartTime = Date.now() - (elapsed * 1000);
+            // Flash activity indicator on heartbeat
+            const activity = document.getElementById('monitorActivity');
+            activity.textContent = packets > 0 ? 'Capturing' : 'Listening...';
+            activity.style.color = packets > 0 ? 'var(--accent-green, #4caf50)' : '';
+        }
+
+        function hideMonitorStatus() {
+            document.getElementById('monitorStatus').style.display = 'none';
+            if (monitorTimerInterval) {
+                clearInterval(monitorTimerInterval);
+                monitorTimerInterval = null;
+            }
+            monitorStartTime = null;
+        }
+
+        function formatElapsed(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
         }
 
         function updateTowersList() {
