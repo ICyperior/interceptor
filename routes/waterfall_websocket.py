@@ -2,6 +2,7 @@
 
 import json
 import queue
+import socket
 import subprocess
 import threading
 import time
@@ -348,4 +349,20 @@ def init_waterfall_websocket(app: Flask):
                 unregister_process(iq_process)
             if claimed_device is not None:
                 app_module.release_sdr_device(claimed_device)
+            # Complete WebSocket close handshake, then shut down the
+            # raw socket so Werkzeug cannot write its HTTP 200 response
+            # on top of the WebSocket stream (which browsers see as
+            # "Invalid frame header").
+            try:
+                ws.close()
+            except Exception:
+                pass
+            try:
+                ws.sock.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+            try:
+                ws.sock.close()
+            except Exception:
+                pass
             logger.info("WebSocket waterfall client disconnected")
