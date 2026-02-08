@@ -1627,21 +1627,25 @@
                 eventSource.close();
             }
 
+            console.log('[GSM SPY] Opening EventSource to /gsm_spy/stream');
             eventSource = new EventSource('/gsm_spy/stream');
+
+            eventSource.onopen = function() {
+                console.log('[GSM SPY] EventSource connected');
+            };
 
             eventSource.onmessage = function(e) {
                 try {
+                    console.log('[GSM SPY] SSE raw:', e.data.substring(0, 200));
                     const data = JSON.parse(e.data);
 
                     if (data.type === 'keepalive') {
                         return;
                     }
 
-                    if (data.type === 'tower') {
-                        updateTower(data);
-                    } else if (data.type === 'tower_update') {
-                        // Background geocoding resolved coordinates for a tower
-                        console.log(`Tower coordinates resolved via API: MCC=${data.mcc} MNC=${data.mnc} LAC=${data.lac} CID=${data.cid}`);
+                    console.log('[GSM SPY] SSE event type:', data.type, 'keys:', Object.keys(data).join(','));
+
+                    if (data.type === 'tower' || data.type === 'tower_update') {
                         updateTower(data);
                     } else if (data.type === 'device') {
                         updateDevice(data);
@@ -1649,16 +1653,20 @@
                         addRogueAlert(data);
                     } else if (data.type === 'stats') {
                         updateStats(data);
+                    } else if (data.type === 'error') {
+                        console.error('[GSM SPY] Server error:', data.message);
+                    } else if (data.type === 'disconnected') {
+                        console.warn('[GSM SPY] Server disconnected stream');
                     }
                 } catch (error) {
-                    console.error('[GSM SPY] Error parsing event:', error);
+                    console.error('[GSM SPY] Error parsing event:', error, 'raw:', e.data);
                 }
             };
 
             eventSource.onerror = function(e) {
-                console.error('[GSM SPY] EventSource error:', e);
+                console.error('[GSM SPY] EventSource error, readyState:', eventSource.readyState);
                 if (eventSource.readyState === EventSource.CLOSED) {
-                    console.log('[GSM SPY] EventSource closed, reconnecting...');
+                    console.log('[GSM SPY] EventSource closed, reconnecting in 3s...');
                     setTimeout(startEventStream, 3000);
                 }
             };
@@ -1700,11 +1708,12 @@
         // ============================================
         function updateTower(data) {
             const key = `${data.mcc}-${data.mnc}-${data.lac}-${data.cid}`;
+            console.log(`[GSM SPY] updateTower: key=${key} CID=${data.cid} signal=${data.signal_strength} lat=${data.lat} lon=${data.lon}`);
             towers[key] = data;
 
             // Validate coordinates before creating map marker
             if (!data.lat || !data.lon || isNaN(parseFloat(data.lat)) || isNaN(parseFloat(data.lon))) {
-                console.log(`Tower ${data.cid} pending geocoding (status: ${data.status || 'unknown'})`);
+                console.log(`[GSM SPY] Tower ${data.cid} pending geocoding (status: ${data.status || 'unknown'}), updating list only`);
                 // Update towers list but skip map marker
                 updateTowersList();
                 return;
@@ -1856,11 +1865,11 @@
                     </div>
                     <div class="tower-info-row">
                         <span class="tower-info-label">Signal (dBm)</span>
-                        <span class="tower-info-value">${escapeHtml(tower.signal || 'N/A')}</span>
+                        <span class="tower-info-value">${escapeHtml(tower.signal_strength || 'N/A')}</span>
                     </div>
                     <div class="tower-info-row">
                         <span class="tower-info-label">Location</span>
-                        <span class="tower-info-value">${tower.lat.toFixed(6)}, ${tower.lon.toFixed(6)}</span>
+                        <span class="tower-info-value">${tower.lat != null ? parseFloat(tower.lat).toFixed(6) + ', ' + parseFloat(tower.lon).toFixed(6) : 'Pending geocoding'}</span>
                     </div>
                     <div class="tower-info-row">
                         <span class="tower-info-label">First Seen</span>
@@ -1875,8 +1884,10 @@
 
         function updateTowersList() {
             const listDiv = document.getElementById('towersList');
+            const towerCount = Object.keys(towers).length;
+            console.log(`[GSM SPY] updateTowersList: ${towerCount} towers, listDiv exists: ${!!listDiv}`);
 
-            if (Object.keys(towers).length === 0) {
+            if (towerCount === 0) {
                 listDiv.innerHTML = '<div class="no-data"><div>No towers detected</div></div>';
                 return;
             }
@@ -1892,7 +1903,7 @@
                             ${tower.rogue ? '<span class="rogue-indicator"></span>' : ''}
                         </div>
                         <div class="list-item-details">
-                            LAC ${escapeHtml(tower.lac)} | ARFCN ${escapeHtml(tower.arfcn)} | ${escapeHtml(tower.signal || 'N/A')} dBm
+                            LAC ${escapeHtml(tower.lac)} | ARFCN ${escapeHtml(tower.arfcn)} | ${escapeHtml(tower.signal_strength || 'N/A')} dBm
                         </div>
                     </div>
                 `;

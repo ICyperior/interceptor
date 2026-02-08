@@ -516,19 +516,28 @@ def stream():
     """SSE stream for real-time GSM updates."""
     def generate():
         """Generate SSE events."""
+        logger.info("SSE stream connected - client subscribed")
+
+        # Send current state on connect (handles reconnects and late-joining clients)
+        existing_towers = dict(app_module.gsm_spy_towers.items())
+        logger.info(f"SSE sending {len(existing_towers)} existing towers on connect")
+        for key, tower_data in existing_towers.items():
+            yield format_sse(tower_data)
+
         last_keepalive = time.time()
 
         while True:
             try:
                 # Check if scanner is still running
                 if not app_module.gsm_spy_scanner_running and not app_module.gsm_spy_monitor_process:
+                    logger.info("SSE stream: scanner stopped, sending disconnect")
                     yield format_sse({'type': 'disconnected'})
                     break
 
                 # Try to get data from queue
                 try:
                     data = app_module.gsm_spy_queue.get(timeout=1)
-                    logger.info(f"SSE sending: type={data.get('type', '?')}")
+                    logger.info(f"SSE sending: type={data.get('type', '?')} keys={list(data.keys())}")
                     yield format_sse(data)
                     last_keepalive = time.time()
                 except queue.Empty:
@@ -538,20 +547,18 @@ def stream():
                         last_keepalive = time.time()
 
             except GeneratorExit:
+                logger.info("SSE stream: client disconnected (GeneratorExit)")
                 break
             except Exception as e:
                 logger.error(f"Error in GSM stream: {e}")
                 yield format_sse({'type': 'error', 'message': str(e)})
                 break
 
-    return Response(
-        generate(),
-        mimetype='text/event-stream',
-        headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no'
-        }
-    )
+    response = Response(generate(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 
 @gsm_spy_bp.route('/status')
