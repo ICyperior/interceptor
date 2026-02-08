@@ -105,19 +105,22 @@ def init_waterfall_websocket(app: Flask):
 
                 try:
                     msg = ws.receive(timeout=0.1)
-                except TimeoutError:
-                    if stop_event.is_set():
-                        break
-                    continue
                 except Exception as e:
-                    if "closed" in str(e).lower():
+                    err = str(e).lower()
+                    if "closed" in err:
                         break
-                    if "timed out" not in str(e).lower():
+                    if "timed out" not in err:
                         logger.error(f"WebSocket receive error: {e}")
                     continue
 
                 if msg is None:
-                    break
+                    # simple-websocket returns None on timeout AND on
+                    # close; check ws.connected to tell them apart.
+                    if not ws.connected:
+                        break
+                    if stop_event.is_set():
+                        break
+                    continue
 
                 try:
                     data = json.loads(msg)
