@@ -724,7 +724,7 @@ install_macos_packages() {
         trap 'rm -rf "$tmp_dir"' EXIT
 
         info "Cloning gr-gsm repository..."
-        git clone --depth 1 https://github.com/ptrkrysik/gr-gsm.git "$tmp_dir/gr-gsm" >/dev/null 2>&1 \
+        git clone --depth 1 https://github.com/bkerler/gr-gsm.git "$tmp_dir/gr-gsm" >/dev/null 2>&1 \
           || { warn "Failed to clone gr-gsm. GSM Spy feature will not work."; exit 1; }
 
         cd "$tmp_dir/gr-gsm"
@@ -1182,7 +1182,7 @@ install_debian_packages() {
         rm -rf /tmp/gr-gsm
       fi
 
-      git clone https://github.com/ptrkrysik/gr-gsm.git /tmp/gr-gsm || {
+      git clone https://github.com/bkerler/gr-gsm.git /tmp/gr-gsm || {
         warn "Failed to clone gr-gsm repository. GSM Spy will not be available."
         return 0
       }

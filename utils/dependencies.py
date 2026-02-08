@@ -451,9 +451,9 @@ TOOL_DEPENDENCIES = {
                 'required': True,
                 'description': 'gr-gsm scanner for finding GSM towers',
                 'install': {
-                    'apt': 'Build gr-gsm from source: https://github.com/ptrkrysik/gr-gsm',
+                    'apt': 'Build gr-gsm from source: https://github.com/bkerler/gr-gsm',
                     'brew': 'brew install gr-gsm (may require manual build)',
-                    'manual': 'https://github.com/ptrkrysik/gr-gsm'
+                    'manual': 'https://github.com/bkerler/gr-gsm'
                 }
             },
             'grgsm_livemon': {

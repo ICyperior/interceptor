@@ -67,7 +67,7 @@ RUN apt-get update \
          doxygen liblog4cpp5-dev python3-scipy python3-numpy \
          libvolk-dev libfftw3-dev build-essential \
        && cd /tmp \
-       && git clone --depth 1 https://github.com/ptrkrysik/gr-gsm.git \
+       && git clone --depth 1 https://github.com/bkerler/gr-gsm.git \
        && cd gr-gsm \
        && mkdir build && cd build \
        && cmake .. \

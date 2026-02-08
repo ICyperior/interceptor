@@ -1379,7 +1379,7 @@ def scanner_thread(cmd, device_index):
             except FileNotFoundError:
                 logger.error(
                     "grgsm_scanner not found. Please install gr-gsm: "
-                    "https://github.com/ptrkrysik/gr-gsm"
+                    "https://github.com/bkerler/gr-gsm"
                 )
                 # Send error to SSE stream so the UI knows
                 try:
