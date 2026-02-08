@@ -675,7 +675,7 @@ def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
-    global gsm_spy_process, gsm_spy_livemon_process, gsm_spy_monitor_process
+    global gsm_spy_livemon_process, gsm_spy_monitor_process
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -754,26 +754,18 @@ def kill_all() -> Response:
 
     # Reset GSM Spy state
     with gsm_spy_lock:
-        if gsm_spy_process:
-            try:
-                safe_terminate(gsm_spy_process, 'grgsm_scanner')
-                killed.append('grgsm_scanner')
-            except Exception:
-                pass
-        gsm_spy_process = None
-
         if gsm_spy_livemon_process:
             try:
-                safe_terminate(gsm_spy_livemon_process, 'grgsm_livemon')
-                killed.append('grgsm_livemon')
+                if safe_terminate(gsm_spy_livemon_process):
+                    killed.append('grgsm_livemon')
             except Exception:
                 pass
         gsm_spy_livemon_process = None
 
         if gsm_spy_monitor_process:
             try:
-                safe_terminate(gsm_spy_monitor_process, 'tshark')
-                killed.append('tshark')
+                if safe_terminate(gsm_spy_monitor_process):
+                    killed.append('tshark')
             except Exception:
                 pass
         gsm_spy_monitor_process = None
@@ -866,6 +858,26 @@ def main() -> None:
     # Initialize database for settings storage
     from utils.database import init_db
     init_db()
+
+    # Register database cleanup functions
+    from utils.database import (
+        cleanup_old_gsm_signals,
+        cleanup_old_gsm_tmsi_log,
+        cleanup_old_gsm_velocity_log,
+        cleanup_old_signal_history,
+        cleanup_old_timeline_entries,
+        cleanup_old_dsc_alerts,
+        cleanup_old_payloads
+    )
+    # GSM cleanups: signals (60 days), TMSI log (24 hours), velocity (1 hour)
+    # Interval multiplier: cleanup every N cycles (60s interval = 1 cleanup per hour at multiplier 60)
+    cleanup_manager.register_db_cleanup(cleanup_old_gsm_tmsi_log, interval_multiplier=60)  # Every hour
+    cleanup_manager.register_db_cleanup(cleanup_old_gsm_velocity_log, interval_multiplier=60)  # Every hour
+    cleanup_manager.register_db_cleanup(cleanup_old_gsm_signals, interval_multiplier=1440)  # Every 24 hours
+    cleanup_manager.register_db_cleanup(cleanup_old_signal_history, interval_multiplier=1440)  # Every 24 hours
+    cleanup_manager.register_db_cleanup(cleanup_old_timeline_entries, interval_multiplier=1440)  # Every 24 hours
+    cleanup_manager.register_db_cleanup(cleanup_old_dsc_alerts, interval_multiplier=1440)  # Every 24 hours
+    cleanup_manager.register_db_cleanup(cleanup_old_payloads, interval_multiplier=1440)  # Every 24 hours
 
     # Start automatic cleanup of stale data entries
     cleanup_manager.start()

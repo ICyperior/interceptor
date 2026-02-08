@@ -2189,3 +2189,61 @@ def cleanup_old_payloads(max_age_hours: int = 24) -> int:
             WHERE received_at < datetime('now', ?)
         ''', (f'-{max_age_hours} hours',))
         return cursor.rowcount
+
+
+# =============================================================================
+# GSM Cleanup Functions
+# =============================================================================
+
+def cleanup_old_gsm_signals(max_age_days: int = 60) -> int:
+    """
+    Remove old GSM signal observations (60-day archive).
+
+    Args:
+        max_age_days: Maximum age in days (default: 60)
+
+    Returns:
+        Number of deleted entries
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM gsm_signals
+            WHERE timestamp < datetime('now', ?)
+        ''', (f'-{max_age_days} days',))
+        return cursor.rowcount
+
+
+def cleanup_old_gsm_tmsi_log(max_age_hours: int = 24) -> int:
+    """
+    Remove old TMSI log entries (24-hour buffer for crowd density).
+
+    Args:
+        max_age_hours: Maximum age in hours (default: 24)
+
+    Returns:
+        Number of deleted entries
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM gsm_tmsi_log
+            WHERE timestamp < datetime('now', ?)
+        ''', (f'-{max_age_hours} hours',))
+        return cursor.rowcount
+
+
+def cleanup_old_gsm_velocity_log(max_age_hours: int = 1) -> int:
+    """
+    Remove old velocity log entries (1-hour buffer for movement tracking).
+
+    Args:
+        max_age_hours: Maximum age in hours (default: 1)
+
+    Returns:
+        Number of deleted entries
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM gsm_velocity_log
+            WHERE timestamp < datetime('now', ?)
+        ''', (f'-{max_age_hours} hours',))
+        return cursor.rowcount

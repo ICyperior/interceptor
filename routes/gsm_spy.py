@@ -6,7 +6,6 @@ import json
 import logging
 import queue
 import re
-import select
 import subprocess
 import threading
 import time
@@ -284,6 +283,31 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
     return grgsm_proc, tshark_proc
 
 
+def _start_and_register_monitor(arfcn: int, device_index: int) -> None:
+    """Start monitoring processes and register them in global state.
+
+    This is shared logic between start_monitor() and auto_start_monitor().
+    Must be called within gsm_spy_lock context.
+
+    Args:
+        arfcn: ARFCN to monitor
+        device_index: SDR device index
+    """
+    # Start monitoring processes
+    grgsm_proc, tshark_proc = _start_monitoring_processes(arfcn, device_index)
+    app_module.gsm_spy_livemon_process = grgsm_proc
+    app_module.gsm_spy_monitor_process = tshark_proc
+    app_module.gsm_spy_selected_arfcn = arfcn
+
+    # Start monitoring thread
+    monitor_thread_obj = threading.Thread(
+        target=monitor_thread,
+        args=(tshark_proc,),
+        daemon=True
+    )
+    monitor_thread_obj.start()
+
+
 @gsm_spy_bp.route('/dashboard')
 def dashboard():
     """Render GSM Spy dashboard."""
@@ -405,6 +429,14 @@ def start_monitor():
         if not arfcn:
             return jsonify({'error': 'ARFCN required'}), 400
 
+        # Validate ARFCN is valid integer and in known GSM band ranges
+        try:
+            arfcn = int(arfcn)
+            # This will raise ValueError if ARFCN is not in any known band
+            arfcn_to_frequency(arfcn)
+        except (ValueError, TypeError) as e:
+            return jsonify({'error': f'Invalid ARFCN: {e}'}), 400
+
         # Validate device index
         try:
             device_index = validate_device_index(device_index)
@@ -412,19 +444,8 @@ def start_monitor():
             return jsonify({'error': str(e)}), 400
 
         try:
-            # Start monitoring processes
-            grgsm_proc, tshark_proc = _start_monitoring_processes(arfcn, device_index)
-            app_module.gsm_spy_livemon_process = grgsm_proc
-            app_module.gsm_spy_monitor_process = tshark_proc
-            app_module.gsm_spy_selected_arfcn = arfcn
-
-            # Start monitoring thread
-            monitor_thread_obj = threading.Thread(
-                target=monitor_thread,
-                args=(tshark_proc,),
-                daemon=True
-            )
-            monitor_thread_obj.start()
+            # Start and register monitoring (shared logic)
+            _start_and_register_monitor(arfcn, device_index)
 
             return jsonify({
                 'status': 'monitoring',
@@ -466,12 +487,8 @@ def stop_scanner():
                 killed.append('monitor')
             app_module.gsm_spy_monitor_process = None
 
-        # Release SDR device
-        if app_module.gsm_spy_active_device is not None:
-            from app import release_sdr_device
-            release_sdr_device(app_module.gsm_spy_active_device)
-            logger.info(f"Released SDR device {app_module.gsm_spy_active_device}")
-
+        # Note: SDR device is released by scanner thread's finally block
+        # to avoid race condition. Just reset the state variables here.
         app_module.gsm_spy_active_device = None
         app_module.gsm_spy_selected_arfcn = None
         gsm_connected = False
@@ -526,7 +543,7 @@ def status():
     """Get current GSM Spy status."""
     api_usage = get_api_usage_today()
     return jsonify({
-        'running': app_module.gsm_spy_scanner_running is not None,
+        'running': bool(app_module.gsm_spy_scanner_running),
         'monitoring': app_module.gsm_spy_monitor_process is not None,
         'towers_found': gsm_towers_found,
         'devices_tracked': gsm_devices_tracked,
@@ -1162,19 +1179,8 @@ def auto_start_monitor(tower_data):
 
             device_index = app_module.gsm_spy_active_device or 0
 
-            # Start monitoring processes
-            grgsm_proc, tshark_proc = _start_monitoring_processes(arfcn, device_index)
-            app_module.gsm_spy_livemon_process = grgsm_proc
-            app_module.gsm_spy_monitor_process = tshark_proc
-            app_module.gsm_spy_selected_arfcn = arfcn
-
-            # Start monitoring thread
-            monitor_thread_obj = threading.Thread(
-                target=monitor_thread,
-                args=(tshark_proc,),
-                daemon=True
-            )
-            monitor_thread_obj.start()
+            # Start and register monitoring (shared logic)
+            _start_and_register_monitor(arfcn, device_index)
 
             # Send SSE notification
             try:
@@ -1219,20 +1225,36 @@ def scanner_thread(cmd, device_index):
                     universal_newlines=True,
                     bufsize=1
                 )
+                register_process(process)
+                logger.info(f"Started grgsm_scanner (PID: {process.pid})")
 
-                # Non-blocking stderr reader
+                # Standard pattern: reader threads with queue
+                output_queue_local = queue.Queue()
+
+                def read_stdout():
+                    try:
+                        for line in iter(process.stdout.readline, ''):
+                            if line:
+                                output_queue_local.put(('stdout', line))
+                    except Exception as e:
+                        logger.error(f"stdout read error: {e}")
+                    finally:
+                        output_queue_local.put(('eof', None))
+
                 def read_stderr():
                     try:
-                        for line in process.stderr:
+                        for line in iter(process.stderr.readline, ''):
                             if line:
                                 logger.debug(f"grgsm_scanner: {line.strip()}")
                     except Exception as e:
                         logger.error(f"stderr read error: {e}")
 
+                stdout_thread = threading.Thread(target=read_stdout, daemon=True)
                 stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+                stdout_thread.start()
                 stderr_thread.start()
 
-                # Non-blocking stdout reader with timeout
+                # Process output with timeout
                 last_output = time.time()
                 scan_timeout = 120  # 2 minute maximum per scan
 
@@ -1242,12 +1264,11 @@ def scanner_thread(cmd, device_index):
                         logger.info(f"Scanner exited (code: {process.returncode})")
                         break
 
-                    # Check for output with 1-second timeout
-                    ready, _, _ = select.select([process.stdout], [], [], 1.0)
+                    # Get output from queue with timeout
+                    try:
+                        msg_type, line = output_queue_local.get(timeout=1.0)
 
-                    if ready:
-                        line = process.stdout.readline()
-                        if not line:
+                        if msg_type == 'eof':
                             break  # EOF
 
                         last_output = time.time()
@@ -1287,7 +1308,7 @@ def scanner_thread(cmd, device_index):
                                     args=(strongest_tower,),
                                     daemon=True
                                 ).start()
-                    else:
+                    except queue.Empty:
                         # No output, check timeout
                         if time.time() - last_output > scan_timeout:
                             logger.warning(f"Scan timeout after {scan_timeout}s")
@@ -1347,6 +1368,10 @@ def scanner_thread(cmd, device_index):
                 except Exception:
                     pass
 
+        # Unregister process from cleanup list
+        if process:
+            unregister_process(process)
+
         logger.info("Scanner thread terminated")
 
         # Reset global state
@@ -1359,8 +1384,24 @@ def scanner_thread(cmd, device_index):
 
 
 def monitor_thread(process):
-    """Thread to read tshark output with non-blocking I/O and timeouts."""
+    """Thread to read tshark output using standard iter pattern."""
     global gsm_devices_tracked
+
+    # Standard pattern: reader thread with queue
+    output_queue_local = queue.Queue()
+
+    def read_stdout():
+        try:
+            for line in iter(process.stdout.readline, ''):
+                if line:
+                    output_queue_local.put(('stdout', line))
+        except Exception as e:
+            logger.error(f"tshark read error: {e}")
+        finally:
+            output_queue_local.put(('eof', None))
+
+    stdout_thread = threading.Thread(target=read_stdout, daemon=True)
+    stdout_thread.start()
 
     try:
         while app_module.gsm_spy_monitor_process:
@@ -1369,14 +1410,13 @@ def monitor_thread(process):
                 logger.info(f"Monitor process exited (code: {process.returncode})")
                 break
 
-            # Non-blocking read with timeout
-            ready, _, _ = select.select([process.stdout], [], [], 1.0)
-
-            if not ready:
+            # Get output from queue with timeout
+            try:
+                msg_type, line = output_queue_local.get(timeout=1.0)
+            except queue.Empty:
                 continue  # Timeout, check flag again
 
-            line = process.stdout.readline()
-            if not line:
+            if msg_type == 'eof':
                 break  # EOF
 
             parsed = parse_tshark_output(line)
