@@ -199,6 +199,126 @@ def start_capture():
         }), 500
 
 
+@weather_sat_bp.route('/test-decode', methods=['POST'])
+def test_decode():
+    """Start weather satellite decode from a pre-recorded file.
+
+    No SDR hardware is required — decodes an IQ baseband or WAV file
+    using SatDump offline mode.
+
+    JSON body:
+        {
+            "satellite": "NOAA-18",       // Required: satellite key
+            "input_file": "/path/to/file", // Required: server-side file path
+            "sample_rate": 1000000         // Sample rate in Hz (default: 1000000)
+        }
+
+    Returns:
+        JSON with start status.
+    """
+    if not is_weather_sat_available():
+        return jsonify({
+            'status': 'error',
+            'message': 'SatDump not installed. Build from source: https://github.com/SatDump/SatDump'
+        }), 400
+
+    decoder = get_weather_sat_decoder()
+
+    if decoder.is_running:
+        return jsonify({
+            'status': 'already_running',
+            'satellite': decoder.current_satellite,
+            'frequency': decoder.current_frequency,
+        })
+
+    data = request.get_json(silent=True) or {}
+
+    # Validate satellite
+    satellite = data.get('satellite')
+    if not satellite or satellite not in WEATHER_SATELLITES:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid satellite. Must be one of: {", ".join(WEATHER_SATELLITES.keys())}'
+        }), 400
+
+    # Validate input file
+    input_file = data.get('input_file')
+    if not input_file:
+        return jsonify({
+            'status': 'error',
+            'message': 'input_file is required'
+        }), 400
+
+    from pathlib import Path
+    input_path = Path(input_file)
+
+    # Security: restrict to data directory
+    allowed_base = Path('data').resolve()
+    try:
+        resolved = input_path.resolve()
+        if not str(resolved).startswith(str(allowed_base)):
+            return jsonify({
+                'status': 'error',
+                'message': 'input_file must be under the data/ directory'
+            }), 403
+    except (OSError, ValueError):
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid file path'
+        }), 400
+
+    if not input_path.is_file():
+        return jsonify({
+            'status': 'error',
+            'message': f'File not found: {input_file}'
+        }), 404
+
+    # Validate sample rate
+    sample_rate = data.get('sample_rate', 1000000)
+    try:
+        sample_rate = int(sample_rate)
+        if sample_rate < 1000 or sample_rate > 20000000:
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid sample_rate (1000-20000000)'
+        }), 400
+
+    # Clear queue
+    while not _weather_sat_queue.empty():
+        try:
+            _weather_sat_queue.get_nowait()
+        except queue.Empty:
+            break
+
+    # Set callback — no on_complete needed (no SDR to release)
+    decoder.set_callback(_progress_callback)
+    decoder.set_on_complete(None)
+
+    success = decoder.start_from_file(
+        satellite=satellite,
+        input_file=input_file,
+        sample_rate=sample_rate,
+    )
+
+    if success:
+        sat_info = WEATHER_SATELLITES[satellite]
+        return jsonify({
+            'status': 'started',
+            'satellite': satellite,
+            'frequency': sat_info['frequency'],
+            'mode': sat_info['mode'],
+            'source': 'file',
+            'input_file': str(input_file),
+        })
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to start file decode'
+        }), 500
+
+
 @weather_sat_bp.route('/stop', methods=['POST'])
 def stop_capture():
     """Stop weather satellite capture.

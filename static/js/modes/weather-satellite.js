@@ -230,6 +230,61 @@ const WeatherSat = (function() {
     }
 
     /**
+     * Start test decode from a pre-recorded file
+     */
+    async function testDecode() {
+        const satSelect = document.getElementById('wxsatTestSatSelect');
+        const fileInput = document.getElementById('wxsatTestFilePath');
+        const rateSelect = document.getElementById('wxsatTestSampleRate');
+
+        const satellite = satSelect?.value || 'NOAA-18';
+        const inputFile = (fileInput?.value || '').trim();
+        const sampleRate = parseInt(rateSelect?.value || '1000000', 10);
+
+        if (!inputFile) {
+            showNotification('Weather Sat', 'Enter a file path');
+            return;
+        }
+
+        clearConsole();
+        showConsole(true);
+        updatePhaseIndicator('decoding');
+        addConsoleEntry(`Test decode: ${inputFile}`, 'info');
+        updateStatusUI('connecting', 'Starting file decode...');
+
+        try {
+            const response = await fetch('/weather-sat/test-decode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    satellite,
+                    input_file: inputFile,
+                    sample_rate: sampleRate,
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'started' || data.status === 'already_running') {
+                isRunning = true;
+                currentSatellite = data.satellite || satellite;
+                updateStatusUI('decoding', `Decoding ${data.satellite} from file`);
+                updateFreqDisplay(data.frequency, data.mode);
+                startStream();
+                showNotification('Weather Sat', `Decoding ${data.satellite} from file`);
+            } else {
+                updateStatusUI('idle', 'Decode failed');
+                showNotification('Weather Sat', data.message || 'Failed to start decode');
+                addConsoleEntry(data.message || 'Failed to start decode', 'error');
+            }
+        } catch (err) {
+            console.error('Failed to start test decode:', err);
+            updateStatusUI('idle', 'Error');
+            showNotification('Weather Sat', 'Connection error');
+        }
+    }
+
+    /**
      * Update status UI
      */
     function updateStatusUI(status, text) {
@@ -1309,6 +1364,7 @@ const WeatherSat = (function() {
         stop,
         startPass,
         selectPass,
+        testDecode,
         loadImages,
         loadPasses,
         showImage,

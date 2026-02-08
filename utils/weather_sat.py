@@ -203,6 +203,92 @@ class WeatherSatDecoder:
         """Set callback invoked when capture process ends (for SDR release)."""
         self._on_complete_callback = callback
 
+    def start_from_file(
+        self,
+        satellite: str,
+        input_file: str | Path,
+        sample_rate: int = DEFAULT_SAMPLE_RATE,
+    ) -> bool:
+        """Start weather satellite decode from a pre-recorded IQ/WAV file.
+
+        No SDR hardware is required — SatDump runs in offline mode.
+
+        Args:
+            satellite: Satellite key (e.g. 'NOAA-18', 'METEOR-M2-3')
+            input_file: Path to IQ baseband or WAV audio file
+            sample_rate: Sample rate of the recording in Hz
+
+        Returns:
+            True if started successfully
+        """
+        with self._lock:
+            if self._running:
+                return True
+
+            if not self._decoder:
+                logger.error("No weather satellite decoder available")
+                self._emit_progress(CaptureProgress(
+                    status='error',
+                    message='SatDump not installed. Build from source or install via package manager.'
+                ))
+                return False
+
+            sat_info = WEATHER_SATELLITES.get(satellite)
+            if not sat_info:
+                logger.error(f"Unknown satellite: {satellite}")
+                self._emit_progress(CaptureProgress(
+                    status='error',
+                    message=f'Unknown satellite: {satellite}'
+                ))
+                return False
+
+            input_path = Path(input_file)
+            if not input_path.is_file():
+                logger.error(f"Input file not found: {input_file}")
+                self._emit_progress(CaptureProgress(
+                    status='error',
+                    message=f'Input file not found: {input_file}'
+                ))
+                return False
+
+            self._current_satellite = satellite
+            self._current_frequency = sat_info['frequency']
+            self._current_mode = sat_info['mode']
+            self._capture_start_time = time.time()
+            self._capture_phase = 'decoding'
+
+            try:
+                self._running = True
+                self._start_satdump_offline(
+                    sat_info, input_path, sample_rate,
+                )
+
+                logger.info(
+                    f"Weather satellite file decode started: {satellite} "
+                    f"({sat_info['mode']}) from {input_file}"
+                )
+                self._emit_progress(CaptureProgress(
+                    status='decoding',
+                    satellite=satellite,
+                    frequency=sat_info['frequency'],
+                    mode=sat_info['mode'],
+                    message=f"Decoding {sat_info['name']} from file ({sat_info['mode']})...",
+                    log_type='info',
+                    capture_phase='decoding',
+                ))
+
+                return True
+
+            except Exception as e:
+                self._running = False
+                logger.error(f"Failed to start file decode: {e}")
+                self._emit_progress(CaptureProgress(
+                    status='error',
+                    satellite=satellite,
+                    message=str(e)
+                ))
+                return False
+
     def start(
         self,
         satellite: str,
@@ -364,6 +450,69 @@ class WeatherSatDecoder:
         except subprocess.TimeoutExpired:
             # Good — process is still running after 3 seconds
             pass
+
+        # Start reader thread to monitor output
+        self._reader_thread = threading.Thread(
+            target=self._read_satdump_output, daemon=True
+        )
+        self._reader_thread.start()
+
+        # Start image watcher thread
+        self._watcher_thread = threading.Thread(
+            target=self._watch_images, daemon=True
+        )
+        self._watcher_thread.start()
+
+    def _start_satdump_offline(
+        self,
+        sat_info: dict,
+        input_file: Path,
+        sample_rate: int,
+    ) -> None:
+        """Start SatDump offline decode from a recorded file."""
+        # Create timestamped output directory for this decode
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        sat_name = sat_info['tle_key'].replace(' ', '_')
+        self._capture_output_dir = self._output_dir / f"{sat_name}_{timestamp}"
+        self._capture_output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Determine input level from file extension.
+        # WAV audio files (FM-demodulated) use 'audio_wav' level.
+        # Raw IQ baseband files use 'baseband' level.
+        suffix = input_file.suffix.lower()
+        if suffix in ('.wav', '.wave'):
+            input_level = 'audio_wav'
+        else:
+            input_level = 'baseband'
+
+        cmd = [
+            'satdump',
+            sat_info['pipeline'],
+            input_level,
+            str(input_file),
+            str(self._capture_output_dir),
+            '--samplerate', str(sample_rate),
+        ]
+
+        logger.info(f"Starting SatDump offline: {' '.join(cmd)}")
+
+        # Use a pseudo-terminal so SatDump thinks it's writing to a real
+        # terminal — same approach as live mode for unbuffered output.
+        master_fd, slave_fd = pty.openpty()
+        self._pty_master_fd = master_fd
+
+        self._process = subprocess.Popen(
+            cmd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            stdin=subprocess.DEVNULL,
+            close_fds=True,
+        )
+        os.close(slave_fd)  # parent doesn't need the slave side
+
+        # For offline mode, don't check for early exit — file decoding
+        # may complete very quickly and exit code 0 is normal success.
+        # The reader thread will handle output and detect errors.
 
         # Start reader thread to monitor output
         self._reader_thread = threading.Thread(

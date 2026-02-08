@@ -175,6 +175,45 @@
     </div>
 
     <div class="section">
+        <h3 onclick="this.parentElement.querySelector('.wxsat-test-decode-body').classList.toggle('collapsed'); this.querySelector('.wxsat-collapse-icon').classList.toggle('collapsed')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+            Test Decode (File)
+            <span class="wxsat-collapse-icon collapsed" style="font-size: 10px; transition: transform 0.2s; display: inline-block;">&#9660;</span>
+        </h3>
+        <div class="wxsat-test-decode-body collapsed" style="overflow: hidden;">
+            <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">
+                Decode a pre-recorded IQ or WAV file without SDR hardware.
+                Run <code style="font-size: 10px;">./download-weather-sat-samples.sh</code> to fetch sample files.
+            </p>
+            <div class="form-group">
+                <label>Satellite</label>
+                <select id="wxsatTestSatSelect" class="mode-select">
+                    <option value="NOAA-15">NOAA-15 (APT)</option>
+                    <option value="NOAA-18" selected>NOAA-18 (APT)</option>
+                    <option value="NOAA-19">NOAA-19 (APT)</option>
+                    <option value="METEOR-M2-3">Meteor-M2-3 (LRPT)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>File Path (server-side)</label>
+                <input type="text" id="wxsatTestFilePath" value="data/weather_sat/samples/noaa_apt_argentina.wav" style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+            </div>
+            <div class="form-group">
+                <label>Sample Rate</label>
+                <select id="wxsatTestSampleRate" class="mode-select">
+                    <option value="11025">11025 Hz (WAV audio APT)</option>
+                    <option value="48000">48000 Hz (WAV audio APT)</option>
+                    <option value="500000">500 kHz (IQ LRPT)</option>
+                    <option value="1000000" selected>1 MHz (IQ default)</option>
+                    <option value="2000000">2 MHz (IQ wideband)</option>
+                </select>
+            </div>
+            <button class="mode-btn" onclick="WeatherSat.testDecode()" style="width: 100%; margin-top: 4px;">
+                Test Decode
+            </button>
+        </div>
+    </div>
+
+    <div class="section">
         <h3>Auto-Scheduler</h3>
         <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">
             Automatically capture satellite passes based on predictions.

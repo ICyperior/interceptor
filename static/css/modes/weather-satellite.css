@@ -1058,3 +1058,26 @@
     border-left-color: transparent;
     color: var(--text-dim, #555);
 }
+
+/* Test Decode collapsible section */
+.wxsat-test-decode-body {
+    transition: max-height 0.3s ease, opacity 0.2s ease, margin 0.3s ease;
+    max-height: 400px;
+    opacity: 1;
+    margin-top: 8px;
+}
+
+.wxsat-test-decode-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    overflow: hidden;
+}
+
+.wxsat-collapse-icon {
+    transition: transform 0.2s ease;
+}
+
+.wxsat-collapse-icon.collapsed {
+    transform: rotate(-90deg);
+}
