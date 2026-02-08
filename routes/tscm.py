@@ -551,6 +551,12 @@ def _start_sweep_internal(
     }
 
 
+@tscm_bp.route('/status')
+def tscm_status():
+    """Check if any TSCM operation is currently running."""
+    return jsonify({'running': _sweep_running})
+
+
 @tscm_bp.route('/sweep/start', methods=['POST'])
 def start_sweep():
     """Start a TSCM sweep."""

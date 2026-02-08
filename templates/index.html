@@ -64,6 +64,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/weather-satellite.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv-general.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
 </head>
 
@@ -172,6 +173,10 @@
                             <a href="/ais/dashboard" class="mode-card mode-card-sm" style="text-decoration: none;">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l2 2h14l2-2"/><path d="M5 18v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M12 12V6"/></svg></span>
                                 <span class="mode-name">Vessels</span>
+                            </a>
+                            <a href="/gsm_spy/dashboard" class="mode-card mode-card-sm" style="text-decoration: none;">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/><path d="M8 6h8M8 10h8M8 14h8"/></svg></span>
+                                <span class="mode-name">GSM SPY</span>
                             </a>
                             <button class="mode-card mode-card-sm" onclick="selectMode('aprs')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
@@ -512,34 +517,6 @@
                     </div>
                 </div>
 
-                <!-- Shared Waterfall Controls -->
-                <div class="section" id="waterfallControlsSection" style="display: none;">
-                    <h3>Waterfall</h3>
-                    <div class="form-group" style="margin-bottom: 6px;">
-                        <label style="font-size: 10px;">Start (MHz)</label>
-                        <input type="number" id="waterfallStartFreq" value="88" step="0.1" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 6px;">
-                        <label style="font-size: 10px;">End (MHz)</label>
-                        <input type="number" id="waterfallEndFreq" value="108" step="0.1" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 6px;">
-                        <label style="font-size: 10px;">Bin Size</label>
-                        <select id="waterfallBinSize" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
-                            <option value="5000">5 kHz</option>
-                            <option value="10000" selected>10 kHz</option>
-                            <option value="25000">25 kHz</option>
-                            <option value="100000">100 kHz</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-bottom: 8px;">
-                        <label style="font-size: 10px;">Gain</label>
-                        <input type="number" id="waterfallGain" value="40" min="0" max="50" style="width: 100%; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; font-size: 11px;">
-                    </div>
-                    <button class="run-btn" id="startWaterfallBtn" onclick="startWaterfall()" style="width: 100%; padding: 8px;">Start Waterfall</button>
-                    <button class="stop-btn" id="stopWaterfallBtn" onclick="stopWaterfall()" style="display: none; width: 100%; padding: 8px; margin-top: 4px;">Stop Waterfall</button>
-                </div>
-
                 {% include 'partials/modes/pager.html' %}
 
                 {% include 'partials/modes/sensor.html' %}
@@ -606,16 +583,6 @@
                             <div title="Upcoming Passes"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> <span id="passCount">0</span></div>
                         </div>
                         </div>
-                    </div>
-
-                    <!-- WATERFALL / SPECTROGRAM PANEL -->
-                    <div id="waterfallPanel" class="radio-module-box" style="padding: 10px; display: none; margin-bottom: 12px;">
-                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
-                            <span>WATERFALL / SPECTROGRAM</span>
-                            <span id="waterfallFreqRange" style="font-size: 9px; color: var(--accent-cyan);"></span>
-                        </div>
-                        <canvas id="spectrumCanvas" width="800" height="120" style="width: 100%; height: 120px; border-radius: 4px; background: rgba(0,0,0,0.8);"></canvas>
-                        <canvas id="waterfallCanvas" width="800" height="400" style="width: 100%; height: 400px; border-radius: 4px; margin-top: 4px; background: rgba(0,0,0,0.9);"></canvas>
                     </div>
 
                     <!-- WiFi Layout Container -->
@@ -1072,6 +1039,68 @@
 
                 <!-- Listening Post Visualizations - Professional Ham Radio Scanner -->
                 <div class="wifi-visuals" id="listeningPostVisuals" style="display: none;">
+
+                    <!-- WATERFALL FUNCTION BAR -->
+                    <div class="function-strip listening-strip" style="grid-column: span 4;">
+                        <div class="function-strip-inner">
+                            <span class="strip-title">WATERFALL</span>
+                            <div class="strip-divider"></div>
+                            <!-- Span display -->
+                            <div class="strip-stat">
+                                <span class="strip-value" id="waterfallZoomSpan">20.0 MHz</span>
+                                <span class="strip-label">SPAN</span>
+                            </div>
+                            <div class="strip-divider"></div>
+                            <!-- Frequency inputs -->
+                            <div class="strip-control">
+                                <span class="strip-input-label">START</span>
+                                <input type="number" id="waterfallStartFreq" class="strip-input wide" value="88" step="0.1">
+                            </div>
+                            <div class="strip-control">
+                                <span class="strip-input-label">END</span>
+                                <input type="number" id="waterfallEndFreq" class="strip-input wide" value="108" step="0.1">
+                            </div>
+                            <div class="strip-divider"></div>
+                            <!-- Zoom buttons -->
+                            <button type="button" class="strip-btn" onclick="zoomWaterfall('out')">−</button>
+                            <button type="button" class="strip-btn" onclick="zoomWaterfall('in')">+</button>
+                            <div class="strip-divider"></div>
+                            <!-- FFT Size -->
+                            <div class="strip-control">
+                                <span class="strip-input-label">FFT</span>
+                                <select id="waterfallFftSize" class="strip-select">
+                                    <option value="512">512</option>
+                                    <option value="1024" selected>1024</option>
+                                    <option value="2048">2048</option>
+                                    <option value="4096">4096</option>
+                                </select>
+                            </div>
+                            <!-- Gain -->
+                            <div class="strip-control">
+                                <span class="strip-input-label">GAIN</span>
+                                <input type="number" id="waterfallGain" class="strip-input" value="40" min="0" max="50">
+                            </div>
+                            <div class="strip-divider"></div>
+                            <!-- Start / Stop -->
+                            <button type="button" class="strip-btn primary" id="startWaterfallBtn" onclick="startWaterfall()">▶ START</button>
+                            <button type="button" class="strip-btn stop" id="stopWaterfallBtn" onclick="stopWaterfall()" style="display: none;">◼ STOP</button>
+                            <!-- Status -->
+                            <div class="strip-status">
+                                <div class="status-dot inactive" id="waterfallStripDot"></div>
+                                <span id="waterfallFreqRange">STANDBY</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WATERFALL / SPECTROGRAM PANEL -->
+                    <div id="waterfallPanel" class="radio-module-box" style="grid-column: span 4; padding: 10px; display: none;">
+                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
+                            <span>WATERFALL / SPECTROGRAM</span>
+                            <span id="waterfallFreqRangeHeader" style="font-size: 9px; color: var(--accent-cyan);"></span>
+                        </div>
+                        <canvas id="spectrumCanvas" width="800" height="120" style="width: 100%; height: 120px; border-radius: 4px; background: rgba(0,0,0,0.8);"></canvas>
+                        <canvas id="waterfallCanvas" width="800" height="400" style="width: 100%; height: 400px; border-radius: 4px; margin-top: 4px; background: rgba(0,0,0,0.9);"></canvas>
+                    </div>
 
                     <!-- TOP: FREQUENCY DISPLAY PANEL -->
                     <div class="radio-module-box scanner-main" style="grid-column: span 4; padding: 12px;">
@@ -2040,6 +2069,22 @@
                         </div>
                     </div>
 
+                    <!-- Signal Scope -->
+                    <div id="sstvScopePanel" style="display: none; margin-bottom: 12px;">
+                        <div style="background: #0a0a0a; border: 1px solid #1e1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                                <span>Signal Scope</span>
+                                <div style="display: flex; gap: 14px;">
+                                    <span>RMS: <span id="sstvScopeRmsLabel" style="color: #c080ff; font-variant-numeric: tabular-nums;">0</span></span>
+                                    <span>PEAK: <span id="sstvScopePeakLabel" style="color: #f44; font-variant-numeric: tabular-nums;">0</span></span>
+                                    <span id="sstvScopeToneLabel" style="color: #444;">QUIET</span>
+                                    <span id="sstvScopeStatusLabel" style="color: #444;">IDLE</span>
+                                </div>
+                            </div>
+                            <canvas id="sstvScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                        </div>
+                    </div>
+
                     <!-- Main Row (Live + Gallery) -->
                     <div class="sstv-main-row">
                         <!-- Live Decode Section -->
@@ -2291,6 +2336,22 @@
                         </div>
                     </div>
 
+                    <!-- Signal Scope -->
+                    <div id="sstvGeneralScopePanel" style="display: none; margin-bottom: 12px;">
+                        <div style="background: #0a0a0a; border: 1px solid #1e1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                                <span>Signal Scope</span>
+                                <div style="display: flex; gap: 14px;">
+                                    <span>RMS: <span id="sstvGeneralScopeRmsLabel" style="color: #c080ff; font-variant-numeric: tabular-nums;">0</span></span>
+                                    <span>PEAK: <span id="sstvGeneralScopePeakLabel" style="color: #f44; font-variant-numeric: tabular-nums;">0</span></span>
+                                    <span id="sstvGeneralScopeToneLabel" style="color: #444;">QUIET</span>
+                                    <span id="sstvGeneralScopeStatusLabel" style="color: #444;">IDLE</span>
+                                </div>
+                            </div>
+                            <canvas id="sstvGeneralScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                        </div>
+                    </div>
+
                     <!-- Main Row (Live + Gallery) -->
                     <div class="sstv-general-main-row">
                         <!-- Live Decode Section -->
@@ -2367,8 +2428,39 @@
                 <!-- Filter Bar Container (populated by JavaScript based on active mode) -->
                 <div id="filterBarContainer" style="display: none;"></div>
 
+                <!-- Pager Signal Scope -->
+                <div id="pagerScopePanel" style="display: none; margin-bottom: 12px;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                            <span>Signal Scope</span>
+                            <div style="display: flex; gap: 14px;">
+                                <span>RMS: <span id="scopeRmsLabel" style="color: #0ff; font-variant-numeric: tabular-nums;">0</span></span>
+                                <span>PEAK: <span id="scopePeakLabel" style="color: #f44; font-variant-numeric: tabular-nums;">0</span></span>
+                                <span id="scopeStatusLabel" style="color: #444;">IDLE</span>
+                            </div>
+                        </div>
+                        <canvas id="pagerScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                    </div>
+                </div>
+
                 <!-- Mode-specific Timeline Containers -->
                 <div id="pagerTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
+
+                <!-- Sensor Signal Scope -->
+                <div id="sensorScopePanel" style="display: none; margin-bottom: 12px;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                            <span>Signal Scope</span>
+                            <div style="display: flex; gap: 14px;">
+                                <span>RSSI: <span id="sensorScopeRssiLabel" style="color: #0f0; font-variant-numeric: tabular-nums;">--</span><span style="color: #444;"> dB</span></span>
+                                <span>SNR: <span id="sensorScopeSnrLabel" style="color: #fa0; font-variant-numeric: tabular-nums;">--</span><span style="color: #444;"> dB</span></span>
+                                <span id="sensorScopeStatusLabel" style="color: #444;">IDLE</span>
+                            </div>
+                        </div>
+                        <canvas id="sensorScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                    </div>
+                </div>
+
                 <div id="sensorTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
 
                 <div class="output-content signal-feed" id="output">
@@ -3232,15 +3324,11 @@
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
             if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'dmr') ? 'block' : 'none';
 
-            // Show shared waterfall controls for supported modes
-            const waterfallControlsSection = document.getElementById('waterfallControlsSection');
+            // Show waterfall panel if running in listening mode
             const waterfallPanel = document.getElementById('waterfallPanel');
-            const waterfallModes = ['pager', 'sensor', 'rtlamr', 'dmr', 'sstv', 'sstv_general', 'listening'];
-            const waterfallSupported = waterfallModes.includes(mode);
-            if (waterfallControlsSection) waterfallControlsSection.style.display = waterfallSupported ? 'block' : 'none';
             if (waterfallPanel) {
                 const running = (typeof isWaterfallRunning !== 'undefined' && isWaterfallRunning);
-                waterfallPanel.style.display = (waterfallSupported && running) ? 'block' : 'none';
+                waterfallPanel.style.display = (mode === 'listening' && running) ? 'block' : 'none';
             }
 
             // Toggle mode-specific tool status displays
@@ -3346,6 +3434,160 @@
                 fetch('/stop_sensor', { method: 'POST' })
                     .then(() => setTimeout(() => startSensorDecoding(), 500));
             }
+        }
+
+        // --- Sensor Signal Scope ---
+        let sensorScopeCtx = null;
+        let sensorScopeAnim = null;
+        let sensorScopeHistory = [];
+        const SENSOR_SCOPE_LEN = 200;
+        let sensorScopeRssi = 0;
+        let sensorScopeSnr = 0;
+        let sensorScopeTargetRssi = 0;
+        let sensorScopeTargetSnr = 0;
+        let sensorScopeMsgBurst = 0;
+        let sensorScopeLastPulse = 0;
+
+        function initSensorScope() {
+            const canvas = document.getElementById('sensorScopeCanvas');
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * (window.devicePixelRatio || 1);
+            canvas.height = rect.height * (window.devicePixelRatio || 1);
+            sensorScopeCtx = canvas.getContext('2d');
+            sensorScopeHistory = new Array(SENSOR_SCOPE_LEN).fill(0);
+            sensorScopeRssi = 0;
+            sensorScopeSnr = 0;
+            sensorScopeTargetRssi = 0;
+            sensorScopeTargetSnr = 0;
+            sensorScopeMsgBurst = 0;
+            sensorScopeLastPulse = 0;
+            drawSensorScope();
+        }
+
+        function drawSensorScope() {
+            const ctx = sensorScopeCtx;
+            if (!ctx) return;
+            const W = ctx.canvas.width;
+            const H = ctx.canvas.height;
+            const midY = H / 2;
+
+            // Phosphor persistence
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.3)';
+            ctx.fillRect(0, 0, W, H);
+
+            // Smooth towards targets (decay when no new packets)
+            sensorScopeRssi += (sensorScopeTargetRssi - sensorScopeRssi) * 0.25;
+            sensorScopeSnr += (sensorScopeTargetSnr - sensorScopeSnr) * 0.15;
+
+            // Decay targets back to zero between packets
+            sensorScopeTargetRssi *= 0.97;
+            sensorScopeTargetSnr *= 0.97;
+
+            // RSSI is typically negative dBm (e.g. -0.1 to -30+)
+            // Normalize: map absolute RSSI to 0-1 range (0 dB = max, -40 dB = min)
+            const rssiNorm = Math.min(Math.max(Math.abs(sensorScopeRssi) / 40, 0), 1.0);
+            sensorScopeHistory.push(rssiNorm);
+            if (sensorScopeHistory.length > SENSOR_SCOPE_LEN) {
+                sensorScopeHistory.shift();
+            }
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(40, 80, 40, 0.4)';
+            ctx.lineWidth = 1;
+            for (let g = 0.25; g < 1; g += 0.25) {
+                const gy = midY - g * midY;
+                const gy2 = midY + g * midY;
+                ctx.beginPath();
+                ctx.moveTo(0, gy); ctx.lineTo(W, gy);
+                ctx.moveTo(0, gy2); ctx.lineTo(W, gy2);
+                ctx.stroke();
+            }
+
+            // Center baseline
+            ctx.strokeStyle = 'rgba(60, 100, 60, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(0, midY);
+            ctx.lineTo(W, midY);
+            ctx.stroke();
+
+            // Waveform (mirrored, green theme for 433)
+            const stepX = W / SENSOR_SCOPE_LEN;
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#0f0';
+            ctx.shadowBlur = 4;
+
+            // Upper half
+            ctx.beginPath();
+            for (let i = 0; i < sensorScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = sensorScopeHistory[i] * midY * 0.9;
+                const y = midY - amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Lower half (mirror)
+            ctx.beginPath();
+            for (let i = 0; i < sensorScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = sensorScopeHistory[i] * midY * 0.9;
+                const y = midY + amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+
+            // SNR indicator (amber dashed line)
+            const snrNorm = Math.min(Math.max(Math.abs(sensorScopeSnr) / 40, 0), 1.0);
+            if (snrNorm > 0.01) {
+                const snrY = midY - snrNorm * midY * 0.9;
+                ctx.strokeStyle = 'rgba(255, 170, 0, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, snrY);
+                ctx.lineTo(W, snrY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Sensor decode flash (green overlay)
+            if (sensorScopeMsgBurst > 0.01) {
+                ctx.fillStyle = `rgba(0, 255, 100, ${sensorScopeMsgBurst * 0.15})`;
+                ctx.fillRect(0, 0, W, H);
+                sensorScopeMsgBurst *= 0.88;
+            }
+
+            // Update labels
+            const rssiLabel = document.getElementById('sensorScopeRssiLabel');
+            const snrLabel = document.getElementById('sensorScopeSnrLabel');
+            const statusLabel = document.getElementById('sensorScopeStatusLabel');
+            if (rssiLabel) rssiLabel.textContent = sensorScopeRssi < -0.5 ? sensorScopeRssi.toFixed(1) : '--';
+            if (snrLabel) snrLabel.textContent = sensorScopeSnr > 0.5 ? sensorScopeSnr.toFixed(1) : '--';
+            if (statusLabel) {
+                if (Math.abs(sensorScopeRssi) > 1) {
+                    statusLabel.textContent = 'SIGNAL';
+                    statusLabel.style.color = '#0f0';
+                } else {
+                    statusLabel.textContent = 'MONITORING';
+                    statusLabel.style.color = '#555';
+                }
+            }
+
+            sensorScopeAnim = requestAnimationFrame(drawSensorScope);
+        }
+
+        function stopSensorScope() {
+            if (sensorScopeAnim) {
+                cancelAnimationFrame(sensorScopeAnim);
+                sensorScopeAnim = null;
+            }
+            sensorScopeCtx = null;
         }
 
         // Start sensor decoding
@@ -3537,6 +3779,18 @@
             document.getElementById('statusText').textContent = running ? 'Listening...' : 'Idle';
             document.getElementById('startSensorBtn').style.display = running ? 'none' : 'block';
             document.getElementById('stopSensorBtn').style.display = running ? 'block' : 'none';
+
+            // Signal scope
+            const scopePanel = document.getElementById('sensorScopePanel');
+            if (scopePanel) {
+                if (running) {
+                    scopePanel.style.display = 'block';
+                    initSensorScope();
+                } else {
+                    stopSensorScope();
+                    scopePanel.style.display = 'none';
+                }
+            }
         }
 
         function startSensorStream() {
@@ -3554,6 +3808,9 @@
                 const data = JSON.parse(e.data);
                 if (data.type === 'sensor') {
                     addSensorReading(data);
+                } else if (data.type === 'scope') {
+                    sensorScopeTargetRssi = data.rssi;
+                    sensorScopeTargetSnr = data.snr;
                 } else if (data.type === 'status') {
                     if (data.text === 'stopped') {
                         setSensorRunning(false);
@@ -3577,6 +3834,9 @@
             allMessages.push(data);
             playAlert();
             pulseSignal();
+
+            // Flash sensor scope green on decode
+            sensorScopeMsgBurst = 1.0;
 
             sensorCount++;
             document.getElementById('sensorCount').textContent = sensorCount;
@@ -4443,6 +4703,153 @@
         // Pager mode polling timer for agent mode
         let pagerPollTimer = null;
 
+        // --- Pager Signal Scope ---
+        let pagerScopeCtx = null;
+        let pagerScopeAnim = null;
+        let pagerScopeHistory = [];
+        const SCOPE_HISTORY_LEN = 200;
+        let pagerScopeRms = 0;
+        let pagerScopePeak = 0;
+        let pagerScopeTargetRms = 0;
+        let pagerScopeTargetPeak = 0;
+        let pagerScopeMsgBurst = 0;
+
+        function initPagerScope() {
+            const canvas = document.getElementById('pagerScopeCanvas');
+            if (!canvas) return;
+            // Set actual pixel resolution
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * (window.devicePixelRatio || 1);
+            canvas.height = rect.height * (window.devicePixelRatio || 1);
+            pagerScopeCtx = canvas.getContext('2d');
+            pagerScopeHistory = new Array(SCOPE_HISTORY_LEN).fill(0);
+            pagerScopeRms = 0;
+            pagerScopePeak = 0;
+            pagerScopeTargetRms = 0;
+            pagerScopeTargetPeak = 0;
+            pagerScopeMsgBurst = 0;
+            drawPagerScope();
+        }
+
+        function drawPagerScope() {
+            const ctx = pagerScopeCtx;
+            if (!ctx) return;
+            const W = ctx.canvas.width;
+            const H = ctx.canvas.height;
+            const midY = H / 2;
+
+            // Phosphor persistence: semi-transparent clear
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.3)';
+            ctx.fillRect(0, 0, W, H);
+
+            // Smooth towards target values
+            pagerScopeRms += (pagerScopeTargetRms - pagerScopeRms) * 0.25;
+            pagerScopePeak += (pagerScopeTargetPeak - pagerScopePeak) * 0.15;
+
+            // Push current RMS into history (normalized 0-1 against 32768)
+            pagerScopeHistory.push(Math.min(pagerScopeRms / 32768, 1.0));
+            if (pagerScopeHistory.length > SCOPE_HISTORY_LEN) {
+                pagerScopeHistory.shift();
+            }
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(40, 40, 80, 0.4)';
+            ctx.lineWidth = 1;
+            for (let g = 0.25; g < 1; g += 0.25) {
+                const gy = midY - g * midY;
+                const gy2 = midY + g * midY;
+                ctx.beginPath();
+                ctx.moveTo(0, gy); ctx.lineTo(W, gy);
+                ctx.moveTo(0, gy2); ctx.lineTo(W, gy2);
+                ctx.stroke();
+            }
+
+            // Center baseline
+            ctx.strokeStyle = 'rgba(60, 60, 100, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(0, midY);
+            ctx.lineTo(W, midY);
+            ctx.stroke();
+
+            // Waveform (mirrored)
+            const stepX = W / SCOPE_HISTORY_LEN;
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#0ff';
+            ctx.shadowBlur = 4;
+
+            // Upper half
+            ctx.beginPath();
+            for (let i = 0; i < pagerScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = pagerScopeHistory[i] * midY * 0.9;
+                const y = midY - amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Lower half (mirror)
+            ctx.beginPath();
+            for (let i = 0; i < pagerScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = pagerScopeHistory[i] * midY * 0.9;
+                const y = midY + amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+
+            // Peak indicator (dashed red line)
+            const peakNorm = Math.min(pagerScopePeak / 32768, 1.0);
+            if (peakNorm > 0.01) {
+                const peakY = midY - peakNorm * midY * 0.9;
+                ctx.strokeStyle = 'rgba(255, 68, 68, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, peakY);
+                ctx.lineTo(W, peakY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Message decode flash (green overlay)
+            if (pagerScopeMsgBurst > 0.01) {
+                ctx.fillStyle = `rgba(0, 255, 100, ${pagerScopeMsgBurst * 0.15})`;
+                ctx.fillRect(0, 0, W, H);
+                pagerScopeMsgBurst *= 0.88;
+            }
+
+            // Update labels
+            const rmsLabel = document.getElementById('scopeRmsLabel');
+            const peakLabel = document.getElementById('scopePeakLabel');
+            const statusLabel = document.getElementById('scopeStatusLabel');
+            if (rmsLabel) rmsLabel.textContent = Math.round(pagerScopeRms);
+            if (peakLabel) peakLabel.textContent = Math.round(pagerScopePeak);
+            if (statusLabel) {
+                if (pagerScopeRms > 500) {
+                    statusLabel.textContent = 'SIGNAL';
+                    statusLabel.style.color = '#0f0';
+                } else {
+                    statusLabel.textContent = 'MONITORING';
+                    statusLabel.style.color = '#555';
+                }
+            }
+
+            pagerScopeAnim = requestAnimationFrame(drawPagerScope);
+        }
+
+        function stopPagerScope() {
+            if (pagerScopeAnim) {
+                cancelAnimationFrame(pagerScopeAnim);
+                pagerScopeAnim = null;
+            }
+            pagerScopeCtx = null;
+        }
+
         function startDecoding() {
             const freq = document.getElementById('frequency').value;
             const gain = document.getElementById('gain').value;
@@ -4571,7 +4978,7 @@
                         eventSource.close();
                         eventSource = null;
                     }
-                    showInfo('Killed all processes: ' + (data.processes.length ? data.processes.join(', ') : 'none running'));
+                    showInfo('All processes stopped' + (data.processes.length ? ` (${data.processes.length} killed)` : ' (none were running)'));
                 });
         }
 
@@ -4622,6 +5029,18 @@
             document.getElementById('statusText').textContent = running ? 'Decoding...' : 'Idle';
             document.getElementById('startBtn').style.display = running ? 'none' : 'block';
             document.getElementById('stopBtn').style.display = running ? 'block' : 'none';
+
+            // Signal scope
+            const scopePanel = document.getElementById('pagerScopePanel');
+            if (scopePanel) {
+                if (running) {
+                    scopePanel.style.display = 'block';
+                    initPagerScope();
+                } else {
+                    stopPagerScope();
+                    scopePanel.style.display = 'none';
+                }
+            }
         }
 
         function startStream(isAgentMode = false) {
@@ -4657,6 +5076,9 @@
                             }
                         } else if (payload.type === 'info') {
                             showInfo(`[${data.agent_name}] ${payload.text}`);
+                        } else if (payload.type === 'scope') {
+                            pagerScopeTargetRms = payload.rms;
+                            pagerScopeTargetPeak = payload.peak;
                         }
                     } else if (data.type === 'keepalive') {
                         // Ignore keepalive messages
@@ -4675,6 +5097,9 @@
                         showInfo(data.text);
                     } else if (data.type === 'raw') {
                         showInfo(data.text);
+                    } else if (data.type === 'scope') {
+                        pagerScopeTargetRms = data.rms;
+                        pagerScopeTargetPeak = data.peak;
                     }
                 }
             };
@@ -4781,6 +5206,9 @@
 
             // Update signal meter
             pulseSignal();
+
+            // Flash signal scope green on decode
+            pagerScopeMsgBurst = 1.0;
 
             // Use SignalCards component to create the message card (auto-detects status)
             const msgEl = SignalCards.createPagerCard(msg);

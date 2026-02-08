@@ -443,6 +443,38 @@ TOOL_DEPENDENCIES = {
                 }
             }
         }
+    },
+    'gsm': {
+        'name': 'GSM Intelligence',
+        'tools': {
+            'grgsm_scanner': {
+                'required': True,
+                'description': 'gr-gsm scanner for finding GSM towers',
+                'install': {
+                    'apt': 'Build gr-gsm from source: https://github.com/bkerler/gr-gsm',
+                    'brew': 'brew install gr-gsm (may require manual build)',
+                    'manual': 'https://github.com/bkerler/gr-gsm'
+                }
+            },
+            'grgsm_livemon': {
+                'required': True,
+                'description': 'gr-gsm live monitor for decoding GSM signals',
+                'install': {
+                    'apt': 'Included with gr-gsm package',
+                    'brew': 'Included with gr-gsm',
+                    'manual': 'Included with gr-gsm'
+                }
+            },
+            'tshark': {
+                'required': True,
+                'description': 'Wireshark CLI for parsing GSM packets',
+                'install': {
+                    'apt': 'sudo apt-get install tshark',
+                    'brew': 'brew install wireshark',
+                    'manual': 'https://www.wireshark.org/download.html'
+                }
+            }
+        }
     }
 }
 

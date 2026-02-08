@@ -32,6 +32,7 @@ def register_blueprints(app):
     from .websdr import websdr_bp
     from .alerts import alerts_bp
     from .recordings import recordings_bp
+    from .gsm_spy import gsm_spy_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -63,6 +64,7 @@ def register_blueprints(app):
     app.register_blueprint(websdr_bp)  # HF/Shortwave WebSDR
     app.register_blueprint(alerts_bp)  # Cross-mode alerts
     app.register_blueprint(recordings_bp)  # Session recordings
+    app.register_blueprint(gsm_spy_bp)  # GSM cellular intelligence
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module
