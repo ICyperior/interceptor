@@ -869,6 +869,14 @@ def main() -> None:
     except ImportError as e:
         print(f"KiwiSDR audio proxy disabled: {e}")
 
+    # Initialize WebSocket for waterfall streaming
+    try:
+        from routes.waterfall_websocket import init_waterfall_websocket
+        init_waterfall_websocket(app)
+        print("WebSocket waterfall streaming enabled")
+    except ImportError as e:
+        print(f"WebSocket waterfall disabled: {e}")
+
     print(f"Open http://localhost:{args.port} in your browser")
     print()
     print("Press Ctrl+C to stop")

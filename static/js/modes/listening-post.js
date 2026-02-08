@@ -3095,6 +3095,10 @@ const WATERFALL_ZOOM_MIN_MHZ = 0.1;
 const WATERFALL_ZOOM_MAX_MHZ = 500;
 const WATERFALL_DEFAULT_SPAN_MHZ = 2.0;
 
+// WebSocket waterfall state
+let waterfallWebSocket = null;
+let waterfallUseWebSocket = false;
+
 function resizeCanvasToDisplaySize(canvas) {
     if (!canvas) return false;
     const dpr = window.devicePixelRatio || 1;
@@ -3525,11 +3529,199 @@ function drawSpectrumLine(bins, startFreq, endFreq, labelUnit) {
     spectrumCtx.fill();
 }
 
+function connectWaterfallWebSocket(config) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/waterfall`;
+
+    return new Promise((resolve, reject) => {
+        try {
+            const ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+
+            const timeout = setTimeout(() => {
+                ws.close();
+                reject(new Error('WebSocket connection timeout'));
+            }, 5000);
+
+            ws.onopen = () => {
+                clearTimeout(timeout);
+                ws.send(JSON.stringify({ cmd: 'start', ...config }));
+            };
+
+            ws.onmessage = (event) => {
+                if (typeof event.data === 'string') {
+                    const msg = JSON.parse(event.data);
+                    if (msg.status === 'started') {
+                        waterfallWebSocket = ws;
+                        waterfallUseWebSocket = true;
+                        if (typeof msg.start_freq === 'number') waterfallStartFreq = msg.start_freq;
+                        if (typeof msg.end_freq === 'number') waterfallEndFreq = msg.end_freq;
+                        const rangeLabel = document.getElementById('waterfallFreqRange');
+                        if (rangeLabel) {
+                            rangeLabel.textContent = `${waterfallStartFreq.toFixed(1)} - ${waterfallEndFreq.toFixed(1)} MHz`;
+                        }
+                        updateWaterfallZoomLabel(waterfallStartFreq, waterfallEndFreq);
+                        resolve(ws);
+                    } else if (msg.status === 'error') {
+                        ws.close();
+                        reject(new Error(msg.message || 'WebSocket waterfall error'));
+                    } else if (msg.status === 'stopped') {
+                        // Server confirmed stop
+                    }
+                } else if (event.data instanceof ArrayBuffer) {
+                    const now = Date.now();
+                    if (now - lastWaterfallDraw < WATERFALL_MIN_INTERVAL_MS) return;
+                    lastWaterfallDraw = now;
+                    parseBinaryWaterfallFrame(event.data);
+                }
+            };
+
+            ws.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('WebSocket connection failed'));
+            };
+
+            ws.onclose = () => {
+                if (waterfallUseWebSocket && isWaterfallRunning) {
+                    waterfallWebSocket = null;
+                    waterfallUseWebSocket = false;
+                    isWaterfallRunning = false;
+                    setWaterfallControlButtons(false);
+                    if (typeof releaseDevice === 'function') {
+                        releaseDevice('waterfall');
+                    }
+                }
+            };
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+function parseBinaryWaterfallFrame(buffer) {
+    if (buffer.byteLength < 11) return;
+    const view = new DataView(buffer);
+    const msgType = view.getUint8(0);
+    if (msgType !== 0x01) return;
+
+    const startFreq = view.getFloat32(1, true);
+    const endFreq = view.getFloat32(5, true);
+    const binCount = view.getUint16(9, true);
+
+    if (buffer.byteLength < 11 + binCount) return;
+
+    const bins = new Uint8Array(buffer, 11, binCount);
+
+    waterfallStartFreq = startFreq;
+    waterfallEndFreq = endFreq;
+    const rangeLabel = document.getElementById('waterfallFreqRange');
+    if (rangeLabel) {
+        rangeLabel.textContent = `${startFreq.toFixed(1)} - ${endFreq.toFixed(1)} MHz`;
+    }
+    updateWaterfallZoomLabel(startFreq, endFreq);
+
+    drawWaterfallRowBinary(bins);
+    drawSpectrumLineBinary(bins, startFreq, endFreq);
+}
+
+function drawWaterfallRowBinary(bins) {
+    if (!waterfallCtx || !waterfallCanvas) return;
+    const w = waterfallCanvas.width;
+    const h = waterfallCanvas.height;
+    const rowHeight = waterfallRowImage ? waterfallRowImage.height : 1;
+
+    // Scroll existing content down
+    waterfallCtx.drawImage(waterfallCanvas, 0, 0, w, h - rowHeight, 0, rowHeight, w, h - rowHeight);
+
+    if (!waterfallRowImage || waterfallRowImage.width !== w || waterfallRowImage.height !== rowHeight) {
+        waterfallRowImage = waterfallCtx.createImageData(w, rowHeight);
+    }
+    const rowData = waterfallRowImage.data;
+    const palette = waterfallPalette || buildWaterfallPalette();
+    const binCount = bins.length;
+
+    for (let x = 0; x < w; x++) {
+        const pos = (x / (w - 1)) * (binCount - 1);
+        const i0 = Math.floor(pos);
+        const i1 = Math.min(binCount - 1, i0 + 1);
+        const t = pos - i0;
+        // Interpolate between bins (already uint8, 0-255)
+        const val = Math.round(bins[i0] * (1 - t) + bins[i1] * t);
+        const color = palette[Math.max(0, Math.min(255, val))] || [0, 0, 0];
+        for (let y = 0; y < rowHeight; y++) {
+            const offset = (y * w + x) * 4;
+            rowData[offset] = color[0];
+            rowData[offset + 1] = color[1];
+            rowData[offset + 2] = color[2];
+            rowData[offset + 3] = 255;
+        }
+    }
+    waterfallCtx.putImageData(waterfallRowImage, 0, 0);
+}
+
+function drawSpectrumLineBinary(bins, startFreq, endFreq) {
+    if (!spectrumCtx || !spectrumCanvas) return;
+    const w = spectrumCanvas.width;
+    const h = spectrumCanvas.height;
+
+    spectrumCtx.clearRect(0, 0, w, h);
+
+    // Background
+    spectrumCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    spectrumCtx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    spectrumCtx.strokeStyle = 'rgba(0, 200, 255, 0.1)';
+    spectrumCtx.lineWidth = 0.5;
+    for (let i = 0; i < 5; i++) {
+        const y = (h / 5) * i;
+        spectrumCtx.beginPath();
+        spectrumCtx.moveTo(0, y);
+        spectrumCtx.lineTo(w, y);
+        spectrumCtx.stroke();
+    }
+
+    // Frequency labels
+    const dpr = window.devicePixelRatio || 1;
+    spectrumCtx.fillStyle = 'rgba(0, 200, 255, 0.5)';
+    spectrumCtx.font = `${9 * dpr}px monospace`;
+    const freqRange = endFreq - startFreq;
+    for (let i = 0; i <= 4; i++) {
+        const freq = startFreq + (freqRange / 4) * i;
+        const x = (w / 4) * i;
+        spectrumCtx.fillText(freq.toFixed(1), x + 2, h - 2);
+    }
+
+    if (bins.length === 0) return;
+
+    // Draw spectrum line — bins are pre-quantized 0-255
+    spectrumCtx.strokeStyle = 'rgba(0, 255, 255, 0.9)';
+    spectrumCtx.lineWidth = 1.5;
+    spectrumCtx.beginPath();
+    for (let i = 0; i < bins.length; i++) {
+        const x = (i / (bins.length - 1)) * w;
+        const normalized = bins[i] / 255;
+        const y = h - 12 - normalized * (h - 16);
+        if (i === 0) spectrumCtx.moveTo(x, y);
+        else spectrumCtx.lineTo(x, y);
+    }
+    spectrumCtx.stroke();
+
+    // Fill under line
+    const lastX = w;
+    const lastY = h - 12 - (bins[bins.length - 1] / 255) * (h - 16);
+    spectrumCtx.lineTo(lastX, h);
+    spectrumCtx.lineTo(0, h);
+    spectrumCtx.closePath();
+    spectrumCtx.fillStyle = 'rgba(0, 255, 255, 0.08)';
+    spectrumCtx.fill();
+}
+
 async function startWaterfall(options = {}) {
     const { silent = false, resume = false } = options;
     const startFreq = parseFloat(document.getElementById('waterfallStartFreq')?.value || 88);
     const endFreq = parseFloat(document.getElementById('waterfallEndFreq')?.value || 108);
-    const binSize = parseInt(document.getElementById('waterfallBinSize')?.value || 10000);
+    const fftSize = parseInt(document.getElementById('waterfallFftSize')?.value || document.getElementById('waterfallBinSize')?.value || 1024);
     const gain = parseInt(document.getElementById('waterfallGain')?.value || 40);
     const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
     initWaterfallCanvas();
@@ -3565,10 +3757,51 @@ async function startWaterfall(options = {}) {
     }
 
     setWaterfallMode('rf');
-    const spanMhz = Math.max(0.1, waterfallEndFreq - waterfallStartFreq);
+
+    // Try WebSocket path first (I/Q + server-side FFT)
+    const centerFreq = (startFreq + endFreq) / 2;
+    const spanMhz = Math.max(0.1, endFreq - startFreq);
+
+    try {
+        const wsConfig = {
+            center_freq: centerFreq,
+            span_mhz: spanMhz,
+            gain: gain,
+            device: device,
+            sdr_type: (typeof getSelectedSdrType === 'function') ? getSelectedSdrType() : 'rtlsdr',
+            fft_size: fftSize,
+            fps: 25,
+            avg_count: 4,
+        };
+        await connectWaterfallWebSocket(wsConfig);
+
+        isWaterfallRunning = true;
+        setWaterfallControlButtons(true);
+        const waterfallPanel = document.getElementById('waterfallPanel');
+        if (waterfallPanel) waterfallPanel.style.display = 'block';
+        lastWaterfallDraw = 0;
+        initWaterfallCanvas();
+        if (typeof reserveDevice === 'function') {
+            reserveDevice(parseInt(device), 'waterfall');
+        }
+        if (resume || resumeRfWaterfallAfterListening) {
+            resumeRfWaterfallAfterListening = false;
+        }
+        if (waterfallResumeTimer) {
+            clearTimeout(waterfallResumeTimer);
+            waterfallResumeTimer = null;
+        }
+        console.log('[WATERFALL] WebSocket connected');
+        return { started: true };
+    } catch (wsErr) {
+        console.log('[WATERFALL] WebSocket unavailable, falling back to SSE:', wsErr.message);
+    }
+
+    // Fallback: SSE / rtl_power path
     const segments = Math.max(1, Math.ceil(spanMhz / 2.4));
     const targetSweepSeconds = 0.8;
     const interval = Math.max(0.1, Math.min(0.3, targetSweepSeconds / segments));
+    const binSize = fftSize;
 
     try {
         const response = await fetch('/listening/waterfall/start', {
@@ -3635,6 +3868,27 @@ async function stopWaterfall() {
         return;
     }
 
+    // WebSocket path
+    if (waterfallUseWebSocket && waterfallWebSocket) {
+        try {
+            if (waterfallWebSocket.readyState === WebSocket.OPEN) {
+                waterfallWebSocket.send(JSON.stringify({ cmd: 'stop' }));
+            }
+            waterfallWebSocket.close();
+        } catch (e) {
+            console.error('[WATERFALL] WebSocket stop error:', e);
+        }
+        waterfallWebSocket = null;
+        waterfallUseWebSocket = false;
+        isWaterfallRunning = false;
+        setWaterfallControlButtons(false);
+        if (typeof releaseDevice === 'function') {
+            releaseDevice('waterfall');
+        }
+        return;
+    }
+
+    // SSE fallback path
     try {
         await fetch('/listening/waterfall/stop', { method: 'POST' });
         isWaterfallRunning = false;
