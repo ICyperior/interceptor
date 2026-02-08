@@ -263,7 +263,8 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
     ]
     env = dict(os.environ,
                OSMO_FSM_DUP_CHECK_DISABLED='1',
-               PYTHONUNBUFFERED='1')
+               PYTHONUNBUFFERED='1',
+               QT_QPA_PLATFORM='offscreen')
     logger.info(f"Starting grgsm_livemon: {' '.join(grgsm_cmd)}")
     grgsm_proc = subprocess.Popen(
         grgsm_cmd,
@@ -1305,7 +1306,8 @@ def scanner_thread(cmd, device_index):
                 # abort on duplicate FSM registration (common with apt gr-gsm)
                 env = dict(os.environ,
                            OSMO_FSM_DUP_CHECK_DISABLED='1',
-                           PYTHONUNBUFFERED='1')
+                           PYTHONUNBUFFERED='1',
+                           QT_QPA_PLATFORM='offscreen')
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
