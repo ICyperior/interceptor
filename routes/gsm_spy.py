@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import queue
 import re
 import shutil
@@ -252,10 +253,12 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
         '--args', f'rtl={device_index}',
         '-f', f'{frequency_mhz}M'
     ]
+    env = dict(os.environ, OSMO_FSM_DUP_CHECK_DISABLED='1')
     grgsm_proc = subprocess.Popen(
         grgsm_cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        env=env
     )
     register_process(grgsm_proc)
     logger.info(f"Started grgsm_livemon (PID: {grgsm_proc.pid})")
@@ -1228,12 +1231,16 @@ def scanner_thread(cmd, device_index):
 
             try:
                 # Start scanner process
+                # Set OSMO_FSM_DUP_CHECK_DISABLED to prevent libosmocore
+                # abort on duplicate FSM registration (common with apt gr-gsm)
+                env = dict(os.environ, OSMO_FSM_DUP_CHECK_DISABLED='1')
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     universal_newlines=True,
-                    bufsize=1
+                    bufsize=1,
+                    env=env
                 )
                 register_process(process)
                 logger.info(f"Started grgsm_scanner (PID: {process.pid})")
