@@ -3207,6 +3207,7 @@
                 SSTVGeneral.init();
             } else if (mode === 'dmr') {
                 if (typeof checkDmrTools === 'function') checkDmrTools();
+                if (typeof checkDmrStatus === 'function') checkDmrStatus();
                 if (typeof initDmrSynthesizer === 'function') setTimeout(initDmrSynthesizer, 100);
             } else if (mode === 'websdr') {
                 if (typeof initWebSDR === 'function') initWebSDR();
