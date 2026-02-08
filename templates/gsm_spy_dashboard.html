@@ -1240,6 +1240,15 @@
                     <span>TRACKED TOWERS</span>
                     <div class="panel-indicator"></div>
                 </div>
+                <div id="scanProgress" style="display:none; padding: 8px 12px; border-bottom: 1px solid var(--border-color); font-size: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span id="scanStatusText" style="color: var(--accent-cyan); font-family: var(--font-mono);">Scanning...</span>
+                        <span id="scanPercentText" style="color: var(--text-secondary);">0%</span>
+                    </div>
+                    <div style="background: var(--bg-panel); border-radius: 2px; height: 3px; overflow: hidden;">
+                        <div id="scanProgressBar" style="background: var(--accent-cyan); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                </div>
                 <div class="tracked-list-content" id="towersList">
                     <div class="no-data">
                         <div>No towers detected</div>
@@ -1344,9 +1353,9 @@
         const BAND_CONFIG = {
             'Europe': [
                 { name: 'EGSM900', label: 'EGSM900 (925-960 MHz)', freq: '925-960 MHz', common: true, recommended: true },
-                { name: 'GSM850', label: 'GSM850 (869-894 MHz)', freq: '869-894 MHz', common: true, recommended: true },
-                { name: 'GSM800', label: 'GSM800 (832-862 MHz)', freq: '832-862 MHz', common: true, recommended: true },
-                { name: 'DCS1800', label: 'DCS1800 (1805-1880 MHz)', freq: '1805-1880 MHz', common: false, recommended: false }
+                { name: 'DCS1800', label: 'DCS1800 (1805-1880 MHz)', freq: '1805-1880 MHz', common: true, recommended: false },
+                { name: 'GSM850', label: 'GSM850 (869-894 MHz)', freq: '869-894 MHz', common: false, recommended: false },
+                { name: 'GSM800', label: 'GSM800 (832-862 MHz)', freq: '832-862 MHz', common: false, recommended: false }
             ],
             'Americas': [
                 { name: 'GSM850', label: 'GSM850 (869-894 MHz)', freq: '869-894 MHz', common: true, recommended: true },
@@ -1588,6 +1597,7 @@
                     eventSource.close();
                     eventSource = null;
                 }
+                document.getElementById('scanProgress').style.display = 'none';
                 console.log('[GSM SPY] Scanner stopped');
             })
             .catch(error => {
@@ -1653,8 +1663,16 @@
                         addRogueAlert(data);
                     } else if (data.type === 'stats') {
                         updateStats(data);
+                    } else if (data.type === 'progress') {
+                        updateScanProgress(data.percent, data.scan);
+                    } else if (data.type === 'status') {
+                        updateScanStatus(data.message);
+                    } else if (data.type === 'scan_complete') {
+                        updateScanStatus('Scan #' + data.scan + ' complete (' + data.towers_found + ' towers, ' + data.duration + 's)');
+                        document.getElementById('scanProgressBar').style.width = '100%';
                     } else if (data.type === 'error') {
                         console.error('[GSM SPY] Server error:', data.message);
+                        updateScanStatus('Error: ' + data.message);
                     } else if (data.type === 'disconnected') {
                         console.warn('[GSM SPY] Server disconnected stream');
                     }
@@ -1894,6 +1912,22 @@
             } catch (error) {
                 console.error('[GSM SPY] selectTower error:', error);
             }
+        }
+
+        function updateScanProgress(percent, scanNum) {
+            const progressDiv = document.getElementById('scanProgress');
+            const bar = document.getElementById('scanProgressBar');
+            const text = document.getElementById('scanPercentText');
+            progressDiv.style.display = 'block';
+            bar.style.width = percent + '%';
+            text.textContent = Math.round(percent) + '% (Scan #' + scanNum + ')';
+        }
+
+        function updateScanStatus(message) {
+            const progressDiv = document.getElementById('scanProgress');
+            const statusText = document.getElementById('scanStatusText');
+            progressDiv.style.display = 'block';
+            statusText.textContent = message;
         }
 
         function updateTowersList() {

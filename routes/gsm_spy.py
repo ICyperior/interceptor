@@ -1312,7 +1312,30 @@ def scanner_thread(cmd, device_index):
                             break  # EOF
 
                         last_output = time.time()
-                        logger.info(f"Scanner [{msg_type}]: {line.strip()}")
+                        stripped = line.strip()
+                        logger.info(f"Scanner [{msg_type}]: {stripped}")
+
+                        # Forward progress and status info to frontend
+                        progress_match = re.match(r'Scanning:\s+([\d.]+)%\s+done', stripped)
+                        if progress_match:
+                            try:
+                                app_module.gsm_spy_queue.put_nowait({
+                                    'type': 'progress',
+                                    'percent': float(progress_match.group(1)),
+                                    'scan': scan_count
+                                })
+                            except queue.Full:
+                                pass
+                            continue
+                        if stripped.startswith('Try scan CCCH'):
+                            try:
+                                app_module.gsm_spy_queue.put_nowait({
+                                    'type': 'status',
+                                    'message': stripped,
+                                    'scan': scan_count
+                                })
+                            except queue.Full:
+                                pass
 
                         parsed = parse_grgsm_scanner_output(line)
                         if parsed:
@@ -1374,6 +1397,17 @@ def scanner_thread(cmd, device_index):
                 exit_code = process.returncode
                 scan_duration = time.time() - scan_start
                 logger.info(f"Scan #{scan_count} complete (exit code: {exit_code}, duration: {scan_duration:.1f}s)")
+
+                # Notify frontend scan completed
+                try:
+                    app_module.gsm_spy_queue.put_nowait({
+                        'type': 'scan_complete',
+                        'scan': scan_count,
+                        'duration': round(scan_duration, 1),
+                        'towers_found': gsm_towers_found
+                    })
+                except queue.Full:
+                    pass
 
                 # Detect crash pattern: process exits too quickly with no data
                 if scan_duration < 5 and exit_code != 0:
