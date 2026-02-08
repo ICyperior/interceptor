@@ -72,19 +72,33 @@ def compute_power_spectrum(
 
 def quantize_to_uint8(
     power_db: np.ndarray,
-    db_min: float = -90.0,
-    db_max: float = -20.0,
+    db_min: float | None = None,
+    db_max: float | None = None,
 ) -> bytes:
     """Clamp and scale dB values to 0-255.
 
+    When *db_min* / *db_max* are ``None`` (the default) the range is
+    derived from the data so the full colour palette is always used.
+
     Args:
         power_db: Float32 array of power values in dB.
-        db_min: Value mapped to 0.
-        db_max: Value mapped to 255.
+        db_min: Value mapped to 0 (auto if None).
+        db_max: Value mapped to 255 (auto if None).
 
     Returns:
         Bytes of length len(power_db), each in [0, 255].
     """
+    if db_min is None or db_max is None:
+        actual_min = float(np.min(power_db))
+        actual_max = float(np.max(power_db))
+        # Guarantee at least 1 dB of dynamic range
+        if actual_max - actual_min < 1.0:
+            actual_max = actual_min + 1.0
+        if db_min is None:
+            db_min = actual_min
+        if db_max is None:
+            db_max = actual_max
+
     db_range = db_max - db_min
     if db_range <= 0:
         db_range = 1.0
