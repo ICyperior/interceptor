@@ -905,7 +905,7 @@
                 </div>
 
                 <!-- APRS Visualizations -->
-                <div id="aprsVisuals" style="display: none; flex-direction: column; gap: 10px; flex: 1; padding: 10px;">
+                <div id="aprsVisuals" style="display: none; flex-direction: column; gap: 10px; flex: 1; padding: 10px; overflow: hidden; min-height: 0;">
                     <!-- APRS Function Bar -->
                     <div class="aprs-strip">
                         <div class="aprs-strip-inner">
@@ -980,7 +980,7 @@
                     <div style="display: flex; gap: 10px; flex: 1; min-height: 0;">
                         <!-- Map Panel (larger) -->
                         <div class="wifi-visual-panel"
-                            style="flex: 2; display: flex; flex-direction: column; min-width: 0;">
+                            style="flex: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;">
                             <h5
                                 style="color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); padding: 0 10px; margin-bottom: 8px;">
                                 APRS STATION MAP</h5>
@@ -999,12 +999,12 @@
 
                         <!-- Station List Panel -->
                         <div class="wifi-visual-panel"
-                            style="flex: 1; min-width: 300px; max-width: 400px; display: flex; flex-direction: column;">
+                            style="flex: 1; min-width: 300px; max-width: 400px; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
                             <h5
-                                style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); margin-bottom: 8px;">
+                                style="color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); margin-bottom: 8px; flex-shrink: 0;">
                                 STATION LIST</h5>
-                            <div id="aprsFilterBarContainer"></div>
-                            <div id="aprsStationList" class="signal-cards-container" style="flex: 1; overflow-y: auto; font-size: 11px; gap: 8px;">
+                            <div id="aprsFilterBarContainer" style="flex-shrink: 0;"></div>
+                            <div id="aprsStationList" class="signal-cards-container" style="flex: 1; overflow-y: auto; font-size: 11px; gap: 8px; min-height: 0;">
                                 <div class="signal-cards-placeholder" style="padding: 20px; text-align: center; color: var(--text-muted);">
                                     No stations received yet
                                 </div>
@@ -1013,7 +1013,7 @@
                     </div>
 
                     <!-- Bottom row: Packet Log -->
-                    <div class="wifi-visual-panel" style="display: flex; flex-direction: column; max-height: 200px;">
+                    <div class="wifi-visual-panel" style="display: flex; flex-direction: column; max-height: 200px; flex-shrink: 0;">
                         <h5
                             style="color: var(--accent-orange); text-shadow: 0 0 10px var(--accent-orange); margin-bottom: 8px;">
                             PACKET LOG</h5>
@@ -9353,10 +9353,10 @@
                 listEl.insertBefore(newCard, listEl.firstChild);
             }
 
-            // Keep list manageable
-            const cards = listEl.querySelectorAll('.signal-card');
-            while (cards.length > 50) {
-                listEl.removeChild(listEl.lastChild);
+            // Keep list manageable (use live childElementCount, not static NodeList)
+            const MAX_APRS_STATION_CARDS = 200;
+            while (listEl.childElementCount > MAX_APRS_STATION_CARDS && listEl.lastElementChild) {
+                listEl.removeChild(listEl.lastElementChild);
             }
 
             // Update filter counts if filter bar exists
