@@ -244,6 +244,10 @@ sdr_device_registry_lock = threading.Lock()
 def claim_sdr_device(device_index: int, mode_name: str) -> str | None:
     """Claim an SDR device for a mode.
 
+    Checks the in-app registry first, then probes the USB device to
+    catch stale handles held by external processes (e.g. a leftover
+    rtl_fm from a previous crash).
+
     Args:
         device_index: The SDR device index to claim
         mode_name: Name of the mode claiming the device (e.g., 'sensor', 'rtlamr')
@@ -255,6 +259,16 @@ def claim_sdr_device(device_index: int, mode_name: str) -> str | None:
         if device_index in sdr_device_registry:
             in_use_by = sdr_device_registry[device_index]
             return f'SDR device {device_index} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.'
+
+        # Probe the USB device to catch external processes holding the handle
+        try:
+            from utils.sdr.detection import probe_rtlsdr_device
+            usb_error = probe_rtlsdr_device(device_index)
+            if usb_error:
+                return usb_error
+        except Exception:
+            pass  # If probe fails, let the caller proceed normally
+
         sdr_device_registry[device_index] = mode_name
         return None
 
