@@ -313,7 +313,10 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
         raise FileNotFoundError('tshark not found. Please install wireshark/tshark.')
 
     tshark_cmd = [
-        'tshark', '-i', 'lo',
+        'tshark',
+        '-i', 'lo',
+        '-l',  # Line-buffered output for live capture
+        '-f', 'udp port 4729',  # Capture filter: only GSMTAP packets
         '-Y', 'gsm_a.rr.timing_advance || gsm_a.tmsi || gsm_a.imsi',
         '-T', 'fields',
         '-e', 'gsm_a.rr.timing_advance',
@@ -332,6 +335,22 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
     )
     register_process(tshark_proc)
     logger.info(f"Started tshark (PID: {tshark_proc.pid})")
+
+    # Check tshark didn't exit immediately
+    time.sleep(1)
+    if tshark_proc.poll() is not None:
+        stderr_output = ''
+        try:
+            stderr_output = tshark_proc.stderr.read()
+        except Exception:
+            pass
+        exit_code = tshark_proc.returncode
+        logger.error(f"tshark exited immediately (code: {exit_code}). stderr: {stderr_output[:500]}")
+        # Clean up grgsm_livemon since monitoring can't work without tshark
+        safe_terminate(grgsm_proc)
+        unregister_process(grgsm_proc)
+        unregister_process(tshark_proc)
+        raise RuntimeError(f'tshark failed (exit code {exit_code}): {stderr_output[:200]}')
 
     return grgsm_proc, tshark_proc
 
@@ -1596,8 +1615,18 @@ def monitor_thread(process):
         finally:
             output_queue_local.put(('eof', None))
 
+    def read_stderr():
+        try:
+            for line in iter(process.stderr.readline, ''):
+                if line:
+                    logger.debug(f"tshark stderr: {line.strip()}")
+        except Exception:
+            pass
+
     stdout_thread = threading.Thread(target=read_stdout, daemon=True)
     stdout_thread.start()
+    stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+    stderr_thread.start()
 
     try:
         while app_module.gsm_spy_monitor_process:
