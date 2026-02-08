@@ -447,14 +447,10 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
         '-f', 'udp port 4729',  # Capture filter: only GSMTAP packets
     ]
 
-    # Build display filter from available fields
-    filter_parts = []
-    for logical_name in ['ta', 'tmsi', 'imsi']:
-        if fields.get(logical_name):
-            filter_parts.append(fields[logical_name])
-    if filter_parts:
-        tshark_cmd.extend(['-Y', ' || '.join(filter_parts)])
-
+    # No display filter (-Y) — the capture filter (-f 'udp port 4729')
+    # already limits to GSMTAP packets, and the parser discards rows
+    # without TMSI/IMSI.  A -Y filter on gsm_a.tmsi misses paging
+    # requests where the TMSI lives under a different field path.
     tshark_cmd.extend(['-T', 'fields'])
 
     # Add -e for each available field in known order
