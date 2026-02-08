@@ -187,14 +187,29 @@ class TestArfcnToFrequency:
 
     def test_egsm900_arfcn(self):
         """Test ARFCN in EGSM900 band."""
-        # EGSM900: ARFCN 0-124, 925-960 MHz
+        # EGSM900: ARFCN 0-124, DL = 935 + 0.2*ARFCN MHz
         arfcn = 0
         freq = arfcn_to_frequency(arfcn)
-        assert freq == 925000000  # 925 MHz
+        assert freq == 935000000  # 935.0 MHz
+
+        arfcn = 22
+        freq = arfcn_to_frequency(arfcn)
+        assert freq == 939400000  # 939.4 MHz
 
         arfcn = 124
         freq = arfcn_to_frequency(arfcn)
-        assert freq == 949800000  # 949.8 MHz
+        assert freq == 959800000  # 959.8 MHz
+
+    def test_egsm900_ext_arfcn(self):
+        """Test ARFCN in EGSM900 extension band."""
+        # EGSM900_EXT: ARFCN 975-1023, DL = 925.2 + 0.2*(ARFCN-975) MHz
+        arfcn = 975
+        freq = arfcn_to_frequency(arfcn)
+        assert freq == 925200000  # 925.2 MHz
+
+        arfcn = 1023
+        freq = arfcn_to_frequency(arfcn)
+        assert freq == 934800000  # 934.8 MHz
 
     def test_dcs1800_arfcn(self):
         """Test ARFCN in DCS1800 band."""

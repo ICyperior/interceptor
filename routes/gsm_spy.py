@@ -40,11 +40,13 @@ REGIONAL_BANDS = {
     'Europe': {
         'GSM800': {'start': 832e6, 'end': 862e6, 'arfcn_start': 438, 'arfcn_end': 511},  # E-GSM800 downlink
         'GSM850': {'start': 869e6, 'end': 894e6, 'arfcn_start': 128, 'arfcn_end': 251},  # Also used in some EU countries
-        'EGSM900': {'start': 925e6, 'end': 960e6, 'arfcn_start': 0, 'arfcn_end': 124},
+        'EGSM900': {'start': 935e6, 'end': 960e6, 'arfcn_start': 0, 'arfcn_end': 124},  # DL = 935 + 0.2*ARFCN
+        'EGSM900_EXT': {'start': 925.2e6, 'end': 935e6, 'arfcn_start': 975, 'arfcn_end': 1023},  # E-GSM extension
         'DCS1800': {'start': 1805e6, 'end': 1880e6, 'arfcn_start': 512, 'arfcn_end': 885}
     },
     'Asia': {
-        'EGSM900': {'start': 925e6, 'end': 960e6, 'arfcn_start': 0, 'arfcn_end': 124},
+        'EGSM900': {'start': 935e6, 'end': 960e6, 'arfcn_start': 0, 'arfcn_end': 124},  # DL = 935 + 0.2*ARFCN
+        'EGSM900_EXT': {'start': 925.2e6, 'end': 935e6, 'arfcn_start': 975, 'arfcn_end': 1023},  # E-GSM extension
         'DCS1800': {'start': 1805e6, 'end': 1880e6, 'arfcn_start': 512, 'arfcn_end': 885}
     }
 }
@@ -1795,6 +1797,7 @@ def monitor_thread(process, field_order=None):
 
     monitor_start_time = time.time()
     packets_captured = 0
+    lines_received = 0
     last_heartbeat = time.time()
 
     try:
@@ -1818,6 +1821,12 @@ def monitor_thread(process, field_order=None):
                     })
                 except queue.Full:
                     pass
+                # Periodic diagnostic: how many raw lines vs parsed
+                if lines_received > 0 or elapsed % 30 == 0:
+                    logger.info(
+                        f"Monitor stats: {lines_received} tshark lines received, "
+                        f"{packets_captured} parsed, fields={field_order}"
+                    )
 
             # Get output from queue with timeout
             try:
@@ -1827,6 +1836,11 @@ def monitor_thread(process, field_order=None):
 
             if msg_type == 'eof':
                 break  # EOF
+
+            lines_received += 1
+            # Log first 5 raw lines and then every 100th for diagnostics
+            if lines_received <= 5 or lines_received % 100 == 0:
+                logger.debug(f"tshark raw line #{lines_received}: {line.rstrip()!r}")
 
             parsed = parse_tshark_output(line, field_order)
             if parsed:
