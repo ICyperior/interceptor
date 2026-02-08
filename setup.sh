@@ -1375,6 +1375,19 @@ main() {
   fi
 
   install_python_deps
+
+  # Download leaflet-heat plugin for GSM heatmap (offline mode)
+  if [ ! -f "static/vendor/leaflet-heat/leaflet-heat.js" ]; then
+    info "Downloading leaflet-heat plugin..."
+    mkdir -p static/vendor/leaflet-heat
+    if curl -sL "https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" \
+        -o static/vendor/leaflet-heat/leaflet-heat.js; then
+      ok "leaflet-heat plugin downloaded"
+    else
+      warn "Failed to download leaflet-heat plugin. Heatmap will use CDN."
+    fi
+  fi
+
   final_summary_and_hard_fail
 }
 

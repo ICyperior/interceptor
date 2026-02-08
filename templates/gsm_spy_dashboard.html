@@ -18,6 +18,12 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     {% endif %}
+    <!-- Leaflet.heat plugin - Conditional CDN/Local loading -->
+    {% if offline_settings.assets_source == 'local' %}
+    <script src="{{ url_for('static', filename='vendor/leaflet-heat/leaflet-heat.js') }}"></script>
+    {% else %}
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    {% endif %}
     <!-- Core CSS variables -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
@@ -1450,6 +1456,9 @@
                 <span id="trackingStatus">STANDBY</span>
             </div>
             <div class="strip-time" id="utcTime">--:--:-- UTC</div>
+            <button class="strip-btn" id="heatmapToggle" onclick="toggleHeatmap()">
+                Heatmap: OFF
+            </button>
             <button class="strip-btn" onclick="openAnalyticsModal()">
                 Analytics Overview
             </button>
@@ -1804,6 +1813,11 @@
         let eventSource = null;
         let isScanning = false;
         let currentRegion = 'americas';
+
+        // Heatmap state
+        let heatmapLayer = null;
+        let heatmapVisible = false;
+        let heatmapLastRefresh = 0;
 
         // Statistics
         let stats = {
@@ -2460,6 +2474,11 @@
                 stats.totalDevices = devicesCount;
             }
             updateStatsDisplay();
+
+            // Auto-refresh heatmap every 30s while visible
+            if (heatmapVisible && (Date.now() - heatmapLastRefresh > 30000)) {
+                updateHeatmap();
+            }
         }
 
         function hideMonitorStatus() {
@@ -3133,6 +3152,79 @@
                 contentDiv.innerHTML = '<div class="analysis-warning">Error loading correlation data</div>';
                 resultsDiv.style.display = 'block';
             }
+        }
+
+        // ============================================
+        // HEATMAP
+        // ============================================
+        async function toggleHeatmap() {
+            if (heatmapVisible) {
+                removeHeatmap();
+            } else {
+                await updateHeatmap();
+                heatmapVisible = true;
+                const btn = document.getElementById('heatmapToggle');
+                btn.textContent = 'Heatmap: ON';
+                btn.style.borderColor = 'var(--accent-cyan)';
+                btn.style.color = 'var(--accent-cyan)';
+            }
+        }
+
+        async function updateHeatmap() {
+            try {
+                const response = await fetch('/gsm_spy/crowd_density?hours=1');
+                const data = await response.json();
+
+                if (!data || data.length === 0) return;
+
+                const points = [];
+                let maxIntensity = 1;
+
+                data.forEach(item => {
+                    // Match CID to tower coordinates
+                    const cid = item.cid;
+                    for (const key in towers) {
+                        const t = towers[key];
+                        if (t.cid === cid && t.lat && t.lon) {
+                            const intensity = item.unique_devices || 1;
+                            if (intensity > maxIntensity) maxIntensity = intensity;
+                            points.push([t.lat, t.lon, intensity]);
+                            break;
+                        }
+                    }
+                });
+
+                if (points.length === 0) return;
+
+                // Remove existing layer before adding new one
+                if (heatmapLayer && gsmMap.hasLayer(heatmapLayer)) {
+                    gsmMap.removeLayer(heatmapLayer);
+                }
+
+                heatmapLayer = L.heatLayer(points, {
+                    radius: 35,
+                    blur: 25,
+                    maxZoom: 17,
+                    max: maxIntensity,
+                    gradient: {0.2: '#304ffe', 0.4: '#00bcd4', 0.6: '#76ff03', 0.8: '#ffea00', 1.0: '#ff1744'}
+                }).addTo(gsmMap);
+
+                heatmapLastRefresh = Date.now();
+            } catch (error) {
+                console.error('[GSM SPY] Heatmap update error:', error);
+            }
+        }
+
+        function removeHeatmap() {
+            if (heatmapLayer && gsmMap.hasLayer(heatmapLayer)) {
+                gsmMap.removeLayer(heatmapLayer);
+            }
+            heatmapLayer = null;
+            heatmapVisible = false;
+            const btn = document.getElementById('heatmapToggle');
+            btn.textContent = 'Heatmap: OFF';
+            btn.style.borderColor = '';
+            btn.style.color = '';
         }
 
     </script>
