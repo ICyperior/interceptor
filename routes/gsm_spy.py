@@ -614,11 +614,31 @@ def start_scanner():
             cmd.extend(['--args', f'rtl={device_index}'])
 
             # Add selected band arguments
-            # Map EGSM900 to GSM900 since that's what grgsm_scanner expects
+            # Map internal band names to grgsm_scanner -b values
+            # grgsm_scanner accepts: GSM900, GSM850, DCS1800, PCS1900, GSM450, GSM480, GSM-R
+            GRGSM_BAND_MAP = {
+                'EGSM900': 'GSM900',
+                'EGSM900_EXT': None,  # Covered by GSM900 scan
+                'GSM850': 'GSM850',
+                'GSM800': None,       # Not a standard GSM band for grgsm_scanner
+                'DCS1800': 'DCS1800',
+                'PCS1900': 'PCS1900',
+            }
+            bands_added = set()
             for band_name in selected_bands:
-                # Normalize band name (EGSM900 -> GSM900, remove EGSM prefix)
-                normalized_band = band_name.replace('EGSM', 'GSM')
-                cmd.extend(['-b', normalized_band])
+                grgsm_band = GRGSM_BAND_MAP.get(band_name, band_name)
+                if grgsm_band is None:
+                    logger.info(f"Skipping band {band_name} (not supported by grgsm_scanner)")
+                    continue
+                if grgsm_band not in bands_added:
+                    cmd.extend(['-b', grgsm_band])
+                    bands_added.add(grgsm_band)
+
+            if not bands_added:
+                from app import release_sdr_device
+                release_sdr_device(device_index)
+                return jsonify({'error': f'No scannable bands selected. '
+                                f'GSM800 and EGSM900_EXT are not supported by grgsm_scanner.'}), 400
 
             logger.info(f"Starting GSM scanner: {' '.join(cmd)}")
 
