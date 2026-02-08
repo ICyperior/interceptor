@@ -373,7 +373,9 @@ def start_scanner():
             return jsonify({'error': 'grgsm_scanner not found. Please install gr-gsm.'}), 500
 
         try:
-            cmd = ['grgsm_scanner']
+            # Use stdbuf to force line-buffered stdout - grgsm_scanner
+            # fully buffers stdout when piped, preventing real-time output
+            cmd = ['stdbuf', '-oL', 'grgsm_scanner']
 
             # Add device argument (--args for RTL-SDR device selection)
             cmd.extend(['--args', f'rtl={device_index}'])
@@ -1276,7 +1278,7 @@ def scanner_thread(cmd, device_index):
                 # Process output with timeout
                 scan_start = time.time()
                 last_output = scan_start
-                scan_timeout = 120  # 2 minute maximum per scan
+                scan_timeout = 300  # 5 minute maximum per scan (4 bands takes ~2-3 min)
 
                 while app_module.gsm_spy_scanner_running:
                     # Check if process died
