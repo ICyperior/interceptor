@@ -1670,6 +1670,9 @@
                     } else if (data.type === 'scan_complete') {
                         updateScanStatus('Scan #' + data.scan + ' complete (' + data.towers_found + ' towers, ' + data.duration + 's)');
                         document.getElementById('scanProgressBar').style.width = '100%';
+                    } else if (data.type === 'auto_monitor_started') {
+                        updateScanStatus('Monitoring ARFCN ' + data.arfcn + ' for devices...');
+                        console.log('[GSM SPY] Auto-monitor started on ARFCN', data.arfcn);
                     } else if (data.type === 'error') {
                         console.error('[GSM SPY] Server error:', data.message);
                         updateScanStatus('Error: ' + data.message);

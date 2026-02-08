@@ -1361,17 +1361,6 @@ def scanner_thread(cmd, device_index):
                             # Thread-safe counter update
                             with app_module.gsm_spy_lock:
                                 gsm_towers_found += 1
-                                current_count = gsm_towers_found
-
-                            # Auto-monitor strongest tower (once per session)
-                            if current_count >= 3 and not auto_monitor_triggered and strongest_tower:
-                                auto_monitor_triggered = True
-                                logger.info("Auto-starting monitor on strongest tower")
-                                threading.Thread(
-                                    target=auto_start_monitor,
-                                    args=(strongest_tower,),
-                                    daemon=True
-                                ).start()
                     except queue.Empty:
                         # No output, check timeout
                         if time.time() - last_output > scan_timeout:
@@ -1455,6 +1444,50 @@ def scanner_thread(cmd, device_index):
             if not app_module.gsm_spy_scanner_running:
                 break
 
+            # After first scan completes: auto-switch to monitoring if towers found
+            # Scanner process has exited so SDR is free for grgsm_livemon
+            if not auto_monitor_triggered and strongest_tower and scan_count >= 1:
+                auto_monitor_triggered = True
+                arfcn = strongest_tower.get('arfcn')
+                signal = strongest_tower.get('signal_strength', -999)
+                logger.info(
+                    f"Scan complete with towers found. Auto-switching to monitor mode "
+                    f"on ARFCN {arfcn} (signal: {signal} dBm)"
+                )
+
+                # Stop scanner loop - SDR needed for monitoring
+                app_module.gsm_spy_scanner_running = False
+
+                try:
+                    app_module.gsm_spy_queue.put_nowait({
+                        'type': 'status',
+                        'message': f'Switching to monitor mode on ARFCN {arfcn}...'
+                    })
+                except queue.Full:
+                    pass
+
+                # Start monitoring (SDR is free since scanner process exited)
+                try:
+                    with app_module.gsm_spy_lock:
+                        if not app_module.gsm_spy_monitor_process:
+                            _start_and_register_monitor(arfcn, device_index)
+                            logger.info(f"Auto-monitoring started for ARFCN {arfcn}")
+
+                            try:
+                                app_module.gsm_spy_queue.put_nowait({
+                                    'type': 'auto_monitor_started',
+                                    'arfcn': arfcn,
+                                    'tower': strongest_tower
+                                })
+                            except queue.Full:
+                                pass
+                except Exception as e:
+                    logger.error(f"Error starting auto-monitor: {e}", exc_info=True)
+                    # Resume scanning if monitor failed
+                    app_module.gsm_spy_scanner_running = True
+
+                break  # Exit scanner loop (monitoring takes over)
+
             # Wait between scans with responsive flag checking
             logger.info("Waiting 5 seconds before next scan")
             for i in range(5):
@@ -1472,13 +1505,17 @@ def scanner_thread(cmd, device_index):
 
         logger.info("Scanner thread terminated")
 
-        # Reset global state
+        # Reset global state - but don't release SDR if monitoring took over
         with app_module.gsm_spy_lock:
             app_module.gsm_spy_scanner_running = False
-            if app_module.gsm_spy_active_device is not None:
-                from app import release_sdr_device
-                release_sdr_device(app_module.gsm_spy_active_device)
-                app_module.gsm_spy_active_device = None
+            if app_module.gsm_spy_monitor_process is None:
+                # No monitor running - release SDR device
+                if app_module.gsm_spy_active_device is not None:
+                    from app import release_sdr_device
+                    release_sdr_device(app_module.gsm_spy_active_device)
+                    app_module.gsm_spy_active_device = None
+            else:
+                logger.info("Monitor is running, keeping SDR device allocated")
 
 
 def monitor_thread(process):
