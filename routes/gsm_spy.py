@@ -20,6 +20,7 @@ import app as app_module
 import config
 from config import SHARED_OBSERVER_LOCATION_ENABLED
 from utils.database import get_db
+from utils.process import register_process, safe_terminate, unregister_process
 from utils.sse import format_sse
 from utils.validation import validate_device_index
 
@@ -207,6 +208,82 @@ def arfcn_to_frequency(arfcn):
     raise ValueError(f"ARFCN {arfcn} not found in any known GSM band")
 
 
+def validate_band_names(bands: list[str], region: str) -> tuple[list[str], str | None]:
+    """Validate band names against REGIONAL_BANDS whitelist.
+
+    Args:
+        bands: List of band names from user input
+        region: Region name (Americas, Europe, Asia)
+
+    Returns:
+        Tuple of (validated_bands, error_message)
+    """
+    if not bands:
+        return [], None
+
+    region_bands = REGIONAL_BANDS.get(region)
+    if not region_bands:
+        return [], f"Invalid region: {region}"
+
+    valid_band_names = set(region_bands.keys())
+    invalid_bands = [b for b in bands if b not in valid_band_names]
+
+    if invalid_bands:
+        return [], (f"Invalid bands for {region}: {', '.join(invalid_bands)}. "
+                   f"Valid bands: {', '.join(sorted(valid_band_names))}")
+
+    return bands, None
+
+
+def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subprocess.Popen, subprocess.Popen]:
+    """Start grgsm_livemon and tshark processes for monitoring an ARFCN.
+
+    Returns:
+        Tuple of (grgsm_process, tshark_process)
+    """
+    frequency_hz = arfcn_to_frequency(arfcn)
+    frequency_mhz = frequency_hz / 1e6
+
+    # Start grgsm_livemon
+    grgsm_cmd = [
+        'grgsm_livemon',
+        '--args', f'rtl={device_index}',
+        '-f', f'{frequency_mhz}M'
+    ]
+    grgsm_proc = subprocess.Popen(
+        grgsm_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    register_process(grgsm_proc)
+    logger.info(f"Started grgsm_livemon (PID: {grgsm_proc.pid})")
+
+    time.sleep(2)  # Wait for grgsm_livemon to start
+
+    # Start tshark
+    tshark_cmd = [
+        'tshark', '-i', 'lo',
+        '-Y', 'gsm_a.rr.timing_advance || gsm_a.tmsi || gsm_a.imsi',
+        '-T', 'fields',
+        '-e', 'gsm_a.rr.timing_advance',
+        '-e', 'gsm_a.tmsi',
+        '-e', 'gsm_a.imsi',
+        '-e', 'gsm_a.lac',
+        '-e', 'gsm_a.cellid'
+    ]
+    tshark_proc = subprocess.Popen(
+        tshark_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        bufsize=1
+    )
+    register_process(tshark_proc)
+    logger.info(f"Started tshark (PID: {tshark_proc.pid})")
+
+    return grgsm_proc, tshark_proc
+
+
 @gsm_spy_bp.route('/dashboard')
 def dashboard():
     """Render GSM Spy dashboard."""
@@ -222,7 +299,7 @@ def start_scanner():
     global gsm_towers_found, gsm_connected
 
     with app_module.gsm_spy_lock:
-        if app_module.gsm_spy_process:
+        if app_module.gsm_spy_scanner_running:
             return jsonify({'error': 'Scanner already running'}), 400
 
         data = request.get_json() or {}
@@ -246,7 +323,14 @@ def start_scanner():
             }), 409
 
         # If no bands selected, use all bands for the region (backwards compatibility)
-        if not selected_bands:
+        if selected_bands:
+            validated_bands, error = validate_band_names(selected_bands, region)
+            if error:
+                from app import release_sdr_device
+                release_sdr_device(device_index)
+                return jsonify({'error': error}), 400
+            selected_bands = validated_bands
+        else:
             region_bands = REGIONAL_BANDS.get(region, REGIONAL_BANDS['Americas'])
             selected_bands = list(region_bands.keys())
             logger.warning(f"No bands specified, using all bands for {region}: {selected_bands}")
@@ -271,7 +355,11 @@ def start_scanner():
             # Set a flag to indicate scanner should run
             app_module.gsm_spy_active_device = device_index
             app_module.gsm_spy_region = region
-            app_module.gsm_spy_process = True  # Use as flag initially
+            app_module.gsm_spy_scanner_running = True  # Use as flag initially
+
+            # Reset counters for new session
+            gsm_towers_found = 0
+            gsm_devices_tracked = 0
 
             # Start geocoding worker (if not already running)
             start_geocoding_worker()
@@ -317,53 +405,15 @@ def start_monitor():
         if not arfcn:
             return jsonify({'error': 'ARFCN required'}), 400
 
+        # Validate device index
         try:
-            # Convert ARFCN to frequency
-            frequency_hz = arfcn_to_frequency(arfcn)
-            frequency_mhz = frequency_hz / 1e6
+            device_index = validate_device_index(device_index)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
 
-            # grgsm_livemon --args="rtl=0" -f 925.8M | tshark -i lo -Y "..."
-            grgsm_cmd = [
-                'grgsm_livemon',
-                '--args', f'rtl={device_index}',
-                '-f', f'{frequency_mhz}M'
-            ]
-
-            tshark_cmd = [
-                'tshark',
-                '-i', 'lo',
-                '-Y', 'gsm_a.rr.timing_advance || gsm_a.tmsi || gsm_a.imsi',
-                '-T', 'fields',
-                '-e', 'gsm_a.rr.timing_advance',
-                '-e', 'gsm_a.tmsi',
-                '-e', 'gsm_a.imsi',
-                '-e', 'gsm_a.lac',
-                '-e', 'gsm_a.cellid'
-            ]
-
-            logger.info(f"Starting GSM monitor: {' '.join(grgsm_cmd)} | {' '.join(tshark_cmd)}")
-
-            # Start grgsm_livemon (outputs to UDP port 4729 by default)
-            grgsm_proc = subprocess.Popen(
-                grgsm_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            logger.info(f"Started grgsm_livemon (PID: {grgsm_proc.pid})")
-
-            # Give grgsm_livemon time to initialize and start sending UDP packets
-            time.sleep(2)
-
-            # Start tshark (captures from loopback interface where UDP packets arrive)
-            tshark_proc = subprocess.Popen(
-                tshark_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                bufsize=1
-            )
-            logger.info(f"Started tshark (PID: {tshark_proc.pid})")
-
+        try:
+            # Start monitoring processes
+            grgsm_proc, tshark_proc = _start_monitoring_processes(arfcn, device_index)
             app_module.gsm_spy_livemon_process = grgsm_proc
             app_module.gsm_spy_monitor_process = tshark_proc
             app_module.gsm_spy_selected_arfcn = arfcn
@@ -398,32 +448,22 @@ def stop_scanner():
         killed = []
 
         # Stop scanner (now just a flag, thread will see it and exit)
-        if app_module.gsm_spy_process:
-            app_module.gsm_spy_process = None
+        if app_module.gsm_spy_scanner_running:
+            app_module.gsm_spy_scanner_running = False
             killed.append('scanner')
 
+        # Terminate livemon process
         if app_module.gsm_spy_livemon_process:
-            try:
-                app_module.gsm_spy_livemon_process.terminate()
-                app_module.gsm_spy_livemon_process.wait(timeout=5)
+            unregister_process(app_module.gsm_spy_livemon_process)
+            if safe_terminate(app_module.gsm_spy_livemon_process, timeout=5):
                 killed.append('livemon')
-            except Exception:
-                try:
-                    app_module.gsm_spy_livemon_process.kill()
-                except Exception:
-                    pass
             app_module.gsm_spy_livemon_process = None
 
+        # Terminate monitor process
         if app_module.gsm_spy_monitor_process:
-            try:
-                app_module.gsm_spy_monitor_process.terminate()
-                app_module.gsm_spy_monitor_process.wait(timeout=5)
+            unregister_process(app_module.gsm_spy_monitor_process)
+            if safe_terminate(app_module.gsm_spy_monitor_process, timeout=5):
                 killed.append('monitor')
-            except Exception:
-                try:
-                    app_module.gsm_spy_monitor_process.kill()
-                except Exception:
-                    pass
             app_module.gsm_spy_monitor_process = None
 
         # Release SDR device
@@ -449,7 +489,7 @@ def stream():
         while True:
             try:
                 # Check if scanner is still running
-                if not app_module.gsm_spy_process and not app_module.gsm_spy_monitor_process:
+                if not app_module.gsm_spy_scanner_running and not app_module.gsm_spy_monitor_process:
                     yield format_sse({'type': 'disconnected'})
                     break
 
@@ -486,7 +526,7 @@ def status():
     """Get current GSM Spy status."""
     api_usage = get_api_usage_today()
     return jsonify({
-        'running': app_module.gsm_spy_process is not None,
+        'running': app_module.gsm_spy_scanner_running is not None,
         'monitoring': app_module.gsm_spy_monitor_process is not None,
         'towers_found': gsm_towers_found,
         'devices_tracked': gsm_devices_tracked,
@@ -1122,52 +1162,8 @@ def auto_start_monitor(tower_data):
 
             device_index = app_module.gsm_spy_active_device or 0
 
-            # Convert ARFCN to frequency
-            frequency_hz = arfcn_to_frequency(arfcn)
-            frequency_mhz = frequency_hz / 1e6
-
-            # Start grgsm_livemon
-            grgsm_cmd = [
-                'grgsm_livemon',
-                '--args', f'rtl={device_index}',
-                '-f', f'{frequency_mhz}M'
-            ]
-
-            tshark_cmd = [
-                'tshark',
-                '-i', 'lo',
-                '-Y', 'gsm_a.rr.timing_advance || gsm_a.tmsi || gsm_a.imsi',
-                '-T', 'fields',
-                '-e', 'gsm_a.rr.timing_advance',
-                '-e', 'gsm_a.tmsi',
-                '-e', 'gsm_a.imsi',
-                '-e', 'gsm_a.lac',
-                '-e', 'gsm_a.cellid'
-            ]
-
-            logger.info(f"Starting auto-monitor: {' '.join(grgsm_cmd)} | {' '.join(tshark_cmd)}")
-
-            # Start grgsm_livemon (outputs to UDP port 4729 by default)
-            grgsm_proc = subprocess.Popen(
-                grgsm_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            logger.info(f"Started grgsm_livemon for auto-monitor (PID: {grgsm_proc.pid})")
-
-            # Give grgsm_livemon time to initialize and start sending UDP packets
-            time.sleep(2)
-
-            # Start tshark (captures from loopback interface where UDP packets arrive)
-            tshark_proc = subprocess.Popen(
-                tshark_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                bufsize=1
-            )
-            logger.info(f"Started tshark for auto-monitor (PID: {tshark_proc.pid})")
-
+            # Start monitoring processes
+            grgsm_proc, tshark_proc = _start_monitoring_processes(arfcn, device_index)
             app_module.gsm_spy_livemon_process = grgsm_proc
             app_module.gsm_spy_monitor_process = tshark_proc
             app_module.gsm_spy_selected_arfcn = arfcn
@@ -1210,7 +1206,7 @@ def scanner_thread(cmd, device_index):
     process = None
 
     try:
-        while app_module.gsm_spy_process:  # Flag check
+        while app_module.gsm_spy_scanner_running:  # Flag check
             scan_count += 1
             logger.info(f"Starting GSM scan #{scan_count}")
 
@@ -1240,7 +1236,7 @@ def scanner_thread(cmd, device_index):
                 last_output = time.time()
                 scan_timeout = 120  # 2 minute maximum per scan
 
-                while app_module.gsm_spy_process:
+                while app_module.gsm_spy_scanner_running:
                     # Check if process died
                     if process.poll() is not None:
                         logger.info(f"Scanner exited (code: {process.returncode})")
@@ -1325,13 +1321,13 @@ def scanner_thread(cmd, device_index):
                             pass
 
             # Check if should continue
-            if not app_module.gsm_spy_process:
+            if not app_module.gsm_spy_scanner_running:
                 break
 
             # Wait between scans with responsive flag checking
             logger.info("Waiting 5 seconds before next scan")
             for i in range(5):
-                if not app_module.gsm_spy_process:
+                if not app_module.gsm_spy_scanner_running:
                     break
                 time.sleep(1)
 
@@ -1355,7 +1351,7 @@ def scanner_thread(cmd, device_index):
 
         # Reset global state
         with app_module.gsm_spy_lock:
-            app_module.gsm_spy_process = None
+            app_module.gsm_spy_scanner_running = None
             if app_module.gsm_spy_active_device is not None:
                 from app import release_sdr_device
                 release_sdr_device(app_module.gsm_spy_active_device)

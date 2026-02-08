@@ -183,7 +183,7 @@ deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 deauth_detector_lock = threading.Lock()
 
 # GSM Spy
-gsm_spy_process = None
+gsm_spy_scanner_running = False  # Flag: scanner thread active
 gsm_spy_livemon_process = None  # For grgsm_livemon process
 gsm_spy_monitor_process = None  # For tshark monitoring process
 gsm_spy_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
