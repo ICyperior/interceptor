@@ -4775,7 +4775,7 @@
                         eventSource.close();
                         eventSource = null;
                     }
-                    showInfo('Killed all processes: ' + (data.processes.length ? data.processes.join(', ') : 'none running'));
+                    showInfo('All processes stopped' + (data.processes.length ? ` (${data.processes.length} killed)` : ' (none were running)'));
                 });
         }
 

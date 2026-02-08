@@ -737,7 +737,7 @@ def kill_all() -> Response:
     # Reset Bluetooth v2 scanner
     try:
         reset_bluetooth_scanner()
-        killed.append('bluetooth_scanner')
+        killed.append('bluetooth')
     except Exception:
         pass
 

@@ -69,6 +69,24 @@ const scannerPresets = {
     amateur70cm: { start: 420, end: 450, step: 25, mod: 'fm' }
 };
 
+/**
+ * Suggest the appropriate modulation for a given frequency (in MHz).
+ * Uses standard band allocations to pick AM, NFM, WFM, or USB.
+ */
+function suggestModulation(freqMhz) {
+    if (freqMhz < 0.52) return 'am';         // LW/MW AM broadcast
+    if (freqMhz < 1.7) return 'am';          // MW AM broadcast
+    if (freqMhz < 30) return 'usb';          // HF/Shortwave
+    if (freqMhz < 88) return 'fm';           // VHF Low (public safety)
+    if (freqMhz < 108) return 'wfm';         // FM Broadcast
+    if (freqMhz < 137) return 'am';          // Airband
+    if (freqMhz < 174) return 'fm';          // VHF marine, 2m ham, pagers
+    if (freqMhz < 216) return 'wfm';         // VHF TV/DAB
+    if (freqMhz < 470) return 'fm';          // UHF various, 70cm, business/GMRS
+    if (freqMhz < 960) return 'wfm';         // UHF TV
+    return 'am';                              // Microwave/ADS-B
+}
+
 const audioPresets = {
     fm: { freq: 98.1, mod: 'wfm' },
     airband: { freq: 121.5, mod: 'am' },     // Emergency/guard frequency
@@ -3671,17 +3689,51 @@ function bindWaterfallInteraction() {
         const ratio = Math.max(0, Math.min(1, x / rect.width));
         const freq = waterfallStartFreq + ratio * (waterfallEndFreq - waterfallStartFreq);
         if (typeof tuneToFrequency === 'function') {
-            tuneToFrequency(freq, typeof currentModulation !== 'undefined' ? currentModulation : undefined);
+            tuneToFrequency(freq, suggestModulation(freq));
         }
+    };
+
+    // Tooltip for showing frequency + modulation on hover
+    let tooltip = document.getElementById('waterfallTooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'waterfallTooltip';
+        tooltip.style.cssText = 'position:fixed;pointer-events:none;background:rgba(0,0,0,0.85);color:#0f0;padding:4px 8px;border-radius:4px;font-size:12px;font-family:monospace;z-index:9999;display:none;white-space:nowrap;border:1px solid #333;';
+        document.body.appendChild(tooltip);
+    }
+
+    const hoverHandler = (event) => {
+        if (waterfallMode === 'audio') {
+            tooltip.style.display = 'none';
+            return;
+        }
+        const canvas = event.currentTarget;
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const ratio = Math.max(0, Math.min(1, x / rect.width));
+        const freq = waterfallStartFreq + ratio * (waterfallEndFreq - waterfallStartFreq);
+        const mod = suggestModulation(freq);
+        tooltip.textContent = `${freq.toFixed(3)} MHz \u00b7 ${mod.toUpperCase()}`;
+        tooltip.style.left = (event.clientX + 12) + 'px';
+        tooltip.style.top = (event.clientY - 28) + 'px';
+        tooltip.style.display = 'block';
+    };
+
+    const leaveHandler = () => {
+        tooltip.style.display = 'none';
     };
 
     if (waterfallCanvas) {
         waterfallCanvas.style.cursor = 'crosshair';
         waterfallCanvas.addEventListener('click', handler);
+        waterfallCanvas.addEventListener('mousemove', hoverHandler);
+        waterfallCanvas.addEventListener('mouseleave', leaveHandler);
     }
     if (spectrumCanvas) {
         spectrumCanvas.style.cursor = 'crosshair';
         spectrumCanvas.addEventListener('click', handler);
+        spectrumCanvas.addEventListener('mousemove', hoverHandler);
+        spectrumCanvas.addEventListener('mouseleave', leaveHandler);
     }
 }
 
