@@ -373,9 +373,7 @@ def start_scanner():
             return jsonify({'error': 'grgsm_scanner not found. Please install gr-gsm.'}), 500
 
         try:
-            # Use stdbuf to force line-buffered stdout - grgsm_scanner
-            # fully buffers stdout when piped, preventing real-time output
-            cmd = ['stdbuf', '-oL', 'grgsm_scanner']
+            cmd = ['grgsm_scanner']
 
             # Add device argument (--args for RTL-SDR device selection)
             cmd.extend(['--args', f'rtl={device_index}'])
@@ -1235,7 +1233,9 @@ def scanner_thread(cmd, device_index):
                 # Start scanner process
                 # Set OSMO_FSM_DUP_CHECK_DISABLED to prevent libosmocore
                 # abort on duplicate FSM registration (common with apt gr-gsm)
-                env = dict(os.environ, OSMO_FSM_DUP_CHECK_DISABLED='1')
+                env = dict(os.environ,
+                           OSMO_FSM_DUP_CHECK_DISABLED='1',
+                           PYTHONUNBUFFERED='1')
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
