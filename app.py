@@ -676,6 +676,7 @@ def kill_all() -> Response:
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
     global gsm_spy_livemon_process, gsm_spy_monitor_process
+    global gsm_spy_scanner_running, gsm_spy_active_device, gsm_spy_selected_arfcn, gsm_spy_region
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -754,6 +755,11 @@ def kill_all() -> Response:
 
     # Reset GSM Spy state
     with gsm_spy_lock:
+        gsm_spy_scanner_running = False
+        gsm_spy_active_device = None
+        gsm_spy_selected_arfcn = None
+        gsm_spy_region = 'Americas'
+
         if gsm_spy_livemon_process:
             try:
                 if safe_terminate(gsm_spy_livemon_process):

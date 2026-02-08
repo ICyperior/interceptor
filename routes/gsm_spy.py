@@ -463,7 +463,7 @@ def start_monitor():
 @gsm_spy_bp.route('/stop', methods=['POST'])
 def stop_scanner():
     """Stop GSM scanner and monitor."""
-    global gsm_connected
+    global gsm_connected, gsm_towers_found, gsm_devices_tracked
 
     with app_module.gsm_spy_lock:
         killed = []
@@ -492,6 +492,8 @@ def stop_scanner():
         app_module.gsm_spy_active_device = None
         app_module.gsm_spy_selected_arfcn = None
         gsm_connected = False
+        gsm_towers_found = 0
+        gsm_devices_tracked = 0
 
         return jsonify({'status': 'stopped', 'killed': killed})
 
@@ -1317,13 +1319,7 @@ def scanner_thread(cmd, device_index):
                 # Clean up process with timeout
                 if process.poll() is None:
                     logger.info("Terminating scanner process")
-                    process.terminate()
-                    try:
-                        process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        logger.warning("Process didn't terminate, killing")
-                        process.kill()
-                        process.wait()
+                    safe_terminate(process, timeout=5)
                 else:
                     process.wait()  # Reap zombie
 
@@ -1332,14 +1328,7 @@ def scanner_thread(cmd, device_index):
             except Exception as e:
                 logger.error(f"Scanner scan error: {e}", exc_info=True)
                 if process and process.poll() is None:
-                    try:
-                        process.terminate()
-                        process.wait(timeout=2)
-                    except Exception:
-                        try:
-                            process.kill()
-                        except Exception:
-                            pass
+                    safe_terminate(process)
 
             # Check if should continue
             if not app_module.gsm_spy_scanner_running:
@@ -1358,25 +1347,13 @@ def scanner_thread(cmd, device_index):
     finally:
         # Always cleanup
         if process and process.poll() is None:
-            try:
-                process.terminate()
-                process.wait(timeout=5)
-            except Exception:
-                try:
-                    process.kill()
-                    process.wait()
-                except Exception:
-                    pass
-
-        # Unregister process from cleanup list
-        if process:
-            unregister_process(process)
+            safe_terminate(process, timeout=5)
 
         logger.info("Scanner thread terminated")
 
         # Reset global state
         with app_module.gsm_spy_lock:
-            app_module.gsm_spy_scanner_running = None
+            app_module.gsm_spy_scanner_running = False
             if app_module.gsm_spy_active_device is not None:
                 from app import release_sdr_device
                 release_sdr_device(app_module.gsm_spy_active_device)

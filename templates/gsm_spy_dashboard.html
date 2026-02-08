@@ -2160,14 +2160,14 @@
                         const velocity_kmh = (item.estimated_velocity * 3.6).toFixed(2);
                         html += `
                             <div class="analysis-device-item">
-                                <div style="font-weight: 600; color: var(--accent-cyan);">${item.device_id}</div>
+                                <div style="font-weight: 600; color: var(--accent-cyan);">${escapeHtml(item.device_id)}</div>
                                 <div class="analysis-stat">
                                     <span class="analysis-stat-label">Velocity:</span>
-                                    <span class="analysis-stat-value">${velocity_kmh} km/h</span>
+                                    <span class="analysis-stat-value">${escapeHtml(velocity_kmh)} km/h</span>
                                 </div>
                                 <div class="analysis-stat">
                                     <span class="analysis-stat-label">TA Change:</span>
-                                    <span class="analysis-stat-value">${item.prev_ta} → ${item.curr_ta}</span>
+                                    <span class="analysis-stat-value">${escapeHtml(String(item.prev_ta))} → ${escapeHtml(String(item.curr_ta))}</span>
                                 </div>
                                 <div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">${new Date(item.timestamp).toLocaleString()}</div>
                             </div>
@@ -2201,18 +2201,18 @@
                                            item.density_level === 'medium' ? 'var(--accent-yellow)' : 'var(--accent-green)';
                         html += `
                             <div class="analysis-device-item" style="border-left-color: ${densityColor};">
-                                <div style="font-weight: 600; color: var(--accent-cyan);">Cell ${item.cid}</div>
+                                <div style="font-weight: 600; color: var(--accent-cyan);">Cell ${escapeHtml(String(item.cid))}</div>
                                 <div class="analysis-stat">
                                     <span class="analysis-stat-label">Unique Devices:</span>
-                                    <span class="analysis-stat-value">${item.unique_devices}</span>
+                                    <span class="analysis-stat-value">${escapeHtml(String(item.unique_devices))}</span>
                                 </div>
                                 <div class="analysis-stat">
                                     <span class="analysis-stat-label">Total Pings:</span>
-                                    <span class="analysis-stat-value">${item.total_pings}</span>
+                                    <span class="analysis-stat-value">${escapeHtml(String(item.total_pings))}</span>
                                 </div>
                                 <div class="analysis-stat">
                                     <span class="analysis-stat-label">Density:</span>
-                                    <span class="analysis-stat-value" style="color: ${densityColor}; text-transform: uppercase;">${item.density_level}</span>
+                                    <span class="analysis-stat-value" style="color: ${densityColor}; text-transform: uppercase;">${escapeHtml(item.density_level)}</span>
                                 </div>
                             </div>
                         `;
@@ -2241,25 +2241,25 @@
                 const data = await response.json();
 
                 if (data.error) {
-                    contentDiv.innerHTML = `<div class="analysis-warning">${data.error}</div>`;
+                    contentDiv.innerHTML = `<div class="analysis-warning">${escapeHtml(data.error)}</div>`;
                 } else if (data.regular_locations && data.regular_locations.length > 0) {
                     let html = `
                         <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 10px;">
-                            ${data.total_observations} total observations
+                            ${escapeHtml(String(data.total_observations))} total observations
                         </div>
                         <div style="font-weight: 600; margin-bottom: 8px;">Regular Locations:</div>
                     `;
                     data.regular_locations.forEach(loc => {
                         html += `
                             <div class="analysis-device-item">
-                                <div style="font-weight: 600; color: var(--accent-cyan);">Cell ${loc.cid}</div>
+                                <div style="font-weight: 600; color: var(--accent-cyan);">Cell ${escapeHtml(String(loc.cid))}</div>
                                 <div class="analysis-stat">
                                     <span class="analysis-stat-label">Typical Time:</span>
-                                    <span class="analysis-stat-value">${loc.typical_time}</span>
+                                    <span class="analysis-stat-value">${escapeHtml(loc.typical_time)}</span>
                                 </div>
                                 <div class="analysis-stat">
                                     <span class="analysis-stat-label">Frequency:</span>
-                                    <span class="analysis-stat-value">${loc.frequency} times</span>
+                                    <span class="analysis-stat-value">${escapeHtml(String(loc.frequency))} times</span>
                                 </div>
                             </div>
                         `;
@@ -2290,17 +2290,17 @@
                 const data = await response.json();
 
                 if (data.error) {
-                    contentDiv.innerHTML = `<div class="analysis-warning">${data.error}</div>`;
+                    contentDiv.innerHTML = `<div class="analysis-warning">${escapeHtml(data.error)}</div>`;
                 } else {
                     const statusColor = data.status === 'suspicious' ? 'var(--accent-red)' : 'var(--accent-green)';
                     let html = `
                         <div class="analysis-stat">
                             <span class="analysis-stat-label">Status:</span>
-                            <span class="analysis-stat-value" style="color: ${statusColor}; text-transform: uppercase;">${data.status}</span>
+                            <span class="analysis-stat-value" style="color: ${statusColor}; text-transform: uppercase;">${escapeHtml(data.status)}</span>
                         </div>
                         <div class="analysis-stat">
                             <span class="analysis-stat-label">Neighbor Count:</span>
-                            <span class="analysis-stat-value">${data.neighbor_count}</span>
+                            <span class="analysis-stat-value">${escapeHtml(String(data.neighbor_count))}</span>
                         </div>
                     `;
 
@@ -2309,8 +2309,8 @@
                         data.issues.forEach(issue => {
                             html += `
                                 <div class="analysis-warning">
-                                    <div style="font-weight: 600;">${issue.type}</div>
-                                    <div>${issue.message}</div>
+                                    <div style="font-weight: 600;">${escapeHtml(issue.type)}</div>
+                                    <div>${escapeHtml(issue.message)}</div>
                                 </div>
                             `;
                         });
@@ -2342,15 +2342,15 @@
                 const data = await response.json();
 
                 if (data.error) {
-                    contentDiv.innerHTML = `<div class="analysis-warning">${data.error}</div>`;
+                    contentDiv.innerHTML = `<div class="analysis-warning">${escapeHtml(data.error)}</div>`;
                 } else {
                     let html = `
                         <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 10px;">
-                            Last ${data.time_window_minutes} minutes
+                            Last ${escapeHtml(String(data.time_window_minutes))} minutes
                         </div>
                         <div class="analysis-stat">
                             <span class="analysis-stat-label">Active Devices:</span>
-                            <span class="analysis-stat-value">${data.active_devices}</span>
+                            <span class="analysis-stat-value">${escapeHtml(String(data.active_devices))}</span>
                         </div>
                     `;
 
@@ -2361,16 +2361,16 @@
                                                 corr.activity_level === 'medium' ? 'var(--accent-yellow)' : 'var(--accent-green)';
                             html += `
                                 <div class="analysis-device-item">
-                                    <div style="font-weight: 600; color: var(--accent-cyan);">${corr.device_id}</div>
+                                    <div style="font-weight: 600; color: var(--accent-cyan);">${escapeHtml(corr.device_id)}</div>
                                     <div class="analysis-stat">
                                         <span class="analysis-stat-label">Burst Count:</span>
-                                        <span class="analysis-stat-value">${corr.burst_count}</span>
+                                        <span class="analysis-stat-value">${escapeHtml(String(corr.burst_count))}</span>
                                     </div>
                                     <div class="analysis-stat">
                                         <span class="analysis-stat-label">Activity:</span>
-                                        <span class="analysis-stat-value" style="color: ${activityColor}; text-transform: uppercase;">${corr.activity_level}</span>
+                                        <span class="analysis-stat-value" style="color: ${activityColor}; text-transform: uppercase;">${escapeHtml(corr.activity_level)}</span>
                                     </div>
-                                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">TA: ${corr.ta_value}</div>
+                                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">TA: ${escapeHtml(String(corr.ta_value))}</div>
                                 </div>
                             `;
                         });
