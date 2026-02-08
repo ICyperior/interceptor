@@ -528,6 +528,7 @@ def stream():
                 # Try to get data from queue
                 try:
                     data = app_module.gsm_spy_queue.get(timeout=1)
+                    logger.info(f"SSE sending: type={data.get('type', '?')}")
                     yield format_sse(data)
                     last_keepalive = time.time()
                 except queue.Empty:
