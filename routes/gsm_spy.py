@@ -493,8 +493,10 @@ def stop_scanner():
                 killed.append('monitor')
             app_module.gsm_spy_monitor_process = None
 
-        # Note: SDR device is released by scanner thread's finally block
-        # to avoid race condition. Just reset the state variables here.
+        # Release SDR device from registry
+        if app_module.gsm_spy_active_device is not None:
+            from app import release_sdr_device
+            release_sdr_device(app_module.gsm_spy_active_device)
         app_module.gsm_spy_active_device = None
         app_module.gsm_spy_selected_arfcn = None
         gsm_connected = False
