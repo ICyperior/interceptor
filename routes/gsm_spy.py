@@ -1252,7 +1252,9 @@ def scanner_thread(cmd, device_index):
                     try:
                         for line in iter(process.stderr.readline, ''):
                             if line:
-                                logger.debug(f"grgsm_scanner: {line.strip()}")
+                                logger.debug(f"grgsm_scanner stderr: {line.strip()}")
+                                # grgsm_scanner outputs scan results to stderr
+                                output_queue_local.put(('stderr', line))
                     except Exception as e:
                         logger.error(f"stderr read error: {e}")
 
@@ -1279,6 +1281,7 @@ def scanner_thread(cmd, device_index):
                             break  # EOF
 
                         last_output = time.time()
+                        logger.info(f"Scanner [{msg_type}]: {line.strip()}")
 
                         parsed = parse_grgsm_scanner_output(line)
                         if parsed:
