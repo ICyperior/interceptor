@@ -1305,10 +1305,19 @@ def start_audio() -> Response:
     scanner_config['device'] = device
     scanner_config['sdr_type'] = sdr_type
 
-    # Stop waterfall if it's using the same SDR
+    # Stop waterfall if it's using the same SDR (SSE path)
     if waterfall_running and waterfall_active_device == device:
         _stop_waterfall_internal()
         time.sleep(0.2)
+
+    # Release waterfall device claim if the WebSocket waterfall is still
+    # holding it.  The JS client sends a stop command and closes the
+    # WebSocket before requesting audio, but the backend handler may not
+    # have finished its cleanup yet.
+    device_status = app_module.get_sdr_device_status()
+    if device_status.get(device) == 'waterfall':
+        app_module.release_sdr_device(device)
+        time.sleep(0.3)
 
     # Claim device for listening audio
     if listening_active_device is None or listening_active_device != device:

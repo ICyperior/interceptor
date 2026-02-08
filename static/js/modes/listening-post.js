@@ -3172,8 +3172,12 @@ function setWaterfallControlButtons(running) {
     const startBtn = document.getElementById('startWaterfallBtn');
     const stopBtn = document.getElementById('stopWaterfallBtn');
     if (!startBtn || !stopBtn) return;
-    startBtn.style.display = running ? 'none' : 'block';
-    stopBtn.style.display = running ? 'block' : 'none';
+    startBtn.style.display = running ? 'none' : 'inline-block';
+    stopBtn.style.display = running ? 'inline-block' : 'none';
+    const dot = document.getElementById('waterfallStripDot');
+    if (dot) {
+        dot.className = running ? 'status-dot sweeping' : 'status-dot inactive';
+    }
 }
 
 function getWaterfallRangeFromInputs() {
@@ -3925,6 +3929,8 @@ async function stopWaterfall() {
         if (typeof releaseDevice === 'function') {
             releaseDevice('waterfall');
         }
+        // Allow backend WebSocket handler to finish cleanup and release SDR
+        await new Promise(resolve => setTimeout(resolve, 300));
         return;
     }
 
