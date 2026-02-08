@@ -89,6 +89,8 @@ def increment_api_usage():
 
 def can_use_api():
     """Check if we can make an API call within daily limit."""
+    if not config.GSM_OPENCELLID_API_KEY:
+        return False
     current_usage = get_api_usage_today()
     return current_usage < config.GSM_API_DAILY_LIMIT
 
@@ -800,7 +802,7 @@ def lookup_cell():
     lac = data.get('lac')
     cid = data.get('cid')
 
-    if not all([mcc, mnc, lac, cid]):
+    if any(v is None for v in [mcc, mnc, lac, cid]):
         return jsonify({'error': 'MCC, MNC, LAC, and CID required'}), 400
 
     try:
@@ -823,7 +825,9 @@ def lookup_cell():
                     'radio': result['radio']
                 })
 
-            # Check API usage limit
+            # Check API key and usage limit
+            if not config.GSM_OPENCELLID_API_KEY:
+                return jsonify({'error': 'OpenCellID API key not configured'}), 503
             if not can_use_api():
                 current_usage = get_api_usage_today()
                 return jsonify({
@@ -905,7 +909,7 @@ def detect_rogue():
         lac = tower_info.get('lac')
         cid = tower_info.get('cid')
 
-        if all([mcc, mnc, lac, cid]):
+        if all(v is not None for v in [mcc, mnc, lac, cid]):
             with get_db() as conn:
                 result = conn.execute('''
                     SELECT id FROM gsm_cells
@@ -1384,7 +1388,7 @@ def parse_tshark_output(line: str, field_order: list[str] | None = None) -> dict
         field_order = ['ta', 'tmsi', 'imsi', 'lac', 'cid']
 
     try:
-        parts = line.strip().split('\t')
+        parts = line.rstrip('\n\r').split('\t')
 
         if len(parts) < len(field_order):
             return None

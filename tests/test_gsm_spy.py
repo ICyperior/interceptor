@@ -120,25 +120,38 @@ class TestParseTsharkOutput:
         assert 'timestamp' in result
 
     def test_missing_optional_fields(self):
-        """Test parsing with missing optional fields (empty tabs)."""
+        """Test parsing with missing optional fields (empty tabs).
+
+        A packet with TA but no TMSI/IMSI is discarded since there's
+        no device identifier to track.
+        """
         line = "3\t\t\t1234\t31245"
+        result = parse_tshark_output(line)
+        assert result is None
+
+    def test_missing_optional_fields_with_tmsi(self):
+        """Test parsing with TMSI but missing TA, IMSI, CID."""
+        line = "\t0xABCD\t\t1234\t"
         result = parse_tshark_output(line)
 
         assert result is not None
-        assert result['ta_value'] == 3
-        assert result['tmsi'] is None
+        assert result['ta_value'] is None
+        assert result['tmsi'] == '0xABCD'
         assert result['imsi'] is None
         assert result['lac'] == 1234
-        assert result['cid'] == 31245
+        assert result['cid'] is None
 
     def test_no_ta_value(self):
-        """Test parsing without TA value (empty field)."""
-        # When TA is empty, int('') will fail, so the parse returns None
-        # This is the current behavior - the function expects valid integers or valid empty handling
+        """Test parsing without TA value (empty first field)."""
         line = "\t0xABCD1234\t123456789012345\t1234\t31245"
         result = parse_tshark_output(line)
-        # Current implementation will fail to parse this due to int('') failing
-        assert result is None
+
+        assert result is not None
+        assert result['ta_value'] is None
+        assert result['tmsi'] == '0xABCD1234'
+        assert result['imsi'] == '123456789012345'
+        assert result['lac'] == 1234
+        assert result['cid'] == 31245
 
     def test_invalid_line(self):
         """Test handling of invalid tshark output."""
