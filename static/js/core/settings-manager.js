@@ -946,32 +946,9 @@ function loadApiKeyStatus() {
 
     if (!badge) return;
 
-    fetch('/gsm_spy/settings/api_key')
-        .then(r => r.json())
-        .then(data => {
-            if (data.configured) {
-                badge.textContent = 'Configured';
-                badge.className = 'asset-badge available';
-                desc.textContent = 'Source: ' + (data.source === 'env' ? 'Environment variable' : 'Database');
-            } else {
-                badge.textContent = 'Not configured';
-                badge.className = 'asset-badge missing';
-                desc.textContent = 'No API key set';
-            }
-            if (usage) {
-                usage.textContent = (data.usage_today || 0) + ' / ' + (data.api_limit || 1000);
-            }
-            if (bar) {
-                const pct = Math.min(100, ((data.usage_today || 0) / (data.api_limit || 1000)) * 100);
-                bar.style.width = pct + '%';
-                bar.style.background = pct > 90 ? 'var(--accent-red)' : pct > 70 ? 'var(--accent-yellow)' : 'var(--accent-cyan)';
-            }
-        })
-        .catch(() => {
-            badge.textContent = 'Error';
-            badge.className = 'asset-badge missing';
-            desc.textContent = 'Could not load status';
-        });
+    badge.textContent = 'Not available';
+        badge.className = 'asset-badge missing';
+        desc.textContent = 'GSM feature removed';
 }
 
 /**
@@ -994,30 +971,8 @@ function saveApiKey() {
     result.style.color = 'var(--text-dim)';
     result.textContent = 'Saving...';
 
-    fetch('/gsm_spy/settings/api_key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: key })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            result.style.color = 'var(--accent-red)';
-            result.textContent = data.error;
-        } else {
-            result.style.color = 'var(--accent-green)';
-            result.textContent = 'API key saved successfully.';
-            input.value = '';
-            loadApiKeyStatus();
-            // Hide the banner if visible
-            const banner = document.getElementById('apiKeyBanner');
-            if (banner) banner.style.display = 'none';
-        }
-    })
-    .catch(() => {
-        result.style.color = 'var(--accent-red)';
-        result.textContent = 'Error saving API key.';
-    });
+    result.style.color = 'var(--accent-red)';
+    result.textContent = 'GSM feature has been removed.';
 }
 
 /**
