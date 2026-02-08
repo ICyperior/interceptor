@@ -459,6 +459,72 @@
             background: var(--bg-dark);
         }
 
+        /* Scan Progress Overlay */
+        .scan-progress-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: linear-gradient(180deg, rgba(10, 14, 20, 0.95) 0%, rgba(10, 14, 20, 0.85) 100%);
+            border-bottom: 1px solid var(--accent-cyan);
+            backdrop-filter: blur(8px);
+            padding: 10px 16px;
+        }
+
+        .scan-progress-inner {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .scan-progress-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .scan-progress-icon {
+            color: var(--accent-cyan);
+            font-size: 14px;
+            animation: spin 2s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        #scanStatusText {
+            color: var(--accent-cyan);
+            flex: 1;
+        }
+
+        .scan-percent {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .scan-progress-track {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            height: 5px;
+            overflow: hidden;
+        }
+
+        .scan-progress-fill {
+            background: linear-gradient(90deg, var(--accent-cyan), #4dd0e1);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+        }
+
         /* Right Sidebar */
         .right-sidebar {
             background: var(--bg-panel);
@@ -1215,6 +1281,18 @@
 
         <!-- Main Display (Map) -->
         <div class="main-display">
+            <div id="scanProgress" class="scan-progress-overlay" style="display:none;">
+                <div class="scan-progress-inner">
+                    <div class="scan-progress-header">
+                        <span class="scan-progress-icon">⟳</span>
+                        <span id="scanStatusText">Scanning...</span>
+                        <span id="scanPercentText" class="scan-percent">0%</span>
+                    </div>
+                    <div class="scan-progress-track">
+                        <div id="scanProgressBar" class="scan-progress-fill"></div>
+                    </div>
+                </div>
+            </div>
             <div id="gsmMap"></div>
         </div>
 
@@ -1239,15 +1317,6 @@
                 <div class="panel-header">
                     <span>TRACKED TOWERS</span>
                     <div class="panel-indicator"></div>
-                </div>
-                <div id="scanProgress" style="display:none; padding: 8px 12px; border-bottom: 1px solid var(--border-color); font-size: 10px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span id="scanStatusText" style="color: var(--accent-cyan); font-family: var(--font-mono);">Scanning...</span>
-                        <span id="scanPercentText" style="color: var(--text-secondary);">0%</span>
-                    </div>
-                    <div style="background: var(--bg-panel); border-radius: 2px; height: 3px; overflow: hidden;">
-                        <div id="scanProgressBar" style="background: var(--accent-cyan); height: 100%; width: 0%; transition: width 0.3s;"></div>
-                    </div>
                 </div>
                 <div class="tracked-list-content" id="towersList">
                     <div class="no-data">
