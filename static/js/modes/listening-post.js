@@ -3250,6 +3250,26 @@ async function syncWaterfallToFrequency(freq, options = {}) {
     if (isDirectListening || waterfallMode === 'audio') return { started: false };
 
     if (isWaterfallRunning && waterfallMode === 'rf' && restartIfRunning) {
+        // Reuse existing WebSocket to avoid USB device release race
+        if (waterfallUseWebSocket && waterfallWebSocket && waterfallWebSocket.readyState === WebSocket.OPEN) {
+            const sf = parseFloat(document.getElementById('waterfallStartFreq')?.value || 88);
+            const ef = parseFloat(document.getElementById('waterfallEndFreq')?.value || 108);
+            const fft = parseInt(document.getElementById('waterfallFftSize')?.value || document.getElementById('waterfallBinSize')?.value || 1024);
+            const g = parseInt(document.getElementById('waterfallGain')?.value || 40);
+            const dev = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
+            waterfallWebSocket.send(JSON.stringify({
+                cmd: 'start',
+                center_freq: (sf + ef) / 2,
+                span_mhz: Math.max(0.1, ef - sf),
+                gain: g,
+                device: dev,
+                sdr_type: (typeof getSelectedSdrType === 'function') ? getSelectedSdrType() : 'rtlsdr',
+                fft_size: fft,
+                fps: 25,
+                avg_count: 4,
+            }));
+            return { started: true };
+        }
         await stopWaterfall();
         return await startWaterfall({ silent: silent });
     }
@@ -3275,8 +3295,28 @@ async function zoomWaterfall(direction) {
     setWaterfallRange(center, newSpan);
 
     if (isWaterfallRunning && waterfallMode === 'rf' && !isDirectListening) {
-        await stopWaterfall();
-        await startWaterfall({ silent: true });
+        // Reuse existing WebSocket to avoid USB device release race
+        if (waterfallUseWebSocket && waterfallWebSocket && waterfallWebSocket.readyState === WebSocket.OPEN) {
+            const sf = parseFloat(document.getElementById('waterfallStartFreq')?.value || 88);
+            const ef = parseFloat(document.getElementById('waterfallEndFreq')?.value || 108);
+            const fft = parseInt(document.getElementById('waterfallFftSize')?.value || document.getElementById('waterfallBinSize')?.value || 1024);
+            const g = parseInt(document.getElementById('waterfallGain')?.value || 40);
+            const dev = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
+            waterfallWebSocket.send(JSON.stringify({
+                cmd: 'start',
+                center_freq: (sf + ef) / 2,
+                span_mhz: Math.max(0.1, ef - sf),
+                gain: g,
+                device: dev,
+                sdr_type: (typeof getSelectedSdrType === 'function') ? getSelectedSdrType() : 'rtlsdr',
+                fft_size: fft,
+                fps: 25,
+                avg_count: 4,
+            }));
+        } else {
+            await stopWaterfall();
+            await startWaterfall({ silent: true });
+        }
     }
 }
 

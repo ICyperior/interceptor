@@ -132,6 +132,7 @@ def init_waterfall_websocket(app: Flask):
 
                 if cmd == 'start':
                     # Stop any existing capture
+                    was_restarting = iq_process is not None
                     stop_event.set()
                     if reader_thread and reader_thread.is_alive():
                         reader_thread.join(timeout=2)
@@ -149,6 +150,9 @@ def init_waterfall_websocket(app: Flask):
                             send_queue.get_nowait()
                         except queue.Empty:
                             break
+                    # Allow USB device to be released by the kernel
+                    if was_restarting:
+                        time.sleep(0.5)
 
                     # Parse config
                     center_freq = float(data.get('center_freq', 100.0))
@@ -212,25 +216,39 @@ def init_waterfall_websocket(app: Flask):
                         }))
                         continue
 
-                    # Spawn I/Q capture process
+                    # Spawn I/Q capture process (retry to handle USB release lag)
+                    max_attempts = 3 if was_restarting else 1
                     try:
-                        logger.info(
-                            f"Starting I/Q capture: {center_freq} MHz, "
-                            f"span={effective_span_mhz:.1f} MHz, "
-                            f"sr={sample_rate}, fft={fft_size}"
-                        )
-                        iq_process = subprocess.Popen(
-                            iq_cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL,
-                            bufsize=0,
-                        )
-                        register_process(iq_process)
+                        for attempt in range(max_attempts):
+                            logger.info(
+                                f"Starting I/Q capture: {center_freq} MHz, "
+                                f"span={effective_span_mhz:.1f} MHz, "
+                                f"sr={sample_rate}, fft={fft_size}"
+                            )
+                            iq_process = subprocess.Popen(
+                                iq_cmd,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL,
+                                bufsize=0,
+                            )
+                            register_process(iq_process)
 
-                        # Brief check that process started
-                        time.sleep(0.2)
-                        if iq_process.poll() is not None:
-                            raise RuntimeError("I/Q capture process exited immediately")
+                            # Brief check that process started
+                            time.sleep(0.3)
+                            if iq_process.poll() is not None:
+                                unregister_process(iq_process)
+                                iq_process = None
+                                if attempt < max_attempts - 1:
+                                    logger.info(
+                                        f"I/Q process exited immediately, "
+                                        f"retrying ({attempt + 1}/{max_attempts})..."
+                                    )
+                                    time.sleep(0.5)
+                                    continue
+                                raise RuntimeError(
+                                    "I/Q capture process exited immediately"
+                                )
+                            break  # Process started successfully
                     except Exception as e:
                         logger.error(f"Failed to start I/Q capture: {e}")
                         if iq_process:
