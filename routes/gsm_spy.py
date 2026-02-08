@@ -1218,6 +1218,7 @@ def scanner_thread(cmd, device_index):
     strongest_tower = None
     auto_monitor_triggered = False  # Moved outside loop - persists across scans
     scan_count = 0
+    crash_count = 0
     process = None
 
     try:
@@ -1266,7 +1267,8 @@ def scanner_thread(cmd, device_index):
                 stderr_thread.start()
 
                 # Process output with timeout
-                last_output = time.time()
+                scan_start = time.time()
+                last_output = scan_start
                 scan_timeout = 120  # 2 minute maximum per scan
 
                 while app_module.gsm_spy_scanner_running:
@@ -1326,6 +1328,15 @@ def scanner_thread(cmd, device_index):
                             logger.warning(f"Scan timeout after {scan_timeout}s")
                             break
 
+                # Drain remaining queue items after process exits
+                while not output_queue_local.empty():
+                    try:
+                        msg_type, line = output_queue_local.get_nowait()
+                        if line:
+                            logger.info(f"Scanner [{msg_type}] (drain): {line.strip()}")
+                    except queue.Empty:
+                        break
+
                 # Clean up process with timeout
                 if process.poll() is None:
                     logger.info("Terminating scanner process")
@@ -1333,7 +1344,30 @@ def scanner_thread(cmd, device_index):
                 else:
                     process.wait()  # Reap zombie
 
-                logger.info(f"Scan #{scan_count} complete")
+                exit_code = process.returncode
+                scan_duration = time.time() - scan_start
+                logger.info(f"Scan #{scan_count} complete (exit code: {exit_code}, duration: {scan_duration:.1f}s)")
+
+                # Detect crash pattern: process exits too quickly with no data
+                if scan_duration < 5 and exit_code != 0:
+                    crash_count += 1
+                    logger.error(
+                        f"grgsm_scanner crashed on startup (exit code: {exit_code}). "
+                        f"Crash count: {crash_count}. Check gr-gsm/libosmocore compatibility."
+                    )
+                    try:
+                        app_module.gsm_spy_queue.put_nowait({
+                            'type': 'error',
+                            'message': f'grgsm_scanner crashed (exit code: {exit_code}). '
+                                       'This may be a gr-gsm/libosmocore compatibility issue. '
+                                       'Try rebuilding gr-gsm from source.',
+                            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S')
+                        })
+                    except queue.Full:
+                        pass
+                    if crash_count >= 3:
+                        logger.error("grgsm_scanner crashed 3 times, stopping scanner")
+                        break
 
             except FileNotFoundError:
                 logger.error(
