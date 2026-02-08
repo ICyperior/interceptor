@@ -95,6 +95,14 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
             sensor_active_device = None
 
 
+@sensor_bp.route('/sensor/status')
+def sensor_status() -> Response:
+    """Check if sensor decoder is currently running."""
+    with app_module.sensor_lock:
+        running = app_module.sensor_process is not None and app_module.sensor_process.poll() is None
+    return jsonify({'running': running})
+
+
 @sensor_bp.route('/start_sensor', methods=['POST'])
 def start_sensor() -> Response:
     global sensor_active_device
@@ -174,7 +182,8 @@ def start_sensor() -> Response:
         logger.info(f"Running: {full_cmd}")
 
         # Add signal level metadata so the frontend scope can display RSSI/SNR
-        cmd.extend(['-M', 'level'])
+        # Disable stats reporting to suppress "row count limit 50 reached" warnings
+        cmd.extend(['-M', 'level', '-M', 'stats:0'])
 
         try:
             app_module.sensor_process = subprocess.Popen(
