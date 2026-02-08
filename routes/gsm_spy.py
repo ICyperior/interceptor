@@ -89,9 +89,18 @@ def increment_api_usage():
     return current + 1
 
 
+def get_opencellid_api_key():
+    """Get OpenCellID API key, checking env var first, then database setting."""
+    env_key = config.GSM_OPENCELLID_API_KEY
+    if env_key:
+        return env_key
+    from utils.database import get_setting
+    return get_setting('gsm.opencellid.api_key', '')
+
+
 def can_use_api():
     """Check if we can make an API call within daily limit."""
-    if not config.GSM_OPENCELLID_API_KEY:
+    if not get_opencellid_api_key():
         return False
     current_usage = get_api_usage_today()
     return current_usage < config.GSM_API_DAILY_LIMIT
@@ -140,8 +149,8 @@ def geocoding_worker():
 
             # Check API key and rate limit
             if not can_use_api():
-                if not config.GSM_OPENCELLID_API_KEY:
-                    logger.warning("OpenCellID API key not configured (set INTERCEPT_GSM_OPENCELLID_API_KEY)")
+                if not get_opencellid_api_key():
+                    logger.warning("OpenCellID API key not configured (set INTERCEPT_GSM_OPENCELLID_API_KEY or configure in Settings > API Keys)")
                 else:
                     current_usage = get_api_usage_today()
                     logger.warning(f"OpenCellID API daily limit reached ({current_usage}/{config.GSM_API_DAILY_LIMIT})")
@@ -807,7 +816,53 @@ def status():
         'selected_arfcn': app_module.gsm_spy_selected_arfcn,
         'api_usage_today': api_usage,
         'api_limit': config.GSM_API_DAILY_LIMIT,
-        'api_remaining': config.GSM_API_DAILY_LIMIT - api_usage
+        'api_remaining': config.GSM_API_DAILY_LIMIT - api_usage,
+        'api_key_configured': bool(get_opencellid_api_key())
+    })
+
+
+@gsm_spy_bp.route('/settings/api_key', methods=['GET', 'POST'])
+def settings_api_key():
+    """Get or set OpenCellID API key configuration."""
+    from utils.database import get_setting, set_setting
+
+    if request.method == 'GET':
+        env_key = config.GSM_OPENCELLID_API_KEY
+        db_key = get_setting('gsm.opencellid.api_key', '')
+
+        if env_key:
+            source = 'env'
+            configured = True
+        elif db_key:
+            source = 'database'
+            configured = True
+        else:
+            source = 'none'
+            configured = False
+
+        usage_today = get_api_usage_today()
+
+        return jsonify({
+            'configured': configured,
+            'source': source,
+            'usage_today': usage_today,
+            'api_limit': config.GSM_API_DAILY_LIMIT
+        })
+
+    # POST: save key to database
+    data = request.get_json() or {}
+    key = data.get('key', '').strip()
+
+    if not key:
+        return jsonify({'error': 'API key cannot be empty'}), 400
+
+    set_setting('gsm.opencellid.api_key', key)
+    logger.info("OpenCellID API key saved to database")
+
+    return jsonify({
+        'status': 'saved',
+        'configured': True,
+        'source': 'database'
     })
 
 
@@ -844,7 +899,8 @@ def lookup_cell():
                 })
 
             # Check API key and usage limit
-            if not config.GSM_OPENCELLID_API_KEY:
+            api_key = get_opencellid_api_key()
+            if not api_key:
                 return jsonify({'error': 'OpenCellID API key not configured'}), 503
             if not can_use_api():
                 current_usage = get_api_usage_today()
@@ -857,7 +913,7 @@ def lookup_cell():
             # Call OpenCellID API
             api_url = config.GSM_OPENCELLID_API_URL
             params = {
-                'key': config.GSM_OPENCELLID_API_KEY,
+                'key': api_key,
                 'mcc': mcc,
                 'mnc': mnc,
                 'lac': lac,
@@ -1416,15 +1472,15 @@ def parse_tshark_output(line: str, field_order: list[str] | None = None) -> dict
         for i, logical_name in enumerate(field_order):
             field_map[logical_name] = parts[i] if parts[i] else None
 
-        # Convert types
+        # Convert types (use base 0 to auto-detect hex 0x prefix from tshark)
         ta_raw = field_map.get('ta')
         data = {
             'type': 'device',
-            'ta_value': int(ta_raw) if ta_raw else None,
+            'ta_value': int(ta_raw, 0) if ta_raw else None,
             'tmsi': field_map.get('tmsi'),
             'imsi': field_map.get('imsi'),
-            'lac': int(field_map['lac']) if field_map.get('lac') else None,
-            'cid': int(field_map['cid']) if field_map.get('cid') else None,
+            'lac': int(field_map['lac'], 0) if field_map.get('lac') else None,
+            'cid': int(field_map['cid'], 0) if field_map.get('cid') else None,
             'timestamp': datetime.now().isoformat()
         }
 

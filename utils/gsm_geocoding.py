@@ -65,6 +65,15 @@ def lookup_cell_coordinates(mcc: int, mnc: int, lac: int, cid: int) -> dict[str,
         return None
 
 
+def _get_api_key() -> str:
+    """Get OpenCellID API key at runtime (env var first, then database)."""
+    env_key = config.GSM_OPENCELLID_API_KEY
+    if env_key:
+        return env_key
+    from utils.database import get_setting
+    return get_setting('gsm.opencellid.api_key', '')
+
+
 def lookup_cell_from_api(mcc: int, mnc: int, lac: int, cid: int) -> dict[str, Any] | None:
     """
     Lookup cell tower from OpenCellID API and cache result.
@@ -81,9 +90,14 @@ def lookup_cell_from_api(mcc: int, mnc: int, lac: int, cid: int) -> dict[str, An
         Returns None if API call fails or cell not found.
     """
     try:
+        api_key = _get_api_key()
+        if not api_key:
+            logger.warning("OpenCellID API key not configured")
+            return None
+
         api_url = config.GSM_OPENCELLID_API_URL
         params = {
-            'key': config.GSM_OPENCELLID_API_KEY,
+            'key': api_key,
             'mcc': mcc,
             'mnc': mnc,
             'lac': lac,

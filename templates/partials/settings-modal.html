@@ -17,6 +17,7 @@
             <button class="settings-tab" data-tab="tools" onclick="switchSettingsTab('tools')">Tools</button>
             <button class="settings-tab" data-tab="alerts" onclick="switchSettingsTab('alerts')">Alerts</button>
             <button class="settings-tab" data-tab="recording" onclick="switchSettingsTab('recording')">Recording</button>
+            <button class="settings-tab" data-tab="apikeys" onclick="switchSettingsTab('apikeys')">API Keys</button>
             <button class="settings-tab" data-tab="about" onclick="switchSettingsTab('about')">About</button>
         </div>
 
@@ -356,6 +357,70 @@
                 <div id="recordingList" class="settings-feed">
                     <div class="settings-feed-empty">No recordings yet</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- API Keys Section -->
+        <div id="settings-apikeys" class="settings-section">
+            <div class="settings-group">
+                <div class="settings-group-title">OpenCellID API Key</div>
+                <p style="color: var(--text-dim); margin-bottom: 15px; font-size: 12px;">
+                    Required for GSM cell tower geolocation. Get a free key at
+                    <a href="https://opencellid.org/register" target="_blank" style="color: var(--accent-cyan);">opencellid.org/register</a>
+                    (1,000 lookups/day).
+                </p>
+
+                <div class="settings-row">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Status</span>
+                        <span class="settings-label-desc" id="apiKeyStatusDesc">Checking...</span>
+                    </div>
+                    <span id="apiKeyStatusBadge" class="asset-badge checking">Checking...</span>
+                </div>
+
+                <div class="settings-row" style="flex-wrap: wrap; gap: 8px;">
+                    <div class="settings-label" style="width: 100%;">
+                        <span class="settings-label-text">API Key</span>
+                        <span class="settings-label-desc">Paste your OpenCellID API token</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; width: 100%;">
+                        <input type="password" id="apiKeyInput" class="settings-input"
+                               placeholder="Enter your OpenCellID API key"
+                               style="flex: 1; font-family: var(--font-mono); font-size: 11px;">
+                        <button class="check-assets-btn" onclick="toggleApiKeyVisibility()" style="padding: 6px 10px; font-size: 11px;" title="Show/Hide">
+                            <svg id="apiKeyEyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 12px;">
+                    <button class="check-assets-btn" onclick="saveApiKey()" style="flex: 1; background: var(--accent-cyan); color: #000;">
+                        Save Key
+                    </button>
+                </div>
+
+                <div id="apiKeySaveResult" style="margin-top: 10px; font-size: 11px; display: none;"></div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Usage Today</div>
+                <div style="padding: 12px; background: var(--bg-tertiary); border-radius: 6px; font-family: var(--font-mono); font-size: 12px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="color: var(--text-dim);">API Calls</span>
+                        <span id="apiKeyUsageCount" style="color: var(--accent-cyan);">-- / --</span>
+                    </div>
+                    <div style="background: var(--bg-dark); border-radius: 3px; height: 6px; overflow: hidden; margin-top: 4px;">
+                        <div id="apiKeyUsageBar" style="height: 100%; background: var(--accent-cyan); width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-info">
+                <strong>Note:</strong> The environment variable <code>INTERCEPT_GSM_OPENCELLID_API_KEY</code> takes priority over the saved key.
+                Keys saved here persist across restarts.
             </div>
         </div>
 

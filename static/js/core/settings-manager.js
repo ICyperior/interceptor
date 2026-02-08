@@ -930,5 +930,101 @@ function switchSettingsTab(tabName) {
         if (typeof RecordingUI !== 'undefined') {
             RecordingUI.refresh();
         }
+    } else if (tabName === 'apikeys') {
+        loadApiKeyStatus();
     }
+}
+
+/**
+ * Load API key status into the API Keys settings tab
+ */
+function loadApiKeyStatus() {
+    const badge = document.getElementById('apiKeyStatusBadge');
+    const desc = document.getElementById('apiKeyStatusDesc');
+    const usage = document.getElementById('apiKeyUsageCount');
+    const bar = document.getElementById('apiKeyUsageBar');
+
+    if (!badge) return;
+
+    fetch('/gsm_spy/settings/api_key')
+        .then(r => r.json())
+        .then(data => {
+            if (data.configured) {
+                badge.textContent = 'Configured';
+                badge.className = 'asset-badge available';
+                desc.textContent = 'Source: ' + (data.source === 'env' ? 'Environment variable' : 'Database');
+            } else {
+                badge.textContent = 'Not configured';
+                badge.className = 'asset-badge missing';
+                desc.textContent = 'No API key set';
+            }
+            if (usage) {
+                usage.textContent = (data.usage_today || 0) + ' / ' + (data.api_limit || 1000);
+            }
+            if (bar) {
+                const pct = Math.min(100, ((data.usage_today || 0) / (data.api_limit || 1000)) * 100);
+                bar.style.width = pct + '%';
+                bar.style.background = pct > 90 ? 'var(--accent-red)' : pct > 70 ? 'var(--accent-yellow)' : 'var(--accent-cyan)';
+            }
+        })
+        .catch(() => {
+            badge.textContent = 'Error';
+            badge.className = 'asset-badge missing';
+            desc.textContent = 'Could not load status';
+        });
+}
+
+/**
+ * Save API key from the settings input
+ */
+function saveApiKey() {
+    const input = document.getElementById('apiKeyInput');
+    const result = document.getElementById('apiKeySaveResult');
+    if (!input || !result) return;
+
+    const key = input.value.trim();
+    if (!key) {
+        result.style.display = 'block';
+        result.style.color = 'var(--accent-red)';
+        result.textContent = 'Please enter an API key.';
+        return;
+    }
+
+    result.style.display = 'block';
+    result.style.color = 'var(--text-dim)';
+    result.textContent = 'Saving...';
+
+    fetch('/gsm_spy/settings/api_key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: key })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            result.style.color = 'var(--accent-red)';
+            result.textContent = data.error;
+        } else {
+            result.style.color = 'var(--accent-green)';
+            result.textContent = 'API key saved successfully.';
+            input.value = '';
+            loadApiKeyStatus();
+            // Hide the banner if visible
+            const banner = document.getElementById('apiKeyBanner');
+            if (banner) banner.style.display = 'none';
+        }
+    })
+    .catch(() => {
+        result.style.color = 'var(--accent-red)';
+        result.textContent = 'Error saving API key.';
+    });
+}
+
+/**
+ * Toggle API key input visibility
+ */
+function toggleApiKeyVisibility() {
+    const input = document.getElementById('apiKeyInput');
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
 }
