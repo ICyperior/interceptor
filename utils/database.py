@@ -148,6 +148,52 @@ def init_db() -> None:
             )
         ''')
 
+        # Alert rules
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS alert_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                mode TEXT,
+                event_type TEXT,
+                match TEXT,
+                severity TEXT DEFAULT 'medium',
+                enabled BOOLEAN DEFAULT 1,
+                notify TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Alert events
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS alert_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_id INTEGER,
+                mode TEXT,
+                event_type TEXT,
+                severity TEXT DEFAULT 'medium',
+                title TEXT,
+                message TEXT,
+                payload TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (rule_id) REFERENCES alert_rules(id) ON DELETE SET NULL
+            )
+        ''')
+
+        # Session recordings
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS recording_sessions (
+                id TEXT PRIMARY KEY,
+                mode TEXT NOT NULL,
+                label TEXT,
+                started_at TIMESTAMP NOT NULL,
+                stopped_at TIMESTAMP,
+                file_path TEXT NOT NULL,
+                event_count INTEGER DEFAULT 0,
+                size_bytes INTEGER DEFAULT 0,
+                metadata TEXT
+            )
+        ''')
+
         # Users table for authentication
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -405,6 +451,134 @@ def init_db() -> None:
         conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_tscm_cases_status
             ON tscm_cases(status, created_at)
+        ''')
+
+        # =====================================================================
+        # GSM (Global System for Mobile) Intelligence Tables
+        # =====================================================================
+
+        # gsm_cells - Known cell towers (OpenCellID cache)
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS gsm_cells (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mcc INTEGER NOT NULL,
+                mnc INTEGER NOT NULL,
+                lac INTEGER NOT NULL,
+                cid INTEGER NOT NULL,
+                lat REAL,
+                lon REAL,
+                azimuth INTEGER,
+                range_meters INTEGER,
+                samples INTEGER,
+                radio TEXT,
+                operator TEXT,
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_verified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT,
+                UNIQUE(mcc, mnc, lac, cid)
+            )
+        ''')
+
+        # gsm_rogues - Detected rogue towers / IMSI catchers
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS gsm_rogues (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                arfcn INTEGER NOT NULL,
+                mcc INTEGER,
+                mnc INTEGER,
+                lac INTEGER,
+                cid INTEGER,
+                signal_strength REAL,
+                reason TEXT NOT NULL,
+                threat_level TEXT DEFAULT 'medium',
+                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                location_lat REAL,
+                location_lon REAL,
+                acknowledged BOOLEAN DEFAULT 0,
+                notes TEXT,
+                metadata TEXT
+            )
+        ''')
+
+        # gsm_signals - 60-day archive of signal observations
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS gsm_signals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                imsi TEXT,
+                tmsi TEXT,
+                mcc INTEGER,
+                mnc INTEGER,
+                lac INTEGER,
+                cid INTEGER,
+                ta_value INTEGER,
+                signal_strength REAL,
+                arfcn INTEGER,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT
+            )
+        ''')
+
+        # gsm_tmsi_log - 24-hour raw pings for crowd density
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS gsm_tmsi_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tmsi TEXT NOT NULL,
+                lac INTEGER,
+                cid INTEGER,
+                ta_value INTEGER,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # gsm_velocity_log - 1-hour buffer for movement tracking
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS gsm_velocity_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT NOT NULL,
+                prev_ta INTEGER,
+                curr_ta INTEGER,
+                prev_cid INTEGER,
+                curr_cid INTEGER,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                estimated_velocity REAL,
+                metadata TEXT
+            )
+        ''')
+
+        # GSM indexes for performance
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gsm_cells_location
+            ON gsm_cells(lat, lon)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gsm_cells_identity
+            ON gsm_cells(mcc, mnc, lac, cid)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gsm_rogues_severity
+            ON gsm_rogues(threat_level, detected_at)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gsm_signals_cell_time
+            ON gsm_signals(cid, lac, timestamp)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gsm_signals_device
+            ON gsm_signals(imsi, tmsi, timestamp)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gsm_tmsi_log_time
+            ON gsm_tmsi_log(timestamp)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gsm_velocity_log_device
+            ON gsm_velocity_log(device_id, timestamp)
         ''')
 
         # =====================================================================
@@ -2121,5 +2295,63 @@ def cleanup_old_payloads(max_age_hours: int = 24) -> int:
         cursor = conn.execute('''
             DELETE FROM push_payloads
             WHERE received_at < datetime('now', ?)
+        ''', (f'-{max_age_hours} hours',))
+        return cursor.rowcount
+
+
+# =============================================================================
+# GSM Cleanup Functions
+# =============================================================================
+
+def cleanup_old_gsm_signals(max_age_days: int = 60) -> int:
+    """
+    Remove old GSM signal observations (60-day archive).
+
+    Args:
+        max_age_days: Maximum age in days (default: 60)
+
+    Returns:
+        Number of deleted entries
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM gsm_signals
+            WHERE timestamp < datetime('now', ?)
+        ''', (f'-{max_age_days} days',))
+        return cursor.rowcount
+
+
+def cleanup_old_gsm_tmsi_log(max_age_hours: int = 24) -> int:
+    """
+    Remove old TMSI log entries (24-hour buffer for crowd density).
+
+    Args:
+        max_age_hours: Maximum age in hours (default: 24)
+
+    Returns:
+        Number of deleted entries
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM gsm_tmsi_log
+            WHERE timestamp < datetime('now', ?)
+        ''', (f'-{max_age_hours} hours',))
+        return cursor.rowcount
+
+
+def cleanup_old_gsm_velocity_log(max_age_hours: int = 1) -> int:
+    """
+    Remove old velocity log entries (1-hour buffer for movement tracking).
+
+    Args:
+        max_age_hours: Maximum age in hours (default: 1)
+
+    Returns:
+        Number of deleted entries
+    """
+    with get_db() as conn:
+        cursor = conn.execute('''
+            DELETE FROM gsm_velocity_log
+            WHERE timestamp < datetime('now', ?)
         ''', (f'-{max_age_hours} hours',))
         return cursor.rowcount

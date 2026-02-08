@@ -694,6 +694,52 @@ install_macos_packages() {
   progress "Installing gpsd"
   brew_install gpsd
 
+  # gr-gsm for GSM Intelligence
+  if ! cmd_exists grgsm_scanner; then
+    echo
+    info "gr-gsm provides GSM cellular signal decoding..."
+    if ask_yes_no "Do you want to install gr-gsm?"; then
+      progress "Installing gr-gsm"
+      brew_install gnuradio
+      (brew_install gr-gsm) || {
+        warn "gr-gsm not available in Homebrew, attempting manual build..."
+        # Manual build instructions
+        if ask_yes_no "Attempt to build gr-gsm from source? (requires CMake and build tools)"; then
+          info "Cloning gr-gsm repository..."
+          git clone https://github.com/ptrkrysik/gr-gsm.git /tmp/gr-gsm
+          cd /tmp/gr-gsm
+          mkdir build && cd build
+          cmake ..
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+          cd ~
+          rm -rf /tmp/gr-gsm
+          ok "gr-gsm installed successfully"
+        else
+          warn "Skipping gr-gsm source build. GSM Spy feature will not work."
+        fi
+      }
+    else
+      warn "Skipping gr-gsm installation. GSM Spy feature will not work."
+    fi
+  else
+    ok "gr-gsm already installed"
+  fi
+
+  # Wireshark (tshark) for packet analysis
+  if ! cmd_exists tshark; then
+    echo
+    info "tshark is used for GSM packet parsing..."
+    if ask_yes_no "Do you want to install tshark?"; then
+      progress "Installing Wireshark (tshark)"
+      brew_install wireshark
+    else
+      warn "Skipping tshark installation."
+    fi
+  else
+    ok "tshark already installed"
+  fi
+
   progress "Installing Ubertooth tools (optional)"
   if ! cmd_exists ubertooth-btle; then
     echo
@@ -1103,6 +1149,87 @@ install_debian_packages() {
 
   progress "Installing gpsd"
   apt_install gpsd gpsd-clients || true
+
+  # gr-gsm for GSM Intelligence
+  if ! cmd_exists grgsm_scanner; then
+    echo
+    info "gr-gsm provides GSM cellular signal decoding..."
+    if ask_yes_no "Do you want to install gr-gsm?"; then
+      progress "Installing GNU Radio and gr-gsm"
+      # Try to install gr-gsm directly from package repositories
+      apt_install gnuradio gnuradio-dev gr-osmosdr gr-gsm || {
+        warn "gr-gsm package not available in repositories. Attempting source build..."
+
+        # Fallback: Build from source
+        progress "Building gr-gsm from source"
+        apt_install git cmake libboost-all-dev libcppunit-dev swig \
+                    doxygen liblog4cpp5-dev python3-scipy python3-numpy \
+                    libvolk-dev libuhd-dev libfftw3-dev || true
+
+        info "Cloning gr-gsm repository..."
+        if [ -d /tmp/gr-gsm ]; then
+          rm -rf /tmp/gr-gsm
+        fi
+
+        git clone https://github.com/ptrkrysik/gr-gsm.git /tmp/gr-gsm || {
+          warn "Failed to clone gr-gsm repository. GSM Spy will not be available."
+          return 0
+        }
+
+        cd /tmp/gr-gsm
+        mkdir -p build && cd build
+
+        # Try to find GNU Radio cmake files
+        if [ -d /usr/lib/x86_64-linux-gnu/cmake/gnuradio ]; then
+          export CMAKE_PREFIX_PATH="/usr/lib/x86_64-linux-gnu/cmake/gnuradio:$CMAKE_PREFIX_PATH"
+        fi
+
+        info "Running CMake configuration..."
+        if cmake .. 2>/dev/null; then
+          info "Compiling gr-gsm (this may take several minutes)..."
+          if make -j$(nproc) 2>/dev/null; then
+            $SUDO make install
+            $SUDO ldconfig
+            cd ~
+            rm -rf /tmp/gr-gsm
+            ok "gr-gsm built and installed successfully"
+          else
+            warn "gr-gsm compilation failed. GSM Spy feature will not work."
+            cd ~
+            rm -rf /tmp/gr-gsm
+          fi
+        else
+          warn "gr-gsm CMake configuration failed. GNU Radio 3.8+ may not be available."
+          cd ~
+          rm -rf /tmp/gr-gsm
+        fi
+      }
+
+      # Verify installation
+      if cmd_exists grgsm_scanner; then
+        ok "gr-gsm installed successfully"
+      else
+        warn "gr-gsm installation incomplete. GSM Spy feature will not work."
+      fi
+    else
+      warn "Skipping gr-gsm installation."
+    fi
+  else
+    ok "gr-gsm already installed"
+  fi
+
+  # Wireshark (tshark)
+  if ! cmd_exists tshark; then
+    echo
+    info "Installing tshark for GSM packet analysis..."
+    apt_install tshark || true
+    # Allow non-root capture
+    $SUDO dpkg-reconfigure wireshark-common 2>/dev/null || true
+    $SUDO usermod -a -G wireshark $USER 2>/dev/null || true
+    ok "tshark installed. You may need to re-login for wireshark group permissions."
+  else
+    ok "tshark already installed"
+  fi
 
   progress "Installing Python packages"
   apt_install python3-venv python3-pip || true
