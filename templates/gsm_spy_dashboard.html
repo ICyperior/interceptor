@@ -1818,6 +1818,7 @@
         let heatmapLayer = null;
         let heatmapVisible = false;
         let heatmapLastRefresh = 0;
+        let monitoredArfcn = null;
 
         // Statistics
         let stats = {
@@ -2168,6 +2169,7 @@
                         updateScanStatus('Scan #' + data.scan + ' complete (' + data.towers_found + ' towers, ' + data.duration + 's)');
                         document.getElementById('scanProgressBar').style.width = '100%';
                     } else if (data.type === 'auto_monitor_started') {
+                        monitoredArfcn = data.arfcn;
                         showMonitorStatus(data.arfcn);
                         console.log('[GSM SPY] Auto-monitor started on ARFCN', data.arfcn);
                     } else if (data.type === 'monitor_heartbeat') {
@@ -3172,6 +3174,48 @@
             }
         }
 
+        function findTowerCoords(cid, lac) {
+            // Try exact CID+LAC match first
+            for (const key in towers) {
+                const t = towers[key];
+                if (Number(t.cid) === cid && Number(t.lac) === lac &&
+                    t.lat && t.lon && !isNaN(parseFloat(t.lat)) && !isNaN(parseFloat(t.lon))) {
+                    return [parseFloat(t.lat), parseFloat(t.lon)];
+                }
+            }
+            return null;
+        }
+
+        function findFallbackCoords() {
+            // 1) Try the monitored tower (by ARFCN)
+            if (monitoredArfcn !== null) {
+                for (const key in towers) {
+                    const t = towers[key];
+                    if (Number(t.arfcn) === Number(monitoredArfcn) &&
+                        t.lat && t.lon && !isNaN(parseFloat(t.lat)) && !isNaN(parseFloat(t.lon))) {
+                        console.log(`[GSM SPY] Heatmap: using monitored tower ARFCN ${monitoredArfcn} coords as fallback`);
+                        return [parseFloat(t.lat), parseFloat(t.lon)];
+                    }
+                }
+            }
+            // 2) Try any geocoded tower
+            for (const key in towers) {
+                const t = towers[key];
+                if (t.lat && t.lon && !isNaN(parseFloat(t.lat)) && !isNaN(parseFloat(t.lon))) {
+                    console.log(`[GSM SPY] Heatmap: using tower CID ${t.cid} coords as fallback`);
+                    return [parseFloat(t.lat), parseFloat(t.lon)];
+                }
+            }
+            // 3) Fall back to observer location
+            const obsLat = parseFloat(document.getElementById('obsLat').value);
+            const obsLon = parseFloat(document.getElementById('obsLon').value);
+            if (!isNaN(obsLat) && !isNaN(obsLon)) {
+                console.log('[GSM SPY] Heatmap: using observer location as fallback');
+                return [obsLat, obsLon];
+            }
+            return null;
+        }
+
         async function updateHeatmap() {
             try {
                 const response = await fetch('/gsm_spy/crowd_density?hours=1');
@@ -3188,39 +3232,28 @@
 
                 const points = [];
                 let maxIntensity = 1;
-                let matched = 0;
-                let unmatched = 0;
+                const fallbackCoords = findFallbackCoords();
 
                 data.forEach(item => {
                     const itemCid = Number(item.cid);
                     const itemLac = Number(item.lac);
-                    let found = false;
+                    const intensity = item.unique_devices || 1;
+                    if (intensity > maxIntensity) maxIntensity = intensity;
 
-                    for (const key in towers) {
-                        const t = towers[key];
-                        if (Number(t.cid) === itemCid && Number(t.lac) === itemLac) {
-                            if (t.lat && t.lon && !isNaN(parseFloat(t.lat)) && !isNaN(parseFloat(t.lon))) {
-                                const intensity = item.unique_devices || 1;
-                                if (intensity > maxIntensity) maxIntensity = intensity;
-                                points.push([parseFloat(t.lat), parseFloat(t.lon), intensity]);
-                                found = true;
-                            } else {
-                                console.log(`[GSM SPY] Heatmap: tower CID ${itemCid} LAC ${itemLac} has no coordinates yet`);
-                            }
-                            break;
-                        }
+                    // Try exact CID+LAC tower match
+                    const coords = findTowerCoords(itemCid, itemLac);
+                    if (coords) {
+                        points.push([coords[0], coords[1], intensity]);
+                    } else if (fallbackCoords) {
+                        // Tower not geocoded or CID=0 — use fallback location
+                        points.push([fallbackCoords[0], fallbackCoords[1], intensity]);
                     }
-
-                    if (found) matched++;
-                    else unmatched++;
                 });
 
-                console.log(`[GSM SPY] Heatmap: ${matched} matched, ${unmatched} unmatched, ${points.length} points with coords`);
+                console.log(`[GSM SPY] Heatmap: ${points.length} points from ${data.length} density records`);
 
                 if (points.length === 0) {
-                    if (!heatmapVisible) {
-                        console.warn('[GSM SPY] Heatmap: density data exists but no towers have coordinates. Wait for geocoding.');
-                    }
+                    console.warn('[GSM SPY] Heatmap: no plottable points (no tower coords and no fallback)');
                     return false;
                 }
 
