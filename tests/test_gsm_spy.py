@@ -71,17 +71,26 @@ class TestParseGrgsmScannerOutput:
         result = parse_grgsm_scanner_output(line)
         assert result is None
 
-    def test_cid_zero_filtered(self):
-        """Test that CID=0 entries (no decoded cell) are filtered out."""
+    def test_no_identity_filtered(self):
+        """Test that MCC=0/MNC=0 entries (no network identity) are filtered out."""
         line = "ARFCN: 115, Freq: 925.0M, CID: 0, LAC: 0, MCC: 0, MNC: 0, Pwr: -100"
         result = parse_grgsm_scanner_output(line)
         assert result is None
 
-    def test_mcc_zero_filtered(self):
-        """Test that MCC=0 entries (no decoded identity) are filtered out."""
+    def test_mcc_zero_mnc_zero_filtered(self):
+        """Test that MCC=0/MNC=0 even with valid CID is filtered out."""
         line = "ARFCN: 113, Freq: 924.6M, CID: 1234, LAC: 5678, MCC: 0, MNC: 0, Pwr: -90"
         result = parse_grgsm_scanner_output(line)
         assert result is None
+
+    def test_cid_zero_valid_mcc_passes(self):
+        """Test that CID=0 with valid MCC/MNC passes (partially decoded cell)."""
+        line = "ARFCN: 115, Freq: 958.0M, CID: 0, LAC: 21864, MCC: 234, MNC: 10, Pwr: -51"
+        result = parse_grgsm_scanner_output(line)
+        assert result is not None
+        assert result['cid'] == 0
+        assert result['mcc'] == 234
+        assert result['signal_strength'] == -51.0
 
     def test_valid_cid_nonzero(self):
         """Test that valid non-zero CID/MCC entries pass through."""
