@@ -238,6 +238,84 @@ def validate_band_names(bands: list[str], region: str) -> tuple[list[str], str |
     return bands, None
 
 
+# tshark field name discovery - field names vary between Wireshark versions
+_tshark_fields_cache: dict[str, str] | None = None
+
+
+def _discover_tshark_fields() -> dict[str, str]:
+    """Discover correct tshark field names for GSM A protocol.
+
+    Different Wireshark versions use different field names:
+    - Wireshark 3.x: gsm_a.rr.timing_advance, gsm_a.tmsi, gsm_a.imsi, gsm_a.lac, gsm_a.cellid
+    - Wireshark 4.x: gsm_a_rr.timing_adv, gsm_a_dtap.tmsi, e212.imsi, e212.lac, e212.ci
+
+    Returns:
+        Dict mapping logical names to actual tshark field names:
+        {'ta': ..., 'tmsi': ..., 'imsi': ..., 'lac': ..., 'cid': ...}
+    """
+    global _tshark_fields_cache
+    if _tshark_fields_cache is not None:
+        return _tshark_fields_cache
+
+    # Candidate field names for each logical field, in preference order
+    candidates = {
+        'ta': [
+            'gsm_a.rr.timing_advance',
+            'gsm_a_rr.timing_adv',
+            'gsm_a_rr.timing_advance',
+        ],
+        'tmsi': [
+            'gsm_a.tmsi',
+            'gsm_a_dtap.tmsi',
+            'gsm_a.dtap.tmsi',
+        ],
+        'imsi': [
+            'gsm_a.imsi',
+            'e212.imsi',
+            'gsm_a_dtap.imsi',
+        ],
+        'lac': [
+            'gsm_a.lac',
+            'e212.lac',
+            'gsm_a_bssmap.lac',
+        ],
+        'cid': [
+            'gsm_a.cellid',
+            'e212.ci',
+            'gsm_a_bssmap.cell_ci',
+            'gsm_a.cell_ci',
+        ],
+    }
+
+    # Query tshark for all available GSM fields
+    available_fields = set()
+    try:
+        result = subprocess.run(
+            ['tshark', '-G', 'fields'],
+            capture_output=True, text=True, timeout=10
+        )
+        for line in result.stdout.splitlines():
+            parts = line.split('\t')
+            if len(parts) >= 3:
+                available_fields.add(parts[2])  # Field name is 3rd column
+    except Exception as e:
+        logger.warning(f"Could not query tshark fields: {e}")
+
+    # Match each logical field to the first available candidate
+    resolved = {}
+    for logical_name, field_candidates in candidates.items():
+        resolved[logical_name] = field_candidates[0]  # default fallback
+        if available_fields:
+            for candidate in field_candidates:
+                if candidate in available_fields:
+                    resolved[logical_name] = candidate
+                    break
+
+    logger.info(f"Discovered tshark fields: {resolved}")
+    _tshark_fields_cache = resolved
+    return resolved
+
+
 def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subprocess.Popen, subprocess.Popen]:
     """Start grgsm_livemon and tshark processes for monitoring an ARFCN.
 
@@ -312,18 +390,20 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
         unregister_process(grgsm_proc)
         raise FileNotFoundError('tshark not found. Please install wireshark/tshark.')
 
+    fields = _discover_tshark_fields()
+    display_filter = f"{fields['ta']} || {fields['tmsi']} || {fields['imsi']}"
     tshark_cmd = [
         'tshark',
         '-i', 'lo',
         '-l',  # Line-buffered output for live capture
         '-f', 'udp port 4729',  # Capture filter: only GSMTAP packets
-        '-Y', 'gsm_a.rr.timing_advance || gsm_a.tmsi || gsm_a.imsi',
+        '-Y', display_filter,
         '-T', 'fields',
-        '-e', 'gsm_a.rr.timing_advance',
-        '-e', 'gsm_a.tmsi',
-        '-e', 'gsm_a.imsi',
-        '-e', 'gsm_a.lac',
-        '-e', 'gsm_a.cellid'
+        '-e', fields['ta'],
+        '-e', fields['tmsi'],
+        '-e', fields['imsi'],
+        '-e', fields['lac'],
+        '-e', fields['cid']
     ]
     logger.info(f"Starting tshark: {' '.join(tshark_cmd)}")
     tshark_proc = subprocess.Popen(
