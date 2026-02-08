@@ -292,6 +292,10 @@ def require_login():
     if request.path.startswith('/listening/audio/'):
         return None
 
+    # Allow WebSocket upgrade requests (page load already required auth)
+    if request.path.startswith('/ws/'):
+        return None
+
     # Controller API endpoints use API key auth, not session auth
     # Allow agent push/pull endpoints without session login
     if request.path.startswith('/controller/'):
