@@ -45,6 +45,21 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
                 data['type'] = 'sensor'
                 app_module.sensor_queue.put(data)
 
+                # Push scope event when signal level data is present
+                rssi = data.get('rssi')
+                snr = data.get('snr')
+                noise = data.get('noise')
+                if rssi is not None or snr is not None:
+                    try:
+                        app_module.sensor_queue.put_nowait({
+                            'type': 'scope',
+                            'rssi': rssi if rssi is not None else 0,
+                            'snr': snr if snr is not None else 0,
+                            'noise': noise if noise is not None else 0,
+                        })
+                    except queue.Full:
+                        pass
+
                 # Log if enabled
                 if app_module.logging_enabled:
                     try:
@@ -157,6 +172,9 @@ def start_sensor() -> Response:
 
         full_cmd = ' '.join(cmd)
         logger.info(f"Running: {full_cmd}")
+
+        # Add signal level metadata so the frontend scope can display RSSI/SNR
+        cmd.extend(['-M', 'level'])
 
         try:
             app_module.sensor_process = subprocess.Popen(

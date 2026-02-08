@@ -2200,10 +2200,6 @@
                 <!-- Filter Bar Container (populated by JavaScript based on active mode) -->
                 <div id="filterBarContainer" style="display: none;"></div>
 
-                <!-- Mode-specific Timeline Containers -->
-                <div id="pagerTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
-                <div id="sensorTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
-
                 <!-- Pager Signal Scope -->
                 <div id="pagerScopePanel" style="display: none; margin-bottom: 12px;">
                     <div style="background: #0a0a0a; border: 1px solid #1a1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
@@ -2218,6 +2214,26 @@
                         <canvas id="pagerScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
                     </div>
                 </div>
+
+                <!-- Mode-specific Timeline Containers -->
+                <div id="pagerTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
+
+                <!-- Sensor Signal Scope -->
+                <div id="sensorScopePanel" style="display: none; margin-bottom: 12px;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                            <span>Signal Scope</span>
+                            <div style="display: flex; gap: 14px;">
+                                <span>RSSI: <span id="sensorScopeRssiLabel" style="color: #0f0; font-variant-numeric: tabular-nums;">--</span><span style="color: #444;"> dB</span></span>
+                                <span>SNR: <span id="sensorScopeSnrLabel" style="color: #fa0; font-variant-numeric: tabular-nums;">--</span><span style="color: #444;"> dB</span></span>
+                                <span id="sensorScopeStatusLabel" style="color: #444;">IDLE</span>
+                            </div>
+                        </div>
+                        <canvas id="sensorScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                    </div>
+                </div>
+
+                <div id="sensorTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
 
                 <div class="output-content signal-feed" id="output">
                     <div class="placeholder signal-empty-state">
@@ -3185,6 +3201,160 @@
             }
         }
 
+        // --- Sensor Signal Scope ---
+        let sensorScopeCtx = null;
+        let sensorScopeAnim = null;
+        let sensorScopeHistory = [];
+        const SENSOR_SCOPE_LEN = 200;
+        let sensorScopeRssi = 0;
+        let sensorScopeSnr = 0;
+        let sensorScopeTargetRssi = 0;
+        let sensorScopeTargetSnr = 0;
+        let sensorScopeMsgBurst = 0;
+        let sensorScopeLastPulse = 0;
+
+        function initSensorScope() {
+            const canvas = document.getElementById('sensorScopeCanvas');
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * (window.devicePixelRatio || 1);
+            canvas.height = rect.height * (window.devicePixelRatio || 1);
+            sensorScopeCtx = canvas.getContext('2d');
+            sensorScopeHistory = new Array(SENSOR_SCOPE_LEN).fill(0);
+            sensorScopeRssi = 0;
+            sensorScopeSnr = 0;
+            sensorScopeTargetRssi = 0;
+            sensorScopeTargetSnr = 0;
+            sensorScopeMsgBurst = 0;
+            sensorScopeLastPulse = 0;
+            drawSensorScope();
+        }
+
+        function drawSensorScope() {
+            const ctx = sensorScopeCtx;
+            if (!ctx) return;
+            const W = ctx.canvas.width;
+            const H = ctx.canvas.height;
+            const midY = H / 2;
+
+            // Phosphor persistence
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.3)';
+            ctx.fillRect(0, 0, W, H);
+
+            // Smooth towards targets (decay when no new packets)
+            sensorScopeRssi += (sensorScopeTargetRssi - sensorScopeRssi) * 0.25;
+            sensorScopeSnr += (sensorScopeTargetSnr - sensorScopeSnr) * 0.15;
+
+            // Decay targets back to zero between packets
+            sensorScopeTargetRssi *= 0.97;
+            sensorScopeTargetSnr *= 0.97;
+
+            // RSSI is typically negative dBm (e.g. -0.1 to -30+)
+            // Normalize: map absolute RSSI to 0-1 range (0 dB = max, -40 dB = min)
+            const rssiNorm = Math.min(Math.max(Math.abs(sensorScopeRssi) / 40, 0), 1.0);
+            sensorScopeHistory.push(rssiNorm);
+            if (sensorScopeHistory.length > SENSOR_SCOPE_LEN) {
+                sensorScopeHistory.shift();
+            }
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(40, 80, 40, 0.4)';
+            ctx.lineWidth = 1;
+            for (let g = 0.25; g < 1; g += 0.25) {
+                const gy = midY - g * midY;
+                const gy2 = midY + g * midY;
+                ctx.beginPath();
+                ctx.moveTo(0, gy); ctx.lineTo(W, gy);
+                ctx.moveTo(0, gy2); ctx.lineTo(W, gy2);
+                ctx.stroke();
+            }
+
+            // Center baseline
+            ctx.strokeStyle = 'rgba(60, 100, 60, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(0, midY);
+            ctx.lineTo(W, midY);
+            ctx.stroke();
+
+            // Waveform (mirrored, green theme for 433)
+            const stepX = W / SENSOR_SCOPE_LEN;
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#0f0';
+            ctx.shadowBlur = 4;
+
+            // Upper half
+            ctx.beginPath();
+            for (let i = 0; i < sensorScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = sensorScopeHistory[i] * midY * 0.9;
+                const y = midY - amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Lower half (mirror)
+            ctx.beginPath();
+            for (let i = 0; i < sensorScopeHistory.length; i++) {
+                const x = i * stepX;
+                const amp = sensorScopeHistory[i] * midY * 0.9;
+                const y = midY + amp;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+
+            // SNR indicator (amber dashed line)
+            const snrNorm = Math.min(Math.max(Math.abs(sensorScopeSnr) / 40, 0), 1.0);
+            if (snrNorm > 0.01) {
+                const snrY = midY - snrNorm * midY * 0.9;
+                ctx.strokeStyle = 'rgba(255, 170, 0, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, snrY);
+                ctx.lineTo(W, snrY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Sensor decode flash (green overlay)
+            if (sensorScopeMsgBurst > 0.01) {
+                ctx.fillStyle = `rgba(0, 255, 100, ${sensorScopeMsgBurst * 0.15})`;
+                ctx.fillRect(0, 0, W, H);
+                sensorScopeMsgBurst *= 0.88;
+            }
+
+            // Update labels
+            const rssiLabel = document.getElementById('sensorScopeRssiLabel');
+            const snrLabel = document.getElementById('sensorScopeSnrLabel');
+            const statusLabel = document.getElementById('sensorScopeStatusLabel');
+            if (rssiLabel) rssiLabel.textContent = sensorScopeRssi < -0.5 ? sensorScopeRssi.toFixed(1) : '--';
+            if (snrLabel) snrLabel.textContent = sensorScopeSnr > 0.5 ? sensorScopeSnr.toFixed(1) : '--';
+            if (statusLabel) {
+                if (Math.abs(sensorScopeRssi) > 1) {
+                    statusLabel.textContent = 'SIGNAL';
+                    statusLabel.style.color = '#0f0';
+                } else {
+                    statusLabel.textContent = 'MONITORING';
+                    statusLabel.style.color = '#555';
+                }
+            }
+
+            sensorScopeAnim = requestAnimationFrame(drawSensorScope);
+        }
+
+        function stopSensorScope() {
+            if (sensorScopeAnim) {
+                cancelAnimationFrame(sensorScopeAnim);
+                sensorScopeAnim = null;
+            }
+            sensorScopeCtx = null;
+        }
+
         // Start sensor decoding
         function startSensorDecoding() {
             const freq = document.getElementById('sensorFrequency').value;
@@ -3374,6 +3544,18 @@
             document.getElementById('statusText').textContent = running ? 'Listening...' : 'Idle';
             document.getElementById('startSensorBtn').style.display = running ? 'none' : 'block';
             document.getElementById('stopSensorBtn').style.display = running ? 'block' : 'none';
+
+            // Signal scope
+            const scopePanel = document.getElementById('sensorScopePanel');
+            if (scopePanel) {
+                if (running) {
+                    scopePanel.style.display = 'block';
+                    initSensorScope();
+                } else {
+                    stopSensorScope();
+                    scopePanel.style.display = 'none';
+                }
+            }
         }
 
         function startSensorStream() {
@@ -3391,6 +3573,9 @@
                 const data = JSON.parse(e.data);
                 if (data.type === 'sensor') {
                     addSensorReading(data);
+                } else if (data.type === 'scope') {
+                    sensorScopeTargetRssi = data.rssi;
+                    sensorScopeTargetSnr = data.snr;
                 } else if (data.type === 'status') {
                     if (data.text === 'stopped') {
                         setSensorRunning(false);
@@ -3414,6 +3599,9 @@
             allMessages.push(data);
             playAlert();
             pulseSignal();
+
+            // Flash sensor scope green on decode
+            sensorScopeMsgBurst = 1.0;
 
             sensorCount++;
             document.getElementById('sensorCount').textContent = sensorCount;
