@@ -3161,12 +3161,14 @@
             if (heatmapVisible) {
                 removeHeatmap();
             } else {
-                await updateHeatmap();
-                heatmapVisible = true;
-                const btn = document.getElementById('heatmapToggle');
-                btn.textContent = 'Heatmap: ON';
-                btn.style.borderColor = 'var(--accent-cyan)';
-                btn.style.color = 'var(--accent-cyan)';
+                const success = await updateHeatmap();
+                if (success) {
+                    heatmapVisible = true;
+                    const btn = document.getElementById('heatmapToggle');
+                    btn.textContent = 'Heatmap: ON';
+                    btn.style.borderColor = 'var(--accent-cyan)';
+                    btn.style.color = 'var(--accent-cyan)';
+                }
             }
         }
 
@@ -3175,26 +3177,52 @@
                 const response = await fetch('/gsm_spy/crowd_density?hours=1');
                 const data = await response.json();
 
-                if (!data || data.length === 0) return;
+                console.log('[GSM SPY] Heatmap: crowd_density returned', Array.isArray(data) ? data.length + ' items' : data);
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    if (!heatmapVisible) {
+                        console.warn('[GSM SPY] Heatmap: no crowd density data. Start monitoring to collect device pings.');
+                    }
+                    return false;
+                }
 
                 const points = [];
                 let maxIntensity = 1;
+                let matched = 0;
+                let unmatched = 0;
 
                 data.forEach(item => {
-                    // Match CID to tower coordinates
-                    const cid = item.cid;
+                    const itemCid = Number(item.cid);
+                    const itemLac = Number(item.lac);
+                    let found = false;
+
                     for (const key in towers) {
                         const t = towers[key];
-                        if (t.cid === cid && t.lat && t.lon) {
-                            const intensity = item.unique_devices || 1;
-                            if (intensity > maxIntensity) maxIntensity = intensity;
-                            points.push([t.lat, t.lon, intensity]);
+                        if (Number(t.cid) === itemCid && Number(t.lac) === itemLac) {
+                            if (t.lat && t.lon && !isNaN(parseFloat(t.lat)) && !isNaN(parseFloat(t.lon))) {
+                                const intensity = item.unique_devices || 1;
+                                if (intensity > maxIntensity) maxIntensity = intensity;
+                                points.push([parseFloat(t.lat), parseFloat(t.lon), intensity]);
+                                found = true;
+                            } else {
+                                console.log(`[GSM SPY] Heatmap: tower CID ${itemCid} LAC ${itemLac} has no coordinates yet`);
+                            }
                             break;
                         }
                     }
+
+                    if (found) matched++;
+                    else unmatched++;
                 });
 
-                if (points.length === 0) return;
+                console.log(`[GSM SPY] Heatmap: ${matched} matched, ${unmatched} unmatched, ${points.length} points with coords`);
+
+                if (points.length === 0) {
+                    if (!heatmapVisible) {
+                        console.warn('[GSM SPY] Heatmap: density data exists but no towers have coordinates. Wait for geocoding.');
+                    }
+                    return false;
+                }
 
                 // Remove existing layer before adding new one
                 if (heatmapLayer && gsmMap.hasLayer(heatmapLayer)) {
@@ -3210,8 +3238,10 @@
                 }).addTo(gsmMap);
 
                 heatmapLastRefresh = Date.now();
+                return true;
             } catch (error) {
                 console.error('[GSM SPY] Heatmap update error:', error);
+                return false;
             }
         }
 
