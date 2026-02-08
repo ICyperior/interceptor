@@ -243,9 +243,17 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
 
     Returns:
         Tuple of (grgsm_process, tshark_process)
+
+    Raises:
+        FileNotFoundError: If grgsm_livemon or tshark not found
+        RuntimeError: If grgsm_livemon exits immediately
     """
     frequency_hz = arfcn_to_frequency(arfcn)
     frequency_mhz = frequency_hz / 1e6
+
+    # Check prerequisites
+    if not shutil.which('grgsm_livemon'):
+        raise FileNotFoundError('grgsm_livemon not found. Please install gr-gsm.')
 
     # Start grgsm_livemon
     grgsm_cmd = [
@@ -253,19 +261,56 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
         '--args', f'rtl={device_index}',
         '-f', f'{frequency_mhz}M'
     ]
-    env = dict(os.environ, OSMO_FSM_DUP_CHECK_DISABLED='1')
+    env = dict(os.environ,
+               OSMO_FSM_DUP_CHECK_DISABLED='1',
+               PYTHONUNBUFFERED='1')
+    logger.info(f"Starting grgsm_livemon: {' '.join(grgsm_cmd)}")
     grgsm_proc = subprocess.Popen(
         grgsm_cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        universal_newlines=True,
         env=env
     )
     register_process(grgsm_proc)
     logger.info(f"Started grgsm_livemon (PID: {grgsm_proc.pid})")
 
-    time.sleep(2)  # Wait for grgsm_livemon to start
+    # Wait and check it didn't die immediately
+    time.sleep(2)
+
+    if grgsm_proc.poll() is not None:
+        # Process already exited - capture stderr for diagnostics
+        stderr_output = ''
+        try:
+            stderr_output = grgsm_proc.stderr.read()
+        except Exception:
+            pass
+        exit_code = grgsm_proc.returncode
+        logger.error(
+            f"grgsm_livemon exited immediately (code: {exit_code}). "
+            f"stderr: {stderr_output[:500]}"
+        )
+        unregister_process(grgsm_proc)
+        raise RuntimeError(
+            f'grgsm_livemon failed (exit code {exit_code}): {stderr_output[:200]}'
+        )
+
+    # Start stderr reader thread for grgsm_livemon diagnostics
+    def read_livemon_stderr():
+        try:
+            for line in iter(grgsm_proc.stderr.readline, ''):
+                if line:
+                    logger.debug(f"grgsm_livemon stderr: {line.strip()}")
+        except Exception:
+            pass
+    threading.Thread(target=read_livemon_stderr, daemon=True).start()
 
     # Start tshark
+    if not shutil.which('tshark'):
+        safe_terminate(grgsm_proc)
+        unregister_process(grgsm_proc)
+        raise FileNotFoundError('tshark not found. Please install wireshark/tshark.')
+
     tshark_cmd = [
         'tshark', '-i', 'lo',
         '-Y', 'gsm_a.rr.timing_advance || gsm_a.tmsi || gsm_a.imsi',
@@ -276,6 +321,7 @@ def _start_monitoring_processes(arfcn: int, device_index: int) -> tuple[subproce
         '-e', 'gsm_a.lac',
         '-e', 'gsm_a.cellid'
     ]
+    logger.info(f"Starting tshark: {' '.join(tshark_cmd)}")
     tshark_proc = subprocess.Popen(
         tshark_cmd,
         stdout=subprocess.PIPE,
@@ -525,14 +571,20 @@ def stream():
             yield format_sse(tower_data)
 
         last_keepalive = time.time()
+        idle_count = 0  # Track consecutive idle checks to handle transitions
 
         while True:
             try:
-                # Check if scanner is still running
+                # Check if scanner/monitor are still running
+                # Use idle counter to avoid disconnecting during scanner→monitor transition
                 if not app_module.gsm_spy_scanner_running and not app_module.gsm_spy_monitor_process:
-                    logger.info("SSE stream: scanner stopped, sending disconnect")
-                    yield format_sse({'type': 'disconnected'})
-                    break
+                    idle_count += 1
+                    if idle_count >= 5:  # 5 seconds grace period for mode transitions
+                        logger.info("SSE stream: no active scanner or monitor, disconnecting")
+                        yield format_sse({'type': 'disconnected'})
+                        break
+                else:
+                    idle_count = 0
 
                 # Try to get data from queue
                 try:
@@ -1483,6 +1535,13 @@ def scanner_thread(cmd, device_index):
                                 pass
                 except Exception as e:
                     logger.error(f"Error starting auto-monitor: {e}", exc_info=True)
+                    try:
+                        app_module.gsm_spy_queue.put_nowait({
+                            'type': 'error',
+                            'message': f'Monitor failed: {e}'
+                        })
+                    except queue.Full:
+                        pass
                     # Resume scanning if monitor failed
                     app_module.gsm_spy_scanner_running = True
 
