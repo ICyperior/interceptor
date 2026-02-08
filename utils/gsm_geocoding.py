@@ -47,7 +47,7 @@ def lookup_cell_coordinates(mcc: int, mnc: int, lac: int, cid: int) -> dict[str,
                 WHERE mcc = ? AND mnc = ? AND lac = ? AND cid = ?
             ''', (mcc, mnc, lac, cid)).fetchone()
 
-            if result:
+            if result and result['lat'] is not None and result['lon'] is not None:
                 return {
                     'lat': result['lat'],
                     'lon': result['lon'],
@@ -95,6 +95,16 @@ def lookup_cell_from_api(mcc: int, mnc: int, lac: int, cid: int) -> dict[str, An
 
         if response.status_code == 200:
             cell_data = response.json()
+            lat = cell_data.get('lat')
+            lon = cell_data.get('lon')
+
+            # Validate response has actual coordinates
+            if lat is None or lon is None:
+                logger.warning(
+                    f"OpenCellID API returned 200 but no coordinates for "
+                    f"MCC={mcc} MNC={mnc} LAC={lac} CID={cid}: {cell_data}"
+                )
+                return None
 
             # Cache the result
             with get_db() as conn:
@@ -104,8 +114,7 @@ def lookup_cell_from_api(mcc: int, mnc: int, lac: int, cid: int) -> dict[str, An
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ''', (
                     mcc, mnc, lac, cid,
-                    cell_data.get('lat'),
-                    cell_data.get('lon'),
+                    lat, lon,
                     cell_data.get('azimuth'),
                     cell_data.get('range'),
                     cell_data.get('samples'),
@@ -114,11 +123,11 @@ def lookup_cell_from_api(mcc: int, mnc: int, lac: int, cid: int) -> dict[str, An
                 ))
                 conn.commit()
 
-            logger.info(f"Cached cell tower from API: MCC={mcc} MNC={mnc} LAC={lac} CID={cid}")
+            logger.info(f"Cached cell tower from API: MCC={mcc} MNC={mnc} LAC={lac} CID={cid} -> ({lat}, {lon})")
 
             return {
-                'lat': cell_data.get('lat'),
-                'lon': cell_data.get('lon'),
+                'lat': lat,
+                'lon': lon,
                 'source': 'api',
                 'azimuth': cell_data.get('azimuth'),
                 'range_meters': cell_data.get('range'),
@@ -126,7 +135,10 @@ def lookup_cell_from_api(mcc: int, mnc: int, lac: int, cid: int) -> dict[str, An
                 'radio': cell_data.get('radio')
             }
         else:
-            logger.warning(f"OpenCellID API returned {response.status_code} for MCC={mcc} MNC={mnc} LAC={lac} CID={cid}")
+            logger.warning(
+                f"OpenCellID API returned {response.status_code} for "
+                f"MCC={mcc} MNC={mnc} LAC={lac} CID={cid}: {response.text[:200]}"
+            )
             return None
 
     except Exception as e:

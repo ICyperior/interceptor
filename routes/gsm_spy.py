@@ -104,6 +104,19 @@ def can_use_api():
 def start_geocoding_worker():
     """Start background thread for async geocoding."""
     global _geocoding_worker_thread
+
+    # Clean poisoned cache entries (rows with NULL lat/lon from failed API responses)
+    try:
+        with get_db() as conn:
+            deleted = conn.execute(
+                'DELETE FROM gsm_cells WHERE lat IS NULL OR lon IS NULL'
+            ).rowcount
+            conn.commit()
+            if deleted:
+                logger.info(f"Cleaned {deleted} poisoned cache entries (NULL coordinates)")
+    except Exception as e:
+        logger.warning(f"Could not clean cache: {e}")
+
     if _geocoding_worker_thread is None or not _geocoding_worker_thread.is_alive():
         _geocoding_worker_thread = threading.Thread(
             target=geocoding_worker,
@@ -125,10 +138,13 @@ def geocoding_worker():
             # Wait for pending tower with timeout
             tower_data = geocoding_queue.get(timeout=5)
 
-            # Check rate limit
+            # Check API key and rate limit
             if not can_use_api():
-                current_usage = get_api_usage_today()
-                logger.warning(f"OpenCellID API rate limit reached ({current_usage}/{config.GSM_API_DAILY_LIMIT})")
+                if not config.GSM_OPENCELLID_API_KEY:
+                    logger.warning("OpenCellID API key not configured (set INTERCEPT_GSM_OPENCELLID_API_KEY)")
+                else:
+                    current_usage = get_api_usage_today()
+                    logger.warning(f"OpenCellID API daily limit reached ({current_usage}/{config.GSM_API_DAILY_LIMIT})")
                 geocoding_queue.task_done()
                 continue
 
