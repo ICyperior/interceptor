@@ -136,16 +136,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && make \
     && cp acarsdec /usr/bin/acarsdec \
     && rm -rf /tmp/acarsdec \
-    # Build slowrx (SSTV decoder)
+    # Build slowrx (SSTV decoder) — pinned to known-good commit
     && cd /tmp \
-    && git clone --depth 1 https://github.com/windytan/slowrx.git \
+    && git clone https://github.com/windytan/slowrx.git \
     && cd slowrx \
+    && git checkout ca6d7012 \
     && make \
     && install -m 0755 slowrx /usr/local/bin/slowrx \
     && rm -rf /tmp/slowrx \
-    # Build SatDump (weather satellite decoder - NOAA APT & Meteor LRPT)
+    # Build SatDump (weather satellite decoder - NOAA APT & Meteor LRPT) — pinned to v1.2.2
     && cd /tmp \
-    && git clone --depth 1 https://github.com/SatDump/SatDump.git \
+    && git clone --depth 1 --branch 1.2.2 https://github.com/SatDump/SatDump.git \
     && cd SatDump \
     && mkdir build && cd build \
     && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. \

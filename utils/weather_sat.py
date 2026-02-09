@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable
 
 from utils.logging import get_logger
+from utils.process import register_process, safe_terminate
 
 logger = get_logger('intercept.weather_sat')
 
@@ -145,6 +146,7 @@ class WeatherSatDecoder:
         self._process: subprocess.Popen | None = None
         self._running = False
         self._lock = threading.Lock()
+        self._images_lock = threading.Lock()
         self._callback: Callable[[CaptureProgress], None] | None = None
         self._output_dir = Path(output_dir) if output_dir else Path('data/weather_sat')
         self._images: list[WeatherSatImage] = []
@@ -243,11 +245,30 @@ class WeatherSatDecoder:
                 return False
 
             input_path = Path(input_file)
+
+            # Security: restrict to data directory
+            allowed_base = Path(__file__).resolve().parent.parent / 'data'
+            try:
+                resolved = input_path.resolve()
+                if not resolved.is_relative_to(allowed_base):
+                    logger.warning(f"Path traversal blocked in start_from_file: {input_file}")
+                    self._emit_progress(CaptureProgress(
+                        status='error',
+                        message='Input file must be under the data/ directory'
+                    ))
+                    return False
+            except (OSError, ValueError):
+                self._emit_progress(CaptureProgress(
+                    status='error',
+                    message='Invalid file path'
+                ))
+                return False
+
             if not input_path.is_file():
                 logger.error(f"Input file not found: {input_file}")
                 self._emit_progress(CaptureProgress(
                     status='error',
-                    message=f'Input file not found: {input_file}'
+                    message='Input file not found'
                 ))
                 return False
 
@@ -417,12 +438,17 @@ class WeatherSatDecoder:
             stdin=subprocess.DEVNULL,
             close_fds=True,
         )
+        register_process(self._process)
         os.close(slave_fd)  # parent doesn't need the slave side
 
-        # Check for early exit (SatDump errors out immediately)
-        try:
-            retcode = self._process.wait(timeout=3)
-            # Process already died — read whatever output it produced
+        # Check for early exit asynchronously (avoid blocking /start for 3s)
+        def _check_early_exit():
+            """Poll once after 3s; if SatDump died, emit an error event."""
+            time.sleep(3)
+            process = self._process
+            if process is None or process.poll() is None:
+                return  # still running or already cleaned up
+            retcode = process.returncode
             output = b''
             try:
                 while True:
@@ -435,8 +461,6 @@ class WeatherSatDecoder:
                     output += chunk
             except OSError:
                 pass
-            os.close(master_fd)
-            self._pty_master_fd = None
             output_str = output.decode('utf-8', errors='replace')
             error_msg = f"SatDump exited immediately (code {retcode})"
             if output_str:
@@ -445,11 +469,17 @@ class WeatherSatDecoder:
                         error_msg = line.strip()
                         break
                 logger.error(f"SatDump output:\n{output_str}")
-            self._process = None
-            raise RuntimeError(error_msg)
-        except subprocess.TimeoutExpired:
-            # Good — process is still running after 3 seconds
-            pass
+            self._emit_progress(CaptureProgress(
+                status='error',
+                satellite=self._current_satellite,
+                frequency=self._current_frequency,
+                mode=self._current_mode,
+                message=error_msg,
+                log_type='error',
+                capture_phase='error',
+            ))
+
+        threading.Thread(target=_check_early_exit, daemon=True).start()
 
         # Start reader thread to monitor output
         self._reader_thread = threading.Thread(
@@ -508,6 +538,7 @@ class WeatherSatDecoder:
             stdin=subprocess.DEVNULL,
             close_fds=True,
         )
+        register_process(self._process)
         os.close(slave_fd)  # parent doesn't need the slave side
 
         # For offline mode, don't check for early exit — file decoding
@@ -782,7 +813,8 @@ class WeatherSatDecoder:
                 # Recursively scan for image files
                 for ext in ('*.png', '*.jpg', '*.jpeg'):
                     for filepath in self._capture_output_dir.rglob(ext):
-                        if filepath.name in known_files:
+                        file_key = str(filepath)
+                        if file_key in known_files:
                             continue
 
                         # Skip tiny files (likely incomplete)
@@ -793,7 +825,7 @@ class WeatherSatDecoder:
                         except OSError:
                             continue
 
-                        known_files.add(filepath.name)
+                        known_files.add(file_key)
 
                         # Determine product type from filename/path
                         product = self._parse_product_name(filepath)
@@ -817,7 +849,8 @@ class WeatherSatDecoder:
                             size_bytes=stat.st_size,
                             product=product,
                         )
-                        self._images.append(image)
+                        with self._images_lock:
+                            self._images.append(image)
 
                         logger.info(f"New weather satellite image: {serve_name} ({product})")
                         self._emit_progress(CaptureProgress(
@@ -877,16 +910,7 @@ class WeatherSatDecoder:
                 self._pty_master_fd = None
 
             if self._process:
-                try:
-                    self._process.terminate()
-                    self._process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self._process.kill()
-                except Exception:
-                    try:
-                        self._process.kill()
-                    except Exception:
-                        pass
+                safe_terminate(self._process)
                 self._process = None
 
             elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
@@ -894,11 +918,15 @@ class WeatherSatDecoder:
 
     def get_images(self) -> list[WeatherSatImage]:
         """Get list of decoded images."""
-        self._scan_images()
-        return list(self._images)
+        with self._images_lock:
+            self._scan_images()
+            return list(self._images)
 
     def _scan_images(self) -> None:
-        """Scan output directory for images not yet tracked."""
+        """Scan output directory for images not yet tracked.
+
+        Must be called with self._images_lock held.
+        """
         known_filenames = {img.filename for img in self._images}
 
         for ext in ('*.png', '*.jpg', '*.jpeg'):
@@ -940,7 +968,8 @@ class WeatherSatDecoder:
         if filepath.exists():
             try:
                 filepath.unlink()
-                self._images = [img for img in self._images if img.filename != filename]
+                with self._images_lock:
+                    self._images = [img for img in self._images if img.filename != filename]
                 return True
             except OSError as e:
                 logger.error(f"Failed to delete image {filename}: {e}")
@@ -956,7 +985,8 @@ class WeatherSatDecoder:
                     count += 1
                 except OSError:
                     pass
-        self._images.clear()
+        with self._images_lock:
+            self._images.clear()
         return count
 
     def _emit_progress(self, progress: CaptureProgress) -> None:
@@ -987,13 +1017,16 @@ class WeatherSatDecoder:
 
 # Global decoder instance
 _decoder: WeatherSatDecoder | None = None
+_decoder_lock = threading.Lock()
 
 
 def get_weather_sat_decoder() -> WeatherSatDecoder:
     """Get or create the global weather satellite decoder instance."""
     global _decoder
     if _decoder is None:
-        _decoder = WeatherSatDecoder()
+        with _decoder_lock:
+            if _decoder is None:
+                _decoder = WeatherSatDecoder()
     return _decoder
 
 

@@ -7,13 +7,12 @@ from NOAA (APT) and Meteor (LRPT) satellites using SatDump.
 from __future__ import annotations
 
 import queue
-import time
-from typing import Generator
 
 from flask import Blueprint, jsonify, request, Response, send_file
 
 from utils.logging import get_logger
-from utils.sse import format_sse
+from utils.sse import sse_stream
+from utils.validation import validate_device_index, validate_gain, validate_latitude, validate_longitude, validate_elevation
 from utils.weather_sat import (
     get_weather_sat_decoder,
     is_weather_sat_available,
@@ -116,28 +115,14 @@ def start_capture():
             'message': f'Invalid satellite. Must be one of: {", ".join(WEATHER_SATELLITES.keys())}'
         }), 400
 
-    # Validate device index
-    device_index = data.get('device', 0)
+    # Validate device index and gain
     try:
-        device_index = int(device_index)
-        if not (0 <= device_index <= 255):
-            raise ValueError
-    except (TypeError, ValueError):
+        device_index = validate_device_index(data.get('device', 0))
+        gain = validate_gain(data.get('gain', 40.0))
+    except ValueError as e:
         return jsonify({
             'status': 'error',
-            'message': 'Invalid device index (0-255)'
-        }), 400
-
-    # Validate gain
-    gain = data.get('gain', 40.0)
-    try:
-        gain = float(gain)
-        if not (0 <= gain <= 50):
-            raise ValueError
-    except (TypeError, ValueError):
-        return jsonify({
-            'status': 'error',
-            'message': 'Invalid gain (0-50 dB)'
+            'message': str(e)
         }), 400
 
     bias_t = bool(data.get('bias_t', False))
@@ -252,11 +237,11 @@ def test_decode():
     from pathlib import Path
     input_path = Path(input_file)
 
-    # Security: restrict to data directory
-    allowed_base = Path('data').resolve()
+    # Security: restrict to data directory (anchored to app root, not CWD)
+    allowed_base = Path(__file__).resolve().parent.parent / 'data'
     try:
         resolved = input_path.resolve()
-        if not str(resolved).startswith(str(allowed_base)):
+        if not resolved.is_relative_to(allowed_base):
             return jsonify({
                 'status': 'error',
                 'message': 'input_file must be under the data/ directory'
@@ -268,9 +253,10 @@ def test_decode():
         }), 400
 
     if not input_path.is_file():
+        logger.warning(f"Test-decode file not found: {input_file}")
         return jsonify({
             'status': 'error',
-            'message': f'File not found: {input_file}'
+            'message': 'File not found'
         }), 404
 
     # Validate sample rate
@@ -440,22 +426,7 @@ def stream_progress():
     Returns:
         SSE stream (text/event-stream)
     """
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
-        keepalive_interval = 30.0
-
-        while True:
-            try:
-                progress = _weather_sat_queue.get(timeout=1)
-                last_keepalive = time.time()
-                yield format_sse(progress)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= keepalive_interval:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
-
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(sse_stream(_weather_sat_queue), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Connection'] = 'keep-alive'
@@ -477,26 +448,26 @@ def get_passes():
     Returns:
         JSON with upcoming passes for all weather satellites.
     """
-    lat = request.args.get('latitude', type=float)
-    lon = request.args.get('longitude', type=float)
-    hours = request.args.get('hours', 24, type=int)
-    min_elevation = request.args.get('min_elevation', 15, type=float)
     include_trajectory = request.args.get('trajectory', 'false').lower() in ('true', '1')
     include_ground_track = request.args.get('ground_track', 'false').lower() in ('true', '1')
 
-    if lat is None or lon is None:
+    raw_lat = request.args.get('latitude')
+    raw_lon = request.args.get('longitude')
+
+    if raw_lat is None or raw_lon is None:
         return jsonify({
             'status': 'error',
             'message': 'latitude and longitude parameters required'
         }), 400
 
-    if not (-90 <= lat <= 90):
-        return jsonify({'status': 'error', 'message': 'Invalid latitude'}), 400
-    if not (-180 <= lon <= 180):
-        return jsonify({'status': 'error', 'message': 'Invalid longitude'}), 400
+    try:
+        lat = validate_latitude(raw_lat)
+        lon = validate_longitude(raw_lon)
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
-    hours = max(1, min(hours, 72))
-    min_elevation = max(0, min(min_elevation, 90))
+    hours = max(1, min(request.args.get('hours', 24, type=int), 72))
+    min_elevation = max(0, min(request.args.get('min_elevation', 15, type=float), 90))
 
     try:
         from utils.weather_sat_predict import predict_passes
@@ -529,7 +500,7 @@ def get_passes():
         logger.error(f"Error predicting passes: {e}")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': 'Pass prediction failed'
         }), 500
 
 
@@ -571,24 +542,22 @@ def enable_schedule():
 
     data = request.get_json(silent=True) or {}
 
-    lat = data.get('latitude')
-    lon = data.get('longitude')
-
-    if lat is None or lon is None:
+    if data.get('latitude') is None or data.get('longitude') is None:
         return jsonify({
             'status': 'error',
             'message': 'latitude and longitude required'
         }), 400
 
     try:
-        lat = float(lat)
-        lon = float(lon)
-        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-            raise ValueError
-    except (TypeError, ValueError):
+        lat = validate_latitude(data.get('latitude'))
+        lon = validate_longitude(data.get('longitude'))
+        min_elev = validate_elevation(data.get('min_elevation', 15))
+        device = validate_device_index(data.get('device', 0))
+        gain_val = validate_gain(data.get('gain', 40.0))
+    except ValueError as e:
         return jsonify({
             'status': 'error',
-            'message': 'Invalid coordinates'
+            'message': str(e)
         }), 400
 
     scheduler = get_weather_sat_scheduler()
@@ -597,9 +566,9 @@ def enable_schedule():
     result = scheduler.enable(
         lat=lat,
         lon=lon,
-        min_elevation=float(data.get('min_elevation', 15)),
-        device=int(data.get('device', 0)),
-        gain=float(data.get('gain', 40.0)),
+        min_elevation=min_elev,
+        device=device,
+        gain=gain_val,
         bias_t=bool(data.get('bias_t', False)),
     )
 

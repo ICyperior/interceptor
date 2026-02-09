@@ -182,10 +182,6 @@ dmr_lock = threading.Lock()
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
 
-# Weather Satellite (NOAA/Meteor)
-weather_sat_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
-weather_sat_lock = threading.Lock()
-
 # Deauth Attack Detection
 deauth_detector = None
 deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)

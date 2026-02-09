@@ -12,6 +12,8 @@
 
 services:
   intercept:
+    # When INTERCEPT_IMAGE is set, use that pre-built image; when empty/unset,
+    # the empty string causes Docker Compose to fall through to the build: directive.
     image: ${INTERCEPT_IMAGE:-}
     build: .
     container_name: intercept
@@ -61,6 +63,7 @@ services:
   # ADS-B history with Postgres persistence
   # Enable with: docker compose --profile history up -d
   intercept-history:
+    # Same image/build fallback pattern as above
     image: ${INTERCEPT_IMAGE:-}
     build: .
     container_name: intercept-history

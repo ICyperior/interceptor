@@ -49,11 +49,17 @@ class ScheduledPass:
 
     @property
     def start_dt(self) -> datetime:
-        return datetime.fromisoformat(self.start_time).replace(tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(self.start_time)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
     @property
     def end_dt(self) -> datetime:
-        return datetime.fromisoformat(self.end_time).replace(tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(self.end_time)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -375,11 +381,14 @@ class WeatherSatScheduler:
 
 # Singleton
 _scheduler: WeatherSatScheduler | None = None
+_scheduler_lock = threading.Lock()
 
 
 def get_weather_sat_scheduler() -> WeatherSatScheduler:
     """Get or create the global weather satellite scheduler instance."""
     global _scheduler
     if _scheduler is None:
-        _scheduler = WeatherSatScheduler()
+        with _scheduler_lock:
+            if _scheduler is None:
+                _scheduler = WeatherSatScheduler()
     return _scheduler
