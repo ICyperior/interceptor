@@ -70,6 +70,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libncurses-dev \
     libsndfile1-dev \
+    # GTK is required for slowrx (SSTV decoder GUI dependency).
+    # Note: slowrx is kept for backwards compatibility, but the pure Python
+    # SSTV decoder in utils/sstv/ is now the primary implementation.
+    # GTK can be removed if slowrx is deprecated in future releases.
     libgtk-3-dev \
     libasound2-dev \
     libsoapysdr-dev \
@@ -195,6 +199,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ldconfig \
     && rm -rf /tmp/dsd-fme \
     # Cleanup build tools to reduce image size
+    # Note: libgtk-3-dev is removed here but runtime GTK libs (from first stage)
+    # remain for slowrx. This adds ~10MB to the image but is required for slowrx
+    # to function. Consider removing slowrx build entirely if moving fully to
+    # the pure Python SSTV decoder.
     && apt-get remove -y \
     build-essential \
     git \
