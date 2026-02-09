@@ -50,6 +50,26 @@
                         </div>
                     </div>
 
+                    <!-- Bookmarks -->
+                    <div class="section" style="margin-top: 8px;">
+                        <h3>Bookmarks</h3>
+                        <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                            <input type="number" id="dmrBookmarkFreq" placeholder="Freq MHz" step="0.0001"
+                                   style="flex: 1; font-size: 11px; padding: 4px 6px;">
+                            <button class="preset-btn" onclick="addDmrBookmark()" style="font-size: 10px; padding: 4px 8px;"
+                                    title="Add bookmark">+</button>
+                        </div>
+                        <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                            <input type="text" id="dmrBookmarkLabel" placeholder="Label (optional)"
+                                   style="flex: 1; font-size: 11px; padding: 4px 6px;">
+                            <button class="preset-btn" onclick="addCurrentDmrFreqBookmark()" style="font-size: 9px; padding: 4px 6px;"
+                                    title="Save current frequency">Save current</button>
+                        </div>
+                        <div id="dmrBookmarksList" style="max-height: 150px; overflow-y: auto;">
+                            <div style="color: var(--text-muted); text-align: center; padding: 10px; font-size: 11px;">No bookmarks saved</div>
+                        </div>
+                    </div>
+
                     <!-- Actions -->
                     <button class="run-btn" id="startDmrBtn" onclick="startDmr()" style="margin-top: 12px;">
                         Start Decoder

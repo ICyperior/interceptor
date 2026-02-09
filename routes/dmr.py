@@ -37,8 +37,10 @@ dmr_bp = Blueprint('dmr', __name__, url_prefix='/dmr')
 
 dmr_rtl_process: Optional[subprocess.Popen] = None
 dmr_dsd_process: Optional[subprocess.Popen] = None
+dmr_audio_process: Optional[subprocess.Popen] = None
 dmr_thread: Optional[threading.Thread] = None
 dmr_running = False
+dmr_audio_running = False
 dmr_lock = threading.Lock()
 dmr_queue: queue.Queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 dmr_active_device: Optional[int] = None
@@ -100,6 +102,11 @@ def find_dsd() -> tuple[str | None, bool]:
 def find_rtl_fm() -> str | None:
     """Find rtl_fm binary."""
     return shutil.which('rtl_fm')
+
+
+def find_ffmpeg() -> str | None:
+    """Find ffmpeg for audio encoding."""
+    return shutil.which('ffmpeg')
 
 
 def parse_dsd_output(line: str) -> dict | None:
@@ -265,7 +272,9 @@ def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Pop
         logger.error(f"DSD stream error: {e}")
     finally:
         global dmr_active_device, dmr_rtl_process, dmr_dsd_process
+        global dmr_audio_process, dmr_audio_running
         dmr_running = False
+        dmr_audio_running = False
         # Capture exit info for diagnostics
         rc = dsd_process.poll()
         reason = 'stopped'
@@ -279,8 +288,8 @@ def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Pop
             except Exception:
                 pass
             logger.warning(f"DSD process exited with code {rc}: {detail}")
-        # Cleanup both processes
-        for proc in [dsd_process, rtl_process]:
+        # Cleanup all pipeline processes (audio encoder + decoder + demod)
+        for proc in [dmr_audio_process, dsd_process, rtl_process]:
             if proc and proc.poll() is None:
                 try:
                     proc.terminate()
@@ -294,6 +303,7 @@ def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Pop
                 unregister_process(proc)
         dmr_rtl_process = None
         dmr_dsd_process = None
+        dmr_audio_process = None
         _queue_put({'type': 'status', 'text': reason, 'exit_code': rc, 'detail': detail})
         # Release SDR device
         if dmr_active_device is not None:
@@ -311,9 +321,11 @@ def check_tools() -> Response:
     """Check for required tools."""
     dsd_path, _ = find_dsd()
     rtl_fm = find_rtl_fm()
+    ffmpeg = find_ffmpeg()
     return jsonify({
         'dsd': dsd_path is not None,
         'rtl_fm': rtl_fm is not None,
+        'ffmpeg': ffmpeg is not None,
         'available': dsd_path is not None and rtl_fm is not None,
         'protocols': VALID_PROTOCOLS,
     })
@@ -322,7 +334,8 @@ def check_tools() -> Response:
 @dmr_bp.route('/start', methods=['POST'])
 def start_dmr() -> Response:
     """Start digital voice decoding."""
-    global dmr_rtl_process, dmr_dsd_process, dmr_thread, dmr_running, dmr_active_device
+    global dmr_rtl_process, dmr_dsd_process, dmr_audio_process, dmr_thread
+    global dmr_running, dmr_audio_running, dmr_active_device
 
     with dmr_lock:
         if dmr_running:
@@ -385,10 +398,15 @@ def start_dmr() -> Response:
         rtl_cmd.extend(['-p', str(ppm)])
 
     # Build DSD command
-    # dsd-fme uses '-o null' to discard decoded audio (PulseAudio
-    # unavailable on headless/remote servers); classic dsd uses '-o -'
-    # to send audio to stdout which we pipe to DEVNULL.
-    audio_out = 'null' if is_fme else '-'
+    # Audio output: pipe decoded audio (8kHz s16le PCM) to stdout for
+    # ffmpeg transcoding.  Both dsd-fme and classic dsd support '-o -'.
+    # If ffmpeg is unavailable, fall back to discarding audio.
+    ffmpeg_path = find_ffmpeg()
+    if ffmpeg_path:
+        audio_out = '-'
+    else:
+        audio_out = 'null' if is_fme else '-'
+        logger.warning("ffmpeg not found — audio streaming disabled, data-only mode")
     dsd_cmd = [dsd_path, '-i', '-', '-o', audio_out]
     if is_fme:
         dsd_cmd.extend(_DSD_FME_PROTOCOL_FLAGS.get(protocol, []))
@@ -411,16 +429,44 @@ def start_dmr() -> Response:
         )
         register_process(dmr_rtl_process)
 
+        # DSD stdout → PIPE when ffmpeg available (audio pipeline),
+        # otherwise DEVNULL (data-only mode)
+        dsd_stdout = subprocess.PIPE if ffmpeg_path else subprocess.DEVNULL
         dmr_dsd_process = subprocess.Popen(
             dsd_cmd,
             stdin=dmr_rtl_process.stdout,
-            stdout=subprocess.DEVNULL,
+            stdout=dsd_stdout,
             stderr=subprocess.PIPE,
         )
         register_process(dmr_dsd_process)
 
         # Allow rtl_fm to send directly to dsd
         dmr_rtl_process.stdout.close()
+
+        # Start ffmpeg to transcode DSD 8kHz s16le PCM → 44.1kHz WAV
+        if ffmpeg_path and dmr_dsd_process.stdout:
+            encoder_cmd = [
+                ffmpeg_path, '-hide_banner', '-loglevel', 'error',
+                '-fflags', 'nobuffer', '-flags', 'low_delay',
+                '-probesize', '32', '-analyzeduration', '0',
+                '-f', 's16le', '-ar', '8000', '-ac', '1', '-i', 'pipe:0',
+                '-acodec', 'pcm_s16le', '-ar', '44100', '-f', 'wav', 'pipe:1',
+            ]
+            dmr_audio_process = subprocess.Popen(
+                encoder_cmd,
+                stdin=dmr_dsd_process.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            register_process(dmr_audio_process)
+            # Allow DSD to pipe directly to ffmpeg
+            dmr_dsd_process.stdout.close()
+            dmr_audio_running = True
+            # Drain ffmpeg stderr to prevent blocking
+            threading.Thread(
+                target=lambda p: [None for _ in p.stderr],
+                args=(dmr_audio_process,), daemon=True,
+            ).start()
 
         time.sleep(0.3)
 
@@ -435,8 +481,9 @@ def start_dmr() -> Response:
             if dmr_dsd_process.stderr:
                 dsd_err = dmr_dsd_process.stderr.read().decode('utf-8', errors='replace')[:500]
             logger.error(f"DSD pipeline died: rtl_fm rc={rtl_rc} err={rtl_err!r}, dsd rc={dsd_rc} err={dsd_err!r}")
-            # Terminate surviving process and unregister both
-            for proc in [dmr_dsd_process, dmr_rtl_process]:
+            # Terminate surviving processes and unregister all
+            dmr_audio_running = False
+            for proc in [dmr_audio_process, dmr_dsd_process, dmr_rtl_process]:
                 if proc and proc.poll() is None:
                     try:
                         proc.terminate()
@@ -450,6 +497,7 @@ def start_dmr() -> Response:
                     unregister_process(proc)
             dmr_rtl_process = None
             dmr_dsd_process = None
+            dmr_audio_process = None
             if dmr_active_device is not None:
                 app_module.release_sdr_device(dmr_active_device)
                 dmr_active_device = None
@@ -485,6 +533,7 @@ def start_dmr() -> Response:
             'status': 'started',
             'frequency': frequency,
             'protocol': protocol,
+            'has_audio': dmr_audio_running,
         })
 
     except Exception as e:
@@ -498,12 +547,14 @@ def start_dmr() -> Response:
 @dmr_bp.route('/stop', methods=['POST'])
 def stop_dmr() -> Response:
     """Stop digital voice decoding."""
-    global dmr_rtl_process, dmr_dsd_process, dmr_running, dmr_active_device
+    global dmr_rtl_process, dmr_dsd_process, dmr_audio_process
+    global dmr_running, dmr_audio_running, dmr_active_device
 
     with dmr_lock:
         dmr_running = False
+        dmr_audio_running = False
 
-        for proc in [dmr_dsd_process, dmr_rtl_process]:
+        for proc in [dmr_audio_process, dmr_dsd_process, dmr_rtl_process]:
             if proc and proc.poll() is None:
                 try:
                     proc.terminate()
@@ -518,6 +569,7 @@ def stop_dmr() -> Response:
 
         dmr_rtl_process = None
         dmr_dsd_process = None
+        dmr_audio_process = None
 
     if dmr_active_device is not None:
         app_module.release_sdr_device(dmr_active_device)
@@ -532,7 +584,60 @@ def dmr_status() -> Response:
     return jsonify({
         'running': dmr_running,
         'device': dmr_active_device,
+        'has_audio': dmr_audio_running,
     })
+
+
+@dmr_bp.route('/audio/stream')
+def stream_dmr_audio() -> Response:
+    """Stream decoded digital voice audio as WAV."""
+    # Wait briefly for audio pipeline to be ready
+    for _ in range(100):
+        if dmr_audio_running and dmr_audio_process:
+            break
+        time.sleep(0.05)
+
+    if not dmr_audio_running or not dmr_audio_process:
+        return Response(b'', mimetype='audio/wav', status=204)
+
+    def generate():
+        proc = dmr_audio_process
+        if not proc or not proc.stdout:
+            return
+        try:
+            # Digital voice is intermittent — allow longer first-chunk
+            # timeout since the decoder only produces audio when there
+            # is an active voice transmission on the channel.
+            first_chunk_deadline = time.time() + 5.0
+            while dmr_audio_running and proc.poll() is None:
+                ready, _, _ = select.select([proc.stdout], [], [], 2.0)
+                if ready:
+                    chunk = proc.stdout.read(4096)
+                    if chunk:
+                        yield chunk
+                    else:
+                        break
+                else:
+                    if time.time() > first_chunk_deadline:
+                        logger.warning("DMR audio stream timed out waiting for first chunk")
+                        break
+                    if proc.poll() is not None:
+                        break
+        except GeneratorExit:
+            pass
+        except Exception as e:
+            logger.error(f"DMR audio stream error: {e}")
+
+    return Response(
+        generate(),
+        mimetype='audio/wav',
+        headers={
+            'Content-Type': 'audio/wav',
+            'Cache-Control': 'no-cache, no-store',
+            'X-Accel-Buffering': 'no',
+            'Transfer-Encoding': 'chunked',
+        },
+    )
 
 
 @dmr_bp.route('/stream')
