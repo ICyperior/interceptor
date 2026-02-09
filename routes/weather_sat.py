@@ -253,7 +253,7 @@ def test_decode():
         }), 400
 
     if not input_path.is_file():
-        logger.warning(f"Test-decode file not found: {input_file}")
+        logger.warning("Test-decode file not found")
         return jsonify({
             'status': 'error',
             'message': 'File not found'
@@ -313,7 +313,7 @@ def stop_capture():
         JSON confirmation.
     """
     decoder = get_weather_sat_decoder()
-    device_index = decoder._device_index
+    device_index = decoder.device_index
 
     decoder.stop()
 

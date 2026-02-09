@@ -51,14 +51,16 @@ class ScheduledPass:
     def start_dt(self) -> datetime:
         dt = datetime.fromisoformat(self.start_time)
         if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
+            # Naive datetime - assume UTC
+            dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
 
     @property
     def end_dt(self) -> datetime:
         dt = datetime.fromisoformat(self.end_time)
         if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
+            # Naive datetime - assume UTC
+            dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:

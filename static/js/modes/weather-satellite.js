@@ -446,8 +446,17 @@ const WeatherSat = (function() {
      * Load pass predictions (with trajectory + ground track)
      */
     async function loadPasses() {
-        const storedLat = localStorage.getItem('observerLat');
-        const storedLon = localStorage.getItem('observerLon');
+        let storedLat, storedLon;
+        
+        // Use ObserverLocation if available, otherwise fall back to localStorage
+        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+            const shared = ObserverLocation.getShared();
+            storedLat = shared?.lat?.toString();
+            storedLon = shared?.lon?.toString();
+        } else {
+            storedLat = localStorage.getItem('observerLat');
+            storedLon = localStorage.getItem('observerLon');
+        }
 
         if (!storedLat || !storedLon) {
             renderPasses([]);
