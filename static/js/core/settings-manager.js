@@ -930,5 +930,56 @@ function switchSettingsTab(tabName) {
         if (typeof RecordingUI !== 'undefined') {
             RecordingUI.refresh();
         }
+    } else if (tabName === 'apikeys') {
+        loadApiKeyStatus();
     }
+}
+
+/**
+ * Load API key status into the API Keys settings tab
+ */
+function loadApiKeyStatus() {
+    const badge = document.getElementById('apiKeyStatusBadge');
+    const desc = document.getElementById('apiKeyStatusDesc');
+    const usage = document.getElementById('apiKeyUsageCount');
+    const bar = document.getElementById('apiKeyUsageBar');
+
+    if (!badge) return;
+
+    badge.textContent = 'Not available';
+        badge.className = 'asset-badge missing';
+        desc.textContent = 'GSM feature removed';
+}
+
+/**
+ * Save API key from the settings input
+ */
+function saveApiKey() {
+    const input = document.getElementById('apiKeyInput');
+    const result = document.getElementById('apiKeySaveResult');
+    if (!input || !result) return;
+
+    const key = input.value.trim();
+    if (!key) {
+        result.style.display = 'block';
+        result.style.color = 'var(--accent-red)';
+        result.textContent = 'Please enter an API key.';
+        return;
+    }
+
+    result.style.display = 'block';
+    result.style.color = 'var(--text-dim)';
+    result.textContent = 'Saving...';
+
+    result.style.color = 'var(--accent-red)';
+    result.textContent = 'GSM feature has been removed.';
+}
+
+/**
+ * Toggle API key input visibility
+ */
+function toggleApiKeyVisibility() {
+    const input = document.getElementById('apiKeyInput');
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
 }

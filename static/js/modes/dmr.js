@@ -91,6 +91,21 @@ function startDmr() {
             if (typeof showNotification === 'function') {
                 showNotification('DMR', `Decoding ${frequency} MHz (${protocol.toUpperCase()})`);
             }
+        } else if (data.status === 'error' && data.message === 'Already running') {
+            // Backend has an active session the frontend lost track of — resync
+            isDmrRunning = true;
+            updateDmrUI();
+            connectDmrSSE();
+            if (!dmrSynthInitialized) initDmrSynthesizer();
+            dmrEventType = 'idle';
+            dmrActivityTarget = 0.1;
+            dmrLastEventTime = Date.now();
+            updateDmrSynthStatus();
+            const statusEl = document.getElementById('dmrStatus');
+            if (statusEl) statusEl.textContent = 'DECODING';
+            if (typeof showNotification === 'function') {
+                showNotification('DMR', 'Reconnected to active session');
+            }
         } else {
             if (typeof showNotification === 'function') {
                 showNotification('Error', data.message || 'Failed to start DMR');
@@ -496,9 +511,43 @@ function stopDmrSynthesizer() {
 
 window.addEventListener('resize', resizeDmrSynthesizer);
 
+// ============== STATUS SYNC ==============
+
+function checkDmrStatus() {
+    fetch('/dmr/status')
+        .then(r => r.json())
+        .then(data => {
+            if (data.running && !isDmrRunning) {
+                // Backend is running but frontend lost track — resync
+                isDmrRunning = true;
+                updateDmrUI();
+                connectDmrSSE();
+                if (!dmrSynthInitialized) initDmrSynthesizer();
+                dmrEventType = 'idle';
+                dmrActivityTarget = 0.1;
+                dmrLastEventTime = Date.now();
+                updateDmrSynthStatus();
+                const statusEl = document.getElementById('dmrStatus');
+                if (statusEl) statusEl.textContent = 'DECODING';
+            } else if (!data.running && isDmrRunning) {
+                // Backend stopped but frontend didn't know
+                isDmrRunning = false;
+                if (dmrEventSource) { dmrEventSource.close(); dmrEventSource = null; }
+                updateDmrUI();
+                dmrEventType = 'stopped';
+                dmrActivityTarget = 0;
+                updateDmrSynthStatus();
+                const statusEl = document.getElementById('dmrStatus');
+                if (statusEl) statusEl.textContent = 'STOPPED';
+            }
+        })
+        .catch(() => {});
+}
+
 // ============== EXPORTS ==============
 
 window.startDmr = startDmr;
 window.stopDmr = stopDmr;
 window.checkDmrTools = checkDmrTools;
+window.checkDmrStatus = checkDmrStatus;
 window.initDmrSynthesizer = initDmrSynthesizer;

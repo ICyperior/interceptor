@@ -2,7 +2,7 @@
 
 from unittest.mock import patch, MagicMock
 import pytest
-from routes.dmr import parse_dsd_output
+from routes.dmr import parse_dsd_output, _DSD_PROTOCOL_FLAGS, _DSD_FME_PROTOCOL_FLAGS
 
 
 # ============================================
@@ -96,6 +96,21 @@ def test_parse_unrecognized():
     assert result is not None
     assert result['type'] == 'raw'
     assert result['text'] == 'some random text'
+
+
+def test_dsd_fme_protocol_flags_match_classic():
+    """dsd-fme flags must match classic DSD flags (same fork, same CLI)."""
+    assert _DSD_FME_PROTOCOL_FLAGS == _DSD_PROTOCOL_FLAGS
+
+
+def test_dsd_protocol_flags_known_values():
+    """Protocol flags should map to the correct DSD -f flags."""
+    assert _DSD_PROTOCOL_FLAGS['dmr'] == ['-fd']
+    assert _DSD_PROTOCOL_FLAGS['p25'] == ['-fp']
+    assert _DSD_PROTOCOL_FLAGS['nxdn'] == ['-fn']
+    assert _DSD_PROTOCOL_FLAGS['dstar'] == ['-fi']
+    assert _DSD_PROTOCOL_FLAGS['provoice'] == ['-fv']
+    assert _DSD_PROTOCOL_FLAGS['auto'] == []
 
 
 # ============================================

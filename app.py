@@ -39,7 +39,6 @@ from utils.constants import (
     MAX_VESSEL_AGE_SECONDS,
     MAX_DSC_MESSAGE_AGE_SECONDS,
     MAX_DEAUTH_ALERTS_AGE_SECONDS,
-    MAX_GSM_AGE_SECONDS,
     QUEUE_MAX_SIZE,
 )
 import logging
@@ -192,16 +191,6 @@ deauth_detector = None
 deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 deauth_detector_lock = threading.Lock()
 
-# GSM Spy
-gsm_spy_scanner_running = False  # Flag: scanner thread active
-gsm_spy_livemon_process = None  # For grgsm_livemon process
-gsm_spy_monitor_process = None  # For tshark monitoring process
-gsm_spy_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
-gsm_spy_lock = threading.Lock()
-gsm_spy_active_device = None
-gsm_spy_selected_arfcn = None
-gsm_spy_region = 'Americas'  # Default band
-
 # ============================================
 # GLOBAL STATE DICTIONARIES
 # ============================================
@@ -234,16 +223,6 @@ dsc_messages = DataStore(max_age_seconds=MAX_DSC_MESSAGE_AGE_SECONDS, name='dsc_
 # Deauth alerts - using DataStore for automatic cleanup
 deauth_alerts = DataStore(max_age_seconds=MAX_DEAUTH_ALERTS_AGE_SECONDS, name='deauth_alerts')
 
-# GSM Spy data stores
-gsm_spy_towers = DataStore(
-    max_age_seconds=MAX_GSM_AGE_SECONDS,
-    name='gsm_spy_towers'
-)
-gsm_spy_devices = DataStore(
-    max_age_seconds=MAX_GSM_AGE_SECONDS,
-    name='gsm_spy_devices'
-)
-
 # Satellite state
 satellite_passes = []  # Predicted satellite passes (not auto-cleaned, calculated)
 
@@ -256,8 +235,6 @@ cleanup_manager.register(adsb_aircraft)
 cleanup_manager.register(ais_vessels)
 cleanup_manager.register(dsc_messages)
 cleanup_manager.register(deauth_alerts)
-cleanup_manager.register(gsm_spy_towers)
-cleanup_manager.register(gsm_spy_devices)
 
 # ============================================
 # SDR DEVICE REGISTRY
@@ -271,6 +248,10 @@ sdr_device_registry_lock = threading.Lock()
 def claim_sdr_device(device_index: int, mode_name: str) -> str | None:
     """Claim an SDR device for a mode.
 
+    Checks the in-app registry first, then probes the USB device to
+    catch stale handles held by external processes (e.g. a leftover
+    rtl_fm from a previous crash).
+
     Args:
         device_index: The SDR device index to claim
         mode_name: Name of the mode claiming the device (e.g., 'sensor', 'rtlamr')
@@ -282,6 +263,16 @@ def claim_sdr_device(device_index: int, mode_name: str) -> str | None:
         if device_index in sdr_device_registry:
             in_use_by = sdr_device_registry[device_index]
             return f'SDR device {device_index} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.'
+
+        # Probe the USB device to catch external processes holding the handle
+        try:
+            from utils.sdr.detection import probe_rtlsdr_device
+            usb_error = probe_rtlsdr_device(device_index)
+            if usb_error:
+                return usb_error
+        except Exception:
+            pass  # If probe fails, let the caller proceed normally
+
         sdr_device_registry[device_index] = mode_name
         return None
 
@@ -693,8 +684,6 @@ def kill_all() -> Response:
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
     global dmr_process, dmr_rtl_process
-    global gsm_spy_livemon_process, gsm_spy_monitor_process
-    global gsm_spy_scanner_running, gsm_spy_active_device, gsm_spy_selected_arfcn, gsm_spy_region
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -776,29 +765,6 @@ def kill_all() -> Response:
         killed.append('bluetooth')
     except Exception:
         pass
-
-    # Reset GSM Spy state
-    with gsm_spy_lock:
-        gsm_spy_scanner_running = False
-        gsm_spy_active_device = None
-        gsm_spy_selected_arfcn = None
-        gsm_spy_region = 'Americas'
-
-        if gsm_spy_livemon_process:
-            try:
-                if safe_terminate(gsm_spy_livemon_process):
-                    killed.append('grgsm_livemon')
-            except Exception:
-                pass
-        gsm_spy_livemon_process = None
-
-        if gsm_spy_monitor_process:
-            try:
-                if safe_terminate(gsm_spy_monitor_process):
-                    killed.append('tshark')
-            except Exception:
-                pass
-        gsm_spy_monitor_process = None
 
     # Clear SDR device registry
     with sdr_device_registry_lock:
@@ -891,19 +857,11 @@ def main() -> None:
 
     # Register database cleanup functions
     from utils.database import (
-        cleanup_old_gsm_signals,
-        cleanup_old_gsm_tmsi_log,
-        cleanup_old_gsm_velocity_log,
         cleanup_old_signal_history,
         cleanup_old_timeline_entries,
         cleanup_old_dsc_alerts,
         cleanup_old_payloads
     )
-    # GSM cleanups: signals (60 days), TMSI log (24 hours), velocity (1 hour)
-    # Interval multiplier: cleanup every N cycles (60s interval = 1 cleanup per hour at multiplier 60)
-    cleanup_manager.register_db_cleanup(cleanup_old_gsm_tmsi_log, interval_multiplier=60)  # Every hour
-    cleanup_manager.register_db_cleanup(cleanup_old_gsm_velocity_log, interval_multiplier=60)  # Every hour
-    cleanup_manager.register_db_cleanup(cleanup_old_gsm_signals, interval_multiplier=1440)  # Every 24 hours
     cleanup_manager.register_db_cleanup(cleanup_old_signal_history, interval_multiplier=1440)  # Every 24 hours
     cleanup_manager.register_db_cleanup(cleanup_old_timeline_entries, interval_multiplier=1440)  # Every 24 hours
     cleanup_manager.register_db_cleanup(cleanup_old_dsc_alerts, interval_multiplier=1440)  # Every 24 hours

@@ -26,6 +26,9 @@
     border-radius: 8px;
     max-width: 600px;
     width: 100%;
+    max-height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
     position: relative;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
@@ -115,6 +118,9 @@
 
 .settings-section.active {
     display: block;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .settings-group {

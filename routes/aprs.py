@@ -53,6 +53,7 @@ aprs_packet_count = 0
 aprs_station_count = 0
 aprs_last_packet_time = None
 aprs_stations = {}  # callsign -> station data
+APRS_MAX_STATIONS = 500  # Limit tracked stations to prevent memory growth
 
 # Meter rate limiting
 _last_meter_time = 0.0
@@ -1371,6 +1372,13 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                         'last_seen': packet.get('timestamp'),
                         'packet_type': packet.get('packet_type'),
                     }
+                    # Evict oldest stations when limit is exceeded
+                    if len(aprs_stations) > APRS_MAX_STATIONS:
+                        oldest = min(
+                            aprs_stations,
+                            key=lambda k: aprs_stations[k].get('last_seen', ''),
+                        )
+                        del aprs_stations[oldest]
 
                 app_module.aprs_queue.put(packet)
 
