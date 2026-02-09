@@ -120,9 +120,10 @@ def start_capture():
         device_index = validate_device_index(data.get('device', 0))
         gain = validate_gain(data.get('gain', 40.0))
     except ValueError as e:
+        logger.warning('Invalid parameter in start_capture: %s', e)
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': 'Invalid parameter value'
         }), 400
 
     bias_t = bool(data.get('bias_t', False))
@@ -464,7 +465,8 @@ def get_passes():
         lat = validate_latitude(raw_lat)
         lon = validate_longitude(raw_lon)
     except ValueError as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 400
+        logger.warning('Invalid coordinates in get_passes: %s', e)
+        return jsonify({'status': 'error', 'message': 'Invalid coordinates'}), 400
 
     hours = max(1, min(request.args.get('hours', 24, type=int), 72))
     min_elevation = max(0, min(request.args.get('min_elevation', 15, type=float), 90))
@@ -555,9 +557,10 @@ def enable_schedule():
         device = validate_device_index(data.get('device', 0))
         gain_val = validate_gain(data.get('gain', 40.0))
     except ValueError as e:
+        logger.warning('Invalid parameter in enable_schedule: %s', e)
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': 'Invalid parameter value'
         }), 400
 
     scheduler = get_weather_sat_scheduler()
