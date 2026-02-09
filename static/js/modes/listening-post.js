@@ -3943,11 +3943,31 @@ async function stopWaterfall() {
 
     // WebSocket path
     if (waterfallUseWebSocket && waterfallWebSocket) {
+        const ws = waterfallWebSocket;
         try {
-            if (waterfallWebSocket.readyState === WebSocket.OPEN) {
-                waterfallWebSocket.send(JSON.stringify({ cmd: 'stop' }));
+            if (ws.readyState === WebSocket.OPEN) {
+                // Wait for server to confirm stop (it terminates the IQ
+                // process and releases the USB device before responding).
+                await new Promise((resolve) => {
+                    const timeout = setTimeout(resolve, 4000);
+                    const prevHandler = ws.onmessage;
+                    ws.onmessage = (event) => {
+                        if (typeof event.data === 'string') {
+                            try {
+                                const msg = JSON.parse(event.data);
+                                if (msg.status === 'stopped') {
+                                    clearTimeout(timeout);
+                                    resolve();
+                                    return;
+                                }
+                            } catch (_) {}
+                        }
+                        if (prevHandler) prevHandler(event);
+                    };
+                    ws.send(JSON.stringify({ cmd: 'stop' }));
+                });
             }
-            waterfallWebSocket.close();
+            ws.close();
         } catch (e) {
             console.error('[WATERFALL] WebSocket stop error:', e);
         }
@@ -3958,8 +3978,6 @@ async function stopWaterfall() {
         if (typeof releaseDevice === 'function') {
             releaseDevice('waterfall');
         }
-        // Allow backend WebSocket handler to finish cleanup and release SDR
-        await new Promise(resolve => setTimeout(resolve, 300));
         return;
     }
 
