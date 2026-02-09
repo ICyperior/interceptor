@@ -56,14 +56,16 @@ _DSD_PROTOCOL_FLAGS = {
 }
 
 # dsd-fme remapped several flags from classic DSD:
-#   -fp = ProVoice (NOT P25), -fi = NXDN48 (NOT D-Star),
-#   -f1 = P25 Phase 1, -ft = XDMA multi-protocol decoder
+#   -fs = DMR Simplex (NOT -fd which is D-STAR!),
+#   -fd = D-STAR (NOT DMR!), -fp = ProVoice (NOT P25),
+#   -fi = NXDN48 (NOT D-Star), -f1 = P25 Phase 1,
+#   -ft = XDMA multi-protocol decoder
 _DSD_FME_PROTOCOL_FLAGS = {
     'auto': ['-ft'],       # XDMA: auto-detect DMR/P25/YSF
-    'dmr': ['-fd'],        # DMR (classic flag, works in dsd-fme)
+    'dmr': ['-fs'],        # DMR Simplex (-fd is D-STAR in dsd-fme!)
     'p25': ['-f1'],        # P25 Phase 1 (-fp is ProVoice in dsd-fme!)
     'nxdn': ['-fn'],       # NXDN96
-    'dstar': [],           # No dedicated flag in dsd-fme; auto-detect
+    'dstar': ['-fd'],      # D-STAR (-fd in dsd-fme, NOT DMR!)
     'provoice': ['-fp'],   # ProVoice (-fp in dsd-fme, not -fv)
 }
 
@@ -132,8 +134,9 @@ def parse_dsd_output(line: str) -> dict | None:
     # is captured as a call event rather than a bare slot event.
     # Classic dsd:   "TG: 12345  Src: 67890"
     # dsd-fme:       "TG: 12345, Src: 67890"  or  "Talkgroup: 12345, Source: 67890"
+    #                "TGT: 12345 | SRC: 67890" (pipe-delimited variant)
     tg_match = re.search(
-        r'(?:TG|Talkgroup)[:\s]+(\d+)[,\s]+(?:Src|Source)[:\s]+(\d+)', line, re.IGNORECASE
+        r'(?:TGT?|Talkgroup)[:\s]+(\d+)[,|\s]+(?:Src|Source|SRC)[:\s]+(\d+)', line, re.IGNORECASE
     )
     if tg_match:
         result = {
@@ -378,9 +381,11 @@ def start_dmr() -> Response:
         rtl_cmd.extend(['-p', str(ppm)])
 
     # Build DSD command
-    # Use -o - to send decoded audio to stdout (piped to DEVNULL)
-    # instead of PulseAudio which may not be available under sudo
-    dsd_cmd = [dsd_path, '-i', '-', '-o', '-']
+    # dsd-fme uses '-o null' to discard decoded audio (PulseAudio
+    # unavailable on headless/remote servers); classic dsd uses '-o -'
+    # to send audio to stdout which we pipe to DEVNULL.
+    audio_out = 'null' if is_fme else '-'
+    dsd_cmd = [dsd_path, '-i', '-', '-o', audio_out]
     if is_fme:
         dsd_cmd.extend(_DSD_FME_PROTOCOL_FLAGS.get(protocol, []))
         dsd_cmd.extend(_DSD_FME_MODULATION.get(protocol, []))

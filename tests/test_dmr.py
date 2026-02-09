@@ -66,6 +66,16 @@ def test_parse_talkgroup_dsd_fme_format():
     assert result['source_id'] == 67890
 
 
+def test_parse_talkgroup_dsd_fme_tgt_src_format():
+    """Should parse dsd-fme TGT/SRC pipe-delimited format."""
+    result = parse_dsd_output('Slot 1 | TGT: 12345 | SRC: 67890')
+    assert result is not None
+    assert result['type'] == 'call'
+    assert result['talkgroup'] == 12345
+    assert result['source_id'] == 67890
+    assert result['slot'] == 1
+
+
 def test_parse_talkgroup_with_slot():
     """TG line with slot info should capture both."""
     result = parse_dsd_output('Slot 1 Voice LC, TG: 100, Src: 200')
@@ -106,10 +116,10 @@ def test_dsd_fme_flags_differ_from_classic():
 def test_dsd_fme_protocol_flags_known_values():
     """dsd-fme flags use its own flag names (NOT classic DSD mappings)."""
     assert _DSD_FME_PROTOCOL_FLAGS['auto'] == ['-ft']       # XDMA
-    assert _DSD_FME_PROTOCOL_FLAGS['dmr'] == ['-fd']
+    assert _DSD_FME_PROTOCOL_FLAGS['dmr'] == ['-fs']        # Simplex (-fd is D-STAR!)
     assert _DSD_FME_PROTOCOL_FLAGS['p25'] == ['-f1']        # NOT -fp (ProVoice in fme)
     assert _DSD_FME_PROTOCOL_FLAGS['nxdn'] == ['-fn']
-    assert _DSD_FME_PROTOCOL_FLAGS['dstar'] == []            # No dedicated flag
+    assert _DSD_FME_PROTOCOL_FLAGS['dstar'] == ['-fd']      # -fd is D-STAR in dsd-fme
     assert _DSD_FME_PROTOCOL_FLAGS['provoice'] == ['-fp']   # NOT -fv
 
 
