@@ -12,13 +12,10 @@
 
 services:
   intercept:
-    # When INTERCEPT_IMAGE is set, use that pre-built image; when empty/unset,
-    # the empty string causes Docker Compose to fall through to the build: directive.
-    image: ${INTERCEPT_IMAGE:-}
+    # When INTERCEPT_IMAGE is set, use that pre-built image; otherwise build locally
+    image: ${INTERCEPT_IMAGE:-intercept:latest}
     build: .
     container_name: intercept
-    profiles:
-      - basic
     ports:
       - "5050:5050"
     # Privileged mode required for USB SDR device access
@@ -64,7 +61,7 @@ services:
   # Enable with: docker compose --profile history up -d
   intercept-history:
     # Same image/build fallback pattern as above
-    image: ${INTERCEPT_IMAGE:-}
+    image: ${INTERCEPT_IMAGE:-intercept:latest}
     build: .
     container_name: intercept-history
     profiles:

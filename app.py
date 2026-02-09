@@ -692,8 +692,7 @@ def kill_all() -> Response:
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
         'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher',
         'hcitool', 'bluetoothctl', 'satdump', 'dsd',
-        'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg',
-        'grgsm_scanner', 'grgsm_livemon', 'tshark'
+        'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg'
     ]
 
     for proc in processes_to_kill:
@@ -869,6 +868,15 @@ def main() -> None:
     # Register blueprints
     from routes import register_blueprints
     register_blueprints(app)
+
+    # Initialize TLE auto-refresh (must be after blueprint registration)
+    try:
+        from routes.satellite import init_tle_auto_refresh
+        import os
+        if not os.environ.get('TESTING'):
+            init_tle_auto_refresh()
+    except Exception as e:
+        logger.warning(f"Failed to initialize TLE auto-refresh: {e}")
 
     # Update TLE data in background thread (non-blocking)
     def update_tle_background():

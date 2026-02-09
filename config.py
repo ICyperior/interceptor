@@ -152,7 +152,7 @@ def _get_env_bool(key: str, default: bool) -> bool:
 
 
 # Logging configuration
-_log_level_str = _get_env('LOG_LEVEL', 'INFO').upper()
+_log_level_str = _get_env('LOG_LEVEL', 'WARNING').upper()
 LOG_LEVEL = getattr(logging, _log_level_str, logging.WARNING)
 LOG_FORMAT = _get_env('LOG_FORMAT', '%(asctime)s - %(levelname)s - %(message)s')
 

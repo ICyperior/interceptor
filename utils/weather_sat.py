@@ -185,6 +185,11 @@ class WeatherSatDecoder:
     def current_frequency(self) -> float:
         return self._current_frequency
 
+    @property
+    def device_index(self) -> int:
+        """Return current device index."""
+        return self._device_index
+
     def _detect_decoder(self) -> str | None:
         """Detect which weather satellite decoder is available."""
         if shutil.which('satdump'):
