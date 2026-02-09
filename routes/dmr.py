@@ -113,8 +113,11 @@ def parse_dsd_output(line: str) -> dict | None:
         return None
 
     # Skip DSD/dsd-fme startup banner lines (ASCII art, version info, etc.)
-    # These contain box-drawing characters or are pure decoration.
-    if re.search(r'[╔╗╚╝║═██▀▄╗╝╩╦╠╣╬│┤├┘└┐┌─┼█▓▒░]', line):
+    # Only filter lines that are purely decorative — dsd-fme uses box-drawing
+    # characters (│, ─) as column separators in DATA lines, so we must not
+    # discard lines that also contain alphanumeric content.
+    stripped_of_box = re.sub(r'[╔╗╚╝║═██▀▄╗╝╩╦╠╣╬│┤├┘└┐┌─┼█▓▒░\s]', '', line)
+    if not stripped_of_box:
         return None
     if re.match(r'^\s*(Build Version|MBElib|CODEC2|Audio (Out|In)|Decoding )', line):
         return None
@@ -136,7 +139,7 @@ def parse_dsd_output(line: str) -> dict | None:
     # dsd-fme:       "TG: 12345, Src: 67890"  or  "Talkgroup: 12345, Source: 67890"
     #                "TGT: 12345 | SRC: 67890" (pipe-delimited variant)
     tg_match = re.search(
-        r'(?:TGT?|Talkgroup)[:\s]+(\d+)[,|\s]+(?:Src|Source|SRC)[:\s]+(\d+)', line, re.IGNORECASE
+        r'(?:TGT?|Talkgroup)[:\s]+(\d+)[,|│\s]+(?:Src|Source|SRC)[:\s]+(\d+)', line, re.IGNORECASE
     )
     if tg_match:
         result = {
@@ -242,6 +245,7 @@ def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Pop
                 if not text:
                     continue
 
+                logger.debug("DSD raw: %s", text)
                 parsed = parse_dsd_output(text)
                 if parsed:
                     _queue_put(parsed)
@@ -389,6 +393,9 @@ def start_dmr() -> Response:
     if is_fme:
         dsd_cmd.extend(_DSD_FME_PROTOCOL_FLAGS.get(protocol, []))
         dsd_cmd.extend(_DSD_FME_MODULATION.get(protocol, []))
+        # Event log to stderr so we capture TG/Source/Voice data that
+        # dsd-fme may not output on stderr by default.
+        dsd_cmd.extend(['-J', '/dev/stderr'])
         # Relax CRC checks for marginal signals — lets more frames
         # through at the cost of occasional decode errors.
         if data.get('relaxCrc', False):

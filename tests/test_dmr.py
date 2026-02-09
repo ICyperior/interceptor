@@ -108,6 +108,23 @@ def test_parse_unrecognized():
     assert result['text'] == 'some random text'
 
 
+def test_parse_banner_filtered():
+    """Pure box-drawing lines (banners) should be filtered."""
+    assert parse_dsd_output('╔══════════════╗') is None
+    assert parse_dsd_output('║              ║') is None
+    assert parse_dsd_output('╚══════════════╝') is None
+    assert parse_dsd_output('───────────────') is None
+
+
+def test_parse_box_drawing_with_data_not_filtered():
+    """Lines with box-drawing separators AND data should NOT be filtered."""
+    result = parse_dsd_output('DMR BS │ Slot 1 │ TG: 12345 │ SRC: 67890')
+    assert result is not None
+    assert result['type'] == 'call'
+    assert result['talkgroup'] == 12345
+    assert result['source_id'] == 67890
+
+
 def test_dsd_fme_flags_differ_from_classic():
     """dsd-fme remapped several flags; tables must NOT be identical."""
     assert _DSD_FME_PROTOCOL_FLAGS != _DSD_PROTOCOL_FLAGS
