@@ -557,7 +557,18 @@ function startDmrAudio() {
     if (volSlider) audioPlayer.volume = volSlider.value / 100;
 
     audioPlayer.onplaying = () => updateDmrAudioStatus('STREAMING');
-    audioPlayer.onerror = () => updateDmrAudioStatus('ERROR');
+    audioPlayer.onerror = () => {
+        // Retry if decoder is still running (stream may have dropped)
+        if (isDmrRunning && dmrHasAudio) {
+            console.warn('[DMR] Audio stream error, retrying in 2s...');
+            updateDmrAudioStatus('RECONNECTING');
+            setTimeout(() => {
+                if (isDmrRunning && dmrHasAudio) startDmrAudio();
+            }, 2000);
+        } else {
+            updateDmrAudioStatus('OFF');
+        }
+    };
 
     audioPlayer.play().catch(e => {
         console.warn('[DMR] Audio autoplay blocked:', e);

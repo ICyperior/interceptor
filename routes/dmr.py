@@ -205,6 +205,45 @@ def parse_dsd_output(line: str) -> dict | None:
 
 _HEARTBEAT_INTERVAL = 3.0  # seconds between heartbeats when decoder is idle
 
+# 100ms of silence at 8kHz 16-bit mono = 1600 bytes
+_SILENCE_CHUNK = b'\x00' * 1600
+
+
+def _audio_bridge(dsd_stdout, ffmpeg_stdin):
+    """Bridge DSD audio output to ffmpeg, inserting silence during gaps.
+
+    Digital voice is intermittent — the decoder only outputs PCM during
+    active voice transmissions.  Without this bridge, ffmpeg would block
+    waiting for its first input bytes and never write the WAV header,
+    causing the browser ``<audio>`` element to fail with
+    "no supported source found".
+
+    The bridge feeds 100ms silence chunks during gaps so ffmpeg always
+    has input, the WAV header is written immediately, and the browser
+    receives a continuous audio stream (silence when idle, decoded voice
+    when active).
+    """
+    try:
+        while dmr_audio_running:
+            ready, _, _ = select.select([dsd_stdout], [], [], 0.1)
+            if ready:
+                data = os.read(dsd_stdout.fileno(), 4096)
+                if not data:
+                    break
+                ffmpeg_stdin.write(data)
+                ffmpeg_stdin.flush()
+            else:
+                # No audio from decoder — feed silence to keep stream alive
+                ffmpeg_stdin.write(_SILENCE_CHUNK)
+                ffmpeg_stdin.flush()
+    except (BrokenPipeError, OSError, ValueError):
+        pass
+    finally:
+        try:
+            ffmpeg_stdin.close()
+        except Exception:
+            pass
+
 
 def _queue_put(event: dict):
     """Put an event on the DMR queue, dropping oldest if full."""
@@ -443,7 +482,10 @@ def start_dmr() -> Response:
         # Allow rtl_fm to send directly to dsd
         dmr_rtl_process.stdout.close()
 
-        # Start ffmpeg to transcode DSD 8kHz s16le PCM → 44.1kHz WAV
+        # Start ffmpeg to transcode DSD 8kHz s16le PCM → 44.1kHz WAV.
+        # A bridge thread reads DSD stdout and writes to ffmpeg stdin,
+        # inserting silence during voice gaps so ffmpeg always has input
+        # and the browser receives a continuous WAV stream.
         if ffmpeg_path and dmr_dsd_process.stdout:
             encoder_cmd = [
                 ffmpeg_path, '-hide_banner', '-loglevel', 'error',
@@ -454,14 +496,18 @@ def start_dmr() -> Response:
             ]
             dmr_audio_process = subprocess.Popen(
                 encoder_cmd,
-                stdin=dmr_dsd_process.stdout,
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
             register_process(dmr_audio_process)
-            # Allow DSD to pipe directly to ffmpeg
-            dmr_dsd_process.stdout.close()
             dmr_audio_running = True
+            # Bridge: reads DSD audio, feeds ffmpeg with silence fill
+            threading.Thread(
+                target=_audio_bridge,
+                args=(dmr_dsd_process.stdout, dmr_audio_process.stdin),
+                daemon=True,
+            ).start()
             # Drain ffmpeg stderr to prevent blocking
             threading.Thread(
                 target=lambda p: [None for _ in p.stderr],
@@ -605,10 +651,10 @@ def stream_dmr_audio() -> Response:
         if not proc or not proc.stdout:
             return
         try:
-            # Digital voice is intermittent — allow longer first-chunk
-            # timeout since the decoder only produces audio when there
-            # is an active voice transmission on the channel.
-            first_chunk_deadline = time.time() + 5.0
+            # The audio bridge thread feeds silence during voice gaps,
+            # so ffmpeg always produces output and the first chunk
+            # arrives quickly.  We still use select() to avoid blocking
+            # forever if the process dies unexpectedly.
             while dmr_audio_running and proc.poll() is None:
                 ready, _, _ = select.select([proc.stdout], [], [], 2.0)
                 if ready:
@@ -618,9 +664,6 @@ def stream_dmr_audio() -> Response:
                     else:
                         break
                 else:
-                    if time.time() > first_chunk_deadline:
-                        logger.warning("DMR audio stream timed out waiting for first chunk")
-                        break
                     if proc.poll() is not None:
                         break
         except GeneratorExit:
