@@ -144,6 +144,8 @@ PGDATA_PATH=/mnt/usbpi1/intercept/pgdata
 3. View aircraft history and timelines
 4. Stop tracking when desired (session history is recorded)
 
+If the History dashboard shows **HISTORY DISABLED**, enable `INTERCEPT_ADSB_HISTORY_ENABLED=true` and ensure Postgres is running.
+
 ## Satellite Mode
 
 1. **Set Location** - Choose location source:

@@ -2537,7 +2537,6 @@ sudo make install</code>
                 // Check for remote dump1090 config (only for local mode)
                 const remoteConfig = !useAgent ? getRemoteDump1090Config() : null;
                 if (remoteConfig === false) return;
-
                 // Check for agent SDR conflicts
                 if (useAgent && typeof checkAgentModeConflict === 'function') {
                     if (!checkAgentModeConflict('adsb')) {
@@ -2556,7 +2555,6 @@ sudo make install</code>
                     requestBody.remote_sbs_host = remoteConfig.host;
                     requestBody.remote_sbs_port = remoteConfig.port;
                 }
-
                 try {
                     // Route through agent proxy if using remote agent
                     const url = useAgent
