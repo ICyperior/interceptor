@@ -217,6 +217,7 @@ check_tools() {
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
+  check_optional "satdump" "Weather satellite decoder (NOAA/Meteor)" satdump
   echo
   info "GPS:"
   check_required "gpsd" "GPS daemon" gpsd
@@ -617,8 +618,93 @@ install_aiscatcher_from_source_macos() {
   )
 }
 
+install_satdump_from_source_debian() {
+  info "Building SatDump v1.2.2 from source (weather satellite decoder)..."
+
+  apt_install build-essential git cmake pkg-config \
+    libpng-dev libtiff-dev libjemalloc-dev libvolk-dev libnng-dev \
+    libzstd-dev libsoapysdr-dev libhackrf-dev liblimesuite-dev \
+    libsqlite3-dev libcurl4-openssl-dev zlib1g-dev libzmq3-dev libfftw3-dev
+
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning SatDump v1.2.2..."
+    git clone --depth 1 --branch 1.2.2 https://github.com/SatDump/SatDump.git "$tmp_dir/SatDump" >/dev/null 2>&1 \
+      || { warn "Failed to clone SatDump"; exit 1; }
+
+    cd "$tmp_dir/SatDump"
+    mkdir -p build && cd build
+
+    info "Compiling SatDump (this may take a while)..."
+    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. >/dev/null 2>&1 \
+        && make -j "$(nproc)" >/dev/null 2>&1; then
+      $SUDO make install >/dev/null 2>&1
+      $SUDO ldconfig
+
+      # Ensure plugins are in the expected path (handles multiarch differences)
+      $SUDO mkdir -p /usr/local/lib/satdump/plugins
+      if [ -z "$(ls /usr/local/lib/satdump/plugins/*.so 2>/dev/null)" ]; then
+        for dir in /usr/local/lib/*/satdump/plugins /usr/lib/*/satdump/plugins /usr/lib/satdump/plugins; do
+          if [ -d "$dir" ] && [ -n "$(ls "$dir"/*.so 2>/dev/null)" ]; then
+            $SUDO ln -sf "$dir"/*.so /usr/local/lib/satdump/plugins/
+            break
+          fi
+        done
+      fi
+
+      ok "SatDump installed successfully."
+    else
+      warn "Failed to build SatDump from source. Weather satellite decoding will not be available."
+    fi
+  )
+}
+
+install_satdump_from_source_macos() {
+  info "Building SatDump v1.2.2 from source (weather satellite decoder)..."
+
+  brew_install cmake
+  brew_install libpng
+  brew_install libtiff
+  brew_install jemalloc
+  brew_install libvolk
+  brew_install nng
+  brew_install zstd
+  brew_install soapysdr
+  brew_install hackrf
+  brew_install fftw
+
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning SatDump v1.2.2..."
+    git clone --depth 1 --branch 1.2.2 https://github.com/SatDump/SatDump.git "$tmp_dir/SatDump" >/dev/null 2>&1 \
+      || { warn "Failed to clone SatDump"; exit 1; }
+
+    cd "$tmp_dir/SatDump"
+    mkdir -p build && cd build
+
+    info "Compiling SatDump (this may take a while)..."
+    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF .. >/dev/null 2>&1 \
+        && make -j "$(sysctl -n hw.ncpu)" >/dev/null 2>&1; then
+      if [[ -w /usr/local/bin ]]; then
+        make install >/dev/null 2>&1
+      else
+        sudo make install >/dev/null 2>&1
+      fi
+      ok "SatDump installed successfully."
+    else
+      warn "Failed to build SatDump from source. Weather satellite decoding will not be available."
+    fi
+  )
+}
+
 install_macos_packages() {
-  TOTAL_STEPS=18
+  TOTAL_STEPS=19
   CURRENT_STEP=0
 
   progress "Checking Homebrew"
@@ -693,6 +779,19 @@ install_macos_packages() {
     (brew_install aiscatcher) || install_aiscatcher_from_source_macos || warn "AIS-catcher not available"
   else
     ok "AIS-catcher already installed"
+  fi
+
+  progress "Installing SatDump (optional)"
+  if ! cmd_exists satdump; then
+    echo
+    info "SatDump is used for weather satellite imagery (NOAA APT & Meteor LRPT)."
+    if ask_yes_no "Do you want to install SatDump?"; then
+      install_satdump_from_source_macos || warn "SatDump build failed. Weather satellite decoding will not be available."
+    else
+      warn "Skipping SatDump installation. You can install it later if needed."
+    fi
+  else
+    ok "SatDump already installed"
   fi
 
   progress "Installing aircrack-ng"
@@ -992,7 +1091,7 @@ install_debian_packages() {
     export NEEDRESTART_MODE=a
   fi
 
-  TOTAL_STEPS=25
+  TOTAL_STEPS=26
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -1147,6 +1246,19 @@ install_debian_packages() {
     install_aiscatcher_from_source_debian
   else
     ok "AIS-catcher already installed"
+  fi
+
+  progress "Installing SatDump (optional)"
+  if ! cmd_exists satdump; then
+    echo
+    info "SatDump is used for weather satellite imagery (NOAA APT & Meteor LRPT)."
+    if ask_yes_no "Do you want to install SatDump?"; then
+      install_satdump_from_source_debian || warn "SatDump build failed. Weather satellite decoding will not be available."
+    else
+      warn "Skipping SatDump installation. You can install it later if needed."
+    fi
+  else
+    ok "SatDump already installed"
   fi
 
   progress "Configuring udev rules"
