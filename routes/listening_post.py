@@ -1310,20 +1310,35 @@ def start_audio() -> Response:
         _stop_waterfall_internal()
         time.sleep(0.2)
 
-    # Release waterfall device claim if the WebSocket waterfall is still
-    # holding it.  The JS client sends a stop command and closes the
-    # WebSocket before requesting audio, but the backend handler may not
-    # have finished its cleanup yet.
-    device_status = app_module.get_sdr_device_status()
-    if device_status.get(device) == 'waterfall':
-        app_module.release_sdr_device(device)
-        time.sleep(0.3)
-
-    # Claim device for listening audio
+    # Claim device for listening audio.  The WebSocket waterfall handler
+    # may still be tearing down its IQ capture process (thread join +
+    # safe_terminate can take several seconds), so we retry with back-off
+    # to give the USB device time to be fully released.
     if listening_active_device is None or listening_active_device != device:
         if listening_active_device is not None:
             app_module.release_sdr_device(listening_active_device)
-        error = app_module.claim_sdr_device(device, 'listening')
+            listening_active_device = None
+
+        error = None
+        max_claim_attempts = 6
+        for attempt in range(max_claim_attempts):
+            # Force-release a stale waterfall registry entry on each
+            # attempt — the WebSocket handler may not have finished
+            # cleanup yet.
+            device_status = app_module.get_sdr_device_status()
+            if device_status.get(device) == 'waterfall':
+                app_module.release_sdr_device(device)
+
+            error = app_module.claim_sdr_device(device, 'listening')
+            if not error:
+                break
+            if attempt < max_claim_attempts - 1:
+                logger.debug(
+                    f"Device claim attempt {attempt + 1}/{max_claim_attempts} "
+                    f"failed, retrying in 0.5s: {error}"
+                )
+                time.sleep(0.5)
+
         if error:
             return jsonify({
                 'status': 'error',

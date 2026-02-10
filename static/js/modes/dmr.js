@@ -10,6 +10,13 @@ let dmrCallCount = 0;
 let dmrSyncCount = 0;
 let dmrCallHistory = [];
 let dmrCurrentProtocol = '--';
+let dmrModeLabel = 'dmr';  // Protocol label for device reservation
+let dmrHasAudio = false;
+
+// ============== BOOKMARKS ==============
+let dmrBookmarks = [];
+const DMR_BOOKMARKS_KEY = 'dmrBookmarks';
+const DMR_SETTINGS_KEY = 'dmrSettings';
 
 // ============== SYNTHESIZER STATE ==============
 let dmrSynthCanvas = null;
@@ -40,6 +47,7 @@ function checkDmrTools() {
             const missing = [];
             if (!data.dsd) missing.push('dsd (Digital Speech Decoder)');
             if (!data.rtl_fm) missing.push('rtl_fm (RTL-SDR)');
+            if (!data.ffmpeg) missing.push('ffmpeg (audio output — optional)');
 
             if (missing.length > 0) {
                 warning.style.display = 'block';
@@ -47,6 +55,9 @@ function checkDmrTools() {
             } else {
                 warning.style.display = 'none';
             }
+
+            // Update audio panel availability
+            updateDmrAudioStatus(data.ffmpeg ? 'OFF' : 'UNAVAILABLE');
         })
         .catch(() => {});
 }
@@ -57,17 +68,29 @@ function startDmr() {
     const frequency = parseFloat(document.getElementById('dmrFrequency')?.value || 462.5625);
     const protocol = document.getElementById('dmrProtocol')?.value || 'auto';
     const gain = parseInt(document.getElementById('dmrGain')?.value || 40);
+    const ppm = parseInt(document.getElementById('dmrPPM')?.value || 0);
+    const relaxCrc = document.getElementById('dmrRelaxCrc')?.checked || false;
     const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
 
+    // Use protocol name for device reservation so panel shows "D-STAR", "P25", etc.
+    dmrModeLabel = protocol !== 'auto' ? protocol : 'dmr';
+
     // Check device availability before starting
-    if (typeof checkDeviceAvailability === 'function' && !checkDeviceAvailability('dmr')) {
+    if (typeof checkDeviceAvailability === 'function' && !checkDeviceAvailability(dmrModeLabel)) {
         return;
     }
+
+    // Save settings to localStorage for persistence
+    try {
+        localStorage.setItem(DMR_SETTINGS_KEY, JSON.stringify({
+            frequency, protocol, gain, ppm, relaxCrc
+        }));
+    } catch (e) { /* localStorage unavailable */ }
 
     fetch('/dmr/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frequency, protocol, gain, device })
+        body: JSON.stringify({ frequency, protocol, gain, device, ppm, relaxCrc })
     })
     .then(r => r.json())
     .then(data => {
@@ -86,10 +109,14 @@ function startDmr() {
             const statusEl = document.getElementById('dmrStatus');
             if (statusEl) statusEl.textContent = 'DECODING';
             if (typeof reserveDevice === 'function') {
-                reserveDevice(parseInt(device), 'dmr');
+                reserveDevice(parseInt(device), dmrModeLabel);
             }
+            // Start audio if available
+            dmrHasAudio = !!data.has_audio;
+            if (dmrHasAudio) startDmrAudio();
+            updateDmrAudioStatus(dmrHasAudio ? 'STREAMING' : 'UNAVAILABLE');
             if (typeof showNotification === 'function') {
-                showNotification('DMR', `Decoding ${frequency} MHz (${protocol.toUpperCase()})`);
+                showNotification('Digital Voice', `Decoding ${frequency} MHz (${protocol.toUpperCase()})`);
             }
         } else if (data.status === 'error' && data.message === 'Already running') {
             // Backend has an active session the frontend lost track of — resync
@@ -116,6 +143,7 @@ function startDmr() {
 }
 
 function stopDmr() {
+    stopDmrAudio();
     fetch('/dmr/stop', { method: 'POST' })
     .then(r => r.json())
     .then(() => {
@@ -125,10 +153,11 @@ function stopDmr() {
         dmrEventType = 'stopped';
         dmrActivityTarget = 0;
         updateDmrSynthStatus();
+        updateDmrAudioStatus('OFF');
         const statusEl = document.getElementById('dmrStatus');
         if (statusEl) statusEl.textContent = 'STOPPED';
         if (typeof releaseDevice === 'function') {
-            releaseDevice('dmr');
+            releaseDevice(dmrModeLabel);
         }
     })
     .catch(err => console.error('[DMR] Stop error:', err));
@@ -225,24 +254,28 @@ function handleDmrMessage(msg) {
             if (statusEl) statusEl.textContent = 'DECODING';
         } else if (msg.text === 'crashed') {
             isDmrRunning = false;
+            stopDmrAudio();
             updateDmrUI();
             dmrEventType = 'stopped';
             dmrActivityTarget = 0;
             updateDmrSynthStatus();
+            updateDmrAudioStatus('OFF');
             if (statusEl) statusEl.textContent = 'CRASHED';
-            if (typeof releaseDevice === 'function') releaseDevice('dmr');
+            if (typeof releaseDevice === 'function') releaseDevice(dmrModeLabel);
             const detail = msg.detail || `Decoder exited (code ${msg.exit_code})`;
             if (typeof showNotification === 'function') {
                 showNotification('DMR Error', detail);
             }
         } else if (msg.text === 'stopped') {
             isDmrRunning = false;
+            stopDmrAudio();
             updateDmrUI();
             dmrEventType = 'stopped';
             dmrActivityTarget = 0;
             updateDmrSynthStatus();
+            updateDmrAudioStatus('OFF');
             if (statusEl) statusEl.textContent = 'STOPPED';
-            if (typeof releaseDevice === 'function') releaseDevice('dmr');
+            if (typeof releaseDevice === 'function') releaseDevice(dmrModeLabel);
         }
     }
 }
@@ -321,10 +354,12 @@ function drawDmrSynthesizer() {
     dmrSynthCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     dmrSynthCtx.fillRect(0, 0, width, height);
 
-    // Decay activity toward target
+    // Decay activity toward target.  Window must exceed the backend
+    // heartbeat interval (3s) so the status doesn't flip-flop between
+    // LISTENING and IDLE on every heartbeat cycle.
     const timeSinceEvent = now - dmrLastEventTime;
-    if (timeSinceEvent > 2000) {
-        // No events for 2s — decay target toward idle
+    if (timeSinceEvent > 5000) {
+        // No events for 5s — decay target toward idle
         dmrActivityTarget = Math.max(0, dmrActivityTarget - DMR_DECAY_RATE);
         if (dmrActivityTarget < 0.1 && dmrEventType !== 'stopped') {
             dmrEventType = 'idle';
@@ -511,6 +546,178 @@ function stopDmrSynthesizer() {
 
 window.addEventListener('resize', resizeDmrSynthesizer);
 
+// ============== AUDIO ==============
+
+function startDmrAudio() {
+    const audioPlayer = document.getElementById('dmrAudioPlayer');
+    if (!audioPlayer) return;
+    const streamUrl = `/dmr/audio/stream?t=${Date.now()}`;
+    audioPlayer.src = streamUrl;
+    const volSlider = document.getElementById('dmrAudioVolume');
+    if (volSlider) audioPlayer.volume = volSlider.value / 100;
+
+    audioPlayer.onplaying = () => updateDmrAudioStatus('STREAMING');
+    audioPlayer.onerror = () => {
+        // Retry if decoder is still running (stream may have dropped)
+        if (isDmrRunning && dmrHasAudio) {
+            console.warn('[DMR] Audio stream error, retrying in 2s...');
+            updateDmrAudioStatus('RECONNECTING');
+            setTimeout(() => {
+                if (isDmrRunning && dmrHasAudio) startDmrAudio();
+            }, 2000);
+        } else {
+            updateDmrAudioStatus('OFF');
+        }
+    };
+
+    audioPlayer.play().catch(e => {
+        console.warn('[DMR] Audio autoplay blocked:', e);
+        if (typeof showNotification === 'function') {
+            showNotification('Audio Ready', 'Click the page or interact to enable audio playback');
+        }
+    });
+}
+
+function stopDmrAudio() {
+    const audioPlayer = document.getElementById('dmrAudioPlayer');
+    if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.src = '';
+    }
+    dmrHasAudio = false;
+}
+
+function setDmrAudioVolume(value) {
+    const audioPlayer = document.getElementById('dmrAudioPlayer');
+    if (audioPlayer) audioPlayer.volume = value / 100;
+}
+
+function updateDmrAudioStatus(status) {
+    const el = document.getElementById('dmrAudioStatus');
+    if (!el) return;
+    el.textContent = status;
+    const colors = {
+        'OFF': 'var(--text-muted)',
+        'STREAMING': 'var(--accent-green)',
+        'ERROR': 'var(--accent-red)',
+        'UNAVAILABLE': 'var(--text-muted)',
+    };
+    el.style.color = colors[status] || 'var(--text-muted)';
+}
+
+// ============== SETTINGS PERSISTENCE ==============
+
+function restoreDmrSettings() {
+    try {
+        const saved = localStorage.getItem(DMR_SETTINGS_KEY);
+        if (!saved) return;
+        const s = JSON.parse(saved);
+        const freqEl = document.getElementById('dmrFrequency');
+        const protoEl = document.getElementById('dmrProtocol');
+        const gainEl = document.getElementById('dmrGain');
+        const ppmEl = document.getElementById('dmrPPM');
+        const crcEl = document.getElementById('dmrRelaxCrc');
+        if (freqEl && s.frequency != null) freqEl.value = s.frequency;
+        if (protoEl && s.protocol) protoEl.value = s.protocol;
+        if (gainEl && s.gain != null) gainEl.value = s.gain;
+        if (ppmEl && s.ppm != null) ppmEl.value = s.ppm;
+        if (crcEl && s.relaxCrc != null) crcEl.checked = s.relaxCrc;
+    } catch (e) { /* localStorage unavailable */ }
+}
+
+// ============== BOOKMARKS ==============
+
+function loadDmrBookmarks() {
+    try {
+        const saved = localStorage.getItem(DMR_BOOKMARKS_KEY);
+        dmrBookmarks = saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        dmrBookmarks = [];
+    }
+    renderDmrBookmarks();
+}
+
+function saveDmrBookmarks() {
+    try {
+        localStorage.setItem(DMR_BOOKMARKS_KEY, JSON.stringify(dmrBookmarks));
+    } catch (e) { /* localStorage unavailable */ }
+}
+
+function addDmrBookmark() {
+    const freqInput = document.getElementById('dmrBookmarkFreq');
+    const labelInput = document.getElementById('dmrBookmarkLabel');
+    if (!freqInput) return;
+
+    const freq = parseFloat(freqInput.value);
+    if (isNaN(freq) || freq <= 0) {
+        if (typeof showNotification === 'function') {
+            showNotification('Invalid Frequency', 'Enter a valid frequency');
+        }
+        return;
+    }
+
+    const protocol = document.getElementById('dmrProtocol')?.value || 'auto';
+    const label = (labelInput?.value || '').trim() || `${freq.toFixed(4)} MHz`;
+
+    // Duplicate check
+    if (dmrBookmarks.some(b => b.freq === freq && b.protocol === protocol)) {
+        if (typeof showNotification === 'function') {
+            showNotification('Duplicate', 'This frequency/protocol is already bookmarked');
+        }
+        return;
+    }
+
+    dmrBookmarks.push({ freq, protocol, label, added: new Date().toISOString() });
+    saveDmrBookmarks();
+    renderDmrBookmarks();
+    freqInput.value = '';
+    if (labelInput) labelInput.value = '';
+
+    if (typeof showNotification === 'function') {
+        showNotification('Bookmark Added', `${freq.toFixed(4)} MHz saved`);
+    }
+}
+
+function addCurrentDmrFreqBookmark() {
+    const freqEl = document.getElementById('dmrFrequency');
+    const freqInput = document.getElementById('dmrBookmarkFreq');
+    if (freqEl && freqInput) {
+        freqInput.value = freqEl.value;
+    }
+    addDmrBookmark();
+}
+
+function removeDmrBookmark(index) {
+    dmrBookmarks.splice(index, 1);
+    saveDmrBookmarks();
+    renderDmrBookmarks();
+}
+
+function dmrQuickTune(freq, protocol) {
+    const freqEl = document.getElementById('dmrFrequency');
+    const protoEl = document.getElementById('dmrProtocol');
+    if (freqEl) freqEl.value = freq;
+    if (protoEl) protoEl.value = protocol;
+}
+
+function renderDmrBookmarks() {
+    const container = document.getElementById('dmrBookmarksList');
+    if (!container) return;
+
+    if (dmrBookmarks.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 10px; font-size: 11px;">No bookmarks saved</div>';
+        return;
+    }
+
+    container.innerHTML = dmrBookmarks.map((b, i) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; background: rgba(0,0,0,0.2); border-radius: 3px; margin-bottom: 3px;">
+            <span style="cursor: pointer; color: var(--accent-cyan); font-size: 11px; flex: 1;" onclick="dmrQuickTune(${b.freq}, '${b.protocol}')" title="${b.freq.toFixed(4)} MHz (${b.protocol.toUpperCase()})">${b.label}</span>
+            <span style="color: var(--text-muted); font-size: 9px; margin: 0 6px;">${b.protocol.toUpperCase()}</span>
+            <button onclick="removeDmrBookmark(${i})" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 12px; padding: 0 4px;">&times;</button>
+        </div>
+    `).join('');
+}
+
 // ============== STATUS SYNC ==============
 
 function checkDmrStatus() {
@@ -544,6 +751,13 @@ function checkDmrStatus() {
         .catch(() => {});
 }
 
+// ============== INIT ==============
+
+document.addEventListener('DOMContentLoaded', () => {
+    restoreDmrSettings();
+    loadDmrBookmarks();
+});
+
 // ============== EXPORTS ==============
 
 window.startDmr = startDmr;
@@ -551,3 +765,8 @@ window.stopDmr = stopDmr;
 window.checkDmrTools = checkDmrTools;
 window.checkDmrStatus = checkDmrStatus;
 window.initDmrSynthesizer = initDmrSynthesizer;
+window.setDmrAudioVolume = setDmrAudioVolume;
+window.addDmrBookmark = addDmrBookmark;
+window.addCurrentDmrFreqBookmark = addCurrentDmrFreqBookmark;
+window.removeDmrBookmark = removeDmrBookmark;
+window.dmrQuickTune = dmrQuickTune;

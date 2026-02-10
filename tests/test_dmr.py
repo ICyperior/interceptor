@@ -2,7 +2,7 @@
 
 from unittest.mock import patch, MagicMock
 import pytest
-from routes.dmr import parse_dsd_output, _DSD_PROTOCOL_FLAGS, _DSD_FME_PROTOCOL_FLAGS
+from routes.dmr import parse_dsd_output, _DSD_PROTOCOL_FLAGS, _DSD_FME_PROTOCOL_FLAGS, _DSD_FME_MODULATION
 
 
 # ============================================
@@ -66,6 +66,16 @@ def test_parse_talkgroup_dsd_fme_format():
     assert result['source_id'] == 67890
 
 
+def test_parse_talkgroup_dsd_fme_tgt_src_format():
+    """Should parse dsd-fme TGT/SRC pipe-delimited format."""
+    result = parse_dsd_output('Slot 1 | TGT: 12345 | SRC: 67890')
+    assert result is not None
+    assert result['type'] == 'call'
+    assert result['talkgroup'] == 12345
+    assert result['source_id'] == 67890
+    assert result['slot'] == 1
+
+
 def test_parse_talkgroup_with_slot():
     """TG line with slot info should capture both."""
     result = parse_dsd_output('Slot 1 Voice LC, TG: 100, Src: 200')
@@ -98,19 +108,56 @@ def test_parse_unrecognized():
     assert result['text'] == 'some random text'
 
 
-def test_dsd_fme_protocol_flags_match_classic():
-    """dsd-fme flags must match classic DSD flags (same fork, same CLI)."""
-    assert _DSD_FME_PROTOCOL_FLAGS == _DSD_PROTOCOL_FLAGS
+def test_parse_banner_filtered():
+    """Pure box-drawing lines (banners) should be filtered."""
+    assert parse_dsd_output('╔══════════════╗') is None
+    assert parse_dsd_output('║              ║') is None
+    assert parse_dsd_output('╚══════════════╝') is None
+    assert parse_dsd_output('───────────────') is None
+
+
+def test_parse_box_drawing_with_data_not_filtered():
+    """Lines with box-drawing separators AND data should NOT be filtered."""
+    result = parse_dsd_output('DMR BS │ Slot 1 │ TG: 12345 │ SRC: 67890')
+    assert result is not None
+    assert result['type'] == 'call'
+    assert result['talkgroup'] == 12345
+    assert result['source_id'] == 67890
+
+
+def test_dsd_fme_flags_differ_from_classic():
+    """dsd-fme remapped several flags; tables must NOT be identical."""
+    assert _DSD_FME_PROTOCOL_FLAGS != _DSD_PROTOCOL_FLAGS
+
+
+def test_dsd_fme_protocol_flags_known_values():
+    """dsd-fme flags use its own flag names (NOT classic DSD mappings)."""
+    assert _DSD_FME_PROTOCOL_FLAGS['auto'] == ['-ft']       # XDMA
+    assert _DSD_FME_PROTOCOL_FLAGS['dmr'] == ['-fs']        # Simplex (-fd is D-STAR!)
+    assert _DSD_FME_PROTOCOL_FLAGS['p25'] == ['-f1']        # NOT -fp (ProVoice in fme)
+    assert _DSD_FME_PROTOCOL_FLAGS['nxdn'] == ['-fn']
+    assert _DSD_FME_PROTOCOL_FLAGS['dstar'] == ['-fd']      # -fd is D-STAR in dsd-fme
+    assert _DSD_FME_PROTOCOL_FLAGS['provoice'] == ['-fp']   # NOT -fv
 
 
 def test_dsd_protocol_flags_known_values():
-    """Protocol flags should map to the correct DSD -f flags."""
+    """Classic DSD protocol flags should map to the correct -f flags."""
     assert _DSD_PROTOCOL_FLAGS['dmr'] == ['-fd']
     assert _DSD_PROTOCOL_FLAGS['p25'] == ['-fp']
     assert _DSD_PROTOCOL_FLAGS['nxdn'] == ['-fn']
     assert _DSD_PROTOCOL_FLAGS['dstar'] == ['-fi']
     assert _DSD_PROTOCOL_FLAGS['provoice'] == ['-fv']
     assert _DSD_PROTOCOL_FLAGS['auto'] == []
+
+
+def test_dsd_fme_modulation_hints():
+    """C4FM modulation hints should be set for C4FM protocols."""
+    assert _DSD_FME_MODULATION['dmr'] == ['-mc']
+    assert _DSD_FME_MODULATION['p25'] == ['-mc']
+    assert _DSD_FME_MODULATION['nxdn'] == ['-mc']
+    # D-Star and ProVoice should not have forced modulation
+    assert 'dstar' not in _DSD_FME_MODULATION
+    assert 'provoice' not in _DSD_FME_MODULATION
 
 
 # ============================================

@@ -1699,6 +1699,18 @@
                         </div>
                         <canvas id="dmrSynthCanvas" style="width: 100%; height: 70px; background: rgba(0,0,0,0.4); border-radius: 4px; display: block;"></canvas>
                     </div>
+                    <!-- Audio Output -->
+                    <div class="radio-module-box" style="padding: 8px 12px;">
+                        <audio id="dmrAudioPlayer" style="display: none;"></audio>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">AUDIO</span>
+                            <span id="dmrAudioStatus" style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);">OFF</span>
+                            <div style="display: flex; align-items: center; gap: 4px; margin-left: auto;">
+                                <span style="font-size: 10px; color: var(--text-muted);">VOL</span>
+                                <input type="range" id="dmrAudioVolume" min="0" max="100" value="80" style="width: 80px;" oninput="setDmrAudioVolume(this.value)">
+                            </div>
+                        </div>
+                    </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                         <!-- Call History Panel -->
                         <div class="radio-module-box" style="padding: 10px;">
