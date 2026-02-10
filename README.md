@@ -33,8 +33,9 @@ Support the developer of this open-source project
 - **ACARS Messaging** - Aircraft datalink messages via acarsdec
 - **DMR Digital Voice** - DMR/P25/NXDN/D-STAR decoding via dsd-fme with visual synthesizer
 - **Listening Post** - Frequency scanner with audio monitoring
+- **Weather Satellites** - NOAA APT and Meteor LRPT image decoding via SatDump
 - **WebSDR** - Remote HF/shortwave listening via WebSDR servers
-- **ISS SSTV** - Receive slow-scan TV from the International Space Station
+- **ISS SSTV** - Slow-scan TV image reception from the International Space Station
 - **HF SSTV** - Terrestrial SSTV on shortwave frequencies
 - **Satellite Tracking** - Pass prediction using TLE data
 - **ADS-B History** - Persistent aircraft history with reporting dashboard (Postgres optional)
@@ -60,15 +61,54 @@ cd intercept
 sudo -E venv/bin/python intercept.py
 ```
 
-### Docker (Alternative)
+### Docker
 
 ```bash
 git clone https://github.com/smittix/intercept.git
 cd intercept
-docker compose up -d
+docker compose --profile basic up -d --build
 ```
 
-> **Note:** Docker requires privileged mode for USB SDR access. See `docker-compose.yml` for configuration options.
+> **Note:** Docker requires privileged mode for USB SDR access. SDR devices are passed through via `/dev/bus/usb`.
+
+#### Multi-Architecture Builds (amd64 + arm64)
+
+Cross-compile on an x64 machine and push to a registry. This is much faster than building natively on an RPi.
+
+```bash
+# One-time setup on your x64 build machine
+docker run --privileged --rm tonistiigi/binfmt --install all
+docker buildx create --name intercept-builder --use --bootstrap
+
+# Build and push for both architectures
+REGISTRY=ghcr.io/youruser ./build-multiarch.sh --push
+
+# On the RPi5, just pull and run
+INTERCEPT_IMAGE=ghcr.io/youruser/intercept:latest docker compose --profile basic up -d
+```
+
+Build script options:
+
+| Flag | Description |
+|------|-------------|
+| `--push` | Push to container registry |
+| `--load` | Load into local Docker (single platform only) |
+| `--arm64-only` | Build arm64 only (for RPi deployment) |
+| `--amd64-only` | Build amd64 only |
+
+Environment variables: `REGISTRY`, `IMAGE_NAME`, `IMAGE_TAG`
+
+#### Using a Pre-built Image
+
+If you've pushed to a registry, you can skip building entirely on the target machine:
+
+```bash
+# Set in .env or export
+INTERCEPT_IMAGE=ghcr.io/youruser/intercept:latest
+
+# Then just run
+docker compose --profile basic up -d
+```
 
 ### ADS-B History (Optional)
 
@@ -200,6 +240,7 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [acarsdec](https://github.com/TLeconte/acarsdec) |
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
+[SatDump](https://github.com/SatDump/SatDump) |
 [Celestrak](https://celestrak.org/) |
 [Priyom.org](https://priyom.org/)
 

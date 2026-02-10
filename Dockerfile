@@ -24,6 +24,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     multimon-ng \
     # Audio tools for Listening Post
     ffmpeg \
+    # SSTV decoder runtime libs
+    libsndfile1 \
+    # SatDump runtime libs (weather satellite decoding)
+    libpng16-16 \
+    libtiff6 \
+    libjemalloc2 \
+    libvolk-bin \
+    libnng1 \
+    libzstd1 \
     # WiFi tools (aircrack-ng suite)
     aircrack-ng \
     iw \
@@ -61,9 +70,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libncurses-dev \
     libsndfile1-dev \
+    # GTK is required for slowrx (SSTV decoder GUI dependency).
+    # Note: slowrx is kept for backwards compatibility, but the pure Python
+    # SSTV decoder in utils/sstv/ is now the primary implementation.
+    # GTK can be removed if slowrx is deprecated in future releases.
+    libgtk-3-dev \
+    libasound2-dev \
     libsoapysdr-dev \
     libhackrf-dev \
     liblimesuite-dev \
+    libfftw3-dev \
+    libpng-dev \
+    libtiff-dev \
+    libjemalloc-dev \
+    libvolk-dev \
+    libnng-dev \
+    libzstd-dev \
     libsqlite3-dev \
     libcurl4-openssl-dev \
     zlib1g-dev \
@@ -118,6 +140,43 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && make \
     && cp acarsdec /usr/bin/acarsdec \
     && rm -rf /tmp/acarsdec \
+    # Build slowrx (SSTV decoder) — pinned to known-good commit
+    && cd /tmp \
+    && git clone https://github.com/windytan/slowrx.git \
+    && cd slowrx \
+    && git checkout ca6d7012 \
+    && make \
+    && install -m 0755 slowrx /usr/local/bin/slowrx \
+    && rm -rf /tmp/slowrx \
+    # Build SatDump (weather satellite decoder - NOAA APT & Meteor LRPT) — pinned to v1.2.2
+    && cd /tmp \
+    && git clone --depth 1 --branch 1.2.2 https://github.com/SatDump/SatDump.git \
+    && cd SatDump \
+    && mkdir build && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. \
+    && make -j$(nproc) \
+    && make install \
+    && ldconfig \
+    # Ensure SatDump plugins are in the expected path (handles multiarch differences)
+    && mkdir -p /usr/local/lib/satdump/plugins \
+    && if [ -z "$(ls /usr/local/lib/satdump/plugins/*.so 2>/dev/null)" ]; then \
+        for dir in /usr/local/lib/*/satdump/plugins /usr/lib/*/satdump/plugins /usr/lib/satdump/plugins; do \
+            if [ -d "$dir" ] && [ -n "$(ls "$dir"/*.so 2>/dev/null)" ]; then \
+                ln -sf "$dir"/*.so /usr/local/lib/satdump/plugins/; \
+                break; \
+            fi; \
+        done; \
+    fi \
+    && cd /tmp \
+    && rm -rf /tmp/SatDump \
+    # Build rtlamr (utility meter decoder - requires Go)
+    && cd /tmp \
+    && curl -fsSL "https://go.dev/dl/go1.22.5.linux-$(dpkg --print-architecture).tar.gz" | tar -C /usr/local -xz \
+    && export PATH="$PATH:/usr/local/go/bin" \
+    && export GOPATH=/tmp/gopath \
+    && go install github.com/bemasher/rtlamr@latest \
+    && cp /tmp/gopath/bin/rtlamr /usr/bin/rtlamr \
+    && rm -rf /usr/local/go /tmp/gopath \
     # Build mbelib (required by DSD)
     && cd /tmp \
     && git clone https://github.com/lwvmobile/mbelib.git \
@@ -140,6 +199,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ldconfig \
     && rm -rf /tmp/dsd-fme \
     # Cleanup build tools to reduce image size
+    # libgtk-3-dev is explicitly removed; runtime GTK libs remain for slowrx
     && apt-get remove -y \
     build-essential \
     git \
@@ -147,6 +207,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libncurses-dev \
     libsndfile1-dev \
+    libgtk-3-dev \
+    libasound2-dev \
+    libpng-dev \
+    libtiff-dev \
+    libjemalloc-dev \
+    libvolk-dev \
+    libnng-dev \
+    libzstd-dev \
     libsoapysdr-dev \
     libhackrf-dev \
     liblimesuite-dev \
@@ -169,7 +237,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create data directory for persistence
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data /app/data/weather_sat
 
 # Expose web interface port
 EXPOSE 5050

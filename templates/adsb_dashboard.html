@@ -223,6 +223,88 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Antenna Guide Panel -->
+            <div class="panel" id="antennaGuidePanel">
+                <div class="panel-header" style="cursor: pointer;" onclick="document.getElementById('antennaGuideContent').style.display = document.getElementById('antennaGuideContent').style.display === 'none' ? 'block' : 'none'; this.querySelector('.panel-toggle').textContent = document.getElementById('antennaGuideContent').style.display === 'none' ? '&#9654;' : '&#9660;';">
+                    <span>ANTENNA GUIDE</span>
+                    <span class="panel-toggle" style="font-size: 10px; color: var(--text-muted);">&#9654;</span>
+                </div>
+                <div id="antennaGuideContent" style="display: none; padding: 10px; font-size: 11px; color: var(--text-secondary); line-height: 1.5;">
+                    <p style="margin-bottom: 8px; color: var(--accent-cyan); font-weight: 600;">
+                        1090 MHz &mdash; stock SDR antenna can work but is not ideal
+                    </p>
+
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; margin-bottom: 8px;">
+                        <strong style="color: var(--accent-cyan); font-size: 11px;">Stock Telescopic Antenna</strong>
+                        <ul style="margin: 4px 0 0 14px; padding: 0; font-size: 10px;">
+                            <li><strong style="color: var(--text-primary);">1090 MHz:</strong> Collapse to ~6.9 cm (quarter-wave). It works for nearby aircraft</li>
+                            <li><strong style="color: var(--text-primary);">Range:</strong> Expect ~50 NM (90 km) indoors, ~100 NM outdoors</li>
+                        </ul>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; margin-bottom: 8px;">
+                        <strong style="color: #00ff88; font-size: 11px;">Recommended: 1090 MHz Collinear (~$10-20 DIY)</strong>
+                        <ul style="margin: 4px 0 0 14px; padding: 0; font-size: 10px;">
+                            <li><strong style="color: var(--text-primary);">Design:</strong> 8 coaxial collinear elements from RG-6 coax cable</li>
+                            <li><strong style="color: var(--text-primary);">Element length:</strong> ~6.9 cm segments soldered alternating center/shield</li>
+                            <li><strong style="color: var(--text-primary);">Gain:</strong> ~5&ndash;7 dBi omnidirectional, ideal for 360&deg; coverage</li>
+                            <li><strong style="color: var(--text-primary);">Range:</strong> 150&ndash;250+ NM depending on height and LOS</li>
+                        </ul>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; margin-bottom: 8px;">
+                        <strong style="color: var(--accent-cyan); font-size: 11px;">Commercial Options</strong>
+                        <ul style="margin: 4px 0 0 14px; padding: 0; font-size: 10px;">
+                            <li><strong style="color: var(--text-primary);">FlightAware antenna:</strong> ~$35, 1090 MHz tuned, 66cm fiberglass whip</li>
+                            <li><strong style="color: var(--text-primary);">ADSBexchange whip:</strong> ~$40, similar performance</li>
+                            <li><strong style="color: var(--text-primary);">Jetvision A3:</strong> ~$50, high-gain 1090 MHz collinear</li>
+                        </ul>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; margin-bottom: 8px;">
+                        <strong style="color: var(--accent-cyan); font-size: 11px;">Placement & LNA</strong>
+                        <ul style="margin: 4px 0 0 14px; padding: 0; font-size: 10px;">
+                            <li><strong style="color: var(--text-primary);">Location:</strong> OUTDOORS, as high as possible. Roof or mast mount</li>
+                            <li><strong style="color: var(--text-primary);">Height:</strong> Every 3m higher adds ~10 NM range (line-of-sight)</li>
+                            <li><strong style="color: var(--text-primary);">LNA:</strong> 1090 MHz filtered LNA at antenna feed (e.g. Uputronics, ~$30)</li>
+                            <li><strong style="color: var(--text-primary);">Filter:</strong> A 1090 MHz bandpass filter removes cell/FM interference</li>
+                            <li><strong style="color: var(--text-primary);">Coax:</strong> Keep short. At 1090 MHz, RG-58 loses ~10 dB per 10m</li>
+                            <li><strong style="color: var(--text-primary);">Bias-T:</strong> Enable Bias-T in controls above if LNA is powered via coax</li>
+                        </ul>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px;">
+                        <strong style="color: var(--accent-cyan); font-size: 11px;">Quick Reference</strong>
+                        <table style="width: 100%; margin-top: 4px; font-size: 10px; border-collapse: collapse;">
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 2px 4px; color: var(--text-dim);">ADS-B frequency</td>
+                                <td style="padding: 2px 4px; color: var(--text-primary); text-align: right;">1090 MHz</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 2px 4px; color: var(--text-dim);">Quarter-wave length</td>
+                                <td style="padding: 2px 4px; color: var(--text-primary); text-align: right;">6.9 cm</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 2px 4px; color: var(--text-dim);">Modulation</td>
+                                <td style="padding: 2px 4px; color: var(--text-primary); text-align: right;">PPM (pulse)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 2px 4px; color: var(--text-dim);">Polarization</td>
+                                <td style="padding: 2px 4px; color: var(--text-primary); text-align: right;">Vertical</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 2px 4px; color: var(--text-dim);">Bandwidth</td>
+                                <td style="padding: 2px 4px; color: var(--text-primary); text-align: right;">~2 MHz</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 2px 4px; color: var(--text-dim);">Typical range (outdoor)</td>
+                                <td style="padding: 2px 4px; color: var(--text-primary); text-align: right;">100&ndash;250 NM</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Controls Bar - Reorganized -->

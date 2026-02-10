@@ -26,6 +26,7 @@ def register_blueprints(app):
     from .offline import offline_bp
     from .updater import updater_bp
     from .sstv import sstv_bp
+    from .weather_sat import weather_sat_bp
     from .sstv_general import sstv_general_bp
     from .dmr import dmr_bp
     from .websdr import websdr_bp
@@ -56,6 +57,7 @@ def register_blueprints(app):
     app.register_blueprint(offline_bp)  # Offline mode settings
     app.register_blueprint(updater_bp)  # GitHub update checking
     app.register_blueprint(sstv_bp)  # ISS SSTV decoder
+    app.register_blueprint(weather_sat_bp)  # NOAA/Meteor weather satellite decoder
     app.register_blueprint(sstv_general_bp)  # General terrestrial SSTV
     app.register_blueprint(dmr_bp)  # DMR / P25 / Digital Voice
     app.register_blueprint(websdr_bp)  # HF/Shortwave WebSDR

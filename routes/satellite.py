@@ -31,6 +31,23 @@ ALLOWED_TLE_HOSTS = ['celestrak.org', 'celestrak.com', 'www.celestrak.org', 'www
 _tle_cache = dict(TLE_SATELLITES)
 
 
+def init_tle_auto_refresh():
+    """Initialize TLE auto-refresh. Called by app.py after initialization."""
+    import threading
+    
+    def _auto_refresh_tle():
+        try:
+            updated = refresh_tle_data()
+            if updated:
+                logger.info(f"Auto-refreshed TLE data for: {', '.join(updated)}")
+        except Exception as e:
+            logger.warning(f"Auto TLE refresh failed: {e}")
+    
+    # Start auto-refresh in background
+    threading.Timer(2.0, _auto_refresh_tle).start()
+    logger.info("TLE auto-refresh scheduled")
+
+
 def _fetch_iss_realtime(observer_lat: Optional[float] = None, observer_lon: Optional[float] = None) -> Optional[dict]:
     """
     Fetch real-time ISS position from external APIs.
@@ -481,7 +498,8 @@ def update_tle():
             'updated': updated
         })
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        logger.error(f"Error updating TLE data: {e}")
+        return jsonify({'status': 'error', 'message': 'TLE update failed'})
 
 
 @satellite_bp.route('/celestrak/<category>')
@@ -535,4 +553,5 @@ def fetch_celestrak(category):
         })
 
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        logger.error(f"Error fetching CelesTrak data: {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to fetch satellite data'})
