@@ -199,10 +199,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ldconfig \
     && rm -rf /tmp/dsd-fme \
     # Cleanup build tools to reduce image size
-    # Note: libgtk-3-dev is removed here but runtime GTK libs (from first stage)
-    # remain for slowrx. This adds ~10MB to the image but is required for slowrx
-    # to function. Consider removing slowrx build entirely if moving fully to
-    # the pure Python SSTV decoder.
+    # libgtk-3-dev is explicitly removed; runtime GTK libs remain for slowrx
     && apt-get remove -y \
     build-essential \
     git \
@@ -210,6 +207,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libncurses-dev \
     libsndfile1-dev \
+    libgtk-3-dev \
     libasound2-dev \
     libpng-dev \
     libtiff-dev \
