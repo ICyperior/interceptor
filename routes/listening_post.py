@@ -1456,13 +1456,30 @@ def stream_audio() -> Response:
         if not proc or not proc.stdout:
             return
         try:
-            # First byte timeout to avoid hanging clients forever
+            # Drain stale audio that accumulated in the pipe buffer
+            # between pipeline start and stream connection.  Keep the
+            # first chunk (contains WAV header) and discard the rest
+            # so the browser starts close to real-time.
+            header_chunk = None
+            while True:
+                ready, _, _ = select.select([proc.stdout], [], [], 0)
+                if not ready:
+                    break
+                chunk = proc.stdout.read(8192)
+                if not chunk:
+                    break
+                if header_chunk is None:
+                    header_chunk = chunk
+            if header_chunk:
+                yield header_chunk
+
+            # Stream real-time audio
             first_chunk_deadline = time.time() + 3.0
             while audio_running and proc.poll() is None:
                 # Use select to avoid blocking forever
                 ready, _, _ = select.select([proc.stdout], [], [], 2.0)
                 if ready:
-                    chunk = proc.stdout.read(4096)
+                    chunk = proc.stdout.read(8192)
                     if chunk:
                         yield chunk
                     else:
