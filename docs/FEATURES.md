@@ -99,14 +99,6 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
 - **Message filtering** - filter by message type, flight, or registration
 
-## DMR Digital Voice
-
-- **Digital voice decoding** via dsd-fme for DMR, P25, NXDN, and D-STAR
-- **Visual synthesizer** with event-driven spring-physics audio bars
-- **Audio output** with real-time streaming via WebSocket
-- **Frequency persistence** and bookmark support
-- **Tuning controls** with fine adjustment and state sync
-
 ## Listening Post
 
 - **Wideband frequency scanning** via rtl_power sweep with SNR filtering

@@ -18,7 +18,6 @@ CHANGELOG = [
             "Sub-GHz analyzer with real-time RF capture and protocol decoding",
             "Weather satellite auto-scheduler with polar plot and ground track map",
             "SatDump support for local (non-Docker) installs via setup.sh",
-            "DMR audio output, frequency persistence, and bookmarks",
             "Shared waterfall UI across SDR modes",
             "Listening post audio stuttering fix and SDR race condition fixes",
             "Multi-arch Docker build support (amd64 + arm64)",

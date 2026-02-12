@@ -32,7 +32,6 @@ Support the developer of this open-source project
 - **Aircraft Tracking** - ADS-B via dump1090 with real-time map and radar
 - **Vessel Tracking** - AIS ship tracking with VHF DSC distress monitoring
 - **ACARS Messaging** - Aircraft datalink messages via acarsdec
-- **DMR Digital Voice** - DMR/P25/NXDN/D-STAR decoding via dsd-fme with visual synthesizer
 - **Listening Post** - Wideband frequency scanner with real-time audio monitoring
 - **Weather Satellites** - NOAA APT and Meteor LRPT image decoding via SatDump with auto-scheduler
 - **WebSDR** - Remote HF/shortwave listening via KiwiSDR network
@@ -241,7 +240,6 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [dump1090](https://github.com/flightaware/dump1090) |
 [AIS-catcher](https://github.com/jvde-github/AIS-catcher) |
 [acarsdec](https://github.com/TLeconte/acarsdec) |
-[dsd-fme](https://github.com/lwvmobile/dsd-fme) |
 [direwolf](https://github.com/wb2osz/direwolf) |
 [rtl_amr](https://github.com/bemasher/rtlamr) |
 [aircrack-ng](https://www.aircrack-ng.org/) |

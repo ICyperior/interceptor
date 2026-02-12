@@ -69,21 +69,6 @@ INTERCEPT automatically detects known trackers:
 
 Common ISM band protocols including garage doors, key fobs, weather stations, and IoT devices in the 300-928 MHz range.
 
-## DMR Digital Voice
-
-1. **Select Hardware** - Choose your SDR type
-2. **Set Frequency** - Enter a DMR repeater frequency or use bookmarks
-3. **Start Decoding** - Click "Start Decoding" to begin digital voice reception
-4. **Listen** - Audio streams via WebSocket to your browser
-5. **View Events** - Decoded talkgroup and radio ID information appears in the event log
-
-### Supported Protocols
-
-- **DMR** - Digital Mobile Radio (Tier I/II)
-- **P25** - APCO Project 25
-- **NXDN** - Kenwood/Icom digital protocol
-- **D-STAR** - Icom digital voice
-
 ## Listening Post
 
 1. **Select Hardware** - Choose your SDR type
