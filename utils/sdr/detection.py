@@ -10,11 +10,27 @@ import logging
 import re
 import shutil
 import subprocess
+import time
 from typing import Optional
 
 from .base import SDRCapabilities, SDRDevice, SDRType
 
 logger = logging.getLogger(__name__)
+
+# Cache HackRF detection results so polling endpoints don't repeatedly run
+# hackrf_info while the device is actively streaming in SubGHz mode.
+_hackrf_cache: list[SDRDevice] = []
+_hackrf_cache_ts: float = 0.0
+_HACKRF_CACHE_TTL_SECONDS = 3.0
+
+
+def _hackrf_probe_blocked() -> bool:
+    """Return True when probing HackRF would interfere with an active stream."""
+    try:
+        from utils.subghz import get_subghz_manager
+        return get_subghz_manager().active_mode in {'rx', 'decode', 'tx', 'sweep'}
+    except Exception:
+        return False
 
 
 def _check_tool(name: str) -> bool:
@@ -301,9 +317,22 @@ def detect_hackrf_devices() -> list[SDRDevice]:
 
     Fallback for when SoapySDR is not available.
     """
+    global _hackrf_cache, _hackrf_cache_ts
+    now = time.time()
+
+    # While HackRF is actively streaming in SubGHz mode, skip probe calls.
+    # Re-running hackrf_info during active RX/TX can disrupt the USB stream.
+    if _hackrf_probe_blocked():
+        return list(_hackrf_cache)
+
+    if _hackrf_cache and (now - _hackrf_cache_ts) < _HACKRF_CACHE_TTL_SECONDS:
+        return list(_hackrf_cache)
+
     devices: list[SDRDevice] = []
 
     if not _check_tool('hackrf_info'):
+        _hackrf_cache = devices
+        _hackrf_cache_ts = now
         return devices
 
     try:
@@ -345,6 +374,8 @@ def detect_hackrf_devices() -> list[SDRDevice]:
     except Exception as e:
         logger.debug(f"HackRF detection error: {e}")
 
+    _hackrf_cache = list(devices)
+    _hackrf_cache_ts = now
     return devices
 
 

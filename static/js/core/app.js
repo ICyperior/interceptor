@@ -488,10 +488,12 @@ function initApp() {
         });
     });
 
-    // Collapse all sections by default (except SDR Device which is first)
-    document.querySelectorAll('.section').forEach((section, index) => {
-        if (index > 0) {
+    // Collapse sidebar menu sections by default, but skip headerless utility blocks.
+    document.querySelectorAll('.sidebar .section').forEach((section) => {
+        if (section.querySelector('h3')) {
             section.classList.add('collapsed');
+        } else {
+            section.classList.remove('collapsed');
         }
     });
 

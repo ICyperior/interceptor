@@ -21,6 +21,7 @@ from utils.sse import format_sse
 from utils.event_pipeline import process_event
 from utils.process import register_process, unregister_process
 from utils.validation import validate_frequency, validate_gain, validate_device_index, validate_ppm
+from utils.sdr import SDRFactory, SDRType
 from utils.constants import (
     SSE_QUEUE_TIMEOUT,
     SSE_KEEPALIVE_INTERVAL,
@@ -44,11 +45,12 @@ dmr_lock = threading.Lock()
 dmr_queue: queue.Queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 dmr_active_device: Optional[int] = None
 
-# Audio mux: the sole reader of dsd-fme stdout.  Writes to an ffmpeg
-# stdin when a streaming client is connected, discards otherwise.
+# Audio mux: the sole reader of dsd-fme stdout.  Fans out bytes to all
+# active ffmpeg stdin sinks when streaming clients are connected.
 # This prevents dsd-fme from blocking on stdout (which would also
 # freeze stderr / text data output).
-_active_ffmpeg_stdin: Optional[object] = None  # set by stream endpoint
+_ffmpeg_sinks: set[object] = set()
+_ffmpeg_sinks_lock = threading.Lock()
 
 VALID_PROTOCOLS = ['auto', 'dmr', 'p25', 'nxdn', 'dstar', 'provoice']
 
@@ -68,9 +70,9 @@ _DSD_PROTOCOL_FLAGS = {
 #   -fi = NXDN48 (NOT D-Star), -f1 = P25 Phase 1,
 #   -ft = XDMA multi-protocol decoder
 _DSD_FME_PROTOCOL_FLAGS = {
-    'auto': ['-ft'],       # XDMA: auto-detect DMR/P25/YSF
+    'auto': ['-fa'],       # Broad auto: P25 (P1/P2), DMR, D-STAR, YSF, X2-TDMA
     'dmr': ['-fs'],        # DMR Simplex (-fd is D-STAR in dsd-fme!)
-    'p25': ['-f1'],        # P25 Phase 1 (-fp is ProVoice in dsd-fme!)
+    'p25': ['-ft'],        # P25 P1/P2 coverage (also includes DMR in dsd-fme)
     'nxdn': ['-fn'],       # NXDN96
     'dstar': ['-fd'],      # D-STAR (-fd in dsd-fme, NOT DMR!)
     'provoice': ['-fp'],   # ProVoice (-fp in dsd-fme, not -fv)
@@ -80,7 +82,6 @@ _DSD_FME_PROTOCOL_FLAGS = {
 # sync reliability vs letting dsd-fme auto-detect modulation type.
 _DSD_FME_MODULATION = {
     'dmr': ['-mc'],        # C4FM
-    'p25': ['-mc'],        # C4FM (Phase 1; Phase 2 would use -mq)
     'nxdn': ['-mc'],       # C4FM
 }
 
@@ -107,6 +108,11 @@ def find_dsd() -> tuple[str | None, bool]:
 def find_rtl_fm() -> str | None:
     """Find rtl_fm binary."""
     return shutil.which('rtl_fm')
+
+
+def find_rx_fm() -> str | None:
+    """Find SoapySDR rx_fm binary."""
+    return shutil.which('rx_fm')
 
 
 def find_ffmpeg() -> str | None:
@@ -214,14 +220,66 @@ _HEARTBEAT_INTERVAL = 3.0  # seconds between heartbeats when decoder is idle
 _SILENCE_CHUNK = b'\x00' * 1600
 
 
+def _register_audio_sink(sink: object) -> None:
+    """Register an ffmpeg stdin sink for mux fanout."""
+    with _ffmpeg_sinks_lock:
+        _ffmpeg_sinks.add(sink)
+
+
+def _unregister_audio_sink(sink: object) -> None:
+    """Remove an ffmpeg stdin sink from mux fanout."""
+    with _ffmpeg_sinks_lock:
+        _ffmpeg_sinks.discard(sink)
+
+
+def _get_audio_sinks() -> tuple[object, ...]:
+    """Snapshot current audio sinks for lock-free iteration."""
+    with _ffmpeg_sinks_lock:
+        return tuple(_ffmpeg_sinks)
+
+
+def _stop_process(proc: Optional[subprocess.Popen]) -> None:
+    """Terminate and unregister a subprocess if present."""
+    if not proc:
+        return
+    if proc.poll() is None:
+        try:
+            proc.terminate()
+            proc.wait(timeout=2)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+    unregister_process(proc)
+
+
+def _reset_runtime_state(*, release_device: bool) -> None:
+    """Reset process + runtime state and optionally release SDR ownership."""
+    global dmr_rtl_process, dmr_dsd_process
+    global dmr_running, dmr_has_audio, dmr_active_device
+
+    _stop_process(dmr_dsd_process)
+    _stop_process(dmr_rtl_process)
+    dmr_rtl_process = None
+    dmr_dsd_process = None
+    dmr_running = False
+    dmr_has_audio = False
+    with _ffmpeg_sinks_lock:
+        _ffmpeg_sinks.clear()
+
+    if release_device and dmr_active_device is not None:
+        app_module.release_sdr_device(dmr_active_device)
+        dmr_active_device = None
+
+
 def _dsd_audio_mux(dsd_stdout):
     """Mux thread: sole reader of dsd-fme stdout.
 
     Always drains dsd-fme's audio output to prevent the process from
     blocking on stdout writes (which would also freeze stderr / text
-    data).  When an audio streaming client is connected, forwards audio
-    to its ffmpeg stdin with silence fill during voice gaps.  When no
-    client is connected, simply discards the data.
+    data). When streaming clients are connected, forwards data to all
+    active ffmpeg stdin sinks with silence fill during voice gaps.
     """
     try:
         while dmr_running:
@@ -230,22 +288,22 @@ def _dsd_audio_mux(dsd_stdout):
                 data = os.read(dsd_stdout.fileno(), 4096)
                 if not data:
                     break
-                sink = _active_ffmpeg_stdin
-                if sink:
+                sinks = _get_audio_sinks()
+                for sink in sinks:
                     try:
                         sink.write(data)
                         sink.flush()
                     except (BrokenPipeError, OSError, ValueError):
-                        pass
+                        _unregister_audio_sink(sink)
             else:
                 # No audio from decoder — feed silence if client connected
-                sink = _active_ffmpeg_stdin
-                if sink:
+                sinks = _get_audio_sinks()
+                for sink in sinks:
                     try:
                         sink.write(_SILENCE_CHUNK)
                         sink.flush()
                     except (BrokenPipeError, OSError, ValueError):
-                        pass
+                        _unregister_audio_sink(sink)
     except (OSError, ValueError):
         pass
 
@@ -316,7 +374,11 @@ def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Pop
         logger.error(f"DSD stream error: {e}")
     finally:
         global dmr_active_device, dmr_rtl_process, dmr_dsd_process
+        global dmr_has_audio
         dmr_running = False
+        dmr_has_audio = False
+        with _ffmpeg_sinks_lock:
+            _ffmpeg_sinks.clear()
         # Capture exit info for diagnostics
         rc = dsd_process.poll()
         reason = 'stopped'
@@ -331,18 +393,8 @@ def stream_dsd_output(rtl_process: subprocess.Popen, dsd_process: subprocess.Pop
                 pass
             logger.warning(f"DSD process exited with code {rc}: {detail}")
         # Cleanup decoder + demod processes
-        for proc in [dsd_process, rtl_process]:
-            if proc and proc.poll() is None:
-                try:
-                    proc.terminate()
-                    proc.wait(timeout=2)
-                except Exception:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
-            if proc:
-                unregister_process(proc)
+        _stop_process(dsd_process)
+        _stop_process(rtl_process)
         dmr_rtl_process = None
         dmr_dsd_process = None
         _queue_put({'type': 'status', 'text': reason, 'exit_code': rc, 'detail': detail})
@@ -362,12 +414,14 @@ def check_tools() -> Response:
     """Check for required tools."""
     dsd_path, _ = find_dsd()
     rtl_fm = find_rtl_fm()
+    rx_fm = find_rx_fm()
     ffmpeg = find_ffmpeg()
     return jsonify({
         'dsd': dsd_path is not None,
         'rtl_fm': rtl_fm is not None,
+        'rx_fm': rx_fm is not None,
         'ffmpeg': ffmpeg is not None,
-        'available': dsd_path is not None and rtl_fm is not None,
+        'available': dsd_path is not None and (rtl_fm is not None or rx_fm is not None),
         'protocols': VALID_PROTOCOLS,
     })
 
@@ -378,17 +432,9 @@ def start_dmr() -> Response:
     global dmr_rtl_process, dmr_dsd_process, dmr_thread
     global dmr_running, dmr_has_audio, dmr_active_device
 
-    with dmr_lock:
-        if dmr_running:
-            return jsonify({'status': 'error', 'message': 'Already running'}), 409
-
     dsd_path, is_fme = find_dsd()
     if not dsd_path:
         return jsonify({'status': 'error', 'message': 'dsd not found. Install dsd-fme or dsd.'}), 503
-
-    rtl_fm_path = find_rtl_fm()
-    if not rtl_fm_path:
-        return jsonify({'status': 'error', 'message': 'rtl_fm not found. Install rtl-sdr tools.'}), 503
 
     data = request.json or {}
 
@@ -401,8 +447,24 @@ def start_dmr() -> Response:
     except (ValueError, TypeError) as e:
         return jsonify({'status': 'error', 'message': f'Invalid parameter: {e}'}), 400
 
+    sdr_type_str = str(data.get('sdr_type', 'rtlsdr')).lower()
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
+
     if protocol not in VALID_PROTOCOLS:
         return jsonify({'status': 'error', 'message': f'Invalid protocol. Use: {", ".join(VALID_PROTOCOLS)}'}), 400
+
+    if sdr_type == SDRType.RTL_SDR:
+        if not find_rtl_fm():
+            return jsonify({'status': 'error', 'message': 'rtl_fm not found. Install rtl-sdr tools.'}), 503
+    else:
+        if not find_rx_fm():
+            return jsonify({
+                'status': 'error',
+                'message': f'rx_fm not found. Install SoapySDR tools for {sdr_type.value}.'
+            }), 503
 
     # Clear stale queue
     try:
@@ -411,32 +473,45 @@ def start_dmr() -> Response:
     except queue.Empty:
         pass
 
+    # Reserve running state before we start claiming resources/processes
+    # so concurrent /start requests cannot race each other.
+    with dmr_lock:
+        if dmr_running:
+            return jsonify({'status': 'error', 'message': 'Already running'}), 409
+        dmr_running = True
+        dmr_has_audio = False
+
     # Claim SDR device — use protocol name so the device panel shows
     # "D-STAR", "P25", etc. instead of always "DMR"
     mode_label = protocol.upper() if protocol != 'auto' else 'DMR'
     error = app_module.claim_sdr_device(device, mode_label)
     if error:
+        with dmr_lock:
+            dmr_running = False
         return jsonify({'status': 'error', 'error_type': 'DEVICE_BUSY', 'message': error}), 409
 
     dmr_active_device = device
 
-    freq_hz = int(frequency * 1e6)
-
-    # Build rtl_fm command (48kHz sample rate for DSD).
-    # Squelch disabled (-l 0): rtl_fm's squelch chops the bitstream
-    # mid-frame, destroying DSD sync.  The decoder handles silence
-    # internally via its own frame-sync detection.
-    rtl_cmd = [
-        rtl_fm_path,
-        '-M', 'fm',
-        '-f', str(freq_hz),
-        '-s', '48000',
-        '-g', str(gain),
-        '-d', str(device),
-        '-l', '0',
-    ]
-    if ppm != 0:
-        rtl_cmd.extend(['-p', str(ppm)])
+    # Build FM demodulation command via SDR abstraction.
+    try:
+        sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+        builder = SDRFactory.get_builder(sdr_type)
+        rtl_cmd = builder.build_fm_demod_command(
+            device=sdr_device,
+            frequency_mhz=frequency,
+            sample_rate=48000,
+            gain=float(gain) if gain > 0 else None,
+            ppm=int(ppm) if ppm != 0 else None,
+            modulation='fm',
+            squelch=None,
+            bias_t=bool(data.get('bias_t', False)),
+        )
+        if sdr_type == SDRType.RTL_SDR:
+            # Keep squelch fully open for digital bitstreams.
+            rtl_cmd.extend(['-l', '0'])
+    except Exception as e:
+        _reset_runtime_state(release_device=True)
+        return jsonify({'status': 'error', 'message': f'Failed to build SDR command: {e}'}), 500
 
     # Build DSD command
     # Audio output: pipe decoded audio (8kHz s16le PCM) to stdout for
@@ -508,25 +583,8 @@ def start_dmr() -> Response:
             if dmr_dsd_process.stderr:
                 dsd_err = dmr_dsd_process.stderr.read().decode('utf-8', errors='replace')[:500]
             logger.error(f"DSD pipeline died: rtl_fm rc={rtl_rc} err={rtl_err!r}, dsd rc={dsd_rc} err={dsd_err!r}")
-            # Terminate surviving processes and unregister all
-            dmr_has_audio = False
-            for proc in [dmr_dsd_process, dmr_rtl_process]:
-                if proc and proc.poll() is None:
-                    try:
-                        proc.terminate()
-                        proc.wait(timeout=2)
-                    except Exception:
-                        try:
-                            proc.kill()
-                        except Exception:
-                            pass
-                if proc:
-                    unregister_process(proc)
-            dmr_rtl_process = None
-            dmr_dsd_process = None
-            if dmr_active_device is not None:
-                app_module.release_sdr_device(dmr_active_device)
-                dmr_active_device = None
+            # Terminate surviving processes and release resources.
+            _reset_runtime_state(release_device=True)
             # Surface a clear error to the user
             detail = rtl_err.strip() or dsd_err.strip()
             if 'usb_claim_interface' in rtl_err or 'Failed to open' in rtl_err:
@@ -547,7 +605,6 @@ def start_dmr() -> Response:
 
         threading.Thread(target=_drain_rtl_stderr, args=(dmr_rtl_process,), daemon=True).start()
 
-        dmr_running = True
         dmr_thread = threading.Thread(
             target=stream_dsd_output,
             args=(dmr_rtl_process, dmr_dsd_process),
@@ -559,46 +616,21 @@ def start_dmr() -> Response:
             'status': 'started',
             'frequency': frequency,
             'protocol': protocol,
+            'sdr_type': sdr_type.value,
             'has_audio': dmr_has_audio,
         })
 
     except Exception as e:
         logger.error(f"Failed to start DMR: {e}")
-        if dmr_active_device is not None:
-            app_module.release_sdr_device(dmr_active_device)
-            dmr_active_device = None
+        _reset_runtime_state(release_device=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @dmr_bp.route('/stop', methods=['POST'])
 def stop_dmr() -> Response:
     """Stop digital voice decoding."""
-    global dmr_rtl_process, dmr_dsd_process
-    global dmr_running, dmr_has_audio, dmr_active_device
-
     with dmr_lock:
-        dmr_running = False
-        dmr_has_audio = False
-
-        for proc in [dmr_dsd_process, dmr_rtl_process]:
-            if proc and proc.poll() is None:
-                try:
-                    proc.terminate()
-                    proc.wait(timeout=2)
-                except Exception:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
-            if proc:
-                unregister_process(proc)
-
-        dmr_rtl_process = None
-        dmr_dsd_process = None
-
-    if dmr_active_device is not None:
-        app_module.release_sdr_device(dmr_active_device)
-        dmr_active_device = None
+        _reset_runtime_state(release_device=True)
 
     return jsonify({'status': 'stopped'})
 
@@ -625,8 +657,6 @@ def stream_dmr_audio() -> Response:
     it, back-pressuring the entire pipeline and freezing stderr/text
     data output).
     """
-    global _active_ffmpeg_stdin
-
     if not dmr_running or not dmr_has_audio:
         return Response(b'', mimetype='audio/wav', status=204)
 
@@ -653,11 +683,10 @@ def stream_dmr_audio() -> Response:
         args=(audio_proc,), daemon=True,
     ).start()
 
-    # Tell the mux thread to start writing to this ffmpeg
-    _active_ffmpeg_stdin = audio_proc.stdin
+    if audio_proc.stdin:
+        _register_audio_sink(audio_proc.stdin)
 
     def generate():
-        global _active_ffmpeg_stdin
         try:
             while dmr_running and audio_proc.poll() is None:
                 ready, _, _ = select.select([audio_proc.stdout], [], [], 2.0)
@@ -676,7 +705,8 @@ def stream_dmr_audio() -> Response:
             logger.error(f"DMR audio stream error: {e}")
         finally:
             # Disconnect mux → ffmpeg, then clean up
-            _active_ffmpeg_stdin = None
+            if audio_proc.stdin:
+                _unregister_audio_sink(audio_proc.stdin)
             try:
                 audio_proc.stdin.close()
             except Exception:

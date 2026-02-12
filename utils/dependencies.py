@@ -394,6 +394,38 @@ TOOL_DEPENDENCIES = {
             }
         }
     },
+    'subghz': {
+        'name': 'SubGHz Transceiver',
+        'tools': {
+            'hackrf_transfer': {
+                'required': True,
+                'description': 'HackRF IQ capture and replay',
+                'install': {
+                    'apt': 'sudo apt install hackrf',
+                    'brew': 'brew install hackrf',
+                    'manual': 'https://github.com/greatscottgadgets/hackrf'
+                }
+            },
+            'hackrf_sweep': {
+                'required': False,
+                'description': 'HackRF wideband spectrum sweep',
+                'install': {
+                    'apt': 'sudo apt install hackrf',
+                    'brew': 'brew install hackrf',
+                    'manual': 'https://github.com/greatscottgadgets/hackrf'
+                }
+            },
+            'rtl_433': {
+                'required': False,
+                'description': 'Protocol decoder for SubGHz signals',
+                'install': {
+                    'apt': 'sudo apt install rtl-433',
+                    'brew': 'brew install rtl_433',
+                    'manual': 'https://github.com/merbanan/rtl_433'
+                }
+            }
+        }
+    },
     'tscm': {
         'name': 'TSCM Counter-Surveillance',
         'tools': {

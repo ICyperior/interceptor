@@ -2,6 +2,9 @@
 <div id="weatherSatMode" class="mode-content">
     <div class="section">
         <h3>Weather Satellite Decoder</h3>
+        <div class="alpha-mode-notice">
+            ALPHA: Weather Satellite capture is experimental and may fail depending on SatDump version, SDR driver support, and pass conditions.
+        </div>
         <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">
             Receive and decode weather images from NOAA and Meteor satellites.
             Uses SatDump for live SDR capture and image processing.
@@ -13,10 +16,11 @@
         <div class="form-group">
             <label>Select Satellite</label>
             <select id="weatherSatSelect" class="mode-select">
-                <option value="NOAA-15">NOAA-15 (137.620 MHz APT)</option>
-                <option value="NOAA-18" selected>NOAA-18 (137.9125 MHz APT)</option>
-                <option value="NOAA-19">NOAA-19 (137.100 MHz APT)</option>
-                <option value="METEOR-M2-3">Meteor-M2-3 (137.900 MHz LRPT)</option>
+                <option value="METEOR-M2-3" selected>Meteor-M2-3 (137.900 MHz LRPT)</option>
+                <option value="METEOR-M2-4">Meteor-M2-4 (137.900 MHz LRPT)</option>
+                <option value="NOAA-15" disabled>NOAA-15 (137.620 MHz APT) [DEFUNCT]</option>
+                <option value="NOAA-18" disabled>NOAA-18 (137.9125 MHz APT) [DEFUNCT]</option>
+                <option value="NOAA-19" disabled>NOAA-19 (137.100 MHz APT) [DEFUNCT]</option>
             </select>
         </div>
         <div class="form-group">
@@ -187,10 +191,11 @@
             <div class="form-group">
                 <label>Satellite</label>
                 <select id="wxsatTestSatSelect" class="mode-select">
+                    <option value="METEOR-M2-3" selected>Meteor-M2-3 (LRPT)</option>
+                    <option value="METEOR-M2-4">Meteor-M2-4 (LRPT)</option>
                     <option value="NOAA-15">NOAA-15 (APT)</option>
-                    <option value="NOAA-18" selected>NOAA-18 (APT)</option>
+                    <option value="NOAA-18">NOAA-18 (APT)</option>
                     <option value="NOAA-19">NOAA-19 (APT)</option>
-                    <option value="METEOR-M2-3">Meteor-M2-3 (LRPT)</option>
                 </select>
             </div>
             <div class="form-group">

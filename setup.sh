@@ -214,6 +214,8 @@ check_tools() {
   check_required "multimon-ng" "Pager decoder" multimon-ng
   check_required "rtl_433"     "433MHz sensor decoder" rtl_433 rtl433
   check_optional "rtlamr"      "Utility meter decoder (requires Go)" rtlamr
+  check_optional "hackrf_transfer" "HackRF SubGHz transceiver" hackrf_transfer
+  check_optional "hackrf_sweep"    "HackRF spectrum analyzer" hackrf_sweep
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
@@ -746,6 +748,9 @@ install_macos_packages() {
   progress "Installing rtl_433"
   brew_install rtl_433
 
+  progress "Installing HackRF tools"
+  brew_install hackrf
+
   progress "Installing rtlamr (optional)"
   # rtlamr is optional - used for utility meter monitoring
   if ! cmd_exists rtlamr; then
@@ -1168,6 +1173,9 @@ install_debian_packages() {
 
   progress "Installing rtl_433"
   apt_try_install_any rtl-433 rtl433 || warn "rtl-433 not available"
+
+  progress "Installing HackRF tools"
+  apt_install hackrf || warn "hackrf tools not available"
 
   progress "Installing rtlamr (optional)"
   # rtlamr is optional - used for utility meter monitoring

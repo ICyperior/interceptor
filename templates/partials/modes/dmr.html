@@ -2,6 +2,9 @@
                 <div id="dmrMode" class="mode-content">
                     <div class="section">
                         <h3>Digital Voice</h3>
+                        <div class="alpha-mode-notice">
+                            ALPHA: Digital Voice decoding is still in active development. Expect occasional decode instability and false protocol locks.
+                        </div>
 
                         <!-- Dependency Warning -->
                         <div id="dmrToolsWarning" style="display: none; background: rgba(255, 100, 100, 0.1); border: 1px solid var(--accent-red); border-radius: 4px; padding: 10px; margin-bottom: 10px;">
@@ -19,13 +22,16 @@
                         <div class="form-group">
                             <label>Protocol</label>
                             <select id="dmrProtocol">
-                                <option value="auto" selected>Auto Detect</option>
+                                <option value="auto" selected>Auto Detect (DMR/P25/D-STAR)</option>
                                 <option value="dmr">DMR</option>
                                 <option value="p25">P25</option>
                                 <option value="nxdn">NXDN</option>
                                 <option value="dstar">D-STAR</option>
                                 <option value="provoice">ProVoice</option>
                             </select>
+                            <span style="font-size: 0.75em; color: var(--text-muted); display: block; margin-top: 2px;">
+                                For NXDN and ProVoice, use manual protocol selection for best lock reliability
+                            </span>
                         </div>
 
                         <div class="form-group">
@@ -70,14 +76,6 @@
                         </div>
                     </div>
 
-                    <!-- Actions -->
-                    <button class="run-btn" id="startDmrBtn" onclick="startDmr()" style="margin-top: 12px;">
-                        Start Decoder
-                    </button>
-                    <button class="stop-btn" id="stopDmrBtn" onclick="stopDmr()" style="display: none; margin-top: 12px;">
-                        Stop Decoder
-                    </button>
-
                     <!-- Current Call -->
                     <div class="section" style="margin-top: 12px;">
                         <h3>Current Call</h3>
@@ -103,5 +101,14 @@
                                 <span id="dmrCallCount" style="font-size: 14px; font-weight: bold; color: var(--accent-green);">0</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="mode-actions-bottom">
+                        <button class="run-btn" id="startDmrBtn" onclick="startDmr()">
+                            Start Decoder
+                        </button>
+                        <button class="stop-btn" id="stopDmrBtn" onclick="stopDmr()" style="display: none;">
+                            Stop Decoder
+                        </button>
                     </div>
                 </div>

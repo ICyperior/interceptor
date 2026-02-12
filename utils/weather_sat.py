@@ -3,10 +3,11 @@
 Provides automated capture and decoding of weather satellite images using SatDump.
 
 Supported satellites:
-    - NOAA-15: 137.620 MHz (APT)
-    - NOAA-18: 137.9125 MHz (APT)
-    - NOAA-19: 137.100 MHz (APT)
+    - NOAA-15: 137.620 MHz (APT) [DEFUNCT - decommissioned Aug 2025]
+    - NOAA-18: 137.9125 MHz (APT) [DEFUNCT - decommissioned Jun 2025]
+    - NOAA-19: 137.100 MHz (APT) [DEFUNCT - decommissioned Aug 2025]
     - Meteor-M2-3: 137.900 MHz (LRPT)
+    - Meteor-M2-4: 137.900 MHz (LRPT)
 
 Uses SatDump CLI for live SDR capture and decoding, with fallback to
 rtl_fm capture for manual decoding when SatDump is unavailable.
@@ -42,8 +43,8 @@ WEATHER_SATELLITES = {
         'mode': 'APT',
         'pipeline': 'noaa_apt',
         'tle_key': 'NOAA-15',
-        'description': 'NOAA-15 APT (analog weather imagery)',
-        'active': True,
+        'description': 'NOAA-15 APT (decommissioned Aug 2025)',
+        'active': False,
     },
     'NOAA-18': {
         'name': 'NOAA 18',
@@ -51,8 +52,8 @@ WEATHER_SATELLITES = {
         'mode': 'APT',
         'pipeline': 'noaa_apt',
         'tle_key': 'NOAA-18',
-        'description': 'NOAA-18 APT (analog weather imagery)',
-        'active': True,
+        'description': 'NOAA-18 APT (decommissioned Jun 2025)',
+        'active': False,
     },
     'NOAA-19': {
         'name': 'NOAA 19',
@@ -60,8 +61,8 @@ WEATHER_SATELLITES = {
         'mode': 'APT',
         'pipeline': 'noaa_apt',
         'tle_key': 'NOAA-19',
-        'description': 'NOAA-19 APT (analog weather imagery)',
-        'active': True,
+        'description': 'NOAA-19 APT (decommissioned Aug 2025)',
+        'active': False,
     },
     'METEOR-M2-3': {
         'name': 'Meteor-M2-3',
@@ -70,6 +71,15 @@ WEATHER_SATELLITES = {
         'pipeline': 'meteor_m2-x_lrpt',
         'tle_key': 'METEOR-M2-3',
         'description': 'Meteor-M2-3 LRPT (digital color imagery)',
+        'active': True,
+    },
+    'METEOR-M2-4': {
+        'name': 'Meteor-M2-4',
+        'frequency': 137.900,
+        'mode': 'LRPT',
+        'pipeline': 'meteor_m2-x_lrpt',
+        'tle_key': 'METEOR-M2-4',
+        'description': 'Meteor-M2-4 LRPT (digital color imagery)',
         'active': True,
     },
 }

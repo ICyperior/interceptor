@@ -1,7 +1,9 @@
 """Tests for the DMR / Digital Voice decoding module."""
 
+import queue
 from unittest.mock import patch, MagicMock
 import pytest
+import routes.dmr as dmr_module
 from routes.dmr import parse_dsd_output, _DSD_PROTOCOL_FLAGS, _DSD_FME_PROTOCOL_FLAGS, _DSD_FME_MODULATION
 
 
@@ -132,9 +134,9 @@ def test_dsd_fme_flags_differ_from_classic():
 
 def test_dsd_fme_protocol_flags_known_values():
     """dsd-fme flags use its own flag names (NOT classic DSD mappings)."""
-    assert _DSD_FME_PROTOCOL_FLAGS['auto'] == ['-ft']       # XDMA
+    assert _DSD_FME_PROTOCOL_FLAGS['auto'] == ['-fa']       # Broad auto
     assert _DSD_FME_PROTOCOL_FLAGS['dmr'] == ['-fs']        # Simplex (-fd is D-STAR!)
-    assert _DSD_FME_PROTOCOL_FLAGS['p25'] == ['-f1']        # NOT -fp (ProVoice in fme)
+    assert _DSD_FME_PROTOCOL_FLAGS['p25'] == ['-ft']        # P25 P1/P2 coverage
     assert _DSD_FME_PROTOCOL_FLAGS['nxdn'] == ['-fn']
     assert _DSD_FME_PROTOCOL_FLAGS['dstar'] == ['-fd']      # -fd is D-STAR in dsd-fme
     assert _DSD_FME_PROTOCOL_FLAGS['provoice'] == ['-fp']   # NOT -fv
@@ -153,9 +155,9 @@ def test_dsd_protocol_flags_known_values():
 def test_dsd_fme_modulation_hints():
     """C4FM modulation hints should be set for C4FM protocols."""
     assert _DSD_FME_MODULATION['dmr'] == ['-mc']
-    assert _DSD_FME_MODULATION['p25'] == ['-mc']
     assert _DSD_FME_MODULATION['nxdn'] == ['-mc']
-    # D-Star and ProVoice should not have forced modulation
+    # P25, D-Star and ProVoice should not have forced modulation
+    assert 'p25' not in _DSD_FME_MODULATION
     assert 'dstar' not in _DSD_FME_MODULATION
     assert 'provoice' not in _DSD_FME_MODULATION
 
@@ -170,6 +172,40 @@ def auth_client(client):
     with client.session_transaction() as sess:
         sess['logged_in'] = True
     return client
+
+
+@pytest.fixture(autouse=True)
+def reset_dmr_globals():
+    """Reset DMR globals before/after each test to avoid cross-test bleed."""
+    dmr_module.dmr_rtl_process = None
+    dmr_module.dmr_dsd_process = None
+    dmr_module.dmr_thread = None
+    dmr_module.dmr_running = False
+    dmr_module.dmr_has_audio = False
+    dmr_module.dmr_active_device = None
+    with dmr_module._ffmpeg_sinks_lock:
+        dmr_module._ffmpeg_sinks.clear()
+    try:
+        while True:
+            dmr_module.dmr_queue.get_nowait()
+    except queue.Empty:
+        pass
+
+    yield
+
+    dmr_module.dmr_rtl_process = None
+    dmr_module.dmr_dsd_process = None
+    dmr_module.dmr_thread = None
+    dmr_module.dmr_running = False
+    dmr_module.dmr_has_audio = False
+    dmr_module.dmr_active_device = None
+    with dmr_module._ffmpeg_sinks_lock:
+        dmr_module._ffmpeg_sinks.clear()
+    try:
+        while True:
+            dmr_module.dmr_queue.get_nowait()
+    except queue.Empty:
+        pass
 
 
 def test_dmr_tools(auth_client):
@@ -235,3 +271,41 @@ def test_dmr_stream_mimetype(auth_client):
     """Stream should return event-stream content type."""
     resp = auth_client.get('/dmr/stream')
     assert resp.content_type.startswith('text/event-stream')
+
+
+def test_dmr_start_exception_cleans_up_resources(auth_client):
+    """If startup fails after rtl_fm launch, process/device state should be reset."""
+    rtl_proc = MagicMock()
+    rtl_proc.poll.return_value = None
+    rtl_proc.wait.return_value = 0
+    rtl_proc.stdout = MagicMock()
+    rtl_proc.stderr = MagicMock()
+
+    builder = MagicMock()
+    builder.build_fm_demod_command.return_value = ['rtl_fm', '-f', '462.5625M']
+
+    with patch('routes.dmr.find_dsd', return_value=('/usr/bin/dsd', False)), \
+         patch('routes.dmr.find_rtl_fm', return_value='/usr/bin/rtl_fm'), \
+         patch('routes.dmr.find_ffmpeg', return_value=None), \
+         patch('routes.dmr.SDRFactory.create_default_device', return_value=MagicMock()), \
+         patch('routes.dmr.SDRFactory.get_builder', return_value=builder), \
+         patch('routes.dmr.app_module.claim_sdr_device', return_value=None), \
+         patch('routes.dmr.app_module.release_sdr_device') as release_mock, \
+         patch('routes.dmr.register_process') as register_mock, \
+         patch('routes.dmr.unregister_process') as unregister_mock, \
+         patch('routes.dmr.subprocess.Popen', side_effect=[rtl_proc, RuntimeError('dsd launch failed')]):
+        resp = auth_client.post('/dmr/start', json={
+            'frequency': 462.5625,
+            'protocol': 'auto',
+            'device': 0,
+        })
+
+    assert resp.status_code == 500
+    assert 'dsd launch failed' in resp.get_json()['message']
+    register_mock.assert_called_once_with(rtl_proc)
+    rtl_proc.terminate.assert_called_once()
+    unregister_mock.assert_called_once_with(rtl_proc)
+    release_mock.assert_called_once_with(0)
+    assert dmr_module.dmr_running is False
+    assert dmr_module.dmr_rtl_process is None
+    assert dmr_module.dmr_dsd_process is None

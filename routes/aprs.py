@@ -23,6 +23,7 @@ from utils.logging import sensor_logger as logger
 from utils.validation import validate_device_index, validate_gain, validate_ppm
 from utils.sse import format_sse
 from utils.event_pipeline import process_event
+from utils.sdr import SDRFactory, SDRType
 from utils.constants import (
     PROCESS_TERMINATE_TIMEOUT,
     SSE_KEEPALIVE_INTERVAL,
@@ -75,6 +76,11 @@ def find_multimon_ng() -> Optional[str]:
 def find_rtl_fm() -> Optional[str]:
     """Find rtl_fm binary."""
     return shutil.which('rtl_fm')
+
+
+def find_rx_fm() -> Optional[str]:
+    """Find SoapySDR rx_fm binary."""
+    return shutil.which('rx_fm')
 
 
 def find_rtl_power() -> Optional[str]:
@@ -1417,14 +1423,17 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
 def check_aprs_tools() -> Response:
     """Check for APRS decoding tools."""
     has_rtl_fm = find_rtl_fm() is not None
+    has_rx_fm = find_rx_fm() is not None
     has_direwolf = find_direwolf() is not None
     has_multimon = find_multimon_ng() is not None
+    has_fm_demod = has_rtl_fm or has_rx_fm
 
     return jsonify({
         'rtl_fm': has_rtl_fm,
+        'rx_fm': has_rx_fm,
         'direwolf': has_direwolf,
         'multimon_ng': has_multimon,
-        'ready': has_rtl_fm and (has_direwolf or has_multimon),
+        'ready': has_fm_demod and (has_direwolf or has_multimon),
         'decoder': 'direwolf' if has_direwolf else ('multimon-ng' if has_multimon else None)
     })
 
@@ -1467,14 +1476,6 @@ def start_aprs() -> Response:
                 'message': 'APRS decoder already running'
             }), 409
 
-    # Check for required tools
-    rtl_fm_path = find_rtl_fm()
-    if not rtl_fm_path:
-        return jsonify({
-            'status': 'error',
-            'message': 'rtl_fm not found. Install with: sudo apt install rtl-sdr'
-        }), 400
-
     # Check for decoder (prefer direwolf, fallback to multimon-ng)
     direwolf_path = find_direwolf()
     multimon_path = find_multimon_ng()
@@ -1494,6 +1495,25 @@ def start_aprs() -> Response:
         ppm = validate_ppm(data.get('ppm', '0'))
     except ValueError as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
+
+    sdr_type_str = str(data.get('sdr_type', 'rtlsdr')).lower()
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
+
+    if sdr_type == SDRType.RTL_SDR:
+        if find_rtl_fm() is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'rtl_fm not found. Install with: sudo apt install rtl-sdr'
+            }), 400
+    else:
+        if find_rx_fm() is None:
+            return jsonify({
+                'status': 'error',
+                'message': f'rx_fm not found. Install SoapySDR tools for {sdr_type.value}.'
+            }), 400
 
     # Reserve SDR device to prevent conflicts with other modes
     error = app_module.claim_sdr_device(device, 'aprs')
@@ -1525,28 +1545,29 @@ def start_aprs() -> Response:
     aprs_last_packet_time = None
     aprs_stations = {}
 
-    # Build rtl_fm command for APRS (narrowband FM at 22050 Hz for AFSK1200)
-    freq_hz = f"{float(frequency)}M"
-    rtl_cmd = [
-        rtl_fm_path,
-        '-f', freq_hz,
-        '-M', 'nfm',             # Narrowband FM for APRS
-        '-s', '22050',           # Sample rate matching direwolf -r 22050
-        '-E', 'dc',              # Enable DC blocking filter for cleaner audio
-        '-A', 'fast',            # Fast AGC for packet bursts
-        '-d', str(device),
-    ]
+    # Build FM demod command for APRS (AFSK1200 @ 22050 Hz) via SDR abstraction.
+    try:
+        sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+        builder = SDRFactory.get_builder(sdr_type)
+        rtl_cmd = builder.build_fm_demod_command(
+            device=sdr_device,
+            frequency_mhz=float(frequency),
+            sample_rate=22050,
+            gain=float(gain) if gain and str(gain) != '0' else None,
+            ppm=int(ppm) if ppm and str(ppm) != '0' else None,
+            modulation='nfm' if sdr_type == SDRType.RTL_SDR else 'fm',
+            squelch=None,
+            bias_t=bool(data.get('bias_t', False)),
+        )
 
-    # Gain: 0 means auto, otherwise set specific gain
-    if gain and str(gain) != '0':
-        rtl_cmd.extend(['-g', str(gain)])
-
-    # PPM frequency correction
-    if ppm and str(ppm) != '0':
-        rtl_cmd.extend(['-p', str(ppm)])
-
-    # Output raw audio to stdout
-    rtl_cmd.append('-')
+        if sdr_type == SDRType.RTL_SDR and rtl_cmd and rtl_cmd[-1] == '-':
+            # APRS benefits from DC blocking + fast AGC on rtl_fm.
+            rtl_cmd = rtl_cmd[:-1] + ['-E', 'dc', '-A', 'fast', '-']
+    except Exception as e:
+        if aprs_active_device is not None:
+            app_module.release_sdr_device(aprs_active_device)
+            aprs_active_device = None
+        return jsonify({'status': 'error', 'message': f'Failed to build SDR command: {e}'}), 500
 
     # Build decoder command
     if direwolf_path:
@@ -1674,6 +1695,7 @@ def start_aprs() -> Response:
             'frequency': frequency,
             'region': region,
             'device': device,
+            'sdr_type': sdr_type.value,
             'decoder': decoder_name
         })
 

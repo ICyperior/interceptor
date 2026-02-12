@@ -160,7 +160,7 @@ const WeatherSat = (function() {
         const biasTInput = document.getElementById('weatherSatBiasT');
         const deviceSelect = document.getElementById('deviceSelect');
 
-        const satellite = satSelect?.value || 'NOAA-18';
+        const satellite = satSelect?.value || 'METEOR-M2-3';
         const gain = parseFloat(gainInput?.value || '40');
         const biasT = biasTInput?.checked || false;
         const device = parseInt(deviceSelect?.value || '0', 10);
@@ -237,7 +237,7 @@ const WeatherSat = (function() {
         const fileInput = document.getElementById('wxsatTestFilePath');
         const rateSelect = document.getElementById('wxsatTestSampleRate');
 
-        const satellite = satSelect?.value || 'NOAA-18';
+        const satellite = satSelect?.value || 'METEOR-M2-3';
         const inputFile = (fileInput?.value || '').trim();
         const sampleRate = parseInt(rateSelect?.value || '1000000', 10);
 

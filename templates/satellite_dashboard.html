@@ -107,12 +107,8 @@
                 <label>TARGET:</label>
                 <select id="satSelect" onchange="onSatelliteChange()">
                     <option value="25544">ISS (ZARYA)</option>
-                    <option value="25338">NOAA 15</option>
-                    <option value="28654">NOAA 18</option>
-                    <option value="33591">NOAA 19</option>
                     <option value="40069">METEOR-M2</option>
-                    <option value="43013">NOAA 20</option>
-                    <option value="54234">METEOR-M2-3</option>
+                    <option value="57166">METEOR-M2-3</option>
                 </select>
             </div>
 
@@ -275,12 +271,8 @@
 
         const satellites = {
             25544: { name: 'ISS (ZARYA)', color: '#00ffff' },
-            25338: { name: 'NOAA 15', color: '#00ff00' },
-            28654: { name: 'NOAA 18', color: '#ff6600' },
-            33591: { name: 'NOAA 19', color: '#ff3366' },
             40069: { name: 'METEOR-M2', color: '#9370DB' },
-            43013: { name: 'NOAA 20', color: '#00ffaa' },
-            54234: { name: 'METEOR-M2-3', color: '#ff00ff' }
+            57166: { name: 'METEOR-M2-3', color: '#ff00ff' }
         };
 
         function onSatelliteChange() {

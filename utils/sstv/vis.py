@@ -311,6 +311,10 @@ class VISDetector:
         if len(self._data_bits) != 8:
             return None
 
+        # VIS uses even parity across 8 data bits + parity bit.
+        if (sum(self._data_bits) + self._parity_bit) % 2 != 0:
+            return None
+
         # Decode VIS code (LSB first)
         vis_code = 0
         for i, bit in enumerate(self._data_bits):

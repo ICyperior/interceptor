@@ -17,6 +17,7 @@ let dmrHasAudio = false;
 let dmrBookmarks = [];
 const DMR_BOOKMARKS_KEY = 'dmrBookmarks';
 const DMR_SETTINGS_KEY = 'dmrSettings';
+const DMR_BOOKMARK_PROTOCOLS = new Set(['auto', 'dmr', 'p25', 'nxdn', 'dstar', 'provoice']);
 
 // ============== SYNTHESIZER STATE ==============
 let dmrSynthCanvas = null;
@@ -44,9 +45,16 @@ function checkDmrTools() {
             const warningText = document.getElementById('dmrToolsWarningText');
             if (!warning) return;
 
+            const selectedType = (typeof getSelectedSDRType === 'function')
+                ? getSelectedSDRType()
+                : 'rtlsdr';
             const missing = [];
             if (!data.dsd) missing.push('dsd (Digital Speech Decoder)');
-            if (!data.rtl_fm) missing.push('rtl_fm (RTL-SDR)');
+            if (selectedType === 'rtlsdr') {
+                if (!data.rtl_fm) missing.push('rtl_fm (RTL-SDR)');
+            } else if (!data.rx_fm) {
+                missing.push('rx_fm (SoapySDR demodulator)');
+            }
             if (!data.ffmpeg) missing.push('ffmpeg (audio output — optional)');
 
             if (missing.length > 0) {
@@ -71,6 +79,7 @@ function startDmr() {
     const ppm = parseInt(document.getElementById('dmrPPM')?.value || 0);
     const relaxCrc = document.getElementById('dmrRelaxCrc')?.checked || false;
     const device = typeof getSelectedDevice === 'function' ? getSelectedDevice() : 0;
+    const sdrType = (typeof getSelectedSDRType === 'function') ? getSelectedSDRType() : 'rtlsdr';
 
     // Use protocol name for device reservation so panel shows "D-STAR", "P25", etc.
     dmrModeLabel = protocol !== 'auto' ? protocol : 'dmr';
@@ -90,7 +99,7 @@ function startDmr() {
     fetch('/dmr/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frequency, protocol, gain, device, ppm, relaxCrc })
+        body: JSON.stringify({ frequency, protocol, gain, device, ppm, relaxCrc, sdr_type: sdrType })
     })
     .then(r => r.json())
     .then(data => {
@@ -630,7 +639,26 @@ function restoreDmrSettings() {
 function loadDmrBookmarks() {
     try {
         const saved = localStorage.getItem(DMR_BOOKMARKS_KEY);
-        dmrBookmarks = saved ? JSON.parse(saved) : [];
+        const parsed = saved ? JSON.parse(saved) : [];
+        if (!Array.isArray(parsed)) {
+            dmrBookmarks = [];
+        } else {
+            dmrBookmarks = parsed
+                .map((entry) => {
+                    const freq = Number(entry?.freq);
+                    if (!Number.isFinite(freq) || freq <= 0) return null;
+                    const protocol = sanitizeDmrBookmarkProtocol(entry?.protocol);
+                    const rawLabel = String(entry?.label || '').trim();
+                    const label = rawLabel || `${freq.toFixed(4)} MHz`;
+                    return {
+                        freq,
+                        protocol,
+                        label,
+                        added: entry?.added,
+                    };
+                })
+                .filter(Boolean);
+        }
     } catch (e) {
         dmrBookmarks = [];
     }
@@ -641,6 +669,11 @@ function saveDmrBookmarks() {
     try {
         localStorage.setItem(DMR_BOOKMARKS_KEY, JSON.stringify(dmrBookmarks));
     } catch (e) { /* localStorage unavailable */ }
+}
+
+function sanitizeDmrBookmarkProtocol(protocol) {
+    const value = String(protocol || 'auto').toLowerCase();
+    return DMR_BOOKMARK_PROTOCOLS.has(value) ? value : 'auto';
 }
 
 function addDmrBookmark() {
@@ -656,7 +689,7 @@ function addDmrBookmark() {
         return;
     }
 
-    const protocol = document.getElementById('dmrProtocol')?.value || 'auto';
+    const protocol = sanitizeDmrBookmarkProtocol(document.getElementById('dmrProtocol')?.value || 'auto');
     const label = (labelInput?.value || '').trim() || `${freq.toFixed(4)} MHz`;
 
     // Duplicate check
@@ -696,26 +729,73 @@ function removeDmrBookmark(index) {
 function dmrQuickTune(freq, protocol) {
     const freqEl = document.getElementById('dmrFrequency');
     const protoEl = document.getElementById('dmrProtocol');
-    if (freqEl) freqEl.value = freq;
-    if (protoEl) protoEl.value = protocol;
+    if (freqEl && Number.isFinite(freq)) freqEl.value = freq;
+    if (protoEl) protoEl.value = sanitizeDmrBookmarkProtocol(protocol);
 }
 
 function renderDmrBookmarks() {
     const container = document.getElementById('dmrBookmarksList');
     if (!container) return;
 
+    container.replaceChildren();
+
     if (dmrBookmarks.length === 0) {
-        container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 10px; font-size: 11px;">No bookmarks saved</div>';
+        const emptyEl = document.createElement('div');
+        emptyEl.style.color = 'var(--text-muted)';
+        emptyEl.style.textAlign = 'center';
+        emptyEl.style.padding = '10px';
+        emptyEl.style.fontSize = '11px';
+        emptyEl.textContent = 'No bookmarks saved';
+        container.appendChild(emptyEl);
         return;
     }
 
-    container.innerHTML = dmrBookmarks.map((b, i) => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; background: rgba(0,0,0,0.2); border-radius: 3px; margin-bottom: 3px;">
-            <span style="cursor: pointer; color: var(--accent-cyan); font-size: 11px; flex: 1;" onclick="dmrQuickTune(${b.freq}, '${b.protocol}')" title="${b.freq.toFixed(4)} MHz (${b.protocol.toUpperCase()})">${b.label}</span>
-            <span style="color: var(--text-muted); font-size: 9px; margin: 0 6px;">${b.protocol.toUpperCase()}</span>
-            <button onclick="removeDmrBookmark(${i})" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 12px; padding: 0 4px;">&times;</button>
-        </div>
-    `).join('');
+    dmrBookmarks.forEach((b, i) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.padding = '4px 6px';
+        row.style.background = 'rgba(0,0,0,0.2)';
+        row.style.borderRadius = '3px';
+        row.style.marginBottom = '3px';
+
+        const tuneBtn = document.createElement('button');
+        tuneBtn.type = 'button';
+        tuneBtn.style.cursor = 'pointer';
+        tuneBtn.style.color = 'var(--accent-cyan)';
+        tuneBtn.style.fontSize = '11px';
+        tuneBtn.style.flex = '1';
+        tuneBtn.style.background = 'none';
+        tuneBtn.style.border = 'none';
+        tuneBtn.style.textAlign = 'left';
+        tuneBtn.style.padding = '0';
+        tuneBtn.textContent = b.label;
+        tuneBtn.title = `${b.freq.toFixed(4)} MHz (${b.protocol.toUpperCase()})`;
+        tuneBtn.addEventListener('click', () => dmrQuickTune(b.freq, b.protocol));
+
+        const protocolEl = document.createElement('span');
+        protocolEl.style.color = 'var(--text-muted)';
+        protocolEl.style.fontSize = '9px';
+        protocolEl.style.margin = '0 6px';
+        protocolEl.textContent = b.protocol.toUpperCase();
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.style.background = 'none';
+        deleteBtn.style.border = 'none';
+        deleteBtn.style.color = 'var(--accent-red)';
+        deleteBtn.style.cursor = 'pointer';
+        deleteBtn.style.fontSize = '12px';
+        deleteBtn.style.padding = '0 4px';
+        deleteBtn.textContent = '\u00d7';
+        deleteBtn.addEventListener('click', () => removeDmrBookmark(i));
+
+        row.appendChild(tuneBtn);
+        row.appendChild(protocolEl);
+        row.appendChild(deleteBtn);
+        container.appendChild(row);
+    });
 }
 
 // ============== STATUS SYNC ==============

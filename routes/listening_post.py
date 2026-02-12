@@ -113,6 +113,12 @@ def normalize_modulation(value: str) -> str:
     return mod
 
 
+def _rtl_fm_demod_mode(modulation: str) -> str:
+    """Map UI modulation names to rtl_fm demod tokens."""
+    mod = str(modulation or '').lower().strip()
+    return 'wbfm' if mod == 'wfm' else mod
+
+
 
 
 def add_activity_log(event_type: str, frequency: float, details: str = ''):
@@ -209,7 +215,7 @@ def scanner_loop():
             # Don't use squelch in rtl_fm - we want to analyze raw audio
             rtl_cmd = [
                 rtl_fm_path,
-                '-M', mod,
+                '-M', _rtl_fm_demod_mode(mod),
                 '-f', str(freq_hz),
                 '-s', str(sample_rate),
                 '-r', str(resample_rate),
@@ -681,7 +687,7 @@ def _start_audio_stream(frequency: float, modulation: str):
             freq_hz = int(frequency * 1e6)
             sdr_cmd = [
                 rtl_fm_path,
-                '-M', modulation,
+                '-M', _rtl_fm_demod_mode(modulation),
                 '-f', str(freq_hz),
                 '-s', str(sample_rate),
                 '-r', str(resample_rate),

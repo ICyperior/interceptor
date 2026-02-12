@@ -182,6 +182,10 @@ dmr_lock = threading.Lock()
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
 
+# SubGHz Transceiver (HackRF)
+subghz_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+subghz_lock = threading.Lock()
+
 # Deauth Attack Detection
 deauth_detector = None
 deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
@@ -643,6 +647,25 @@ def export_bluetooth() -> Response:
         })
 
 
+def _get_subghz_active() -> bool:
+    """Check if SubGHz manager has an active process."""
+    try:
+        from utils.subghz import get_subghz_manager
+        return get_subghz_manager().active_mode != 'idle'
+    except Exception:
+        return False
+
+
+def _get_dmr_active() -> bool:
+    """Check if Digital Voice decoder has an active process."""
+    try:
+        from routes import dmr as dmr_module
+        proc = dmr_module.dmr_dsd_process
+        return bool(dmr_module.dmr_running and proc and proc.poll() is None)
+    except Exception:
+        return False
+
+
 @app.route('/health')
 def health_check() -> Response:
     """Health check endpoint for monitoring."""
@@ -661,7 +684,8 @@ def health_check() -> Response:
             'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
             'bluetooth': bt_process is not None and (bt_process.poll() is None if bt_process else False),
             'dsc': dsc_process is not None and (dsc_process.poll() is None if dsc_process else False),
-            'dmr': dmr_process is not None and (dmr_process.poll() is None if dmr_process else False),
+            'dmr': _get_dmr_active(),
+            'subghz': _get_subghz_active(),
         },
         'data': {
             'aircraft_count': len(adsb_aircraft),
@@ -692,7 +716,8 @@ def kill_all() -> Response:
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
         'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher',
         'hcitool', 'bluetoothctl', 'satdump', 'dsd',
-        'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg'
+        'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg',
+        'hackrf_transfer', 'hackrf_sweep'
     ]
 
     for proc in processes_to_kill:
@@ -758,6 +783,13 @@ def kill_all() -> Response:
     try:
         reset_bluetooth_scanner()
         killed.append('bluetooth')
+    except Exception:
+        pass
+
+    # Reset SubGHz state
+    try:
+        from utils.subghz import get_subghz_manager
+        get_subghz_manager().stop_all()
     except Exception:
         pass
 

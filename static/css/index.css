@@ -1448,6 +1448,7 @@ header h1 .tagline {
     height: calc(100dvh - 96px);
     height: calc(100vh - 96px); /* Fallback */
     overflow: hidden;
+    position: relative;
 }
 
 @media (min-width: 1024px) {
@@ -1456,6 +1457,18 @@ header h1 .tagline {
         grid-template-columns: 320px 1fr;
         height: calc(100dvh - 96px);
         height: calc(100vh - 96px); /* Fallback */
+    }
+
+    .main-content.sidebar-collapsed {
+        grid-template-columns: 0 1fr;
+    }
+
+    .main-content.sidebar-collapsed > .sidebar {
+        width: 0;
+        min-width: 0;
+        padding: 0;
+        border-right: 0;
+        overflow: hidden;
     }
 }
 
@@ -1478,6 +1491,63 @@ header h1 .tagline {
 
 .sidebar::before {
     display: none;
+}
+
+.sidebar-collapse-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.sidebar-collapse-btn:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+}
+
+.sidebar-expand-handle {
+    display: none;
+    position: absolute;
+    top: 12px;
+    left: 10px;
+    z-index: 12;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--accent-cyan);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.main-content.sidebar-collapsed .sidebar-expand-handle {
+    display: inline-flex;
+}
+
+/* Reserve space for the expand handle so it doesn't overlap mode titles */
+.main-content.sidebar-collapsed .output-header {
+    padding-left: 48px;
+}
+
+@media (max-width: 1023px) {
+    .sidebar-collapse-btn,
+    .sidebar-expand-handle {
+        display: none !important;
+    }
 }
 
 .section {
@@ -1528,8 +1598,10 @@ header h1 .tagline {
 
 .section.collapsed h3 {
     border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 10px;
+    margin-bottom: 0 !important;
+    min-height: 0 !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
 }
 
 .section.collapsed h3::after {
@@ -1538,7 +1610,8 @@ header h1 .tagline {
 }
 
 .section.collapsed {
-    padding-bottom: 0;
+    padding-bottom: 0 !important;
+    min-height: 0;
 }
 
 .section.collapsed>*:not(h3) {
@@ -2311,6 +2384,45 @@ header h1 .tagline {
 
 .mode-content.active {
     display: block;
+}
+
+/* Normalize spacing for all sidebar mode panels */
+.sidebar .mode-content.active:not(#meshtasticMode) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sidebar .mode-content.active:not(#meshtasticMode) > * {
+    margin: 0 !important;
+}
+
+.sidebar .mode-content.active:not(#meshtasticMode) > .section {
+    margin: 0 !important;
+}
+
+.mode-actions-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar .mode-content.active:not(#meshtasticMode) > .mode-actions-bottom {
+    margin-top: auto !important;
+}
+
+#btMessageContainer:empty {
+    display: none;
+}
+
+.alpha-mode-notice {
+    padding: 8px 10px;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--accent-yellow);
+    border-radius: 6px;
+    font-size: 10px;
+    line-height: 1.45;
 }
 
 /* Aircraft (ADS-B) Styles */

@@ -17,6 +17,12 @@ from utils.dependencies import get_tool_path
 logger = logging.getLogger('intercept.sdr.rtlsdr')
 
 
+def _rtl_fm_demod_mode(modulation: str) -> str:
+    """Map app/UI modulation names to rtl_fm demod tokens."""
+    mod = str(modulation or '').lower().strip()
+    return 'wbfm' if mod == 'wfm' else mod
+
+
 def _get_dump1090_bias_t_flag(dump1090_path: str) -> Optional[str]:
     """Detect the correct bias-t flag for the installed dump1090 variant.
 
@@ -88,11 +94,12 @@ class RTLSDRCommandBuilder(CommandBuilder):
         Used for pager decoding. Supports local devices and rtl_tcp connections.
         """
         rtl_fm_path = get_tool_path('rtl_fm') or 'rtl_fm'
+        demod_mode = _rtl_fm_demod_mode(modulation)
         cmd = [
             rtl_fm_path,
             '-d', self._get_device_arg(device),
             '-f', f'{frequency_mhz}M',
-            '-M', modulation,
+            '-M', demod_mode,
             '-s', str(sample_rate),
         ]
 

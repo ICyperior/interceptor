@@ -41,6 +41,12 @@ def find_ffmpeg():
     return shutil.which('ffmpeg')
 
 
+def _rtl_fm_demod_mode(modulation):
+    """Map UI modulation names to rtl_fm demod tokens."""
+    mod = str(modulation or '').lower().strip()
+    return 'wbfm' if mod == 'wfm' else mod
+
+
 def kill_audio_processes():
     """Kill any running audio processes."""
     global audio_process, rtl_process
@@ -106,7 +112,7 @@ def start_audio_stream(config):
 
     rtl_cmd = [
         rtl_fm,
-        '-M', mod,
+        '-M', _rtl_fm_demod_mode(mod),
         '-f', str(freq_hz),
         '-s', str(sample_rate),
         '-r', str(resample_rate),

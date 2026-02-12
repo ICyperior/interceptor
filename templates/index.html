@@ -63,6 +63,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/weather-satellite.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv-general.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
@@ -190,9 +191,9 @@
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span>
                                 <span class="mode-name">Meshtastic</span>
                             </button>
-                            <button class="mode-card mode-card-sm" onclick="selectMode('dmr')">
-                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></span>
-                                <span class="mode-name">Digital Voice</span>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('subghz')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h6l3-9 3 18 3-9h5"/></svg></span>
+                                <span class="mode-name">SubGHz</span>
                             </button>
                             <button class="mode-card mode-card-sm" onclick="selectMode('websdr')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
@@ -387,6 +388,10 @@
     <div class="container">
         <div class="main-content">
             <div class="sidebar mobile-drawer" id="mainSidebar">
+                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleMainSidebarCollapse()" title="Collapse sidebar">
+                    <span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></span>
+                    Collapse Sidebar
+                </button>
                 <!-- Agent Selector -->
                 <div class="section" id="agentSection">
                     <h3>Signal Source</h3>
@@ -547,6 +552,8 @@
 
                 {% include 'partials/modes/websdr.html' %}
 
+                {% include 'partials/modes/subghz.html' %}
+
                 <button class="preset-btn" onclick="killAll()"
                     style="width: 100%; margin-top: 10px; border-color: #ff3366; color: #ff3366;">
                     Kill All Processes
@@ -554,6 +561,9 @@
             </div>
 
                 <div class="output-panel">
+                    <button class="sidebar-expand-handle" id="sidebarExpandHandle" onclick="toggleMainSidebarCollapse()" title="Expand sidebar">
+                        <span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+                    </button>
                     <div class="output-header">
                         <h3 id="outputTitle">Pager Decoder</h3>
                         <div class="header-controls">
@@ -1759,6 +1769,301 @@
                     </div>
                 </div>
 
+                <!-- SubGHz Transceiver Dashboard -->
+                <div id="subghzVisuals" class="subghz-visuals-container" style="display: none;">
+
+                    <!-- Stats Strip -->
+                    <div class="subghz-stats-strip">
+                        <div class="subghz-strip-group">
+                            <span class="subghz-strip-device-badge" id="subghzStripDevice">
+                                <span class="subghz-strip-device-dot" id="subghzStripDeviceDot"></span>
+                                HackRF
+                            </span>
+                            <div class="subghz-strip-status">
+                                <span class="subghz-strip-dot" id="subghzStripDot"></span>
+                                <span class="subghz-strip-status-text" id="subghzStripStatus">Idle</span>
+                            </div>
+                        </div>
+                        <div class="subghz-strip-divider"></div>
+                        <div class="subghz-strip-group">
+                            <div class="subghz-strip-stat">
+                                <span class="subghz-strip-value accent-cyan" id="subghzStripFreq">--</span>
+                                <span class="subghz-strip-label">MHZ</span>
+                            </div>
+                            <div class="subghz-strip-stat">
+                                <span class="subghz-strip-value" id="subghzStripMode">--</span>
+                                <span class="subghz-strip-label">MODE</span>
+                            </div>
+                        </div>
+                        <div class="subghz-strip-divider"></div>
+                        <div class="subghz-strip-group">
+                            <div class="subghz-strip-stat">
+                                <span class="subghz-strip-value accent-green" id="subghzStripSignals">0</span>
+                                <span class="subghz-strip-label">SIGNALS</span>
+                            </div>
+                            <div class="subghz-strip-stat">
+                                <span class="subghz-strip-value accent-orange" id="subghzStripCaptures">0</span>
+                                <span class="subghz-strip-label">CAPTURES</span>
+                            </div>
+                        </div>
+                        <div class="subghz-strip-divider"></div>
+                        <div class="subghz-strip-group">
+                            <span class="subghz-strip-timer" id="subghzStripTimer"></span>
+                        </div>
+                    </div>
+
+                    <!-- Signal Console (collapsible) -->
+                    <div class="subghz-signal-console" id="subghzConsole" style="display: none;">
+                        <div class="subghz-console-header" onclick="SubGhz.toggleConsole()">
+                            <div class="subghz-phase-strip">
+                                <span class="subghz-phase-step" id="subghzPhaseTuning">TUNING</span>
+                                <span class="subghz-phase-arrow">&#9656;</span>
+                                <span class="subghz-phase-step" id="subghzPhaseListening">LISTENING</span>
+                                <span class="subghz-phase-arrow">&#9656;</span>
+                                <span class="subghz-phase-step" id="subghzPhaseDecoding">DECODING</span>
+                            </div>
+                            <div class="subghz-burst-indicator" id="subghzBurstIndicator" title="Live burst detector">
+                                <span class="subghz-burst-dot"></span>
+                                <span class="subghz-burst-text" id="subghzBurstText">NO BURST</span>
+                            </div>
+                            <button class="subghz-console-toggle" id="subghzConsoleToggleBtn">&#9660;</button>
+                        </div>
+                        <div class="subghz-console-body" id="subghzConsoleBody">
+                            <div class="subghz-console-log" id="subghzConsoleLog"></div>
+                        </div>
+                    </div>
+
+                    <!-- Action Hub (idle state — 2x2 Flipper-style cards) -->
+                    <div class="subghz-action-hub" id="subghzActionHub">
+                        <div class="subghz-hub-header">
+                            <div class="subghz-hub-header-title">HackRF One</div>
+                            <div class="subghz-hub-header-sub">SubGHz Transceiver &mdash; 1 MHz - 6 GHz</div>
+                        </div>
+                        <div class="subghz-hub-grid">
+                            <div class="subghz-hub-card subghz-hub-card--green" onclick="SubGhz.hubAction('rx')">
+                                <div class="subghz-hub-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/><path d="M5.6 5.6l2.85 2.85m7.1 7.1l2.85 2.85M5.6 18.4l2.85-2.85m7.1-7.1l2.85-2.85"/></svg>
+                                </div>
+                                <div class="subghz-hub-title">Read RAW</div>
+                                <div class="subghz-hub-desc">Capture raw IQ via hackrf_transfer</div>
+                            </div>
+                            <div class="subghz-hub-card subghz-hub-card--red" onclick="SubGhz.hubAction('txselect')">
+                                <div class="subghz-hub-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M5 19h14"/><path d="M12 5v11"/><path d="M8 9l4-4 4 4"/></svg>
+                                </div>
+                                <div class="subghz-hub-title">Transmit</div>
+                                <div class="subghz-hub-desc">Replay a saved capture</div>
+                            </div>
+                            <div class="subghz-hub-card subghz-hub-card--orange" onclick="SubGhz.hubAction('sweep')">
+                                <div class="subghz-hub-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M3 20h18"/><path d="M3 17l3-7 3 4 3-9 3 6 3-3 3 9"/></svg>
+                                </div>
+                                <div class="subghz-hub-title">Freq Analyzer</div>
+                                <div class="subghz-hub-desc">Wideband sweep via hackrf_sweep</div>
+                            </div>
+                            <div class="subghz-hub-card subghz-hub-card--purple" onclick="SubGhz.hubAction('saved')">
+                                <div class="subghz-hub-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                </div>
+                                <div class="subghz-hub-title">Saved</div>
+                                <div class="subghz-hub-desc">Signal library & replay</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Operation Panels (one visible at a time, replaces hub) -->
+
+                    <!-- RX (Raw Capture) Panel -->
+                    <div class="subghz-op-panel" id="subghzPanelRx" style="display: none;">
+                        <div class="subghz-op-panel-header">
+                            <button class="subghz-op-back-btn" onclick="SubGhz.backToHub()" title="Back to hub">&#9664; Back</button>
+                            <span class="subghz-op-panel-title">Read RAW — Signal Capture</span>
+                            <div class="subghz-op-panel-actions">
+                                <button class="subghz-btn start" id="subghzRxStartBtnPanel" onclick="SubGhz.startRx()">Start</button>
+                                <button class="subghz-btn stop" id="subghzRxStopBtnPanel" onclick="SubGhz.stopRx()" disabled>Stop</button>
+                            </div>
+                        </div>
+                        <div class="subghz-rx-display">
+                            <div class="subghz-rx-recording" id="subghzRxRecording" style="display: none;">
+                                <span class="subghz-rx-rec-dot"></span>
+                                <span>RECORDING</span>
+                            </div>
+                            <div class="subghz-rx-info-grid">
+                                <div class="subghz-rx-info-item">
+                                    <span class="subghz-rx-info-label">FREQUENCY</span>
+                                    <span class="subghz-rx-info-value accent-cyan" id="subghzRxFreq">--</span>
+                                </div>
+                                <div class="subghz-rx-info-item">
+                                    <span class="subghz-rx-info-label">LNA GAIN</span>
+                                    <span class="subghz-rx-info-value" id="subghzRxLna">--</span>
+                                </div>
+                                <div class="subghz-rx-info-item">
+                                    <span class="subghz-rx-info-label">VGA GAIN</span>
+                                    <span class="subghz-rx-info-value" id="subghzRxVga">--</span>
+                                </div>
+                                <div class="subghz-rx-info-item">
+                                    <span class="subghz-rx-info-label">SAMPLE RATE</span>
+                                    <span class="subghz-rx-info-value" id="subghzRxSampleRate">--</span>
+                                </div>
+                                <div class="subghz-rx-info-item">
+                                    <span class="subghz-rx-info-label">FILE SIZE</span>
+                                    <span class="subghz-rx-info-value" id="subghzRxFileSize">0 KB</span>
+                                </div>
+                                <div class="subghz-rx-info-item">
+                                    <span class="subghz-rx-info-label">DATA RATE</span>
+                                    <span class="subghz-rx-info-value" id="subghzRxRate">0 KB/s</span>
+                                </div>
+                            </div>
+                            <div class="subghz-rx-level-wrapper">
+                                <span class="subghz-rx-level-label">SIGNAL</span>
+                                <span class="subghz-rx-burst-pill" id="subghzRxBurstPill">IDLE</span>
+                                <div class="subghz-rx-level-bar">
+                                    <div class="subghz-rx-level-fill" id="subghzRxLevel" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div class="subghz-rx-hint" id="subghzRxHint">
+                                <span class="subghz-rx-hint-label">ANALYSIS</span>
+                                <span class="subghz-rx-hint-text" id="subghzRxHintText">No modulation hint yet</span>
+                                <span class="subghz-rx-hint-confidence" id="subghzRxHintConfidence">--</span>
+                            </div>
+                            <div class="subghz-rx-scope-wrap">
+                                <span class="subghz-rx-scope-label">WAVEFORM</span>
+                                <div class="subghz-rx-scope">
+                                    <canvas id="subghzRxScope"></canvas>
+                                </div>
+                            </div>
+                            <div class="subghz-rx-scope-wrap">
+                                <div class="subghz-rx-waterfall-header">
+                                    <span class="subghz-rx-scope-label">WATERFALL</span>
+                                    <div class="subghz-rx-waterfall-controls">
+                                        <div class="subghz-wf-control">
+                                            <span>FLOOR</span>
+                                            <input type="range" id="subghzWfFloor" min="0" max="200" value="20" oninput="SubGhz.setWaterfallFloor(this.value)">
+                                            <span class="subghz-wf-value" id="subghzWfFloorVal">20</span>
+                                        </div>
+                                        <div class="subghz-wf-control">
+                                            <span>RANGE</span>
+                                            <input type="range" id="subghzWfRange" min="16" max="255" value="180" oninput="SubGhz.setWaterfallRange(this.value)">
+                                            <span class="subghz-wf-value" id="subghzWfRangeVal">180</span>
+                                        </div>
+                                        <button class="subghz-wf-pause-btn" id="subghzWfPauseBtn" onclick="SubGhz.toggleWaterfall()">PAUSE</button>
+                                    </div>
+                                </div>
+                                <div class="subghz-rx-waterfall">
+                                    <canvas id="subghzRxWaterfall"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sweep Panel -->
+                    <div class="subghz-op-panel" id="subghzPanelSweep" style="display: none;">
+                        <div class="subghz-op-panel-header">
+                            <button class="subghz-op-back-btn" onclick="SubGhz.backToHub()" title="Back to hub">&#9664; Back</button>
+                            <span class="subghz-op-panel-title">Frequency Analyzer</span>
+                            <div class="subghz-op-panel-actions">
+                                <button class="subghz-btn start" id="subghzSweepStartBtnPanel" onclick="SubGhz.startSweep()">Start</button>
+                                <button class="subghz-btn stop" id="subghzSweepStopBtnPanel" onclick="SubGhz.stopSweep()" disabled>Stop</button>
+                            </div>
+                        </div>
+                        <div class="subghz-sweep-layout">
+                            <div class="subghz-sweep-chart-wrapper" id="subghzSweepChartWrapper">
+                                <canvas id="subghzSweepCanvas"></canvas>
+                            </div>
+                            <div class="subghz-sweep-peaks-sidebar" id="subghzSweepPeaksSidebar">
+                                <div class="subghz-sweep-peaks-title">PEAKS</div>
+                                <div class="subghz-peak-list" id="subghzSweepPeakList"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TX Panel -->
+                    <div class="subghz-op-panel" id="subghzPanelTx" style="display: none;">
+                        <div class="subghz-op-panel-header">
+                            <button class="subghz-op-back-btn" onclick="SubGhz.backToHub()" title="Back to hub">&#9664; Back</button>
+                            <span class="subghz-op-panel-title">Transmit</span>
+                        </div>
+                        <div class="subghz-tx-display" id="subghzTxDisplay">
+                            <div class="subghz-tx-pulse-ring">
+                                <div class="subghz-tx-pulse-dot"></div>
+                            </div>
+                            <div class="subghz-tx-label" id="subghzTxStateLabel">READY</div>
+                            <div class="subghz-tx-info-grid">
+                                <div class="subghz-tx-info-item">
+                                    <span class="subghz-tx-info-label">FREQUENCY</span>
+                                    <span class="subghz-tx-info-value accent-red" id="subghzTxFreqDisplay">--</span>
+                                </div>
+                                <div class="subghz-tx-info-item">
+                                    <span class="subghz-tx-info-label">TX GAIN</span>
+                                    <span class="subghz-tx-info-value" id="subghzTxGainDisplay">--</span>
+                                </div>
+                                <div class="subghz-tx-info-item">
+                                    <span class="subghz-tx-info-label">ELAPSED</span>
+                                    <span class="subghz-tx-info-value" id="subghzTxElapsed">0s</span>
+                                </div>
+                            </div>
+                            <div class="subghz-btn-row" style="max-width: 420px; margin: 16px auto 0;">
+                                <button class="subghz-btn" id="subghzTxChooseCaptureBtn" onclick="SubGhz.showPanel('saved')">Choose Capture</button>
+                                <button class="subghz-btn stop" id="subghzTxStopBtn" onclick="SubGhz.stopTx()">Stop Transmission</button>
+                                <button class="subghz-btn start" id="subghzTxReplayLastBtn" onclick="SubGhz.replayLastTx()" style="display: none;">Replay Last</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Saved Panel -->
+                    <div class="subghz-op-panel" id="subghzPanelSaved" style="display: none;">
+                        <div class="subghz-op-panel-header">
+                            <button class="subghz-op-back-btn" onclick="SubGhz.backToHub()" title="Back to hub">&#9664; Back</button>
+                            <span class="subghz-op-panel-title">Saved Captures</span>
+                            <div class="subghz-op-panel-actions subghz-saved-actions">
+                                <span class="subghz-saved-selection-count" id="subghzSavedSelectionCount" style="display: none;">0 selected</span>
+                                <button class="subghz-btn" id="subghzSavedSelectBtn" onclick="SubGhz.toggleCaptureSelectMode()">Select</button>
+                                <button class="subghz-btn" id="subghzSavedSelectAllBtn" onclick="SubGhz.selectAllCaptures()" style="display: none;">Select All</button>
+                                <button class="subghz-btn stop" id="subghzSavedDeleteSelectedBtn" onclick="SubGhz.deleteSelectedCaptures()" style="display: none;" disabled>Delete Selected</button>
+                            </div>
+                        </div>
+                        <div class="subghz-captures-list subghz-captures-list-main" id="subghzCapturesList" style="flex: 1; min-height: 0; max-height: none; overflow-y: auto;">
+                            <div class="subghz-empty" id="subghzCapturesEmpty">No captures yet</div>
+                        </div>
+                    </div>
+
+                    <!-- TX Confirmation Modal -->
+                    <div id="subghzTxModalOverlay" class="subghz-tx-modal-overlay">
+                        <div class="subghz-tx-modal">
+                            <h3>Confirm Transmission</h3>
+                            <p>You are about to transmit a radio signal on:</p>
+                            <p class="tx-freq" id="subghzTxModalFreq">--- MHz</p>
+                            <p class="tx-duration">Capture duration: <span id="subghzTxModalDuration">--</span></p>
+                            <div class="subghz-tx-segment-box">
+                                <label class="subghz-tx-segment-toggle">
+                                    <input type="checkbox" id="subghzTxSegmentEnabled" onchange="SubGhz.syncTxSegmentSelection()">
+                                    Transmit selected segment only
+                                </label>
+                                <div class="subghz-tx-segment-grid">
+                                    <label>Start (s)</label>
+                                    <input type="number" id="subghzTxSegmentStart" min="0" step="0.01" value="0" disabled oninput="SubGhz.syncTxSegmentSelection('start')">
+                                    <label>End (s)</label>
+                                    <input type="number" id="subghzTxSegmentEnd" min="0" step="0.01" value="0" disabled oninput="SubGhz.syncTxSegmentSelection('end')">
+                                </div>
+                                <p class="subghz-tx-segment-summary" id="subghzTxSegmentSummary">Full capture</p>
+                            </div>
+                            <div class="subghz-tx-burst-assist" id="subghzTxBurstAssist" style="display: none;">
+                                <div class="subghz-tx-burst-title">Detected Bursts</div>
+                                <div class="subghz-tx-burst-timeline" id="subghzTxBurstTimeline"></div>
+                                <div class="subghz-tx-burst-range" id="subghzTxBurstRange">Drag on timeline to select TX segment</div>
+                                <div class="subghz-tx-burst-list" id="subghzTxBurstList"></div>
+                            </div>
+                            <p>Ensure you have proper authorization to transmit on this frequency.</p>
+                            <div class="subghz-tx-modal-actions">
+                                <button class="subghz-tx-cancel-btn" onclick="SubGhz.cancelTx()">Cancel</button>
+                                <button class="subghz-tx-trim-btn" id="subghzTxTrimBtn" onclick="SubGhz.trimCaptureSelection()">Trim + Save</button>
+                                <button class="subghz-tx-confirm-btn" onclick="SubGhz.confirmTx()">Transmit</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
                 <!-- WebSDR Dashboard -->
                 <div id="websdrVisuals" style="display: none; padding: 12px; flex-direction: column; gap: 12px; flex: 1; min-height: 0; overflow: hidden;">
                     <!-- Audio Control Bar (hidden until connected) -->
@@ -2538,6 +2843,7 @@
     <script src="{{ url_for('static', filename='js/modes/sstv-general.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/dmr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
 
     <script>
         // ============================================
@@ -2673,7 +2979,7 @@
         const validModes = new Set([
             'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
             'spystations', 'meshtastic', 'wifi', 'bluetooth',
-            'tscm', 'satellite', 'sstv', 'weathersat', 'sstv_general', 'dmr', 'websdr'
+            'tscm', 'satellite', 'sstv', 'weathersat', 'sstv_general', 'websdr', 'subghz'
         ]);
 
         function getModeFromQuery() {
@@ -3006,6 +3312,41 @@
             return parsed;
         }
 
+        const SIDEBAR_COLLAPSE_KEY = 'mainSidebarCollapsed';
+
+        function setMainSidebarCollapsed(collapsed) {
+            const mainContent = document.querySelector('.main-content');
+            const collapseBtn = document.getElementById('sidebarCollapseBtn');
+            if (!mainContent) return;
+
+            mainContent.classList.toggle('sidebar-collapsed', collapsed);
+            if (collapseBtn) {
+                collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            }
+            localStorage.setItem(SIDEBAR_COLLAPSE_KEY, collapsed ? 'true' : 'false');
+        }
+
+        function toggleMainSidebarCollapse(forceState = null) {
+            const mainContent = document.querySelector('.main-content');
+            if (!mainContent || window.innerWidth < 1024) return;
+            const collapsed = mainContent.classList.contains('sidebar-collapsed');
+            const nextState = forceState === null ? !collapsed : !!forceState;
+            setMainSidebarCollapsed(nextState);
+        }
+
+        function applySidebarCollapsePreference() {
+            const mainContent = document.querySelector('.main-content');
+            if (!mainContent) return;
+            if (window.innerWidth < 1024) {
+                mainContent.classList.remove('sidebar-collapsed');
+                return;
+            }
+            const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === 'true';
+            setMainSidebarCollapsed(savedCollapsed);
+        }
+
+        window.addEventListener('resize', applySidebarCollapsePreference);
+
         // Make sections collapsible
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.section h3').forEach(h3 => {
@@ -3014,13 +3355,16 @@
                 });
             });
 
-            // Collapse all sections by default (except Signal Source and SDR Device)
-            document.querySelectorAll('.section').forEach((section, index) => {
-                // Keep first two sections expanded (Signal Source, SDR Device), collapse rest
-                if (index > 1) {
+            // Collapse sidebar menu sections by default, but skip headerless utility blocks.
+            document.querySelectorAll('.sidebar .section').forEach((section) => {
+                if (section.querySelector('h3')) {
                     section.classList.add('collapsed');
+                } else {
+                    section.classList.remove('collapsed');
                 }
             });
+
+            applySidebarCollapsePreference();
 
             // Load bias-T setting from localStorage
             loadBiasTSetting();
@@ -3095,7 +3439,8 @@
                 'tscm': 'security',
                 'rtlamr': 'sdr', 'ais': 'sdr', 'spystations': 'sdr',
                 'meshtastic': 'sdr',
-                'satellite': 'space', 'sstv': 'space', 'weathersat': 'space', 'sstv_general': 'space'
+                'satellite': 'space', 'sstv': 'space', 'weathersat': 'space', 'sstv_general': 'space',
+                'subghz': 'sdr'
             };
 
             // Remove has-active from all dropdowns
@@ -3139,6 +3484,11 @@
                 if (isBtRunning) stopBtScan();
                 if (isAprsRunning) stopAprs();
                 if (isTscmRunning) stopTscmSweep();
+            }
+
+            // Clean up SubGHz SSE connection when leaving the mode
+            if (typeof SubGhz !== 'undefined' && currentMode === 'subghz' && mode !== 'subghz') {
+                SubGhz.destroy();
             }
 
             currentMode = mode;
@@ -3190,6 +3540,7 @@
             document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
             document.getElementById('dmrMode')?.classList.toggle('active', mode === 'dmr');
             document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
+            document.getElementById('subghzMode')?.classList.toggle('active', mode === 'subghz');
             const pagerStats = document.getElementById('pagerStats');
             const sensorStats = document.getElementById('sensorStats');
             const satelliteStats = document.getElementById('satelliteStats');
@@ -3227,7 +3578,8 @@
                 'spystations': 'SPY STATIONS',
                 'meshtastic': 'MESHTASTIC',
                 'dmr': 'DIGITAL VOICE',
-                'websdr': 'WEBSDR'
+                'websdr': 'WEBSDR',
+                'subghz': 'SUBGHZ'
             };
             const activeModeIndicator = document.getElementById('activeModeIndicator');
             if (activeModeIndicator) activeModeIndicator.innerHTML = '<span class="pulse-dot"></span>' + (modeNames[mode] || mode.toUpperCase());
@@ -3244,6 +3596,7 @@
             const sstvGeneralVisuals = document.getElementById('sstvGeneralVisuals');
             const dmrVisuals = document.getElementById('dmrVisuals');
             const websdrVisuals = document.getElementById('websdrVisuals');
+            const subghzVisuals = document.getElementById('subghzVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -3257,6 +3610,7 @@
             if (sstvGeneralVisuals) sstvGeneralVisuals.style.display = mode === 'sstv_general' ? 'flex' : 'none';
             if (dmrVisuals) dmrVisuals.style.display = mode === 'dmr' ? 'flex' : 'none';
             if (websdrVisuals) websdrVisuals.style.display = mode === 'websdr' ? 'flex' : 'none';
+            if (subghzVisuals) subghzVisuals.style.display = mode === 'subghz' ? 'flex' : 'none';
 
             // Hide sidebar by default for Meshtastic mode, show for others
             const mainContent = document.querySelector('.main-content');
@@ -3292,7 +3646,8 @@
                 'spystations': 'Spy Stations',
                 'meshtastic': 'Meshtastic Mesh Monitor',
                 'dmr': 'Digital Voice Decoder',
-                'websdr': 'HF/Shortwave WebSDR'
+                'websdr': 'HF/Shortwave WebSDR',
+                'subghz': 'SubGHz Transceiver'
             };
             const outputTitle = document.getElementById('outputTitle');
             if (outputTitle) outputTitle.textContent = titles[mode] || 'Signal Monitor';
@@ -3310,7 +3665,7 @@
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -3348,8 +3703,8 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr') ? 'none' : 'block';
-            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'dmr') ? 'none' : 'flex';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz') ? 'none' : 'block';
+            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'dmr' || mode === 'subghz') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
             if (mode !== 'meshtastic') {
@@ -3409,6 +3764,8 @@
                 if (typeof initDmrSynthesizer === 'function') setTimeout(initDmrSynthesizer, 100);
             } else if (mode === 'websdr') {
                 if (typeof initWebSDR === 'function') initWebSDR();
+            } else if (mode === 'subghz') {
+                SubGhz.init();
             }
         }
 
@@ -4617,6 +4974,11 @@
         }
 
         function fetchSdrStatus() {
+            // Avoid probing SDR inventory while HackRF SubGHz mode is active.
+            // Device discovery runs hackrf_info and can disrupt active HackRF streams.
+            if (typeof currentMode !== 'undefined' && currentMode === 'subghz') {
+                return;
+            }
             fetch('/devices/status')
                 .then(r => r.json())
                 .then(devices => {
@@ -9077,6 +9439,7 @@
             const region = document.getElementById('aprsStripRegion').value;
             const device = getSelectedDevice();
             const gain = document.getElementById('aprsStripGain').value;
+            const sdrType = (typeof getSelectedSDRType === 'function') ? getSelectedSDRType() : 'rtlsdr';
 
             // Check if using agent mode
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
@@ -9086,7 +9449,8 @@
             const requestBody = {
                 region,
                 device: parseInt(device),
-                gain: parseInt(gain)
+                gain: parseInt(gain),
+                sdr_type: sdrType
             };
 
             // Add custom frequency if selected
@@ -9431,6 +9795,41 @@
             updateAprsStationList(packet);
         }
 
+        function getAprsMarkerCategory(packet) {
+            const symbolCode = (packet.symbol && packet.symbol.length > 1) ? packet.symbol[1] : '';
+            const speed = parseFloat(packet.speed || 0);
+            const vehicleSymbols = new Set(['>', 'k', 'u', 'v', '[', '<', 's', 'b', 'j']);
+
+            if ((Number.isFinite(speed) && speed > 2) || vehicleSymbols.has(symbolCode)) {
+                return 'vehicle';
+            }
+            return 'tower';
+        }
+
+        function getAprsMarkerSvg(category) {
+            if (category === 'vehicle') {
+                return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14l2-5a2 2 0 0 1 2-1h10a2 2 0 0 1 2 1l2 5v4h-2a2 2 0 0 1-4 0H9a2 2 0 0 1-4 0H3v-4z"/><circle cx="7" cy="18" r="1.7"/><circle cx="17" cy="18" r="1.7"/></svg>';
+            }
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l3 7h-2l1 3h-2l1 8h-2l1-8h-2l1-3H9l3-7z"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+        }
+
+        function buildAprsMarkerIcon(packet) {
+            const category = getAprsMarkerCategory(packet);
+            const callsign = packet.callsign || 'UNKNOWN';
+            const html = `
+                <div class="aprs-map-marker ${category}">
+                    <span class="aprs-map-marker-icon">${getAprsMarkerSvg(category)}</span>
+                    <span class="aprs-map-marker-label">${callsign}</span>
+                </div>
+            `;
+            return L.divIcon({
+                className: 'aprs-map-marker-wrap',
+                html,
+                iconSize: [110, 24],
+                iconAnchor: [55, 12]
+            });
+        }
+
         function updateAprsMarker(packet) {
             const callsign = packet.callsign;
 
@@ -9444,6 +9843,7 @@
             if (aprsMarkers[callsign]) {
                 // Update existing marker position and popup
                 aprsMarkers[callsign].setLatLng([packet.lat, packet.lon]);
+                aprsMarkers[callsign].setIcon(buildAprsMarkerIcon(packet));
                 aprsMarkers[callsign].setPopupContent(`
                     <div style="font-family: monospace;">
                         <strong>${callsign}</strong><br>
@@ -9461,14 +9861,7 @@
                 document.getElementById('aprsStationCount').textContent = aprsStationCount;
                 document.getElementById('aprsStripStations').textContent = aprsStationCount;
 
-                const icon = L.divIcon({
-                    className: 'aprs-marker',
-                    html: `<div style="background: var(--accent-cyan); color: #000; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; white-space: nowrap;">${callsign}</div>`,
-                    iconSize: [80, 20],
-                    iconAnchor: [40, 10]
-                });
-
-                const marker = L.marker([packet.lat, packet.lon], { icon: icon }).addTo(aprsMap);
+                const marker = L.marker([packet.lat, packet.lon], { icon: buildAprsMarkerIcon(packet) }).addTo(aprsMap);
 
                 marker.bindPopup(`
                     <div style="font-family: monospace;">
@@ -10230,9 +10623,6 @@
         // Satellite management
         let trackedSatellites = [
             { id: 'ISS', name: 'ISS (ZARYA)', norad: '25544', builtin: true, checked: true },
-            { id: 'NOAA-15', name: 'NOAA 15', norad: '25338', builtin: true, checked: true },
-            { id: 'NOAA-18', name: 'NOAA 18', norad: '28654', builtin: true, checked: true },
-            { id: 'NOAA-19', name: 'NOAA 19', norad: '33591', builtin: true, checked: true },
             { id: 'METEOR-M2', name: 'Meteor-M 2', norad: '40069', builtin: true, checked: true }
         ];
 
@@ -15146,7 +15536,6 @@
                     style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 300px; overflow-y: auto;">
                     <button class="preset-btn" onclick="fetchCelestrakCategory('stations')">Space Stations</button>
                     <button class="preset-btn" onclick="fetchCelestrakCategory('weather')">Weather</button>
-                    <button class="preset-btn" onclick="fetchCelestrakCategory('noaa')">NOAA</button>
                     <button class="preset-btn" onclick="fetchCelestrakCategory('goes')">GOES</button>
                     <button class="preset-btn" onclick="fetchCelestrakCategory('amateur')">Amateur</button>
                     <button class="preset-btn" onclick="fetchCelestrakCategory('cubesat')">CubeSats</button>
