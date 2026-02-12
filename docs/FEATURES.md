@@ -16,6 +16,14 @@ Complete feature list for all modules.
 - **Doorbells, remotes, and IoT devices**
 - **Smart meters** and utility monitors
 
+## Sub-GHz Analyzer
+
+- **HackRF-based** signal capture and analysis for 300-928 MHz ISM bands
+- **Protocol decoding** - identify and decode common Sub-GHz protocols
+- **Signal replay/transmit** capabilities for authorized testing
+- **Wideband spectrum analysis** with real-time visualization
+- **I/Q capture** - record raw samples for offline analysis
+
 ## AIS Vessel Tracking
 
 - **Real-time vessel tracking** via AIS-catcher on 161.975/162.025 MHz
@@ -83,6 +91,63 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **Acknowledgement workflow** - Track response status with notes
 - **SDR conflict detection** - Prevents device collisions with AIS tracking
 - **Alert summary** - Dashboard counts for unacknowledged distress/urgency
+
+## ACARS Messaging
+
+- **Real-time ACARS decoding** via acarsdec
+- **Aircraft datalink messages** - operational, weather, and position reports
+- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+- **Message filtering** - filter by message type, flight, or registration
+
+## DMR Digital Voice
+
+- **Digital voice decoding** via dsd-fme for DMR, P25, NXDN, and D-STAR
+- **Visual synthesizer** with event-driven spring-physics audio bars
+- **Audio output** with real-time streaming via WebSocket
+- **Frequency persistence** and bookmark support
+- **Tuning controls** with fine adjustment and state sync
+
+## Listening Post
+
+- **Wideband frequency scanning** via rtl_power sweep with SNR filtering
+- **Real-time audio monitoring** with FM and SSB demodulation
+- **Cross-module frequency routing** from scanner to decoders
+- **Customizable frequency presets** and band bookmarks
+- **Multi-SDR support** - RTL-SDR, LimeSDR, HackRF, Airspy, SDRplay
+
+## Weather Satellites
+
+- **NOAA APT** and **Meteor LRPT** image decoding via SatDump
+- **Auto-scheduler** with pass prediction and automatic capture
+- **Polar plot** - real-time satellite position on azimuth/elevation display
+- **Ground track map** - orbit path with past/future trajectory
+- **Image gallery** with timestamped decoded imagery
+
+## WebSDR
+
+- **KiwiSDR network integration** for remote HF/shortwave listening
+- **WebSocket audio streaming** from remote receivers
+- **Receiver discovery** with automatic caching
+- **Frequency tuning** with band presets
+
+## HF SSTV
+
+- **Terrestrial SSTV decoding** across HF (80m-10m), VHF (6m, 2m), and UHF (70cm) bands
+- **Predefined frequency lookup** for active SSTV calling frequencies
+- **Image gallery** with decoded transmissions
+
+## APRS
+
+- **Amateur packet radio** position reports and telemetry via direwolf
+- **Region-specific frequencies** - 144.390 MHz (North America), 144.800 MHz (Europe), and more
+- **Real-time position tracking** on interactive map
+- **Message and telemetry display** from APRS network
+
+## Utility Meter Reading
+
+- **Smart meter monitoring** via rtl_amr for electric, gas, and water meters
+- **Real-time JSON output** with meter ID, consumption, and signal data
+- **Multiple meter protocol support** via rtl_tcp integration
 
 ## Satellite Tracking
 

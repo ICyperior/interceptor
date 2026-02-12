@@ -28,16 +28,19 @@ Support the developer of this open-source project
 
 - **Pager Decoding** - POCSAG/FLEX via rtl_fm + multimon-ng
 - **433MHz Sensors** - Weather stations, TPMS, IoT devices via rtl_433
+- **Sub-GHz Analyzer** - RF capture and protocol decoding for 300-928 MHz ISM bands via HackRF
 - **Aircraft Tracking** - ADS-B via dump1090 with real-time map and radar
 - **Vessel Tracking** - AIS ship tracking with VHF DSC distress monitoring
 - **ACARS Messaging** - Aircraft datalink messages via acarsdec
 - **DMR Digital Voice** - DMR/P25/NXDN/D-STAR decoding via dsd-fme with visual synthesizer
-- **Listening Post** - Frequency scanner with audio monitoring
-- **Weather Satellites** - NOAA APT and Meteor LRPT image decoding via SatDump
-- **WebSDR** - Remote HF/shortwave listening via WebSDR servers
+- **Listening Post** - Wideband frequency scanner with real-time audio monitoring
+- **Weather Satellites** - NOAA APT and Meteor LRPT image decoding via SatDump with auto-scheduler
+- **WebSDR** - Remote HF/shortwave listening via KiwiSDR network
 - **ISS SSTV** - Slow-scan TV image reception from the International Space Station
-- **HF SSTV** - Terrestrial SSTV on shortwave frequencies
-- **Satellite Tracking** - Pass prediction using TLE data
+- **HF SSTV** - Terrestrial SSTV on shortwave frequencies (80m-10m, VHF, UHF)
+- **APRS** - Amateur packet radio position reports and telemetry via direwolf
+- **Satellite Tracking** - Pass prediction with polar plot and ground track map
+- **Utility Meters** - Electric, gas, and water meter reading via rtl_amr
 - **ADS-B History** - Persistent aircraft history with reporting dashboard (Postgres optional)
 - **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
 - **Bluetooth Scanning** - Device discovery and tracker detection (with Ubertooth support)
@@ -238,6 +241,9 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [dump1090](https://github.com/flightaware/dump1090) |
 [AIS-catcher](https://github.com/jvde-github/AIS-catcher) |
 [acarsdec](https://github.com/TLeconte/acarsdec) |
+[dsd-fme](https://github.com/lwvmobile/dsd-fme) |
+[direwolf](https://github.com/wb2osz/direwolf) |
+[rtl_amr](https://github.com/bemasher/rtlamr) |
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
 [SatDump](https://github.com/SatDump/SatDump) |

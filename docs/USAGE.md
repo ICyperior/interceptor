@@ -57,6 +57,47 @@ INTERCEPT automatically detects known trackers:
 - Samsung SmartTag
 - Chipolo
 
+## Sub-GHz Analyzer
+
+1. **Connect HackRF** - Plug in your HackRF One device
+2. **Set Frequency** - Enter a frequency in the 300-928 MHz ISM range or use a preset
+3. **Start Capture** - Click "Start Capture" to begin signal analysis
+4. **View Spectrum** - Real-time spectrum visualization of the selected band
+5. **Protocol Decoding** - Identified protocols are displayed with decoded data
+
+### Supported Protocols
+
+Common ISM band protocols including garage doors, key fobs, weather stations, and IoT devices in the 300-928 MHz range.
+
+## DMR Digital Voice
+
+1. **Select Hardware** - Choose your SDR type
+2. **Set Frequency** - Enter a DMR repeater frequency or use bookmarks
+3. **Start Decoding** - Click "Start Decoding" to begin digital voice reception
+4. **Listen** - Audio streams via WebSocket to your browser
+5. **View Events** - Decoded talkgroup and radio ID information appears in the event log
+
+### Supported Protocols
+
+- **DMR** - Digital Mobile Radio (Tier I/II)
+- **P25** - APCO Project 25
+- **NXDN** - Kenwood/Icom digital protocol
+- **D-STAR** - Icom digital voice
+
+## Listening Post
+
+1. **Select Hardware** - Choose your SDR type
+2. **Set Frequency Range** - Define start and end frequencies for scanning
+3. **Start Scanning** - Click "Start Scan" for wideband sweep
+4. **View Signals** - Discovered signals are listed with frequency and SNR
+5. **Tune In** - Click a signal to tune the audio demodulator
+6. **Listen** - Real-time audio plays in your browser
+
+### Demodulation Modes
+
+- **FM** - Narrowband and wideband FM
+- **SSB** - Upper and lower sideband for amateur radio and shortwave
+
 ## Aircraft Mode (ADS-B)
 
 1. **Select Hardware** - Choose your SDR type (RTL-SDR uses dump1090, others use readsb)
@@ -164,6 +205,58 @@ If the History dashboard shows **HISTORY DISABLED**, enable `INTERCEPT_ADSB_HIST
 2. Select "Fetch from Celestrak"
 3. Choose a category (Amateur, Weather, ISS, Starlink, etc.)
 4. Select satellites to add
+
+## Weather Satellites
+
+1. **Set Location** - Enter observer coordinates or use GPS
+2. **Select Satellite** - Choose NOAA (APT) or Meteor (LRPT)
+3. **View Passes** - Upcoming passes shown with polar plot and ground track
+4. **Start Capture** - Click "Start Capture" when a satellite is overhead, or enable auto-scheduler
+5. **View Images** - Decoded imagery appears in the gallery
+
+### Auto-Scheduler
+
+Enable the auto-scheduler to automatically capture passes:
+- Calculates upcoming NOAA and Meteor passes for your location
+- Starts SatDump at the correct time and frequency
+- Decoded images are saved with timestamps
+
+## AIS Vessel Tracking
+
+1. **Select Hardware** - Choose your SDR type
+2. **Start Tracking** - Click "Start Tracking" to monitor AIS frequencies (161.975/162.025 MHz)
+3. **View Map** - Vessels appear on the interactive maritime map
+4. **Click Vessels** - View name, MMSI, callsign, destination, speed, heading
+5. **Full Dashboard** - Click "Full Screen Dashboard" for dedicated maritime view
+
+### VHF DSC Channel 70
+
+Digital Selective Calling monitoring runs alongside AIS:
+- Distress, Urgency, Safety, and Routine messages
+- Distress positions plotted with pulsing alert markers
+- Audio alerts for critical messages
+
+## APRS
+
+1. **Select Hardware** - Choose your SDR type
+2. **Set Frequency** - Defaults to regional APRS frequency (144.390 MHz NA, 144.800 MHz EU)
+3. **Start Decoding** - Click "Start Decoding" to begin packet radio reception via direwolf
+4. **View Map** - Station positions appear on the interactive map
+5. **View Messages** - Position reports, telemetry, and messages displayed in real time
+
+## Utility Meters
+
+1. **Start Monitoring** - Click "Start" to begin meter broadcast reception via rtl_amr
+2. **View Meters** - Decoded meter data appears with meter ID, type, and consumption
+3. **Filter** - Filter by meter type (electric, gas, water) or meter ID
+
+## Meshtastic
+
+1. **Connect Device** - Plug in a Meshtastic device via USB or connect via TCP
+2. **Start** - Click "Start" to connect to the mesh network
+3. **View Messages** - Real-time message stream from the mesh
+4. **View Nodes** - Connected nodes displayed with signal metrics (RSSI, SNR)
+5. **Send Messages** - Type messages to broadcast on the mesh
 
 ## Remote Agents (Distributed SIGINT)
 
