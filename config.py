@@ -7,10 +7,23 @@ import os
 import sys
 
 # Application version
-VERSION = "2.15.0"
+VERSION = "2.16.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.16.0",
+        "date": "February 2026",
+        "highlights": [
+            "Sub-GHz analyzer with real-time RF capture and protocol decoding",
+            "Weather satellite auto-scheduler with polar plot and ground track map",
+            "SatDump support for local (non-Docker) installs via setup.sh",
+            "DMR audio output, frequency persistence, and bookmarks",
+            "Shared waterfall UI across SDR modes",
+            "Listening post audio stuttering fix and SDR race condition fixes",
+            "Multi-arch Docker build support (amd64 + arm64)",
+        ]
+    },
     {
         "version": "2.15.0",
         "date": "February 2026",
