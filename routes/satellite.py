@@ -16,6 +16,13 @@ from flask import Blueprint, jsonify, request, render_template, Response
 from config import SHARED_OBSERVER_LOCATION_ENABLED
 
 from data.satellites import TLE_SATELLITES
+from utils.database import (
+    get_tracked_satellites,
+    add_tracked_satellite,
+    bulk_add_tracked_satellites,
+    update_tracked_satellite,
+    remove_tracked_satellite,
+)
 from utils.logging import satellite_logger as logger
 from utils.validation import validate_latitude, validate_longitude, validate_hours, validate_elevation
 
@@ -31,18 +38,38 @@ ALLOWED_TLE_HOSTS = ['celestrak.org', 'celestrak.com', 'www.celestrak.org', 'www
 _tle_cache = dict(TLE_SATELLITES)
 
 
+def _load_db_satellites_into_cache():
+    """Load user-tracked satellites from DB into the TLE cache."""
+    global _tle_cache
+    try:
+        db_sats = get_tracked_satellites()
+        loaded = 0
+        for sat in db_sats:
+            if sat['tle_line1'] and sat['tle_line2']:
+                # Use a cache key derived from name (sanitised)
+                cache_key = sat['name'].replace(' ', '-').upper()
+                if cache_key not in _tle_cache:
+                    _tle_cache[cache_key] = (sat['name'], sat['tle_line1'], sat['tle_line2'])
+                    loaded += 1
+        if loaded:
+            logger.info(f"Loaded {loaded} user-tracked satellites into TLE cache")
+    except Exception as e:
+        logger.warning(f"Failed to load DB satellites into TLE cache: {e}")
+
+
 def init_tle_auto_refresh():
     """Initialize TLE auto-refresh. Called by app.py after initialization."""
     import threading
-    
+
     def _auto_refresh_tle():
         try:
+            _load_db_satellites_into_cache()
             updated = refresh_tle_data()
             if updated:
                 logger.info(f"Auto-refreshed TLE data for: {', '.join(updated)}")
         except Exception as e:
             logger.warning(f"Auto TLE refresh failed: {e}")
-    
+
     # Start auto-refresh in background
     threading.Timer(2.0, _auto_refresh_tle).start()
     logger.info("TLE auto-refresh scheduled")
@@ -543,3 +570,75 @@ def fetch_celestrak(category):
     except Exception as e:
         logger.error(f"Error fetching CelesTrak data: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to fetch satellite data'})
+
+
+# =============================================================================
+# Tracked Satellites CRUD
+# =============================================================================
+
+@satellite_bp.route('/tracked', methods=['GET'])
+def list_tracked_satellites():
+    """Return all tracked satellites from the database."""
+    enabled_only = request.args.get('enabled', '').lower() == 'true'
+    sats = get_tracked_satellites(enabled_only=enabled_only)
+    return jsonify({'status': 'success', 'satellites': sats})
+
+
+@satellite_bp.route('/tracked', methods=['POST'])
+def add_tracked_satellites_endpoint():
+    """Add one or more tracked satellites."""
+    global _tle_cache
+    data = request.json
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+    # Accept a single satellite dict or a list
+    sat_list = data if isinstance(data, list) else [data]
+
+    added = 0
+    for sat in sat_list:
+        norad_id = str(sat.get('norad_id', sat.get('norad', '')))
+        name = sat.get('name', '')
+        if not norad_id or not name:
+            continue
+        tle1 = sat.get('tle_line1', sat.get('tle1'))
+        tle2 = sat.get('tle_line2', sat.get('tle2'))
+        enabled = sat.get('enabled', True)
+
+        if add_tracked_satellite(norad_id, name, tle1, tle2, enabled):
+            added += 1
+
+        # Also inject into TLE cache if we have TLE data
+        if tle1 and tle2:
+            cache_key = name.replace(' ', '-').upper()
+            _tle_cache[cache_key] = (name, tle1, tle2)
+
+    return jsonify({
+        'status': 'success',
+        'added': added,
+        'satellites': get_tracked_satellites(),
+    })
+
+
+@satellite_bp.route('/tracked/<norad_id>', methods=['PUT'])
+def update_tracked_satellite_endpoint(norad_id):
+    """Update the enabled state of a tracked satellite."""
+    data = request.json or {}
+    enabled = data.get('enabled')
+    if enabled is None:
+        return jsonify({'status': 'error', 'message': 'Missing enabled field'}), 400
+
+    ok = update_tracked_satellite(str(norad_id), bool(enabled))
+    if ok:
+        return jsonify({'status': 'success'})
+    return jsonify({'status': 'error', 'message': 'Satellite not found'}), 404
+
+
+@satellite_bp.route('/tracked/<norad_id>', methods=['DELETE'])
+def delete_tracked_satellite_endpoint(norad_id):
+    """Remove a tracked satellite by NORAD ID."""
+    ok, msg = remove_tracked_satellite(str(norad_id))
+    if ok:
+        return jsonify({'status': 'success', 'message': msg})
+    status_code = 403 if 'builtin' in msg.lower() else 404
+    return jsonify({'status': 'error', 'message': msg}), status_code

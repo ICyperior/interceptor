@@ -531,6 +531,30 @@ def init_db() -> None:
             ON push_payloads(agent_id, received_at)
         ''')
 
+        # Tracked satellites table for persistent satellite management
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tracked_satellites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                norad_id TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                tle_line1 TEXT,
+                tle_line2 TEXT,
+                enabled BOOLEAN DEFAULT 1,
+                builtin BOOLEAN DEFAULT 0,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Seed builtin satellites if not already present
+        conn.execute('''
+            INSERT OR IGNORE INTO tracked_satellites (norad_id, name, tle_line1, tle_line2, enabled, builtin)
+            VALUES ('25544', 'ISS (ZARYA)', NULL, NULL, 1, 1)
+        ''')
+        conn.execute('''
+            INSERT OR IGNORE INTO tracked_satellites (norad_id, name, tle_line1, tle_line2, enabled, builtin)
+            VALUES ('40069', 'METEOR-M2', NULL, NULL, 1, 1)
+        ''')
+
         logger.info("Database initialized successfully")
 
 
@@ -2169,4 +2193,112 @@ def cleanup_old_payloads(max_age_hours: int = 24) -> int:
             WHERE received_at < datetime('now', ?)
         ''', (f'-{max_age_hours} hours',))
         return cursor.rowcount
+
+
+# =============================================================================
+# Tracked Satellites Functions
+# =============================================================================
+
+def get_tracked_satellites(enabled_only: bool = False) -> list[dict]:
+    """Return all tracked satellites, optionally filtered to enabled only."""
+    with get_db() as conn:
+        if enabled_only:
+            rows = conn.execute(
+                'SELECT norad_id, name, tle_line1, tle_line2, enabled, builtin, added_at '
+                'FROM tracked_satellites WHERE enabled = 1 ORDER BY builtin DESC, name'
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                'SELECT norad_id, name, tle_line1, tle_line2, enabled, builtin, added_at '
+                'FROM tracked_satellites ORDER BY builtin DESC, name'
+            ).fetchall()
+        return [
+            {
+                'norad_id': r[0],
+                'name': r[1],
+                'tle_line1': r[2],
+                'tle_line2': r[3],
+                'enabled': bool(r[4]),
+                'builtin': bool(r[5]),
+                'added_at': r[6],
+            }
+            for r in rows
+        ]
+
+
+def add_tracked_satellite(
+    norad_id: str,
+    name: str,
+    tle_line1: str | None = None,
+    tle_line2: str | None = None,
+    enabled: bool = True,
+    builtin: bool = False,
+) -> bool:
+    """Insert a tracked satellite. Returns True if inserted, False if duplicate."""
+    with get_db() as conn:
+        try:
+            conn.execute(
+                'INSERT OR IGNORE INTO tracked_satellites '
+                '(norad_id, name, tle_line1, tle_line2, enabled, builtin) '
+                'VALUES (?, ?, ?, ?, ?, ?)',
+                (str(norad_id), name, tle_line1, tle_line2, int(enabled), int(builtin)),
+            )
+            return conn.total_changes > 0
+        except sqlite3.Error as e:
+            logger.error(f"Error adding tracked satellite {norad_id}: {e}")
+            return False
+
+
+def bulk_add_tracked_satellites(satellites_list: list[dict]) -> int:
+    """Insert many tracked satellites at once. Returns count of newly inserted."""
+    added = 0
+    with get_db() as conn:
+        for sat in satellites_list:
+            try:
+                cursor = conn.execute(
+                    'INSERT OR IGNORE INTO tracked_satellites '
+                    '(norad_id, name, tle_line1, tle_line2, enabled, builtin) '
+                    'VALUES (?, ?, ?, ?, ?, ?)',
+                    (
+                        str(sat['norad_id']),
+                        sat['name'],
+                        sat.get('tle_line1'),
+                        sat.get('tle_line2'),
+                        int(sat.get('enabled', True)),
+                        int(sat.get('builtin', False)),
+                    ),
+                )
+                if cursor.rowcount > 0:
+                    added += 1
+            except (sqlite3.Error, KeyError) as e:
+                logger.warning(f"Error bulk-adding satellite: {e}")
+    return added
+
+
+def update_tracked_satellite(norad_id: str, enabled: bool) -> bool:
+    """Toggle enabled state for a tracked satellite."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            'UPDATE tracked_satellites SET enabled = ? WHERE norad_id = ?',
+            (int(enabled), str(norad_id)),
+        )
+        return cursor.rowcount > 0
+
+
+def remove_tracked_satellite(norad_id: str) -> tuple[bool, str]:
+    """Delete a tracked satellite by NORAD ID. Refuses to delete builtins."""
+    with get_db() as conn:
+        row = conn.execute(
+            'SELECT builtin FROM tracked_satellites WHERE norad_id = ?',
+            (str(norad_id),),
+        ).fetchone()
+        if row is None:
+            return False, 'Satellite not found'
+        if row[0]:
+            return False, 'Cannot remove builtin satellite'
+        conn.execute(
+            'DELETE FROM tracked_satellites WHERE norad_id = ?',
+            (str(norad_id),),
+        )
+        return True, 'Removed'
 

@@ -269,11 +269,41 @@
         let currentLocationSource = 'local';
         let agents = [];
 
-        const satellites = {
+        let satellites = {
             25544: { name: 'ISS (ZARYA)', color: '#00ffff' },
             40069: { name: 'METEOR-M2', color: '#9370DB' },
             57166: { name: 'METEOR-M2-3', color: '#ff00ff' }
         };
+
+        const satColors = ['#00ffff', '#9370DB', '#ff00ff', '#00ff00', '#ff6600', '#ffff00', '#ff69b4', '#7b68ee'];
+
+        function loadDashboardSatellites() {
+            fetch('/satellite/tracked?enabled=true')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success' && data.satellites && data.satellites.length > 0) {
+                        const newSats = {};
+                        const select = document.getElementById('satSelect');
+                        select.innerHTML = '';
+                        data.satellites.forEach((sat, i) => {
+                            const norad = parseInt(sat.norad_id);
+                            newSats[norad] = {
+                                name: sat.name,
+                                color: satellites[norad]?.color || satColors[i % satColors.length]
+                            };
+                            const opt = document.createElement('option');
+                            opt.value = norad;
+                            opt.textContent = sat.name;
+                            select.appendChild(opt);
+                        });
+                        satellites = newSats;
+                        // Default to ISS if available
+                        if (newSats[25544]) select.value = '25544';
+                        selectedSatellite = parseInt(select.value);
+                    }
+                })
+                .catch(() => {});
+        }
 
         function onSatelliteChange() {
             const select = document.getElementById('satSelect');
@@ -331,6 +361,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            loadDashboardSatellites();
             setupEmbeddedMode();
             const usedShared = applySharedObserverLocation();
             initGroundMap();

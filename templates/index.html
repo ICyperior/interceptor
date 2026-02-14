@@ -10621,10 +10621,7 @@
         }
 
         // Satellite management
-        let trackedSatellites = [
-            { id: 'ISS', name: 'ISS (ZARYA)', norad: '25544', builtin: true, checked: true },
-            { id: 'METEOR-M2', name: 'Meteor-M 2', norad: '40069', builtin: true, checked: true }
-        ];
+        let trackedSatellites = [];
 
         function renderSatelliteList() {
             const list = document.getElementById('satTrackingList');
@@ -10643,14 +10640,27 @@
         }
 
         function toggleSatellite(idx) {
-            trackedSatellites[idx].checked = !trackedSatellites[idx].checked;
+            const sat = trackedSatellites[idx];
+            sat.checked = !sat.checked;
+            fetch(`/satellite/tracked/${sat.norad}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: sat.checked })
+            }).catch(() => {});
         }
 
         function removeSatellite(idx) {
-            if (!trackedSatellites[idx].builtin) {
-                trackedSatellites.splice(idx, 1);
-                renderSatelliteList();
-            }
+            const sat = trackedSatellites[idx];
+            if (sat.builtin) return;
+            fetch(`/satellite/tracked/${sat.norad}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        trackedSatellites.splice(idx, 1);
+                        renderSatelliteList();
+                    }
+                })
+                .catch(() => {});
         }
 
         function getSelectedSatellites() {
@@ -10686,7 +10696,7 @@
             }
 
             const lines = tleText.split('\\n').map(l => l.trim()).filter(l => l);
-            let added = 0;
+            const toAdd = [];
 
             for (let i = 0; i < lines.length; i += 3) {
                 if (i + 2 < lines.length) {
@@ -10696,32 +10706,33 @@
 
                     if (line1.startsWith('1 ') && line2.startsWith('2 ')) {
                         const norad = line1.substring(2, 7).trim();
-                        const id = name.replace(/[^a-zA-Z0-9]/g, '-').toUpperCase();
-
-                        // Check if already exists
                         if (!trackedSatellites.find(s => s.norad === norad)) {
-                            trackedSatellites.push({
-                                id: id,
-                                name: name,
-                                norad: norad,
-                                builtin: false,
-                                checked: true,
-                                tle: [name, line1, line2]
-                            });
-                            added++;
+                            toAdd.push({ norad_id: norad, name: name, tle1: line1, tle2: line2, enabled: true });
                         }
                     }
                 }
             }
 
-            if (added > 0) {
-                renderSatelliteList();
-                document.getElementById('tleInput').value = '';
-                closeSatModal();
-                showInfo(`Added ${added} satellite(s)`);
-            } else {
+            if (toAdd.length === 0) {
                 alert('No valid TLE data found. Format: Name, Line 1, Line 2 (3 lines per satellite)');
+                return;
             }
+
+            fetch('/satellite/tracked', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(toAdd)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    _loadSatellitesFromAPI();
+                    document.getElementById('tleInput').value = '';
+                    closeSatModal();
+                    showInfo(`Added ${data.added} satellite(s)`);
+                }
+            })
+            .catch(() => alert('Failed to save satellites'));
         }
 
         function fetchCelestrak() {
@@ -10737,35 +10748,76 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.status === 'success' && data.satellites) {
-                        let added = 0;
-                        data.satellites.forEach(sat => {
-                            const noradStr = String(sat.norad);
-                            if (!trackedSatellites.find(s => s.norad === noradStr)) {
-                                trackedSatellites.push({
-                                    id: sat.name.replace(/[^a-zA-Z0-9-]/g, '-'),
-                                    name: sat.name,
-                                    norad: noradStr,
-                                    builtin: false,
-                                    checked: false, // Don't auto-select
-                                    tle: [sat.name, sat.tle1, sat.tle2]
-                                });
-                                added++;
+                        const toAdd = data.satellites
+                            .filter(sat => !trackedSatellites.find(s => s.norad === String(sat.norad)))
+                            .map(sat => ({
+                                norad_id: String(sat.norad),
+                                name: sat.name,
+                                tle1: sat.tle1,
+                                tle2: sat.tle2,
+                                enabled: false
+                            }));
+
+                        if (toAdd.length === 0) {
+                            status.innerHTML = `<span style="color: var(--accent-green);">All ${data.satellites.length} satellites already tracked</span>`;
+                            return;
+                        }
+
+                        fetch('/satellite/tracked', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(toAdd)
+                        })
+                        .then(r => r.json())
+                        .then(result => {
+                            if (result.status === 'success') {
+                                _loadSatellitesFromAPI();
+                                status.innerHTML = `<span style="color: var(--accent-green);">Added ${result.added} satellites (${data.satellites.length} total in category)</span>`;
                             }
+                        })
+                        .catch(() => {
+                            status.innerHTML = `<span style="color: var(--accent-red);">Failed to save satellites</span>`;
                         });
-                        renderSatelliteList();
-                        status.innerHTML = `<span style="color: var(--accent-green);">Added ${added} satellites (${data.satellites.length} total in category)</span>`;
                     } else {
                         status.innerHTML = `<span style="color: var(--accent-red);">Error: ${data.message || 'Failed to fetch'}</span>`;
                     }
                 })
-                .catch(err => {
+                .catch(() => {
                     status.innerHTML = `<span style="color: var(--accent-red);">Network error</span>`;
+                });
+        }
+
+        function _loadSatellitesFromAPI() {
+            fetch('/satellite/tracked')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success' && data.satellites) {
+                        trackedSatellites = data.satellites.map(sat => ({
+                            id: sat.name.replace(/[^a-zA-Z0-9]/g, '-').toUpperCase(),
+                            name: sat.name,
+                            norad: sat.norad_id,
+                            builtin: sat.builtin,
+                            checked: sat.enabled,
+                            tle: sat.tle_line1 ? [sat.name, sat.tle_line1, sat.tle_line2] : null
+                        }));
+                        renderSatelliteList();
+                    }
+                })
+                .catch(() => {
+                    // Fallback to hardcoded defaults if API fails
+                    if (trackedSatellites.length === 0) {
+                        trackedSatellites = [
+                            { id: 'ISS', name: 'ISS (ZARYA)', norad: '25544', builtin: true, checked: true },
+                            { id: 'METEOR-M2', name: 'Meteor-M 2', norad: '40069', builtin: true, checked: true }
+                        ];
+                        renderSatelliteList();
+                    }
                 });
         }
 
         // Initialize satellite list when satellite mode is loaded
         function initSatelliteList() {
-            renderSatelliteList();
+            _loadSatellitesFromAPI();
         }
 
         // Utility function
