@@ -675,9 +675,24 @@ install_satdump_from_source_debian() {
     cd "$tmp_dir/SatDump"
     mkdir -p build && cd build
 
-    info "Compiling SatDump (this may take a while)..."
-    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. >/dev/null 2>&1 \
-        && make -j "$(nproc)" >/dev/null 2>&1; then
+    info "Compiling SatDump (this is a large C++ project and may take 10-30 minutes)..."
+    build_log="$tmp_dir/satdump-build.log"
+
+    # Show periodic progress while building so the user knows it's not hung
+    (
+      while true; do
+        sleep 30
+        if [ -f "$build_log" ]; then
+          local_lines=$(wc -l < "$build_log" 2>/dev/null || echo 0)
+          printf "  [*] Still compiling SatDump... (%s lines of build output so far)\n" "$local_lines"
+        fi
+      done
+    ) &
+    progress_pid=$!
+
+    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. >"$build_log" 2>&1 \
+        && make -j "$(nproc)" >>"$build_log" 2>&1; then
+      kill $progress_pid 2>/dev/null; wait $progress_pid 2>/dev/null
       $SUDO make install >/dev/null 2>&1
       $SUDO ldconfig
 
@@ -694,7 +709,10 @@ install_satdump_from_source_debian() {
 
       ok "SatDump installed successfully."
     else
+      kill $progress_pid 2>/dev/null; wait $progress_pid 2>/dev/null
       warn "Failed to build SatDump from source. Weather satellite decoding will not be available."
+      warn "Build log (last 30 lines):"
+      tail -30 "$build_log" | while IFS= read -r line; do warn "  $line"; done
     fi
   )
 }
@@ -725,9 +743,24 @@ install_satdump_from_source_macos() {
     cd "$tmp_dir/SatDump"
     mkdir -p build && cd build
 
-    info "Compiling SatDump (this may take a while)..."
-    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF .. >/dev/null 2>&1 \
-        && make -j "$(sysctl -n hw.ncpu)" >/dev/null 2>&1; then
+    info "Compiling SatDump (this is a large C++ project and may take 10-30 minutes)..."
+    build_log="$tmp_dir/satdump-build.log"
+
+    # Show periodic progress while building so the user knows it's not hung
+    (
+      while true; do
+        sleep 30
+        if [ -f "$build_log" ]; then
+          local_lines=$(wc -l < "$build_log" 2>/dev/null || echo 0)
+          printf "  [*] Still compiling SatDump... (%s lines of build output so far)\n" "$local_lines"
+        fi
+      done
+    ) &
+    progress_pid=$!
+
+    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF .. >"$build_log" 2>&1 \
+        && make -j "$(sysctl -n hw.ncpu)" >>"$build_log" 2>&1; then
+      kill $progress_pid 2>/dev/null; wait $progress_pid 2>/dev/null
       if [[ -w /usr/local/bin ]]; then
         make install >/dev/null 2>&1
       else
@@ -735,7 +768,10 @@ install_satdump_from_source_macos() {
       fi
       ok "SatDump installed successfully."
     else
+      kill $progress_pid 2>/dev/null; wait $progress_pid 2>/dev/null
       warn "Failed to build SatDump from source. Weather satellite decoding will not be available."
+      warn "Build log (last 30 lines):"
+      tail -30 "$build_log" | while IFS= read -r line; do warn "  $line"; done
     fi
   )
 }
