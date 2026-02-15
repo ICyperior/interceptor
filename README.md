@@ -226,7 +226,7 @@ This project was developed using AI as a coding partner, combining human directi
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+Apache 2.0 License - see [LICENSE](LICENSE)
 
 ## Author
 
@@ -247,6 +247,7 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [SatDump](https://github.com/SatDump/SatDump) |
 [Celestrak](https://celestrak.org/) |
 [Priyom.org](https://priyom.org/)
+
 
 
 
