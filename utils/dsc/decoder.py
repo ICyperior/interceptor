@@ -264,6 +264,20 @@ class DSCDecoder:
                 symbol_value = self._bits_to_symbol(symbol_bits)
                 symbols.append(symbol_value)
 
+        # Strip phasing sequence (RX/DX symbols 120-126) from the
+        # start of the message. Per ITU-R M.493, after the dot pattern
+        # there are 7 phasing symbols before the format specifier.
+        msg_start = 0
+        for i, sym in enumerate(symbols):
+            if 120 <= sym <= 126:
+                msg_start = i + 1
+            else:
+                break
+        symbols = symbols[msg_start:]
+
+        if len(symbols) < 5:
+            return None
+
         # Look for EOS (End of Sequence) - symbol 127
         eos_found = False
         eos_index = -1
@@ -404,9 +418,10 @@ class DSCDecoder:
             digits.append(f'{sym:02d}')
 
         mmsi = ''.join(digits)
-        # MMSI is 9 digits, might need to trim leading zero
+        # MMSI is 9 digits - trim the leading digit from the 10-digit
+        # BCD result since the first symbol's high digit is always 0
         if len(mmsi) > 9:
-            mmsi = mmsi[-9:]
+            mmsi = mmsi[1:]
 
         return mmsi.zfill(9)
 

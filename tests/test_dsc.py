@@ -313,8 +313,9 @@ class TestDSCDecoder:
     def test_decode_mmsi_with_leading_zeros(self, decoder):
         """Test MMSI decoding handles leading zeros."""
         # Coast station: 002320001
-        # 00-23-20-00-01 -> [0, 23, 20, 0, 1]
-        symbols = [0, 23, 20, 0, 1]
+        # Padded to 10 digits: 0002320001
+        # BCD pairs: 00-02-32-00-01 -> [0, 2, 32, 0, 1]
+        symbols = [0, 2, 32, 0, 1]
         result = decoder._decode_mmsi(symbols)
         assert result == '002320001'
 
@@ -328,14 +329,16 @@ class TestDSCDecoder:
         # Symbols > 99 should be treated as 0
         symbols = [100, 32, 12, 34, 56]
         result = decoder._decode_mmsi(symbols)
-        # First symbol becomes 00
-        assert result == '003212345'[-9:]
+        # First symbol (100) becomes 00, padded result "0032123456",
+        # trim leading pad digit -> "032123456"
+        assert result == '032123456'
 
     def test_decode_position_northeast(self, decoder):
         """Test position decoding for NE quadrant."""
         # Quadrant 10 = NE (lat+, lon+)
         # Position: 51°30'N, 0°10'E
-        symbols = [10, 51, 30, 0, 10, 0, 0, 0, 0, 0]
+        # lon_deg = symbols[3]*100 + symbols[4] = 0, lon_min = symbols[5] = 10
+        symbols = [10, 51, 30, 0, 0, 10, 0, 0, 0, 0]
         result = decoder._decode_position(symbols)
 
         assert result is not None
