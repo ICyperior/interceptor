@@ -7,10 +7,20 @@ import os
 import sys
 
 # Application version
-VERSION = "2.16.0"
+VERSION = "2.17.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.17.0",
+        "date": "February 2026",
+        "highlights": [
+            "BT Locate: SAR Bluetooth device location with GPS-tagged signal trail and proximity alerts",
+            "IRK auto-detection: extract Identity Resolving Keys from paired devices (macOS/Linux)",
+            "GPS mode: real-time position tracking with live map, speed, altitude, and satellite info",
+            "Bluetooth scanner lifecycle fix for bleak scan timeout tracking",
+        ]
+    },
     {
         "version": "2.16.0",
         "date": "February 2026",
