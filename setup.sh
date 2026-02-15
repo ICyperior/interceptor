@@ -571,10 +571,43 @@ install_acarsdec_from_source_macos() {
       || { warn "Failed to clone acarsdec"; exit 1; }
 
     cd "$tmp_dir/acarsdec"
+
+    # Fix compiler flags for macOS Apple Silicon (ARM64)
+    # -march=native can fail with Apple Clang on M-series chips
+    # -Ofast is deprecated in modern Clang
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      sed -i '' 's/-Ofast -march=native/-O3 -ffast-math/g' CMakeLists.txt
+      info "Patched compiler flags for Apple Silicon (arm64)"
+    fi
+
+    # Fix pthread_tryjoin_np (Linux-only GNU extension) for macOS
+    # Replace with pthread_join which provides equivalent behavior
+    if grep -q 'pthread_tryjoin_np' rtl.c 2>/dev/null; then
+      sed -i '' 's/pthread_tryjoin_np(\([^,]*\), NULL)/pthread_join(\1, NULL)/g' rtl.c
+      info "Patched pthread_tryjoin_np for macOS compatibility"
+    fi
+
+    # Fix libacars linking on macOS (upstream issue #112)
+    # Use LIBACARS_LINK_LIBRARIES (full path) instead of LIBACARS_LIBRARIES (name only)
+    if grep -q 'LIBACARS_LIBRARIES' CMakeLists.txt 2>/dev/null; then
+      sed -i '' 's/${LIBACARS_LIBRARIES}/${LIBACARS_LINK_LIBRARIES}/g' CMakeLists.txt
+      info "Patched libacars linking for macOS"
+    fi
+
     mkdir -p build && cd build
 
+    # Set Homebrew paths for Apple Silicon (/opt/homebrew) or Intel (/usr/local)
+    HOMEBREW_PREFIX="$(brew --prefix)"
+    export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+    export CMAKE_PREFIX_PATH="${HOMEBREW_PREFIX}"
+
     info "Compiling acarsdec..."
-    if cmake .. -Drtl=ON >/dev/null 2>&1 && make >/dev/null 2>&1; then
+    build_log="$tmp_dir/acarsdec-build.log"
+    if cmake .. -Drtl=ON \
+         -DCMAKE_C_FLAGS="-I${HOMEBREW_PREFIX}/include" \
+         -DCMAKE_EXE_LINKER_FLAGS="-L${HOMEBREW_PREFIX}/lib" \
+         >"$build_log" 2>&1 \
+       && make >>"$build_log" 2>&1; then
       if [[ -w /usr/local/bin ]]; then
         install -m 0755 acarsdec /usr/local/bin/acarsdec
       else
@@ -583,6 +616,8 @@ install_acarsdec_from_source_macos() {
       ok "acarsdec installed successfully from source"
     else
       warn "Failed to build acarsdec. ACARS decoding will not be available."
+      warn "Build log (last 30 lines):"
+      tail -30 "$build_log" | while IFS= read -r line; do warn "  $line"; done
     fi
   )
 }
