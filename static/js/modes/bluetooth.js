@@ -1216,6 +1216,11 @@ const BluetoothMode = (function() {
                 '</div>' +
             '</div>' +
             '<div class="bt-row-secondary">' + secondaryInfo + '</div>' +
+            '<div class="bt-row-actions">' +
+                '<button class="bt-locate-btn" data-locate-id="' + escapeHtml(device.device_id) + '" onclick="event.stopPropagation(); BluetoothMode.locateById(this.dataset.locateId)">' +
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>' +
+                    'Locate</button>' +
+            '</div>' +
         '</div>';
     }
 
@@ -1391,6 +1396,42 @@ const BluetoothMode = (function() {
         updateRadar();
     }
 
+    /**
+     * Hand off a device to BT Locate mode by device_id lookup.
+     */
+    function locateById(deviceId) {
+        console.log('[BT] locateById called with:', deviceId);
+        const device = devices.get(deviceId);
+        if (!device) {
+            console.warn('[BT] Device not found in map for id:', deviceId);
+            return;
+        }
+        doLocateHandoff(device);
+    }
+
+    /**
+     * Hand off the currently selected device to BT Locate mode.
+     */
+    function locateDevice() {
+        if (!selectedDeviceId) return;
+        const device = devices.get(selectedDeviceId);
+        if (!device) return;
+        doLocateHandoff(device);
+    }
+
+    function doLocateHandoff(device) {
+        console.log('[BT] doLocateHandoff, BtLocate defined:', typeof BtLocate !== 'undefined');
+        if (typeof BtLocate !== 'undefined') {
+            BtLocate.handoff({
+                device_id: device.device_id,
+                mac_address: device.address,
+                known_name: device.name || null,
+                known_manufacturer: device.manufacturer_name || null,
+                last_known_rssi: device.rssi_current
+            });
+        }
+    }
+
     // Public API
     return {
         init,
@@ -1404,6 +1445,8 @@ const BluetoothMode = (function() {
         clearSelection,
         copyAddress,
         toggleWatchlist,
+        locateDevice,
+        locateById,
 
         // Agent handling
         handleAgentChange,

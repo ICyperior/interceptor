@@ -66,7 +66,7 @@ class BluetoothScanner:
         self._scan_timer: Optional[threading.Timer] = None
 
         # Callbacks
-        self._on_device_updated: Optional[Callable[[BTDeviceAggregate], None]] = None
+        self._on_device_updated_callbacks: list[Callable[[BTDeviceAggregate], None]] = []
 
         # Capability check result
         self._capabilities: Optional[SystemCapabilities] = None
@@ -236,9 +236,12 @@ class BluetoothScanner:
                 'device': device.to_summary_dict(),
             })
 
-            # Callback
-            if self._on_device_updated:
-                self._on_device_updated(device)
+            # Callbacks
+            for cb in self._on_device_updated_callbacks:
+                try:
+                    cb(device)
+                except Exception as cb_err:
+                    logger.error(f"Device callback error: {cb_err}")
 
         except Exception as e:
             logger.error(f"Error handling observation: {e}")
@@ -368,13 +371,39 @@ class BluetoothScanner:
         return self._capabilities
 
     def set_on_device_updated(self, callback: Callable[[BTDeviceAggregate], None]) -> None:
-        """Set callback for device updates."""
-        self._on_device_updated = callback
+        """Set callback for device updates (legacy, adds to callback list)."""
+        self.add_device_callback(callback)
+
+    def add_device_callback(self, callback: Callable[[BTDeviceAggregate], None]) -> None:
+        """Add a callback for device updates."""
+        if callback not in self._on_device_updated_callbacks:
+            self._on_device_updated_callbacks.append(callback)
+
+    def remove_device_callback(self, callback: Callable[[BTDeviceAggregate], None]) -> None:
+        """Remove a device update callback."""
+        if callback in self._on_device_updated_callbacks:
+            self._on_device_updated_callbacks.remove(callback)
 
     @property
     def is_scanning(self) -> bool:
-        """Check if scanning is active."""
-        return self._status.is_scanning
+        """Check if scanning is active.
+
+        Cross-checks the backend scanner state, since bleak scans can
+        expire silently without calling stop_scan().
+        """
+        if not self._status.is_scanning:
+            return False
+
+        # Detect backends that finished on their own (e.g. bleak timeout)
+        backend_alive = (
+            (self._dbus_scanner and self._dbus_scanner.is_scanning)
+            or (self._fallback_scanner and self._fallback_scanner.is_scanning)
+        )
+        if not backend_alive:
+            self._status.is_scanning = False
+            return False
+
+        return True
 
     @property
     def device_count(self) -> int:

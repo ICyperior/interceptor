@@ -235,6 +235,54 @@ Digital Selective Calling monitoring runs alongside AIS:
 2. **View Meters** - Decoded meter data appears with meter ID, type, and consumption
 3. **Filter** - Filter by meter type (electric, gas, water) or meter ID
 
+## BT Locate (SAR Device Location)
+
+1. **Set Target** - Enter one or more target identifiers:
+   - **MAC Address** - Exact Bluetooth address (AA:BB:CC:DD:EE:FF)
+   - **Name Pattern** - Substring match (e.g., "iPhone", "Galaxy")
+   - **IRK** - 32-character hex Identity Resolving Key for RPA resolution
+   - **Detect IRKs** - Click "Detect" to auto-extract IRKs from paired devices
+2. **Choose Environment** - Select the RF environment preset:
+   - **Open Field** (n=2.0) - Best for open areas with line-of-sight
+   - **Outdoor** (n=2.2) - Default, works well in most outdoor settings
+   - **Indoor** (n=3.0) - For buildings with walls and obstacles
+3. **Start Locate** - Click "Start Locate" to begin tracking
+4. **Monitor HUD** - The proximity display shows:
+   - Proximity band (IMMEDIATE / NEAR / FAR)
+   - Estimated distance in meters
+   - Raw RSSI and smoothed RSSI average
+   - Detection count and GPS-tagged points
+5. **Follow the Signal** - Move towards stronger signal (higher RSSI / closer distance)
+6. **Audio Alerts** - Enable audio for proximity tones that increase in pitch as you get closer
+7. **Review Trail** - Check the map for GPS-tagged detection trail
+
+### Hand-off from Bluetooth Mode
+
+1. Open Bluetooth scanning mode and find the target device
+2. Click the "Locate" button on the device card
+3. BT Locate opens with the device pre-filled
+4. Click "Start Locate" to begin tracking
+
+### Tips
+
+- For devices with address randomization (iPhones, modern Android), use the IRK method
+- Click "Detect" next to the IRK field to auto-extract IRKs from paired devices
+- The RSSI chart shows signal trend over time — use it to determine if you're getting closer
+- Clear the trail when starting a new search area
+
+## GPS Mode
+
+1. **Start GPS** - Click "Start" to connect to gpsd and begin position tracking
+2. **View Map** - Your position appears on the interactive map with a track trail
+3. **Monitor Stats** - Speed, heading, altitude, and satellite count displayed in real-time
+4. **Record Track** - Enable track recording to save your path
+
+### Tips
+
+- Ensure gpsd is running: `sudo gpsd /dev/ttyUSB0 -F /var/run/gpsd.sock`
+- GPS fix may take 30-60 seconds after cold start
+- Accuracy improves with more satellites in view
+
 ## Meshtastic
 
 1. **Connect Device** - Plug in a Meshtastic device via USB or connect via TCP

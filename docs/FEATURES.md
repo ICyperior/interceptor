@@ -188,6 +188,52 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **Proximity radar** visualization
 - **Device type breakdown** chart
 
+## BT Locate (SAR Bluetooth Device Location)
+
+Search and rescue Bluetooth device location with GPS-tagged signal trail mapping.
+
+### Core Features
+- **Target tracking** - Locate devices by MAC address, name pattern, or IRK (Identity Resolving Key)
+- **RPA resolution** - Resolve BLE Resolvable Private Addresses using IRK for tracking devices with randomized addresses
+- **IRK auto-detection** - Extract IRKs from paired devices on macOS and Linux
+- **GPS-tagged signal trail** - Every detection is tagged with GPS coordinates for trail mapping
+- **Proximity bands** - IMMEDIATE (<1m), NEAR (1-5m), FAR (>5m) with color-coded HUD
+- **RSSI history chart** - Real-time signal strength sparkline for trend analysis
+- **Distance estimation** - Log-distance path loss model with environment presets
+- **Audio proximity alerts** - Web Audio API tones that increase in pitch as signal strengthens
+- **Hand-off from Bluetooth mode** - One-click transfer of a device from BT scanner to BT Locate
+
+### Environment Presets
+- **Open Field** (n=2.0) - Free space path loss
+- **Outdoor** (n=2.2) - Typical outdoor environment
+- **Indoor** (n=3.0) - Indoor with walls and obstacles
+
+### Map & Trail
+- Interactive Leaflet map with GPS trail visualization
+- Trail points color-coded by proximity band
+- Polyline connecting detection points for path visualization
+- Supports user-configured tile providers
+
+### Requirements
+- Bluetooth adapter (built-in or USB)
+- GPS receiver (optional, falls back to manual coordinates)
+
+## GPS Mode
+
+Real-time GPS position tracking with live map visualization.
+
+### Features
+- **Live position tracking** - Real-time latitude, longitude, altitude display
+- **Interactive map** - Current position on Leaflet map with track history
+- **Speed and heading** - Real-time speed (km/h) and compass heading
+- **Satellite info** - Number of satellites in view and fix quality
+- **Track recording** - Record GPS tracks with export capability
+- **Accuracy display** - Horizontal and vertical position accuracy (EPX/EPY)
+
+### Requirements
+- USB GPS receiver connected via gpsd
+- gpsd daemon running (`sudo gpsd /dev/ttyUSB0 -F /var/run/gpsd.sock`)
+
 ## TSCM Counter-Surveillance Mode
 
 Technical Surveillance Countermeasures (TSCM) screening for detecting wireless surveillance indicators.

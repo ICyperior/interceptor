@@ -250,8 +250,8 @@ def start_scan():
             logger.debug(f"BT seen-before update failed: {e}")
 
     # Setup seen-before callback
-    if scanner._on_device_updated is None:
-        scanner._on_device_updated = _handle_seen_before
+    if _handle_seen_before not in scanner._on_device_updated_callbacks:
+        scanner.add_device_callback(_handle_seen_before)
 
     # Ensure cache is initialized
     with _bt_seen_lock:

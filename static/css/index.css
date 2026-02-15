@@ -4584,6 +4584,12 @@ header h1 .tagline {
     text-overflow: ellipsis;
 }
 
+.bt-row-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 4px 0 42px;
+}
+
 /* Bluetooth Device Modal */
 .bt-modal-overlay {
     position: fixed;

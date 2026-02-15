@@ -2022,7 +2022,7 @@ class ModeManager:
                     'agent_gps': gps_manager.position
                 }
 
-            scanner.set_on_device_updated(on_device_updated)
+            scanner.add_device_callback(on_device_updated)
 
             # Start scanning
             if scanner.start_scan(mode=mode_param, duration_s=duration):

@@ -33,6 +33,7 @@ def register_blueprints(app):
     from .alerts import alerts_bp
     from .recordings import recordings_bp
     from .subghz import subghz_bp
+    from .bt_locate import bt_locate_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -65,6 +66,7 @@ def register_blueprints(app):
     app.register_blueprint(alerts_bp)  # Cross-mode alerts
     app.register_blueprint(recordings_bp)  # Session recordings
     app.register_blueprint(subghz_bp)  # SubGHz transceiver (HackRF)
+    app.register_blueprint(bt_locate_bp)  # BT Locate SAR device tracking
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module

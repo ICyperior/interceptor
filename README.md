@@ -43,6 +43,8 @@ Support the developer of this open-source project
 - **ADS-B History** - Persistent aircraft history with reporting dashboard (Postgres optional)
 - **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
 - **Bluetooth Scanning** - Device discovery and tracker detection (with Ubertooth support)
+- **BT Locate** - SAR Bluetooth device location with GPS-tagged signal trail mapping and proximity alerts
+- **GPS** - Real-time GPS position tracking with live map, speed, altitude, and satellite info
 - **TSCM** - Counter-surveillance with RF baseline comparison and threat detection
 - **Meshtastic** - LoRa mesh network integration
 - **Spy Stations** - Number stations and diplomatic HF network database

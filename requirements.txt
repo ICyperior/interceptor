@@ -32,6 +32,9 @@ scapy>=2.4.5
 # QR code generation for Meshtastic channels (optional)
 qrcode[pil]>=7.4
 
+# BLE RPA resolution for BT Locate (optional - for SAR device tracking)
+cryptography>=41.0.0
+
 # Development dependencies (install with: pip install -r requirements-dev.txt)
 # pytest>=7.0.0
 # pytest-cov>=4.0.0
