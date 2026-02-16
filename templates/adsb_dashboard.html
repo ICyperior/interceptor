@@ -4378,66 +4378,131 @@ sudo make install</code>
             return div.innerHTML;
         }
 
-        function buildVdl2Details(data) {
+        function showVdl2Modal(data, timeStr) {
+            // Remove any existing modal
+            const existing = document.querySelector('.vdl2-modal-overlay');
+            if (existing) existing.remove();
+
             const avlc = data.avlc || {};
             const src = avlc.src || {};
             const dst = avlc.dst || {};
             const acars = avlc.acars || {};
             const xid = avlc.xid || {};
-            const rows = [];
+            const flight = acars.flight || '';
+            const freq = data.freq ? (data.freq / 1000000).toFixed(3) + ' MHz' : '';
+            const title = flight || src.addr || 'VDL2 Message';
 
-            // Station & frequency
-            if (data.station) rows.push(['Station', escapeHtml(String(data.station))]);
-            if (data.freq) rows.push(['Frequency', (data.freq / 1000000).toFixed(3) + ' MHz']);
+            // Build connection fields
+            let connectionHtml = '';
+            const connFields = [];
+            if (data.station) connFields.push(['Station', String(data.station)]);
+            if (freq) connFields.push(['Frequency', freq]);
+            if (src.addr) connFields.push(['Source', String(src.addr) + (src.type ? ` (${src.type})` : '')]);
+            if (dst.addr) connFields.push(['Destination', String(dst.addr) + (dst.type ? ` (${dst.type})` : '')]);
+            if (avlc.cr) connFields.push(['Cmd/Response', avlc.cr]);
+            if (avlc.frame_type) connFields.push(['Frame Type', avlc.frame_type]);
+            if (data.agent_name) connFields.push(['Agent', data.agent_name]);
+            if (connFields.length) {
+                connectionHtml = `<div class="vdl2-modal-section">
+                    <div class="vdl2-modal-section-title">Connection</div>
+                    <div class="vdl2-modal-grid">${connFields.map(([l, v]) =>
+                        `<div class="vdl2-modal-field"><span class="vdl2-modal-field-label">${escapeHtml(l)}</span><span class="vdl2-modal-field-value">${escapeHtml(v)}</span></div>`
+                    ).join('')}</div>
+                </div>`;
+            }
 
-            // AVLC addressing
-            if (src.addr) rows.push(['Source', escapeHtml(String(src.addr)) + (src.type ? ` (${escapeHtml(src.type)})` : '')]);
-            if (dst.addr) rows.push(['Destination', escapeHtml(String(dst.addr)) + (dst.type ? ` (${escapeHtml(dst.type)})` : '')]);
-            if (avlc.cr) rows.push(['Command/Response', escapeHtml(avlc.cr)]);
-            if (avlc.frame_type) rows.push(['Frame Type', escapeHtml(avlc.frame_type)]);
+            // Build ACARS fields
+            let acarsHtml = '';
+            const acarsFields = [];
+            if (acars.reg) acarsFields.push(['Registration', acars.reg]);
+            if (acars.flight) acarsFields.push(['Flight', acars.flight]);
+            if (acars.mode) acarsFields.push(['Mode', acars.mode]);
+            if (acars.label) acarsFields.push(['Label', acars.label]);
+            if (acars.blk_id) acarsFields.push(['Block ID', acars.blk_id]);
+            if (acars.ack) acarsFields.push(['ACK', acars.ack]);
+            if (acars.msg_num) acarsFields.push(['Msg Number', acars.msg_num]);
+            if (acars.msg_num_seq) acarsFields.push(['Msg Seq', acars.msg_num_seq]);
+            if (acarsFields.length) {
+                acarsHtml = `<div class="vdl2-modal-section">
+                    <div class="vdl2-modal-section-title">ACARS</div>
+                    <div class="vdl2-modal-grid">${acarsFields.map(([l, v]) =>
+                        `<div class="vdl2-modal-field"><span class="vdl2-modal-field-label">${escapeHtml(l)}</span><span class="vdl2-modal-field-value">${escapeHtml(v)}</span></div>`
+                    ).join('')}</div>
+                </div>`;
+            }
 
-            // ACARS fields
-            if (acars.reg) rows.push(['Registration', escapeHtml(acars.reg)]);
-            if (acars.flight) rows.push(['Flight', escapeHtml(acars.flight)]);
-            if (acars.mode) rows.push(['Mode', escapeHtml(acars.mode)]);
-            if (acars.label) rows.push(['Label', escapeHtml(acars.label)]);
-            if (acars.blk_id) rows.push(['Block ID', escapeHtml(acars.blk_id)]);
-            if (acars.ack) rows.push(['ACK', escapeHtml(acars.ack)]);
-            if (acars.msg_num) rows.push(['Msg Number', escapeHtml(acars.msg_num)]);
-            if (acars.msg_num_seq) rows.push(['Msg Seq', escapeHtml(acars.msg_num_seq)]);
-
-            // XID fields
-            if (xid.vdl_params) {
-                const params = xid.vdl_params;
-                if (params.ac_location) {
-                    const loc = params.ac_location;
-                    if (loc.lat !== undefined && loc.lon !== undefined) {
-                        rows.push(['Position', `${loc.lat.toFixed(4)}, ${loc.lon.toFixed(4)}`]);
-                    }
+            // Position from XID
+            let posHtml = '';
+            if (xid.vdl_params?.ac_location) {
+                const loc = xid.vdl_params.ac_location;
+                if (loc.lat !== undefined && loc.lon !== undefined) {
+                    posHtml = `<div class="vdl2-modal-section">
+                        <div class="vdl2-modal-section-title">Position</div>
+                        <div class="vdl2-modal-grid">
+                            <div class="vdl2-modal-field"><span class="vdl2-modal-field-label">Latitude</span><span class="vdl2-modal-field-value">${loc.lat.toFixed(4)}</span></div>
+                            <div class="vdl2-modal-field"><span class="vdl2-modal-field-label">Longitude</span><span class="vdl2-modal-field-value">${loc.lon.toFixed(4)}</span></div>
+                        </div>
+                    </div>`;
                 }
             }
 
-            // Agent name (multi-SDR mode)
-            if (data.agent_name) rows.push(['Agent', escapeHtml(data.agent_name)]);
-
-            let html = '';
-            rows.forEach(([label, value]) => {
-                html += `<div class="vdl2-detail-row"><span class="vdl2-detail-label">${label}</span><span class="vdl2-detail-value">${value}</span></div>`;
-            });
-
             // Message body
             const msgText = acars.msg_text || '';
+            let bodyHtml = '';
             if (msgText) {
-                html += `<div class="vdl2-msg-body">${escapeHtml(msgText)}</div>`;
+                bodyHtml = `<div class="vdl2-modal-section">
+                    <div class="vdl2-modal-section-title">Message</div>
+                    <div class="vdl2-modal-msg-body">${escapeHtml(msgText)}</div>
+                </div>`;
             }
 
-            // Raw JSON toggle
+            // Raw JSON
             const rawJson = JSON.stringify(data, null, 2);
-            const rawId = 'vdl2raw_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-            html += `<span class="vdl2-raw-toggle" onclick="event.stopPropagation(); var el=document.getElementById('${rawId}'); el.style.display=el.style.display==='block'?'none':'block'; this.textContent=el.style.display==='block'?'▾ Hide raw JSON':'▸ Show raw JSON';">▸ Show raw JSON</span>`;
-            html += `<div class="vdl2-raw-json" id="${rawId}">${escapeHtml(rawJson)}</div>`;
+            const rawId = 'vdl2modal_raw_' + Date.now();
+            const rawHtml = `<div class="vdl2-modal-section">
+                <span class="vdl2-modal-raw-toggle" id="${rawId}_toggle">&#9656; Show raw JSON</span>
+                <div class="vdl2-modal-raw-json" id="${rawId}">${escapeHtml(rawJson)}</div>
+            </div>`;
 
-            return html;
+            const overlay = document.createElement('div');
+            overlay.className = 'vdl2-modal-overlay';
+            overlay.innerHTML = `
+                <div class="vdl2-modal">
+                    <div class="vdl2-modal-header">
+                        <div>
+                            <div class="vdl2-modal-title">${escapeHtml(title)}</div>
+                            <div class="vdl2-modal-time">${escapeHtml(timeStr)}${freq ? ' · ' + escapeHtml(freq) : ''}</div>
+                        </div>
+                        <button class="vdl2-modal-close" title="Close">&times;</button>
+                    </div>
+                    <div class="vdl2-modal-body">
+                        ${connectionHtml}
+                        ${acarsHtml}
+                        ${posHtml}
+                        ${bodyHtml}
+                        ${rawHtml}
+                    </div>
+                </div>
+            `;
+
+            // Close handlers
+            overlay.querySelector('.vdl2-modal-close').addEventListener('click', () => overlay.remove());
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+            // Raw JSON toggle
+            const rawToggle = overlay.querySelector(`#${rawId}_toggle`);
+            const rawEl = overlay.querySelector(`#${rawId}`);
+            rawToggle.addEventListener('click', () => {
+                const show = rawEl.style.display !== 'block';
+                rawEl.style.display = show ? 'block' : 'none';
+                rawToggle.innerHTML = show ? '&#9662; Hide raw JSON' : '&#9656; Show raw JSON';
+            });
+
+            // Escape key
+            const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
+            document.addEventListener('keydown', onKey);
+
+            document.body.appendChild(overlay);
         }
 
         function addVdl2Message(data) {
@@ -4457,30 +4522,18 @@ sudo make install</code>
             const time = new Date().toLocaleTimeString();
             const freq = data.freq ? (data.freq / 1000000).toFixed(3) : '';
             const label = flight || src || 'VDL2';
-            const hasContent = msgText || acars.label || avlc.frame_type;
 
             msg.innerHTML = `
-                <div class="vdl2-msg-summary">
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                            <span style="color: var(--accent-cyan); font-weight: bold;">${escapeHtml(label)}</span>
-                            <span style="color: var(--text-muted);">${time}</span>
-                        </div>
-                        <div style="color: var(--text-dim); font-size: 9px;">
-                            ${freq ? freq + ' MHz' : ''}${freq && acars.label ? ' · ' : ''}${acars.label ? 'Label: ' + escapeHtml(acars.label) : ''}${msgText ? ' · ' + escapeHtml(msgText.substring(0, 40)) + (msgText.length > 40 ? '…' : '') : ''}
-                        </div>
-                    </div>
-                    <span class="vdl2-expand-icon">&#9654;</span>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="color: var(--accent-cyan); font-weight: bold;">${escapeHtml(label)}</span>
+                    <span style="color: var(--text-muted);">${time}</span>
                 </div>
-                <div class="vdl2-msg-details">
-                    ${buildVdl2Details(data)}
+                <div style="color: var(--text-dim); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${freq ? freq + ' MHz' : ''}${freq && acars.label ? ' · ' : ''}${acars.label ? 'Label: ' + escapeHtml(acars.label) : ''}${msgText ? ' · ' + escapeHtml(msgText.substring(0, 50)) + (msgText.length > 50 ? '…' : '') : ''}
                 </div>
             `;
 
-            msg.addEventListener('click', function(e) {
-                if (e.target.closest('.vdl2-raw-toggle') || e.target.closest('.vdl2-raw-json')) return;
-                this.classList.toggle('expanded');
-            });
+            msg.addEventListener('click', () => showVdl2Modal(data, time));
 
             container.insertBefore(msg, container.firstChild);
 
