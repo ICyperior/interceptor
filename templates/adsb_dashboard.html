@@ -4372,6 +4372,74 @@ sudo make install</code>
             }, pollInterval);
         }
 
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function buildVdl2Details(data) {
+            const avlc = data.avlc || {};
+            const src = avlc.src || {};
+            const dst = avlc.dst || {};
+            const acars = avlc.acars || {};
+            const xid = avlc.xid || {};
+            const rows = [];
+
+            // Station & frequency
+            if (data.station) rows.push(['Station', escapeHtml(String(data.station))]);
+            if (data.freq) rows.push(['Frequency', (data.freq / 1000000).toFixed(3) + ' MHz']);
+
+            // AVLC addressing
+            if (src.addr) rows.push(['Source', escapeHtml(String(src.addr)) + (src.type ? ` (${escapeHtml(src.type)})` : '')]);
+            if (dst.addr) rows.push(['Destination', escapeHtml(String(dst.addr)) + (dst.type ? ` (${escapeHtml(dst.type)})` : '')]);
+            if (avlc.cr) rows.push(['Command/Response', escapeHtml(avlc.cr)]);
+            if (avlc.frame_type) rows.push(['Frame Type', escapeHtml(avlc.frame_type)]);
+
+            // ACARS fields
+            if (acars.reg) rows.push(['Registration', escapeHtml(acars.reg)]);
+            if (acars.flight) rows.push(['Flight', escapeHtml(acars.flight)]);
+            if (acars.mode) rows.push(['Mode', escapeHtml(acars.mode)]);
+            if (acars.label) rows.push(['Label', escapeHtml(acars.label)]);
+            if (acars.blk_id) rows.push(['Block ID', escapeHtml(acars.blk_id)]);
+            if (acars.ack) rows.push(['ACK', escapeHtml(acars.ack)]);
+            if (acars.msg_num) rows.push(['Msg Number', escapeHtml(acars.msg_num)]);
+            if (acars.msg_num_seq) rows.push(['Msg Seq', escapeHtml(acars.msg_num_seq)]);
+
+            // XID fields
+            if (xid.vdl_params) {
+                const params = xid.vdl_params;
+                if (params.ac_location) {
+                    const loc = params.ac_location;
+                    if (loc.lat !== undefined && loc.lon !== undefined) {
+                        rows.push(['Position', `${loc.lat.toFixed(4)}, ${loc.lon.toFixed(4)}`]);
+                    }
+                }
+            }
+
+            // Agent name (multi-SDR mode)
+            if (data.agent_name) rows.push(['Agent', escapeHtml(data.agent_name)]);
+
+            let html = '';
+            rows.forEach(([label, value]) => {
+                html += `<div class="vdl2-detail-row"><span class="vdl2-detail-label">${label}</span><span class="vdl2-detail-value">${value}</span></div>`;
+            });
+
+            // Message body
+            const msgText = acars.msg_text || '';
+            if (msgText) {
+                html += `<div class="vdl2-msg-body">${escapeHtml(msgText)}</div>`;
+            }
+
+            // Raw JSON toggle
+            const rawJson = JSON.stringify(data, null, 2);
+            const rawId = 'vdl2raw_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            html += `<span class="vdl2-raw-toggle" onclick="event.stopPropagation(); var el=document.getElementById('${rawId}'); el.style.display=el.style.display==='block'?'none':'block'; this.textContent=el.style.display==='block'?'▾ Hide raw JSON':'▸ Show raw JSON';">▸ Show raw JSON</span>`;
+            html += `<div class="vdl2-raw-json" id="${rawId}">${escapeHtml(rawJson)}</div>`;
+
+            return html;
+        }
+
         function addVdl2Message(data) {
             const container = document.getElementById('vdl2Messages');
 
@@ -4380,27 +4448,39 @@ sudo make install</code>
 
             const msg = document.createElement('div');
             msg.className = 'vdl2-message-item';
-            msg.style.cssText = 'padding: 6px 8px; border-bottom: 1px solid var(--border-color); font-size: 10px;';
 
-            const station = data.station || '';
             const avlc = data.avlc || {};
             const src = avlc.src?.addr || '';
-            const dst = avlc.dst?.addr || '';
             const acars = avlc.acars || {};
             const flight = acars.flight || '';
             const msgText = acars.msg_text || '';
             const time = new Date().toLocaleTimeString();
             const freq = data.freq ? (data.freq / 1000000).toFixed(3) : '';
+            const label = flight || src || 'VDL2';
+            const hasContent = msgText || acars.label || avlc.frame_type;
 
             msg.innerHTML = `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                    <span style="color: var(--accent-cyan); font-weight: bold;">${flight || src || 'VDL2'}</span>
-                    <span style="color: var(--text-muted);">${time}</span>
+                <div class="vdl2-msg-summary">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                            <span style="color: var(--accent-cyan); font-weight: bold;">${escapeHtml(label)}</span>
+                            <span style="color: var(--text-muted);">${time}</span>
+                        </div>
+                        <div style="color: var(--text-dim); font-size: 9px;">
+                            ${freq ? freq + ' MHz' : ''}${freq && acars.label ? ' · ' : ''}${acars.label ? 'Label: ' + escapeHtml(acars.label) : ''}${msgText ? ' · ' + escapeHtml(msgText.substring(0, 40)) + (msgText.length > 40 ? '…' : '') : ''}
+                        </div>
+                    </div>
+                    <span class="vdl2-expand-icon">&#9654;</span>
                 </div>
-                ${freq ? `<div style="color: var(--text-dim); font-size: 9px;">${freq} MHz</div>` : ''}
-                ${dst ? `<div style="color: var(--text-muted); font-size: 9px;">To: ${dst}</div>` : ''}
-                ${msgText ? `<div style="color: var(--text-primary); margin-top: 3px; word-break: break-word;">${msgText}</div>` : ''}
+                <div class="vdl2-msg-details">
+                    ${buildVdl2Details(data)}
+                </div>
             `;
+
+            msg.addEventListener('click', function(e) {
+                if (e.target.closest('.vdl2-raw-toggle') || e.target.closest('.vdl2-raw-json')) return;
+                this.classList.toggle('expanded');
+            });
 
             container.insertBefore(msg, container.firstChild);
 
