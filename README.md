@@ -32,6 +32,7 @@ Support the developer of this open-source project
 - **Aircraft Tracking** - ADS-B via dump1090 with real-time map and radar
 - **Vessel Tracking** - AIS ship tracking with VHF DSC distress monitoring
 - **ACARS Messaging** - Aircraft datalink messages via acarsdec
+- **VDL2** - VHF Data Link Mode 2 aircraft datalink decoding via dumpvdl2
 - **Listening Post** - Wideband frequency scanner with real-time audio monitoring
 - **Weather Satellites** - NOAA APT and Meteor LRPT image decoding via SatDump with auto-scheduler
 - **WebSDR** - Remote HF/shortwave listening via KiwiSDR network
@@ -244,6 +245,7 @@ Created by **smittix** - [GitHub](https://github.com/smittix)
 [acarsdec](https://github.com/TLeconte/acarsdec) |
 [direwolf](https://github.com/wb2osz/direwolf) |
 [rtl_amr](https://github.com/bemasher/rtlamr) |
+[dumpvdl2](https://github.com/szpajder/dumpvdl2) |
 [aircrack-ng](https://www.aircrack-ng.org/) |
 [Leaflet.js](https://leafletjs.com/) |
 [SatDump](https://github.com/SatDump/SatDump) |

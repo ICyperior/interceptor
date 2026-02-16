@@ -99,6 +99,18 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
 - **Message filtering** - filter by message type, flight, or registration
 
+## VDL2 (VHF Data Link Mode 2)
+
+- **Real-time VDL2 decoding** via dumpvdl2 on standard VDL2 frequencies
+- **ACARS-over-AVLC** message capture with full frame parsing
+- **Signal analysis** - frequency, signal level, noise level, SNR, burst length
+- **AVLC frame details** - source/destination addresses, frame type, command/response
+- **Raw JSON inspection** - expandable raw message data for each frame
+- **Multi-frequency monitoring** - simultaneous reception on multiple VDL2 channels
+- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+- **CSV/JSON export** - export captured messages for offline analysis
+- **Integrated with ADS-B dashboard** - VDL2 messages linked to aircraft tracking
+
 ## Listening Post
 
 - **Wideband frequency scanning** via rtl_power sweep with SNR filtering
@@ -122,11 +134,23 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **Receiver discovery** with automatic caching
 - **Frequency tuning** with band presets
 
+## ISS SSTV
+
+- **ISS SSTV image reception** on 145.800 MHz FM during special event transmissions
+- **Real-time ISS tracking** with world map and pass predictions
+- **Doppler correction** - optional lat/lon input for real-time frequency shift compensation
+- **Next pass countdown** - time remaining until ISS is overhead
+- **Image gallery** with timestamped decoded imagery
+- **TLE updates** - fetch latest ISS orbital elements
+- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+
 ## HF SSTV
 
 - **Terrestrial SSTV decoding** across HF (80m-10m), VHF (6m, 2m), and UHF (70cm) bands
-- **Predefined frequency lookup** for active SSTV calling frequencies
+- **Predefined frequency lookup** for 13 active SSTV calling frequencies
+- **Auto-modulation selection** - frequency table maps to correct mode (USB, LSB, FM)
 - **Image gallery** with decoded transmissions
+- **Common modes supported** - PD120, PD180, Martin1, Scottie1, Robot36
 
 ## APRS
 

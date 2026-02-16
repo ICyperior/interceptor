@@ -245,18 +245,74 @@ section h2 {
     background: var(--bg-secondary);
 }
 
-.features-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
+/* Category filter tabs */
+.carousel-filters {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 0.5px;
+}
+
+.filter-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+.filter-btn.active {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border-color: var(--accent);
+}
+
+/* Carousel */
+.carousel-wrapper {
+    position: relative;
+    padding: 0 56px;
+}
+
+.carousel-track {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 8px 0 16px;
+}
+
+.carousel-track::-webkit-scrollbar {
+    display: none;
 }
 
 .feature-card {
+    flex: 0 0 280px;
+    scroll-snap-align: start;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 32px 24px;
     transition: all 0.3s;
+    min-height: 200px;
+}
+
+.feature-card.hidden {
+    display: none;
 }
 
 .feature-card:hover {
@@ -266,8 +322,15 @@ section h2 {
 }
 
 .feature-icon {
-    font-size: 2rem;
+    width: 36px;
+    height: 36px;
     margin-bottom: 16px;
+    color: var(--accent);
+}
+
+.feature-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .feature-card h3 {
@@ -281,6 +344,81 @@ section h2 {
     font-size: 0.9rem;
     color: var(--text-secondary);
     line-height: 1.7;
+}
+
+/* Carousel arrows */
+.carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    line-height: 1;
+}
+
+.carousel-arrow:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.carousel-arrow:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.carousel-arrow:disabled:hover {
+    background: var(--bg-card);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+.carousel-arrow-left {
+    left: 0;
+}
+
+.carousel-arrow-right {
+    right: 0;
+}
+
+/* Carousel indicators */
+.carousel-indicators {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 28px;
+}
+
+.carousel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s;
+    padding: 0;
+}
+
+.carousel-dot.active {
+    background: var(--accent);
+    width: 24px;
+    border-radius: 4px;
+}
+
+.carousel-dot:hover {
+    background: var(--text-muted);
 }
 
 /* Screenshots */
@@ -641,8 +779,12 @@ section h2 {
         margin: 0 auto;
     }
 
-    .features-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .carousel-wrapper {
+        padding: 0 48px;
+    }
+
+    .feature-card {
+        flex: 0 0 260px;
     }
 
     .screenshot-gallery {
@@ -669,8 +811,25 @@ section h2 {
         gap: 24px;
     }
 
-    .features-grid {
-        grid-template-columns: 1fr;
+    .carousel-wrapper {
+        padding: 0 4px;
+    }
+
+    .carousel-arrow {
+        display: none;
+    }
+
+    .feature-card {
+        flex: 0 0 260px;
+    }
+
+    .carousel-filters {
+        gap: 6px;
+    }
+
+    .filter-btn {
+        font-size: 0.7rem;
+        padding: 6px 14px;
     }
 
     .screenshot-gallery {

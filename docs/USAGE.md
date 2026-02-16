@@ -69,6 +69,22 @@ INTERCEPT automatically detects known trackers:
 
 Common ISM band protocols including garage doors, key fobs, weather stations, and IoT devices in the 300-928 MHz range.
 
+## VDL2 (Aircraft Datalink)
+
+1. **Select Hardware** - Choose your SDR type
+2. **Select Device** - Choose your SDR device
+3. **Set Frequencies** - Default VDL2 frequencies are pre-configured (136.975, 136.725, 136.775 MHz etc.)
+4. **Start Decoding** - Click "Start" to begin VDL2 reception via dumpvdl2
+5. **View Messages** - AVLC frames appear with source/destination, signal levels, and decoded content
+6. **Inspect Details** - Click a message to view full AVLC frame details and raw JSON
+7. **Export** - Use CSV or JSON export buttons to save captured messages
+
+### Tips
+
+- VDL2 is most active near airports and along flight corridors
+- Multiple frequencies can be monitored simultaneously for better coverage
+- VDL2 data is also accessible from the ADS-B dashboard
+
 ## Listening Post
 
 1. **Select Hardware** - Choose your SDR type
@@ -109,6 +125,23 @@ The system highlights aircraft transmitting emergency squawks:
 - **7500** - Hijack
 - **7600** - Radio failure
 - **7700** - General emergency
+
+## ACARS Messaging
+
+1. **Select Hardware** - Choose your SDR type
+2. **Select Device** - Choose your SDR device
+3. **Select Region** - Choose North America, Europe, or Asia-Pacific to auto-populate frequencies
+4. **Select Frequencies** - Check one or more ACARS frequencies (131.550 MHz primary worldwide, 130.025 MHz secondary USA/Canada, etc.)
+5. **Adjust Gain** - Set gain (0 for auto, or 0-50 dB)
+6. **Start Decoding** - Click "Start" to begin ACARS reception via acarsdec
+7. **View Messages** - Aircraft messages appear in real-time with flight ID, registration, and content
+
+### Tips
+
+- A vertical polarization antenna works best for ACARS
+- Quarter-wave dipole: 57 cm per element at 130 MHz
+- Stock SDR antenna may work at close range near airports
+- Outdoor placement with clear sky view significantly improves reception
 
 ## ADS-B History (Optional)
 
@@ -221,6 +254,61 @@ Digital Selective Calling monitoring runs alongside AIS:
 - Distress positions plotted with pulsing alert markers
 - Audio alerts for critical messages
 
+## WebSDR
+
+1. **Set Frequency** - Enter a frequency in kHz (e.g., 6500 for 6.5 MHz)
+2. **Select Mode** - Choose demodulation mode (USB, LSB, AM, CW)
+3. **Find Receivers** - Click "Find Receivers" to discover available KiwiSDR nodes worldwide
+4. **Select Receiver** - Click a receiver from the list to connect
+5. **Listen** - Audio streams in real-time via WebSocket
+6. **Adjust Volume** - Use the volume slider and monitor the S-meter
+7. **Spy Station Presets** - Use the quick-tune buttons to jump to known number station frequencies
+
+### Tips
+
+- Requires an internet connection to access the KiwiSDR network
+- Receiver list is cached for 1 hour to reduce API load
+- Receivers are sorted by distance from your location
+- Integrated spy station presets allow quick tuning to SIGINT targets
+
+## ISS SSTV
+
+1. **Select Hardware** - Choose your SDR type
+2. **Select Device** - Choose your SDR device
+3. **Set Frequency** - Default is 145.800 MHz (ISS downlink)
+4. **Set Location** - Enter lat/lon for Doppler correction and pass prediction
+5. **Update TLE** - Click "Update TLE" to fetch latest ISS orbital elements
+6. **Wait for Pass** - The next pass countdown shows when ISS will be overhead
+7. **Start Decoding** - Click "Start" to begin SSTV reception
+8. **View Images** - Decoded SSTV images appear in the gallery with timestamps
+
+### Tips
+
+- A V-dipole or better antenna is required (stock antenna will not work)
+- V-dipole construction: 51 cm per element at 145.8 MHz, 120-degree angle between elements
+- ISS SSTV events occur during special anniversaries and missions — check ARISS for schedules
+- Best passes have elevation > 30 degrees above horizon
+- Doppler shift tracking dramatically improves reception quality
+- Common SSTV modes: PD120, PD180, Martin1, Scottie1
+- Outdoor antenna placement with clear sky view is essential
+
+## HF SSTV
+
+1. **Select Hardware** - Choose your SDR type
+2. **Select Device** - Choose your SDR device
+3. **Select Frequency** - Choose from 13 preset frequencies or enter a custom one
+4. **Modulation** - Auto-selected based on frequency (USB for HF, FM for VHF/UHF)
+5. **Start Decoding** - Click "Start" to begin SSTV reception
+6. **View Images** - Decoded amateur radio images appear in the gallery
+
+### Tips
+
+- HF frequencies (3-30 MHz) require an upconverter with RTL-SDR
+- VHF/UHF frequencies (145 MHz, 433 MHz) work directly with RTL-SDR
+- Most popular frequency: 14.230 MHz USB (20m band) with regular activity
+- Weekend activity peaks on most HF bands
+- Amateur license is not required to receive (listen-only)
+
 ## APRS
 
 1. **Select Hardware** - Choose your SDR type
@@ -283,6 +371,46 @@ Digital Selective Calling monitoring runs alongside AIS:
 - GPS fix may take 30-60 seconds after cold start
 - Accuracy improves with more satellites in view
 
+## TSCM (Counter-Surveillance)
+
+1. **Select Sweep Type** - Choose from Quick Scan (2 min), Standard (5 min), Full Sweep (15 min), or presets for Wireless Cameras, Body-Worn Devices, or GPS Trackers
+2. **Select Scan Sources** - Toggle WiFi, Bluetooth, and/or RF/SDR scanning and select the appropriate interfaces
+3. **Select Baseline** - Optionally choose a previously recorded baseline to compare against
+4. **Start Sweep** - Click "Start Sweep" to begin scanning
+5. **Review Results** - Detected devices are classified and scored by threat level
+6. **Record Baseline** - In a known clean environment, record a baseline for future comparison
+7. **Export Report** - Generate PDF report, JSON annex, or CSV data
+
+### Threat Levels
+
+- **Informational (0-2)** - Known or expected devices
+- **Needs Review (3-5)** - Unusual devices requiring assessment
+- **High Interest (6+)** - Multiple indicators warrant investigation
+
+### Tips
+
+- Record a baseline in a known clean environment before conducting sweeps
+- Use the meeting window feature to flag new RF signatures during sensitive periods
+- Full functionality requires WiFi adapter, Bluetooth adapter, and SDR hardware
+- Threat detection uses a database of 47K+ known tracker fingerprints
+
+## Spy Stations
+
+1. **Browse Database** - View the full list of documented number stations and diplomatic networks
+2. **Filter by Type** - Toggle between Number Stations and Diplomatic Networks
+3. **Filter by Country** - Select specific countries (Russia, Cuba, Israel, Poland, etc.)
+4. **Filter by Mode** - Filter by demodulation mode (USB, AM, CW, OFDM)
+5. **View Details** - Click "Details" on a station card for full information
+6. **Tune In** - Click "Tune In" to route the station frequency to the Listening Post or WebSDR
+
+### Tips
+
+- Data sourced from priyom.org (non-profit monitoring community)
+- Most activity is on HF bands (3-30 MHz) — propagation varies by time of day
+- Notable stations: UVB-76 "The Buzzer" (4625 kHz), E06 English Man, HM01 Cuban Numbers
+- Legal to monitor in most countries (check local regulations)
+- No decryption or content decoding is included — this is a reference database
+
 ## Meshtastic
 
 1. **Connect Device** - Plug in a Meshtastic device via USB or connect via TCP
@@ -290,6 +418,22 @@ Digital Selective Calling monitoring runs alongside AIS:
 3. **View Messages** - Real-time message stream from the mesh
 4. **View Nodes** - Connected nodes displayed with signal metrics (RSSI, SNR)
 5. **Send Messages** - Type messages to broadcast on the mesh
+
+## Offline Mode
+
+1. **Open Settings** - Click the gear icon in the navigation bar
+2. **Offline Tab** - Toggle "Offline Mode" to enable local assets
+3. **Configure Sources** - Switch assets and fonts from CDN to local
+4. **Set Tile Provider** - Choose a map tile provider or enter a custom tile server URL
+5. **Check Assets** - Click "Check Assets" to verify all local files are present
+
+### Tips
+
+- Download required assets: Leaflet JS/CSS, Chart.js, Inter and JetBrains Mono fonts
+- Assets are stored in the `static/vendor/` directory
+- For maps, you need a local tile server (e.g., self-hosted OpenStreetMap tiles)
+- Missing assets fail gracefully with console warnings
+- Useful for air-gapped environments, field deployments, or reducing latency
 
 ## Remote Agents (Distributed SIGINT)
 
