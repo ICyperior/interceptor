@@ -616,6 +616,7 @@ install_acarsdec_from_source_macos() {
     info "Compiling acarsdec..."
     build_log="$tmp_dir/acarsdec-build.log"
     if cmake .. -Drtl=ON \
+         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
          -DCMAKE_C_FLAGS="-I${HOMEBREW_PREFIX}/include" \
          -DCMAKE_EXE_LINKER_FLAGS="-L${HOMEBREW_PREFIX}/lib" \
          >"$build_log" 2>&1 \
@@ -1018,7 +1019,7 @@ install_acarsdec_from_source_debian() {
     mkdir -p build && cd build
 
     info "Compiling acarsdec..."
-    if cmake .. -Drtl=ON >/dev/null 2>&1 && make >/dev/null 2>&1; then
+    if cmake .. -Drtl=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 >/dev/null 2>&1 && make >/dev/null 2>&1; then
       $SUDO install -m 0755 acarsdec /usr/local/bin/acarsdec
       ok "acarsdec installed successfully."
     else

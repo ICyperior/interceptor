@@ -137,7 +137,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && git clone --depth 1 https://github.com/TLeconte/acarsdec.git \
     && cd acarsdec \
     && mkdir build && cd build \
-    && cmake .. -Drtl=ON \
+    && cmake .. -Drtl=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     && make \
     && cp acarsdec /usr/bin/acarsdec \
     && rm -rf /tmp/acarsdec \
