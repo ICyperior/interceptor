@@ -4378,73 +4378,100 @@ sudo make install</code>
             return div.innerHTML;
         }
 
+        // Unwrap dumpvdl2 JSON: data may have fields at top level or nested under data.vdl2
+        function unwrapVdl2(data) {
+            if (data.vdl2 && typeof data.vdl2 === 'object') return data.vdl2;
+            return data;
+        }
+
         function showVdl2Modal(data, timeStr) {
             // Remove any existing modal
             const existing = document.querySelector('.vdl2-modal-overlay');
             if (existing) existing.remove();
 
-            const avlc = data.avlc || {};
+            const inner = unwrapVdl2(data);
+            const avlc = inner.avlc || {};
             const src = avlc.src || {};
             const dst = avlc.dst || {};
             const acars = avlc.acars || {};
             const xid = avlc.xid || {};
             const flight = acars.flight || '';
-            const freq = data.freq ? (data.freq / 1000000).toFixed(3) + ' MHz' : '';
+            const freq = inner.freq ? (inner.freq / 1000000).toFixed(3) + ' MHz' : '';
             const title = flight || src.addr || 'VDL2 Message';
 
-            // Build connection fields
-            let connectionHtml = '';
-            const connFields = [];
-            if (data.station) connFields.push(['Station', String(data.station)]);
-            if (freq) connFields.push(['Frequency', freq]);
-            if (src.addr) connFields.push(['Source', String(src.addr) + (src.type ? ` (${src.type})` : '')]);
-            if (dst.addr) connFields.push(['Destination', String(dst.addr) + (dst.type ? ` (${dst.type})` : '')]);
-            if (avlc.cr) connFields.push(['Cmd/Response', avlc.cr]);
-            if (avlc.frame_type) connFields.push(['Frame Type', avlc.frame_type]);
-            if (data.agent_name) connFields.push(['Agent', data.agent_name]);
-            if (connFields.length) {
-                connectionHtml = `<div class="vdl2-modal-section">
-                    <div class="vdl2-modal-section-title">Connection</div>
-                    <div class="vdl2-modal-grid">${connFields.map(([l, v]) =>
-                        `<div class="vdl2-modal-field"><span class="vdl2-modal-field-label">${escapeHtml(l)}</span><span class="vdl2-modal-field-value">${escapeHtml(v)}</span></div>`
+            // Build section helper
+            function buildSection(titleText, fields) {
+                if (!fields.length) return '';
+                return `<div class="vdl2-modal-section">
+                    <div class="vdl2-modal-section-title">${titleText}</div>
+                    <div class="vdl2-modal-grid">${fields.map(([l, v]) =>
+                        `<div class="vdl2-modal-field"><span class="vdl2-modal-field-label">${escapeHtml(l)}</span><span class="vdl2-modal-field-value">${escapeHtml(String(v))}</span></div>`
                     ).join('')}</div>
                 </div>`;
             }
 
-            // Build ACARS fields
-            let acarsHtml = '';
+            // Radio / signal fields
+            const radioFields = [];
+            if (freq) radioFields.push(['Frequency', freq]);
+            if (inner.sig_level != null) radioFields.push(['Signal', inner.sig_level.toFixed(1) + ' dB']);
+            if (inner.noise_level != null) radioFields.push(['Noise', inner.noise_level.toFixed(1) + ' dB']);
+            if (inner.sig_level != null && inner.noise_level != null) radioFields.push(['SNR', (inner.sig_level - inner.noise_level).toFixed(1) + ' dB']);
+            if (inner.freq_skew != null) radioFields.push(['Freq Skew', inner.freq_skew.toFixed(2) + ' Hz']);
+            if (inner.burst_len_octets != null) radioFields.push(['Burst Length', inner.burst_len_octets + ' octets']);
+            if (inner.octets_corrected_by_fec != null) radioFields.push(['FEC Corrections', String(inner.octets_corrected_by_fec)]);
+            if (inner.hdr_bits_fixed != null) radioFields.push(['Header Bits Fixed', String(inner.hdr_bits_fixed)]);
+            if (inner.idx != null) radioFields.push(['SDR Index', String(inner.idx)]);
+            if (inner.station) radioFields.push(['Station', String(inner.station)]);
+            if (data.agent_name) radioFields.push(['Agent', data.agent_name]);
+            const radioHtml = buildSection('Radio', radioFields);
+
+            // Timestamp from dumpvdl2
+            let tsStr = '';
+            if (inner.t) {
+                const d = new Date(inner.t.sec * 1000);
+                tsStr = d.toISOString().replace('T', ' ').replace('Z', '') + ' UTC';
+            }
+
+            // AVLC frame fields
+            const frameFields = [];
+            if (src.addr) frameFields.push(['Source', String(src.addr) + (src.type ? ' (' + src.type + ')' : '')]);
+            if (dst.addr) frameFields.push(['Destination', String(dst.addr) + (dst.type ? ' (' + dst.type + ')' : '')]);
+            if (avlc.cr) frameFields.push(['Cmd/Response', avlc.cr]);
+            if (avlc.frame_type) frameFields.push(['Frame Type', avlc.frame_type]);
+            if (avlc.rseq != null) frameFields.push(['R-Seq', String(avlc.rseq)]);
+            if (avlc.sseq != null) frameFields.push(['S-Seq', String(avlc.sseq)]);
+            if (avlc.poll != null) frameFields.push(['Poll/Final', avlc.poll ? 'Yes' : 'No']);
+            const frameHtml = buildSection('AVLC Frame', frameFields);
+
+            // ACARS fields
             const acarsFields = [];
             if (acars.reg) acarsFields.push(['Registration', acars.reg]);
             if (acars.flight) acarsFields.push(['Flight', acars.flight]);
             if (acars.mode) acarsFields.push(['Mode', acars.mode]);
             if (acars.label) acarsFields.push(['Label', acars.label]);
+            if (acars.sublabel) acarsFields.push(['Sublabel', acars.sublabel]);
             if (acars.blk_id) acarsFields.push(['Block ID', acars.blk_id]);
-            if (acars.ack) acarsFields.push(['ACK', acars.ack]);
+            if (acars.ack) acarsFields.push(['ACK', acars.ack === '!' ? 'NAK' : acars.ack]);
             if (acars.msg_num) acarsFields.push(['Msg Number', acars.msg_num]);
             if (acars.msg_num_seq) acarsFields.push(['Msg Seq', acars.msg_num_seq]);
-            if (acarsFields.length) {
-                acarsHtml = `<div class="vdl2-modal-section">
-                    <div class="vdl2-modal-section-title">ACARS</div>
-                    <div class="vdl2-modal-grid">${acarsFields.map(([l, v]) =>
-                        `<div class="vdl2-modal-field"><span class="vdl2-modal-field-label">${escapeHtml(l)}</span><span class="vdl2-modal-field-value">${escapeHtml(v)}</span></div>`
-                    ).join('')}</div>
-                </div>`;
-            }
+            if (acars.more != null) acarsFields.push(['More Follows', acars.more ? 'Yes' : 'No']);
+            const acarsHtml = buildSection('ACARS', acarsFields);
 
-            // Position from XID
-            let posHtml = '';
-            if (xid.vdl_params?.ac_location) {
-                const loc = xid.vdl_params.ac_location;
-                if (loc.lat !== undefined && loc.lon !== undefined) {
-                    posHtml = `<div class="vdl2-modal-section">
-                        <div class="vdl2-modal-section-title">Position</div>
-                        <div class="vdl2-modal-grid">
-                            <div class="vdl2-modal-field"><span class="vdl2-modal-field-label">Latitude</span><span class="vdl2-modal-field-value">${loc.lat.toFixed(4)}</span></div>
-                            <div class="vdl2-modal-field"><span class="vdl2-modal-field-label">Longitude</span><span class="vdl2-modal-field-value">${loc.lon.toFixed(4)}</span></div>
-                        </div>
-                    </div>`;
+            // XID fields
+            const xidFields = [];
+            if (xid.type_descr) xidFields.push(['Type', xid.type_descr]);
+            if (xid.vdl_params) {
+                const params = xid.vdl_params;
+                if (params.ac_location) {
+                    const loc = params.ac_location;
+                    if (loc.lat != null) xidFields.push(['Latitude', loc.lat.toFixed(4)]);
+                    if (loc.lon != null) xidFields.push(['Longitude', loc.lon.toFixed(4)]);
+                    if (loc.alt != null) xidFields.push(['Altitude', loc.alt + ' ft']);
                 }
+                if (params.dst_airport) xidFields.push(['Destination', params.dst_airport]);
+                if (params.modulation_support) xidFields.push(['Modulation', params.modulation_support]);
             }
+            const xidHtml = buildSection('XID', xidFields);
 
             // Message body
             const msgText = acars.msg_text || '';
@@ -4471,14 +4498,15 @@ sudo make install</code>
                     <div class="vdl2-modal-header">
                         <div>
                             <div class="vdl2-modal-title">${escapeHtml(title)}</div>
-                            <div class="vdl2-modal-time">${escapeHtml(timeStr)}${freq ? ' · ' + escapeHtml(freq) : ''}</div>
+                            <div class="vdl2-modal-time">${escapeHtml(tsStr || timeStr)}${freq ? ' · ' + escapeHtml(freq) : ''}</div>
                         </div>
                         <button class="vdl2-modal-close" title="Close">&times;</button>
                     </div>
                     <div class="vdl2-modal-body">
-                        ${connectionHtml}
+                        ${radioHtml}
+                        ${frameHtml}
                         ${acarsHtml}
-                        ${posHtml}
+                        ${xidHtml}
                         ${bodyHtml}
                         ${rawHtml}
                     </div>
@@ -4514,14 +4542,15 @@ sudo make install</code>
             const msg = document.createElement('div');
             msg.className = 'vdl2-message-item';
 
-            const avlc = data.avlc || {};
+            const inner = unwrapVdl2(data);
+            const avlc = inner.avlc || {};
             const src = avlc.src?.addr || '';
             const acars = avlc.acars || {};
             const flight = acars.flight || '';
             const msgText = acars.msg_text || '';
             const time = new Date().toLocaleTimeString();
-            const freq = data.freq ? (data.freq / 1000000).toFixed(3) : '';
-            const label = flight || src || 'VDL2';
+            const freq = inner.freq ? (inner.freq / 1000000).toFixed(3) : '';
+            const label = flight || src || (avlc.frame_type || 'VDL2');
 
             msg.innerHTML = `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
