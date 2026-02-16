@@ -291,7 +291,7 @@ const GPS = (function() {
 
             // PRN label
             ctx.fillStyle = color;
-            ctx.font = '8px JetBrains Mono, monospace';
+            ctx.font = '8px Roboto Condensed, monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             ctx.fillText(sat.prn, px, py - dotSize - 2);
@@ -299,7 +299,7 @@ const GPS = (function() {
             // SNR value
             if (sat.snr != null) {
                 ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                ctx.font = '7px JetBrains Mono, monospace';
+                ctx.font = '7px Roboto Condensed, monospace';
                 ctx.textBaseline = 'top';
                 ctx.fillText(Math.round(sat.snr), px, py + dotSize + 1);
             }
@@ -331,7 +331,7 @@ const GPS = (function() {
             ctx.stroke();
             // Label
             ctx.fillStyle = '#555';
-            ctx.font = '9px JetBrains Mono, monospace';
+            ctx.font = '9px Roboto Condensed, monospace';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(el + '\u00b0', cx + gr + 3, cy - 2);
@@ -346,7 +346,7 @@ const GPS = (function() {
 
         // Cardinal directions
         ctx.fillStyle = '#888';
-        ctx.font = 'bold 11px JetBrains Mono, monospace';
+        ctx.font = 'bold 11px Roboto Condensed, monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('N', cx, cy - r - 12);

@@ -14,7 +14,7 @@
     z-index: 10000;
     overflow-y: auto;
     padding: 40px 20px;
-    font-family: var(--font-mono, 'IBM Plex Mono', 'Space Mono', ui-monospace, monospace);
+    font-family: var(--font-mono, 'Roboto Condensed', 'Arial Narrow', sans-serif);
 }
 
 .help-modal.active {
@@ -155,7 +155,7 @@
     border: none;
     color: var(--text-secondary, #9ca3af);
     cursor: pointer;
-    font-family: var(--font-mono, 'IBM Plex Mono', 'Space Mono', ui-monospace, monospace);
+    font-family: var(--font-mono, 'Roboto Condensed', 'Arial Narrow', sans-serif);
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -200,7 +200,7 @@
     background: var(--bg-tertiary, #151a23);
     padding: 1px 5px;
     border-radius: 3px;
-    font-family: var(--font-mono, 'IBM Plex Mono', 'Space Mono', ui-monospace, monospace);
+    font-family: var(--font-mono, 'Roboto Condensed', 'Arial Narrow', sans-serif);
     font-size: 10.5px;
     color: var(--accent-cyan, #4a9eff);
 }

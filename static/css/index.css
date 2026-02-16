@@ -5,8 +5,8 @@
 }
 
 :root {
-    --font-sans: 'IBM Plex Mono', 'Space Mono', ui-monospace, 'SF Mono', 'Consolas', 'Menlo', monospace;
-    --font-mono: 'IBM Plex Mono', 'Space Mono', ui-monospace, 'SF Mono', 'Consolas', 'Menlo', monospace;
+    --font-sans: 'Roboto Condensed', 'Arial Narrow', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'Roboto Condensed', 'Arial Narrow', Roboto, 'Helvetica Neue', Arial, sans-serif;
     /* Tactical dark palette */
     --bg-primary: #0b1118;
     --bg-secondary: #101823;
@@ -6372,7 +6372,7 @@ body::before {
 }
 
 .module-header {
-    font-family: 'Orbitron', 'Space Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     font-size: 10px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -6550,7 +6550,7 @@ body::before {
 /* Listening Mode Selector Buttons */
 .radio-mode-btn {
     padding: 12px 24px;
-    font-family: 'Orbitron', 'Space Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;

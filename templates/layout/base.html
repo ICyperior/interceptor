@@ -6,12 +6,8 @@
     <title>{% block title %}iNTERCEPT{% endblock %} // iNTERCEPT</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
-    {# Fonts - Conditional CDN/Local loading #}
-    {% if offline_settings and offline_settings.fonts_source == 'local' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
-    {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    {% endif %}
+    {# Fonts #}
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     {# Core CSS (Design System) #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">

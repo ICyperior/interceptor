@@ -566,7 +566,7 @@ const WeatherSat = (function() {
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
                         <span class="wxsat-pass-quality ${pass.quality}">${pass.quality}</span>
-                        <span style="font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">${countdown}</span>
+                        <span style="font-size: 10px; color: var(--text-dim); font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;">${countdown}</span>
                     </div>
                     <div style="margin-top: 6px; text-align: right;">
                         <button class="wxsat-strip-btn" onclick="event.stopPropagation(); WeatherSat.startPass('${escapeHtml(pass.satellite)}')" style="font-size: 10px; padding: 2px 8px;">Capture</button>
@@ -610,7 +610,7 @@ const WeatherSat = (function() {
             ctx.stroke();
             // Label
             ctx.fillStyle = '#555';
-            ctx.font = '9px JetBrains Mono, monospace';
+            ctx.font = '9px Roboto Condensed, monospace';
             ctx.textAlign = 'left';
             ctx.fillText(el + '\u00b0', cx + gr + 3, cy - 2);
         });
@@ -624,7 +624,7 @@ const WeatherSat = (function() {
 
         // Cardinal directions
         ctx.fillStyle = '#666';
-        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.font = '10px Roboto Condensed, monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('N', cx, cy - r - 10);
@@ -692,7 +692,7 @@ const WeatherSat = (function() {
         ctx.arc(cx + r * maxR * Math.cos(maxAz), cy + r * maxR * Math.sin(maxAz), 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = color;
-        ctx.font = '9px JetBrains Mono, monospace';
+        ctx.font = '9px Roboto Condensed, monospace';
         ctx.textAlign = 'center';
         ctx.fillText(Math.round(maxEl) + '\u00b0', cx + r * maxR * Math.cos(maxAz), cy + r * maxR * Math.sin(maxAz) - 8);
     }

@@ -6,7 +6,7 @@
     <title>AIRCRAFT RADAR // INTERCEPT - See the Invisible</title>
     <!-- Fonts - Conditional CDN/Local loading -->
     {% if offline_settings.fonts_source == 'local' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {% else %}
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
@@ -1454,7 +1454,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Range label
                     const rangeNm = Math.round(maxRange * ratio);
                     ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-                    ctx.font = '10px Space Mono';
+                    ctx.font = '10px Roboto Condensed';
                     ctx.fillText(`${rangeNm}`, this.centerX + r + 5, this.centerY + 4);
                 });
             }
@@ -1595,7 +1595,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     // Label
                     if (blip.callsign || blip.selected) {
                         ctx.fillStyle = '#00ffff';
-                        ctx.font = '9px Space Mono';
+                        ctx.font = '9px Roboto Condensed';
                         ctx.textAlign = 'left';
                         ctx.fillText(blip.callsign || blip.icao, blip.x + 8, blip.y - 5);
                         if (blip.altitude) {
@@ -1713,7 +1713,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 // Range label
                 const rangeNm = Math.round(maxRange * ratio);
                 ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
-                ctx.font = '10px Space Mono';
+                ctx.font = '10px Roboto Condensed';
                 ctx.fillText(`${rangeNm}nm`, centerX + r + 5, centerY);
             });
 

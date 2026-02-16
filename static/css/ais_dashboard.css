@@ -8,8 +8,8 @@
 }
 
 :root {
-    --font-sans: 'IBM Plex Mono', 'Space Mono', ui-monospace, 'SF Mono', 'Consolas', 'Menlo', monospace;
-    --font-mono: 'IBM Plex Mono', 'Space Mono', ui-monospace, 'SF Mono', 'Consolas', 'Menlo', monospace;
+    --font-sans: 'Roboto Condensed', 'Arial Narrow', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'Roboto Condensed', 'Arial Narrow', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --bg-dark: #0b1118;
     --bg-panel: #101823;
     --bg-card: #151f2b;
@@ -496,7 +496,7 @@ body {
     padding: 10px 15px;
     background: rgba(74, 158, 255, 0.05);
     border-bottom: 1px solid rgba(74, 158, 255, 0.1);
-    font-family: 'Orbitron', 'Space Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 2px;
@@ -568,7 +568,7 @@ body {
 }
 
 .vessel-name {
-    font-family: 'Orbitron', 'Space Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     font-size: 16px;
     font-weight: 700;
     color: var(--accent-cyan);
@@ -662,7 +662,7 @@ body {
 }
 
 .vessel-item-name {
-    font-family: 'Orbitron', 'Space Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     font-size: 12px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -1223,7 +1223,7 @@ body {
 }
 
 .dsc-distress-alert .dsc-alert-header {
-    font-family: 'Orbitron', 'Space Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     font-size: 24px;
     font-weight: 700;
     color: var(--accent-red);

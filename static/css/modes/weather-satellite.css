@@ -49,7 +49,7 @@
 .wxsat-strip-status-text {
     font-size: 12px;
     color: var(--text-secondary, #999);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-strip-btn {
@@ -59,7 +59,7 @@
     background: transparent;
     color: var(--text-primary, #e0e0e0);
     font-size: 11px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -92,7 +92,7 @@
 
 .wxsat-strip-value {
     font-size: 13px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     color: var(--text-primary, #e0e0e0);
 }
 
@@ -114,7 +114,7 @@
     gap: 6px;
     cursor: pointer;
     font-size: 10px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     color: var(--text-dim, #666);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -146,7 +146,7 @@
     border-radius: 3px;
     color: var(--text-primary, #e0e0e0);
     font-size: 11px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-loc-input:focus {
@@ -225,7 +225,7 @@
 .wxsat-cd-value {
     font-size: 16px;
     font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     color: var(--text-primary, #e0e0e0);
     line-height: 1;
 }
@@ -248,13 +248,13 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--accent-cyan, #00d4ff);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-countdown-detail {
     font-size: 10px;
     color: var(--text-dim, #666);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 /* ===== Timeline ===== */
@@ -314,7 +314,7 @@
     justify-content: space-between;
     font-size: 8px;
     color: var(--text-dim, #666);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 /* ===== Pass Predictions Panel ===== */
@@ -349,7 +349,7 @@
 .wxsat-passes-count {
     font-size: 11px;
     color: var(--accent-cyan, #00d4ff);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-passes-list {
@@ -387,7 +387,7 @@
     background: rgba(255, 187, 0, 0.15);
     color: #ffbb00;
     margin-left: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -409,7 +409,7 @@
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 3px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-pass-mode.apt {
@@ -428,7 +428,7 @@
     gap: 4px;
     font-size: 11px;
     color: var(--text-dim, #666);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-pass-detail-label {
@@ -499,7 +499,7 @@
 .wxsat-panel-subtitle {
     font-size: 10px;
     color: var(--accent-cyan, #00d4ff);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 #wxsatPolarCanvas {
@@ -547,7 +547,7 @@
 .wxsat-gallery-count {
     font-size: 11px;
     color: var(--accent-cyan, #00d4ff);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-gallery-grid {
@@ -636,7 +636,7 @@
 .wxsat-image-product {
     font-size: 10px;
     color: var(--accent-cyan, #00d4ff);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-image-timestamp {
@@ -649,7 +649,7 @@
 .wxsat-date-header {
     grid-column: 1 / -1;
     font-size: 11px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     color: var(--text-dim, #666);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -708,7 +708,7 @@
 .wxsat-capture-message {
     font-size: 11px;
     color: var(--text-secondary, #999);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -719,7 +719,7 @@
 .wxsat-capture-elapsed {
     font-size: 11px;
     color: var(--text-dim, #666);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     flex-shrink: 0;
 }
 
@@ -785,7 +785,7 @@
     border-radius: 4px;
     color: var(--text-secondary, #999);
     font-size: 12px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     text-align: center;
 }
 
@@ -941,7 +941,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
 .wxsat-phase-step {
@@ -1012,7 +1012,7 @@
     max-height: 160px;
     padding: 6px 12px;
     background: var(--bg-primary, #0d1117);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
     font-size: 10px;
     line-height: 1.6;
 }

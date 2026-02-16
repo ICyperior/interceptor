@@ -434,6 +434,6 @@ a.nav-dashboard-btn:hover {
 }
 
 .nav-dashboard-btn .nav-label {
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-mono, 'Roboto Condensed', 'Arial Narrow', sans-serif);
     letter-spacing: 0.5px;
 }

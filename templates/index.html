@@ -25,12 +25,8 @@
         window.INTERCEPT_DEFAULT_LON = {{ default_longitude | tojson }};
     </script>
     <script src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
-    <!-- Fonts - Conditional CDN/Local loading -->
-    {% if offline_settings.fonts_source == 'local' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
-    {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% endif %}
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Leaflet.js for APRS map - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
@@ -2562,7 +2558,7 @@
 
                     <!-- Signal Scope -->
                     <div id="sstvScopePanel" style="display: none; margin-bottom: 12px;">
-                        <div style="background: #0a0a0a; border: 1px solid #1e1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                        <div style="background: #0a0a0a; border: 1px solid #1e1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
                                 <span>Signal Scope</span>
                                 <div style="display: flex; gap: 14px;">
@@ -2829,7 +2825,7 @@
 
                     <!-- Signal Scope -->
                     <div id="sstvGeneralScopePanel" style="display: none; margin-bottom: 12px;">
-                        <div style="background: #0a0a0a; border: 1px solid #1e1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                        <div style="background: #0a0a0a; border: 1px solid #1e1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
                                 <span>Signal Scope</span>
                                 <div style="display: flex; gap: 14px;">
@@ -2921,7 +2917,7 @@
 
                 <!-- Pager Signal Scope -->
                 <div id="pagerScopePanel" style="display: none; margin-bottom: 12px;">
-                    <div style="background: #0a0a0a; border: 1px solid #1a1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a1a2e; border-radius: 6px; padding: 8px 10px; font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
                             <span>Signal Scope</span>
                             <div style="display: flex; gap: 14px;">
@@ -2939,7 +2935,7 @@
 
                 <!-- Sensor Signal Scope -->
                 <div id="sensorScopePanel" style="display: none; margin-bottom: 12px;">
-                    <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px; font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
                             <span>Signal Scope</span>
                             <div style="display: flex; gap: 14px;">
@@ -5852,7 +5848,7 @@
 
             const infoEl = document.createElement('div');
             infoEl.className = 'info-msg';
-            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "Space Mono", monospace; font-size: 11px; color: #888; word-break: break-all;';
+            infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "Roboto Condensed", "Arial Narrow", sans-serif; font-size: 11px; color: #888; word-break: break-all;';
             infoEl.textContent = text;
             output.insertBefore(infoEl, output.firstChild);
         }
@@ -5868,7 +5864,7 @@
 
             const errorEl = document.createElement('div');
             errorEl.className = 'error-msg';
-            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "Space Mono", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
+            errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "Roboto Condensed", "Arial Narrow", sans-serif; font-size: 11px; color: #ff6688; word-break: break-all;';
             errorEl.textContent = '⚠ ' + text;
             output.insertBefore(errorEl, output.firstChild);
         }
@@ -8522,7 +8518,7 @@
 
             // Draw total in center
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 16px Space Mono';
+            ctx.font = 'bold 16px Roboto Condensed';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(total, cx, cy);
@@ -10342,7 +10338,7 @@
                 // Label
                 if (el > 0) {
                     ctx.fillStyle = '#444';
-                    ctx.font = '10px Space Mono';
+                    ctx.font = '10px Roboto Condensed';
                     ctx.textAlign = 'center';
                     ctx.fillText(el + '°', cx, cy - r + 12);
                 }
@@ -10415,7 +10411,7 @@
 
                 // Label
                 ctx.fillStyle = '#fff';
-                ctx.font = '11px Space Mono';
+                ctx.font = '11px Roboto Condensed';
                 ctx.fillText(pass.satellite, maxX + 10, maxY - 5);
             }
         }

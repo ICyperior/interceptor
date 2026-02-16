@@ -833,11 +833,11 @@ function renderUpdateStatus(data) {
             <div style="display: grid; gap: 8px; font-size: 12px;">
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-dim);">Current Version</span>
-                    <span style="font-family: 'Space Mono', monospace; color: var(--text-primary);">v${data.current_version}</span>
+                    <span style="font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif; color: var(--text-primary);">v${data.current_version}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-dim);">Latest Version</span>
-                    <span style="font-family: 'Space Mono', monospace; color: ${data.update_available ? 'var(--accent-green)' : 'var(--text-primary)'};">v${data.latest_version}</span>
+                    <span style="font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif; color: ${data.update_available ? 'var(--accent-green)' : 'var(--text-primary)'};">v${data.latest_version}</span>
                 </div>
                 ${data.last_check ? `
                 <div style="display: flex; justify-content: space-between;">

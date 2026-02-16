@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ADS-B History // INTERCEPT</title>
     {% if offline_settings.fonts_source == 'local' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {% else %}
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
@@ -472,7 +472,7 @@
 
             if (!points.length) {
                 ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
-                ctx.font = '12px "Space Mono", monospace';
+                ctx.font = '12px "Roboto Condensed", "Arial Narrow", sans-serif';
                 ctx.fillText(`No ${label.toLowerCase()} data`, 12, height / 2);
                 return;
             }
@@ -480,7 +480,7 @@
             const series = points.map(p => p[field]).filter(v => v !== null && v !== undefined);
             if (!series.length) {
                 ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
-                ctx.font = '12px "Space Mono", monospace';
+                ctx.font = '12px "Roboto Condensed", "Arial Narrow", sans-serif';
                 ctx.fillText(`No ${label.toLowerCase()} data`, 12, height / 2);
                 return;
             }
@@ -521,7 +521,7 @@
             }
 
             ctx.fillStyle = 'rgba(226, 232, 240, 0.8)';
-            ctx.font = '11px "Space Mono", monospace';
+            ctx.font = '11px "Roboto Condensed", "Arial Narrow", sans-serif';
             ctx.fillText(`${maxVal} ${unit}`, 12, padding);
             ctx.fillText(`${minVal} ${unit}`, 12, height - padding);
         }

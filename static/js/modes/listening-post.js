@@ -1483,7 +1483,7 @@ function drawAudioVisualizer() {
             }
 
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.font = '8px Space Mono';
+            ctx.font = '8px Roboto Condensed';
             ctx.fillText('0', 2, canvas.height - 2);
             ctx.fillText('4kHz', canvas.width / 4, canvas.height - 2);
             ctx.fillText('8kHz', canvas.width / 2, canvas.height - 2);

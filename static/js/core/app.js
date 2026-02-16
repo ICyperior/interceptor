@@ -373,7 +373,7 @@ function showInfo(text) {
 
     const infoEl = document.createElement('div');
     infoEl.className = 'info-msg';
-    infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "Space Mono", monospace; font-size: 11px; color: #888; word-break: break-all;';
+    infoEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #0a0a0a; border: 1px solid #1a1a1a; border-left: 2px solid #00d4ff; font-family: "Roboto Condensed", "Arial Narrow", sans-serif; font-size: 11px; color: #888; word-break: break-all;';
     infoEl.textContent = text;
     output.insertBefore(infoEl, output.firstChild);
 }
@@ -387,7 +387,7 @@ function showError(text) {
 
     const errorEl = document.createElement('div');
     errorEl.className = 'error-msg';
-    errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "Space Mono", monospace; font-size: 11px; color: #ff6688; word-break: break-all;';
+    errorEl.style.cssText = 'padding: 12px 15px; margin-bottom: 8px; background: #1a0a0a; border: 1px solid #2a1a1a; border-left: 2px solid #ff3366; font-family: "Roboto Condensed", "Arial Narrow", sans-serif; font-size: 11px; color: #ff6688; word-break: break-all;';
     errorEl.textContent = '⚠ ' + text;
     output.insertBefore(errorEl, output.firstChild);
 }

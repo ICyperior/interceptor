@@ -6,7 +6,7 @@
     <title>VESSEL RADAR // INTERCEPT - See the Invisible</title>
     <!-- Fonts - Conditional CDN/Local loading -->
     {% if offline_settings.fonts_source == 'local' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {% else %}
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}

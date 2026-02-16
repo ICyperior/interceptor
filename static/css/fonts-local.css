@@ -1,18 +1,3 @@
 /* Local font declarations for offline mode */
-
-/* Space Mono - Console font */
-@font-face {
-    font-family: 'Space Mono';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url('/static/vendor/fonts/SpaceMono-Regular.woff2') format('woff2');
-}
-
-@font-face {
-    font-family: 'Space Mono';
-    font-style: normal;
-    font-weight: 700;
-    font-display: swap;
-    src: url('/static/vendor/fonts/SpaceMono-Bold.woff2') format('woff2');
-}
+/* Note: Roboto Condensed local files not yet bundled - this is a placeholder */
+/* Font is loaded via Google Fonts CDN; offline mode will fall back to Arial Narrow / system sans-serif */
