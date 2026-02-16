@@ -198,6 +198,7 @@
                         <span>VDL2 MESSAGES</span>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span id="vdl2Count" style="font-size: 10px; color: var(--accent-cyan);">0</span>
+                            <button onclick="exportVdl2Csv()" title="Export VDL2 to CSV" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; font-size: 9px; padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono);">CSV</button>
                             <div class="panel-indicator" id="vdl2PanelIndicator"></div>
                         </div>
                     </div>
@@ -4113,6 +4114,7 @@ sudo make install</code>
         let vdl2CurrentAgent = null;
         let vdl2PollTimer = null;
         let vdl2MessageCount = 0;
+        let vdl2CollectedData = [];
         let vdl2SidebarCollapsed = localStorage.getItem('vdl2SidebarCollapsed') !== 'false';
         let vdl2Frequencies = {
             'na': ['136975000', '136100000', '136650000', '136700000', '136800000'],
@@ -4226,6 +4228,7 @@ sudo make install</code>
                 if (vdl2Result.status === 'started' || vdl2Result.status === 'success') {
                     isVdl2Running = true;
                     vdl2MessageCount = 0;
+                    vdl2CollectedData = [];
                     document.getElementById('vdl2ToggleBtn').innerHTML = '&#9632; STOP VDL2';
                     document.getElementById('vdl2ToggleBtn').classList.add('active');
                     document.getElementById('vdl2PanelIndicator').classList.add('active');
@@ -4550,6 +4553,27 @@ sudo make install</code>
             const msgText = acars.msg_text || '';
             const time = new Date().toLocaleTimeString();
             const freq = inner.freq ? (inner.freq / 1000000).toFixed(3) : '';
+
+            // Store for CSV export
+            vdl2CollectedData.push({
+                timestamp: new Date().toISOString(),
+                frequency: freq ? freq + ' MHz' : '',
+                source: avlc.src?.addr || '',
+                source_type: avlc.src?.type || '',
+                destination: avlc.dst?.addr || '',
+                destination_type: avlc.dst?.type || '',
+                frame_type: avlc.frame_type || '',
+                flight: flight,
+                registration: acars.reg || '',
+                label: acars.label || '',
+                sublabel: acars.sublabel || '',
+                block_id: acars.blk_id || '',
+                msg_number: acars.msg_num || '',
+                message: msgText.replace(/\n/g, ' '),
+                signal_level: inner.sig_level != null ? inner.sig_level.toFixed(1) : '',
+                noise_level: inner.noise_level != null ? inner.noise_level.toFixed(1) : '',
+                agent: data.agent_name || ''
+            });
             const label = flight || src || (avlc.frame_type || 'VDL2');
 
             msg.innerHTML = `
@@ -4569,6 +4593,28 @@ sudo make install</code>
             while (container.children.length > 50) {
                 container.removeChild(container.lastChild);
             }
+        }
+
+        function exportVdl2Csv() {
+            if (vdl2CollectedData.length === 0) {
+                alert('No VDL2 messages to export.');
+                return;
+            }
+            const headers = Object.keys(vdl2CollectedData[0]);
+            const csvRows = [headers.join(',')];
+            for (const row of vdl2CollectedData) {
+                csvRows.push(headers.map(h => {
+                    const val = String(row[h] || '');
+                    return '"' + val.replace(/"/g, '""') + '"';
+                }).join(','));
+            }
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vdl2_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         // Populate VDL2 device selector
