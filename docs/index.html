@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <canvas id="bg-canvas"></canvas>
     <nav class="navbar">
         <div class="nav-container">
             <a href="#" class="nav-logo">iNTERCEPT</a>
@@ -491,6 +492,232 @@ docker compose up -d</code></pre>
             updateArrows();
             window.addEventListener('resize', () => { buildIndicators(); updateArrows(); });
         })();
+    </script>
+
+    <script>
+    // Animated satellite & signal background
+    (function() {
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let w, h, dpr;
+        let orbits = [];
+        let pulses = [];
+        let particles = [];
+        let mouse = { x: -1000, y: -1000 };
+
+        function resize() {
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            w = window.innerWidth;
+            h = document.documentElement.scrollHeight;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        // Orbital paths with satellites
+        function createOrbits() {
+            orbits = [];
+            const count = Math.max(4, Math.floor(w / 300));
+            for (let i = 0; i < count; i++) {
+                const cx = Math.random() * w;
+                const cy = Math.random() * h;
+                const rx = 120 + Math.random() * 280;
+                const ry = 40 + Math.random() * 100;
+                const tilt = (Math.random() - 0.5) * 1.2;
+                const speed = (0.0002 + Math.random() * 0.0004) * (Math.random() > 0.5 ? 1 : -1);
+                const sats = [];
+                const satCount = 1 + Math.floor(Math.random() * 2);
+                for (let j = 0; j < satCount; j++) {
+                    sats.push({ angle: Math.random() * Math.PI * 2, pulseTimer: 0 });
+                }
+                orbits.push({ cx, cy, rx, ry, tilt, speed, sats });
+            }
+        }
+
+        // Floating signal particles (tiny dots drifting upward)
+        function createParticles() {
+            particles = [];
+            const count = Math.max(30, Math.floor((w * h) / 25000));
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    vy: -(0.08 + Math.random() * 0.15),
+                    vx: (Math.random() - 0.5) * 0.1,
+                    size: 0.5 + Math.random() * 1.2,
+                    alpha: 0.1 + Math.random() * 0.25,
+                    flicker: Math.random() * Math.PI * 2,
+                });
+            }
+        }
+
+        function spawnPulse(x, y) {
+            pulses.push({ x, y, r: 2, maxR: 50 + Math.random() * 40, alpha: 0.35 });
+        }
+
+        function drawOrbitPath(orbit) {
+            ctx.save();
+            ctx.translate(orbit.cx, orbit.cy);
+            ctx.rotate(orbit.tilt);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, orbit.rx, orbit.ry, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 212, 170, 0.04)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawSatellite(orbit, sat, dt) {
+            sat.angle += orbit.speed * dt;
+            const cos = Math.cos(orbit.tilt);
+            const sin = Math.sin(orbit.tilt);
+            const ex = orbit.rx * Math.cos(sat.angle);
+            const ey = orbit.ry * Math.sin(sat.angle);
+            const sx = orbit.cx + ex * cos - ey * sin;
+            const sy = orbit.cy + ex * sin + ey * cos;
+
+            // Satellite dot
+            ctx.beginPath();
+            ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 212, 170, 0.7)';
+            ctx.fill();
+
+            // Faint glow
+            ctx.beginPath();
+            ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+            const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, 6);
+            g.addColorStop(0, 'rgba(0, 212, 170, 0.15)');
+            g.addColorStop(1, 'rgba(0, 212, 170, 0)');
+            ctx.fillStyle = g;
+            ctx.fill();
+
+            // Periodic signal pulse
+            sat.pulseTimer += dt;
+            if (sat.pulseTimer > 3000 + Math.random() * 500) {
+                sat.pulseTimer = 0;
+                spawnPulse(sx, sy);
+            }
+        }
+
+        function drawPulses(dt) {
+            for (let i = pulses.length - 1; i >= 0; i--) {
+                const p = pulses[i];
+                p.r += dt * 0.025;
+                p.alpha = 0.35 * (1 - p.r / p.maxR);
+                if (p.r >= p.maxR) { pulses.splice(i, 1); continue; }
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 212, 170, ${p.alpha})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Second ring
+                if (p.r > 12) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r * 0.6, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(0, 136, 255, ${p.alpha * 0.5})`;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawParticles(dt, time) {
+            for (const p of particles) {
+                p.y += p.vy * dt * 0.06;
+                p.x += p.vx * dt * 0.06;
+                p.flicker += dt * 0.002;
+
+                if (p.y < -10) { p.y = h + 10; p.x = Math.random() * w; }
+                if (p.x < -10) p.x = w + 10;
+                if (p.x > w + 10) p.x = -10;
+
+                const flick = p.alpha * (0.6 + 0.4 * Math.sin(p.flicker));
+
+                // Mouse interaction - subtle brighten
+                const dx = p.x - mouse.x;
+                const dy = p.y - mouse.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const boost = dist < 150 ? 0.3 * (1 - dist / 150) : 0;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 212, 170, ${Math.min(flick + boost, 0.6)})`;
+                ctx.fill();
+            }
+        }
+
+        // Faint grid lines (signal grid)
+        function drawGrid(time) {
+            ctx.strokeStyle = 'rgba(0, 212, 170, 0.015)';
+            ctx.lineWidth = 1;
+            const spacing = 120;
+            const offset = (time * 0.005) % spacing;
+
+            for (let x = -spacing + offset; x < w + spacing; x += spacing) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            for (let y = -spacing + offset * 0.7; y < h + spacing; y += spacing) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+        }
+
+        let last = 0;
+        function animate(now) {
+            const dt = last ? Math.min(now - last, 50) : 16;
+            last = now;
+
+            ctx.clearRect(0, 0, w, h);
+            drawGrid(now);
+
+            for (const orbit of orbits) {
+                drawOrbitPath(orbit);
+                for (const sat of orbit.sats) {
+                    drawSatellite(orbit, sat, dt);
+                }
+            }
+
+            drawPulses(dt);
+            drawParticles(dt, now);
+
+            requestAnimationFrame(animate);
+        }
+
+        // Track mouse for particle interaction
+        document.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY + window.scrollY;
+        });
+
+        // Resize handling
+        let resizeTimer;
+        function handleResize() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                resize();
+                createOrbits();
+                createParticles();
+            }, 200);
+        }
+
+        // Keep canvas height synced with document
+        const ro = new ResizeObserver(() => { handleResize(); });
+        ro.observe(document.documentElement);
+        window.addEventListener('resize', handleResize);
+
+        resize();
+        createOrbits();
+        createParticles();
+        requestAnimationFrame(animate);
+    })();
     </script>
 </body>
 </html>
