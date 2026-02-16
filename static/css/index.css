@@ -706,6 +706,8 @@ header h1 {
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-color);
     padding: 0 20px;
+    position: relative;
+    z-index: 1100;
 }
 
 @media (min-width: 1024px) {
