@@ -13,6 +13,7 @@ def register_blueprints(app):
     from .ais import ais_bp
     from .dsc import dsc_bp
     from .acars import acars_bp
+    from .vdl2 import vdl2_bp
     from .aprs import aprs_bp
     from .satellite import satellite_bp
     from .gps import gps_bp
@@ -46,6 +47,7 @@ def register_blueprints(app):
     app.register_blueprint(ais_bp)
     app.register_blueprint(dsc_bp)  # VHF DSC maritime distress
     app.register_blueprint(acars_bp)
+    app.register_blueprint(vdl2_bp)
     app.register_blueprint(aprs_bp)
     app.register_blueprint(satellite_bp)
     app.register_blueprint(gps_bp)

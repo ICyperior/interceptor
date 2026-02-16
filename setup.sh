@@ -226,6 +226,7 @@ check_tools() {
   check_optional "hackrf_sweep"    "HackRF spectrum analyzer" hackrf_sweep
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
+  check_optional "dumpvdl2"    "VDL2 decoder" dumpvdl2
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
   check_optional "satdump" "Weather satellite decoder (NOAA/Meteor)" satdump
   echo
@@ -636,6 +637,80 @@ install_acarsdec_from_source_macos() {
   )
 }
 
+install_dumpvdl2_from_source_macos() {
+  info "Building dumpvdl2 from source (with libacars dependency)..."
+
+  brew_install cmake
+  brew_install librtlsdr
+  brew_install pkg-config
+  brew_install glib
+
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    HOMEBREW_PREFIX="$(brew --prefix)"
+    export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+    export CMAKE_PREFIX_PATH="${HOMEBREW_PREFIX}"
+
+    # Build libacars first
+    info "Cloning libacars..."
+    git clone --depth 1 https://github.com/szpajder/libacars.git "$tmp_dir/libacars" >/dev/null 2>&1 \
+      || { warn "Failed to clone libacars"; exit 1; }
+
+    cd "$tmp_dir/libacars"
+    mkdir -p build && cd build
+
+    info "Compiling libacars..."
+    build_log="$tmp_dir/libacars-build.log"
+    if cmake .. \
+         -DCMAKE_C_FLAGS="-I${HOMEBREW_PREFIX}/include" \
+         -DCMAKE_EXE_LINKER_FLAGS="-L${HOMEBREW_PREFIX}/lib" \
+         >"$build_log" 2>&1 \
+       && make >>"$build_log" 2>&1; then
+      if [[ -w /usr/local/lib ]]; then
+        make install >>"$build_log" 2>&1
+      else
+        refresh_sudo
+        $SUDO make install >>"$build_log" 2>&1
+      fi
+      ok "libacars installed"
+    else
+      warn "Failed to build libacars."
+      tail -20 "$build_log" | while IFS= read -r line; do warn "  $line"; done
+      exit 1
+    fi
+
+    # Build dumpvdl2
+    info "Cloning dumpvdl2..."
+    git clone --depth 1 https://github.com/szpajder/dumpvdl2.git "$tmp_dir/dumpvdl2" >/dev/null 2>&1 \
+      || { warn "Failed to clone dumpvdl2"; exit 1; }
+
+    cd "$tmp_dir/dumpvdl2"
+    mkdir -p build && cd build
+
+    info "Compiling dumpvdl2..."
+    build_log="$tmp_dir/dumpvdl2-build.log"
+    if cmake .. \
+         -DCMAKE_C_FLAGS="-I${HOMEBREW_PREFIX}/include" \
+         -DCMAKE_EXE_LINKER_FLAGS="-L${HOMEBREW_PREFIX}/lib" \
+         >"$build_log" 2>&1 \
+       && make >>"$build_log" 2>&1; then
+      if [[ -w /usr/local/bin ]]; then
+        install -m 0755 src/dumpvdl2 /usr/local/bin/dumpvdl2
+      else
+        refresh_sudo
+        $SUDO install -m 0755 src/dumpvdl2 /usr/local/bin/dumpvdl2
+      fi
+      ok "dumpvdl2 installed successfully from source"
+    else
+      warn "Failed to build dumpvdl2. VDL2 decoding will not be available."
+      warn "Build log (last 30 lines):"
+      tail -30 "$build_log" | while IFS= read -r line; do warn "  $line"; done
+    fi
+  )
+}
+
 install_aiscatcher_from_source_macos() {
   info "AIS-catcher not available via Homebrew. Building from source..."
 
@@ -874,6 +949,13 @@ install_macos_packages() {
     ok "acarsdec already installed"
   fi
 
+  progress "Installing dumpvdl2 (optional)"
+  if ! cmd_exists dumpvdl2; then
+    install_dumpvdl2_from_source_macos || warn "dumpvdl2 not available. VDL2 decoding will not be available."
+  else
+    ok "dumpvdl2 already installed"
+  fi
+
   progress "Installing AIS-catcher"
   if ! cmd_exists AIS-catcher && ! cmd_exists aiscatcher; then
     (brew_install aiscatcher) || install_aiscatcher_from_source_macos || warn "AIS-catcher not available"
@@ -1024,6 +1106,52 @@ install_acarsdec_from_source_debian() {
       ok "acarsdec installed successfully."
     else
       warn "Failed to build acarsdec from source. ACARS decoding will not be available."
+    fi
+  )
+}
+
+install_dumpvdl2_from_source_debian() {
+  info "Building dumpvdl2 from source (with libacars dependency)..."
+
+  apt_install build-essential git cmake \
+    librtlsdr-dev libusb-1.0-0-dev libglib2.0-dev libxml2-dev
+
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    # Build libacars first
+    info "Cloning libacars..."
+    git clone --depth 1 https://github.com/szpajder/libacars.git "$tmp_dir/libacars" >/dev/null 2>&1 \
+      || { warn "Failed to clone libacars"; exit 1; }
+
+    cd "$tmp_dir/libacars"
+    mkdir -p build && cd build
+
+    info "Compiling libacars..."
+    if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
+      $SUDO make install >/dev/null 2>&1
+      $SUDO ldconfig
+      ok "libacars installed"
+    else
+      warn "Failed to build libacars."
+      exit 1
+    fi
+
+    # Build dumpvdl2
+    info "Cloning dumpvdl2..."
+    git clone --depth 1 https://github.com/szpajder/dumpvdl2.git "$tmp_dir/dumpvdl2" >/dev/null 2>&1 \
+      || { warn "Failed to clone dumpvdl2"; exit 1; }
+
+    cd "$tmp_dir/dumpvdl2"
+    mkdir -p build && cd build
+
+    info "Compiling dumpvdl2..."
+    if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
+      $SUDO install -m 0755 src/dumpvdl2 /usr/local/bin/dumpvdl2
+      ok "dumpvdl2 installed successfully."
+    else
+      warn "Failed to build dumpvdl2 from source. VDL2 decoding will not be available."
     fi
   )
 }
@@ -1343,6 +1471,13 @@ install_debian_packages() {
     apt_install acarsdec || true
   fi
   cmd_exists acarsdec || install_acarsdec_from_source_debian
+
+  progress "Installing dumpvdl2 (optional)"
+  if ! cmd_exists dumpvdl2; then
+    install_dumpvdl2_from_source_debian || warn "dumpvdl2 not available. VDL2 decoding will not be available."
+  else
+    ok "dumpvdl2 already installed"
+  fi
 
   progress "Installing AIS-catcher"
   if ! cmd_exists AIS-catcher && ! cmd_exists aiscatcher; then

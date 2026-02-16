@@ -150,6 +150,11 @@ acars_process = None
 acars_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 acars_lock = threading.Lock()
 
+# VDL2 aircraft datalink
+vdl2_process = None
+vdl2_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+vdl2_lock = threading.Lock()
+
 # APRS amateur radio tracking
 aprs_process = None
 aprs_rtl_process = None
@@ -680,6 +685,7 @@ def health_check() -> Response:
             'adsb': adsb_process is not None and (adsb_process.poll() is None if adsb_process else False),
             'ais': ais_process is not None and (ais_process.poll() is None if ais_process else False),
             'acars': acars_process is not None and (acars_process.poll() is None if acars_process else False),
+            'vdl2': vdl2_process is not None and (vdl2_process.poll() is None if vdl2_process else False),
             'aprs': aprs_process is not None and (aprs_process.poll() is None if aprs_process else False),
             'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
             'bluetooth': bt_process is not None and (bt_process.poll() is None if bt_process else False),
@@ -702,6 +708,7 @@ def health_check() -> Response:
 def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
+    global vdl2_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
     global dmr_process, dmr_rtl_process
 
@@ -714,7 +721,7 @@ def kill_all() -> Response:
     processes_to_kill = [
         'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
-        'dump1090', 'acarsdec', 'direwolf', 'AIS-catcher',
+        'dump1090', 'acarsdec', 'dumpvdl2', 'direwolf', 'AIS-catcher',
         'hcitool', 'bluetoothctl', 'satdump', 'dsd',
         'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg',
         'hackrf_transfer', 'hackrf_sweep'
@@ -750,6 +757,10 @@ def kill_all() -> Response:
     # Reset ACARS state
     with acars_lock:
         acars_process = None
+
+    # Reset VDL2 state
+    with vdl2_lock:
+        vdl2_process = None
 
     # Reset APRS state
     with aprs_lock:

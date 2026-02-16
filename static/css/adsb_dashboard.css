@@ -419,6 +419,163 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* VDL2 sidebar (left of map, after ACARS) - Collapsible */
+.vdl2-sidebar {
+    display: none;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-color);
+    flex-direction: row;
+    overflow: hidden;
+    height: 100%;
+    min-height: 0;
+}
+
+@media (min-width: 1024px) {
+    .vdl2-sidebar {
+        display: flex;
+        max-height: calc(100dvh - 160px);
+    }
+}
+
+.vdl2-collapse-btn {
+    width: 28px;
+    min-width: 28px;
+    background: var(--bg-card);
+    border: none;
+    border-left: 1px solid var(--border-color);
+    color: var(--accent-cyan);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 0;
+    transition: background 0.2s;
+}
+
+.vdl2-collapse-btn:hover {
+    background: rgba(74, 158, 255, 0.2);
+}
+
+.vdl2-collapse-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.vdl2-sidebar.collapsed .vdl2-collapse-label {
+    display: block;
+}
+
+.vdl2-sidebar:not(.collapsed) .vdl2-collapse-label {
+    display: none;
+}
+
+#vdl2CollapseIcon {
+    font-size: 10px;
+    transition: transform 0.3s;
+}
+
+.vdl2-sidebar.collapsed #vdl2CollapseIcon {
+    transform: rotate(180deg);
+}
+
+.vdl2-sidebar-content {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.3s ease, opacity 0.2s ease;
+    height: 100%;
+    min-height: 0;
+}
+
+.vdl2-sidebar.collapsed .vdl2-sidebar-content {
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.vdl2-sidebar .panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.vdl2-sidebar .panel::before {
+    display: none;
+}
+
+.vdl2-sidebar .panel-header {
+    flex-shrink: 0;
+}
+
+.vdl2-sidebar #vdl2PanelContent {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.vdl2-sidebar .vdl2-info,
+.vdl2-sidebar .vdl2-controls {
+    flex-shrink: 0;
+}
+
+.vdl2-sidebar .vdl2-messages {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.vdl2-sidebar .vdl2-btn {
+    background: var(--accent-green);
+    border: none;
+    color: #fff;
+    padding: 6px 10px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 4px;
+}
+
+.vdl2-sidebar .vdl2-btn:hover {
+    background: #1db954;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+}
+
+.vdl2-sidebar .vdl2-btn.active {
+    background: var(--accent-red);
+}
+
+.vdl2-sidebar .vdl2-btn.active:hover {
+    background: #dc2626;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
+.vdl2-message-item {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 10px;
+    animation: fadeIn 0.3s ease;
+}
+
+.vdl2-message-item:hover {
+    background: rgba(74, 158, 255, 0.05);
+}
+
 /* Panels */
 .panel {
     background: var(--bg-panel);
@@ -627,12 +784,18 @@ body {
 /* Selected aircraft panel */
 .selected-aircraft {
     flex-shrink: 0;
-    max-height: 480px;
+    max-height: 280px;
     overflow-y: auto;
 }
 
+@media (min-height: 900px) {
+    .selected-aircraft {
+        max-height: 340px;
+    }
+}
+
 .selected-info {
-    padding: 12px;
+    padding: 8px;
 }
 
 #aircraftPhotoContainer {
@@ -640,7 +803,7 @@ body {
 }
 
 #aircraftPhotoContainer img {
-    max-height: 140px;
+    max-height: 100px;
     width: 100%;
     object-fit: cover;
     border-radius: 6px;
@@ -649,24 +812,24 @@ body {
 
 .selected-callsign {
     font-family: 'Orbitron', monospace;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--accent-cyan);
     text-shadow: 0 0 15px var(--accent-cyan);
     text-align: center;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
 .telemetry-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
+    gap: 4px;
 }
 
 .telemetry-item {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 4px;
-    padding: 8px;
+    padding: 5px 8px;
     border-left: 2px solid var(--accent-cyan);
 }
 
@@ -778,7 +941,8 @@ body {
     background: var(--bg-panel);
     border-top: 1px solid rgba(74, 158, 255, 0.3);
     font-size: 11px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .controls-bar > .control-group {
@@ -1489,6 +1653,10 @@ body {
     margin-top: 1px;
 }
 
+.strip-stat.source-stat .strip-value {
+    font-size: 11px;
+}
+
 .strip-stat.session-stat {
     background: rgba(34, 197, 94, 0.05);
     border-color: rgba(34, 197, 94, 0.2);
@@ -1779,6 +1947,9 @@ body {
 .strip-btn {
     position: relative;
     z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: rgba(74, 158, 255, 0.1);
     border: 1px solid rgba(74, 158, 255, 0.2);
     color: var(--text-primary);
@@ -1789,6 +1960,12 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
+    text-decoration: none;
+}
+
+.strip-btn svg {
+    flex-shrink: 0;
+    opacity: 0.7;
 }
 
 .strip-btn:hover:not(:disabled) {
