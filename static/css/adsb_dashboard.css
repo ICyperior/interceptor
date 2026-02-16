@@ -1260,6 +1260,15 @@ body {
 .control-group.airband-group {
     background: rgba(245, 158, 11, 0.05);
     border-color: rgba(245, 158, 11, 0.2);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.control-group.airband-group > .control-group-items {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
 }
 
 .control-group.airband-group .control-group-label {
@@ -1363,6 +1372,7 @@ body {
 /* Custom scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -1372,6 +1382,15 @@ body {
 ::-webkit-scrollbar-thumb {
     background: var(--accent-cyan);
     border-radius: 3px;
+}
+
+/* Hide scrollbar on controls bar */
+.controls-bar::-webkit-scrollbar {
+    display: none;
+}
+
+.controls-bar {
+    scrollbar-width: none;
 }
 
 /* No aircraft message */
