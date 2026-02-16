@@ -704,6 +704,72 @@ section h2 {
     gap: 16px;
 }
 
+/* Support & Contact */
+.support {
+    background: var(--bg-secondary);
+}
+
+.support-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+}
+
+.support-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.3s;
+    display: block;
+}
+
+.support-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent);
+    transform: translateY(-4px);
+}
+
+.support-card.support-coffee {
+    border-color: rgba(255, 193, 59, 0.3);
+}
+
+.support-card.support-coffee:hover {
+    border-color: #ffc13b;
+    box-shadow: 0 8px 30px rgba(255, 193, 59, 0.1);
+}
+
+.support-card.support-coffee .support-icon {
+    color: #ffc13b;
+}
+
+.support-icon {
+    width: 36px;
+    height: 36px;
+    margin: 0 auto 16px;
+    color: var(--accent);
+}
+
+.support-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.support-card h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.support-card p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
 /* Footer */
 .footer {
     background: var(--bg-secondary);
@@ -807,6 +873,10 @@ section h2 {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .support-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     .install-options {
         grid-template-columns: 1fr;
     }
@@ -849,6 +919,10 @@ section h2 {
     }
 
     .screenshot-gallery {
+        grid-template-columns: 1fr;
+    }
+
+    .support-grid {
         grid-template-columns: 1fr;
     }
 

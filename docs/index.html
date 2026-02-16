@@ -357,6 +357,36 @@ docker compose up -d</code></pre>
         </div>
     </section>
 
+    <section class="support">
+        <div class="container">
+            <h2>Support & Contact</h2>
+            <p class="section-subtitle">Help keep iNTERCEPT alive or get in touch</p>
+
+            <div class="support-grid">
+                <a href="https://www.buymeacoffee.com/smittix" target="_blank" class="support-card support-coffee">
+                    <div class="support-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></div>
+                    <h3>Buy Me a Coffee</h3>
+                    <p>Support development with a one-time donation</p>
+                </a>
+                <a href="#" id="email-card" class="support-card" onclick="return false;">
+                    <div class="support-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 4L12 13 2 4"/></svg></div>
+                    <h3>Email</h3>
+                    <p id="email-text">Click to reveal</p>
+                </a>
+                <a href="https://discord.gg/EyeksEJmWE" target="_blank" class="support-card">
+                    <div class="support-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="12" r="10"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+                    <h3>Discord</h3>
+                    <p>Join the community for help and discussion</p>
+                </a>
+                <a href="https://github.com/smittix/intercept/issues" target="_blank" class="support-card">
+                    <div class="support-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+                    <h3>Report an Issue</h3>
+                    <p>Bug reports and feature requests on GitHub</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
@@ -367,6 +397,8 @@ docker compose up -d</code></pre>
                 <div class="footer-links">
                     <a href="https://github.com/smittix/intercept" target="_blank">GitHub</a>
                     <a href="https://discord.gg/EyeksEJmWE" target="_blank">Discord</a>
+                    <a href="#" id="footer-email">Email</a>
+                    <a href="https://www.buymeacoffee.com/smittix" target="_blank">Donate</a>
                     <a href="https://github.com/smittix/intercept/blob/main/docs/USAGE.md">Documentation</a>
                     <a href="https://github.com/smittix/intercept/blob/main/docs/DISTRIBUTED_AGENTS.md">Remote Agents</a>
                 </div>
@@ -491,6 +523,31 @@ docker compose up -d</code></pre>
             buildIndicators();
             updateArrows();
             window.addEventListener('resize', () => { buildIndicators(); updateArrows(); });
+        })();
+
+        // Obfuscated email - assembled at runtime to defeat scrapers
+        (function() {
+            const p = ['smittix', 'outlook', 'com'];
+            const addr = p[0] + '@' + p[1] + '.' + p[2];
+            const card = document.getElementById('email-card');
+            const text = document.getElementById('email-text');
+            const footerLink = document.getElementById('footer-email');
+            let revealed = false;
+
+            card.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (!revealed) {
+                    text.textContent = addr;
+                    revealed = true;
+                } else {
+                    window.location.href = 'mail' + 'to:' + addr;
+                }
+            });
+
+            footerLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = 'mail' + 'to:' + addr;
+            });
         })();
     </script>
 
