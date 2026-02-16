@@ -216,6 +216,10 @@
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span>
                                 <span class="mode-name">Bluetooth</span>
                             </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('bt_locate')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/><path d="M9.5 8.5l3 3 2-4-2 4-3 3"/></svg></span>
+                                <span class="mode-name">BT Locate</span>
+                            </button>
                         </div>
                     </div>
 
@@ -439,6 +443,7 @@
                         <label style="font-size: 11px; color: #888; margin-bottom: 4px;">Hardware Type</label>
                         <select id="sdrTypeSelect" onchange="onSDRTypeChanged()">
                             <option value="rtlsdr">RTL-SDR</option>
+                            <option value="sdrplay">SDRplay</option>
                             <option value="limesdr">LimeSDR</option>
                             <option value="hackrf">HackRF</option>
                             <option value="airspy">Airspy</option>
@@ -790,7 +795,10 @@
                                     <div class="bt-detail-top-row">
                                         <div class="bt-detail-identity">
                                             <div class="bt-detail-name" id="btDetailName">Device Name</div>
-                                            <div class="bt-detail-address" id="btDetailAddress">00:00:00:00:00:00</div>
+                                            <div class="bt-detail-address">
+                                                <span id="btDetailAddress">00:00:00:00:00:00</span>
+                                                <span class="bt-mac-cluster-badge" id="btDetailMacCluster" style="display:none;"></span>
+                                            </div>
                                         </div>
                                         <div class="bt-detail-rssi-display">
                                             <span class="bt-detail-rssi-value" id="btDetailRssi">--</span>
@@ -831,8 +839,36 @@
                                             <span class="bt-detail-stat-label">Mfr ID</span>
                                             <span class="bt-detail-stat-value" id="btDetailMfrId">--</span>
                                         </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">TX Power</span>
+                                            <span class="bt-detail-stat-value" id="btDetailTxPower">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Seen Rate</span>
+                                            <span class="bt-detail-stat-value" id="btDetailSeenRate">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Stability</span>
+                                            <span class="bt-detail-stat-value" id="btDetailStability">--</span>
+                                        </div>
+                                        <div class="bt-detail-stat">
+                                            <span class="bt-detail-stat-label">Distance</span>
+                                            <span class="bt-detail-stat-value" id="btDetailDistance">--</span>
+                                        </div>
+                                    </div>
+                                    <!-- Service Data Inspector (collapsible) -->
+                                    <div class="bt-detail-service-inspector" id="btDetailServiceInspector" style="display:none;">
+                                        <div class="bt-inspector-toggle" onclick="BluetoothMode.toggleServiceInspector()">
+                                            <span class="bt-inspector-arrow" id="btInspectorArrow">&#9656;</span> Raw Data
+                                        </div>
+                                        <div class="bt-inspector-content" id="btInspectorContent" style="display:none;">
+                                        </div>
                                     </div>
                                     <div class="bt-detail-bottom-row">
+                                        <div class="bt-detail-irk" id="btDetailIrk" style="display: none;">
+                                            <span class="bt-irk-badge">IRK</span>
+                                            <span class="bt-detail-irk-value" id="btDetailIrkValue" style="font-size:10px;color:var(--text-dim);font-family:var(--font-mono);margin-left:6px;word-break:break-all;"></span>
+                                        </div>
                                         <div class="bt-detail-services" id="btDetailServices" style="display: none;">
                                             <span class="bt-detail-services-list" id="btDetailServicesList"></span>
                                         </div>
@@ -4942,8 +4978,10 @@
         // SDR hardware capabilities
         const sdrCapabilities = {
             'rtlsdr': { name: 'RTL-SDR', freq_min: 24, freq_max: 1766, gain_min: 0, gain_max: 50 },
+            'sdrplay': { name: 'SDRplay', freq_min: 0.001, freq_max: 2000, gain_min: 0, gain_max: 59 },
             'limesdr': { name: 'LimeSDR', freq_min: 0.1, freq_max: 3800, gain_min: 0, gain_max: 73 },
-            'hackrf': { name: 'HackRF', freq_min: 1, freq_max: 6000, gain_min: 0, gain_max: 62 }
+            'hackrf': { name: 'HackRF', freq_min: 1, freq_max: 6000, gain_min: 0, gain_max: 62 },
+            'airspy': { name: 'Airspy', freq_min: 24, freq_max: 1800, gain_min: 0, gain_max: 21 }
         };
 
         // Current device list with SDR type info
@@ -10170,6 +10208,20 @@
 
         let gpsReconnectTimeout = null;
 
+        // GPS subscriber callbacks - modules can register to receive GPS stream data
+        const gpsStreamSubscribers = [];
+
+        function addGpsStreamSubscriber(fn) {
+            if (!gpsStreamSubscribers.includes(fn)) {
+                gpsStreamSubscribers.push(fn);
+            }
+        }
+
+        function removeGpsStreamSubscriber(fn) {
+            const idx = gpsStreamSubscribers.indexOf(fn);
+            if (idx !== -1) gpsStreamSubscribers.splice(idx, 1);
+        }
+
         function startGpsStream() {
             if (gpsEventSource) {
                 gpsEventSource.close();
@@ -10187,6 +10239,8 @@
                         gpsLastPosition = data;
                         updateLocationFromGps(data);
                     }
+                    // Dispatch to all subscribers (e.g. GPS mode UI)
+                    gpsStreamSubscribers.forEach(fn => fn(data));
                 } catch (e) {
                     console.error('GPS parse error:', e);
                 }

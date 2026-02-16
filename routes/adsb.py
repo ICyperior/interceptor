@@ -38,6 +38,7 @@ from config import (
     SHARED_OBSERVER_LOCATION_ENABLED,
 )
 from utils.logging import adsb_logger as logger
+from utils.process import write_dump1090_pid, clear_dump1090_pid, cleanup_stale_dump1090
 from utils.validation import (
     validate_device_index, validate_gain,
     validate_rtl_tcp_host, validate_rtl_tcp_port
@@ -633,6 +634,9 @@ def start_adsb():
             'session': session
         })
 
+    # Kill any stale app-spawned dump1090 from a previous run before checking the port
+    cleanup_stale_dump1090()
+
     # Check if dump1090 is already running externally (e.g., user started it manually)
     existing_service = check_dump1090_service()
     if existing_service:
@@ -685,6 +689,7 @@ def start_adsb():
             except (ProcessLookupError, OSError):
                 pass
         app_module.adsb_process = None
+        clear_dump1090_pid()
         logger.info("Killed stale ADS-B process")
 
     # Check if device is available before starting local dump1090
@@ -721,6 +726,7 @@ def start_adsb():
             stderr=subprocess.PIPE,
             start_new_session=True  # Create new process group for clean shutdown
         )
+        write_dump1090_pid(app_module.adsb_process.pid)
 
         time.sleep(DUMP1090_START_WAIT)
 
@@ -819,6 +825,7 @@ def stop_adsb():
                 except (ProcessLookupError, OSError):
                     pass
             app_module.adsb_process = None
+            clear_dump1090_pid()
             logger.info("ADS-B process stopped")
 
         # Release device from registry

@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bluez \
     bluetooth \
     # GPS support
+    gpsd \
     gpsd-clients \
     # Utilities
     # APRS

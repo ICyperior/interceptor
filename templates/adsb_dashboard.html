@@ -3869,7 +3869,9 @@ sudo make install</code>
         }
 
         function startAcars() {
-            const device = document.getElementById('acarsDeviceSelect').value;
+            const acarsSelect = document.getElementById('acarsDeviceSelect');
+            const device = acarsSelect.value;
+            const sdr_type = acarsSelect.selectedOptions[0]?.dataset.sdrType || 'rtlsdr';
             const frequencies = getAcarsRegionFreqs();
 
             // Check if using agent mode
@@ -3895,7 +3897,7 @@ sudo make install</code>
             fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device, frequencies, gain: '40' })
+                body: JSON.stringify({ device, frequencies, gain: '40', sdr_type })
             })
             .then(r => r.json())
             .then(data => {
@@ -4101,6 +4103,7 @@ sudo make install</code>
                         devices.forEach((d, i) => {
                             const opt = document.createElement('option');
                             opt.value = d.index || i;
+                            opt.dataset.sdrType = d.sdr_type || 'rtlsdr';
                             opt.textContent = `SDR ${d.index || i}: ${d.name || d.type || 'SDR'}`;
                             select.appendChild(opt);
                         });
@@ -4880,6 +4883,7 @@ sudo make install</code>
                     devices.forEach(device => {
                         const opt = document.createElement('option');
                         opt.value = device.index;
+                        opt.dataset.sdrType = device.sdr_type || 'rtlsdr';
                         opt.textContent = `SDR ${device.index}: ${device.name || device.type || 'SDR'}`;
                         select.appendChild(opt);
                     });

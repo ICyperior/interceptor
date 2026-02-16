@@ -4119,7 +4119,7 @@ header h1 .tagline {
     border: 1px solid var(--border-color);
     border-radius: 6px;
     flex-shrink: 0;
-    height: 140px;
+    max-height: 340px;
     overflow: hidden;
 }
 
@@ -4140,7 +4140,9 @@ header h1 .tagline {
 
 .bt-detail-body {
     padding: 8px 10px;
-    height: calc(100% - 30px);
+    height: auto;
+    max-height: calc(100% - 30px);
+    overflow-y: auto;
 }
 
 .bt-detail-placeholder {
@@ -4319,6 +4321,110 @@ header h1 .tagline {
     color: #9fffd1;
 }
 
+/* Service Data Inspector */
+.bt-detail-service-inspector {
+    margin-bottom: 6px;
+}
+
+.bt-inspector-toggle {
+    font-size: 10px;
+    color: var(--accent-cyan);
+    cursor: pointer;
+    padding: 3px 0;
+    user-select: none;
+}
+
+.bt-inspector-toggle:hover {
+    color: #fff;
+}
+
+.bt-inspector-arrow {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 9px;
+}
+
+.bt-inspector-arrow.open {
+    transform: rotate(90deg);
+}
+
+.bt-inspector-content {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    max-height: 100px;
+    overflow-y: auto;
+    word-break: break-all;
+}
+
+.bt-inspector-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.bt-inspector-row:last-child {
+    border-bottom: none;
+}
+
+.bt-inspector-label {
+    color: var(--text-dim);
+    flex-shrink: 0;
+}
+
+.bt-inspector-value {
+    color: var(--text-primary);
+    text-align: right;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* MAC Cluster Badge */
+.bt-mac-cluster-badge {
+    display: inline-block;
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    font-size: 8px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* Behavioral Flag Badges */
+.bt-flag-badge {
+    display: inline-block;
+    font-size: 8px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+
+.bt-flag-badge.persistent {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.bt-flag-badge.beacon-like {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+
+.bt-flag-badge.strong-stable {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
 /* Selected device highlight */
 .bt-device-row.selected {
     background: rgba(0, 212, 255, 0.1);
@@ -4469,14 +4575,15 @@ header h1 .tagline {
 .bt-row-main {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
 }
 
 .bt-row-left {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
     min-width: 0;
     flex: 1;
 }
@@ -4521,13 +4628,25 @@ header h1 .tagline {
     color: #22c55e;
 }
 
+.bt-irk-badge {
+    display: inline-block;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
 .bt-device-name {
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
 }
 
 .bt-rssi-container {

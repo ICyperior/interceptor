@@ -20,6 +20,7 @@ from flask import Blueprint, jsonify, request, Response
 import app as app_module
 from utils.logging import sensor_logger as logger
 from utils.validation import validate_device_index, validate_gain, validate_ppm
+from utils.sdr import SDRFactory, SDRType
 from utils.sse import format_sse
 from utils.event_pipeline import process_event
 from utils.constants import (
@@ -250,12 +251,22 @@ def start_acars() -> Response:
     acars_message_count = 0
     acars_last_message_time = None
 
+    # Resolve SDR type for device selection
+    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
+
+    is_soapy = sdr_type not in (SDRType.RTL_SDR,)
+
     # Build acarsdec command
     # Different forks have different syntax:
     # - TLeconte v4+: acarsdec -j -g <gain> -p <ppm> -r <device> <freq1> <freq2> ...
     # - TLeconte v3: acarsdec -o 4 -g <gain> -p <ppm> -r <device> <freq1> <freq2> ...
     # - f00b4r0 (DragonOS): acarsdec --output json:file:- -g <gain> -p <ppm> -r <device> <freq1> ...
-    # Note: gain/ppm must come BEFORE -r
+    # SoapySDR devices: TLeconte uses -d <device_string>, f00b4r0 uses --soapysdr <device_string>
+    # Note: gain/ppm must come BEFORE -r/-d
     json_flag = get_acarsdec_json_flag(acarsdec_path)
     cmd = [acarsdec_path]
     if json_flag == '--output':
@@ -266,21 +277,33 @@ def start_acars() -> Response:
     else:
         cmd.extend(['-o', '4'])  # JSON output (TLeconte v3.x)
 
-    # Add gain if not auto (must be before -r)
+    # Add gain if not auto (must be before -r/-d)
     if gain and str(gain) != '0':
         cmd.extend(['-g', str(gain)])
 
-    # Add PPM correction if specified (must be before -r)
+    # Add PPM correction if specified (must be before -r/-d)
     if ppm and str(ppm) != '0':
         cmd.extend(['-p', str(ppm)])
 
     # Add device and frequencies
-    # f00b4r0 uses --rtlsdr <device>, TLeconte uses -r <device>
-    if json_flag == '--output':
+    if is_soapy:
+        # SoapySDR device (SDRplay, LimeSDR, Airspy, etc.)
+        sdr_device = SDRFactory.create_default_device(sdr_type, index=device_int)
+        # Build SoapySDR driver string (e.g., "driver=sdrplay,serial=...")
+        builder = SDRFactory.get_builder(sdr_type)
+        device_str = builder._build_device_string(sdr_device)
+        if json_flag == '--output':
+            cmd.extend(['-m', '256'])
+            cmd.extend(['--soapysdr', device_str])
+        else:
+            cmd.extend(['-d', device_str])
+    elif json_flag == '--output':
+        # f00b4r0 fork RTL-SDR: --rtlsdr <device>
         # Use 3.2 MS/s sample rate for wider bandwidth (handles NA frequency span)
         cmd.extend(['-m', '256'])
         cmd.extend(['--rtlsdr', str(device)])
     else:
+        # TLeconte fork RTL-SDR: -r <device>
         cmd.extend(['-r', str(device)])
     cmd.extend(frequencies)
 

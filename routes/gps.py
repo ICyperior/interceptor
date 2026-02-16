@@ -11,10 +11,14 @@ from flask import Blueprint, Response, jsonify
 from utils.gps import (
     GPSPosition,
     GPSSkyData,
+    detect_gps_devices,
     get_current_position,
     get_gps_reader,
+    is_gpsd_running,
     start_gpsd,
+    start_gpsd_daemon,
     stop_gps,
+    stop_gpsd_daemon,
 )
 from utils.logging import get_logger
 from utils.sse import format_sse
@@ -58,10 +62,9 @@ def auto_connect_gps():
     Automatically connect to gpsd if available.
 
     Called on page load to seamlessly enable GPS if gpsd is running.
+    If gpsd is not running, attempts to detect GPS devices and start gpsd.
     Returns current status if already connected.
     """
-    import socket
-
     # Check if already running
     reader = get_gps_reader()
     if reader and reader.is_running:
@@ -75,21 +78,28 @@ def auto_connect_gps():
             'sky': sky.to_dict() if sky else None,
         })
 
-    # Try to connect to gpsd on localhost:2947
     host = 'localhost'
     port = 2947
 
-    # First check if gpsd is reachable
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1.0)
-        sock.connect((host, port))
-        sock.close()
-    except Exception:
-        return jsonify({
-            'status': 'unavailable',
-            'message': 'gpsd not running'
-        })
+    # If gpsd isn't running, try to detect a device and start it
+    if not is_gpsd_running(host, port):
+        devices = detect_gps_devices()
+        if not devices:
+            return jsonify({
+                'status': 'unavailable',
+                'message': 'No GPS device detected'
+            })
+
+        # Try to start gpsd with the first detected device
+        device_path = devices[0]['path']
+        success, msg = start_gpsd_daemon(device_path, host, port)
+        if not success:
+            return jsonify({
+                'status': 'unavailable',
+                'message': msg,
+                'devices': devices,
+            })
+        logger.info(f"Auto-started gpsd on {device_path}")
 
     # Clear the queue
     while not _gps_queue.empty():
@@ -118,15 +128,26 @@ def auto_connect_gps():
         })
 
 
+@gps_bp.route('/devices')
+def list_gps_devices():
+    """List detected GPS serial devices."""
+    devices = detect_gps_devices()
+    return jsonify({
+        'devices': devices,
+        'gpsd_running': is_gpsd_running(),
+    })
+
+
 @gps_bp.route('/stop', methods=['POST'])
 def stop_gps_reader():
-    """Stop GPS client."""
+    """Stop GPS client and gpsd daemon if we started it."""
     reader = get_gps_reader()
     if reader:
         reader.remove_callback(_position_callback)
         reader.remove_sky_callback(_sky_callback)
 
     stop_gps()
+    stop_gpsd_daemon()
 
     return jsonify({'status': 'stopped'})
 

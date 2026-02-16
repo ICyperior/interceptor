@@ -5,7 +5,6 @@
  */
 
 const GPS = (function() {
-    let eventSource = null;
     let connected = false;
     let lastPosition = null;
     let lastSky = null;
@@ -26,6 +25,7 @@ const GPS = (function() {
     }
 
     function connect() {
+        updateConnectionUI(false, false, 'connecting');
         fetch('/gps/auto-connect', { method: 'POST' })
             .then(r => r.json())
             .then(data => {
@@ -40,23 +40,24 @@ const GPS = (function() {
                         lastSky = data.sky;
                         updateSkyUI(data.sky);
                     }
-                    startStream();
+                    subscribeToStream();
+                    // Ensure the global GPS stream is running
+                    if (typeof startGpsStream === 'function' && !gpsEventSource) {
+                        startGpsStream();
+                    }
                 } else {
                     connected = false;
-                    updateConnectionUI(false);
+                    updateConnectionUI(false, false, 'error', data.message || 'gpsd not available');
                 }
             })
             .catch(() => {
                 connected = false;
-                updateConnectionUI(false);
+                updateConnectionUI(false, false, 'error', 'Connection failed — is the server running?');
             });
     }
 
     function disconnect() {
-        if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-        }
+        unsubscribeFromStream();
         fetch('/gps/stop', { method: 'POST' })
             .then(() => {
                 connected = false;
@@ -64,36 +65,36 @@ const GPS = (function() {
             });
     }
 
-    function startStream() {
-        if (eventSource) {
-            eventSource.close();
+    function onGpsStreamData(data) {
+        if (!connected) return;
+        if (data.type === 'position') {
+            lastPosition = data;
+            updatePositionUI(data);
+            updateConnectionUI(true, true);
+        } else if (data.type === 'sky') {
+            lastSky = data;
+            updateSkyUI(data);
         }
-        eventSource = new EventSource('/gps/stream');
-        eventSource.onmessage = function(e) {
-            try {
-                const data = JSON.parse(e.data);
-                if (data.type === 'position') {
-                    lastPosition = data;
-                    updatePositionUI(data);
-                    updateConnectionUI(true, true);
-                } else if (data.type === 'sky') {
-                    lastSky = data;
-                    updateSkyUI(data);
-                }
-            } catch (err) {
-                // ignore parse errors
-            }
-        };
-        eventSource.onerror = function() {
-            // Reconnect handled by browser automatically
-        };
+    }
+
+    function subscribeToStream() {
+        // Subscribe to the global GPS stream instead of opening a separate SSE connection
+        if (typeof addGpsStreamSubscriber === 'function') {
+            addGpsStreamSubscriber(onGpsStreamData);
+        }
+    }
+
+    function unsubscribeFromStream() {
+        if (typeof removeGpsStreamSubscriber === 'function') {
+            removeGpsStreamSubscriber(onGpsStreamData);
+        }
     }
 
     // ========================
     // UI Updates
     // ========================
 
-    function updateConnectionUI(isConnected, hasFix) {
+    function updateConnectionUI(isConnected, hasFix, state, message) {
         const dot = document.getElementById('gpsStatusDot');
         const text = document.getElementById('gpsStatusText');
         const connectBtn = document.getElementById('gpsConnectBtn');
@@ -102,15 +103,22 @@ const GPS = (function() {
 
         if (dot) {
             dot.className = 'gps-status-dot';
-            if (isConnected && hasFix) dot.classList.add('connected');
+            if (state === 'connecting') dot.classList.add('waiting');
+            else if (state === 'error') dot.classList.add('error');
+            else if (isConnected && hasFix) dot.classList.add('connected');
             else if (isConnected) dot.classList.add('waiting');
         }
         if (text) {
-            if (isConnected && hasFix) text.textContent = 'Connected (Fix)';
+            if (state === 'connecting') text.textContent = 'Connecting...';
+            else if (state === 'error') text.textContent = message || 'Connection failed';
+            else if (isConnected && hasFix) text.textContent = 'Connected (Fix)';
             else if (isConnected) text.textContent = 'Connected (No Fix)';
             else text.textContent = 'Disconnected';
         }
-        if (connectBtn) connectBtn.style.display = isConnected ? 'none' : '';
+        if (connectBtn) {
+            connectBtn.style.display = isConnected ? 'none' : '';
+            connectBtn.disabled = state === 'connecting';
+        }
         if (disconnectBtn) disconnectBtn.style.display = isConnected ? '' : 'none';
         if (devicePath) devicePath.textContent = isConnected ? 'gpsd://localhost:2947' : '';
     }
@@ -386,10 +394,7 @@ const GPS = (function() {
     // ========================
 
     function destroy() {
-        if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-        }
+        unsubscribeFromStream();
     }
 
     return {

@@ -7,10 +7,22 @@ import os
 import sys
 
 # Application version
-VERSION = "2.17.0"
+VERSION = "2.18.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.18.0",
+        "date": "February 2026",
+        "highlights": [
+            "Bluetooth: service data inspector, appearance codes, MAC cluster tracking, and behavioral flags",
+            "Bluetooth: IRK badge display, distance estimation with confidence, and signal stability metrics",
+            "ACARS: SoapySDR device support for SDRplay, LimeSDR, Airspy, and other non-RTL backends",
+            "ADS-B: stale dump1090 process cleanup via PID file tracking",
+            "GPS: error state indicator and UI refinements",
+            "Proximity radar and signal card UI improvements",
+        ]
+    },
     {
         "version": "2.17.0",
         "date": "February 2026",

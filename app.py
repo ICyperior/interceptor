@@ -29,7 +29,7 @@ from flask import Flask, render_template, jsonify, send_file, Response, request,
 from werkzeug.security import check_password_hash
 from config import VERSION, CHANGELOG, SHARED_OBSERVER_LOCATION_ENABLED, DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
-from utils.process import cleanup_stale_processes
+from utils.process import cleanup_stale_processes, cleanup_stale_dump1090
 from utils.sdr import SDRFactory
 from utils.cleanup import DataStore, cleanup_manager
 from utils.constants import (
@@ -877,6 +877,7 @@ def main() -> None:
 
     # Clean up any stale processes from previous runs
     cleanup_stale_processes()
+    cleanup_stale_dump1090()
 
     # Initialize database for settings storage
     from utils.database import init_db

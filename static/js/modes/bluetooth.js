@@ -356,7 +356,9 @@ const BluetoothMode = (function() {
 
         // Update panel elements
         document.getElementById('btDetailName').textContent = device.name || formatDeviceId(device.address);
-        document.getElementById('btDetailAddress').textContent = device.address;
+        document.getElementById('btDetailAddress').textContent = isUuidAddress(device)
+            ? 'CB: ' + device.address
+            : device.address;
 
         // RSSI
         const rssiEl = document.getElementById('btDetailRssi');
@@ -458,7 +460,97 @@ const BluetoothMode = (function() {
             ? new Date(device.last_seen).toLocaleTimeString()
             : '--';
 
+        // New stat cells
+        document.getElementById('btDetailTxPower').textContent = device.tx_power != null
+            ? device.tx_power + ' dBm' : '--';
+        document.getElementById('btDetailSeenRate').textContent = device.seen_rate != null
+            ? device.seen_rate.toFixed(1) + '/min' : '--';
+
+        // Stability from variance
+        const stabilityEl = document.getElementById('btDetailStability');
+        if (device.rssi_variance != null) {
+            let stabLabel, stabColor;
+            if (device.rssi_variance <= 5) { stabLabel = 'Stable'; stabColor = '#22c55e'; }
+            else if (device.rssi_variance <= 25) { stabLabel = 'Moderate'; stabColor = '#eab308'; }
+            else { stabLabel = 'Unstable'; stabColor = '#ef4444'; }
+            stabilityEl.textContent = stabLabel;
+            stabilityEl.style.color = stabColor;
+        } else {
+            stabilityEl.textContent = '--';
+            stabilityEl.style.color = '';
+        }
+
+        // Distance with confidence
+        const distEl = document.getElementById('btDetailDistance');
+        if (device.estimated_distance_m != null) {
+            const confPct = Math.round((device.distance_confidence || 0) * 100);
+            distEl.textContent = device.estimated_distance_m.toFixed(1) + 'm ±' + confPct + '%';
+        } else {
+            distEl.textContent = '--';
+        }
+
+        // Appearance badge
+        if (device.appearance_name) {
+            badgesHtml += '<span class="bt-detail-badge flag">' + escapeHtml(device.appearance_name) + '</span>';
+            badgesEl.innerHTML = badgesHtml;
+        }
+
+        // MAC cluster indicator
+        const macClusterEl = document.getElementById('btDetailMacCluster');
+        if (macClusterEl) {
+            if (device.mac_cluster_count > 1) {
+                macClusterEl.textContent = device.mac_cluster_count + ' MACs';
+                macClusterEl.style.display = '';
+            } else {
+                macClusterEl.style.display = 'none';
+            }
+        }
+
+        // Service data inspector
+        const inspectorEl = document.getElementById('btDetailServiceInspector');
+        const inspectorContent = document.getElementById('btInspectorContent');
+        if (inspectorEl && inspectorContent) {
+            const hasData = device.manufacturer_bytes || device.appearance != null ||
+                (device.service_data && Object.keys(device.service_data).length > 0);
+            if (hasData) {
+                inspectorEl.style.display = '';
+                let inspHtml = '';
+                if (device.appearance != null) {
+                    const name = device.appearance_name || '';
+                    inspHtml += '<div class="bt-inspector-row"><span class="bt-inspector-label">Appearance</span><span class="bt-inspector-value">0x' + device.appearance.toString(16).toUpperCase().padStart(4, '0') + (name ? ' (' + escapeHtml(name) + ')' : '') + '</span></div>';
+                }
+                if (device.manufacturer_bytes) {
+                    inspHtml += '<div class="bt-inspector-row"><span class="bt-inspector-label">Mfr Data</span><span class="bt-inspector-value">' + escapeHtml(device.manufacturer_bytes) + '</span></div>';
+                }
+                if (device.service_data) {
+                    Object.entries(device.service_data).forEach(([uuid, hex]) => {
+                        inspHtml += '<div class="bt-inspector-row"><span class="bt-inspector-label">' + escapeHtml(uuid) + '</span><span class="bt-inspector-value">' + escapeHtml(hex) + '</span></div>';
+                    });
+                }
+                inspectorContent.innerHTML = inspHtml;
+            } else {
+                inspectorEl.style.display = 'none';
+            }
+        }
+
         updateWatchlistButton(device);
+
+        // IRK
+        const irkContainer = document.getElementById('btDetailIrk');
+        if (irkContainer) {
+            if (device.has_irk) {
+                irkContainer.style.display = 'block';
+                const irkVal = document.getElementById('btDetailIrkValue');
+                if (irkVal) {
+                    const label = device.irk_source_name
+                        ? device.irk_source_name + ' — ' + device.irk_hex
+                        : device.irk_hex;
+                    irkVal.textContent = label;
+                }
+            } else {
+                irkContainer.style.display = 'none';
+            }
+        }
 
         // Services
         const servicesContainer = document.getElementById('btDetailServices');
@@ -600,7 +692,23 @@ const BluetoothMode = (function() {
         if (parts.length === 6) {
             return parts[0] + ':' + parts[1] + ':...:' + parts[4] + ':' + parts[5];
         }
+        // CoreBluetooth UUID format (8-4-4-4-12)
+        if (/^[0-9A-F]{8}-[0-9A-F]{4}-/i.test(address)) {
+            return address.substring(0, 8) + '...';
+        }
         return address;
+    }
+
+    function isUuidAddress(device) {
+        return device.address_type === 'uuid';
+    }
+
+    function formatAddress(device) {
+        if (!device || !device.address) return '--';
+        if (isUuidAddress(device)) {
+            return device.address.substring(0, 8) + '-...' + device.address.slice(-4);
+        }
+        return device.address;
     }
 
     /**
@@ -658,6 +766,12 @@ const BluetoothMode = (function() {
                 showCapabilityWarning(data.issues);
             } else {
                 hideCapabilityWarning();
+            }
+
+            // Show/hide Ubertooth option based on capabilities
+            const ubertoothOption = document.getElementById('btScanModeUbertooth');
+            if (ubertoothOption) {
+                ubertoothOption.style.display = data.has_ubertooth ? '' : 'none';
             }
 
             if (scanModeSelect && data.preferred_backend) {
@@ -1085,7 +1199,7 @@ const BluetoothMode = (function() {
                             '</div>' +
                         '</div>' +
                         '<div style="display:flex;justify-content:space-between;margin-top:3px;">' +
-                            '<span style="font-size:9px;color:#888;font-family:monospace;">' + t.address + '</span>' +
+                            '<span style="font-size:9px;color:#888;font-family:monospace;">' + (t.address_type === 'uuid' ? formatAddress(t) : t.address) + '</span>' +
                             '<span style="font-size:9px;color:#666;">Seen ' + (t.seen_count || 0) + 'x</span>' +
                         '</div>' +
                         evidenceHtml +
@@ -1142,7 +1256,7 @@ const BluetoothMode = (function() {
 
         const displayName = device.name || formatDeviceId(device.address);
         const name = escapeHtml(displayName);
-        const addr = escapeHtml(device.address || 'Unknown');
+        const addr = escapeHtml(isUuidAddress(device) ? formatAddress(device) : (device.address || 'Unknown'));
         const mfr = device.manufacturer_name ? escapeHtml(device.manufacturer_name) : '';
         const seenCount = device.seen_count || 0;
         const deviceIdEscaped = escapeHtml(device.device_id).replace(/'/g, "\\'");
@@ -1167,6 +1281,12 @@ const BluetoothMode = (function() {
             trackerBadge = '<span class="bt-tracker-badge" style="background:' + confBg + ';color:' + confColor + ';font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:600;">' + typeLabel + '</span>';
         }
 
+        // IRK badge - show if paired IRK is available
+        let irkBadge = '';
+        if (device.has_irk) {
+            irkBadge = '<span class="bt-irk-badge">IRK</span>';
+        }
+
         // Risk badge - show if risk score is significant
         let riskBadge = '';
         if (riskScore >= 0.3) {
@@ -1184,9 +1304,36 @@ const BluetoothMode = (function() {
             statusDot = '<span class="bt-status-dot known"></span>';
         }
 
+        // Distance display
+        const distM = device.estimated_distance_m;
+        let distStr = '';
+        if (distM != null) {
+            distStr = '~' + distM.toFixed(1) + 'm';
+        }
+
+        // Behavioral flag badges
+        const hFlags = device.heuristic_flags || [];
+        let flagBadges = '';
+        if (device.is_persistent || hFlags.includes('persistent')) {
+            flagBadges += '<span class="bt-flag-badge persistent">PERSIST</span>';
+        }
+        if (device.is_beacon_like || hFlags.includes('beacon_like')) {
+            flagBadges += '<span class="bt-flag-badge beacon-like">BEACON</span>';
+        }
+        if (device.is_strong_stable || hFlags.includes('strong_stable')) {
+            flagBadges += '<span class="bt-flag-badge strong-stable">STABLE</span>';
+        }
+
+        // MAC cluster badge
+        let clusterBadge = '';
+        if (device.mac_cluster_count > 1) {
+            clusterBadge = '<span class="bt-mac-cluster-badge">' + device.mac_cluster_count + ' MACs</span>';
+        }
+
         // Build secondary info line
         let secondaryParts = [addr];
         if (mfr) secondaryParts.push(mfr);
+        if (distStr) secondaryParts.push(distStr);
         secondaryParts.push('Seen ' + seenCount + '×');
         if (seenBefore) secondaryParts.push('<span class="bt-history-badge">SEEN BEFORE</span>');
         // Add agent name if not Local
@@ -1205,7 +1352,10 @@ const BluetoothMode = (function() {
                     protoBadge +
                     '<span class="bt-device-name">' + name + '</span>' +
                     trackerBadge +
+                    irkBadge +
                     riskBadge +
+                    flagBadges +
+                    clusterBadge +
                 '</div>' +
                 '<div class="bt-row-right">' +
                     '<div class="bt-rssi-container">' +
@@ -1298,6 +1448,18 @@ const BluetoothMode = (function() {
         if (typeof showNotification === 'function') {
             showNotification('Bluetooth', message, 'info');
         }
+    }
+
+    /**
+     * Toggle the service data inspector panel
+     */
+    function toggleServiceInspector() {
+        const content = document.getElementById('btInspectorContent');
+        const arrow = document.getElementById('btInspectorArrow');
+        if (!content) return;
+        const open = content.style.display === 'none';
+        content.style.display = open ? '' : 'none';
+        if (arrow) arrow.classList.toggle('open', open);
     }
 
     // ==========================================================================
@@ -1425,9 +1587,15 @@ const BluetoothMode = (function() {
             BtLocate.handoff({
                 device_id: device.device_id,
                 mac_address: device.address,
+                address_type: device.address_type || null,
+                irk_hex: device.irk_hex || null,
                 known_name: device.name || null,
                 known_manufacturer: device.manufacturer_name || null,
-                last_known_rssi: device.rssi_current
+                last_known_rssi: device.rssi_current,
+                tx_power: device.tx_power || null,
+                appearance_name: device.appearance_name || null,
+                fingerprint_id: device.fingerprint_id || null,
+                mac_cluster_count: device.mac_cluster_count || 0
             });
         }
     }
@@ -1447,6 +1615,7 @@ const BluetoothMode = (function() {
         toggleWatchlist,
         locateDevice,
         locateById,
+        toggleServiceInspector,
 
         // Agent handling
         handleAgentChange,

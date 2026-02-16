@@ -137,6 +137,14 @@ need_sudo() {
   fi
 }
 
+# Refresh sudo credential cache so long-running builds don't trigger
+# mid-compilation password prompts (which can fail due to TTY issues
+# inside subshells). Safe to call multiple times.
+refresh_sudo() {
+  [[ -z "${SUDO:-}" ]] && return 0
+  sudo -v 2>/dev/null || true
+}
+
 detect_os() {
   if [[ "${OSTYPE:-}" == "darwin"* ]]; then
     OS="macos"
@@ -388,7 +396,7 @@ install_rtlamr_from_source() {
         if [[ -w /usr/local/bin ]]; then
           ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
         else
-          sudo ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
+          $SUDO ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
         fi
       else
         $SUDO ln -sf "$GOPATH/bin/rtlamr" /usr/local/bin/rtlamr
@@ -430,7 +438,8 @@ install_multimon_ng_from_source_macos() {
     if [[ -w /usr/local/bin ]]; then
       install -m 0755 multimon-ng /usr/local/bin/multimon-ng
     else
-      sudo install -m 0755 multimon-ng /usr/local/bin/multimon-ng
+      refresh_sudo
+      $SUDO install -m 0755 multimon-ng /usr/local/bin/multimon-ng
     fi
     ok "multimon-ng installed successfully from source"
   )
@@ -471,7 +480,8 @@ install_dsd_from_source() {
         if [[ -w /usr/local/lib ]]; then
           make install >/dev/null 2>&1
         else
-          sudo make install >/dev/null 2>&1
+          refresh_sudo
+          $SUDO make install >/dev/null 2>&1
         fi
       else
         $SUDO make install >/dev/null 2>&1
@@ -507,7 +517,8 @@ install_dsd_from_source() {
         if [[ -w /usr/local/bin ]]; then
           install -m 0755 dsd-fme /usr/local/bin/dsd 2>/dev/null || install -m 0755 dsd /usr/local/bin/dsd 2>/dev/null || true
         else
-          sudo install -m 0755 dsd-fme /usr/local/bin/dsd 2>/dev/null || sudo install -m 0755 dsd /usr/local/bin/dsd 2>/dev/null || true
+          refresh_sudo
+          $SUDO install -m 0755 dsd-fme /usr/local/bin/dsd 2>/dev/null || $SUDO install -m 0755 dsd /usr/local/bin/dsd 2>/dev/null || true
         fi
       else
         $SUDO make install >/dev/null 2>&1 \
@@ -545,7 +556,8 @@ install_dump1090_from_source_macos() {
       if [[ -w /usr/local/bin ]]; then
         install -m 0755 dump1090 /usr/local/bin/dump1090
       else
-        sudo install -m 0755 dump1090 /usr/local/bin/dump1090
+        refresh_sudo
+        $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
       fi
       ok "dump1090 installed successfully from source"
     else
@@ -611,7 +623,8 @@ install_acarsdec_from_source_macos() {
       if [[ -w /usr/local/bin ]]; then
         install -m 0755 acarsdec /usr/local/bin/acarsdec
       else
-        sudo install -m 0755 acarsdec /usr/local/bin/acarsdec
+        refresh_sudo
+        $SUDO install -m 0755 acarsdec /usr/local/bin/acarsdec
       fi
       ok "acarsdec installed successfully from source"
     else
@@ -646,7 +659,8 @@ install_aiscatcher_from_source_macos() {
       if [[ -w /usr/local/bin ]]; then
         install -m 0755 AIS-catcher /usr/local/bin/AIS-catcher
       else
-        sudo install -m 0755 AIS-catcher /usr/local/bin/AIS-catcher
+        refresh_sudo
+        $SUDO install -m 0755 AIS-catcher /usr/local/bin/AIS-catcher
       fi
       ok "AIS-catcher installed successfully from source"
     else
@@ -764,7 +778,8 @@ install_satdump_from_source_macos() {
       if [[ -w /usr/local/bin ]]; then
         make install >/dev/null 2>&1
       else
-        sudo make install >/dev/null 2>&1
+        refresh_sudo
+        $SUDO make install >/dev/null 2>&1
       fi
       ok "SatDump installed successfully."
     else
@@ -777,6 +792,14 @@ install_satdump_from_source_macos() {
 }
 
 install_macos_packages() {
+  need_sudo
+
+  # Prime sudo credentials upfront so builds don't prompt mid-compilation
+  if [[ -n "${SUDO:-}" ]]; then
+    info "Some tools require sudo to install. You may be prompted for your password."
+    sudo -v || { fail "sudo authentication failed"; exit 1; }
+  fi
+
   TOTAL_STEPS=19
   CURRENT_STEP=0
 

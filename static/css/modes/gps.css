@@ -59,6 +59,11 @@
     box-shadow: 0 0 6px rgba(255, 170, 0, 0.4);
 }
 
+.gps-status-dot.error {
+    background: #ff4444;
+    box-shadow: 0 0 6px rgba(255, 68, 68, 0.4);
+}
+
 .gps-status-text {
     font-size: 11px;
     color: var(--text-secondary);

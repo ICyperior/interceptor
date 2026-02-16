@@ -36,6 +36,7 @@ const ProximityRadar = (function() {
     let isHovered = false;
     let renderPending = false;
     let renderTimer = null;
+    let interactionLockUntil = 0; // timestamp: suppress renders briefly after click
 
     /**
      * Initialize the radar component
@@ -119,6 +120,36 @@ const ProximityRadar = (function() {
 
         svg = container.querySelector('svg');
 
+        // Event delegation on the devices group (survives innerHTML rebuilds)
+        const devicesGroup = svg.querySelector('.radar-devices');
+
+        devicesGroup.addEventListener('click', (e) => {
+            const deviceEl = e.target.closest('.radar-device');
+            if (!deviceEl) return;
+            const deviceKey = deviceEl.getAttribute('data-device-key');
+            if (onDeviceClick && deviceKey) {
+                // Lock out re-renders briefly so the DOM stays stable after click
+                interactionLockUntil = Date.now() + 500;
+                onDeviceClick(deviceKey);
+            }
+        });
+
+        devicesGroup.addEventListener('mouseenter', (e) => {
+            if (e.target.closest('.radar-device')) {
+                isHovered = true;
+            }
+        }, true); // capture phase so we catch enter on child elements
+
+        devicesGroup.addEventListener('mouseleave', (e) => {
+            if (e.target.closest('.radar-device')) {
+                isHovered = false;
+                if (renderPending) {
+                    renderPending = false;
+                    renderDevices();
+                }
+            }
+        }, true);
+
         // Add sweep animation
         animateSweep();
     }
@@ -165,8 +196,8 @@ const ProximityRadar = (function() {
             devices.set(device.device_key, device);
         });
 
-        // Defer render while user is hovering to prevent DOM rebuild flicker
-        if (isHovered) {
+        // Defer render while user is hovering or interacting to prevent DOM rebuild flicker
+        if (isHovered || Date.now() < interactionLockUntil) {
             renderPending = true;
             return;
         }
@@ -229,7 +260,7 @@ const ProximityRadar = (function() {
                        style="cursor: pointer;">
                         <!-- Invisible hit area to prevent hover flicker -->
                         <circle class="radar-device-hitarea" r="${hitAreaSize}" fill="transparent" />
-                        ${isSelected ? `<circle r="${dotSize + 8}" fill="none" stroke="#00d4ff" stroke-width="2" stroke-opacity="0.8">
+                        ${isSelected ? `<circle class="radar-select-ring" r="${dotSize + 8}" fill="none" stroke="#00d4ff" stroke-width="2" stroke-opacity="0.8">
                             <animate attributeName="r" values="${dotSize + 6};${dotSize + 10};${dotSize + 6}" dur="1.5s" repeatCount="indefinite"/>
                             <animate attributeName="stroke-opacity" values="0.8;0.4;0.8" dur="1.5s" repeatCount="indefinite"/>
                         </circle>` : ''}
@@ -244,24 +275,6 @@ const ProximityRadar = (function() {
         }).join('');
 
         devicesGroup.innerHTML = dots;
-
-        // Attach event handlers
-        devicesGroup.querySelectorAll('.radar-device').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const deviceKey = el.getAttribute('data-device-key');
-                if (onDeviceClick && deviceKey) {
-                    onDeviceClick(deviceKey);
-                }
-            });
-            el.addEventListener('mouseenter', () => { isHovered = true; });
-            el.addEventListener('mouseleave', () => {
-                isHovered = false;
-                if (renderPending) {
-                    renderPending = false;
-                    renderDevices();
-                }
-            });
-        });
     }
 
     /**
@@ -345,19 +358,125 @@ const ProximityRadar = (function() {
     }
 
     /**
-     * Highlight a specific device on the radar
+     * Highlight a specific device on the radar (in-place update, no full re-render)
      */
     function highlightDevice(deviceKey) {
+        const prev = selectedDeviceKey;
         selectedDeviceKey = deviceKey;
-        renderDevices();
+
+        if (!svg) { return; }
+        const devicesGroup = svg.querySelector('.radar-devices');
+        if (!devicesGroup) { return; }
+
+        // Remove highlight from previously selected node
+        if (prev && prev !== deviceKey) {
+            const oldEl = devicesGroup.querySelector(`.radar-device[data-device-key="${CSS.escape(prev)}"]`);
+            if (oldEl) {
+                oldEl.classList.remove('selected');
+                // Remove animated selection ring
+                const ring = oldEl.querySelector('.radar-select-ring');
+                if (ring) ring.remove();
+                // Restore dot opacity
+                const dot = oldEl.querySelector('circle:not(.radar-device-hitarea):not(.radar-select-ring)');
+                if (dot && dot.getAttribute('fill') !== 'none' && dot.getAttribute('fill') !== 'transparent') {
+                    const device = devices.get(prev);
+                    const confidence = device ? (device.distance_confidence || 0.5) : 0.5;
+                    dot.setAttribute('fill-opacity', 0.4 + confidence * 0.5);
+                    dot.setAttribute('stroke', dot.getAttribute('fill'));
+                    dot.setAttribute('stroke-width', '1');
+                }
+            }
+        }
+
+        // Add highlight to newly selected node
+        if (deviceKey) {
+            const newEl = devicesGroup.querySelector(`.radar-device[data-device-key="${CSS.escape(deviceKey)}"]`);
+            if (newEl) {
+                applySelectionToElement(newEl, deviceKey);
+            } else {
+                // Node not in DOM yet; full render needed on next cycle
+                renderDevices();
+            }
+        }
     }
 
     /**
-     * Clear device highlighting
+     * Apply selection styling to a radar device element in-place
+     */
+    function applySelectionToElement(el, deviceKey) {
+        el.classList.add('selected');
+        const device = devices.get(deviceKey);
+        const confidence = device ? (device.distance_confidence || 0.5) : 0.5;
+        const dotSize = CONFIG.dotMinSize + (CONFIG.dotMaxSize - CONFIG.dotMinSize) * confidence;
+
+        // Update dot styling
+        const dot = el.querySelector('circle:not(.radar-device-hitarea):not(.radar-select-ring)');
+        if (dot && dot.getAttribute('fill') !== 'none' && dot.getAttribute('fill') !== 'transparent') {
+            dot.setAttribute('fill-opacity', '1');
+            dot.setAttribute('stroke', '#00d4ff');
+            dot.setAttribute('stroke-width', '2');
+        }
+
+        // Add animated selection ring if not already present
+        if (!el.querySelector('.radar-select-ring')) {
+            const ns = 'http://www.w3.org/2000/svg';
+            const ring = document.createElementNS(ns, 'circle');
+            ring.classList.add('radar-select-ring');
+            ring.setAttribute('r', dotSize + 8);
+            ring.setAttribute('fill', 'none');
+            ring.setAttribute('stroke', '#00d4ff');
+            ring.setAttribute('stroke-width', '2');
+            ring.setAttribute('stroke-opacity', '0.8');
+
+            const animR = document.createElementNS(ns, 'animate');
+            animR.setAttribute('attributeName', 'r');
+            animR.setAttribute('values', `${dotSize + 6};${dotSize + 10};${dotSize + 6}`);
+            animR.setAttribute('dur', '1.5s');
+            animR.setAttribute('repeatCount', 'indefinite');
+            ring.appendChild(animR);
+
+            const animO = document.createElementNS(ns, 'animate');
+            animO.setAttribute('attributeName', 'stroke-opacity');
+            animO.setAttribute('values', '0.8;0.4;0.8');
+            animO.setAttribute('dur', '1.5s');
+            animO.setAttribute('repeatCount', 'indefinite');
+            ring.appendChild(animO);
+
+            // Insert after the hit area
+            const hitArea = el.querySelector('.radar-device-hitarea');
+            if (hitArea && hitArea.nextSibling) {
+                el.insertBefore(ring, hitArea.nextSibling);
+            } else {
+                el.insertBefore(ring, el.firstChild);
+            }
+        }
+    }
+
+    /**
+     * Clear device highlighting (in-place update, no full re-render)
      */
     function clearHighlight() {
+        const prev = selectedDeviceKey;
         selectedDeviceKey = null;
-        renderDevices();
+
+        if (!svg || !prev) { return; }
+        const devicesGroup = svg.querySelector('.radar-devices');
+        if (!devicesGroup) { return; }
+
+        const oldEl = devicesGroup.querySelector(`.radar-device[data-device-key="${CSS.escape(prev)}"]`);
+        if (oldEl) {
+            oldEl.classList.remove('selected');
+            const ring = oldEl.querySelector('.radar-select-ring');
+            if (ring) ring.remove();
+            const dot = oldEl.querySelector('circle:not(.radar-device-hitarea):not(.radar-select-ring)');
+            if (dot && dot.getAttribute('fill') !== 'none' && dot.getAttribute('fill') !== 'transparent') {
+                const device = devices.get(prev);
+                const confidence = device ? (device.distance_confidence || 0.5) : 0.5;
+                dot.setAttribute('fill-opacity', 0.4 + confidence * 0.5);
+                dot.setAttribute('stroke', dot.getAttribute('fill'));
+                dot.setAttribute('stroke-width', '1');
+            }
+        }
     }
 
     /**

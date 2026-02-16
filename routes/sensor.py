@@ -199,10 +199,16 @@ def start_sensor() -> Response:
             thread.start()
 
             # Monitor stderr
+            # Filter noisy rtl_433 diagnostics that aren't useful to display
+            _stderr_noise = (
+                'bitbuffer_add_bit',
+                'row count limit',
+            )
+
             def monitor_stderr():
                 for line in app_module.sensor_process.stderr:
                     err = line.decode('utf-8', errors='replace').strip()
-                    if err:
+                    if err and not any(noise in err for noise in _stderr_noise):
                         logger.debug(f"[rtl_433] {err}")
                         app_module.sensor_queue.put({'type': 'info', 'text': f'[rtl_433] {err}'})
 

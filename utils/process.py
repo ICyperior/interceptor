@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import atexit
 import logging
+import os
+import platform
 import signal
 import subprocess
 import re
 import threading
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 from .dependencies import check_tool
@@ -115,6 +118,93 @@ def cleanup_stale_processes() -> None:
             subprocess.run(['pkill', '-9', proc_name], capture_output=True)
         except (subprocess.SubprocessError, OSError):
             pass
+
+
+_DUMP1090_PID_FILE = Path(__file__).resolve().parent.parent / 'instance' / 'dump1090.pid'
+
+
+def write_dump1090_pid(pid: int) -> None:
+    """Write the PID of an app-spawned dump1090 process to a PID file."""
+    try:
+        _DUMP1090_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _DUMP1090_PID_FILE.write_text(str(pid))
+        logger.debug(f"Wrote dump1090 PID file: {pid}")
+    except OSError as e:
+        logger.warning(f"Failed to write dump1090 PID file: {e}")
+
+
+def clear_dump1090_pid() -> None:
+    """Remove the dump1090 PID file."""
+    try:
+        _DUMP1090_PID_FILE.unlink(missing_ok=True)
+        logger.debug("Cleared dump1090 PID file")
+    except OSError as e:
+        logger.warning(f"Failed to clear dump1090 PID file: {e}")
+
+
+def _is_dump1090_process(pid: int) -> bool:
+    """Check if the given PID is actually a dump1090/readsb process."""
+    try:
+        if platform.system() == 'Linux':
+            cmdline_path = Path(f'/proc/{pid}/cmdline')
+            if cmdline_path.exists():
+                cmdline = cmdline_path.read_bytes().replace(b'\x00', b' ').decode('utf-8', errors='ignore')
+                return 'dump1090' in cmdline or 'readsb' in cmdline
+        # macOS or fallback
+        result = subprocess.run(
+            ['ps', '-p', str(pid), '-o', 'comm='],
+            capture_output=True, text=True, timeout=5
+        )
+        comm = result.stdout.strip()
+        return 'dump1090' in comm or 'readsb' in comm
+    except Exception:
+        return False
+
+
+def cleanup_stale_dump1090() -> None:
+    """Kill a stale app-spawned dump1090 using the PID file.
+
+    Safe no-op if no PID file exists, process is dead, or PID was reused
+    by another program.
+    """
+    if not _DUMP1090_PID_FILE.exists():
+        return
+
+    try:
+        pid = int(_DUMP1090_PID_FILE.read_text().strip())
+    except (ValueError, OSError) as e:
+        logger.warning(f"Invalid dump1090 PID file: {e}")
+        clear_dump1090_pid()
+        return
+
+    # Verify this PID is still a dump1090/readsb process
+    if not _is_dump1090_process(pid):
+        logger.debug(f"PID {pid} is not dump1090/readsb (dead or reused), removing stale PID file")
+        clear_dump1090_pid()
+        return
+
+    # Kill the process group
+    logger.info(f"Killing stale app-spawned dump1090 (PID {pid})")
+    try:
+        pgid = os.getpgid(pid)
+        os.killpg(pgid, signal.SIGTERM)
+        # Brief wait for graceful shutdown
+        for _ in range(10):
+            try:
+                os.kill(pid, 0)  # Check if still alive
+                time.sleep(0.2)
+            except OSError:
+                break
+        else:
+            # Still alive, force kill
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except OSError:
+                pass
+    except OSError as e:
+        logger.debug(f"Error killing stale dump1090 PID {pid}: {e}")
+
+    clear_dump1090_pid()
 
 
 def is_valid_mac(mac: str | None) -> bool:

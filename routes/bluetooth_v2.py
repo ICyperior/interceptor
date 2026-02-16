@@ -229,7 +229,7 @@ def start_scan():
     rssi_threshold = data.get('rssi_threshold', -100)
 
     # Validate mode
-    valid_modes = ('auto', 'dbus', 'bleak', 'hcitool', 'bluetoothctl')
+    valid_modes = ('auto', 'dbus', 'bleak', 'hcitool', 'bluetoothctl', 'ubertooth')
     if mode not in valid_modes:
         return jsonify({'error': f'Invalid mode. Must be one of: {valid_modes}'}), 400
 

@@ -322,7 +322,8 @@ const BtLocate = (function() {
             const t = data.target;
             const name = t.known_name || t.name_pattern || '';
             const addr = t.mac_address || t.device_id || '';
-            targetEl.textContent = name ? (name + (addr ? ' (' + addr.substring(0, 8) + '...)' : '')) : addr || '--';
+            const addrDisplay = formatAddr(addr);
+            targetEl.textContent = name ? (name + (addrDisplay ? ' (' + addrDisplay + ')' : '')) : addrDisplay || '--';
         }
 
         // Environment info
@@ -602,6 +603,16 @@ const BtLocate = (function() {
         }).catch(() => {});
     }
 
+    function isUuid(addr) {
+        return addr && /^[0-9A-F]{8}-[0-9A-F]{4}-/i.test(addr);
+    }
+
+    function formatAddr(addr) {
+        if (!addr) return '';
+        if (isUuid(addr)) return addr.substring(0, 8) + '-...' + addr.slice(-4);
+        return addr;
+    }
+
     function handoff(deviceInfo) {
         console.log('[BtLocate] Handoff received:', deviceInfo);
         handoffData = deviceInfo;
@@ -617,13 +628,19 @@ const BtLocate = (function() {
         const nameEl = document.getElementById('btLocateHandoffName');
         const metaEl = document.getElementById('btLocateHandoffMeta');
         if (card) card.style.display = '';
-        if (nameEl) nameEl.textContent = deviceInfo.known_name || deviceInfo.mac_address || 'Unknown';
+        if (nameEl) nameEl.textContent = deviceInfo.known_name || formatAddr(deviceInfo.mac_address) || 'Unknown';
         if (metaEl) {
             const parts = [];
-            if (deviceInfo.mac_address) parts.push(deviceInfo.mac_address);
+            if (deviceInfo.mac_address) parts.push(formatAddr(deviceInfo.mac_address));
             if (deviceInfo.known_manufacturer) parts.push(deviceInfo.known_manufacturer);
             if (deviceInfo.last_known_rssi != null) parts.push(deviceInfo.last_known_rssi + ' dBm');
             metaEl.textContent = parts.join(' \u00b7 ');
+        }
+
+        // Auto-fill IRK if available from scanner
+        if (deviceInfo.irk_hex) {
+            const irkInput = document.getElementById('btLocateIrk');
+            if (irkInput) irkInput.value = deviceInfo.irk_hex;
         }
 
         // Switch to bt_locate mode
