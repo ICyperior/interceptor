@@ -8,6 +8,7 @@ const GPS = (function() {
     let connected = false;
     let lastPosition = null;
     let lastSky = null;
+    let skyPollTimer = null;
 
     // Constellation color map
     const CONST_COLORS = {
@@ -41,6 +42,7 @@ const GPS = (function() {
                         updateSkyUI(data.sky);
                     }
                     subscribeToStream();
+                    startSkyPolling();
                     // Ensure the global GPS stream is running
                     if (typeof startGpsStream === 'function' && !gpsEventSource) {
                         startGpsStream();
@@ -58,6 +60,7 @@ const GPS = (function() {
 
     function disconnect() {
         unsubscribeFromStream();
+        stopSkyPolling();
         fetch('/gps/stop', { method: 'POST' })
             .then(() => {
                 connected = false;
@@ -75,6 +78,34 @@ const GPS = (function() {
             lastSky = data;
             updateSkyUI(data);
         }
+    }
+
+    function startSkyPolling() {
+        stopSkyPolling();
+        // Poll satellite data every 5 seconds as a reliable fallback
+        // SSE stream may miss sky updates due to queue contention with position messages
+        pollSatellites();
+        skyPollTimer = setInterval(pollSatellites, 5000);
+    }
+
+    function stopSkyPolling() {
+        if (skyPollTimer) {
+            clearInterval(skyPollTimer);
+            skyPollTimer = null;
+        }
+    }
+
+    function pollSatellites() {
+        if (!connected) return;
+        fetch('/gps/satellites')
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok' && data.sky) {
+                    lastSky = data.sky;
+                    updateSkyUI(data.sky);
+                }
+            })
+            .catch(() => {});
     }
 
     function subscribeToStream() {
@@ -395,6 +426,7 @@ const GPS = (function() {
 
     function destroy() {
         unsubscribeFromStream();
+        stopSkyPolling();
     }
 
     return {

@@ -318,6 +318,8 @@ class GPSDClient:
 
                     except json.JSONDecodeError:
                         logger.debug(f"Invalid JSON from gpsd: {line[:50]}")
+                    except Exception as parse_err:
+                        logger.error(f"Error handling gpsd {msg_class} message: {parse_err}")
 
             except socket.timeout:
                 continue
@@ -371,19 +373,33 @@ class GPSDClient:
         self._update_position(position)
 
     def _handle_sky(self, msg: dict) -> None:
-        """Handle SKY (satellite sky view) message from gpsd."""
-        sats = []
-        for sat in msg.get('satellites', []):
-            prn = sat.get('PRN', 0)
-            gnssid = sat.get('gnssid')
-            sats.append(GPSSatellite(
-                prn=prn,
-                elevation=sat.get('el'),
-                azimuth=sat.get('az'),
-                snr=sat.get('ss'),
-                used=sat.get('used', False),
-                constellation=_classify_constellation(prn, gnssid),
-            ))
+        """Handle SKY (satellite sky view) message from gpsd.
+
+        gpsd sends multiple SKY messages per cycle: some contain only DOP
+        values while others include the full satellites array.  When a
+        DOP-only SKY arrives, preserve the most recent satellite list
+        instead of overwriting it with an empty one.
+        """
+        raw_sats = msg.get('satellites', [])
+        has_satellites = len(raw_sats) > 0
+
+        if has_satellites:
+            sats = []
+            for sat in raw_sats:
+                prn = sat.get('PRN', 0)
+                gnssid = sat.get('gnssid')
+                sats.append(GPSSatellite(
+                    prn=prn,
+                    elevation=sat.get('el'),
+                    azimuth=sat.get('az'),
+                    snr=sat.get('ss'),
+                    used=sat.get('used', False),
+                    constellation=_classify_constellation(prn, gnssid),
+                ))
+        else:
+            # DOP-only SKY message — keep existing satellites
+            with self._lock:
+                sats = list(self._sky.satellites) if self._sky else []
 
         sky_data = GPSSkyData(
             satellites=sats,
