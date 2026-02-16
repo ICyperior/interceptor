@@ -226,7 +226,7 @@ check_tools() {
   check_optional "hackrf_sweep"    "HackRF spectrum analyzer" hackrf_sweep
   check_required "dump1090"    "ADS-B decoder" dump1090
   check_required "acarsdec"    "ACARS decoder" acarsdec
-  check_optional "dumpvdl2"    "VDL2 decoder" dumpvdl2
+  check_required "dumpvdl2"    "VDL2 decoder" dumpvdl2
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
   check_optional "satdump" "Weather satellite decoder (NOAA/Meteor)" satdump
   echo
@@ -949,9 +949,9 @@ install_macos_packages() {
     ok "acarsdec already installed"
   fi
 
-  progress "Installing dumpvdl2 (optional)"
+  progress "Installing dumpvdl2"
   if ! cmd_exists dumpvdl2; then
-    install_dumpvdl2_from_source_macos || warn "dumpvdl2 not available. VDL2 decoding will not be available."
+    install_dumpvdl2_from_source_macos || fail "dumpvdl2 installation failed. VDL2 decoding requires dumpvdl2."
   else
     ok "dumpvdl2 already installed"
   fi
@@ -1472,9 +1472,9 @@ install_debian_packages() {
   fi
   cmd_exists acarsdec || install_acarsdec_from_source_debian
 
-  progress "Installing dumpvdl2 (optional)"
+  progress "Installing dumpvdl2"
   if ! cmd_exists dumpvdl2; then
-    install_dumpvdl2_from_source_debian || warn "dumpvdl2 not available. VDL2 decoding will not be available."
+    install_dumpvdl2_from_source_debian || fail "dumpvdl2 installation failed. VDL2 decoding requires dumpvdl2."
   else
     ok "dumpvdl2 already installed"
   fi

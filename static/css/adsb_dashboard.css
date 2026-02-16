@@ -31,8 +31,11 @@ body {
     font-family: var(--font-sans);
     background: var(--bg-dark);
     color: var(--text-primary);
-    min-height: 100vh;
-    overflow-x: hidden;
+    height: 100dvh;
+    height: 100vh; /* Fallback */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* Animated radar sweep background */
@@ -227,16 +230,14 @@ body {
 }
 
 /* Main dashboard grid - Mobile first */
-/* Header ~52px + Nav 44px + Stats strip ~55px = ~151px, using 160px for safety */
 .dashboard {
     position: relative;
     z-index: 10;
     display: flex;
     flex-direction: column;
     gap: 0;
-    height: calc(100dvh - 160px);
-    height: calc(100vh - 160px); /* Fallback */
-    min-height: 400px;
+    flex: 1;
+    min-height: 0;
 }
 
 /* Tablet: Two-column layout */
@@ -249,10 +250,26 @@ body {
     }
 }
 
-/* Desktop: Full layout with ACARS */
+/* Desktop: Full layout with ACARS/VDL2 + map + sidebar */
 @media (min-width: 1024px) {
     .dashboard {
         grid-template-columns: auto 1fr 300px;
+    }
+}
+
+/* Left sidebars wrapper (ACARS + VDL2) */
+.left-sidebars {
+    display: none;
+}
+
+@media (min-width: 1024px) {
+    .left-sidebars {
+        display: flex;
+        flex-direction: row;
+        grid-column: 1;
+        grid-row: 1;
+        height: 100%;
+        overflow: hidden;
     }
 }
 
@@ -267,12 +284,10 @@ body {
     min-height: 0;
 }
 
-/* Show ACARS sidebar on desktop */
-@media (min-width: 1024px) {
-    .acars-sidebar {
-        display: flex;
-        max-height: calc(100dvh - 160px);
-    }
+/* Show ACARS sidebar inside wrapper */
+.left-sidebars .acars-sidebar {
+    display: flex;
+    height: 100%;
 }
 
 .acars-collapse-btn {
@@ -430,11 +445,10 @@ body {
     min-height: 0;
 }
 
-@media (min-width: 1024px) {
-    .vdl2-sidebar {
-        display: flex;
-        max-height: calc(100dvh - 160px);
-    }
+/* Show VDL2 sidebar inside wrapper */
+.left-sidebars .vdl2-sidebar {
+    display: flex;
+    height: 100%;
 }
 
 .vdl2-collapse-btn {
@@ -652,6 +666,8 @@ body {
     position: relative;
     flex: 1;
     min-height: 300px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 @media (min-width: 768px) {
@@ -1453,7 +1469,7 @@ body {
         display: flex !important;
         flex-direction: column !important;
         height: auto !important;
-        min-height: calc(100dvh - 160px);
+        min-height: 400px;
         overflow-y: auto !important;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
@@ -1654,7 +1670,7 @@ body {
 }
 
 .strip-stat.source-stat .strip-value {
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .strip-stat.session-stat {

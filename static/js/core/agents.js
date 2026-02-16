@@ -423,7 +423,7 @@ async function syncAgentModeStates(agentId) {
                 });
 
                 // Also check modes that might need to be marked as stopped
-                const allModes = ['sensor', 'pager', 'adsb', 'wifi', 'bluetooth', 'ais', 'dsc', 'acars', 'aprs', 'rtlamr', 'tscm', 'satellite', 'listening_post'];
+                const allModes = ['sensor', 'pager', 'adsb', 'wifi', 'bluetooth', 'ais', 'dsc', 'acars', 'vdl2', 'aprs', 'rtlamr', 'tscm', 'satellite', 'listening_post'];
                 allModes.forEach(mode => {
                     if (!agentRunningModes.includes(mode)) {
                         syncModeUI(mode, false, agentId);
@@ -704,6 +704,7 @@ function syncModeUI(mode, isRunning, agentId = null) {
         'wifi': 'setWiFiRunning',
         'bluetooth': 'setBluetoothRunning',
         'acars': 'setAcarsRunning',
+        'vdl2': 'setVdl2Running',
         'listening_post': 'setListeningPostRunning'
     };
 

@@ -139,6 +139,8 @@
     </div>
 
     <main class="dashboard">
+        <!-- Left Sidebars (ACARS + VDL2) -->
+        <div class="left-sidebars">
         <!-- ACARS Panel (left of map) - Collapsible -->
         <div class="acars-sidebar" id="acarsSidebar">
             <div class="acars-sidebar-content" id="acarsSidebarContent">
@@ -236,6 +238,7 @@
                 <span class="vdl2-collapse-label">VDL2</span>
             </button>
         </div>
+        </div><!-- /left-sidebars -->
 
         <!-- Main Display (Map or Radar Scope) -->
         <div class="main-display">
@@ -3780,7 +3783,7 @@ sudo make install</code>
         let acarsCurrentAgent = null;
         let acarsPollTimer = null;
         let acarsMessageCount = 0;
-        let acarsSidebarCollapsed = localStorage.getItem('acarsSidebarCollapsed') === 'true';
+        let acarsSidebarCollapsed = localStorage.getItem('acarsSidebarCollapsed') !== 'false';
         let acarsFrequencies = {
             'na': ['129.125', '130.025', '130.450', '131.550'],
             'eu': ['131.525', '131.725', '131.550'],
@@ -3792,6 +3795,14 @@ sudo make install</code>
             acarsSidebarCollapsed = !acarsSidebarCollapsed;
             sidebar.classList.toggle('collapsed', acarsSidebarCollapsed);
             localStorage.setItem('acarsSidebarCollapsed', acarsSidebarCollapsed);
+            // Collapse VDL2 when expanding ACARS
+            if (!acarsSidebarCollapsed && !vdl2SidebarCollapsed) {
+                const vdl2 = document.getElementById('vdl2Sidebar');
+                vdl2SidebarCollapsed = true;
+                vdl2.classList.add('collapsed');
+                localStorage.setItem('vdl2SidebarCollapsed', vdl2SidebarCollapsed);
+            }
+            setTimeout(() => { if (typeof radarMap !== 'undefined' && radarMap) radarMap.invalidateSize(); }, 350);
         }
 
         // Initialize ACARS sidebar state and frequency checkboxes
@@ -4099,6 +4110,8 @@ sudo make install</code>
         // ============================================
         let vdl2EventSource = null;
         let isVdl2Running = false;
+        let vdl2CurrentAgent = null;
+        let vdl2PollTimer = null;
         let vdl2MessageCount = 0;
         let vdl2SidebarCollapsed = localStorage.getItem('vdl2SidebarCollapsed') !== 'false';
         let vdl2Frequencies = {
@@ -4118,6 +4131,14 @@ sudo make install</code>
             vdl2SidebarCollapsed = !vdl2SidebarCollapsed;
             sidebar.classList.toggle('collapsed', vdl2SidebarCollapsed);
             localStorage.setItem('vdl2SidebarCollapsed', vdl2SidebarCollapsed);
+            // Collapse ACARS when expanding VDL2
+            if (!vdl2SidebarCollapsed && !acarsSidebarCollapsed) {
+                const acars = document.getElementById('acarsSidebar');
+                acarsSidebarCollapsed = true;
+                acars.classList.add('collapsed');
+                localStorage.setItem('acarsSidebarCollapsed', acarsSidebarCollapsed);
+            }
+            setTimeout(() => { if (typeof radarMap !== 'undefined' && radarMap) radarMap.invalidateSize(); }, 350);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -4172,7 +4193,12 @@ sudo make install</code>
             const sdr_type = vdl2Select.selectedOptions[0]?.dataset.sdrType || 'rtlsdr';
             const frequencies = getVdl2RegionFreqs();
 
-            if (isTracking && device === '0') {
+            // Check if using agent mode
+            const isAgentMode = typeof adsbCurrentAgent !== 'undefined' && adsbCurrentAgent !== 'local';
+            vdl2CurrentAgent = isAgentMode ? adsbCurrentAgent : null;
+
+            // Warn if using same device as ADS-B (only for local mode)
+            if (!isAgentMode && isTracking && device === '0') {
                 const useAnyway = confirm(
                     'Warning: ADS-B tracking may be using SDR device 0.\n\n' +
                     'VDL2 uses VHF frequencies (~137 MHz) while ADS-B uses 1090 MHz.\n' +
@@ -4182,32 +4208,46 @@ sudo make install</code>
                 if (!useAnyway) return;
             }
 
-            fetch('/vdl2/start', {
+            // Determine endpoint based on agent mode
+            const endpoint = isAgentMode
+                ? `/controller/agents/${adsbCurrentAgent}/vdl2/start`
+                : '/vdl2/start';
+
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ device, frequencies, gain: '40', sdr_type })
             })
             .then(r => r.json())
             .then(data => {
-                if (data.status === 'started') {
+                // Handle controller proxy response format
+                const vdl2Result = isAgentMode && data.result ? data.result : data;
+
+                if (vdl2Result.status === 'started' || vdl2Result.status === 'success') {
                     isVdl2Running = true;
                     vdl2MessageCount = 0;
                     document.getElementById('vdl2ToggleBtn').innerHTML = '&#9632; STOP VDL2';
                     document.getElementById('vdl2ToggleBtn').classList.add('active');
                     document.getElementById('vdl2PanelIndicator').classList.add('active');
-                    startVdl2Stream();
+                    startVdl2Stream(isAgentMode);
                 } else {
-                    alert('VDL2 Error: ' + (data.message || 'Failed to start'));
+                    alert('VDL2 Error: ' + (vdl2Result.message || vdl2Result.error || 'Failed to start'));
                 }
             })
             .catch(err => alert('VDL2 Error: ' + err));
         }
 
         function stopVdl2() {
-            fetch('/vdl2/stop', { method: 'POST' })
+            const isAgentMode = vdl2CurrentAgent !== null;
+            const endpoint = isAgentMode
+                ? `/controller/agents/${vdl2CurrentAgent}/vdl2/stop`
+                : '/vdl2/stop';
+
+            fetch(endpoint, { method: 'POST' })
                 .then(r => r.json())
                 .then(() => {
                     isVdl2Running = false;
+                    vdl2CurrentAgent = null;
                     document.getElementById('vdl2ToggleBtn').innerHTML = '&#9654; START VDL2';
                     document.getElementById('vdl2ToggleBtn').classList.remove('active');
                     document.getElementById('vdl2PanelIndicator').classList.remove('active');
@@ -4215,27 +4255,121 @@ sudo make install</code>
                         vdl2EventSource.close();
                         vdl2EventSource = null;
                     }
+                    // Clear polling timer
+                    if (vdl2PollTimer) {
+                        clearInterval(vdl2PollTimer);
+                        vdl2PollTimer = null;
+                    }
                 });
         }
 
-        function startVdl2Stream() {
+        // Sync VDL2 UI state (called by syncModeUI in agents.js)
+        function setVdl2Running(running, agentId = null) {
+            isVdl2Running = running;
+            const btn = document.getElementById('vdl2ToggleBtn');
+            const indicator = document.getElementById('vdl2PanelIndicator');
+
+            if (running) {
+                vdl2CurrentAgent = agentId;
+                btn.innerHTML = '&#9632; STOP VDL2';
+                btn.classList.add('active');
+                if (indicator) indicator.classList.add('active');
+                if (!vdl2EventSource && !vdl2PollTimer) {
+                    startVdl2Stream(agentId !== null);
+                }
+            } else {
+                btn.innerHTML = '&#9654; START VDL2';
+                btn.classList.remove('active');
+                if (indicator) indicator.classList.remove('active');
+            }
+        }
+        // Expose to global scope for syncModeUI
+        window.setVdl2Running = setVdl2Running;
+
+        function startVdl2Stream(isAgentMode = false) {
             if (vdl2EventSource) vdl2EventSource.close();
 
-            vdl2EventSource = new EventSource('/vdl2/stream');
+            // Use different stream endpoint for agent mode
+            const streamUrl = isAgentMode ? '/controller/stream/all' : '/vdl2/stream';
+            vdl2EventSource = new EventSource(streamUrl);
+
             vdl2EventSource.onmessage = function(e) {
                 const data = JSON.parse(e.data);
-                if (data.type === 'vdl2') {
-                    vdl2MessageCount++;
-                    if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
-                    document.getElementById('vdl2Count').textContent = vdl2MessageCount;
-                    document.getElementById('stripVdl2').textContent = vdl2MessageCount;
-                    addVdl2Message(data);
+
+                if (isAgentMode) {
+                    // Handle multi-agent stream format
+                    if (data.scan_type === 'vdl2' && data.payload) {
+                        const payload = data.payload;
+                        if (payload.type === 'vdl2') {
+                            vdl2MessageCount++;
+                            if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
+                            document.getElementById('vdl2Count').textContent = vdl2MessageCount;
+                            document.getElementById('stripVdl2').textContent = vdl2MessageCount;
+                            payload.agent_name = data.agent_name;
+                            addVdl2Message(payload);
+                        }
+                    }
+                } else {
+                    // Local stream format
+                    if (data.type === 'vdl2') {
+                        vdl2MessageCount++;
+                        if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
+                        document.getElementById('vdl2Count').textContent = vdl2MessageCount;
+                        document.getElementById('stripVdl2').textContent = vdl2MessageCount;
+                        addVdl2Message(data);
+                    }
                 }
             };
 
             vdl2EventSource.onerror = function() {
                 console.error('VDL2 stream error');
             };
+
+            // Start polling fallback for agent mode
+            if (isAgentMode) {
+                startVdl2Polling();
+            }
+        }
+
+        // Track last VDL2 message count for polling
+        let lastVdl2MessageCount = 0;
+
+        function startVdl2Polling() {
+            if (vdl2PollTimer) return;
+            lastVdl2MessageCount = 0;
+
+            const pollInterval = 2000;
+            vdl2PollTimer = setInterval(async () => {
+                if (!isVdl2Running || !vdl2CurrentAgent) {
+                    clearInterval(vdl2PollTimer);
+                    vdl2PollTimer = null;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/controller/agents/${vdl2CurrentAgent}/vdl2/data`);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    const result = data.result || data;
+                    const messages = result.data || [];
+
+                    if (messages.length > lastVdl2MessageCount) {
+                        const newMessages = messages.slice(lastVdl2MessageCount);
+                        newMessages.forEach(msg => {
+                            vdl2MessageCount++;
+                            if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
+                            document.getElementById('vdl2Count').textContent = vdl2MessageCount;
+                            document.getElementById('stripVdl2').textContent = vdl2MessageCount;
+                            msg.agent_name = result.agent_name || 'Remote Agent';
+                            addVdl2Message(msg);
+                        });
+                        lastVdl2MessageCount = messages.length;
+                    }
+                } catch (err) {
+                    console.error('VDL2 polling error:', err);
+                }
+            }, pollInterval);
         }
 
         function addVdl2Message(data) {
