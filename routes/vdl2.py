@@ -211,7 +211,7 @@ def start_vdl2() -> Response:
     # Build dumpvdl2 command
     # dumpvdl2 --output decoded:json --rtlsdr <device> --gain <gain> --correction <ppm> <freq1> <freq2> ...
     cmd = [dumpvdl2_path]
-    cmd.extend(['--output', 'decoded:json'])
+    cmd.extend(['--output', 'decoded:json:file:path=-'])
 
     if is_soapy:
         # SoapySDR device
