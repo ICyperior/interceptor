@@ -7,10 +7,23 @@ import os
 import sys
 
 # Application version
-VERSION = "2.18.0"
+VERSION = "2.19.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.19.0",
+        "date": "February 2026",
+        "highlights": [
+            "VDL2 mode with modal message viewer, consolidated into ADS-B dashboard",
+            "ADS-B: trails enabled by default, radar modes removed, CSV export added",
+            "Bundled Roboto Condensed font for offline mode with SVG icon overhaul",
+            "Help modal updated with all modes and correct SVG icons",
+            "Setup script overhauled for reliability and macOS compatibility",
+            "GPS fix for preserving satellites across DOP-only SKY messages",
+            "Fix gpsd deadlock causing GPS connect to hang",
+        ]
+    },
     {
         "version": "2.18.0",
         "date": "February 2026",
