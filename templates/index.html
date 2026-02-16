@@ -25,8 +25,12 @@
         window.INTERCEPT_DEFAULT_LON = {{ default_longitude | tojson }};
     </script>
     <script src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
-    <!-- Fonts -->
+    <!-- Fonts - Conditional CDN/Local loading -->
+    {% if offline_settings.fonts_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    {% else %}
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% endif %}
     <!-- Leaflet.js for APRS map - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
