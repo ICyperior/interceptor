@@ -490,7 +490,7 @@ def get_current_position() -> GPSPosition | None:
 # ============================================
 
 _gpsd_process: 'subprocess.Popen | None' = None
-_gpsd_process_lock = threading.Lock()
+_gpsd_process_lock = threading.RLock()
 
 
 def detect_gps_devices() -> list[dict]:
