@@ -3866,6 +3866,8 @@
 
             // Initialize/destroy Analytics mode
             if (mode === 'analytics') {
+                // Expand all analytics sections (sidebar sections default to collapsed)
+                document.querySelectorAll('#analyticsMode .section.collapsed').forEach(s => s.classList.remove('collapsed'));
                 if (typeof Analytics !== 'undefined') Analytics.init();
             } else {
                 if (typeof Analytics !== 'undefined' && Analytics.destroy) Analytics.destroy();
