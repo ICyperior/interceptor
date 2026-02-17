@@ -23,6 +23,7 @@ const BtLocate = (function() {
     let durationTimer = null;
     let sessionStartedAt = null;
     let lastDetectionCount = 0;
+    let gpsLocked = false;
 
     function init() {
         if (initialized) {
@@ -139,6 +140,7 @@ const BtLocate = (function() {
                     showActiveUI();
                     connectSSE();
                     rssiHistory = [];
+                    gpsLocked = false;
                     updateScanStatus(data.session);
                     // Restore any existing trail (e.g. from a stop/start cycle)
                     restoreTrail();
@@ -438,7 +440,13 @@ const BtLocate = (function() {
         );
 
         mapMarkers.push(marker);
-        map.panTo([point.lat, point.lon]);
+
+        if (!gpsLocked) {
+            gpsLocked = true;
+            map.setView([point.lat, point.lon], map.getMaxZoom());
+        } else {
+            map.panTo([point.lat, point.lon]);
+        }
 
         // Update trail line
         const latlngs = mapMarkers.map(m => m.getLatLng());
@@ -723,6 +731,7 @@ const BtLocate = (function() {
             .then(() => {
                 clearMapMarkers();
                 rssiHistory = [];
+                gpsLocked = false;
                 drawRssiChart();
                 updateStats(0, 0);
             })
