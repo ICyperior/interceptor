@@ -89,14 +89,39 @@ def analytics_export(mode: str):
         return jsonify({'status': 'error', 'message': f'Unknown mode: {mode}'}), 400
 
     all_items: list[dict] = []
-    for store_name in store_names:
-        store = getattr(app_module, store_name, None)
-        if store is None:
-            continue
-        for key, value in store.items():
-            item = dict(value) if isinstance(value, dict) else {'id': key, 'value': value}
-            item.setdefault('_store', store_name)
-            all_items.append(item)
+
+    # Try v2 scanners first for wifi/bluetooth
+    if mode == 'wifi':
+        try:
+            from utils.wifi.scanner import _scanner_instance as wifi_scanner
+            if wifi_scanner is not None:
+                for ap in wifi_scanner.access_points:
+                    all_items.append(ap.to_dict())
+                for client in wifi_scanner.clients:
+                    item = client.to_dict()
+                    item['_store'] = 'wifi_clients'
+                    all_items.append(item)
+        except Exception:
+            pass
+    elif mode == 'bluetooth':
+        try:
+            from utils.bluetooth.scanner import _scanner_instance as bt_scanner
+            if bt_scanner is not None:
+                for dev in bt_scanner.get_devices():
+                    all_items.append(dev.to_dict())
+        except Exception:
+            pass
+
+    # Fall back to legacy DataStores if v2 scanners yielded nothing
+    if not all_items:
+        for store_name in store_names:
+            store = getattr(app_module, store_name, None)
+            if store is None:
+                continue
+            for key, value in store.items():
+                item = dict(value) if isinstance(value, dict) else {'id': key, 'value': value}
+                item.setdefault('_store', store_name)
+                all_items.append(item)
 
     if fmt == 'csv':
         if not all_items:

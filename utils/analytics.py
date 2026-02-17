@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections import deque
 from typing import Any
@@ -54,7 +55,7 @@ def get_activity_tracker() -> ModeActivityTracker:
 
 
 def _get_mode_counts() -> dict[str, int]:
-    """Read current entity counts from app_module DataStores."""
+    """Read current entity counts from DataStores and v2 scanners."""
     counts: dict[str, int] = {}
     try:
         counts['adsb'] = len(app_module.adsb_aircraft)
@@ -64,14 +65,33 @@ def _get_mode_counts() -> dict[str, int]:
         counts['ais'] = len(app_module.ais_vessels)
     except Exception:
         counts['ais'] = 0
+
+    # WiFi: prefer v2 scanner, fall back to legacy DataStore
+    wifi_count = 0
     try:
-        counts['wifi'] = len(app_module.wifi_networks)
+        from utils.wifi.scanner import _scanner_instance as wifi_scanner
+        if wifi_scanner is not None:
+            wifi_count = len(wifi_scanner.access_points)
     except Exception:
-        counts['wifi'] = 0
+        pass
+    if wifi_count == 0:
+        with contextlib.suppress(Exception):
+            wifi_count = len(app_module.wifi_networks)
+    counts['wifi'] = wifi_count
+
+    # Bluetooth: prefer v2 scanner, fall back to legacy DataStore
+    bt_count = 0
     try:
-        counts['bluetooth'] = len(app_module.bt_devices)
+        from utils.bluetooth.scanner import _scanner_instance as bt_scanner
+        if bt_scanner is not None:
+            bt_count = len(bt_scanner.get_devices())
     except Exception:
-        counts['bluetooth'] = 0
+        pass
+    if bt_count == 0:
+        with contextlib.suppress(Exception):
+            bt_count = len(app_module.bt_devices)
+    counts['bluetooth'] = bt_count
+
     try:
         counts['dsc'] = len(app_module.dsc_messages)
     except Exception:
@@ -80,12 +100,19 @@ def _get_mode_counts() -> dict[str, int]:
 
 
 def get_cross_mode_summary() -> dict[str, Any]:
-    """Return counts dict for all active DataStores."""
+    """Return counts dict for all active DataStores and v2 scanners."""
     counts = _get_mode_counts()
+    wifi_clients_count = 0
     try:
-        counts['wifi_clients'] = len(app_module.wifi_clients)
+        from utils.wifi.scanner import _scanner_instance as wifi_scanner
+        if wifi_scanner is not None:
+            wifi_clients_count = len(wifi_scanner.clients)
     except Exception:
-        counts['wifi_clients'] = 0
+        pass
+    if wifi_clients_count == 0:
+        with contextlib.suppress(Exception):
+            wifi_clients_count = len(app_module.wifi_clients)
+    counts['wifi_clients'] = wifi_clients_count
     return counts
 
 
@@ -110,6 +137,20 @@ def get_mode_health() -> dict[str, dict]:
         proc = getattr(app_module, attr, None)
         running = proc is not None and (proc.poll() is None if proc else False)
         health[mode] = {'running': running}
+
+    # Override WiFi/BT health with v2 scanner status if available
+    try:
+        from utils.wifi.scanner import _scanner_instance as wifi_scanner
+        if wifi_scanner is not None and wifi_scanner.is_scanning:
+            health['wifi'] = {'running': True}
+    except Exception:
+        pass
+    try:
+        from utils.bluetooth.scanner import _scanner_instance as bt_scanner
+        if bt_scanner is not None and bt_scanner.is_scanning:
+            health['bluetooth'] = {'running': True}
+    except Exception:
+        pass
 
     try:
         sdr_status = app_module.get_sdr_device_status()
