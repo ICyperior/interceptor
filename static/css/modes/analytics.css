@@ -12,6 +12,9 @@
         max-width: 100% !important;
         width: 100% !important;
     }
+    .main-content.analytics-active .sidebar-collapse-btn {
+        display: none !important;
+    }
 }
 
 @media (max-width: 1023px) {
