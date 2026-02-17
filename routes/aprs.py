@@ -48,6 +48,7 @@ APRS_FREQUENCIES = {
     'japan': '144.640',
     'china': '144.640',
     'iss': '145.825',
+    'sonate2': '145.825',
 }
 
 # Statistics
