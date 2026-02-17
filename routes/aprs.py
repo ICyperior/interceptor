@@ -47,6 +47,7 @@ APRS_FREQUENCIES = {
     'brazil': '145.570',
     'japan': '144.640',
     'china': '144.640',
+    'iss': '145.825',
 }
 
 # Statistics

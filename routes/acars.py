@@ -35,11 +35,8 @@ acars_bp = Blueprint('acars', __name__, url_prefix='/acars')
 
 # Default VHF ACARS frequencies (MHz) - common worldwide
 DEFAULT_ACARS_FREQUENCIES = [
-    '131.550',  # Primary worldwide
-    '130.025',  # Secondary USA/Canada
-    '129.125',  # USA
-    '131.525',  # Europe
-    '131.725',  # Europe secondary
+    '131.725',  # North America
+    '131.825',  # North America
 ]
 
 # Message counter for statistics
@@ -447,7 +444,7 @@ def get_frequencies() -> Response:
     return jsonify({
         'default': DEFAULT_ACARS_FREQUENCIES,
         'regions': {
-            'north_america': ['129.125', '130.025', '130.450', '131.550'],
+            'north_america': ['131.725', '131.825'],
             'europe': ['131.525', '131.725', '131.550'],
             'asia_pacific': ['131.550', '131.450'],
         }
