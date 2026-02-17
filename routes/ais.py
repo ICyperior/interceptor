@@ -124,13 +124,27 @@ def parse_ais_stream(port: int):
                     if now - last_update >= AIS_UPDATE_INTERVAL:
                         for mmsi in pending_updates:
                             if mmsi in app_module.ais_vessels:
+                                _vessel_snap = app_module.ais_vessels[mmsi]
                                 try:
                                     app_module.ais_queue.put_nowait({
                                         'type': 'vessel',
-                                        **app_module.ais_vessels[mmsi]
+                                        **_vessel_snap
                                     })
                                 except queue.Full:
                                     pass
+                                # Geofence check
+                                _v_lat = _vessel_snap.get('lat')
+                                _v_lon = _vessel_snap.get('lon')
+                                if _v_lat and _v_lon:
+                                    try:
+                                        from utils.geofence import get_geofence_manager
+                                        for _gf_evt in get_geofence_manager().check_position(
+                                            mmsi, 'vessel', _v_lat, _v_lon,
+                                            {'name': _vessel_snap.get('name'), 'ship_type': _vessel_snap.get('ship_type_text')}
+                                        ):
+                                            process_event('ais', _gf_evt, 'geofence')
+                                    except Exception:
+                                        pass
                         pending_updates.clear()
                         last_update = now
 
@@ -281,6 +295,16 @@ def process_ais_message(msg: dict) -> dict | None:
 
     # Timestamp
     vessel['last_seen'] = time.time()
+
+    # Check for DSC DISTRESS matching this MMSI
+    try:
+        for _dsc_key, _dsc_msg in app_module.dsc_messages.items():
+            if (str(_dsc_msg.get('source_mmsi', '')) == mmsi
+                    and _dsc_msg.get('category', '').upper() == 'DISTRESS'):
+                vessel['dsc_distress'] = True
+                break
+    except Exception:
+        pass
 
     return vessel
 
@@ -500,6 +524,23 @@ def stream_ais():
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response
+
+
+@ais_bp.route('/vessel/<mmsi>/dsc')
+def get_vessel_dsc(mmsi: str):
+    """Get DSC messages associated with a vessel MMSI."""
+    if not mmsi or not mmsi.isdigit():
+        return jsonify({'status': 'error', 'message': 'Invalid MMSI'}), 400
+
+    matches = []
+    try:
+        for key, msg in app_module.dsc_messages.items():
+            if str(msg.get('source_mmsi', '')) == mmsi:
+                matches.append(dict(msg))
+    except Exception:
+        pass
+
+    return jsonify({'status': 'success', 'mmsi': mmsi, 'dsc_messages': matches})
 
 
 @ais_bp.route('/dashboard')

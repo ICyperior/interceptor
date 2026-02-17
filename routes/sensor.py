@@ -28,6 +28,10 @@ sensor_bp = Blueprint('sensor', __name__)
 # Track which device is being used
 sensor_active_device: int | None = None
 
+# RSSI history per device (model_id -> list of (timestamp, rssi))
+sensor_rssi_history: dict[str, list[tuple[float, float]]] = {}
+_MAX_RSSI_HISTORY = 60
+
 
 def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
     """Stream rtl_433 JSON output to queue."""
@@ -44,6 +48,17 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
                 data = json.loads(line)
                 data['type'] = 'sensor'
                 app_module.sensor_queue.put(data)
+
+                # Track RSSI history per device
+                _model = data.get('model', '')
+                _dev_id = data.get('id', '')
+                _rssi_val = data.get('rssi')
+                if _rssi_val is not None and _model:
+                    _hist_key = f"{_model}_{_dev_id}"
+                    hist = sensor_rssi_history.setdefault(_hist_key, [])
+                    hist.append((time.time(), float(_rssi_val)))
+                    if len(hist) > _MAX_RSSI_HISTORY:
+                        del hist[: len(hist) - _MAX_RSSI_HISTORY]
 
                 # Push scope event when signal level data is present
                 rssi = data.get('rssi')
@@ -283,3 +298,12 @@ def stream_sensor() -> Response:
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Connection'] = 'keep-alive'
     return response
+
+
+@sensor_bp.route('/sensor/rssi_history')
+def get_rssi_history() -> Response:
+    """Return RSSI history for all tracked sensor devices."""
+    result = {}
+    for key, entries in sensor_rssi_history.items():
+        result[key] = [{'t': round(t, 1), 'rssi': rssi} for t, rssi in entries]
+    return jsonify({'status': 'success', 'devices': result})

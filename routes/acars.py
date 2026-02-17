@@ -129,6 +129,13 @@ def stream_acars_output(process: subprocess.Popen, is_text_mode: bool = False) -
 
                 app_module.acars_queue.put(data)
 
+                # Feed flight correlator
+                try:
+                    from utils.flight_correlator import get_flight_correlator
+                    get_flight_correlator().add_acars_message(data)
+                except Exception:
+                    pass
+
                 # Log if enabled
                 if app_module.logging_enabled:
                     try:

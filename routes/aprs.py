@@ -1378,6 +1378,19 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                         'last_seen': packet.get('timestamp'),
                         'packet_type': packet.get('packet_type'),
                     }
+                    # Geofence check
+                    _aprs_lat = packet.get('lat')
+                    _aprs_lon = packet.get('lon')
+                    if _aprs_lat and _aprs_lon:
+                        try:
+                            from utils.geofence import get_geofence_manager
+                            for _gf_evt in get_geofence_manager().check_position(
+                                callsign, 'aprs_station', _aprs_lat, _aprs_lon,
+                                {'callsign': callsign}
+                            ):
+                                process_event('aprs', _gf_evt, 'geofence')
+                        except Exception:
+                            pass
                     # Evict oldest stations when limit is exceeded
                     if len(aprs_stations) > APRS_MAX_STATIONS:
                         oldest = min(

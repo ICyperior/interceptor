@@ -439,6 +439,12 @@ def parse_sbs_stream(service_addr):
                             if parts[16]:
                                 try:
                                     aircraft['vertical_rate'] = int(float(parts[16]))
+                                    if abs(aircraft['vertical_rate']) > 4000:
+                                        process_event('adsb', {
+                                            'type': 'vertical_rate_anomaly', 'icao': icao,
+                                            'callsign': aircraft.get('callsign', ''),
+                                            'vertical_rate': aircraft['vertical_rate'],
+                                        }, 'vertical_rate_anomaly')
                                 except (ValueError, TypeError):
                                     pass
 
@@ -456,6 +462,14 @@ def parse_sbs_stream(service_addr):
                         elif msg_type == '6' and len(parts) > 17:
                             if parts[17]:
                                 aircraft['squawk'] = parts[17]
+                                sq = parts[17].strip()
+                                _EMERGENCY_SQUAWKS = {'7700': 'General Emergency', '7600': 'Comms Failure', '7500': 'Hijack'}
+                                if sq in _EMERGENCY_SQUAWKS:
+                                    process_event('adsb', {
+                                        'type': 'squawk_emergency', 'icao': icao,
+                                        'callsign': aircraft.get('callsign', ''),
+                                        'squawk': sq, 'meaning': _EMERGENCY_SQUAWKS[sq],
+                                    }, 'squawk_emergency')
 
                         app_module.adsb_aircraft.set(icao, aircraft)
                         pending_updates.add(icao)
@@ -488,6 +502,19 @@ def parse_sbs_stream(service_addr):
                                         'source_host': service_addr,
                                         'snapshot': snapshot,
                                     })
+                                    # Geofence check
+                                    _gf_lat = snapshot.get('lat')
+                                    _gf_lon = snapshot.get('lon')
+                                    if _gf_lat and _gf_lon:
+                                        try:
+                                            from utils.geofence import get_geofence_manager
+                                            for _gf_evt in get_geofence_manager().check_position(
+                                                update_icao, 'aircraft', _gf_lat, _gf_lon,
+                                                {'callsign': snapshot.get('callsign'), 'altitude': snapshot.get('altitude')}
+                                            ):
+                                                process_event('adsb', _gf_evt, 'geofence')
+                                        except Exception:
+                                            pass
                             pending_updates.clear()
                             last_update = now
 
@@ -1103,3 +1130,17 @@ def aircraft_photo(registration: str):
     except Exception as e:
         logger.debug(f"Error fetching aircraft photo: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@adsb_bp.route('/aircraft/<icao>/messages')
+def get_aircraft_messages(icao: str):
+    """Get correlated ACARS/VDL2 messages for an aircraft."""
+    if not icao or not all(c in '0123456789ABCDEFabcdef' for c in icao):
+        return jsonify({'status': 'error', 'message': 'Invalid ICAO'}), 400
+
+    aircraft = app_module.adsb_aircraft.get(icao.upper())
+    callsign = aircraft.get('callsign') if aircraft else None
+
+    from utils.flight_correlator import get_flight_correlator
+    messages = get_flight_correlator().get_messages_for_aircraft(icao=icao.upper(), callsign=callsign)
+    return jsonify({'status': 'success', 'icao': icao.upper(), **messages})

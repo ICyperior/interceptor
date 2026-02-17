@@ -76,6 +76,13 @@ def stream_vdl2_output(process: subprocess.Popen) -> None:
 
                 app_module.vdl2_queue.put(data)
 
+                # Feed flight correlator
+                try:
+                    from utils.flight_correlator import get_flight_correlator
+                    get_flight_correlator().add_vdl2_message(data)
+                except Exception:
+                    pass
+
                 # Log if enabled
                 if app_module.logging_enabled:
                     try:

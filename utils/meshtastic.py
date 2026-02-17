@@ -306,6 +306,9 @@ class MeshtasticClient:
         self._range_test_running: bool = False
         self._range_test_results: list[dict] = []
 
+        # Topology tracking: node_id -> {neighbors, hop_count, msg_count, last_seen}
+        self._topology: dict[str, dict] = {}
+
     @property
     def is_running(self) -> bool:
         return self._running
@@ -325,6 +328,35 @@ class MeshtasticClient:
     def set_callback(self, callback: Callable[[MeshtasticMessage], None]) -> None:
         """Set callback for received messages."""
         self._callback = callback
+
+    def record_message_route(self, from_node: str, to_node: str, hops: int | None = None) -> None:
+        """Record a message route for topology tracking."""
+        now = datetime.now(timezone.utc).isoformat()
+        for node_id in (from_node, to_node):
+            if node_id not in self._topology:
+                self._topology[node_id] = {
+                    'neighbors': set(),
+                    'hop_count': hops,
+                    'msg_count': 0,
+                    'last_seen': now,
+                }
+            entry = self._topology[node_id]
+            entry['msg_count'] += 1
+            entry['last_seen'] = now
+        self._topology[from_node]['neighbors'].add(to_node)
+        self._topology[to_node]['neighbors'].add(from_node)
+
+    def get_topology(self) -> dict:
+        """Return topology dict with serializable sets."""
+        result = {}
+        for node_id, data in self._topology.items():
+            result[node_id] = {
+                'neighbors': list(data.get('neighbors', set())),
+                'hop_count': data.get('hop_count'),
+                'msg_count': data.get('msg_count', 0),
+                'last_seen': data.get('last_seen'),
+            }
+        return result
 
     def connect(self, device: str | None = None, connection_type: str = 'serial',
                 hostname: str | None = None) -> bool:
@@ -462,6 +494,14 @@ class MeshtasticClient:
 
             # Track node from packet (always, even for filtered messages)
             self._track_node_from_packet(packet, decoded, portnum)
+
+            # Record topology route
+            if from_num and to_num:
+                self.record_message_route(
+                    self._format_node_id(from_num),
+                    self._format_node_id(to_num),
+                    packet.get('hopLimit'),
+                )
 
             # Parse traceroute responses
             if portnum == 'TRACEROUTE_APP':

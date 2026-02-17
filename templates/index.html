@@ -52,6 +52,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/aprs.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/tscm.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/analytics.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
@@ -553,6 +554,8 @@
                 {% include 'partials/modes/listening-post.html' %}
 
                 {% include 'partials/modes/tscm.html' %}
+
+                {% include 'partials/modes/analytics.html' %}
 
                 {% include 'partials/modes/ais.html' %}
 
@@ -3024,6 +3027,7 @@
     <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
     <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate2"></script>
+    <script src="{{ url_for('static', filename='js/modes/analytics.js') }}"></script>
 
     <script>
         // ============================================
@@ -3159,7 +3163,8 @@
         const validModes = new Set([
             'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
             'spystations', 'meshtastic', 'wifi', 'bluetooth', 'bt_locate',
-            'tscm', 'satellite', 'sstv', 'weathersat', 'sstv_general', 'gps', 'websdr', 'subghz'
+            'tscm', 'satellite', 'sstv', 'weathersat', 'sstv_general', 'gps', 'websdr', 'subghz',
+            'analytics'
         ]);
 
         function getModeFromQuery() {
@@ -3616,7 +3621,7 @@
                 'pager': 'sdr', 'sensor': 'sdr',
                 'aprs': 'sdr', 'listening': 'sdr',
                 'wifi': 'wireless', 'bluetooth': 'wireless', 'bt_locate': 'wireless',
-                'tscm': 'security',
+                'tscm': 'security', 'analytics': 'security',
                 'rtlamr': 'sdr', 'ais': 'sdr', 'spystations': 'sdr',
                 'meshtastic': 'sdr',
                 'satellite': 'space', 'sstv': 'space', 'weathersat': 'space', 'sstv_general': 'space', 'gps': 'space',
@@ -3695,7 +3700,8 @@
                 'pager': 'pager', 'sensor': '433',
                 'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth', 'bt_locate': 'bt locate',
                 'listening': 'listening', 'aprs': 'aprs', 'tscm': 'tscm', 'meshtastic': 'meshtastic',
-                'dmr': 'dmr', 'websdr': 'websdr', 'sstv_general': 'hf sstv'
+                'dmr': 'dmr', 'websdr': 'websdr', 'sstv_general': 'hf sstv',
+                'analytics': 'analytics'
             };
             document.querySelectorAll('.mode-nav-btn').forEach(btn => {
                 const label = btn.querySelector('.nav-label');
@@ -3723,6 +3729,7 @@
             document.getElementById('dmrMode')?.classList.toggle('active', mode === 'dmr');
             document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
             document.getElementById('subghzMode')?.classList.toggle('active', mode === 'subghz');
+            document.getElementById('analyticsMode')?.classList.toggle('active', mode === 'analytics');
 
 
             const pagerStats = document.getElementById('pagerStats');
@@ -3765,7 +3772,8 @@
                 'meshtastic': 'MESHTASTIC',
                 'dmr': 'DIGITAL VOICE',
                 'websdr': 'WEBSDR',
-                'subghz': 'SUBGHZ'
+                'subghz': 'SUBGHZ',
+                'analytics': 'ANALYTICS'
             };
             const activeModeIndicator = document.getElementById('activeModeIndicator');
             if (activeModeIndicator) activeModeIndicator.innerHTML = '<span class="pulse-dot"></span>' + (modeNames[mode] || mode.toUpperCase());
@@ -3839,7 +3847,8 @@
                 'meshtastic': 'Meshtastic Mesh Monitor',
                 'dmr': 'Digital Voice Decoder',
                 'websdr': 'HF/Shortwave WebSDR',
-                'subghz': 'SubGHz Transceiver'
+                'subghz': 'SubGHz Transceiver',
+                'analytics': 'Cross-Mode Analytics'
             };
             const outputTitle = document.getElementById('outputTitle');
             if (outputTitle) outputTitle.textContent = titles[mode] || 'Signal Monitor';
@@ -3853,11 +3862,18 @@
                 refreshTscmDevices();
             }
 
+            // Initialize/destroy Analytics mode
+            if (mode === 'analytics') {
+                if (typeof Analytics !== 'undefined') Analytics.init();
+            } else {
+                if (typeof Analytics !== 'undefined' && Analytics.destroy) Analytics.destroy();
+            }
+
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';

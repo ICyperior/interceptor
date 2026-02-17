@@ -1051,3 +1051,19 @@ def request_store_forward():
             'status': 'error',
             'message': error or 'Failed to request S&F history'
         }), 500
+
+
+@meshtastic_bp.route('/topology')
+def mesh_topology():
+    """Return mesh network topology graph."""
+    if not is_meshtastic_available():
+        return jsonify({'status': 'error', 'message': 'Meshtastic SDK not installed'}), 400
+
+    client = get_meshtastic_client()
+    if not client or not client.is_running:
+        return jsonify({'status': 'error', 'message': 'Not connected'}), 400
+
+    return jsonify({
+        'status': 'success',
+        'topology': client.get_topology(),
+    })
