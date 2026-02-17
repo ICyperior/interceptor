@@ -399,16 +399,20 @@ const WeatherSat = (function() {
 
                 addConsoleEntry('Capture complete', 'signal');
                 updatePhaseIndicator('complete');
+                if (consoleAutoHideTimer) clearTimeout(consoleAutoHideTimer);
                 consoleAutoHideTimer = setTimeout(() => showConsole(false), 30000);
             }
 
         } else if (data.status === 'error') {
+            isRunning = false;
+            if (!schedulerEnabled) stopStream();
             updateStatusUI('idle', 'Error');
             showNotification('Weather Sat', data.message || 'Capture error');
             if (captureStatus) captureStatus.classList.remove('active');
 
             if (data.message) addConsoleEntry(data.message, 'error');
             updatePhaseIndicator('error');
+            if (consoleAutoHideTimer) clearTimeout(consoleAutoHideTimer);
             consoleAutoHideTimer = setTimeout(() => showConsole(false), 15000);
         }
     }
@@ -761,8 +765,17 @@ const WeatherSat = (function() {
         }).addTo(groundTrackLayer);
 
         // Observer marker
-        const lat = parseFloat(localStorage.getItem('observerLat'));
-        const lon = parseFloat(localStorage.getItem('observerLon'));
+        let obsLat, obsLon;
+        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+            const shared = ObserverLocation.getShared();
+            obsLat = shared?.lat;
+            obsLon = shared?.lon;
+        } else {
+            obsLat = parseFloat(localStorage.getItem('observerLat'));
+            obsLon = parseFloat(localStorage.getItem('observerLon'));
+        }
+        const lat = obsLat;
+        const lon = obsLon;
         if (!isNaN(lat) && !isNaN(lon)) {
             L.circleMarker([lat, lon], {
                 radius: 6, color: '#ffbb00', fillColor: '#ffbb00', fillOpacity: 0.8, weight: 1,
@@ -946,8 +959,15 @@ const WeatherSat = (function() {
      * Enable auto-scheduler
      */
     async function enableScheduler() {
-        const lat = parseFloat(localStorage.getItem('observerLat'));
-        const lon = parseFloat(localStorage.getItem('observerLon'));
+        let lat, lon;
+        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+            const shared = ObserverLocation.getShared();
+            lat = shared?.lat;
+            lon = shared?.lon;
+        } else {
+            lat = parseFloat(localStorage.getItem('observerLat'));
+            lon = parseFloat(localStorage.getItem('observerLon'));
+        }
 
         if (isNaN(lat) || isNaN(lon)) {
             showNotification('Weather Sat', 'Set observer location first');

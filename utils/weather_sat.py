@@ -156,7 +156,9 @@ class WeatherSatDecoder:
         self._process: subprocess.Popen | None = None
         self._running = False
         self._lock = threading.Lock()
+        self._pty_lock = threading.Lock()
         self._images_lock = threading.Lock()
+        self._stop_event = threading.Event()
         self._callback: Callable[[CaptureProgress], None] | None = None
         self._output_dir = Path(output_dir) if output_dir else Path('data/weather_sat')
         self._images: list[WeatherSatImage] = []
@@ -211,6 +213,16 @@ class WeatherSatDecoder:
             "See: https://github.com/SatDump/SatDump"
         )
         return None
+
+    def _close_pty(self) -> None:
+        """Close the PTY master fd in a thread-safe manner."""
+        with self._pty_lock:
+            if self._pty_master_fd is not None:
+                try:
+                    os.close(self._pty_master_fd)
+                except OSError:
+                    pass
+                self._pty_master_fd = None
 
     def set_callback(self, callback: Callable[[CaptureProgress], None]) -> None:
         """Set callback for capture progress updates."""
@@ -292,6 +304,7 @@ class WeatherSatDecoder:
             self._current_mode = sat_info['mode']
             self._capture_start_time = time.time()
             self._capture_phase = 'decoding'
+            self._stop_event.clear()
 
             try:
                 self._running = True
@@ -372,6 +385,7 @@ class WeatherSatDecoder:
             self._device_index = device_index
             self._capture_start_time = time.time()
             self._capture_phase = 'tuning'
+            self._stop_event.clear()
 
             try:
                 self._running = True
@@ -781,13 +795,11 @@ class WeatherSatDecoder:
         except Exception as e:
             logger.error(f"Error reading SatDump output: {e}")
         finally:
-            # Close PTY master fd
-            if self._pty_master_fd is not None:
-                try:
-                    os.close(self._pty_master_fd)
-                except OSError:
-                    pass
-                self._pty_master_fd = None
+            # Close PTY master fd (thread-safe)
+            self._close_pty()
+
+            # Signal watcher thread to do final scan and exit
+            self._stop_event.set()
 
             # Process ended — release resources
             was_running = self._running
@@ -795,7 +807,13 @@ class WeatherSatDecoder:
             elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
 
             if was_running:
-                # Check if SatDump exited with an error
+                # Collect exit status (returncode is only set after poll/wait)
+                if self._process and self._process.returncode is None:
+                    try:
+                        self._process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        self._process.kill()
+                        self._process.wait()
                 retcode = self._process.returncode if self._process else None
                 if retcode and retcode != 0:
                     self._capture_phase = 'error'
@@ -837,63 +855,79 @@ class WeatherSatDecoder:
         known_files: set[str] = set()
 
         while self._running:
-            time.sleep(2)
+            self._scan_output_dir(known_files)
+            # Use stop_event for faster wakeup on process exit
+            if self._stop_event.wait(timeout=2):
+                break
 
-            try:
-                # Recursively scan for image files
-                for ext in ('*.png', '*.jpg', '*.jpeg'):
-                    for filepath in self._capture_output_dir.rglob(ext):
-                        file_key = str(filepath)
-                        if file_key in known_files:
+        # Final scan — SatDump writes images at the end of processing,
+        # often after the process has already exited. Do multiple scans
+        # with a short delay to catch late-written files.
+        for _ in range(3):
+            time.sleep(0.5)
+            self._scan_output_dir(known_files)
+
+    def _scan_output_dir(self, known_files: set[str]) -> None:
+        """Scan capture output directory for new image files."""
+        if not self._capture_output_dir:
+            return
+
+        try:
+            # Recursively scan for image files
+            for ext in ('*.png', '*.jpg', '*.jpeg'):
+                for filepath in self._capture_output_dir.rglob(ext):
+                    file_key = str(filepath)
+                    if file_key in known_files:
+                        continue
+
+                    # Skip tiny files (likely incomplete)
+                    try:
+                        stat = filepath.stat()
+                        if stat.st_size < 1000:
                             continue
+                    except OSError:
+                        continue
 
-                        # Skip tiny files (likely incomplete)
-                        try:
-                            stat = filepath.stat()
-                            if stat.st_size < 1000:
-                                continue
-                        except OSError:
-                            continue
+                    # Determine product type from filename/path
+                    product = self._parse_product_name(filepath)
 
-                        known_files.add(file_key)
+                    # Copy image to main output dir for serving
+                    serve_name = f"{self._current_satellite}_{filepath.stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                    serve_path = self._output_dir / serve_name
+                    try:
+                        shutil.copy2(filepath, serve_path)
+                    except OSError:
+                        # Copy failed — don't mark as known so it can be retried
+                        continue
 
-                        # Determine product type from filename/path
-                        product = self._parse_product_name(filepath)
+                    # Only mark as known after successful copy
+                    known_files.add(file_key)
 
-                        # Copy image to main output dir for serving
-                        serve_name = f"{self._current_satellite}_{filepath.stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                        serve_path = self._output_dir / serve_name
-                        try:
-                            shutil.copy2(filepath, serve_path)
-                        except OSError:
-                            serve_path = filepath
-                            serve_name = filepath.name
+                    image = WeatherSatImage(
+                        filename=serve_name,
+                        path=serve_path,
+                        satellite=self._current_satellite,
+                        mode=self._current_mode,
+                        timestamp=datetime.now(timezone.utc),
+                        frequency=self._current_frequency,
+                        size_bytes=stat.st_size,
+                        product=product,
+                    )
+                    with self._images_lock:
+                        self._images.append(image)
 
-                        image = WeatherSatImage(
-                            filename=serve_name,
-                            path=serve_path,
-                            satellite=self._current_satellite,
-                            mode=self._current_mode,
-                            timestamp=datetime.now(timezone.utc),
-                            frequency=self._current_frequency,
-                            size_bytes=stat.st_size,
-                            product=product,
-                        )
-                        with self._images_lock:
-                            self._images.append(image)
+                    logger.info(f"New weather satellite image: {serve_name} ({product})")
+                    self._emit_progress(CaptureProgress(
+                        status='complete',
+                        satellite=self._current_satellite,
+                        frequency=self._current_frequency,
+                        mode=self._current_mode,
+                        message=f'Image decoded: {product}',
+                        image=image,
+                    ))
 
-                        logger.info(f"New weather satellite image: {serve_name} ({product})")
-                        self._emit_progress(CaptureProgress(
-                            status='complete',
-                            satellite=self._current_satellite,
-                            frequency=self._current_frequency,
-                            mode=self._current_mode,
-                            message=f'Image decoded: {product}',
-                            image=image,
-                        ))
-
-            except Exception as e:
-                logger.error(f"Error watching images: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning for images: {e}")
 
     def _parse_product_name(self, filepath: Path) -> str:
         """Parse a human-readable product name from the image filepath."""
@@ -931,13 +965,8 @@ class WeatherSatDecoder:
         """Stop weather satellite capture."""
         with self._lock:
             self._running = False
-
-            if self._pty_master_fd is not None:
-                try:
-                    os.close(self._pty_master_fd)
-                except OSError:
-                    pass
-                self._pty_master_fd = None
+            self._stop_event.set()
+            self._close_pty()
 
             if self._process:
                 safe_terminate(self._process)
