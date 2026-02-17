@@ -54,17 +54,33 @@ def get_activity_tracker() -> ModeActivityTracker:
     return _tracker
 
 
+def _safe_len(attr_name: str) -> int:
+    """Safely get len() of an app_module attribute."""
+    try:
+        return len(getattr(app_module, attr_name))
+    except Exception:
+        return 0
+
+
+def _safe_route_attr(module_path: str, attr_name: str, default: int = 0) -> int:
+    """Safely read a module-level counter from a route file."""
+    try:
+        import importlib
+        mod = importlib.import_module(module_path)
+        return int(getattr(mod, attr_name, default))
+    except Exception:
+        return default
+
+
 def _get_mode_counts() -> dict[str, int]:
-    """Read current entity counts from DataStores and v2 scanners."""
+    """Read current entity counts from all available data sources."""
     counts: dict[str, int] = {}
-    try:
-        counts['adsb'] = len(app_module.adsb_aircraft)
-    except Exception:
-        counts['adsb'] = 0
-    try:
-        counts['ais'] = len(app_module.ais_vessels)
-    except Exception:
-        counts['ais'] = 0
+
+    # ADS-B aircraft (DataStore)
+    counts['adsb'] = _safe_len('adsb_aircraft')
+
+    # AIS vessels (DataStore)
+    counts['ais'] = _safe_len('ais_vessels')
 
     # WiFi: prefer v2 scanner, fall back to legacy DataStore
     wifi_count = 0
@@ -75,8 +91,7 @@ def _get_mode_counts() -> dict[str, int]:
     except Exception:
         pass
     if wifi_count == 0:
-        with contextlib.suppress(Exception):
-            wifi_count = len(app_module.wifi_networks)
+        wifi_count = _safe_len('wifi_networks')
     counts['wifi'] = wifi_count
 
     # Bluetooth: prefer v2 scanner, fall back to legacy DataStore
@@ -88,19 +103,37 @@ def _get_mode_counts() -> dict[str, int]:
     except Exception:
         pass
     if bt_count == 0:
-        with contextlib.suppress(Exception):
-            bt_count = len(app_module.bt_devices)
+        bt_count = _safe_len('bt_devices')
     counts['bluetooth'] = bt_count
 
+    # DSC messages (DataStore)
+    counts['dsc'] = _safe_len('dsc_messages')
+
+    # ACARS message count (route-level counter)
+    counts['acars'] = _safe_route_attr('routes.acars', 'acars_message_count')
+
+    # VDL2 message count (route-level counter)
+    counts['vdl2'] = _safe_route_attr('routes.vdl2', 'vdl2_message_count')
+
+    # APRS stations (route-level dict)
     try:
-        counts['dsc'] = len(app_module.dsc_messages)
+        import routes.aprs as aprs_mod
+        counts['aprs'] = len(getattr(aprs_mod, 'aprs_stations', {}))
     except Exception:
-        counts['dsc'] = 0
+        counts['aprs'] = 0
+
+    # Meshtastic recent messages (route-level list)
+    try:
+        import routes.meshtastic as mesh_route
+        counts['meshtastic'] = len(getattr(mesh_route, '_recent_messages', []))
+    except Exception:
+        counts['meshtastic'] = 0
+
     return counts
 
 
 def get_cross_mode_summary() -> dict[str, Any]:
-    """Return counts dict for all active DataStores and v2 scanners."""
+    """Return counts dict for all available data sources."""
     counts = _get_mode_counts()
     wifi_clients_count = 0
     try:
@@ -110,8 +143,7 @@ def get_cross_mode_summary() -> dict[str, Any]:
     except Exception:
         pass
     if wifi_clients_count == 0:
-        with contextlib.suppress(Exception):
-            wifi_clients_count = len(app_module.wifi_clients)
+        wifi_clients_count = _safe_len('wifi_clients')
     counts['wifi_clients'] = wifi_clients_count
     return counts
 
@@ -131,6 +163,8 @@ def get_mode_health() -> dict[str, dict]:
         'wifi': 'wifi_process',
         'bluetooth': 'bt_process',
         'dsc': 'dsc_process',
+        'rtlamr': 'rtlamr_process',
+        'dmr': 'dmr_process',
     }
 
     for mode, attr in process_map.items():
@@ -151,6 +185,14 @@ def get_mode_health() -> dict[str, dict]:
             health['bluetooth'] = {'running': True}
     except Exception:
         pass
+
+    # Meshtastic: check client connection status
+    try:
+        from utils.meshtastic import get_meshtastic_client
+        client = get_meshtastic_client()
+        health['meshtastic'] = {'running': client._interface is not None}
+    except Exception:
+        health['meshtastic'] = {'running': False}
 
     try:
         sdr_status = app_module.get_sdr_device_status()

@@ -44,6 +44,10 @@ const Analytics = (function () {
         _setText('analyticsCountWifi', counts.wifi || 0);
         _setText('analyticsCountBt', counts.bluetooth || 0);
         _setText('analyticsCountDsc', counts.dsc || 0);
+        _setText('analyticsCountAcars', counts.acars || 0);
+        _setText('analyticsCountVdl2', counts.vdl2 || 0);
+        _setText('analyticsCountAprs', counts.aprs || 0);
+        _setText('analyticsCountMesh', counts.meshtastic || 0);
 
         // Health
         const health = data.health || {};
