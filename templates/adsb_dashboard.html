@@ -3359,6 +3359,22 @@ sudo make install</code>
                 sidebar.classList.add('collapsed');
             }
             updateAcarsFreqCheckboxes();
+
+            // Check if ACARS is already running (e.g. after page reload)
+            fetch('/acars/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.running) {
+                        isAcarsRunning = true;
+                        acarsMessageCount = data.message_count || 0;
+                        document.getElementById('acarsCount').textContent = acarsMessageCount;
+                        document.getElementById('acarsToggleBtn').textContent = '■ STOP ACARS';
+                        document.getElementById('acarsToggleBtn').classList.add('active');
+                        document.getElementById('acarsPanelIndicator').classList.add('active');
+                        startAcarsStream(false);
+                    }
+                })
+                .catch(() => {});
         });
 
         function updateAcarsFreqCheckboxes() {
@@ -3542,6 +3558,11 @@ sudo make install</code>
 
             acarsEventSource.onerror = function() {
                 console.error('ACARS stream error');
+                setTimeout(() => {
+                    if (isAcarsRunning) {
+                        startAcarsStream(acarsCurrentAgent !== null);
+                    }
+                }, 2000);
             };
 
             // Start polling fallback for agent mode
@@ -3872,6 +3893,11 @@ sudo make install</code>
 
             vdl2EventSource.onerror = function() {
                 console.error('VDL2 stream error');
+                setTimeout(() => {
+                    if (isVdl2Running) {
+                        startVdl2Stream(vdl2CurrentAgent !== null);
+                    }
+                }, 2000);
             };
 
             // Start polling fallback for agent mode
@@ -4163,7 +4189,7 @@ sudo make install</code>
             URL.revokeObjectURL(url);
         }
 
-        // Populate VDL2 device selector
+        // Populate VDL2 device selector and check running status
         document.addEventListener('DOMContentLoaded', () => {
             fetch('/devices')
                 .then(r => r.json())
@@ -4185,6 +4211,22 @@ sudo make install</code>
                         }
                     }
                 });
+
+            // Check if VDL2 is already running (e.g. after page reload)
+            fetch('/vdl2/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.running) {
+                        isVdl2Running = true;
+                        vdl2MessageCount = data.message_count || 0;
+                        document.getElementById('vdl2Count').textContent = vdl2MessageCount;
+                        document.getElementById('vdl2ToggleBtn').innerHTML = '&#9632; STOP VDL2';
+                        document.getElementById('vdl2ToggleBtn').classList.add('active');
+                        document.getElementById('vdl2PanelIndicator').classList.add('active');
+                        startVdl2Stream(false);
+                    }
+                })
+                .catch(() => {});
         });
 
         // ============================================
