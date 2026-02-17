@@ -165,6 +165,22 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **Real-time JSON output** with meter ID, consumption, and signal data
 - **Multiple meter protocol support** via rtl_tcp integration
 
+## Space Weather
+
+- **Real-time solar indices** - Solar Flux Index (SFI), Kp index, A-index, sunspot number
+- **NOAA Space Weather Scales** - Geomagnetic storms (G), solar radiation (S), radio blackouts (R)
+- **HF band conditions** - Day/night propagation from HamQSL for 80m through 10m bands
+- **Solar wind monitoring** - Speed, density, and IMF Bz from DSCOVR satellite
+- **X-ray flux chart** - GOES X-ray data with flare class scale (A/B/C/M/X)
+- **Flare probability** - 1-day and 3-day C/M/X-class flare forecasts
+- **Solar imagery** - NASA SDO 193A, 304A, and magnetogram images
+- **D-RAP absorption maps** - HF radio absorption at 5-30 MHz frequency bands
+- **Aurora forecast** - OVATION aurora oval visualization
+- **SWPC alerts** - Real-time space weather alerts and warnings
+- **Active solar regions** - Current sunspot region data with location and area
+- **Auto-refresh** - 5-minute polling with manual refresh option
+- **No SDR required** - Data fetched from NOAA SWPC, NASA SDO, and HamQSL public APIs
+
 ## Satellite Tracking
 
 - **Full-screen dashboard** - dedicated popout with polar plot and ground track

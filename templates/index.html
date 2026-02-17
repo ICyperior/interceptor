@@ -66,6 +66,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/gps.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/space-weather.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
@@ -257,6 +258,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('gps')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg></span>
                                 <span class="mode-name">GPS</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('spaceweather')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+                                <span class="mode-name">Space Wx</span>
                             </button>
                         </div>
                     </div>
@@ -550,6 +555,8 @@
                 {% include 'partials/modes/sstv-general.html' %}
 
                 {% include 'partials/modes/gps.html' %}
+
+                {% include 'partials/modes/space-weather.html' %}
 
                 {% include 'partials/modes/listening-post.html' %}
 
@@ -2903,6 +2910,141 @@
                     </div>
                 </div>
 
+                <!-- Space Weather Dashboard -->
+                <div id="spaceWeatherVisuals" class="sw-visuals-container" style="display: none;">
+                    <!-- Header metrics strip -->
+                    <div class="sw-header-strip">
+                        <div class="sw-header-stat">
+                            <span class="sw-header-value accent-cyan" id="swStripSfi">--</span>
+                            <span class="sw-header-label">SFI</span>
+                        </div>
+                        <div class="sw-header-stat">
+                            <span class="sw-header-value" id="swStripKp">--</span>
+                            <span class="sw-header-label">Kp</span>
+                        </div>
+                        <div class="sw-header-stat">
+                            <span class="sw-header-value" id="swStripA">--</span>
+                            <span class="sw-header-label">A-Index</span>
+                        </div>
+                        <div class="sw-header-stat">
+                            <span class="sw-header-value" id="swStripSsn">--</span>
+                            <span class="sw-header-label">SSN</span>
+                        </div>
+                        <div class="sw-header-stat">
+                            <span class="sw-header-value" id="swStripWind">--</span>
+                            <span class="sw-header-label">Wind</span>
+                        </div>
+                        <div class="sw-header-stat">
+                            <span class="sw-header-value" id="swStripBz">--</span>
+                            <span class="sw-header-label">Bz</span>
+                        </div>
+                    </div>
+
+                    <!-- NOAA G/S/R Scales -->
+                    <div class="sw-scales-row">
+                        <div class="sw-scale-card" id="swScaleG">
+                            <div class="sw-scale-label">Geomagnetic</div>
+                            <div class="sw-scale-value sw-scale-0">G0</div>
+                            <div class="sw-scale-desc">Quiet</div>
+                        </div>
+                        <div class="sw-scale-card" id="swScaleS">
+                            <div class="sw-scale-label">Solar Radiation</div>
+                            <div class="sw-scale-value sw-scale-0">S0</div>
+                            <div class="sw-scale-desc">None</div>
+                        </div>
+                        <div class="sw-scale-card" id="swScaleR">
+                            <div class="sw-scale-label">Radio Blackouts</div>
+                            <div class="sw-scale-value sw-scale-0">R0</div>
+                            <div class="sw-scale-desc">None</div>
+                        </div>
+                    </div>
+
+                    <!-- HF Band Conditions -->
+                    <div class="sw-band-panel">
+                        <div class="sw-band-title">HF Band Conditions</div>
+                        <div class="sw-band-grid" id="swBandGrid">
+                            <div class="sw-loading">Loading band data</div>
+                        </div>
+                    </div>
+
+                    <!-- Charts row -->
+                    <div class="sw-dashboard-grid">
+                        <div class="sw-chart-card">
+                            <div class="sw-chart-title">Kp Index (3-hourly)</div>
+                            <div class="sw-chart-wrap"><canvas id="swKpChart"></canvas></div>
+                        </div>
+                        <div class="sw-chart-card">
+                            <div class="sw-chart-title">Solar Wind</div>
+                            <div class="sw-chart-wrap"><canvas id="swWindChart"></canvas></div>
+                        </div>
+                        <div class="sw-chart-card">
+                            <div class="sw-chart-title">X-Ray Flux (GOES)</div>
+                            <div class="sw-chart-wrap"><canvas id="swXrayChart"></canvas></div>
+                        </div>
+                        <div class="sw-chart-card">
+                            <div class="sw-chart-title">Flare Probability</div>
+                            <div id="swFlareProb"><div class="sw-loading">Loading</div></div>
+                        </div>
+                    </div>
+
+                    <!-- Solar imagery gallery -->
+                    <div class="sw-dashboard-grid">
+                        <div class="sw-image-panel">
+                            <div class="sw-chart-title">Solar Imagery (SDO)</div>
+                            <div class="sw-image-tabs">
+                                <button class="sw-image-tab sw-solar-tab active" data-key="sdo_193" onclick="SpaceWeather.selectSolarImage('sdo_193')">193&#197;</button>
+                                <button class="sw-image-tab sw-solar-tab" data-key="sdo_304" onclick="SpaceWeather.selectSolarImage('sdo_304')">304&#197;</button>
+                                <button class="sw-image-tab sw-solar-tab" data-key="sdo_magnetogram" onclick="SpaceWeather.selectSolarImage('sdo_magnetogram')">Magnetogram</button>
+                            </div>
+                            <div class="sw-image-frame" id="swSolarImageFrame">
+                                <div class="sw-loading">Loading</div>
+                            </div>
+                        </div>
+                        <div class="sw-image-panel">
+                            <div class="sw-chart-title">Aurora Forecast (North)</div>
+                            <div class="sw-image-frame" id="swAuroraFrame">
+                                <div class="sw-loading">Loading</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- D-RAP absorption map -->
+                    <div class="sw-image-panel">
+                        <div class="sw-chart-title">D-Region Absorption (D-RAP)</div>
+                        <div class="sw-drap-freqs">
+                            <button class="sw-drap-freq-btn active" data-key="drap_global" onclick="SpaceWeather.selectDrapFreq('drap_global')">Global</button>
+                            <button class="sw-drap-freq-btn" data-key="drap_5" onclick="SpaceWeather.selectDrapFreq('drap_5')">5 MHz</button>
+                            <button class="sw-drap-freq-btn" data-key="drap_10" onclick="SpaceWeather.selectDrapFreq('drap_10')">10 MHz</button>
+                            <button class="sw-drap-freq-btn" data-key="drap_15" onclick="SpaceWeather.selectDrapFreq('drap_15')">15 MHz</button>
+                            <button class="sw-drap-freq-btn" data-key="drap_20" onclick="SpaceWeather.selectDrapFreq('drap_20')">20 MHz</button>
+                            <button class="sw-drap-freq-btn" data-key="drap_25" onclick="SpaceWeather.selectDrapFreq('drap_25')">25 MHz</button>
+                            <button class="sw-drap-freq-btn" data-key="drap_30" onclick="SpaceWeather.selectDrapFreq('drap_30')">30 MHz</button>
+                        </div>
+                        <div class="sw-image-frame" id="swDrapImageFrame">
+                            <div class="sw-loading">Loading</div>
+                        </div>
+                    </div>
+
+                    <!-- Alerts & Active Regions -->
+                    <div class="sw-dashboard-grid">
+                        <div class="sw-alerts-panel">
+                            <div class="sw-chart-title">Active Alerts</div>
+                            <div id="swAlertsList"><div class="sw-loading">Loading</div></div>
+                        </div>
+                        <div class="sw-regions-panel">
+                            <div class="sw-chart-title">Active Sunspot Regions</div>
+                            <table class="sw-regions-table">
+                                <thead>
+                                    <tr><th>Region</th><th>Date</th><th>Loc</th><th>Lo</th><th>Area</th></tr>
+                                </thead>
+                                <tbody id="swRegionsBody">
+                                    <tr><td colspan="5" class="sw-loading">Loading</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
                 <div class="recon-panel collapsed" id="reconPanel">
                     <div class="recon-header" onclick="toggleReconCollapse()" style="cursor: pointer;">
@@ -3029,6 +3171,7 @@
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
     <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate2"></script>
     <script src="{{ url_for('static', filename='js/modes/analytics.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/space-weather.js') }}"></script>
 
     <script>
         // ============================================
@@ -3165,7 +3308,7 @@
             'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
             'spystations', 'meshtastic', 'wifi', 'bluetooth', 'bt_locate',
             'tscm', 'satellite', 'sstv', 'weathersat', 'sstv_general', 'gps', 'websdr', 'subghz',
-            'analytics'
+            'analytics', 'spaceweather'
         ]);
 
         function getModeFromQuery() {
@@ -3626,7 +3769,7 @@
                 'rtlamr': 'sdr', 'ais': 'sdr', 'spystations': 'sdr',
                 'meshtastic': 'sdr',
                 'satellite': 'space', 'sstv': 'space', 'weathersat': 'space', 'sstv_general': 'space', 'gps': 'space',
-                'subghz': 'sdr'
+                'spaceweather': 'space', 'subghz': 'sdr'
             };
 
             // Remove has-active from all dropdowns
@@ -3731,6 +3874,7 @@
             document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
             document.getElementById('subghzMode')?.classList.toggle('active', mode === 'subghz');
             document.getElementById('analyticsMode')?.classList.toggle('active', mode === 'analytics');
+            document.getElementById('spaceWeatherMode')?.classList.toggle('active', mode === 'spaceweather');
 
 
             const pagerStats = document.getElementById('pagerStats');
@@ -3774,7 +3918,8 @@
                 'dmr': 'DIGITAL VOICE',
                 'websdr': 'WEBSDR',
                 'subghz': 'SUBGHZ',
-                'analytics': 'ANALYTICS'
+                'analytics': 'ANALYTICS',
+                'spaceweather': 'SPACE WX'
             };
             const activeModeIndicator = document.getElementById('activeModeIndicator');
             if (activeModeIndicator) activeModeIndicator.innerHTML = '<span class="pulse-dot"></span>' + (modeNames[mode] || mode.toUpperCase());
@@ -3794,6 +3939,7 @@
             const websdrVisuals = document.getElementById('websdrVisuals');
             const subghzVisuals = document.getElementById('subghzVisuals');
             const btLocateVisuals = document.getElementById('btLocateVisuals');
+            const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -3810,6 +3956,7 @@
             if (websdrVisuals) websdrVisuals.style.display = mode === 'websdr' ? 'flex' : 'none';
             if (subghzVisuals) subghzVisuals.style.display = mode === 'subghz' ? 'flex' : 'none';
             if (btLocateVisuals) btLocateVisuals.style.display = mode === 'bt_locate' ? 'flex' : 'none';
+            if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
 
             // Hide sidebar by default for Meshtastic mode, show for others
             const mainContent = document.querySelector('.main-content');
@@ -3851,7 +3998,8 @@
                 'dmr': 'Digital Voice Decoder',
                 'websdr': 'HF/Shortwave WebSDR',
                 'subghz': 'SubGHz Transceiver',
-                'analytics': 'Cross-Mode Analytics'
+                'analytics': 'Cross-Mode Analytics',
+                'spaceweather': 'Space Weather Monitor'
             };
             const outputTitle = document.getElementById('outputTitle');
             if (outputTitle) outputTitle.textContent = titles[mode] || 'Signal Monitor';
@@ -3874,11 +4022,16 @@
                 if (typeof Analytics !== 'undefined' && Analytics.destroy) Analytics.destroy();
             }
 
+            // Initialize/destroy Space Weather mode
+            if (mode !== 'spaceweather') {
+                if (typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy) SpaceWeather.destroy();
+            }
+
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'spaceweather') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -3916,8 +4069,8 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics') ? 'none' : 'block';
-            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'dmr' || mode === 'subghz') ? 'none' : 'flex';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'spaceweather') ? 'none' : 'block';
+            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'dmr' || mode === 'subghz' || mode === 'spaceweather') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
             if (mode !== 'meshtastic') {
@@ -3983,6 +4136,8 @@
                 SubGhz.init();
             } else if (mode === 'bt_locate') {
                 BtLocate.init();
+            } else if (mode === 'spaceweather') {
+                SpaceWeather.init();
             }
         }
 

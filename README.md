@@ -48,6 +48,7 @@ Support the developer of this open-source project
 - **GPS** - Real-time GPS position tracking with live map, speed, altitude, and satellite info
 - **TSCM** - Counter-surveillance with RF baseline comparison and threat detection
 - **Meshtastic** - LoRa mesh network integration
+- **Space Weather** - Real-time solar and geomagnetic data from NOAA SWPC, NASA SDO, and HamQSL (no SDR required)
 - **Spy Stations** - Number stations and diplomatic HF network database
 - **Remote Agents** - Distributed SIGINT with remote sensor nodes
 - **Offline Mode** - Bundled assets for air-gapped/field deployments

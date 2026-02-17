@@ -239,6 +239,25 @@ Enable the auto-scheduler to automatically capture passes:
 - Starts SatDump at the correct time and frequency
 - Decoded images are saved with timestamps
 
+## Space Weather
+
+1. **Switch to Space Weather mode** - Select "Space Weather" from the Space navigation group
+2. **View Dashboard** - Solar indices, NOAA scales, band conditions, and charts load automatically
+3. **Solar Imagery** - Toggle between SDO 193A, 304A, and Magnetogram views
+4. **D-RAP Maps** - Select frequency (5-30 MHz) to view HF radio absorption maps
+5. **Aurora Forecast** - View the OVATION aurora oval for the northern hemisphere
+6. **Alerts** - Review current SWPC space weather alerts and warnings
+7. **Active Regions** - View solar active region data (number, location, area)
+8. **Refresh** - Data auto-refreshes every 5 minutes, or click "Refresh Now"
+
+### Tips
+
+- No SDR hardware required — all data comes from public APIs (NOAA SWPC, NASA SDO, HamQSL)
+- Check HF band conditions before operating on shortwave frequencies
+- Kp >= 5 indicates geomagnetic storm conditions that may affect HF propagation
+- D-RAP maps show where HF absorption is highest — useful for path planning
+- Solar imagery updates approximately every 15 minutes from NASA SDO
+
 ## AIS Vessel Tracking
 
 1. **Select Hardware** - Choose your SDR type

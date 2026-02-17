@@ -7,10 +7,21 @@ import os
 import sys
 
 # Application version
-VERSION = "2.19.0"
+VERSION = "2.20.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.20.0",
+        "date": "February 2026",
+        "highlights": [
+            "Space Weather mode: real-time solar and geomagnetic monitoring from NOAA SWPC, NASA SDO, and HamQSL",
+            "Kp index, solar wind, X-ray flux charts with Chart.js visualization",
+            "HF band conditions, D-RAP absorption maps, aurora forecast, and solar imagery",
+            "NOAA Space Weather Scales (G/S/R), flare probability, and active solar regions",
+            "No SDR hardware required — all data from public APIs with server-side caching",
+        ]
+    },
     {
         "version": "2.19.0",
         "date": "February 2026",

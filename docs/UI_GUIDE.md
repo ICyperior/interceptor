@@ -206,14 +206,23 @@ Extended base for full-screen dashboards (maps, visualizations).
 | `listening` | Listening post |
 | `spystations` | Spy stations |
 | `meshtastic` | Mesh networking |
+| `weathersat` | Weather satellites |
+| `sstv_general` | HF SSTV |
+| `gps` | GPS tracking |
+| `websdr` | WebSDR |
+| `subghz` | Sub-GHz analyzer |
+| `bt_locate` | BT Locate |
+| `analytics` | Analytics dashboard |
+| `spaceweather` | Space weather |
+| `dmr` | DMR/P25 digital voice |
 
 ### Navigation Groups
 
 The navigation is organized into groups:
-- **SDR / RF**: Pager, 433MHz, Meters, Aircraft, Vessels, APRS, Listening Post, Spy Stations, Meshtastic
-- **Wireless**: WiFi, Bluetooth
-- **Security**: TSCM
-- **Space**: Satellite, ISS SSTV
+- **SDR / RF**: Pager, 433MHz, Meters, Aircraft, Vessels, APRS, Listening Post, Spy Stations, Meshtastic, WebSDR, SubGHz
+- **Wireless**: WiFi, Bluetooth, BT Locate
+- **Security**: TSCM, Analytics
+- **Space**: Satellite, ISS SSTV, Weather Sat, HF SSTV, GPS, Space Weather
 
 ---
 
