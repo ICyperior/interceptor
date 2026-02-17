@@ -795,17 +795,32 @@ class WeatherSatDecoder:
             elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
 
             if was_running:
-                self._capture_phase = 'complete'
-                self._emit_progress(CaptureProgress(
-                    status='complete',
-                    satellite=self._current_satellite,
-                    frequency=self._current_frequency,
-                    mode=self._current_mode,
-                    message=f"Capture complete ({elapsed}s)",
-                    elapsed_seconds=elapsed,
-                    log_type='info',
-                    capture_phase='complete',
-                ))
+                # Check if SatDump exited with an error
+                retcode = self._process.returncode if self._process else None
+                if retcode and retcode != 0:
+                    self._capture_phase = 'error'
+                    self._emit_progress(CaptureProgress(
+                        status='error',
+                        satellite=self._current_satellite,
+                        frequency=self._current_frequency,
+                        mode=self._current_mode,
+                        message=f"SatDump crashed (exit code {retcode}). Check SatDump installation and SDR device.",
+                        elapsed_seconds=elapsed,
+                        log_type='error',
+                        capture_phase='error',
+                    ))
+                else:
+                    self._capture_phase = 'complete'
+                    self._emit_progress(CaptureProgress(
+                        status='complete',
+                        satellite=self._current_satellite,
+                        frequency=self._current_frequency,
+                        mode=self._current_mode,
+                        message=f"Capture complete ({elapsed}s)",
+                        elapsed_seconds=elapsed,
+                        log_type='info',
+                        capture_phase='complete',
+                    ))
 
             # Notify route layer to release SDR device
             if self._on_complete_callback:
