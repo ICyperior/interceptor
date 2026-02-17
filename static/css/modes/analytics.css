@@ -1,5 +1,25 @@
 /* Analytics Dashboard Styles */
 
+/* Analytics is a sidebar-only mode — hide the output panel and expand the sidebar */
+@media (min-width: 1024px) {
+    .main-content.analytics-active {
+        grid-template-columns: 1fr !important;
+    }
+    .main-content.analytics-active > .output-panel {
+        display: none !important;
+    }
+    .main-content.analytics-active > .sidebar {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 1023px) {
+    .main-content.analytics-active > .output-panel {
+        display: none !important;
+    }
+}
+
 .analytics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

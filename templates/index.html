@@ -3818,6 +3818,8 @@
                 } else {
                     mainContent.classList.remove('mesh-sidebar-hidden');
                 }
+                // Analytics is sidebar-only — hide output panel and expand sidebar
+                mainContent.classList.toggle('analytics-active', mode === 'analytics');
             }
 
             // Show/hide mode-specific timeline containers
