@@ -1100,7 +1100,7 @@ install_dump1090_from_source_debian() {
   # Run in subshell to isolate EXIT trap
   (
     tmp_dir="$(mktemp -d)"
-    trap 'kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; rm -rf "$tmp_dir"' EXIT
+    trap 'kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null || true; rm -rf "$tmp_dir"' EXIT
 
     info "Cloning FlightAware dump1090..."
     git clone --depth 1 https://github.com/flightaware/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
@@ -1116,13 +1116,13 @@ install_dump1090_from_source_debian() {
     progress_pid=$!
 
     if make -j "$JOBS" BLADERF=no RTLSDR=yes >"$build_log" 2>&1; then
-      kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
+      kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null || true; progress_pid=
       $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
       ok "dump1090 installed successfully (FlightAware)."
       exit 0
     fi
 
-    kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
+    kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null || true; progress_pid=
     warn "FlightAware build failed. Falling back to wiedehopf/readsb..."
     warn "Build log (last 20 lines):"
     tail -20 "$build_log" | while IFS= read -r line; do warn "  $line"; done
@@ -1139,14 +1139,14 @@ install_dump1090_from_source_debian() {
     progress_pid=$!
 
     if ! make -j "$JOBS" RTLSDR=yes >"$build_log" 2>&1; then
-      kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
+      kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null || true; progress_pid=
       warn "Build log (last 20 lines):"
       tail -20 "$build_log" | while IFS= read -r line; do warn "  $line"; done
       fail "Failed to build readsb from source (required)."
       exit 1
     fi
 
-    kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
+    kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null || true; progress_pid=
     $SUDO install -m 0755 readsb /usr/local/bin/dump1090
     ok "dump1090 installed successfully (via readsb)."
   )
