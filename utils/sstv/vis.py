@@ -128,6 +128,7 @@ class VISDetector:
         self._state = VISState.IDLE
         self._buffer = np.array([], dtype=np.float64)
         self._tone_counter = 0
+        self._miss_counter = 0
         self._data_bits: list[int] = []
         self._parity_bit: int = 0
         self._bit_accumulator: list[np.ndarray] = []
@@ -137,6 +138,7 @@ class VISDetector:
         self._state = VISState.IDLE
         self._buffer = np.array([], dtype=np.float64)
         self._tone_counter = 0
+        self._miss_counter = 0
         self._data_bits = []
         self._parity_bit = 0
         self._bit_accumulator = []
@@ -188,10 +190,19 @@ class VISDetector:
         if self._state == VISState.IDLE:
             if tone == FREQ_LEADER:
                 self._tone_counter += 1
+                self._miss_counter = 0
                 if self._tone_counter >= self._leader_min_windows:
                     self._state = VISState.LEADER_1
+            elif tone is None:
+                # Ambiguous window (noise/fading) — tolerate up to 3
+                # consecutive misses before resetting the leader count.
+                self._miss_counter += 1
+                if self._miss_counter > 3:
+                    self._tone_counter = 0
+                    self._miss_counter = 0
             else:
                 self._tone_counter = 0
+                self._miss_counter = 0
 
         elif self._state == VISState.LEADER_1:
             if tone == FREQ_LEADER:
@@ -204,7 +215,15 @@ class VISDetector:
                 self._tone_counter = 1
                 self._state = VISState.BREAK
             elif tone is None:
-                pass  # Ambiguous window at tone boundary — stay in state
+                # Mixed leader+break window? Check if 1200 Hz energy is
+                # significant relative to 1900 Hz — indicates the break
+                # pulse is straddling this analysis window.
+                leader_e = goertzel(window, FREQ_LEADER, self._sample_rate)
+                sync_e = goertzel(window, FREQ_SYNC, self._sample_rate)
+                if sync_e > leader_e * 0.5:
+                    self._tone_counter = 1
+                    self._state = VISState.BREAK
+                # else: noisy leader window, stay in LEADER_1
             else:
                 self._tone_counter = 0
                 self._state = VISState.IDLE
@@ -338,24 +357,42 @@ class VISDetector:
     def _validate_and_decode(self) -> tuple[int, str] | None:
         """Validate parity and decode the VIS code.
 
+        Includes single-bit error correction for HF noise resilience:
+        if parity fails, tries recovering by assuming either the parity
+        bit or exactly one data bit was corrupted.
+
         Returns:
             (vis_code, mode_name) or None if validation fails.
         """
         if len(self._data_bits) != 8:
             return None
 
-        # VIS uses even parity across 8 data bits + parity bit.
-        if (sum(self._data_bits) + self._parity_bit) % 2 != 0:
-            return None
+        parity_ok = (sum(self._data_bits) + self._parity_bit) % 2 == 0
+        vis_code = sum(bit << i for i, bit in enumerate(self._data_bits))
 
-        # Decode VIS code (LSB first)
-        vis_code = 0
-        for i, bit in enumerate(self._data_bits):
-            vis_code |= bit << i
+        if parity_ok:
+            mode_name = VIS_CODES.get(vis_code)
+            if mode_name is not None:
+                return vis_code, mode_name
+            return None  # Valid parity but unknown code — not SSTV
 
-        # Look up mode
+        # Parity failed — try error correction
+
+        # Case 1: only the parity bit is wrong (data is correct)
         mode_name = VIS_CODES.get(vis_code)
         if mode_name is not None:
             return vis_code, mode_name
+
+        # Case 2: one data bit is wrong — try flipping each
+        for flip in range(8):
+            corrected = vis_code ^ (1 << flip)
+            # Flipping one data bit should fix parity too
+            corrected_parity_ok = (
+                bin(corrected).count('1') + self._parity_bit
+            ) % 2 == 0
+            if corrected_parity_ok:
+                mode_name = VIS_CODES.get(corrected)
+                if mode_name is not None:
+                    return corrected, mode_name
 
         return None
