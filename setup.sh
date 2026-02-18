@@ -1315,13 +1315,19 @@ install_rtlsdr_blog_drivers_debian() {
         $SUDO udevadm trigger || true
       fi
 
-      # Remove the apt rtl-sdr package to prevent binary/library conflicts.
-      # The apt package installs to /usr/bin and /usr/lib; keeping it alongside
-      # the Blog drivers (in /usr/local) causes ambiguity and can silently
-      # result in the wrong (non-V4-aware) library being loaded.
-      if dpkg -l rtl-sdr 2>/dev/null | grep -q "^ii"; then
-        info "Removing apt rtl-sdr package to prevent library conflicts with Blog drivers..."
-        $SUDO apt-get remove -y rtl-sdr >/dev/null 2>&1 || true
+      # Remove ALL apt rtl-sdr packages (binaries AND library) so nothing
+      # shadows /usr/local/lib/librtlsdr.so.0 from the Blog drivers.
+      # Removing only rtl-sdr leaves librtlsdr0 installed; ldconfig then
+      # picks /lib/aarch64-linux-gnu/librtlsdr.so.0 (apt, no R828D support)
+      # over /usr/local/lib/librtlsdr.so.0 (Blog drivers) because the
+      # multiarch path is searched first.
+      local pkgs_to_remove=()
+      for pkg in rtl-sdr librtlsdr0 librtlsdr-dev; do
+        dpkg -l "$pkg" 2>/dev/null | grep -q "^ii" && pkgs_to_remove+=("$pkg")
+      done
+      if [[ ${#pkgs_to_remove[@]} -gt 0 ]]; then
+        info "Removing apt rtl-sdr packages to prevent library conflicts: ${pkgs_to_remove[*]}"
+        $SUDO apt-get remove -y "${pkgs_to_remove[@]}" >/dev/null 2>&1 || true
       fi
       $SUDO ldconfig
 
