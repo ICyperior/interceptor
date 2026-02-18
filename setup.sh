@@ -325,9 +325,8 @@ install_python_deps() {
   # (C extension packages like scipy/numpy can fail on newer Python versions
   #  and cause pip to roll back pure-Python packages like flask)
   info "Installing core packages..."
-  $PIP install "flask>=3.0.0" "flask-limiter>=2.5.4" "requests>=2.28.0" \
-    "Werkzeug>=3.1.5" "pyserial>=3.5" "flask-sock" "websocket-client>=1.6.0" 2>&1 \
-    | tail -5 || true
+  $PIP install --quiet "flask>=3.0.0" "flask-limiter>=2.5.4" "requests>=2.28.0" \
+    "Werkzeug>=3.1.5" "pyserial>=3.5" "flask-sock" "websocket-client>=1.6.0" 2>/dev/null || true
 
   # Verify critical packages
   $PY -c "import flask; import requests; from flask_limiter import Limiter" 2>/dev/null || {
