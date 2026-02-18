@@ -1428,12 +1428,18 @@ install_debian_packages() {
 
   apt_install_if_missing rtl-sdr
 
-  progress "RTL-SDR Blog drivers"
-  if cmd_exists rtl_test; then
-    ok "RTL-SDR drivers already installed"
+  progress "RTL-SDR Blog drivers (V4 support)"
+  if $IS_DRAGONOS; then
+    info "DragonOS: skipping RTL-SDR Blog driver install (pre-configured)."
   else
-    info "RTL-SDR drivers not found, installing RTL-SDR Blog drivers..."
-    install_rtlsdr_blog_drivers_debian
+    echo
+    info "RTL-SDR Blog drivers add V4 (R828D tuner) support and bias-tee improvements."
+    info "They are backward-compatible with all RTL-SDR devices."
+    if ask_yes_no "Install RTL-SDR Blog drivers? (recommended for V4 users, safe for all)" "y"; then
+      install_rtlsdr_blog_drivers_debian
+    else
+      warn "Skipping RTL-SDR Blog drivers. V4 devices may not work correctly."
+    fi
   fi
 
   progress "Installing multimon-ng"
