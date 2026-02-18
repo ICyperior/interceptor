@@ -5209,8 +5209,11 @@ body::before {
 }
 
 .disclaimer-modal .warning-icon {
-    font-size: 48px;
-    margin-bottom: 15px;
+    display: block;
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 15px;
+    color: var(--accent-red);
 }
 
 .disclaimer-modal p {
