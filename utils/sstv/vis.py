@@ -145,6 +145,16 @@ class VISDetector:
     def state(self) -> VISState:
         return self._state
 
+    @property
+    def remaining_buffer(self) -> np.ndarray:
+        """Unprocessed samples left after VIS detection.
+
+        Valid immediately after feed() returns a detection result and before
+        reset() is called. These samples are the start of the SSTV image and
+        must be forwarded to the image decoder.
+        """
+        return self._buffer
+
     def feed(self, samples: np.ndarray) -> tuple[int, str] | None:
         """Feed audio samples and attempt VIS detection.
 
@@ -288,8 +298,21 @@ class VISDetector:
 
             if self._tone_counter >= self._bit_windows:
                 result = self._validate_and_decode()
-                self.reset()
+                # Do NOT call reset() here. self._buffer still holds samples
+                # that arrived after the STOP_BIT window — those are the very
+                # first samples of the image. Wiping the buffer here causes all
+                # of them to be lost, making the image decoder start mid-stream
+                # and producing garbled/diagonal output.
+                # feed() will advance past the current window, leaving
+                # self._buffer pointing at the image start. The caller must
+                # read remaining_buffer and then call reset() explicitly.
+                self._state = VISState.DETECTED
                 return result
+
+        elif self._state == VISState.DETECTED:
+            # Waiting for caller to call reset() after reading remaining_buffer.
+            # Don't process any windows in this state.
+            pass
 
         return None
 
