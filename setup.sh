@@ -1088,8 +1088,11 @@ install_dump1090_from_source_debian() {
   info "dump1090 not available via APT. Building from source (required)..."
 
   apt_install build-essential git pkg-config \
-    librtlsdr-dev libusb-1.0-0-dev \
+    libusb-1.0-0-dev \
     libncurses-dev tcl-dev python3-dev
+  # If Blog drivers are installed they supply headers via pkg-config;
+  # installing apt librtlsdr-dev would pull librtlsdr0 back and shadow them.
+  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
 
   local JOBS
   JOBS="$(nproc 2>/dev/null || echo 1)"
@@ -1153,7 +1156,8 @@ install_acarsdec_from_source_debian() {
   info "acarsdec not available via APT. Building from source..."
 
   apt_install build-essential git cmake \
-    librtlsdr-dev libusb-1.0-0-dev libsndfile1-dev
+    libusb-1.0-0-dev libsndfile1-dev
+  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
 
   # Run in subshell to isolate EXIT trap
   (
@@ -1181,7 +1185,8 @@ install_dumpvdl2_from_source_debian() {
   info "Building dumpvdl2 from source (with libacars dependency)..."
 
   apt_install build-essential git cmake \
-    librtlsdr-dev libusb-1.0-0-dev libglib2.0-dev libxml2-dev
+    libusb-1.0-0-dev libglib2.0-dev libxml2-dev
+  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
 
   (
     tmp_dir="$(mktemp -d)"
@@ -1227,7 +1232,8 @@ install_aiscatcher_from_source_debian() {
   info "AIS-catcher not available via APT. Building from source..."
 
   apt_install build-essential git cmake pkg-config \
-    librtlsdr-dev libusb-1.0-0-dev libcurl4-openssl-dev zlib1g-dev
+    libusb-1.0-0-dev libcurl4-openssl-dev zlib1g-dev
+  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
 
   # Run in subshell to isolate EXIT trap
   (
@@ -1340,6 +1346,15 @@ install_rtlsdr_blog_drivers_debian() {
       warn "See: https://github.com/rtlsdrblog/rtl-sdr-blog"
     fi
   )
+
+  # apt may have removed dump1090-mutability (or similar) as a reverse
+  # dependency of librtlsdr0.  Rebuild from source now so the ADS-B
+  # decoder is available.  The source build functions above now guard
+  # against pulling apt librtlsdr-dev back in, so this is safe.
+  if ! cmd_exists dump1090 && ! cmd_exists dump1090-mutability; then
+    info "Rebuilding dump1090 from source (removed as reverse dep of librtlsdr0)..."
+    install_dump1090_from_source_debian
+  fi
 }
 
 setup_udev_rules_debian() {
