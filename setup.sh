@@ -1088,11 +1088,8 @@ install_dump1090_from_source_debian() {
   info "dump1090 not available via APT. Building from source (required)..."
 
   apt_install build-essential git pkg-config \
-    libusb-1.0-0-dev \
+    librtlsdr-dev libusb-1.0-0-dev \
     libncurses-dev tcl-dev python3-dev
-  # If Blog drivers are installed they supply headers via pkg-config;
-  # installing apt librtlsdr-dev would pull librtlsdr0 back and shadow them.
-  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
 
   local JOBS
   JOBS="$(nproc 2>/dev/null || echo 1)"
@@ -1100,7 +1097,7 @@ install_dump1090_from_source_debian() {
   # Run in subshell to isolate EXIT trap
   (
     tmp_dir="$(mktemp -d)"
-    trap 'kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null || true; rm -rf "$tmp_dir"' EXIT
+    trap '{ [[ -n "${progress_pid:-}" ]] && kill "$progress_pid" 2>/dev/null && wait "$progress_pid" 2>/dev/null || true; }; rm -rf "$tmp_dir"' EXIT
 
     info "Cloning FlightAware dump1090..."
     git clone --depth 1 https://github.com/flightaware/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
@@ -1156,8 +1153,7 @@ install_acarsdec_from_source_debian() {
   info "acarsdec not available via APT. Building from source..."
 
   apt_install build-essential git cmake \
-    libusb-1.0-0-dev libsndfile1-dev
-  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
+    librtlsdr-dev libusb-1.0-0-dev libsndfile1-dev
 
   # Run in subshell to isolate EXIT trap
   (
@@ -1185,8 +1181,7 @@ install_dumpvdl2_from_source_debian() {
   info "Building dumpvdl2 from source (with libacars dependency)..."
 
   apt_install build-essential git cmake \
-    libusb-1.0-0-dev libglib2.0-dev libxml2-dev
-  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
+    librtlsdr-dev libusb-1.0-0-dev libglib2.0-dev libxml2-dev
 
   (
     tmp_dir="$(mktemp -d)"
@@ -1232,8 +1227,7 @@ install_aiscatcher_from_source_debian() {
   info "AIS-catcher not available via APT. Building from source..."
 
   apt_install build-essential git cmake pkg-config \
-    libusb-1.0-0-dev libcurl4-openssl-dev zlib1g-dev
-  pkg-config --exists librtlsdr 2>/dev/null || apt_install librtlsdr-dev
+    librtlsdr-dev libusb-1.0-0-dev libcurl4-openssl-dev zlib1g-dev
 
   # Run in subshell to isolate EXIT trap
   (
@@ -1321,19 +1315,14 @@ install_rtlsdr_blog_drivers_debian() {
         $SUDO udevadm trigger || true
       fi
 
-      # Remove ALL apt rtl-sdr packages (binaries AND library) so nothing
-      # shadows /usr/local/lib/librtlsdr.so.0 from the Blog drivers.
-      # Removing only rtl-sdr leaves librtlsdr0 installed; ldconfig then
-      # picks /lib/aarch64-linux-gnu/librtlsdr.so.0 (apt, no R828D support)
-      # over /usr/local/lib/librtlsdr.so.0 (Blog drivers) because the
-      # multiarch path is searched first.
-      local pkgs_to_remove=()
-      for pkg in rtl-sdr librtlsdr0 librtlsdr-dev; do
-        dpkg -l "$pkg" 2>/dev/null | grep -q "^ii" && pkgs_to_remove+=("$pkg")
-      done
-      if [[ ${#pkgs_to_remove[@]} -gt 0 ]]; then
-        info "Removing apt rtl-sdr packages to prevent library conflicts: ${pkgs_to_remove[*]}"
-        $SUDO apt-get remove -y "${pkgs_to_remove[@]}" >/dev/null 2>&1 || true
+      # Make the Blog drivers' library take priority over the apt-installed
+      # librtlsdr.  Removing apt packages is too destructive (dump1090-mutability
+      # and other tools depend on librtlsdr0 and get swept out).  Instead,
+      # prepend /usr/local/lib to ldconfig's search path — files named 00-*
+      # sort before the distro's aarch64-linux-gnu.conf — so ldconfig lists
+      # /usr/local/lib/librtlsdr.so.0 first and the dynamic linker uses it.
+      if [[ -d /etc/ld.so.conf.d ]]; then
+        echo '/usr/local/lib' | $SUDO tee /etc/ld.so.conf.d/00-local-first.conf >/dev/null
       fi
       $SUDO ldconfig
 
@@ -1347,14 +1336,6 @@ install_rtlsdr_blog_drivers_debian() {
     fi
   )
 
-  # apt may have removed dump1090-mutability (or similar) as a reverse
-  # dependency of librtlsdr0.  Rebuild from source now so the ADS-B
-  # decoder is available.  The source build functions above now guard
-  # against pulling apt librtlsdr-dev back in, so this is safe.
-  if ! cmd_exists dump1090 && ! cmd_exists dump1090-mutability; then
-    info "Rebuilding dump1090 from source (removed as reverse dep of librtlsdr0)..."
-    install_dump1090_from_source_debian
-  fi
 }
 
 setup_udev_rules_debian() {
