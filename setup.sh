@@ -799,6 +799,7 @@ install_satdump_from_source_debian() {
         echo '#pragma GCC diagnostic ignored "-Wdeprecated"'
         echo '#pragma GCC diagnostic ignored "-Wdeprecated-declarations"'
         cat "$lua_utils"
+        echo  # ensure the file ends with a newline before the closing pragma
         echo '#pragma GCC diagnostic pop'
       } > "${lua_utils}.patched" && mv "${lua_utils}.patched" "$lua_utils"
     fi
