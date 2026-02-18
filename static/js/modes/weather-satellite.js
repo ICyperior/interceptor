@@ -22,6 +22,7 @@ const WeatherSat = (function() {
     let currentPhase = 'idle';
     let consoleAutoHideTimer = null;
     let currentModalFilename = null;
+    let locationListenersAttached = false;
 
     /**
      * Initialize the Weather Satellite mode
@@ -54,8 +55,13 @@ const WeatherSat = (function() {
         if (latInput && storedLat) latInput.value = storedLat;
         if (lonInput && storedLon) lonInput.value = storedLon;
 
-        if (latInput) latInput.addEventListener('change', saveLocationFromInputs);
-        if (lonInput) lonInput.addEventListener('change', saveLocationFromInputs);
+        // Only attach listeners once — re-calling init() on mode switch must not
+        // accumulate duplicate listeners that fire loadPasses() multiple times.
+        if (!locationListenersAttached) {
+            if (latInput) latInput.addEventListener('change', saveLocationFromInputs);
+            if (lonInput) lonInput.addEventListener('change', saveLocationFromInputs);
+            locationListenersAttached = true;
+        }
     }
 
     /**
@@ -428,8 +434,17 @@ const WeatherSat = (function() {
             updateStatusUI('capturing', `Auto: ${p.name || p.satellite} ${p.frequency} MHz`);
             showNotification('Weather Sat', `Auto-capture started: ${p.name || p.satellite}`);
         } else if (data.type === 'schedule_capture_complete') {
-            showNotification('Weather Sat', `Auto-capture complete: ${(data.pass || {}).name || ''}`);
+            const p = data.pass || {};
+            showNotification('Weather Sat', `Auto-capture complete: ${p.name || ''}`);
+            // Reset UI — the decoder's stop() doesn't emit a progress complete event
+            // when called internally by the scheduler, so we handle it here.
+            isRunning = false;
+            updateStatusUI('idle', 'Auto-capture complete');
+            const captureStatus = document.getElementById('wxsatCaptureStatus');
+            if (captureStatus) captureStatus.classList.remove('active');
+            updatePhaseIndicator('complete');
             loadImages();
+            loadPasses();
         } else if (data.type === 'schedule_capture_skipped') {
             const reason = data.reason || 'unknown';
             const p = data.pass || {};
@@ -474,11 +489,13 @@ const WeatherSat = (function() {
 
             if (data.status === 'ok') {
                 passes = data.passes || [];
+                selectedPassIndex = -1;
                 renderPasses(passes);
                 renderTimeline(passes);
                 updateCountdownFromPasses();
-                // Auto-select first pass
-                if (passes.length > 0 && selectedPassIndex < 0) {
+                // Always select the first upcoming pass so the polar plot
+                // and ground track reflect the current list after every refresh.
+                if (passes.length > 0) {
                     selectPass(0);
                 }
             }
@@ -875,6 +892,9 @@ const WeatherSat = (function() {
                 b.classList.toggle('active', isActive);
             });
         }
+
+        // Keep timeline cursor in sync
+        updateTimelineCursor();
     }
 
     // ========================
@@ -939,12 +959,13 @@ const WeatherSat = (function() {
     /**
      * Toggle auto-scheduler
      */
-    async function toggleScheduler() {
+    async function toggleScheduler(source) {
+        const checked = source?.checked ?? false;
+
         const stripCheckbox = document.getElementById('wxsatAutoSchedule');
         const sidebarCheckbox = document.getElementById('wxsatSidebarAutoSchedule');
-        const checked = stripCheckbox?.checked || sidebarCheckbox?.checked;
 
-        // Sync both checkboxes
+        // Sync both checkboxes to the source of truth
         if (stripCheckbox) stripCheckbox.checked = checked;
         if (sidebarCheckbox) sidebarCheckbox.checked = checked;
 
@@ -1386,9 +1407,29 @@ const WeatherSat = (function() {
         }
     }
 
+    /**
+     * Suspend background activity when leaving the mode.
+     * Closes the SSE stream and stops the countdown interval so they don't
+     * keep running while another mode is active.  The stream is re-opened
+     * by init() or startStream() when the mode is next entered.
+     */
+    function suspend() {
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+        // Only close the stream if nothing is actively capturing/scheduling —
+        // if a capture or scheduler is running we want it to continue on the
+        // server and the stream will reconnect on next init().
+        if (!isRunning && !schedulerEnabled) {
+            stopStream();
+        }
+    }
+
     // Public API
     return {
         init,
+        suspend,
         start,
         stop,
         startPass,

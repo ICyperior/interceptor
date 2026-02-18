@@ -105,7 +105,7 @@ def predict_passes(
                 ).total_seconds()
                 duration_minutes = round(duration_seconds / 60, 1)
 
-                # Calculate max elevation and trajectory
+                # Calculate max elevation (always) and trajectory points (only if requested)
                 max_el = 0.0
                 max_el_az = 0.0
                 trajectory: list[dict[str, float]] = []
@@ -141,14 +141,14 @@ def predict_passes(
                 _, set_az, _ = set_topo.altaz()
 
                 pass_data: dict[str, Any] = {
-                    'id': f"{sat_key}_{rise_time.utc_datetime().strftime('%Y%m%d%H%M')}",
+                    'id': f"{sat_key}_{rise_time.utc_datetime().strftime('%Y%m%d%H%M%S')}",
                     'satellite': sat_key,
                     'name': sat_info['name'],
                     'frequency': sat_info['frequency'],
                     'mode': sat_info['mode'],
                     'startTime': rise_time.utc_datetime().strftime('%Y-%m-%d %H:%M UTC'),
-                    'startTimeISO': rise_time.utc_datetime().isoformat(),
-                    'endTimeISO': set_time.utc_datetime().isoformat(),
+                    'startTimeISO': rise_time.utc_datetime().isoformat() + 'Z',
+                    'endTimeISO': set_time.utc_datetime().isoformat() + 'Z',
                     'maxEl': round(max_el, 1),
                     'maxElAz': round(max_el_az, 1),
                     'riseAz': round(rise_az.degrees, 1),

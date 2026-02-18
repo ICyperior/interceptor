@@ -1345,21 +1345,41 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             }
             trailLines[icao] = [];
 
-            // Create gradient segments
+            // Group consecutive same-altitude-color points into single polylines.
+            // This reduces layer count from O(trail length) to O(color band changes),
+            // which is typically 1-2 polylines per aircraft instead of up to 99.
             const now = Date.now();
-            for (let i = 1; i < trail.length; i++) {
-                const p1 = trail[i-1];
-                const p2 = trail[i];
-                const age = (now - p2.time) / 1000;  // seconds
-                const opacity = Math.max(0.2, 1 - (age / 120));  // Fade over 2 minutes
+            let runColor = getAltitudeColor(trail[0].alt);
+            let runPoints = [[trail[0].lat, trail[0].lon]];
+            let runEndTime = trail[0].time;
 
-                const color = getAltitudeColor(p2.alt);
-                const line = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
-                    color: color,
-                    weight: 2,
-                    opacity: opacity
-                }).addTo(radarMap);
-                trailLines[icao].push(line);
+            for (let i = 1; i < trail.length; i++) {
+                const p = trail[i];
+                const color = getAltitudeColor(p.alt);
+
+                if (color !== runColor) {
+                    // Flush the current color run as one polyline
+                    if (runPoints.length >= 2) {
+                        const opacity = Math.max(0.2, 1 - ((now - runEndTime) / 1000 / 120));
+                        trailLines[icao].push(
+                            L.polyline(runPoints, { color: runColor, weight: 2, opacity }).addTo(radarMap)
+                        );
+                    }
+                    // Start a new run, sharing the junction point for visual continuity
+                    runColor = color;
+                    runPoints = [[trail[i-1].lat, trail[i-1].lon], [p.lat, p.lon]];
+                } else {
+                    runPoints.push([p.lat, p.lon]);
+                }
+                runEndTime = p.time;
+            }
+
+            // Flush the final run
+            if (runPoints.length >= 2) {
+                const opacity = Math.max(0.2, 1 - ((now - runEndTime) / 1000 / 120));
+                trailLines[icao].push(
+                    L.polyline(runPoints, { color: runColor, weight: 2, opacity }).addTo(radarMap)
+                );
             }
         }
 

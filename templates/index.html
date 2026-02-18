@@ -2696,7 +2696,7 @@
                         <div class="wxsat-strip-divider"></div>
                         <div class="wxsat-strip-group">
                             <label class="wxsat-schedule-toggle" title="Auto-capture passes">
-                                <input type="checkbox" id="wxsatAutoSchedule" onchange="WeatherSat.toggleScheduler()">
+                                <input type="checkbox" id="wxsatAutoSchedule" onchange="WeatherSat.toggleScheduler(this)">
                                 <span class="wxsat-toggle-label">AUTO</span>
                             </label>
                         </div>
@@ -4034,6 +4034,11 @@
             // Initialize/destroy Space Weather mode
             if (mode !== 'spaceweather') {
                 if (typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy) SpaceWeather.destroy();
+            }
+
+            // Suspend Weather Satellite background timers/streams when leaving the mode
+            if (mode !== 'weathersat') {
+                if (typeof WeatherSat !== 'undefined' && WeatherSat.suspend) WeatherSat.suspend();
             }
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
