@@ -475,6 +475,7 @@ class SSTVDecoder:
                         mode_spec = get_mode(vis_code)
                         if mode_spec:
                             current_mode_name = mode_name
+                            last_partial_pct = -1
                             image_decoder = SSTVImageDecoder(
                                 mode_spec,
                                 sample_rate=SAMPLE_RATE,

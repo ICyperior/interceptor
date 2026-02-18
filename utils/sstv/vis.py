@@ -298,16 +298,26 @@ class VISDetector:
 
             if self._tone_counter >= self._bit_windows:
                 result = self._validate_and_decode()
-                # Do NOT call reset() here. self._buffer still holds samples
-                # that arrived after the STOP_BIT window — those are the very
-                # first samples of the image. Wiping the buffer here causes all
-                # of them to be lost, making the image decoder start mid-stream
-                # and producing garbled/diagonal output.
-                # feed() will advance past the current window, leaving
-                # self._buffer pointing at the image start. The caller must
-                # read remaining_buffer and then call reset() explicitly.
-                self._state = VISState.DETECTED
-                return result
+                if result is not None:
+                    # Do NOT call reset() here. self._buffer still holds
+                    # samples that arrived after the STOP_BIT window — those
+                    # are the very first samples of the image. Wiping the
+                    # buffer here causes all of them to be lost, making the
+                    # image decoder start mid-stream and producing
+                    # garbled/diagonal output.
+                    # feed() will advance past the current window, leaving
+                    # self._buffer pointing at the image start. The caller
+                    # must read remaining_buffer and then call reset().
+                    self._state = VISState.DETECTED
+                    return result
+                else:
+                    # Parity failure or unknown VIS code — reset and
+                    # continue scanning for the next VIS header.
+                    self._tone_counter = 0
+                    self._data_bits = []
+                    self._parity_bit = 0
+                    self._bit_accumulator = []
+                    self._state = VISState.IDLE
 
         elif self._state == VISState.DETECTED:
             # Waiting for caller to call reset() after reading remaining_buffer.

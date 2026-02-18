@@ -13,6 +13,7 @@ from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request, send_file
 
+import app as app_module
 from utils.logging import get_logger
 from utils.sse import format_sse
 from utils.event_pipeline import process_event
@@ -26,6 +27,9 @@ sstv_general_bp = Blueprint('sstv_general', __name__, url_prefix='/sstv-general'
 
 # Queue for SSE progress streaming
 _sstv_general_queue: queue.Queue = queue.Queue(maxsize=100)
+
+# Track which device is being used
+_sstv_general_active_device: int | None = None
 
 # Predefined SSTV frequencies
 SSTV_FREQUENCIES = [
@@ -150,6 +154,17 @@ def start_decoder():
             'message': 'Modulation must be fm, usb, or lsb',
         }), 400
 
+    # Claim SDR device
+    global _sstv_general_active_device
+    device_int = int(device_index)
+    error = app_module.claim_sdr_device(device_int, 'sstv_general')
+    if error:
+        return jsonify({
+            'status': 'error',
+            'error_type': 'DEVICE_BUSY',
+            'message': error,
+        }), 409
+
     # Set callback and start
     decoder.set_callback(_progress_callback)
     success = decoder.start(
@@ -159,6 +174,7 @@ def start_decoder():
     )
 
     if success:
+        _sstv_general_active_device = device_int
         return jsonify({
             'status': 'started',
             'frequency': frequency,
@@ -166,6 +182,7 @@ def start_decoder():
             'device': device_index,
         })
     else:
+        app_module.release_sdr_device(device_int)
         return jsonify({
             'status': 'error',
             'message': 'Failed to start decoder',
@@ -175,8 +192,14 @@ def start_decoder():
 @sstv_general_bp.route('/stop', methods=['POST'])
 def stop_decoder():
     """Stop general SSTV decoder."""
+    global _sstv_general_active_device
     decoder = get_general_sstv_decoder()
     decoder.stop()
+
+    if _sstv_general_active_device is not None:
+        app_module.release_sdr_device(_sstv_general_active_device)
+        _sstv_general_active_device = None
+
     return jsonify({'status': 'stopped'})
 
 
