@@ -23,6 +23,16 @@ const GPS = (function() {
     function init() {
         drawEmptySkyView();
         connect();
+
+        // Redraw sky view when theme changes
+        const observer = new MutationObserver(() => {
+            if (lastSky) {
+                drawSkyView(lastSky.satellites || []);
+            } else {
+                drawEmptySkyView();
+            }
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     }
 
     function connect() {
@@ -316,13 +326,18 @@ const GPS = (function() {
 
         ctx.clearRect(0, 0, w, h);
 
+        const cs = getComputedStyle(document.documentElement);
+        const bgColor = cs.getPropertyValue('--bg-card').trim() || '#0d1117';
+        const gridColor = cs.getPropertyValue('--border-color').trim() || '#2a3040';
+        const dimColor = cs.getPropertyValue('--text-dim').trim() || '#555';
+        const secondaryColor = cs.getPropertyValue('--text-secondary').trim() || '#888';
+
         // Background
-        const bgStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim();
-        ctx.fillStyle = bgStyle || '#0d1117';
+        ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, w, h);
 
         // Elevation rings (0, 30, 60, 90)
-        ctx.strokeStyle = '#2a3040';
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 0.5;
         [90, 60, 30].forEach(el => {
             const gr = r * (1 - el / 90);
@@ -330,7 +345,7 @@ const GPS = (function() {
             ctx.arc(cx, cy, gr, 0, Math.PI * 2);
             ctx.stroke();
             // Label
-            ctx.fillStyle = '#555';
+            ctx.fillStyle = dimColor;
             ctx.font = '9px Roboto Condensed, monospace';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
@@ -338,14 +353,14 @@ const GPS = (function() {
         });
 
         // Horizon circle
-        ctx.strokeStyle = '#3a4050';
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.stroke();
 
         // Cardinal directions
-        ctx.fillStyle = '#888';
+        ctx.fillStyle = secondaryColor;
         ctx.font = 'bold 11px Roboto Condensed, monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -355,7 +370,7 @@ const GPS = (function() {
         ctx.fillText('W', cx - r - 12, cy);
 
         // Crosshairs
-        ctx.strokeStyle = '#2a3040';
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 0.5;
         ctx.beginPath();
         ctx.moveTo(cx, cy - r);
@@ -365,7 +380,7 @@ const GPS = (function() {
         ctx.stroke();
 
         // Zenith dot
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = dimColor;
         ctx.beginPath();
         ctx.arc(cx, cy, 2, 0, Math.PI * 2);
         ctx.fill();

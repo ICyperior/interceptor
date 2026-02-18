@@ -323,6 +323,18 @@ const Settings = {
         if (customRow) {
             customRow.style.display = this.get('offline.tile_provider') === 'custom' ? 'block' : 'none';
         }
+
+        // Theme select
+        const themeSelect = document.getElementById('themeSelect');
+        if (themeSelect) {
+            themeSelect.value = localStorage.getItem('intercept-theme') || 'dark';
+        }
+
+        // Animations toggle
+        const animationsEnabled = document.getElementById('animationsEnabled');
+        if (animationsEnabled) {
+            animationsEnabled.checked = localStorage.getItem('intercept-animations') !== 'off';
+        }
     },
 
     /**
@@ -982,4 +994,35 @@ function toggleApiKeyVisibility() {
     const input = document.getElementById('apiKeyInput');
     if (!input) return;
     input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+/**
+ * Set theme preference from the Display settings tab
+ */
+function setThemePreference(value) {
+    document.documentElement.setAttribute('data-theme', value);
+    localStorage.setItem('intercept-theme', value);
+
+    const btn = document.getElementById('themeToggle');
+    if (btn) {
+        btn.textContent = value === 'light' ? '🌙' : '☀️';
+    }
+
+    fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: value })
+    }).catch(() => {});
+}
+
+/**
+ * Set animations preference from the Display settings tab
+ */
+function setAnimationsEnabled(enabled) {
+    if (enabled) {
+        document.documentElement.removeAttribute('data-animations');
+    } else {
+        document.documentElement.setAttribute('data-animations', 'off');
+    }
+    localStorage.setItem('intercept-animations', enabled ? 'on' : 'off');
 }
