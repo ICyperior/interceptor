@@ -61,72 +61,73 @@
 
             <div class="carousel-filters">
                 <button class="filter-btn active" data-filter="all">All</button>
-                <button class="filter-btn" data-filter="sdr">SDR / RF</button>
-                <button class="filter-btn" data-filter="aviation">Aviation & Maritime</button>
-                <button class="filter-btn" data-filter="space">Space & Satellite</button>
-                <button class="filter-btn" data-filter="wireless">Wireless & Security</button>
+                <button class="filter-btn" data-filter="signals">Signals</button>
+                <button class="filter-btn" data-filter="tracking">Tracking</button>
+                <button class="filter-btn" data-filter="space">Space</button>
+                <button class="filter-btn" data-filter="wireless">Wireless</button>
+                <button class="filter-btn" data-filter="intel">Intel</button>
                 <button class="filter-btn" data-filter="platform">Platform</button>
             </div>
 
             <div class="carousel-wrapper">
                 <button class="carousel-arrow carousel-arrow-left" aria-label="Scroll left">&#8249;</button>
                 <div class="carousel-track">
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="signals">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="10" y1="9" x2="10" y2="15"/><line x1="14" y1="11" x2="18" y2="11"/><line x1="14" y1="13" x2="18" y2="13"/></svg></div>
                         <h3>Pager Decoding</h3>
                         <p>Decode POCSAG and FLEX pager messages using rtl_fm and multimon-ng. Monitor emergency services and legacy paging systems.</p>
                     </div>
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="signals">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><circle cx="12" cy="12" r="4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg></div>
                         <h3>433MHz Sensors</h3>
                         <p>Decode 200+ protocols including weather stations, TPMS, smart home devices, and IoT sensors via rtl_433.</p>
                     </div>
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="signals">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-9 6 18 3-9h4"/></svg></div>
                         <h3>Sub-GHz Analyzer</h3>
                         <p>HackRF-based signal capture and protocol decoding for 300-928 MHz ISM bands with spectrum analysis and replay.</p>
                     </div>
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="signals">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18.5a6.5 6.5 0 1 1 0-13"/><path d="M17 12h5"/><path d="M12 7V2"/><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5L5 5"/></svg></div>
                         <h3>Listening Post</h3>
                         <p>Frequency scanner with real-time audio monitoring, fine-tuning controls, and customizable frequency presets.</p>
                     </div>
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="intel">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
                         <h3>WebSDR</h3>
                         <p>Remote HF/shortwave listening via the KiwiSDR network. Access receivers worldwide with real-time audio streaming.</p>
                     </div>
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="intel">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h2v2H8z"/><path d="M14 8h2v2h-2z"/><path d="M8 14h2v2H8z"/><path d="M14 14h2v2h-2z"/><path d="M11 8h2v2h-2z"/><path d="M11 11h2v2h-2z"/></svg></div>
                         <h3>Spy Stations</h3>
                         <p>Number stations and diplomatic HF network database. Frequencies, schedules, and background info from priyom.org.</p>
                     </div>
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="tracking">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
                         <h3>APRS</h3>
                         <p>Amateur packet radio position reports and telemetry via direwolf. Track amateur radio operators on an interactive map.</p>
                     </div>
-                    <div class="feature-card" data-category="sdr">
+                    <div class="feature-card" data-category="signals">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
                         <h3>Utility Meters</h3>
                         <p>Smart meter monitoring via rtl_amr. Receive electric, gas, and water meter broadcasts in real time.</p>
                     </div>
-                    <div class="feature-card" data-category="aviation">
+                    <div class="feature-card" data-category="tracking">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></div>
                         <h3>Aircraft Tracking</h3>
                         <p>Real-time ADS-B tracking with interactive maps, aircraft photos, emergency squawk detection, and range visualization.</p>
                     </div>
-                    <div class="feature-card" data-category="aviation">
+                    <div class="feature-card" data-category="tracking">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 12h6"/><path d="M7 16h8"/></svg></div>
                         <h3>ACARS</h3>
                         <p>Aircraft datalink messages via acarsdec. Decode operational, weather, and position reports from commercial flights.</p>
                     </div>
-                    <div class="feature-card" data-category="aviation">
+                    <div class="feature-card" data-category="tracking">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17"/><path d="M3.5 15h17"/></svg></div>
                         <h3>VDL2</h3>
                         <p>VHF Data Link Mode 2 aircraft datalink decoding via dumpvdl2. Real-time ACARS-over-AVLC message capture with signal analysis.</p>
                     </div>
-                    <div class="feature-card" data-category="aviation">
+                    <div class="feature-card" data-category="tracking">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20l4-4h3l4-7 2 4h2l5-9"/><path d="M22 20H2"/><path d="M6 16v4"/></svg></div>
                         <h3>Vessel Tracking</h3>
                         <p>Real-time AIS ship tracking via AIS-catcher. Monitor maritime traffic with vessel details, course, speed, and destination.</p>
@@ -151,7 +152,7 @@
                         <h3>HF SSTV</h3>
                         <p>Terrestrial SSTV on shortwave frequencies. Decode amateur radio image transmissions across HF, VHF, and UHF bands.</p>
                     </div>
-                    <div class="feature-card" data-category="space">
+                    <div class="feature-card" data-category="tracking">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/><path d="M12 8l4 4-4 4"/></svg></div>
                         <h3>GPS Tracking</h3>
                         <p>Real-time GPS position tracking with live map, speed, heading, altitude, satellite info, and track recording.</p>
@@ -176,7 +177,7 @@
                         <h3>BT Locate</h3>
                         <p>SAR Bluetooth device location with GPS-tagged signal trail mapping, IRK-based RPA resolution, and proximity audio alerts.</p>
                     </div>
-                    <div class="feature-card" data-category="wireless">
+                    <div class="feature-card" data-category="intel">
                         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/><path d="M12 2v3"/><path d="M4.93 4.93l2.12 2.12"/><path d="M20 12h-3"/></svg></div>
                         <h3>TSCM</h3>
                         <p>Counter-surveillance with baseline recording, threat detection, device correlation, and risk scoring.</p>

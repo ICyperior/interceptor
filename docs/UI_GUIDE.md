@@ -219,10 +219,11 @@ Extended base for full-screen dashboards (maps, visualizations).
 ### Navigation Groups
 
 The navigation is organized into groups:
-- **SDR / RF**: Pager, 433MHz, Meters, Aircraft, Vessels, APRS, Listening Post, Spy Stations, Meshtastic, WebSDR, SubGHz
-- **Wireless**: WiFi, Bluetooth, BT Locate
-- **Security**: TSCM, Analytics
-- **Space**: Satellite, ISS SSTV, Weather Sat, HF SSTV, GPS, Space Weather
+- **Signals**: Pager, 433MHz, Meters, Listening Post, SubGHz
+- **Tracking**: Aircraft, Vessels, APRS, GPS
+- **Space**: Satellite, ISS SSTV, Weather Sat, HF SSTV, Space Weather
+- **Wireless**: WiFi, Bluetooth, BT Locate, Meshtastic
+- **Intel**: TSCM, Analytics, Spy Stations, WebSDR
 
 ---
 
