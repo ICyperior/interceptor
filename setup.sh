@@ -1079,10 +1079,13 @@ install_dump1090_from_source_debian() {
     librtlsdr-dev libusb-1.0-0-dev \
     libncurses-dev tcl-dev python3-dev
 
+  local JOBS
+  JOBS="$(nproc 2>/dev/null || echo 1)"
+
   # Run in subshell to isolate EXIT trap
   (
     tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' EXIT
+    trap 'kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; rm -rf "$tmp_dir"' EXIT
 
     info "Cloning FlightAware dump1090..."
     git clone --depth 1 https://github.com/flightaware/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
@@ -1091,22 +1094,44 @@ install_dump1090_from_source_debian() {
     cd "$tmp_dir/dump1090"
     # Remove -Werror to prevent build failures on newer GCC versions
     sed -i 's/-Werror//g' Makefile 2>/dev/null || true
-    info "Compiling FlightAware dump1090..."
-    if make BLADERF=no RTLSDR=yes >/dev/null 2>&1; then
+    info "Compiling FlightAware dump1090 (using ${JOBS} CPU cores)..."
+    build_log="$tmp_dir/dump1090-build.log"
+
+    (while true; do sleep 20; printf "  [*] Still compiling dump1090...\n"; done) &
+    progress_pid=$!
+
+    if make -j "$JOBS" BLADERF=no RTLSDR=yes >"$build_log" 2>&1; then
+      kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
       $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
       ok "dump1090 installed successfully (FlightAware)."
       exit 0
     fi
 
+    kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
     warn "FlightAware build failed. Falling back to wiedehopf/readsb..."
+    warn "Build log (last 20 lines):"
+    tail -20 "$build_log" | while IFS= read -r line; do warn "  $line"; done
+
     rm -rf "$tmp_dir/dump1090"
     git clone --depth 1 https://github.com/wiedehopf/readsb.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
       || { fail "Failed to clone wiedehopf/readsb"; exit 1; }
 
     cd "$tmp_dir/dump1090"
-    info "Compiling readsb..."
-    make RTLSDR=yes >/dev/null 2>&1 || { fail "Failed to build readsb from source (required)."; exit 1; }
+    info "Compiling readsb (using ${JOBS} CPU cores)..."
+    build_log="$tmp_dir/readsb-build.log"
 
+    (while true; do sleep 20; printf "  [*] Still compiling readsb...\n"; done) &
+    progress_pid=$!
+
+    if ! make -j "$JOBS" RTLSDR=yes >"$build_log" 2>&1; then
+      kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
+      warn "Build log (last 20 lines):"
+      tail -20 "$build_log" | while IFS= read -r line; do warn "  $line"; done
+      fail "Failed to build readsb from source (required)."
+      exit 1
+    fi
+
+    kill "$progress_pid" 2>/dev/null; wait "$progress_pid" 2>/dev/null; progress_pid=
     $SUDO install -m 0755 readsb /usr/local/bin/dump1090
     ok "dump1090 installed successfully (via readsb)."
   )
