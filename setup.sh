@@ -1552,6 +1552,15 @@ install_debian_packages() {
   $SUDO apt-get install -y python3-bleak >/dev/null 2>&1 || true
 
   progress "Installing dump1090"
+  # Remove any stale symlink left from a previous run where dump1090-mutability
+  # was later uninstalled — cmd_exists finds the broken symlink and skips the
+  # real install, leaving dump1090 seemingly present but non-functional.
+  local dump1090_path
+  dump1090_path="$(command -v dump1090 2>/dev/null || true)"
+  if [[ -n "$dump1090_path" ]] && [[ ! -x "$dump1090_path" ]]; then
+    info "Removing broken dump1090 symlink: $dump1090_path"
+    $SUDO rm -f "$dump1090_path"
+  fi
   if ! cmd_exists dump1090 && ! cmd_exists dump1090-mutability; then
     apt_try_install_any dump1090-fa dump1090-mutability dump1090 || true
   fi
