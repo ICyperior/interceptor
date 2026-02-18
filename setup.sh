@@ -1315,6 +1315,16 @@ install_rtlsdr_blog_drivers_debian() {
         $SUDO udevadm trigger || true
       fi
 
+      # Remove the apt rtl-sdr package to prevent binary/library conflicts.
+      # The apt package installs to /usr/bin and /usr/lib; keeping it alongside
+      # the Blog drivers (in /usr/local) causes ambiguity and can silently
+      # result in the wrong (non-V4-aware) library being loaded.
+      if dpkg -l rtl-sdr 2>/dev/null | grep -q "^ii"; then
+        info "Removing apt rtl-sdr package to prevent library conflicts with Blog drivers..."
+        $SUDO apt-get remove -y rtl-sdr >/dev/null 2>&1 || true
+      fi
+      $SUDO ldconfig
+
       ok "RTL-SDR Blog drivers installed successfully."
       info "These drivers provide improved support for RTL-SDR Blog V4 and other devices."
       warn "Unplug and replug your RTL-SDR devices for the new drivers to take effect."
@@ -1348,24 +1358,35 @@ blacklist_kernel_drivers_debian() {
 
   if [[ -f "$blacklist_file" ]]; then
     ok "RTL-SDR kernel driver blacklist already present"
-    return 0
-  fi
-
-  info "Blacklisting conflicting DVB kernel drivers..."
-  $SUDO tee "$blacklist_file" >/dev/null <<'EOF'
+  else
+    info "Blacklisting conflicting DVB kernel drivers..."
+    $SUDO tee "$blacklist_file" >/dev/null <<'EOF'
 # Blacklist DVB-T drivers to allow rtl-sdr to access RTL2832U devices
 blacklist dvb_usb_rtl28xxu
 blacklist rtl2832
 blacklist rtl2830
 blacklist r820t
 EOF
+  fi
 
-  # Unload modules if currently loaded
+  # Always unload modules if currently loaded — this must happen even on
+  # re-runs where the blacklist file already exists, since the modules may
+  # still be live from the current boot (e.g. blacklist wasn't in initramfs).
+  local unloaded=false
   for mod in dvb_usb_rtl28xxu rtl2832 rtl2830 r820t; do
     if lsmod | grep -q "^$mod"; then
       $SUDO modprobe -r "$mod" 2>/dev/null || true
+      unloaded=true
     fi
   done
+  $unloaded && info "Unloaded conflicting DVB kernel modules from current session."
+
+  # Bake the blacklist into the initramfs so it survives reboots on
+  # Raspberry Pi OS / Debian (without this the modules can reload on boot).
+  if cmd_exists update-initramfs; then
+    info "Updating initramfs to persist driver blacklist across reboots..."
+    $SUDO update-initramfs -u >/dev/null 2>&1 || true
+  fi
 
   ok "Kernel drivers blacklisted. Unplug/replug your RTL-SDR if connected."
   echo
