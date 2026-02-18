@@ -761,10 +761,22 @@ install_aiscatcher_from_source_macos() {
 install_satdump_from_source_debian() {
   info "Building SatDump v1.2.2 from source (weather satellite decoder)..."
 
+  # Core deps — hard-fail if missing
   apt_install build-essential git cmake pkg-config \
-    libpng-dev libtiff-dev libjemalloc-dev libvolk-dev libnng-dev \
-    libzstd-dev libsoapysdr-dev libhackrf-dev liblimesuite-dev \
+    libpng-dev libtiff-dev libzstd-dev \
     libsqlite3-dev libcurl4-openssl-dev zlib1g-dev libzmq3-dev libfftw3-dev
+
+  # libvolk: package name differs between distros
+  #   Ubuntu / Debian Trixie+: libvolk-dev
+  #   Raspberry Pi OS Bookworm / Debian Bookworm: libvolk2-dev
+  apt_try_install_any libvolk-dev libvolk2-dev \
+    || warn "libvolk not found — SatDump will build without VOLK acceleration"
+
+  # Optional SDR hardware libs — soft-fail so missing hardware doesn't abort
+  for pkg in libjemalloc-dev libnng-dev libsoapysdr-dev libhackrf-dev liblimesuite-dev; do
+    $SUDO apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 \
+      || warn "${pkg} not available — skipping (SatDump can build without it)"
+  done
 
   # Run in subshell to isolate EXIT trap
   (
