@@ -490,6 +490,10 @@ class SSTVDecoder:
                             ))
                         else:
                             logger.warning(f"No mode spec for VIS code {vis_code}")
+                            self._emit_progress(DecodeProgress(
+                                status='detecting',
+                                message=f'Detected unknown mode (VIS {vis_code}: {mode_name}) - unsupported',
+                            ))
 
                     # Emit signal level metrics every ~500ms (every 5th 100ms chunk)
                     scope_tone: str | None = None
