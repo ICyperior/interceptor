@@ -52,27 +52,43 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/aprs.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/tscm.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/analytics.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/device-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/proximity-viz.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/spy-stations.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/meshtastic.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/weather-satellite.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv-general.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/gps.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/space-weather.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/ux-platform.css') }}">
+    <script>
+        window.INTERCEPT_MODE_STYLE_MAP = {
+            aprs: "{{ url_for('static', filename='css/modes/aprs.css') }}",
+            tscm: "{{ url_for('static', filename='css/modes/tscm.css') }}",
+            analytics: "{{ url_for('static', filename='css/modes/analytics.css') }}",
+            spystations: "{{ url_for('static', filename='css/modes/spy-stations.css') }}",
+            meshtastic: "{{ url_for('static', filename='css/modes/meshtastic.css') }}",
+            sstv: "{{ url_for('static', filename='css/modes/sstv.css') }}",
+            weathersat: "{{ url_for('static', filename='css/modes/weather-satellite.css') }}",
+            sstv_general: "{{ url_for('static', filename='css/modes/sstv-general.css') }}",
+            gps: "{{ url_for('static', filename='css/modes/gps.css') }}",
+            subghz: "{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9",
+            bt_locate: "{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4",
+            spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}"
+        };
+        window.INTERCEPT_MODE_STYLE_LOADED = {};
+        window.ensureModeStyles = function(mode) {
+            const href = window.INTERCEPT_MODE_STYLE_MAP ? window.INTERCEPT_MODE_STYLE_MAP[mode] : null;
+            if (!href) return;
+            if (window.INTERCEPT_MODE_STYLE_LOADED[href]) return;
+            window.INTERCEPT_MODE_STYLE_LOADED[href] = true;
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            link.dataset.modeStyle = mode;
+            document.head.appendChild(link);
+        };
+    </script>
 </head>
 
 <body>
@@ -921,30 +937,10 @@
                         <div class="bt-main-area">
                             <!-- Left side panels -->
                             <div class="bt-side-panels">
-                                <div class="wifi-visual-panel bt-side-panel">
+                                <div class="wifi-visual-panel bt-side-panel bt-tracker-panel">
                                     <h5>Tracker Detection</h5>
-                                    <div id="btTrackerList" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
-                                        <div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles...</div>
-                                    </div>
-                                </div>
-                                <div class="wifi-visual-panel bt-side-panel">
-                                    <h5>Signal Distribution</h5>
-                                    <div class="bt-signal-dist" id="btSignalDist">
-                                        <div class="signal-range"><span>Strong (-50+)</span>
-                                            <div class="signal-bar-bg">
-                                                <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
-                                            </div><span id="btSignalStrongCount">0</span>
-                                        </div>
-                                        <div class="signal-range"><span>Medium (-70)</span>
-                                            <div class="signal-bar-bg">
-                                                <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
-                                            </div><span id="btSignalMediumCount">0</span>
-                                        </div>
-                                        <div class="signal-range"><span>Weak (-90)</span>
-                                            <div class="signal-bar-bg">
-                                                <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
-                                            </div><span id="btSignalWeakCount">0</span>
-                                        </div>
+                                    <div id="btTrackerList" class="bt-tracker-list">
+                                        <div class="app-collection-state is-empty">Monitoring for AirTags, Tiles...</div>
                                     </div>
                                 </div>
                             </div>
@@ -999,6 +995,26 @@
                                 <span class="bt-summary-value" id="btSummaryStrongest">--</span>
                             </div>
                         </div>
+                        <div class="bt-list-signal-strip">
+                            <div class="bt-list-signal-title">Signal Distribution</div>
+                            <div class="bt-signal-dist bt-signal-dist-compact" id="btSignalDist">
+                                <div class="signal-range"><span>Strong</span>
+                                    <div class="signal-bar-bg">
+                                        <div class="signal-bar strong" id="btSignalStrong" style="width: 0%;"></div>
+                                    </div><span id="btSignalStrongCount">0</span>
+                                </div>
+                                <div class="signal-range"><span>Medium</span>
+                                    <div class="signal-bar-bg">
+                                        <div class="signal-bar medium" id="btSignalMedium" style="width: 0%;"></div>
+                                    </div><span id="btSignalMediumCount">0</span>
+                                </div>
+                                <div class="signal-range"><span>Weak</span>
+                                    <div class="signal-bar-bg">
+                                        <div class="signal-bar weak" id="btSignalWeak" style="width: 0%;"></div>
+                                    </div><span id="btSignalWeakCount">0</span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="bt-device-toolbar">
                             <input type="search" id="btDeviceSearch" class="bt-device-search" placeholder="Filter by name, MAC, manufacturer...">
                         </div>
@@ -1010,9 +1026,7 @@
                             <button class="bt-filter-btn" data-filter="trackers">Trackers</button>
                         </div>
                         <div class="wifi-device-list-content" id="btDeviceListContent">
-                            <div style="color: var(--text-dim); text-align: center; padding: 30px;">
-                                Start scanning to discover Bluetooth devices
-                            </div>
+                            <div class="app-collection-state is-empty">Start scanning to discover Bluetooth devices</div>
                         </div>
                     </div>
                 </div>
@@ -3394,12 +3408,30 @@
 
         // Mode from query string (e.g., /?mode=wifi)
         let pendingStartMode = null;
-        const validModes = new Set([
-            'pager', 'sensor', 'rtlamr', 'aprs', 'listening',
-            'spystations', 'meshtastic', 'wifi', 'bluetooth', 'bt_locate',
-            'tscm', 'satellite', 'sstv', 'weathersat', 'sstv_general', 'gps', 'websdr', 'subghz',
-            'analytics', 'spaceweather'
-        ]);
+        const modeCatalog = {
+            pager: { label: 'Pager', indicator: 'PAGER', outputTitle: 'Pager Decoder', group: 'signals' },
+            sensor: { label: '433MHz', indicator: '433MHZ', outputTitle: '433MHz Sensor Monitor', group: 'signals' },
+            rtlamr: { label: 'Meters', indicator: 'METERS', outputTitle: 'Utility Meter Monitor', group: 'signals' },
+            listening: { label: 'Listening Post', indicator: 'LISTENING POST', outputTitle: 'Listening Post', group: 'signals' },
+            subghz: { label: 'SubGHz', indicator: 'SUBGHZ', outputTitle: 'SubGHz Transceiver', group: 'signals' },
+            aprs: { label: 'APRS', indicator: 'APRS', outputTitle: 'APRS Tracker', group: 'tracking' },
+            gps: { label: 'GPS', indicator: 'GPS', outputTitle: 'GPS Receiver', group: 'tracking' },
+            satellite: { label: 'Satellite', indicator: 'SATELLITE', outputTitle: 'Satellite Monitor', group: 'space' },
+            sstv: { label: 'ISS SSTV', indicator: 'ISS SSTV', outputTitle: 'ISS SSTV Decoder', group: 'space' },
+            weathersat: { label: 'Weather Sat', indicator: 'WEATHER SAT', outputTitle: 'Weather Satellite Decoder', group: 'space' },
+            sstv_general: { label: 'HF SSTV', indicator: 'HF SSTV', outputTitle: 'HF SSTV Decoder', group: 'space' },
+            spaceweather: { label: 'Space Weather', indicator: 'SPACE WX', outputTitle: 'Space Weather Monitor', group: 'space' },
+            wifi: { label: 'WiFi', indicator: 'WIFI', outputTitle: 'WiFi Scanner', group: 'wireless' },
+            bluetooth: { label: 'Bluetooth', indicator: 'BLUETOOTH', outputTitle: 'Bluetooth Scanner', group: 'wireless' },
+            bt_locate: { label: 'BT Locate', indicator: 'BT LOCATE', outputTitle: 'BT Locate — SAR Tracker', group: 'wireless' },
+            meshtastic: { label: 'Meshtastic', indicator: 'MESHTASTIC', outputTitle: 'Meshtastic Mesh Monitor', group: 'wireless' },
+            tscm: { label: 'TSCM', indicator: 'TSCM', outputTitle: 'TSCM Counter-Surveillance', group: 'intel' },
+            analytics: { label: 'Analytics', indicator: 'ANALYTICS', outputTitle: 'Cross-Mode Analytics', group: 'intel' },
+            spystations: { label: 'Spy Stations', indicator: 'SPY STATIONS', outputTitle: 'Spy Stations', group: 'intel' },
+            websdr: { label: 'WebSDR', indicator: 'WEBSDR', outputTitle: 'HF/Shortwave WebSDR', group: 'intel' },
+        };
+        const validModes = new Set(Object.keys(modeCatalog));
+        window.interceptModeCatalog = Object.assign({}, modeCatalog);
 
         function getModeFromQuery() {
             const params = new URLSearchParams(window.location.search);
@@ -3513,9 +3545,31 @@
             indicator.appendChild(dot);
             indicator.appendChild(document.createTextNode(String(label || '')));
         }
+
+        function applyKeyboardAccessibility(root = document) {
+            const interactive = root.querySelectorAll('[onclick]:not(button):not(a):not(input):not(select):not(textarea)');
+            interactive.forEach((el) => {
+                if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+                if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+                el.setAttribute('data-keyboard-activate', 'true');
+            });
+        }
+
+        if (!window._keyboardActivationBound) {
+            window._keyboardActivationBound = true;
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                const target = event.target && event.target.closest ? event.target.closest('[data-keyboard-activate="true"]') : null;
+                if (!target) return;
+                event.preventDefault();
+                target.click();
+            });
+        }
+
         // Update clock every second
         setInterval(updateHeaderClock, 1000);
         updateHeaderClock();  // Initial call
+        applyKeyboardAccessibility();
 
         // Pager message filter functions
         function loadPagerFilters() {
@@ -3861,20 +3915,11 @@
         }
 
         function updateDropdownActiveState() {
-            // Map modes to their dropdown groups
-            const modeGroups = {
-                'pager': 'signals', 'sensor': 'signals', 'rtlamr': 'signals', 'listening': 'signals', 'subghz': 'signals',
-                'adsb': 'tracking', 'ais': 'tracking', 'aprs': 'tracking', 'gps': 'tracking',
-                'satellite': 'space', 'sstv': 'space', 'weathersat': 'space', 'sstv_general': 'space', 'spaceweather': 'space',
-                'wifi': 'wireless', 'bluetooth': 'wireless', 'bt_locate': 'wireless', 'meshtastic': 'wireless',
-                'tscm': 'intel', 'analytics': 'intel', 'spystations': 'intel', 'websdr': 'intel'
-            };
-
             // Remove has-active from all dropdowns
             document.querySelectorAll('.mode-nav-dropdown').forEach(d => d.classList.remove('has-active'));
 
             // Add has-active to the dropdown containing the current mode
-            const activeGroup = modeGroups[currentMode];
+            const activeGroup = modeCatalog[currentMode] ? modeCatalog[currentMode].group : null;
             if (activeGroup) {
                 const dropdown = document.querySelector(`.mode-nav-dropdown[data-group="${activeGroup}"]`);
                 if (dropdown) dropdown.classList.add('has-active');
@@ -3942,20 +3987,16 @@
             closeAllDropdowns();
             updateDropdownActiveState();
 
+            if (typeof window.ensureModeStyles === 'function') {
+                window.ensureModeStyles(mode);
+            }
+
             // Remove active from all nav buttons, then add to the correct one
-            document.querySelectorAll('.mode-nav-btn').forEach(btn => btn.classList.remove('active'));
-            const modeMap = {
-                'pager': 'pager', 'sensor': '433',
-                'satellite': 'satellite', 'wifi': 'wifi', 'bluetooth': 'bluetooth', 'bt_locate': 'bt locate',
-                'listening': 'listening', 'aprs': 'aprs', 'tscm': 'tscm', 'meshtastic': 'meshtastic',
-                'dmr': 'dmr', 'websdr': 'websdr', 'sstv_general': 'hf sstv',
-                'analytics': 'analytics'
-            };
             document.querySelectorAll('.mode-nav-btn').forEach(btn => {
-                const label = btn.querySelector('.nav-label');
-                if (label && label.textContent.toLowerCase().includes(modeMap[mode])) {
-                    btn.classList.add('active');
-                }
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
             });
             document.getElementById('pagerMode')?.classList.toggle('active', mode === 'pager');
             document.getElementById('sensorMode')?.classList.toggle('active', mode === 'sensor');
@@ -4001,31 +4042,8 @@
             if (satelliteDashboardBtn) satelliteDashboardBtn.style.display = mode === 'satellite' ? 'inline-flex' : 'none';
 
             // Update active mode indicator
-            const modeNames = {
-                'pager': 'PAGER',
-                'sensor': '433MHZ',
-                'rtlamr': 'METERS',
-                'satellite': 'SATELLITE',
-                'sstv': 'ISS SSTV',
-                'weathersat': 'WEATHER SAT',
-                'sstv_general': 'HF SSTV',
-                'gps': 'GPS',
-                'wifi': 'WIFI',
-                'bluetooth': 'BLUETOOTH',
-                'bt_locate': 'BT LOCATE',
-                'listening': 'LISTENING POST',
-                'aprs': 'APRS',
-                'tscm': 'TSCM',
-                'ais': 'AIS VESSELS',
-                'spystations': 'SPY STATIONS',
-                'meshtastic': 'MESHTASTIC',
-                'dmr': 'DIGITAL VOICE',
-                'websdr': 'WEBSDR',
-                'subghz': 'SUBGHZ',
-                'analytics': 'ANALYTICS',
-                'spaceweather': 'SPACE WX'
-            };
-            setActiveModeIndicator(modeNames[mode] || mode.toUpperCase());
+            const modeMeta = modeCatalog[mode] || {};
+            setActiveModeIndicator(modeMeta.indicator || mode.toUpperCase());
             const wifiLayoutContainer = document.getElementById('wifiLayoutContainer');
             const btLayoutContainer = document.getElementById('btLayoutContainer');
             const satelliteVisuals = document.getElementById('satelliteVisuals');
@@ -4080,32 +4098,8 @@
             if (sensorTimelineContainer) sensorTimelineContainer.style.display = mode === 'sensor' ? 'block' : 'none';
 
             // Update output panel title based on mode
-            const titles = {
-                'pager': 'Pager Decoder',
-                'sensor': '433MHz Sensor Monitor',
-                'rtlamr': 'Utility Meter Monitor',
-                'satellite': 'Satellite Monitor',
-                'sstv': 'ISS SSTV Decoder',
-                'weathersat': 'Weather Satellite Decoder',
-                'sstv_general': 'HF SSTV Decoder',
-                'gps': 'GPS Receiver',
-                'wifi': 'WiFi Scanner',
-                'bluetooth': 'Bluetooth Scanner',
-                'bt_locate': 'BT Locate — SAR Tracker',
-                'listening': 'Listening Post',
-                'aprs': 'APRS Tracker',
-                'tscm': 'TSCM Counter-Surveillance',
-                'ais': 'AIS Vessel Tracker',
-                'spystations': 'Spy Stations',
-                'meshtastic': 'Meshtastic Mesh Monitor',
-                'dmr': 'Digital Voice Decoder',
-                'websdr': 'HF/Shortwave WebSDR',
-                'subghz': 'SubGHz Transceiver',
-                'analytics': 'Cross-Mode Analytics',
-                'spaceweather': 'Space Weather Monitor'
-            };
             const outputTitle = document.getElementById('outputTitle');
-            if (outputTitle) outputTitle.textContent = titles[mode] || 'Signal Monitor';
+            if (outputTitle) outputTitle.textContent = modeMeta.outputTitle || 'Signal Monitor';
 
             // Initialize mode-specific timelines
             initializeModeTimeline(mode);

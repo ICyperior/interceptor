@@ -8,7 +8,7 @@ const CommandPalette = (function() {
     let activeIndex = 0;
     let filteredItems = [];
 
-    const modeCommands = [
+    const fallbackModeCommands = [
         { mode: 'pager', label: 'Pager' },
         { mode: 'sensor', label: '433MHz Sensors' },
         { mode: 'rtlamr', label: 'Meters' },
@@ -29,6 +29,38 @@ const CommandPalette = (function() {
         { mode: 'analytics', label: 'Analytics' },
         { mode: 'spaceweather', label: 'Space Weather' },
     ];
+
+    function getModeCommands() {
+        const commands = [];
+        const seenModes = new Set();
+
+        const catalog = window.interceptModeCatalog;
+        if (catalog && typeof catalog === 'object') {
+            for (const [mode, meta] of Object.entries(catalog)) {
+                if (!mode || seenModes.has(mode)) continue;
+                const label = String((meta && meta.label) || mode).trim();
+                commands.push({ mode, label });
+                seenModes.add(mode);
+            }
+            if (commands.length > 0) return commands;
+        }
+
+        const navNodes = document.querySelectorAll('.mode-nav-btn[data-mode], .mobile-nav-btn[data-mode]');
+        navNodes.forEach((node) => {
+            if (node.tagName === 'A') {
+                const href = String(node.getAttribute('href') || '');
+                if (href.includes('/dashboard')) return;
+            }
+            const mode = String(node.dataset.mode || '').trim();
+            if (!mode || seenModes.has(mode)) return;
+            const label = String(node.dataset.modeLabel || node.textContent || mode).trim();
+            commands.push({ mode, label });
+            seenModes.add(mode);
+        });
+        if (commands.length > 0) return commands;
+
+        return fallbackModeCommands.slice();
+    }
 
     function init() {
         buildDOM();
@@ -189,7 +221,7 @@ const CommandPalette = (function() {
             },
         ];
 
-        for (const modeEntry of modeCommands) {
+        for (const modeEntry of getModeCommands()) {
             commands.push({
                 title: `Switch Mode: ${modeEntry.label}`,
                 description: 'Navigate directly to mode',

@@ -1,27 +1,27 @@
 <!-- Settings Modal -->
-<div id="settingsModal" class="settings-modal" onclick="if(event.target === this) hideSettings()">
-    <div class="settings-content">
+<div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="settingsModalTitle" onclick="if(event.target === this) hideSettings()">
+    <div class="settings-content" tabindex="-1">
         <div class="settings-header">
-            <h2>
+            <h2 id="settingsModalTitle">
                 <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                 Settings
             </h2>
-            <button class="settings-close" onclick="hideSettings()">&times;</button>
+            <button type="button" class="settings-close" onclick="hideSettings()" aria-label="Close settings">&times;</button>
         </div>
 
-        <div class="settings-tabs">
-            <button class="settings-tab active" data-tab="offline" onclick="switchSettingsTab('offline')">Offline</button>
-            <button class="settings-tab" data-tab="location" onclick="switchSettingsTab('location')">Location</button>
-            <button class="settings-tab" data-tab="display" onclick="switchSettingsTab('display')">Display</button>
-            <button class="settings-tab" data-tab="updates" onclick="switchSettingsTab('updates')">Updates</button>
-            <button class="settings-tab" data-tab="tools" onclick="switchSettingsTab('tools')">Tools</button>
-            <button class="settings-tab" data-tab="alerts" onclick="switchSettingsTab('alerts')">Alerts</button>
-            <button class="settings-tab" data-tab="recording" onclick="switchSettingsTab('recording')">Recording</button>
-            <button class="settings-tab" data-tab="about" onclick="switchSettingsTab('about')">About</button>
+        <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+            <button type="button" class="settings-tab active" data-tab="offline" onclick="switchSettingsTab('offline')" role="tab" aria-controls="settings-offline" aria-selected="true">Offline</button>
+            <button type="button" class="settings-tab" data-tab="location" onclick="switchSettingsTab('location')" role="tab" aria-controls="settings-location" aria-selected="false">Location</button>
+            <button type="button" class="settings-tab" data-tab="display" onclick="switchSettingsTab('display')" role="tab" aria-controls="settings-display" aria-selected="false">Display</button>
+            <button type="button" class="settings-tab" data-tab="updates" onclick="switchSettingsTab('updates')" role="tab" aria-controls="settings-updates" aria-selected="false">Updates</button>
+            <button type="button" class="settings-tab" data-tab="tools" onclick="switchSettingsTab('tools')" role="tab" aria-controls="settings-tools" aria-selected="false">Tools</button>
+            <button type="button" class="settings-tab" data-tab="alerts" onclick="switchSettingsTab('alerts')" role="tab" aria-controls="settings-alerts" aria-selected="false">Alerts</button>
+            <button type="button" class="settings-tab" data-tab="recording" onclick="switchSettingsTab('recording')" role="tab" aria-controls="settings-recording" aria-selected="false">Recording</button>
+            <button type="button" class="settings-tab" data-tab="about" onclick="switchSettingsTab('about')" role="tab" aria-controls="settings-about" aria-selected="false">About</button>
         </div>
 
         <!-- Offline Section -->
-        <div id="settings-offline" class="settings-section active">
+        <div id="settings-offline" class="settings-section active" role="tabpanel">
             <div class="settings-group">
                 <div class="settings-group-title">Offline Mode</div>
 

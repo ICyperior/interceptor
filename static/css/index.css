@@ -3586,6 +3586,7 @@ header h1 .tagline {
 .wifi-networks-table-wrapper {
     flex: 1;
     overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .wifi-networks-table {
@@ -3692,6 +3693,22 @@ header h1 .tagline {
 
 .wifi-network-placeholder .placeholder-text {
     color: var(--text-dim);
+}
+
+.app-collection-state-row td {
+    text-align: center;
+    padding: 0;
+}
+
+.app-collection-state {
+    color: var(--text-dim);
+    padding: 16px 12px;
+    font-size: 11px;
+    text-align: center;
+}
+
+.app-collection-state.is-loading {
+    color: var(--accent-cyan);
 }
 
 /* WiFi Radar Panel (CENTER) */
@@ -4082,14 +4099,14 @@ header h1 .tagline {
     display: flex;
     gap: 12px;
     flex: 1;
-    min-height: 380px;
+    min-height: 420px;
 }
 
 .bt-side-panels {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    width: 240px;
+    width: 300px;
     flex-shrink: 0;
 }
 
@@ -4097,6 +4114,21 @@ header h1 .tagline {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.bt-tracker-panel h5 {
+    margin-bottom: 8px;
+}
+
+.bt-tracker-list {
+    font-size: 11px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+    overscroll-behavior: contain;
 }
 
 .bt-radar-panel {
@@ -4603,6 +4635,7 @@ header h1 .tagline {
     min-height: 0;
     padding: 8px 10px 12px;
     background: var(--bg-primary);
+    overscroll-behavior: contain;
 }
 
 .bt-device-list .wifi-device-list-header {
@@ -4659,6 +4692,44 @@ header h1 .tagline {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.bt-list-signal-strip {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.bt-list-signal-title {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.45px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+
+.bt-signal-dist-compact {
+    gap: 6px;
+    padding: 0;
+}
+
+.bt-signal-dist-compact .signal-range {
+    gap: 8px;
+}
+
+.bt-signal-dist-compact .signal-range span:first-child {
+    width: 50px;
+    font-size: 9px;
+}
+
+.bt-signal-dist-compact .signal-range span:last-child {
+    width: 22px;
+    font-size: 10px;
+}
+
+.bt-signal-dist-compact .signal-bar-bg {
+    height: 10px;
 }
 
 .bt-device-toolbar {
@@ -4719,11 +4790,109 @@ header h1 .tagline {
 }
 
 .bt-tracker-item {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     transition: background 0.15s ease;
+    cursor: pointer;
 }
 
 .bt-tracker-item:hover {
     background: rgba(239, 68, 68, 0.08);
+}
+
+.bt-tracker-item:focus-visible {
+    outline: 1px solid var(--accent-cyan);
+    outline-offset: -1px;
+}
+
+.bt-tracker-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.bt-tracker-left,
+.bt-tracker-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.bt-tracker-confidence {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.bt-tracker-confidence-high .bt-tracker-confidence {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.bt-tracker-confidence-medium .bt-tracker-confidence {
+    color: #f97316;
+    background: rgba(249, 115, 22, 0.2);
+}
+
+.bt-tracker-confidence-low .bt-tracker-confidence {
+    color: #eab308;
+    background: rgba(234, 179, 8, 0.2);
+}
+
+.bt-tracker-type {
+    font-size: 11px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.bt-tracker-risk {
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.bt-risk-high {
+    color: #ef4444;
+}
+
+.bt-risk-medium {
+    color: #f97316;
+}
+
+.bt-risk-low {
+    color: var(--text-dim);
+}
+
+.bt-tracker-rssi,
+.bt-tracker-seen {
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+.bt-tracker-row-bottom {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3px;
+    gap: 10px;
+}
+
+.bt-tracker-address {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bt-tracker-evidence {
+    margin-top: 3px;
+    font-size: 9px;
+    color: var(--text-dim);
+    font-style: italic;
 }
 
 /* Bluetooth Signal Distribution */
@@ -4802,6 +4971,11 @@ header h1 .tagline {
 .bt-device-row:hover {
     background: rgba(0, 212, 255, 0.05);
     border-color: var(--accent-cyan);
+}
+
+.bt-device-row:focus-visible {
+    outline: 1px solid var(--accent-cyan);
+    outline-offset: 1px;
 }
 
 .bt-row-main {
@@ -4939,6 +5113,10 @@ header h1 .tagline {
     display: flex;
     justify-content: flex-end;
     padding: 4px 4px 0 42px;
+}
+
+.bt-device-filter-state {
+    margin-top: 8px;
 }
 
 /* Bluetooth Device Modal */
@@ -5157,6 +5335,14 @@ header h1 .tagline {
 
     .bt-main-area {
         min-height: 0;
+    }
+
+    .bt-side-panels {
+        width: 100%;
+    }
+
+    .bt-tracker-list {
+        max-height: 280px;
     }
 
     .bt-device-list {

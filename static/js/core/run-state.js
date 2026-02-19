@@ -3,6 +3,12 @@ const RunState = (function() {
 
     const REFRESH_MS = 5000;
     const CHIP_MODES = ['pager', 'sensor', 'wifi', 'bluetooth', 'adsb', 'ais', 'acars', 'vdl2', 'aprs', 'dsc', 'dmr', 'subghz'];
+    const MODE_ALIASES = {
+        bt: 'bluetooth',
+        bt_locate: 'bluetooth',
+        btlocate: 'bluetooth',
+        aircraft: 'adsb',
+    };
 
     const modeLabels = {
         pager: 'Pager',
@@ -69,7 +75,7 @@ const RunState = (function() {
         const original = window.switchMode;
         const wrapped = function(mode) {
             if (mode) {
-                activeMode = String(mode);
+                activeMode = normalizeMode(String(mode));
             }
             const result = original.apply(this, arguments);
             markActiveChip();
@@ -110,7 +116,7 @@ const RunState = (function() {
             return;
         }
 
-        const processes = data.processes || {};
+        const processes = normalizeProcesses(data.processes || {});
         for (const mode of CHIP_MODES) {
             const isRunning = Boolean(processes[mode]);
             chipsContainer.appendChild(buildChip(modeLabels[mode] || mode.toUpperCase(), isRunning, mode));
@@ -146,7 +152,7 @@ const RunState = (function() {
 
         document.querySelectorAll('#runStateChips .run-state-chip').forEach((chip) => {
             chip.classList.remove('active');
-            if (chip.dataset.mode && chip.dataset.mode === activeMode) {
+            if (chip.dataset.mode && chip.dataset.mode === normalizeMode(activeMode)) {
                 chip.classList.add('active');
             }
         });
@@ -154,7 +160,11 @@ const RunState = (function() {
 
     function inferCurrentMode() {
         const modeParam = new URLSearchParams(window.location.search).get('mode');
-        if (modeParam) return modeParam;
+        if (modeParam) return normalizeMode(modeParam);
+
+        if (typeof window.currentMode === 'string' && window.currentMode) {
+            return normalizeMode(window.currentMode);
+        }
 
         const indicator = document.getElementById('activeModeIndicator');
         if (!indicator) return 'pager';
@@ -163,6 +173,7 @@ const RunState = (function() {
         const normalized = text.toLowerCase();
         if (normalized.includes('wifi')) return 'wifi';
         if (normalized.includes('bluetooth')) return 'bluetooth';
+        if (normalized.includes('bt locate')) return 'bluetooth';
         if (normalized.includes('ads-b')) return 'adsb';
         if (normalized.includes('ais')) return 'ais';
         if (normalized.includes('acars')) return 'acars';
@@ -173,6 +184,29 @@ const RunState = (function() {
         if (normalized.includes('dmr')) return 'dmr';
         if (normalized.includes('433')) return 'sensor';
         return 'pager';
+    }
+
+    function normalizeMode(mode) {
+        const value = String(mode || '').trim().toLowerCase();
+        if (!value) return 'pager';
+        return MODE_ALIASES[value] || value;
+    }
+
+    function normalizeProcesses(raw) {
+        const processes = Object.assign({}, raw || {});
+        processes.bluetooth = Boolean(
+            processes.bluetooth ||
+            processes.bt ||
+            processes.bt_scan ||
+            processes.btlocate ||
+            processes.bt_locate
+        );
+        processes.wifi = Boolean(
+            processes.wifi ||
+            processes.wifi_scan ||
+            processes.wlan
+        );
+        return processes;
     }
 
     function extractMessage(err) {

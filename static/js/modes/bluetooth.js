@@ -38,6 +38,11 @@ const BluetoothMode = (function() {
     let currentDeviceFilter = 'all';
     let currentSearchTerm = '';
     let visibleDeviceCount = 0;
+    let pendingDeviceFlush = false;
+    let selectedDeviceNeedsRefresh = false;
+    let filterListenersBound = false;
+    let listListenersBound = false;
+    const pendingDeviceIds = new Set();
 
     // Agent support
     let showAllAgentsMode = false;
@@ -113,6 +118,7 @@ const BluetoothMode = (function() {
 
         // Initialize device list filters
         initDeviceFilters();
+        initListInteractions();
 
         // Set initial panel states
         updateVisualizationPanels();
@@ -122,6 +128,7 @@ const BluetoothMode = (function() {
      * Initialize device list filter buttons
      */
     function initDeviceFilters() {
+        if (filterListenersBound) return;
         const filterContainer = document.getElementById('btDeviceFilters');
         if (filterContainer) {
             filterContainer.addEventListener('click', (e) => {
@@ -148,6 +155,35 @@ const BluetoothMode = (function() {
                 applyDeviceFilter();
             });
         }
+        filterListenersBound = true;
+    }
+
+    function initListInteractions() {
+        if (listListenersBound) return;
+        if (deviceContainer) {
+            deviceContainer.addEventListener('click', (event) => {
+                const locateBtn = event.target.closest('.bt-locate-btn[data-locate-id]');
+                if (locateBtn) {
+                    event.preventDefault();
+                    locateById(locateBtn.dataset.locateId);
+                    return;
+                }
+
+                const row = event.target.closest('.bt-device-row[data-bt-device-id]');
+                if (!row) return;
+                selectDevice(row.dataset.btDeviceId);
+            });
+        }
+
+        const trackerList = document.getElementById('btTrackerList');
+        if (trackerList) {
+            trackerList.addEventListener('click', (event) => {
+                const row = event.target.closest('.bt-tracker-item[data-device-id]');
+                if (!row) return;
+                selectDevice(row.dataset.deviceId);
+            });
+        }
+        listListenersBound = true;
     }
 
     /**
@@ -191,6 +227,18 @@ const BluetoothMode = (function() {
         });
 
         visibleDeviceCount = visibleCount;
+
+        let stateEl = deviceContainer.querySelector('.bt-device-filter-state');
+        if (visibleCount === 0 && devices.size > 0) {
+            if (!stateEl) {
+                stateEl = document.createElement('div');
+                stateEl.className = 'bt-device-filter-state app-collection-state is-empty';
+                deviceContainer.appendChild(stateEl);
+            }
+            stateEl.textContent = 'No devices match current filters';
+        } else if (stateEl) {
+            stateEl.remove();
+        }
 
         // Update visible count
         updateFilteredCount();
@@ -919,9 +967,20 @@ const BluetoothMode = (function() {
         if (stopBtn) stopBtn.style.display = scanning ? 'block' : 'none';
 
         if (scanning && deviceContainer) {
-            deviceContainer.innerHTML = '';
+            pendingDeviceIds.clear();
+            selectedDeviceNeedsRefresh = false;
+            pendingDeviceFlush = false;
+            if (typeof renderCollectionState === 'function') {
+                renderCollectionState(deviceContainer, { type: 'loading', message: 'Scanning for Bluetooth devices...' });
+            } else {
+                deviceContainer.innerHTML = '';
+            }
             devices.clear();
             resetStats();
+        } else if (!scanning && deviceContainer && devices.size === 0) {
+            if (typeof renderCollectionState === 'function') {
+                renderCollectionState(deviceContainer, { type: 'empty', message: 'Start scanning to discover Bluetooth devices' });
+            }
         }
 
         const statusDot = document.getElementById('statusDot');
@@ -1089,14 +1148,40 @@ const BluetoothMode = (function() {
 
     function handleDeviceUpdate(device) {
         devices.set(device.device_id, device);
-        renderDevice(device);
-        updateDeviceCount();
-        updateStatsFromDevices();
-        updateVisualizationPanels();
-        updateProximityZones();
+        pendingDeviceIds.add(device.device_id);
+        if (selectedDeviceId === device.device_id) {
+            selectedDeviceNeedsRefresh = true;
+        }
+        scheduleDeviceFlush();
+    }
 
-        // Update new proximity radar
-        updateRadar();
+    function scheduleDeviceFlush() {
+        if (pendingDeviceFlush) return;
+        pendingDeviceFlush = true;
+
+        requestAnimationFrame(() => {
+            pendingDeviceFlush = false;
+
+            pendingDeviceIds.forEach((deviceId) => {
+                const device = devices.get(deviceId);
+                if (device) {
+                    renderDevice(device, false);
+                }
+            });
+            pendingDeviceIds.clear();
+
+            applyDeviceFilter();
+            updateDeviceCount();
+            updateStatsFromDevices();
+            updateVisualizationPanels();
+            updateProximityZones();
+            updateRadar();
+
+            if (selectedDeviceNeedsRefresh && selectedDeviceId && devices.has(selectedDeviceId)) {
+                showDeviceDetail(selectedDeviceId);
+            }
+            selectedDeviceNeedsRefresh = false;
+        });
     }
 
     /**
@@ -1173,9 +1258,17 @@ const BluetoothMode = (function() {
         const trackerList = document.getElementById('btTrackerList');
         if (trackerList) {
             if (devices.size === 0) {
-                trackerList.innerHTML = '<div style="color:#666;padding:10px;text-align:center;font-size:11px;">Start scanning to detect trackers</div>';
+                if (typeof renderCollectionState === 'function') {
+                    renderCollectionState(trackerList, { type: 'empty', message: 'Start scanning to detect trackers' });
+                } else {
+                    trackerList.innerHTML = '<div class="app-collection-state is-empty">Start scanning to detect trackers</div>';
+                }
             } else if (deviceStats.trackers.length === 0) {
-                trackerList.innerHTML = '<div style="color:#22c55e;padding:10px;text-align:center;font-size:11px;">No trackers detected</div>';
+                if (typeof renderCollectionState === 'function') {
+                    renderCollectionState(trackerList, { type: 'empty', message: 'No trackers detected' });
+                } else {
+                    trackerList.innerHTML = '<div class="app-collection-state is-empty">No trackers detected</div>';
+                }
             } else {
                 // Sort by risk score (highest first), then confidence
                 const sortedTrackers = [...deviceStats.trackers].sort((a, b) => {
@@ -1187,48 +1280,38 @@ const BluetoothMode = (function() {
                     return confB - confA;
                 });
 
-                trackerList.innerHTML = sortedTrackers.map(t => {
-                    // Get tracker type badge color based on confidence
+                trackerList.innerHTML = sortedTrackers.map((t) => {
                     const confidence = t.tracker_confidence || 'low';
-                    const confColor = confidence === 'high' ? '#ef4444' :
-                                     confidence === 'medium' ? '#f97316' : '#eab308';
-                    const confBg = confidence === 'high' ? 'rgba(239,68,68,0.2)' :
-                                  confidence === 'medium' ? 'rgba(249,115,22,0.2)' : 'rgba(234,179,8,0.2)';
-
-                    // Risk score indicator
                     const riskScore = t.risk_score || 0;
-                    const riskColor = riskScore >= 0.5 ? '#ef4444' : riskScore >= 0.3 ? '#f97316' : '#666';
-
-                    // Tracker type label
                     const trackerType = t.tracker_name || t.tracker_type || 'Unknown Tracker';
-
-                    // Build evidence tooltip (first 2 items)
                     const evidence = (t.tracker_evidence || []).slice(0, 2);
                     const evidenceHtml = evidence.length > 0
-                        ? '<div style="font-size:9px;color:#888;margin-top:3px;font-style:italic;">' +
-                          evidence.map(e => '• ' + escapeHtml(e)).join('<br>') +
-                          '</div>'
+                        ? `<div class="bt-tracker-evidence">${evidence.map((e) => `• ${escapeHtml(e)}`).join('<br>')}</div>`
+                        : '';
+                    const riskClass = riskScore >= 0.5 ? 'high' : riskScore >= 0.3 ? 'medium' : 'low';
+                    const riskHtml = riskScore >= 0.3
+                        ? `<span class="bt-tracker-risk bt-risk-${riskClass}">RISK ${Math.round(riskScore * 100)}%</span>`
                         : '';
 
-                    const deviceIdEscaped = escapeHtml(t.device_id).replace(/'/g, "\\'");
-
-                    return '<div class="bt-tracker-item" style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" onclick="BluetoothMode.selectDevice(\'' + deviceIdEscaped + '\')">' +
-                        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                            '<div style="display:flex;align-items:center;gap:6px;">' +
-                                '<span style="background:' + confBg + ';color:' + confColor + ';font-size:9px;padding:2px 5px;border-radius:3px;font-weight:600;">' + confidence.toUpperCase() + '</span>' +
-                                '<span style="color:#fff;font-size:11px;">' + escapeHtml(trackerType) + '</span>' +
-                            '</div>' +
-                            '<div style="display:flex;align-items:center;gap:8px;">' +
-                                (riskScore >= 0.3 ? '<span style="color:' + riskColor + ';font-size:9px;font-weight:600;">RISK ' + Math.round(riskScore * 100) + '%</span>' : '') +
-                                '<span style="color:#666;font-size:10px;">' + (t.rssi_current || '--') + ' dBm</span>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div style="display:flex;justify-content:space-between;margin-top:3px;">' +
-                            '<span style="font-size:9px;color:#888;font-family:monospace;">' + (t.address_type === 'uuid' ? formatAddress(t) : t.address) + '</span>' +
-                            '<span style="font-size:9px;color:#666;">Seen ' + (t.seen_count || 0) + 'x</span>' +
-                        '</div>' +
-                        evidenceHtml +
-                    '</div>';
+                    return `
+                        <div class="bt-tracker-item bt-tracker-confidence-${escapeHtml(confidence)}" data-device-id="${escapeAttr(t.device_id)}" role="button" tabindex="0" data-keyboard-activate="true">
+                            <div class="bt-tracker-row-top">
+                                <div class="bt-tracker-left">
+                                    <span class="bt-tracker-confidence">${escapeHtml(confidence.toUpperCase())}</span>
+                                    <span class="bt-tracker-type">${escapeHtml(trackerType)}</span>
+                                </div>
+                                <div class="bt-tracker-right">
+                                    ${riskHtml}
+                                    <span class="bt-tracker-rssi">${t.rssi_current != null ? t.rssi_current : '--'} dBm</span>
+                                </div>
+                            </div>
+                            <div class="bt-tracker-row-bottom">
+                                <span class="bt-tracker-address">${escapeHtml(t.address_type === 'uuid' ? formatAddress(t) : (t.address || '--'))}</span>
+                                <span class="bt-tracker-seen">Seen ${t.seen_count || 0}x</span>
+                            </div>
+                            ${evidenceHtml}
+                        </div>
+                    `;
                 }).join('');
             }
         }
@@ -1239,11 +1322,13 @@ const BluetoothMode = (function() {
         updateFilteredCount();
     }
 
-    function renderDevice(device) {
+    function renderDevice(device, reapplyFilter = true) {
         if (!deviceContainer) {
             deviceContainer = document.getElementById('btDeviceListContent');
             if (!deviceContainer) return;
         }
+
+        deviceContainer.querySelectorAll('.app-collection-state, .bt-device-filter-state').forEach((el) => el.remove());
 
         const escapedId = CSS.escape(device.device_id);
         const existingCard = deviceContainer.querySelector('[data-bt-device-id="' + escapedId + '"]');
@@ -1255,8 +1340,9 @@ const BluetoothMode = (function() {
             deviceContainer.insertAdjacentHTML('afterbegin', cardHtml);
         }
 
-        // Re-apply filter after rendering
-        applyDeviceFilter();
+        if (reapplyFilter) {
+            applyDeviceFilter();
+        }
     }
 
     function createSimpleDeviceCard(device) {
@@ -1282,7 +1368,6 @@ const BluetoothMode = (function() {
         const addr = escapeHtml(isUuidAddress(device) ? formatAddress(device) : (device.address || 'Unknown'));
         const mfr = device.manufacturer_name ? escapeHtml(device.manufacturer_name) : '';
         const seenCount = device.seen_count || 0;
-        const deviceIdEscaped = escapeHtml(device.device_id).replace(/'/g, "\\'");
         const searchIndex = [
             displayName,
             device.address,
@@ -1377,7 +1462,7 @@ const BluetoothMode = (function() {
         const borderColor = isTracker && trackerConfidence === 'high' ? '#ef4444' :
                            isTracker ? '#f97316' : rssiColor;
 
-        return '<div class="bt-device-row' + (isTracker ? ' is-tracker' : '') + '" data-bt-device-id="' + escapeHtml(device.device_id) + '" data-is-new="' + isNew + '" data-has-name="' + hasName + '" data-rssi="' + (rssi || -100) + '" data-is-tracker="' + isTracker + '" data-search="' + escapeAttr(searchIndex) + '" onclick="BluetoothMode.selectDevice(\'' + deviceIdEscaped + '\')" style="border-left-color:' + borderColor + ';">' +
+        return '<div class="bt-device-row' + (isTracker ? ' is-tracker' : '') + '" data-bt-device-id="' + escapeAttr(device.device_id) + '" data-is-new="' + isNew + '" data-has-name="' + hasName + '" data-rssi="' + (rssi || -100) + '" data-is-tracker="' + isTracker + '" data-search="' + escapeAttr(searchIndex) + '" role="button" tabindex="0" data-keyboard-activate="true" style="border-left-color:' + borderColor + ';">' +
             '<div class="bt-row-main">' +
                 '<div class="bt-row-left">' +
                     protoBadge +
@@ -1398,7 +1483,7 @@ const BluetoothMode = (function() {
             '</div>' +
             '<div class="bt-row-secondary">' + secondaryInfo + '</div>' +
             '<div class="bt-row-actions">' +
-                '<button class="bt-locate-btn" data-locate-id="' + escapeHtml(device.device_id) + '" onclick="event.stopPropagation(); BluetoothMode.locateById(this.dataset.locateId)">' +
+                '<button type="button" class="bt-locate-btn" data-locate-id="' + escapeAttr(device.device_id) + '">' +
                     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>' +
                     'Locate</button>' +
             '</div>' +
@@ -1534,15 +1619,19 @@ const BluetoothMode = (function() {
      */
     function clearData() {
         devices.clear();
+        pendingDeviceIds.clear();
+        pendingDeviceFlush = false;
+        selectedDeviceNeedsRefresh = false;
         resetStats();
+        clearSelection();
 
         if (deviceContainer) {
-            deviceContainer.innerHTML = '';
+            if (typeof renderCollectionState === 'function') {
+                renderCollectionState(deviceContainer, { type: 'empty', message: 'Start scanning to discover Bluetooth devices' });
+            } else {
+                deviceContainer.innerHTML = '';
+            }
         }
-
-        updateDeviceCount();
-        updateProximityZones();
-        updateRadar();
     }
 
     /**
@@ -1583,7 +1672,15 @@ const BluetoothMode = (function() {
         // Re-render device list
         if (deviceContainer) {
             deviceContainer.innerHTML = '';
-            devices.forEach(device => renderDevice(device));
+            devices.forEach(device => renderDevice(device, false));
+            applyDeviceFilter();
+            if (devices.size === 0 && typeof renderCollectionState === 'function') {
+                renderCollectionState(deviceContainer, { type: 'empty', message: 'No devices for current agent' });
+            }
+        }
+
+        if (selectedDeviceId && !devices.has(selectedDeviceId)) {
+            clearSelection();
         }
 
         updateDeviceCount();

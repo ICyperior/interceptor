@@ -435,10 +435,16 @@ const Settings = {
 };
 
 // Settings modal functions
+let lastSettingsFocusEl = null;
+
 function showSettings() {
     const modal = document.getElementById('settingsModal');
     if (modal) {
+        lastSettingsFocusEl = document.activeElement;
         modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        const content = modal.querySelector('.settings-content');
+        if (content) content.focus();
         Settings.init().then(() => {
             Settings.checkAssets();
         });
@@ -449,18 +455,27 @@ function hideSettings() {
     const modal = document.getElementById('settingsModal');
     if (modal) {
         modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+        if (lastSettingsFocusEl && typeof lastSettingsFocusEl.focus === 'function') {
+            lastSettingsFocusEl.focus();
+        }
     }
 }
 
 function switchSettingsTab(tabName) {
     // Update tab buttons
     document.querySelectorAll('.settings-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.tab === tabName);
+        const isActive = tab.dataset.tab === tabName;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
     // Update sections
     document.querySelectorAll('.settings-section').forEach(section => {
-        section.classList.toggle('active', section.id === `settings-${tabName}`);
+        const isActive = section.id === `settings-${tabName}`;
+        section.classList.toggle('active', isActive);
+        section.hidden = !isActive;
+        section.setAttribute('role', 'tabpanel');
     });
 
     // Load tools/dependencies when that tab is selected
@@ -560,6 +575,7 @@ function loadSettingsTools() {
 // Initialize settings on page load
 document.addEventListener('DOMContentLoaded', () => {
     Settings.init();
+    switchSettingsTab('offline');
 });
 
 // =============================================================================
@@ -919,12 +935,17 @@ const _originalSwitchSettingsTab = typeof switchSettingsTab !== 'undefined' ? sw
 function switchSettingsTab(tabName) {
     // Update tab buttons
     document.querySelectorAll('.settings-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.tab === tabName);
+        const isActive = tab.dataset.tab === tabName;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
     // Update sections
     document.querySelectorAll('.settings-section').forEach(section => {
-        section.classList.toggle('active', section.id === `settings-${tabName}`);
+        const isActive = section.id === `settings-${tabName}`;
+        section.classList.toggle('active', isActive);
+        section.hidden = !isActive;
+        section.setAttribute('role', 'tabpanel');
     });
 
     // Load content based on tab
@@ -1025,4 +1046,15 @@ function setAnimationsEnabled(enabled) {
         document.documentElement.setAttribute('data-animations', 'off');
     }
     localStorage.setItem('intercept-animations', enabled ? 'on' : 'off');
+}
+
+if (!window._settingsEscapeHandlerBound) {
+    window._settingsEscapeHandlerBound = true;
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        const modal = document.getElementById('settingsModal');
+        if (modal && modal.classList.contains('active')) {
+            hideSettings();
+        }
+    });
 }

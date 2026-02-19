@@ -177,6 +177,37 @@ const AppFeedback = (function() {
         return text.includes('script error') || text.includes('resizeobserver loop limit exceeded');
     }
 
+    function renderCollectionState(container, options) {
+        if (!container) return null;
+        const opts = options || {};
+        const type = String(opts.type || 'empty').toLowerCase();
+        const message = String(opts.message || (type === 'loading' ? 'Loading...' : 'No data available'));
+        const className = opts.className || `app-collection-state is-${type}`;
+
+        container.innerHTML = '';
+
+        if (container.tagName === 'TBODY') {
+            const row = document.createElement('tr');
+            row.className = 'app-collection-state-row';
+            const cell = document.createElement('td');
+            const columns = Number.isFinite(opts.columns) ? opts.columns : 1;
+            cell.colSpan = Math.max(1, columns);
+            const state = document.createElement('div');
+            state.className = className;
+            state.textContent = message;
+            cell.appendChild(state);
+            row.appendChild(cell);
+            container.appendChild(row);
+            return row;
+        }
+
+        const state = document.createElement('div');
+        state.className = className;
+        state.textContent = message;
+        container.appendChild(state);
+        return state;
+    }
+
     function isNetworkError(message) {
         const text = String(message || '').toLowerCase();
         return text.includes('networkerror') || text.includes('failed to fetch') || text.includes('timeout');
@@ -192,6 +223,7 @@ const AppFeedback = (function() {
         toast,
         reportError,
         removeToast,
+        renderCollectionState,
     };
 })();
 
@@ -205,6 +237,10 @@ window.showAppToast = function(title, message, type) {
 
 window.reportActionableError = function(context, error, options) {
     return AppFeedback.reportError(context, error, options);
+};
+
+window.renderCollectionState = function(container, options) {
+    return AppFeedback.renderCollectionState(container, options);
 };
 
 document.addEventListener('DOMContentLoaded', () => {
