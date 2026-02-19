@@ -234,8 +234,23 @@ class SSTVImageDecoder:
                         # Scottie: separator between G and B
                         pos += self._porch_samples
                     else:
-                        # Scottie: sync + porch between B and R
-                        pos += self._sync_samples + self._porch_samples
+                        # Scottie: sync + porch between B and R.
+                        # Search for the actual sync pulse to correct for
+                        # SDR clock drift — without this, any timing error
+                        # accumulates line-by-line producing a visible slant.
+                        search_margin = max(100, self._line_samples // 10)
+                        sync_search_start = max(0, pos - search_margin)
+                        sync_search_end = min(
+                            len(self._buffer),
+                            pos + self._sync_samples + search_margin,
+                        )
+                        sync_region = self._buffer[sync_search_start:sync_search_end]
+                        sync_found = self._find_sync(sync_region)
+                        if sync_found is not None:
+                            pos = (sync_search_start + sync_found
+                                   + self._sync_samples + self._porch_samples)
+                        else:
+                            pos += self._sync_samples + self._porch_samples
                 elif self._separator_samples > 0:
                     # Robot: separator + porch between channels
                     pos += self._separator_samples
