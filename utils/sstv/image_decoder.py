@@ -246,21 +246,33 @@ class SSTVImageDecoder:
                         # slant correction without touching pos or consumed —
                         # so a noisy/false measurement never corrupts the decode.
                         r_samples = self._channel_samples[-1]
-                        bwd = min(50, pos)
-                        fwd = max(0, len(self._buffer) - pos
-                                  - self._sync_samples - self._porch_samples
-                                  - r_samples)
-                        fwd = min(fwd, self._sync_samples)
+                        # Large window to cover cumulative SDR clock drift over
+                        # the full image.  bwd=50 saturates after ~25 lines for
+                        # a 2-sample/line drift; 800 samples covers ±200 ppm.
+                        bwd = min(800, pos)
+                        remaining = len(self._buffer) - pos
+                        fwd = min(800, max(
+                            0,
+                            remaining - self._sync_samples
+                            - self._porch_samples - r_samples))
                         deviation: float | None = None
                         if bwd + fwd > 0:
                             region_start = pos - bwd
                             sync_region = self._buffer[
                                 region_start: pos + self._sync_samples + fwd]
-                            win = max(20, self._sync_samples // 3)
-                            n_win = len(sync_region) - win + 1
-                            if n_win > 0:
-                                windows = np.lib.stride_tricks.sliding_window_view(
-                                    sync_region, win)
+                            # Full-sync-length window gives best freq resolution
+                            # (~111 Hz at 48 kHz) to cleanly separate 1200 Hz
+                            # sync from 1500 Hz pixel data.
+                            win = self._sync_samples
+                            n_raw = len(sync_region) - win + 1
+                            if n_raw > 0:
+                                # Step 5 samples (~0.1 ms) — enough resolution
+                                # for pixel-level drift, keeps batch size small.
+                                step = 5
+                                all_windows = (
+                                    np.lib.stride_tricks.sliding_window_view(
+                                        sync_region, win))
+                                windows = all_windows[::step]
                                 energies = goertzel_batch(
                                     windows,
                                     np.array([FREQ_SYNC, FREQ_BLACK]),
@@ -269,9 +281,10 @@ class SSTVImageDecoder:
                                 black_e = energies[:, 1]
                                 valid_mask = sync_e > black_e * 2
                                 if valid_mask.any():
-                                    fine_best = int(
-                                        np.argmax(np.where(valid_mask, sync_e, 0.0)))
-                                    deviation = float(fine_best - bwd)
+                                    fine_idx = int(
+                                        np.argmax(
+                                            np.where(valid_mask, sync_e, 0.0)))
+                                    deviation = float(fine_idx * step - bwd)
                         self._sync_deviations.append(deviation)
                         pos += self._sync_samples + self._porch_samples
                 elif self._separator_samples > 0:
