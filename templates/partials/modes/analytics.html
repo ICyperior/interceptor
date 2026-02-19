@@ -60,6 +60,24 @@
 
 <div class="section">
     <h3 class="section-header collapsible" onclick="toggleSection(this)">
+        <span>Operational Insights</span>
+        <span class="collapse-icon">&#9660;</span>
+    </h3>
+    <div class="section-content">
+        <div class="analytics-insight-grid" id="analyticsInsights">
+            <div class="analytics-empty">Insights loading...</div>
+        </div>
+        <div class="analytics-top-changes">
+            <div class="analytics-section-header">Top Changes</div>
+            <div id="analyticsTopChanges">
+                <div class="analytics-empty">No change signals yet</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3 class="section-header collapsible" onclick="toggleSection(this)">
         <span>Mode Health</span>
         <span class="collapse-icon">&#9660;</span>
     </h3>
@@ -77,6 +95,18 @@
         <div class="squawk-emergency" id="analyticsSquawkPanel">
             <div class="squawk-title">Active Emergency Codes</div>
             <div id="analyticsSquawkList"></div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3 class="section-header collapsible" onclick="toggleSection(this)">
+        <span>Temporal Patterns</span>
+        <span class="collapse-icon">&#9660;</span>
+    </h3>
+    <div class="section-content">
+        <div id="analyticsPatternList">
+            <div class="analytics-empty">No recurring patterns detected</div>
         </div>
     </div>
 </div>

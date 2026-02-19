@@ -25,12 +25,16 @@ const Analytics = (function () {
         Promise.all([
             fetch('/analytics/summary').then(r => r.json()).catch(() => null),
             fetch('/analytics/activity').then(r => r.json()).catch(() => null),
+            fetch('/analytics/insights').then(r => r.json()).catch(() => null),
+            fetch('/analytics/patterns').then(r => r.json()).catch(() => null),
             fetch('/alerts/events?limit=20').then(r => r.json()).catch(() => null),
             fetch('/correlation').then(r => r.json()).catch(() => null),
             fetch('/analytics/geofences').then(r => r.json()).catch(() => null),
-        ]).then(([summary, activity, alerts, correlations, geofences]) => {
+        ]).then(([summary, activity, insights, patterns, alerts, correlations, geofences]) => {
             if (summary) renderSummary(summary);
             if (activity) renderSparklines(activity.sparklines || {});
+            if (insights) renderInsights(insights);
+            if (patterns) renderPatterns(patterns.patterns || []);
             if (alerts) renderAlerts(alerts.events || []);
             if (correlations) renderCorrelations(correlations);
             if (geofences) renderGeofences(geofences.zones || []);
@@ -92,6 +96,10 @@ const Analytics = (function () {
             wifi: 'analyticsSparkWifi',
             bluetooth: 'analyticsSparkBt',
             dsc: 'analyticsSparkDsc',
+            acars: 'analyticsSparkAcars',
+            vdl2: 'analyticsSparkVdl2',
+            aprs: 'analyticsSparkAprs',
+            meshtastic: 'analyticsSparkMesh',
         };
 
         for (const [mode, elId] of Object.entries(map)) {
@@ -111,6 +119,98 @@ const Analytics = (function () {
             ).join(' ');
             el.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none"><polyline points="' + points + '"/></svg>';
         }
+    }
+
+    function renderInsights(data) {
+        const cards = data.cards || [];
+        const topChanges = data.top_changes || [];
+        const cardsEl = document.getElementById('analyticsInsights');
+        const changesEl = document.getElementById('analyticsTopChanges');
+
+        if (cardsEl) {
+            if (!cards.length) {
+                cardsEl.innerHTML = '<div class="analytics-empty">No insight data available</div>';
+            } else {
+                cardsEl.innerHTML = cards.map(c => {
+                    const sev = _esc(c.severity || 'low');
+                    const title = _esc(c.title || 'Insight');
+                    const value = _esc(c.value || '--');
+                    const label = _esc(c.label || '');
+                    const detail = _esc(c.detail || '');
+                    return '<div class="analytics-insight-card ' + sev + '">' +
+                        '<div class="insight-title">' + title + '</div>' +
+                        '<div class="insight-value">' + value + '</div>' +
+                        '<div class="insight-label">' + label + '</div>' +
+                        '<div class="insight-detail">' + detail + '</div>' +
+                        '</div>';
+                }).join('');
+            }
+        }
+
+        if (changesEl) {
+            if (!topChanges.length) {
+                changesEl.innerHTML = '<div class="analytics-empty">No change signals yet</div>';
+            } else {
+                changesEl.innerHTML = topChanges.map(item => {
+                    const mode = _esc(item.mode_label || item.mode || '');
+                    const deltaRaw = Number(item.delta || 0);
+                    const trendClass = deltaRaw > 0 ? 'up' : (deltaRaw < 0 ? 'down' : 'flat');
+                    const delta = _esc(item.signed_delta || String(deltaRaw));
+                    const recentAvg = _esc(item.recent_avg);
+                    const prevAvg = _esc(item.previous_avg);
+                    return '<div class="analytics-change-row">' +
+                        '<span class="mode">' + mode + '</span>' +
+                        '<span class="delta ' + trendClass + '">' + delta + '</span>' +
+                        '<span class="avg">avg ' + recentAvg + ' vs ' + prevAvg + '</span>' +
+                        '</div>';
+                }).join('');
+            }
+        }
+    }
+
+    function renderPatterns(patterns) {
+        const container = document.getElementById('analyticsPatternList');
+        if (!container) return;
+        if (!patterns || patterns.length === 0) {
+            container.innerHTML = '<div class="analytics-empty">No recurring patterns detected</div>';
+            return;
+        }
+
+        const modeLabels = {
+            adsb: 'ADS-B',
+            ais: 'AIS',
+            wifi: 'WiFi',
+            bluetooth: 'Bluetooth',
+            dsc: 'DSC',
+            acars: 'ACARS',
+            vdl2: 'VDL2',
+            aprs: 'APRS',
+            meshtastic: 'Meshtastic',
+        };
+
+        const sorted = patterns
+            .slice()
+            .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+            .slice(0, 20);
+
+        container.innerHTML = sorted.map(p => {
+            const confidencePct = Math.round((Number(p.confidence || 0)) * 100);
+            const mode = modeLabels[p.mode] || (p.mode || '--').toUpperCase();
+            const period = _humanPeriod(Number(p.period_seconds || 0));
+            const occurrences = Number(p.occurrences || 0);
+            const deviceId = _shortId(p.device_id || '--');
+            return '<div class="analytics-pattern-item">' +
+                '<div class="pattern-main">' +
+                '<span class="pattern-mode">' + _esc(mode) + '</span>' +
+                '<span class="pattern-device">' + _esc(deviceId) + '</span>' +
+                '</div>' +
+                '<div class="pattern-meta">' +
+                '<span>Period: ' + _esc(period) + '</span>' +
+                '<span>Hits: ' + _esc(occurrences) + '</span>' +
+                '<span class="pattern-confidence">' + _esc(confidencePct) + '%</span>' +
+                '</div>' +
+                '</div>';
+        }).join('');
     }
 
     function renderAlerts(events) {
@@ -209,6 +309,21 @@ const Analytics = (function () {
     function _esc(s) {
         if (typeof s !== 'string') s = String(s == null ? '' : s);
         return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function _shortId(value) {
+        const text = String(value || '');
+        if (text.length <= 18) return text;
+        return text.slice(0, 8) + '...' + text.slice(-6);
+    }
+
+    function _humanPeriod(seconds) {
+        if (!isFinite(seconds) || seconds <= 0) return '--';
+        if (seconds < 60) return Math.round(seconds) + 's';
+        const mins = seconds / 60;
+        if (mins < 60) return mins.toFixed(mins < 10 ? 1 : 0) + 'm';
+        const hours = mins / 60;
+        return hours.toFixed(hours < 10 ? 1 : 0) + 'h';
     }
 
     return { init, destroy, refresh, addGeofence, deleteGeofence, exportData };

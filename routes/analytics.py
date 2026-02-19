@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from datetime import datetime, timezone
 
 from flask import Blueprint, Response, jsonify, request
 
@@ -15,6 +16,7 @@ from utils.analytics import (
     get_emergency_squawks,
     get_mode_health,
 )
+from utils.alerts import get_alert_manager
 from utils.flight_correlator import get_flight_correlator
 from utils.geofence import get_geofence_manager
 from utils.temporal_patterns import get_pattern_detector
@@ -73,6 +75,165 @@ def analytics_patterns():
         'status': 'success',
         'patterns': get_pattern_detector().get_all_patterns(),
     })
+
+
+@analytics_bp.route('/insights')
+def analytics_insights():
+    """Return actionable insight cards and top changes."""
+    counts = get_cross_mode_summary()
+    tracker = get_activity_tracker()
+    sparklines = tracker.get_all_sparklines()
+    squawks = get_emergency_squawks()
+    patterns = get_pattern_detector().get_all_patterns()
+    alerts = get_alert_manager().list_events(limit=120)
+
+    top_changes = _compute_mode_changes(sparklines)
+    busiest_mode, busiest_count = _get_busiest_mode(counts)
+    critical_1h = _count_recent_alerts(alerts, severities={'critical', 'high'}, max_age_seconds=3600)
+    recurring_emitters = sum(1 for p in patterns if float(p.get('confidence') or 0.0) >= 0.7)
+
+    cards = []
+    if top_changes:
+        lead = top_changes[0]
+        direction = 'up' if lead['delta'] >= 0 else 'down'
+        cards.append({
+            'id': 'fastest_change',
+            'title': 'Fastest Change',
+            'value': f"{lead['mode_label']} ({lead['signed_delta']})",
+            'label': 'last window vs prior',
+            'severity': 'high' if lead['delta'] > 0 else 'low',
+            'detail': f"Traffic is trending {direction} in {lead['mode_label']}.",
+        })
+    else:
+        cards.append({
+            'id': 'fastest_change',
+            'title': 'Fastest Change',
+            'value': 'Insufficient data',
+            'label': 'wait for activity history',
+            'severity': 'low',
+            'detail': 'Sparklines need more samples to score momentum.',
+        })
+
+    cards.append({
+        'id': 'busiest_mode',
+        'title': 'Busiest Mode',
+        'value': f"{busiest_mode} ({busiest_count})",
+        'label': 'current observed entities',
+        'severity': 'medium' if busiest_count > 0 else 'low',
+        'detail': 'Highest live entity count across monitoring modes.',
+    })
+    cards.append({
+        'id': 'critical_alerts',
+        'title': 'Critical Alerts (1h)',
+        'value': str(critical_1h),
+        'label': 'critical/high severities',
+        'severity': 'critical' if critical_1h > 0 else 'low',
+        'detail': 'Prioritize triage if this count is non-zero.',
+    })
+    cards.append({
+        'id': 'emergency_squawks',
+        'title': 'Emergency Squawks',
+        'value': str(len(squawks)),
+        'label': 'active ADS-B emergency codes',
+        'severity': 'critical' if squawks else 'low',
+        'detail': 'Immediate aviation anomalies currently visible.',
+    })
+    cards.append({
+        'id': 'recurring_emitters',
+        'title': 'Recurring Emitters',
+        'value': str(recurring_emitters),
+        'label': 'pattern confidence >= 0.70',
+        'severity': 'medium' if recurring_emitters > 0 else 'low',
+        'detail': 'Potentially stationary or periodic emitters detected.',
+    })
+
+    return jsonify({
+        'status': 'success',
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'cards': cards,
+        'top_changes': top_changes[:5],
+    })
+
+
+def _compute_mode_changes(sparklines: dict[str, list[int]]) -> list[dict]:
+    mode_labels = {
+        'adsb': 'ADS-B',
+        'ais': 'AIS',
+        'wifi': 'WiFi',
+        'bluetooth': 'Bluetooth',
+        'dsc': 'DSC',
+        'acars': 'ACARS',
+        'vdl2': 'VDL2',
+        'aprs': 'APRS',
+        'meshtastic': 'Meshtastic',
+    }
+    rows = []
+    for mode, samples in (sparklines or {}).items():
+        if not isinstance(samples, list) or len(samples) < 4:
+            continue
+
+        window = max(2, min(12, len(samples) // 2))
+        recent = samples[-window:]
+        previous = samples[-(window * 2):-window]
+        if not previous:
+            continue
+
+        recent_avg = sum(recent) / len(recent)
+        prev_avg = sum(previous) / len(previous)
+        delta = round(recent_avg - prev_avg, 1)
+        rows.append({
+            'mode': mode,
+            'mode_label': mode_labels.get(mode, mode.upper()),
+            'delta': delta,
+            'signed_delta': ('+' if delta >= 0 else '') + str(delta),
+            'recent_avg': round(recent_avg, 1),
+            'previous_avg': round(prev_avg, 1),
+            'direction': 'up' if delta > 0 else ('down' if delta < 0 else 'flat'),
+        })
+
+    rows.sort(key=lambda r: abs(r['delta']), reverse=True)
+    return rows
+
+
+def _count_recent_alerts(alerts: list[dict], severities: set[str], max_age_seconds: int) -> int:
+    now = datetime.now(timezone.utc)
+    count = 0
+    for event in alerts:
+        sev = str(event.get('severity') or '').lower()
+        if sev not in severities:
+            continue
+        created_raw = event.get('created_at')
+        if not created_raw:
+            continue
+        try:
+            created = datetime.fromisoformat(str(created_raw).replace('Z', '+00:00'))
+        except ValueError:
+            continue
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age = (now - created).total_seconds()
+        if 0 <= age <= max_age_seconds:
+            count += 1
+    return count
+
+
+def _get_busiest_mode(counts: dict[str, int]) -> tuple[str, int]:
+    mode_labels = {
+        'adsb': 'ADS-B',
+        'ais': 'AIS',
+        'wifi': 'WiFi',
+        'bluetooth': 'Bluetooth',
+        'dsc': 'DSC',
+        'acars': 'ACARS',
+        'vdl2': 'VDL2',
+        'aprs': 'APRS',
+        'meshtastic': 'Meshtastic',
+    }
+    filtered = {k: int(v or 0) for k, v in (counts or {}).items() if k in mode_labels}
+    if not filtered:
+        return ('None', 0)
+    mode = max(filtered, key=filtered.get)
+    return (mode_labels.get(mode, mode.upper()), filtered[mode])
 
 
 @analytics_bp.route('/export/<mode>')
