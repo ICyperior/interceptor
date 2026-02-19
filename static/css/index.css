@@ -4060,8 +4060,8 @@ header h1 .tagline {
 /* Bluetooth Layout Container */
 .bt-layout-container {
     display: flex;
-    gap: 15px;
-    padding: 15px;
+    gap: 12px;
+    padding: 12px;
     background: var(--bg-secondary);
     margin: 0 15px 10px 15px;
     border: 1px solid var(--border-color);
@@ -4082,14 +4082,14 @@ header h1 .tagline {
     display: flex;
     gap: 12px;
     flex: 1;
-    min-height: 360px; /* ensure radar area (SVG 280px + controls + summary) is never crushed */
+    min-height: 380px;
 }
 
 .bt-side-panels {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    width: 220px;
+    width: 240px;
     flex-shrink: 0;
 }
 
@@ -4105,6 +4105,90 @@ header h1 .tagline {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+#btRadarControls {
+    gap: 6px;
+}
+
+.bt-radar-filter-btn,
+#btRadarPauseBtn {
+    min-width: 84px;
+    padding: 4px 10px;
+    font-size: 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bt-radar-filter-btn:hover,
+#btRadarPauseBtn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-cyan);
+}
+
+.bt-radar-filter-btn.active,
+#btRadarPauseBtn.active {
+    color: #0f172a;
+    background: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
+
+.bt-zone-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 11px;
+}
+
+.bt-zone-card {
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.bt-zone-card.immediate {
+    border-color: rgba(34, 197, 94, 0.35);
+}
+
+.bt-zone-card.near {
+    border-color: rgba(234, 179, 8, 0.35);
+}
+
+.bt-zone-card.far {
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.bt-zone-value {
+    display: block;
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.bt-zone-card.immediate .bt-zone-value {
+    color: #22c55e;
+}
+
+.bt-zone-card.near .bt-zone-value {
+    color: #eab308;
+}
+
+.bt-zone-card.far .bt-zone-value {
+    color: #ef4444;
+}
+
+.bt-zone-label {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
 }
 
 .bt-radar-panel #btProximityRadar {
@@ -4248,6 +4332,70 @@ header h1 .tagline {
     color: #9ca3af;
 }
 
+.bt-detail-badge.tracker-high {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.bt-detail-badge.tracker-medium {
+    background: rgba(249, 115, 22, 0.2);
+    color: #f97316;
+}
+
+.bt-detail-badge.tracker-low {
+    background: rgba(234, 179, 8, 0.2);
+    color: #eab308;
+}
+
+.bt-detail-tracker-analysis {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+}
+
+.bt-analysis-header {
+    color: #fca5a5;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.bt-analysis-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 10px;
+    margin-top: 4px;
+}
+
+.bt-analysis-label {
+    color: var(--text-dim);
+    font-size: 9px;
+}
+
+.bt-analysis-section {
+    margin-top: 6px;
+}
+
+.bt-evidence-list {
+    margin: 4px 0 0 0;
+    padding-left: 14px;
+    color: var(--text-primary);
+    font-size: 10px;
+}
+
+.bt-analysis-warning {
+    margin-top: 8px;
+    color: #fca5a5;
+    font-size: 9px;
+    line-height: 1.35;
+}
+
 .bt-detail-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -4283,6 +4431,8 @@ header h1 .tagline {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .bt-detail-services {
@@ -4438,8 +4588,8 @@ header h1 .tagline {
     border-left-color: var(--accent-purple) !important;
     display: flex;
     flex-direction: column;
-    min-width: 280px;
-    max-width: 320px;
+    min-width: 330px;
+    max-width: 420px;
     max-height: 100%;
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
@@ -4451,6 +4601,8 @@ header h1 .tagline {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
+    padding: 8px 10px 12px;
+    background: var(--bg-primary);
 }
 
 .bt-device-list .wifi-device-list-header {
@@ -4460,6 +4612,10 @@ header h1 .tagline {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--bg-primary);
 }
 
 .bt-device-list .wifi-device-list-header h5 {
@@ -4467,6 +4623,63 @@ header h1 .tagline {
     margin: 0;
     font-size: 13px;
     font-weight: 600;
+}
+
+.bt-list-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.bt-summary-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px 6px;
+    min-width: 0;
+}
+
+.bt-summary-label {
+    display: block;
+    font-size: 8px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+}
+
+.bt-summary-value {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bt-device-toolbar {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.bt-device-search {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 11px;
+    padding: 7px 8px;
+}
+
+.bt-device-search:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
 }
 
 /* Bluetooth Device Filters */
@@ -4477,6 +4690,10 @@ header h1 .tagline {
     border-bottom: 1px solid var(--border-color);
     flex-wrap: wrap;
     flex-shrink: 0;
+    background: var(--bg-primary);
+    position: sticky;
+    top: 44px;
+    z-index: 3;
 }
 
 .bt-filter-btn {
@@ -4499,6 +4716,14 @@ header h1 .tagline {
     background: var(--accent-purple);
     border-color: var(--accent-purple);
     color: white;
+}
+
+.bt-tracker-item {
+    transition: background 0.15s ease;
+}
+
+.bt-tracker-item:hover {
+    background: rgba(239, 68, 68, 0.08);
 }
 
 /* Bluetooth Signal Distribution */
@@ -4568,6 +4793,10 @@ header h1 .tagline {
     margin-bottom: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
+}
+
+.bt-device-row:last-child {
+    margin-bottom: 0;
 }
 
 .bt-device-row:hover {
@@ -4922,14 +5151,23 @@ header h1 .tagline {
         min-height: 0;
     }
 
-    .bt-layout-container .wifi-visuals {
+    .bt-layout-container .bt-visuals-column {
         max-height: 50vh;
+    }
+
+    .bt-main-area {
+        min-height: 0;
     }
 
     .bt-device-list {
         width: 100%;
         min-width: auto;
-        max-height: 300px;
+        max-width: none;
+        max-height: 320px;
+    }
+
+    .bt-list-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

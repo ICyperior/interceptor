@@ -830,6 +830,7 @@
                                         </div>
                                     </div>
                                     <div class="bt-detail-badges" id="btDetailBadges"></div>
+                                    <div class="bt-detail-tracker-analysis" id="btDetailTrackerAnalysis" style="display: none;"></div>
                                     <div class="bt-detail-grid">
                                         <div class="bt-detail-stat">
                                             <span class="bt-detail-stat-label">Manufacturer</span>
@@ -939,23 +940,23 @@
                                 <h5>Proximity Radar</h5>
                                 <div id="btProximityRadar" style="display: flex; justify-content: center; padding: 8px 0;"></div>
                                 <div id="btRadarControls" style="display: flex; gap: 6px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
-                                    <button data-filter="newOnly" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">New Only</button>
-                                    <button data-filter="strongest" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Strongest</button>
-                                    <button data-filter="unapproved" class="bt-radar-filter-btn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Unapproved</button>
-                                    <button id="btRadarPauseBtn" style="padding: 4px 10px; font-size: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: #888; cursor: pointer;">Pause</button>
+                                    <button data-filter="newOnly" class="bt-radar-filter-btn">New Only</button>
+                                    <button data-filter="strongest" class="bt-radar-filter-btn">Strongest</button>
+                                    <button data-filter="unapproved" class="bt-radar-filter-btn">Unapproved</button>
+                                    <button id="btRadarPauseBtn">Pause</button>
                                 </div>
-                                <div id="btZoneSummary" style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 11px;">
-                                    <div style="text-align: center;">
-                                        <span id="btZoneImmediate" style="font-size: 20px; font-weight: 600; color: #22c55e;">0</span>
-                                        <div style="color: #666;">Immediate</div>
+                                <div id="btZoneSummary" class="bt-zone-summary">
+                                    <div class="bt-zone-card immediate">
+                                        <span id="btZoneImmediate" class="bt-zone-value">0</span>
+                                        <div class="bt-zone-label">Immediate</div>
                                     </div>
-                                    <div style="text-align: center;">
-                                        <span id="btZoneNear" style="font-size: 20px; font-weight: 600; color: #eab308;">0</span>
-                                        <div style="color: #666;">Near</div>
+                                    <div class="bt-zone-card near">
+                                        <span id="btZoneNear" class="bt-zone-value">0</span>
+                                        <div class="bt-zone-label">Near</div>
                                     </div>
-                                    <div style="text-align: center;">
-                                        <span id="btZoneFar" style="font-size: 20px; font-weight: 600; color: #ef4444;">0</span>
-                                        <div style="color: #666;">Far</div>
+                                    <div class="bt-zone-card far">
+                                        <span id="btZoneFar" class="bt-zone-value">0</span>
+                                        <div class="bt-zone-label">Far</div>
                                     </div>
                                 </div>
                             </div>
@@ -967,11 +968,33 @@
                             <h5>Bluetooth Devices</h5>
                             <span class="device-count">(<span id="btDeviceListCount">0</span>)</span>
                         </div>
+                        <div class="bt-list-summary" id="btListSummary">
+                            <div class="bt-summary-item">
+                                <span class="bt-summary-label">Total</span>
+                                <span class="bt-summary-value" id="btSummaryTotal">0</span>
+                            </div>
+                            <div class="bt-summary-item">
+                                <span class="bt-summary-label">New</span>
+                                <span class="bt-summary-value" id="btSummaryNew">0</span>
+                            </div>
+                            <div class="bt-summary-item">
+                                <span class="bt-summary-label">Trackers</span>
+                                <span class="bt-summary-value" id="btSummaryTrackers">0</span>
+                            </div>
+                            <div class="bt-summary-item">
+                                <span class="bt-summary-label">Strongest</span>
+                                <span class="bt-summary-value" id="btSummaryStrongest">--</span>
+                            </div>
+                        </div>
+                        <div class="bt-device-toolbar">
+                            <input type="search" id="btDeviceSearch" class="bt-device-search" placeholder="Filter by name, MAC, manufacturer...">
+                        </div>
                         <div class="bt-device-filters" id="btDeviceFilters">
                             <button class="bt-filter-btn active" data-filter="all">All</button>
                             <button class="bt-filter-btn" data-filter="new">New</button>
                             <button class="bt-filter-btn" data-filter="named">Named</button>
                             <button class="bt-filter-btn" data-filter="strong">Strong</button>
+                            <button class="bt-filter-btn" data-filter="trackers">Trackers</button>
                         </div>
                         <div class="wifi-device-list-content" id="btDeviceListContent">
                             <div style="color: var(--text-dim); text-align: center; padding: 30px;">
