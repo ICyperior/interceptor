@@ -20,6 +20,7 @@ from .constants import (
 )
 from .dsp import (
     goertzel,
+    goertzel_batch,
     samples_for_duration,
 )
 from .modes import (
@@ -193,6 +194,9 @@ class SSTVImageDecoder:
         search_margin = max(100, self._line_samples // 10)
 
         line_start = 0
+        # Set True when the Scottie mid-line sync is found precisely so
+        # that we can use consumed=pos to stop timing errors accumulating.
+        _sync_corrected = False
 
         if self._mode.sync_position in (SyncPosition.FRONT, SyncPosition.FRONT_PD):
             # Sync is at the beginning of each line
@@ -235,16 +239,16 @@ class SSTVImageDecoder:
                         pos += self._porch_samples
                     else:
                         # Scottie: sync + porch between B and R.
-                        # Search for the actual sync pulse to correct per-line
-                        # SDR clock drift — without this, timing errors
-                        # accumulate line-by-line producing a visible slant.
+                        # Use a vectorised fine scan (step=1) so the sync
+                        # pulse is located with single-sample accuracy.
+                        # The coarse _find_sync (step=49) introduced up to
+                        # ±24 sample errors that made colour registration
+                        # worse than no correction at all.
                         #
-                        # Constraints:
-                        #   - Backward margin is small (50 samples ≈ 4.5 ms)
-                        #     so we don't stray deep into B pixel data.
-                        #   - Forward margin is bounded by available buffer so
-                        #     the R channel decode never overflows the buffer.
-                        #   - The candidate position is validated before use.
+                        # Backward margin: 50 samples (≈ 4.5 ms), enough to
+                        # cover >130 ppm SDR clock error over a full image.
+                        # Forward margin: bounded by available buffer so the
+                        # R channel never overflows.
                         r_samples = self._channel_samples[-1]
                         bwd = min(50, pos)
                         fwd = max(0, len(self._buffer) - pos
@@ -252,15 +256,32 @@ class SSTVImageDecoder:
                                   - r_samples)
                         fwd = min(fwd, self._sync_samples)
                         if bwd + fwd > 0:
+                            region_start = pos - bwd
                             sync_region = self._buffer[
-                                pos - bwd: pos + self._sync_samples + fwd]
-                            sync_found = self._find_sync(sync_region)
-                            if sync_found is not None:
-                                candidate = (pos - bwd + sync_found
-                                             + self._sync_samples
-                                             + self._porch_samples)
-                                if candidate + r_samples <= len(self._buffer):
-                                    pos = candidate
+                                region_start: pos + self._sync_samples + fwd]
+                            win = max(20, self._sync_samples // 3)
+                            n_win = len(sync_region) - win + 1
+                            if n_win > 0:
+                                windows = np.lib.stride_tricks.sliding_window_view(
+                                    sync_region, win)
+                                energies = goertzel_batch(
+                                    windows,
+                                    np.array([FREQ_SYNC, FREQ_BLACK]),
+                                    self._sample_rate)
+                                sync_e = energies[:, 0]
+                                black_e = energies[:, 1]
+                                valid = sync_e > black_e * 2
+                                if valid.any():
+                                    fine_best = int(
+                                        np.argmax(np.where(valid, sync_e, 0.0)))
+                                    candidate = (region_start + fine_best
+                                                 + self._sync_samples
+                                                 + self._porch_samples)
+                                    if candidate + r_samples <= len(self._buffer):
+                                        pos = candidate
+                                        _sync_corrected = True
+                                    else:
+                                        pos += self._sync_samples + self._porch_samples
                                 else:
                                     pos += self._sync_samples + self._porch_samples
                             else:
@@ -275,8 +296,15 @@ class SSTVImageDecoder:
                     # Martin: porch between channels
                     pos += self._porch_samples
 
-        # Advance buffer past this line
-        consumed = max(pos, self._line_samples)
+        # Advance buffer past this line.
+        # For Scottie modes where the mid-line sync was precisely located,
+        # consume exactly to the end of R so the next line starts at its
+        # correct separator — this stops per-line timing errors accumulating
+        # into a slant without overcorrecting into the next line's data.
+        if _sync_corrected:
+            consumed = pos
+        else:
+            consumed = max(pos, self._line_samples)
         self._buffer = self._buffer[consumed:]
 
         self._current_line += 1
