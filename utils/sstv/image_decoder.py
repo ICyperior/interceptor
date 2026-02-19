@@ -235,20 +235,36 @@ class SSTVImageDecoder:
                         pos += self._porch_samples
                     else:
                         # Scottie: sync + porch between B and R.
-                        # Search for the actual sync pulse to correct for
-                        # SDR clock drift — without this, any timing error
-                        # accumulates line-by-line producing a visible slant.
-                        search_margin = max(100, self._line_samples // 10)
-                        sync_search_start = max(0, pos - search_margin)
-                        sync_search_end = min(
-                            len(self._buffer),
-                            pos + self._sync_samples + search_margin,
-                        )
-                        sync_region = self._buffer[sync_search_start:sync_search_end]
-                        sync_found = self._find_sync(sync_region)
-                        if sync_found is not None:
-                            pos = (sync_search_start + sync_found
-                                   + self._sync_samples + self._porch_samples)
+                        # Search for the actual sync pulse to correct per-line
+                        # SDR clock drift — without this, timing errors
+                        # accumulate line-by-line producing a visible slant.
+                        #
+                        # Constraints:
+                        #   - Backward margin is small (50 samples ≈ 4.5 ms)
+                        #     so we don't stray deep into B pixel data.
+                        #   - Forward margin is bounded by available buffer so
+                        #     the R channel decode never overflows the buffer.
+                        #   - The candidate position is validated before use.
+                        r_samples = self._channel_samples[-1]
+                        bwd = min(50, pos)
+                        fwd = max(0, len(self._buffer) - pos
+                                  - self._sync_samples - self._porch_samples
+                                  - r_samples)
+                        fwd = min(fwd, self._sync_samples)
+                        if bwd + fwd > 0:
+                            sync_region = self._buffer[
+                                pos - bwd: pos + self._sync_samples + fwd]
+                            sync_found = self._find_sync(sync_region)
+                            if sync_found is not None:
+                                candidate = (pos - bwd + sync_found
+                                             + self._sync_samples
+                                             + self._porch_samples)
+                                if candidate + r_samples <= len(self._buffer):
+                                    pos = candidate
+                                else:
+                                    pos += self._sync_samples + self._porch_samples
+                            else:
+                                pos += self._sync_samples + self._porch_samples
                         else:
                             pos += self._sync_samples + self._porch_samples
                 elif self._separator_samples > 0:
