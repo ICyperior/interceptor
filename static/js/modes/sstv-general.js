@@ -91,7 +91,7 @@ const SSTVGeneral = (function() {
         const deviceSelect = document.getElementById('deviceSelect');
 
         const frequency = parseFloat(freqInput?.value || '14.230');
-        const modulation = modSelect?.value || 'usb';
+        const modulation = modSelect?.value || 'fm';
         const device = parseInt(deviceSelect?.value || '0', 10);
 
         updateStatusUI('connecting', 'Starting...');
