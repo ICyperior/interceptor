@@ -397,9 +397,9 @@ class SSTVImageDecoder:
 
         Uses the sync deviation measurements collected during decoding to
         estimate the per-line SDR clock drift rate via linear regression,
-        then shears the image to compensate.  Noisy individual measurements
-        are averaged out; if fewer than 10 valid measurements exist the
-        image is returned unchanged.
+        then circularly shifts each row to compensate. Noisy individual
+        measurements are averaged out; if fewer than 10 valid measurements
+        exist the image is returned unchanged.
         """
         valid = [(i, d) for i, d in enumerate(self._sync_deviations)
                  if d is not None]
@@ -423,16 +423,19 @@ class SSTVImageDecoder:
 
         arr = np.array(img)
         height, width = arr.shape[:2]
-        corrected = np.zeros_like(arr)
+
+        # Reject clearly implausible estimates. Even with cheap SDR clocks,
+        # real SSTV slant is typically modest; extreme values are usually
+        # bad sync picks that would over-correct the image.
+        total_shift = abs((height - 1) * pixels_per_line)
+        if total_shift > width * 0.25:
+            return img
+
+        corrected = np.empty_like(arr)
 
         for row in range(height):
             shift = -int(round(row * pixels_per_line))
-            if shift == 0:
-                corrected[row] = arr[row]
-            elif shift > 0:
-                corrected[row, shift:] = arr[row, :width - shift]
-            else:
-                corrected[row, :width + shift] = arr[row, -shift:]
+            corrected[row] = np.roll(arr[row], shift=shift, axis=0)
 
         return Image.fromarray(corrected, 'RGB')
 

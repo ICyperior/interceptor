@@ -685,6 +685,40 @@ class TestImageDecoder:
         assert img is not None
         assert img.size == (320, 240)
 
+    def test_slant_correction_wraps_rows_without_blank_wedge(self):
+        """Slant correction should rotate rows, not introduce black fill."""
+        PIL = pytest.importorskip('PIL')
+        from utils.sstv.image_decoder import SSTVImageDecoder
+
+        decoder = SSTVImageDecoder(SCOTTIE_1)
+        decoder._sync_deviations = [float(i * 4) for i in range(SCOTTIE_1.height)]
+
+        source = np.full((SCOTTIE_1.height, SCOTTIE_1.width, 3), 128, dtype=np.uint8)
+        img = PIL.Image.fromarray(source, 'RGB')
+
+        corrected = decoder._apply_slant_correction(img)
+        corrected_arr = np.array(corrected)
+
+        # If correction clips/fills, zeros appear. Circular shift should preserve all values.
+        assert corrected_arr.min() == 128
+        assert corrected_arr.max() == 128
+
+    def test_slant_correction_skips_implausible_drift(self):
+        """Very large estimated drift should be treated as a bad fit and ignored."""
+        PIL = pytest.importorskip('PIL')
+        from utils.sstv.image_decoder import SSTVImageDecoder
+
+        decoder = SSTVImageDecoder(SCOTTIE_1)
+        decoder._sync_deviations = [float(i * 40) for i in range(SCOTTIE_1.height)]
+
+        source = np.full((SCOTTIE_1.height, SCOTTIE_1.width, 3), 177, dtype=np.uint8)
+        img = PIL.Image.fromarray(source, 'RGB')
+
+        corrected = decoder._apply_slant_correction(img)
+
+        # Implausible slope should return original image unchanged.
+        assert np.array_equal(np.array(corrected), source)
+
 
 # ---------------------------------------------------------------------------
 # SSTVDecoder orchestrator tests
