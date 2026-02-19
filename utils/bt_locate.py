@@ -88,6 +88,8 @@ class LocateTarget:
     name_pattern: str | None = None
     irk_hex: str | None = None
     device_id: str | None = None
+    device_key: str | None = None
+    fingerprint_id: str | None = None
     # Hand-off metadata from Bluetooth mode
     known_name: str | None = None
     known_manufacturer: str | None = None
@@ -95,6 +97,10 @@ class LocateTarget:
 
     def matches(self, device: BTDeviceAggregate) -> bool:
         """Check if a device matches this target."""
+        # Match by stable device key (survives MAC randomization for many devices)
+        if self.device_key and getattr(device, 'device_key', None) == self.device_key:
+            return True
+
         # Match by device_id (exact)
         if self.device_id and device.device_id == self.device_id:
             return True
@@ -113,6 +119,13 @@ class LocateTarget:
             if dev_addr == target_addr:
                 return True
 
+        # Match by payload fingerprint (guard against low-stability generic fingerprints)
+        if self.fingerprint_id:
+            dev_fp = getattr(device, 'payload_fingerprint_id', None)
+            dev_fp_stability = getattr(device, 'payload_fingerprint_stability', 0.0) or 0.0
+            if dev_fp and dev_fp == self.fingerprint_id and dev_fp_stability >= 0.35:
+                return True
+
         # Match by RPA resolution
         if self.irk_hex:
             try:
@@ -126,8 +139,18 @@ class LocateTarget:
         if self.name_pattern and device.name and self.name_pattern.lower() in device.name.lower():
             return True
 
-        # Match by known_name from handoff (exact name match)
-        return bool(self.known_name and device.name and self.known_name.lower() == device.name.lower())
+        # Match by known_name from handoff (exact or loose normalized match)
+        if self.known_name and device.name:
+            target_name = self.known_name.strip().lower()
+            device_name = device.name.strip().lower()
+            if target_name and (
+                target_name == device_name
+                or target_name in device_name
+                or device_name in target_name
+            ):
+                return True
+
+        return False
 
     def to_dict(self) -> dict:
         return {
@@ -135,6 +158,8 @@ class LocateTarget:
             'name_pattern': self.name_pattern,
             'irk_hex': self.irk_hex,
             'device_id': self.device_id,
+            'device_key': self.device_key,
+            'fingerprint_id': self.fingerprint_id,
             'known_name': self.known_name,
             'known_manufacturer': self.known_manufacturer,
             'last_known_rssi': self.last_known_rssi,

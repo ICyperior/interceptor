@@ -38,6 +38,8 @@ def start_session():
         - name_pattern: Target name substring (optional)
         - irk_hex: Identity Resolving Key hex string (optional)
         - device_id: Device ID from Bluetooth scanner (optional)
+        - device_key: Stable device key from Bluetooth scanner (optional)
+        - fingerprint_id: Payload fingerprint ID from Bluetooth scanner (optional)
         - known_name: Hand-off device name (optional)
         - known_manufacturer: Hand-off manufacturer (optional)
         - last_known_rssi: Hand-off last RSSI (optional)
@@ -55,14 +57,28 @@ def start_session():
         name_pattern=data.get('name_pattern'),
         irk_hex=data.get('irk_hex'),
         device_id=data.get('device_id'),
+        device_key=data.get('device_key'),
+        fingerprint_id=data.get('fingerprint_id'),
         known_name=data.get('known_name'),
         known_manufacturer=data.get('known_manufacturer'),
         last_known_rssi=data.get('last_known_rssi'),
     )
 
     # At least one identifier required
-    if not any([target.mac_address, target.name_pattern, target.irk_hex, target.device_id]):
-        return jsonify({'error': 'At least one target identifier required (mac_address, name_pattern, irk_hex, or device_id)'}), 400
+    if not any([
+        target.mac_address,
+        target.name_pattern,
+        target.irk_hex,
+        target.device_id,
+        target.device_key,
+        target.fingerprint_id,
+    ]):
+        return jsonify({
+            'error': (
+                'At least one target identifier required '
+                '(mac_address, name_pattern, irk_hex, device_id, device_key, or fingerprint_id)'
+            )
+        }), 400
 
     # Parse environment
     env_str = data.get('environment', 'OUTDOOR').upper()

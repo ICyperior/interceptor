@@ -3910,7 +3910,10 @@
                 const btScanActive = (typeof BluetoothMode !== 'undefined' &&
                     typeof BluetoothMode.isScanning === 'function' &&
                     BluetoothMode.isScanning()) || isBtRunning;
-                if (btScanActive && typeof stopBtScan === 'function') stopBtScan();
+                const isBtModeTransition =
+                    (currentMode === 'bluetooth' && mode === 'bt_locate') ||
+                    (currentMode === 'bt_locate' && mode === 'bluetooth');
+                if (btScanActive && !isBtModeTransition && typeof stopBtScan === 'function') stopBtScan();
                 if (isAprsRunning) stopAprs();
                 if (isTscmRunning) stopTscmSweep();
             }

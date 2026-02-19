@@ -671,10 +671,66 @@ def _get_dmr_active() -> bool:
         return False
 
 
+def _get_bluetooth_health() -> tuple[bool, int]:
+    """Return Bluetooth active state and best-effort device count."""
+    legacy_running = bt_process is not None and (bt_process.poll() is None if bt_process else False)
+    scanner_running = False
+    scanner_count = 0
+
+    try:
+        from utils.bluetooth.scanner import _scanner_instance as bt_scanner
+        if bt_scanner is not None:
+            scanner_running = bool(bt_scanner.is_scanning)
+            scanner_count = int(bt_scanner.device_count)
+    except Exception:
+        scanner_running = False
+        scanner_count = 0
+
+    locate_running = False
+    try:
+        from utils.bt_locate import get_locate_session
+        session = get_locate_session()
+        if session and getattr(session, 'active', False):
+            scanner = getattr(session, '_scanner', None)
+            locate_running = bool(scanner and scanner.is_scanning)
+    except Exception:
+        locate_running = False
+
+    return (legacy_running or scanner_running or locate_running), max(len(bt_devices), scanner_count)
+
+
+def _get_wifi_health() -> tuple[bool, int, int]:
+    """Return WiFi active state and best-effort network/client counts."""
+    legacy_running = wifi_process is not None and (wifi_process.poll() is None if wifi_process else False)
+    scanner_running = False
+    scanner_networks = 0
+    scanner_clients = 0
+
+    try:
+        from utils.wifi.scanner import _scanner_instance as wifi_scanner
+        if wifi_scanner is not None:
+            status = wifi_scanner.get_status()
+            scanner_running = bool(status.is_scanning)
+            scanner_networks = int(status.networks_found or 0)
+            scanner_clients = int(status.clients_found or 0)
+    except Exception:
+        scanner_running = False
+        scanner_networks = 0
+        scanner_clients = 0
+
+    return (
+        legacy_running or scanner_running,
+        max(len(wifi_networks), scanner_networks),
+        max(len(wifi_clients), scanner_clients),
+    )
+
+
 @app.route('/health')
 def health_check() -> Response:
     """Health check endpoint for monitoring."""
     import time
+    bt_active, bt_device_count = _get_bluetooth_health()
+    wifi_active, wifi_network_count, wifi_client_count = _get_wifi_health()
     return jsonify({
         'status': 'healthy',
         'version': VERSION,
@@ -687,8 +743,8 @@ def health_check() -> Response:
             'acars': acars_process is not None and (acars_process.poll() is None if acars_process else False),
             'vdl2': vdl2_process is not None and (vdl2_process.poll() is None if vdl2_process else False),
             'aprs': aprs_process is not None and (aprs_process.poll() is None if aprs_process else False),
-            'wifi': wifi_process is not None and (wifi_process.poll() is None if wifi_process else False),
-            'bluetooth': bt_process is not None and (bt_process.poll() is None if bt_process else False),
+            'wifi': wifi_active,
+            'bluetooth': bt_active,
             'dsc': dsc_process is not None and (dsc_process.poll() is None if dsc_process else False),
             'dmr': _get_dmr_active(),
             'subghz': _get_subghz_active(),
@@ -696,9 +752,9 @@ def health_check() -> Response:
         'data': {
             'aircraft_count': len(adsb_aircraft),
             'vessel_count': len(ais_vessels),
-            'wifi_networks_count': len(wifi_networks),
-            'wifi_clients_count': len(wifi_clients),
-            'bt_devices_count': len(bt_devices),
+            'wifi_networks_count': wifi_network_count,
+            'wifi_clients_count': wifi_client_count,
+            'bt_devices_count': bt_device_count,
             'dsc_messages_count': len(dsc_messages),
         }
     })

@@ -145,6 +145,8 @@ const BtLocate = (function() {
         if (namePattern) body.name_pattern = namePattern;
         if (irk) body.irk_hex = irk;
         if (handoffData?.device_id) body.device_id = handoffData.device_id;
+        if (handoffData?.device_key) body.device_key = handoffData.device_key;
+        if (handoffData?.fingerprint_id) body.fingerprint_id = handoffData.fingerprint_id;
         if (handoffData?.known_name) body.known_name = handoffData.known_name;
         if (handoffData?.known_manufacturer) body.known_manufacturer = handoffData.known_manufacturer;
         if (handoffData?.last_known_rssi) body.last_known_rssi = handoffData.last_known_rssi;
@@ -159,8 +161,9 @@ const BtLocate = (function() {
 
         console.log('[BtLocate] Starting with body:', body);
 
-        if (!body.mac_address && !body.name_pattern && !body.irk_hex && !body.device_id) {
-            alert('Please provide at least a MAC address, name pattern, IRK, or use hand-off from Bluetooth mode.');
+        if (!body.mac_address && !body.name_pattern && !body.irk_hex &&
+            !body.device_id && !body.device_key && !body.fingerprint_id) {
+            alert('Please provide at least one target identifier or use hand-off from Bluetooth mode.');
             return;
         }
 
@@ -255,6 +258,9 @@ const BtLocate = (function() {
 
         eventSource.onerror = function() {
             console.warn('[BtLocate] SSE error, polling fallback active');
+            if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                eventSource = null;
+            }
         };
 
         // Start polling fallback (catches data even if SSE fails)
@@ -317,6 +323,11 @@ const BtLocate = (function() {
 
                 updateScanStatus(data);
                 updateHudInfo(data);
+
+                // Recover live stream if browser closed SSE connection.
+                if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+                    connectSSE();
+                }
 
                 // Show diagnostics
                 const diagEl = document.getElementById('btLocateDiag');

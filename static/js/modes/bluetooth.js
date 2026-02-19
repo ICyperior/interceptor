@@ -1621,6 +1621,7 @@ const BluetoothMode = (function() {
         if (typeof BtLocate !== 'undefined') {
             BtLocate.handoff({
                 device_id: device.device_id,
+                device_key: device.device_key || null,
                 mac_address: device.address,
                 address_type: device.address_type || null,
                 irk_hex: device.irk_hex || null,
@@ -1629,7 +1630,7 @@ const BluetoothMode = (function() {
                 last_known_rssi: device.rssi_current,
                 tx_power: device.tx_power || null,
                 appearance_name: device.appearance_name || null,
-                fingerprint_id: device.fingerprint_id || null,
+                fingerprint_id: device.fingerprint_id || device.fingerprint?.id || null,
                 mac_cluster_count: device.mac_cluster_count || 0
             });
         }
