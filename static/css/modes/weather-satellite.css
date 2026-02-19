@@ -514,6 +514,60 @@
     background: var(--bg-primary, #0d1117);
 }
 
+.wxsat-crosshair-icon {
+    background: transparent;
+    border: none;
+}
+
+.wxsat-crosshair-marker {
+    position: relative;
+    width: 26px;
+    height: 26px;
+}
+
+.wxsat-crosshair-h,
+.wxsat-crosshair-v,
+.wxsat-crosshair-ring,
+.wxsat-crosshair-dot {
+    position: absolute;
+    display: block;
+}
+
+.wxsat-crosshair-h {
+    top: 50%;
+    left: 2px;
+    right: 2px;
+    height: 1px;
+    background: rgba(255, 76, 76, 0.9);
+    transform: translateY(-50%);
+}
+
+.wxsat-crosshair-v {
+    left: 50%;
+    top: 2px;
+    bottom: 2px;
+    width: 1px;
+    background: rgba(255, 76, 76, 0.9);
+    transform: translateX(-50%);
+}
+
+.wxsat-crosshair-ring {
+    inset: 5px;
+    border: 1px solid rgba(255, 76, 76, 0.95);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(255, 76, 76, 0.45);
+}
+
+.wxsat-crosshair-dot {
+    width: 4px;
+    height: 4px;
+    left: 50%;
+    top: 50%;
+    border-radius: 50%;
+    background: #ff4c4c;
+    transform: translate(-50%, -50%);
+}
+
 /* ===== Image Gallery Panel ===== */
 .wxsat-gallery-panel {
     flex: 1;

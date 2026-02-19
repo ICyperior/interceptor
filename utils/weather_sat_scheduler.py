@@ -7,7 +7,6 @@ Uses threading.Timer for scheduling — no external dependencies required.
 from __future__ import annotations
 
 import threading
-import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any, Callable
@@ -49,19 +48,11 @@ class ScheduledPass:
 
     @property
     def start_dt(self) -> datetime:
-        dt = datetime.fromisoformat(self.start_time)
-        if dt.tzinfo is None:
-            # Naive datetime - assume UTC
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+        return _parse_utc_iso(self.start_time)
 
     @property
     def end_dt(self) -> datetime:
-        dt = datetime.fromisoformat(self.end_time)
-        if dt.tzinfo is None:
-            # Naive datetime - assume UTC
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+        return _parse_utc_iso(self.end_time)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -243,23 +234,32 @@ class WeatherSatScheduler:
             buffer = WEATHER_SAT_CAPTURE_BUFFER_SECONDS
 
             for pass_data in passes:
-                sp = ScheduledPass(pass_data)
+                try:
+                    sp = ScheduledPass(pass_data)
+                    start_dt = sp.start_dt
+                    end_dt = sp.end_dt
+                except Exception as e:
+                    logger.warning(f"Skipping invalid pass data: {e}")
+                    continue
 
-                # Skip passes that already started
-                if sp.start_dt - timedelta(seconds=buffer) <= now:
+                capture_start = start_dt - timedelta(seconds=buffer)
+                capture_end = end_dt + timedelta(seconds=buffer)
+
+                # Skip passes that are already over
+                if capture_end <= now:
                     continue
 
                 # Check if already in history
                 if any(h.id == sp.id for h in history):
                     continue
 
-                # Schedule capture timer
-                delay = (sp.start_dt - timedelta(seconds=buffer) - now).total_seconds()
-                if delay > 0:
-                    sp._timer = threading.Timer(delay, self._execute_capture, args=[sp])
-                    sp._timer.daemon = True
-                    sp._timer.start()
-                    self._passes.append(sp)
+                # Schedule capture timer. If we're already inside the capture
+                # window, trigger immediately instead of skipping the pass.
+                delay = max(0.0, (capture_start - now).total_seconds())
+                sp._timer = threading.Timer(delay, self._execute_capture, args=[sp])
+                sp._timer.daemon = True
+                sp._timer.start()
+                self._passes.append(sp)
 
             logger.info(
                 f"Scheduler refreshed: {sum(1 for p in self._passes if p.status == 'scheduled')} "
@@ -379,6 +379,26 @@ class WeatherSatScheduler:
                 self._event_callback(event)
             except Exception as e:
                 logger.error(f"Error in scheduler event callback: {e}")
+
+
+def _parse_utc_iso(value: str) -> datetime:
+    """Parse UTC ISO8601 timestamp robustly across Python versions."""
+    if not value:
+        raise ValueError("missing timestamp")
+
+    text = str(value).strip()
+    # Backward compatibility for malformed legacy strings.
+    text = text.replace('+00:00Z', 'Z')
+    # Python <3.11 does not accept trailing 'Z' in fromisoformat.
+    if text.endswith('Z'):
+        text = text[:-1] + '+00:00'
+
+    dt = datetime.fromisoformat(text)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt
 
 
 # Singleton

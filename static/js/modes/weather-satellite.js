@@ -1,7 +1,7 @@
 /**
  * Weather Satellite Mode
  * NOAA APT and Meteor LRPT decoder interface with auto-scheduler,
- * polar plot, ground track map, countdown, and timeline.
+ * polar plot, mercator map, countdown, and timeline.
  */
 
 const WeatherSat = (function() {
@@ -16,6 +16,8 @@ const WeatherSat = (function() {
     let schedulerEnabled = false;
     let groundMap = null;
     let groundTrackLayer = null;
+    let groundOverlayLayer = null;
+    let satCrosshairMarker = null;
     let observerMarker = null;
     let consoleEntries = [];
     let consoleCollapsed = false;
@@ -498,7 +500,12 @@ const WeatherSat = (function() {
         }
 
         if (!storedLat || !storedLon) {
+            passes = [];
+            selectedPassIndex = -1;
             renderPasses([]);
+            renderTimeline([]);
+            updateCountdownFromPasses();
+            updateGroundTrack(null);
             return;
         }
 
@@ -517,6 +524,8 @@ const WeatherSat = (function() {
                 // and ground track reflect the current list after every refresh.
                 if (passes.length > 0) {
                     selectPass(0);
+                } else {
+                    updateGroundTrack(null);
                 }
             }
         } catch (err) {
@@ -757,6 +766,7 @@ const WeatherSat = (function() {
             zoom: 2,
             zoomControl: false,
             attributionControl: false,
+            crs: L.CRS.EPSG3857, // Web Mercator projection
         });
 
         // Check tile provider from settings
@@ -771,6 +781,14 @@ const WeatherSat = (function() {
         L.tileLayer(tileUrl, { maxZoom: 10 }).addTo(groundMap);
 
         groundTrackLayer = L.layerGroup().addTo(groundMap);
+        groundOverlayLayer = L.layerGroup().addTo(groundMap);
+
+        const selected = getSelectedPass();
+        if (selected) {
+            updateGroundTrack(selected);
+        } else {
+            updateSatelliteCrosshair(null);
+        }
 
         // Delayed invalidation to fix sizing
         setTimeout(() => { if (groundMap) groundMap.invalidateSize(); }, 200);
@@ -783,9 +801,16 @@ const WeatherSat = (function() {
         if (!groundMap || !groundTrackLayer) return;
 
         groundTrackLayer.clearLayers();
+        if (!pass) {
+            updateSatelliteCrosshair(null);
+            return;
+        }
 
         const track = pass.groundTrack;
-        if (!track || track.length === 0) return;
+        if (!track || track.length === 0) {
+            updateSatelliteCrosshair(null);
+            return;
+        }
 
         const color = pass.mode === 'LRPT' ? '#00ff88' : '#00d4ff';
 
@@ -827,6 +852,127 @@ const WeatherSat = (function() {
             if (!isNaN(lat) && !isNaN(lon)) bounds.extend([lat, lon]);
             groundMap.fitBounds(bounds, { padding: [20, 20] });
         } catch (e) {}
+
+        updateSatelliteCrosshair(pass);
+    }
+
+    function updateMercatorInfo(text) {
+        const infoEl = document.getElementById('wxsatMercatorInfo');
+        if (infoEl) infoEl.textContent = text || '--';
+    }
+
+    function clearSatelliteCrosshair() {
+        if (!groundOverlayLayer || !satCrosshairMarker) return;
+        groundOverlayLayer.removeLayer(satCrosshairMarker);
+        satCrosshairMarker = null;
+    }
+
+    function createSatelliteCrosshairIcon() {
+        return L.divIcon({
+            className: 'wxsat-crosshair-icon',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
+            html: `
+                <div class="wxsat-crosshair-marker">
+                    <span class="wxsat-crosshair-h"></span>
+                    <span class="wxsat-crosshair-v"></span>
+                    <span class="wxsat-crosshair-ring"></span>
+                    <span class="wxsat-crosshair-dot"></span>
+                </div>
+            `,
+        });
+    }
+
+    function getSelectedPass() {
+        if (selectedPassIndex < 0 || selectedPassIndex >= passes.length) return null;
+        return passes[selectedPassIndex];
+    }
+
+    function getSatellitePositionForPass(pass, atTime = new Date()) {
+        const track = pass?.groundTrack;
+        if (!Array.isArray(track) || track.length === 0) return null;
+
+        const first = track[0];
+        if (track.length === 1) {
+            const lat = Number(first.lat);
+            const lon = Number(first.lon);
+            if (!isFinite(lat) || !isFinite(lon)) return null;
+            return { lat, lon };
+        }
+
+        const start = parsePassDate(pass.startTimeISO);
+        const end = parsePassDate(pass.endTimeISO);
+
+        let fraction = 0;
+        if (start && end && end > start) {
+            const totalMs = end.getTime() - start.getTime();
+            const elapsedMs = atTime.getTime() - start.getTime();
+            fraction = Math.max(0, Math.min(1, elapsedMs / totalMs));
+        }
+
+        const lastIndex = track.length - 1;
+        const idxFloat = fraction * lastIndex;
+        const idx0 = Math.floor(idxFloat);
+        const idx1 = Math.min(lastIndex, idx0 + 1);
+        const t = idxFloat - idx0;
+
+        const p0 = track[idx0];
+        const p1 = track[idx1];
+        const lat0 = Number(p0?.lat);
+        const lon0 = Number(p0?.lon);
+        const lat1 = Number(p1?.lat);
+        const lon1 = Number(p1?.lon);
+
+        if (!isFinite(lat0) || !isFinite(lon0) || !isFinite(lat1) || !isFinite(lon1)) {
+            return null;
+        }
+
+        return {
+            lat: lat0 + ((lat1 - lat0) * t),
+            lon: lon0 + ((lon1 - lon0) * t),
+        };
+    }
+
+    function updateSatelliteCrosshair(pass) {
+        if (!groundMap || !groundOverlayLayer || typeof L === 'undefined') return;
+
+        if (!pass) {
+            clearSatelliteCrosshair();
+            updateMercatorInfo('--');
+            return;
+        }
+
+        const position = getSatellitePositionForPass(pass);
+        if (!position) {
+            clearSatelliteCrosshair();
+            updateMercatorInfo(`${pass.name || pass.satellite || '--'} --`);
+            return;
+        }
+
+        const latlng = [position.lat, position.lon];
+        if (!satCrosshairMarker) {
+            satCrosshairMarker = L.marker(latlng, {
+                icon: createSatelliteCrosshairIcon(),
+                interactive: false,
+                keyboard: false,
+                zIndexOffset: 800,
+            }).addTo(groundOverlayLayer);
+        } else {
+            satCrosshairMarker.setLatLng(latlng);
+        }
+
+        const tooltipText = `${pass.name || pass.satellite || 'Satellite'} ${position.lat.toFixed(2)}°, ${position.lon.toFixed(2)}°`;
+        if (!satCrosshairMarker.getTooltip()) {
+            satCrosshairMarker.bindTooltip(tooltipText, {
+                direction: 'top',
+                offset: [0, -10],
+                opacity: 0.9,
+            });
+        } else {
+            satCrosshairMarker.setTooltipContent(tooltipText);
+        }
+
+        updateMercatorInfo(tooltipText);
     }
 
     // ========================
@@ -932,6 +1078,8 @@ const WeatherSat = (function() {
 
         // Keep timeline cursor in sync
         updateTimelineCursor();
+        // Keep selected satellite marker synchronized with time progression.
+        updateSatelliteCrosshair(getSelectedPass());
     }
 
     // ========================
@@ -1054,13 +1202,28 @@ const WeatherSat = (function() {
                 }),
             });
 
-            const data = await response.json();
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (err) {
+                data = {};
+            }
+
+            if (!response.ok || !data || data.enabled !== true) {
+                schedulerEnabled = false;
+                updateSchedulerUI({ enabled: false, scheduled_count: 0 });
+                showNotification('Weather Sat', data.message || 'Failed to enable auto-scheduler');
+                return;
+            }
+
             schedulerEnabled = true;
             updateSchedulerUI(data);
             startStream();
             showNotification('Weather Sat', `Auto-scheduler enabled (${data.scheduled_count || 0} passes)`);
         } catch (err) {
             console.error('Failed to enable scheduler:', err);
+            schedulerEnabled = false;
+            updateSchedulerUI({ enabled: false, scheduled_count: 0 });
             showNotification('Weather Sat', 'Failed to enable auto-scheduler');
         }
     }
@@ -1070,7 +1233,11 @@ const WeatherSat = (function() {
      */
     async function disableScheduler() {
         try {
-            await fetch('/weather-sat/schedule/disable', { method: 'POST' });
+            const response = await fetch('/weather-sat/schedule/disable', { method: 'POST' });
+            if (!response.ok) {
+                showNotification('Weather Sat', 'Failed to disable auto-scheduler');
+                return;
+            }
             schedulerEnabled = false;
             updateSchedulerUI({ enabled: false });
             if (!isRunning) stopStream();
@@ -1086,6 +1253,7 @@ const WeatherSat = (function() {
     async function checkSchedulerStatus() {
         try {
             const response = await fetch('/weather-sat/schedule/status');
+            if (!response.ok) return;
             const data = await response.json();
             schedulerEnabled = data.enabled;
             updateSchedulerUI(data);

@@ -566,14 +566,21 @@ def enable_schedule():
     scheduler = get_weather_sat_scheduler()
     scheduler.set_callbacks(_progress_callback, _scheduler_event_callback)
 
-    result = scheduler.enable(
-        lat=lat,
-        lon=lon,
-        min_elevation=min_elev,
-        device=device,
-        gain=gain_val,
-        bias_t=bool(data.get('bias_t', False)),
-    )
+    try:
+        result = scheduler.enable(
+            lat=lat,
+            lon=lon,
+            min_elevation=min_elev,
+            device=device,
+            gain=gain_val,
+            bias_t=bool(data.get('bias_t', False)),
+        )
+    except Exception as e:
+        logger.exception("Failed to enable weather sat scheduler")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to enable scheduler'
+        }), 500
 
     return jsonify({'status': 'ok', **result})
 
