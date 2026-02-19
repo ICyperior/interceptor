@@ -3879,35 +3879,36 @@ sudo make install</code>
         function startVdl2Stream(isAgentMode = false) {
             if (vdl2EventSource) vdl2EventSource.close();
 
-            // Use different stream endpoint for agent mode
-            const streamUrl = isAgentMode ? '/controller/stream/all' : '/vdl2/stream';
+            // For remote agent mode, stream directly from the selected agent via controller proxy.
+            // This does not depend on push ingestion being enabled.
+            const streamUrl = isAgentMode && vdl2CurrentAgent !== null
+                ? `/controller/agents/${vdl2CurrentAgent}/vdl2/stream`
+                : '/vdl2/stream';
             vdl2EventSource = new EventSource(streamUrl);
 
             vdl2EventSource.onmessage = function(e) {
                 const data = JSON.parse(e.data);
+                let message = null;
 
-                if (isAgentMode) {
-                    // Handle multi-agent stream format
-                    if (data.scan_type === 'vdl2' && data.payload) {
-                        const payload = data.payload;
-                        if (payload.type === 'vdl2') {
-                            vdl2MessageCount++;
-                            if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
-                            document.getElementById('vdl2Count').textContent = vdl2MessageCount;
-                            document.getElementById('stripVdl2').textContent = vdl2MessageCount;
-                            payload.agent_name = data.agent_name;
-                            addVdl2Message(payload);
-                        }
+                // Backward compatibility: handle wrapped multi-agent payloads if encountered.
+                if (data.scan_type === 'vdl2' && data.payload && data.payload.type === 'vdl2') {
+                    message = data.payload;
+                    if (isAgentMode) {
+                        message.agent_name = data.agent_name || message.agent_name || 'Remote Agent';
                     }
-                } else {
-                    // Local stream format
-                    if (data.type === 'vdl2') {
-                        vdl2MessageCount++;
-                        if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
-                        document.getElementById('vdl2Count').textContent = vdl2MessageCount;
-                        document.getElementById('stripVdl2').textContent = vdl2MessageCount;
-                        addVdl2Message(data);
+                } else if (data.type === 'vdl2') {
+                    message = data;
+                    if (isAgentMode && !message.agent_name) {
+                        message.agent_name = 'Remote Agent';
                     }
+                }
+
+                if (message) {
+                    vdl2MessageCount++;
+                    if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
+                    document.getElementById('vdl2Count').textContent = vdl2MessageCount;
+                    document.getElementById('stripVdl2').textContent = vdl2MessageCount;
+                    addVdl2Message(message);
                 }
             };
 
@@ -3919,52 +3920,6 @@ sudo make install</code>
                     }
                 }, 2000);
             };
-
-            // Start polling fallback for agent mode
-            if (isAgentMode) {
-                startVdl2Polling();
-            }
-        }
-
-        // Track last VDL2 message count for polling
-        let lastVdl2MessageCount = 0;
-
-        function startVdl2Polling() {
-            if (vdl2PollTimer) return;
-            lastVdl2MessageCount = 0;
-
-            const pollInterval = 2000;
-            vdl2PollTimer = setInterval(async () => {
-                if (!isVdl2Running || !vdl2CurrentAgent) {
-                    clearInterval(vdl2PollTimer);
-                    vdl2PollTimer = null;
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`/controller/agents/${vdl2CurrentAgent}/vdl2/data`);
-                    if (!response.ok) return;
-
-                    const data = await response.json();
-                    const result = data.result || data;
-                    const messages = result.data || [];
-
-                    if (messages.length > lastVdl2MessageCount) {
-                        const newMessages = messages.slice(lastVdl2MessageCount);
-                        newMessages.forEach(msg => {
-                            vdl2MessageCount++;
-                            if (typeof stats !== 'undefined') stats.vdl2Messages = (stats.vdl2Messages || 0) + 1;
-                            document.getElementById('vdl2Count').textContent = vdl2MessageCount;
-                            document.getElementById('stripVdl2').textContent = vdl2MessageCount;
-                            msg.agent_name = result.agent_name || 'Remote Agent';
-                            addVdl2Message(msg);
-                        });
-                        lastVdl2MessageCount = messages.length;
-                    }
-                } catch (err) {
-                    console.error('VDL2 polling error:', err);
-                }
-            }, pollInterval);
         }
 
         function escapeHtml(str) {

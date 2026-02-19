@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
+import os
+import platform
+import pty
 import queue
 import shutil
 import subprocess
@@ -51,15 +55,20 @@ def find_dumpvdl2():
     return shutil.which('dumpvdl2')
 
 
-def stream_vdl2_output(process: subprocess.Popen) -> None:
+def stream_vdl2_output(process: subprocess.Popen, is_text_mode: bool = False) -> None:
     """Stream dumpvdl2 JSON output to queue."""
     global vdl2_message_count, vdl2_last_message_time
 
     try:
         app_module.vdl2_queue.put({'type': 'status', 'status': 'started'})
 
-        for line in iter(process.stdout.readline, b''):
-            line = line.decode('utf-8', errors='replace').strip()
+        # Use appropriate sentinel based on mode (text mode for pty on macOS)
+        sentinel = '' if is_text_mode else b''
+        for line in iter(process.stdout.readline, sentinel):
+            if is_text_mode:
+                line = line.strip()
+            else:
+                line = line.decode('utf-8', errors='replace').strip()
             if not line:
                 continue
 
@@ -243,12 +252,28 @@ def start_vdl2() -> Response:
     logger.info(f"Starting VDL2 decoder: {' '.join(cmd)}")
 
     try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True
-        )
+        is_text_mode = False
+
+        # On macOS, use pty to avoid stdout buffering issues
+        if platform.system() == 'Darwin':
+            master_fd, slave_fd = pty.openpty()
+            process = subprocess.Popen(
+                cmd,
+                stdout=slave_fd,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            os.close(slave_fd)
+            # Wrap master_fd as a text file for line-buffered reading
+            process.stdout = io.open(master_fd, 'r', buffering=1)
+            is_text_mode = True
+        else:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
 
         # Wait briefly to check if process started
         time.sleep(PROCESS_START_WAIT)
@@ -273,7 +298,7 @@ def start_vdl2() -> Response:
         # Start output streaming thread
         thread = threading.Thread(
             target=stream_vdl2_output,
-            args=(process,),
+            args=(process, is_text_mode),
             daemon=True
         )
         thread.start()

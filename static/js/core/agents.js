@@ -485,7 +485,7 @@ async function syncLocalModeStates() {
  */
 function showAgentModeWarnings(runningModes, modesDetail = {}) {
     // SDR modes that can't run simultaneously on same device
-    const sdrModes = ['sensor', 'pager', 'adsb', 'ais', 'acars', 'aprs', 'rtlamr', 'listening_post', 'tscm', 'dsc'];
+    const sdrModes = ['sensor', 'pager', 'adsb', 'ais', 'acars', 'vdl2', 'aprs', 'rtlamr', 'listening_post', 'tscm', 'dsc'];
     const runningSdrModes = runningModes.filter(m => sdrModes.includes(m));
 
     let warning = document.getElementById('agentModeWarning');
@@ -621,7 +621,7 @@ function checkAgentModeConflict(modeToStart, deviceToUse = null) {
         return false;
     }
 
-    const sdrModes = ['sensor', 'pager', 'adsb', 'ais', 'acars', 'aprs', 'rtlamr', 'listening_post', 'tscm', 'dsc'];
+    const sdrModes = ['sensor', 'pager', 'adsb', 'ais', 'acars', 'vdl2', 'aprs', 'rtlamr', 'listening_post', 'tscm', 'dsc'];
 
     // If we're trying to start an SDR mode
     if (sdrModes.includes(modeToStart)) {
