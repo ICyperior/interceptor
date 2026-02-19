@@ -77,6 +77,11 @@ _sbs_error_logged = False  # Suppress repeated connection error logs
 # Track ICAOs already looked up in aircraft database (avoid repeated lookups)
 _looked_up_icaos: set[str] = set()
 
+# Per-client SSE queues for ADS-B stream fanout.
+_adsb_stream_subscribers: set[queue.Queue] = set()
+_adsb_stream_subscribers_lock = threading.Lock()
+_ADSB_STREAM_CLIENT_QUEUE_SIZE = 500
+
 # Load aircraft database at module init
 aircraft_db.load_database()
 
@@ -201,6 +206,31 @@ def _parse_int_param(value: str | None, default: int, min_value: int | None = No
     if max_value is not None:
         parsed = min(max_value, parsed)
     return parsed
+
+
+def _broadcast_adsb_update(payload: dict[str, Any]) -> None:
+    """Fan out a payload to all active ADS-B SSE subscribers."""
+    with _adsb_stream_subscribers_lock:
+        subscribers = tuple(_adsb_stream_subscribers)
+
+    for subscriber in subscribers:
+        try:
+            subscriber.put_nowait(payload)
+        except queue.Full:
+            # Drop oldest queued event for that client and try once more.
+            try:
+                subscriber.get_nowait()
+                subscriber.put_nowait(payload)
+            except (queue.Empty, queue.Full):
+                # Client queue remains saturated; skip this payload.
+                continue
+
+
+def _adsb_stream_queue_depth() -> int:
+    """Best-effort aggregate queue depth across connected ADS-B SSE clients."""
+    with _adsb_stream_subscribers_lock:
+        subscribers = tuple(_adsb_stream_subscribers)
+    return sum(subscriber.qsize() for subscriber in subscribers)
 
 
 def _get_active_session() -> dict[str, Any] | None:
@@ -481,7 +511,7 @@ def parse_sbs_stream(service_addr):
                             for update_icao in pending_updates:
                                 if update_icao in app_module.adsb_aircraft:
                                     snapshot = app_module.adsb_aircraft[update_icao]
-                                    app_module.adsb_queue.put({
+                                    _broadcast_adsb_update({
                                         'type': 'aircraft',
                                         **snapshot
                                     })
@@ -580,7 +610,7 @@ def adsb_status():
         'last_message_time': adsb_last_message_time,
         'aircraft_count': len(app_module.adsb_aircraft),
         'aircraft': dict(app_module.adsb_aircraft),  # Full aircraft data
-        'queue_size': app_module.adsb_queue.qsize(),
+        'queue_size': _adsb_stream_queue_depth(),
         'dump1090_path': find_dump1090(),
         'dump1090_running': dump1090_running,
         'port_30003_open': check_dump1090_service() is not None
@@ -871,23 +901,39 @@ def stop_adsb():
 @adsb_bp.route('/stream')
 def stream_adsb():
     """SSE stream for ADS-B aircraft."""
+    client_queue: queue.Queue = queue.Queue(maxsize=_ADSB_STREAM_CLIENT_QUEUE_SIZE)
+    with _adsb_stream_subscribers_lock:
+        _adsb_stream_subscribers.add(client_queue)
+
+    # Prime new clients with current known aircraft so they don't wait for the
+    # next positional update before rendering.
+    for snapshot in list(app_module.adsb_aircraft.values()):
+        try:
+            client_queue.put_nowait({'type': 'aircraft', **snapshot})
+        except queue.Full:
+            break
+
     def generate():
         last_keepalive = time.time()
 
-        while True:
-            try:
-                msg = app_module.adsb_queue.get(timeout=SSE_QUEUE_TIMEOUT)
-                last_keepalive = time.time()
+        try:
+            while True:
                 try:
-                    process_event('adsb', msg, msg.get('type'))
-                except Exception:
-                    pass
-                yield format_sse(msg)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= SSE_KEEPALIVE_INTERVAL:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
+                    msg = client_queue.get(timeout=SSE_QUEUE_TIMEOUT)
+                    last_keepalive = time.time()
+                    try:
+                        process_event('adsb', msg, msg.get('type'))
+                    except Exception:
+                        pass
+                    yield format_sse(msg)
+                except queue.Empty:
+                    now = time.time()
+                    if now - last_keepalive >= SSE_KEEPALIVE_INTERVAL:
+                        yield format_sse({'type': 'keepalive'})
+                        last_keepalive = now
+        finally:
+            with _adsb_stream_subscribers_lock:
+                _adsb_stream_subscribers.discard(client_queue)
 
     response = Response(generate(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
