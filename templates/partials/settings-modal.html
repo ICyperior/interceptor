@@ -292,6 +292,72 @@
             </div>
 
             <div class="settings-group">
+                <div class="settings-group-title">Rule Builder</div>
+                <div class="settings-row" style="border-bottom: none; padding-top: 0;">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Rule Name</span>
+                        <span class="settings-label-desc">Human-friendly title for this alert</span>
+                    </div>
+                    <input type="text" id="alertsRuleName" class="settings-input" placeholder="New alert rule" style="width: 220px;">
+                </div>
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Mode</span>
+                        <span class="settings-label-desc">Filter to a specific mode or all</span>
+                    </div>
+                    <select id="alertsRuleMode" class="settings-select" style="width: 220px;">
+                        <option value="">All modes</option>
+                        <option value="pager">Pager</option>
+                        <option value="sensor">433 Sensors</option>
+                        <option value="wifi">WiFi</option>
+                        <option value="bluetooth">Bluetooth</option>
+                        <option value="adsb">ADS-B</option>
+                        <option value="ais">AIS</option>
+                        <option value="acars">ACARS</option>
+                        <option value="vdl2">VDL2</option>
+                        <option value="aprs">APRS</option>
+                        <option value="dsc">DSC</option>
+                        <option value="meshtastic">Meshtastic</option>
+                    </select>
+                </div>
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Event Type</span>
+                        <span class="settings-label-desc">Optional event type (for example <code>device_update</code>)</span>
+                    </div>
+                    <input type="text" id="alertsRuleEventType" class="settings-input" placeholder="Optional" style="width: 220px;">
+                </div>
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Match Filter</span>
+                        <span class="settings-label-desc">Optional key/value exact match (for example <code>address</code> + MAC)</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="alertsRuleMatchKey" class="settings-input" placeholder="key" style="width: 100px;">
+                        <input type="text" id="alertsRuleMatchValue" class="settings-input" placeholder="value" style="width: 112px;">
+                    </div>
+                </div>
+                <div class="settings-row" style="border-bottom: none;">
+                    <div class="settings-label">
+                        <span class="settings-label-text">Severity</span>
+                        <span class="settings-label-desc">Controls priority coloring and notifications</span>
+                    </div>
+                    <select id="alertsRuleSeverity" class="settings-select" style="width: 220px;">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                    <button class="check-assets-btn" onclick="AlertCenter.saveRule()">Save Rule</button>
+                    <button class="check-assets-btn" onclick="AlertCenter.clearRuleForm()">Clear</button>
+                    <button class="check-assets-btn" onclick="AlertCenter.loadRules()">Refresh Rules</button>
+                </div>
+                <input type="hidden" id="alertsRuleEditingId" value="">
+            </div>
+
+            <div class="settings-group">
                 <div class="settings-group-title">Quick Rules</div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <button class="check-assets-btn" onclick="AlertCenter.enableTrackerAlerts()">Enable Tracker Alerts</button>
@@ -299,6 +365,13 @@
                 </div>
                 <div class="settings-info" style="margin-top: 10px;">
                     Use Bluetooth device details to add specific device watchlist alerts.
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Active Rules</div>
+                <div id="alertsRulesList" class="settings-feed">
+                    <div class="settings-feed-empty">No rules yet</div>
                 </div>
             </div>
         </div>

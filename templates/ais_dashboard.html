@@ -750,7 +750,7 @@
                 stats.fastestSpeed = data.speed;
             }
 
-            if (data.lat && data.lon) {
+            if (data.lat !== undefined && data.lat !== null && data.lon !== undefined && data.lon !== null) {
                 const dist = calculateDistance(observerLocation.lat, observerLocation.lon, data.lat, data.lon);
                 if (dist > stats.maxRange) stats.maxRange = dist;
                 if (dist < stats.closestDistance) stats.closestDistance = dist;
@@ -1019,7 +1019,7 @@
             gpsEventSource.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'position' && data.latitude && data.longitude) {
+                    if (data.type === 'position' && data.latitude !== undefined && data.latitude !== null && data.longitude !== undefined && data.longitude !== null) {
                         updateLocationFromGps(data);
                     }
                 } catch (e) {
@@ -1345,7 +1345,7 @@
             }
 
             // Add position marker if coordinates present
-            if (data.latitude && data.longitude) {
+            if (data.latitude !== undefined && data.latitude !== null && data.longitude !== undefined && data.longitude !== null) {
                 addDscPositionMarker(data);
             }
 
@@ -1600,7 +1600,7 @@
                         const gps = typeof data.agent.gps_coords === 'string'
                             ? JSON.parse(data.agent.gps_coords)
                             : data.agent.gps_coords;
-                        if (gps.lat && gps.lon) {
+                        if (gps.lat !== undefined && gps.lat !== null && gps.lon !== undefined && gps.lon !== null) {
                             document.getElementById('obsLat').value = gps.lat.toFixed(4);
                             document.getElementById('obsLon').value = gps.lon.toFixed(4);
                             updateObserverLoc();

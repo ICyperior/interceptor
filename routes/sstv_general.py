@@ -15,7 +15,7 @@ from flask import Blueprint, Response, jsonify, request, send_file
 
 import app as app_module
 from utils.logging import get_logger
-from utils.sse import format_sse
+from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
 from utils.sstv import (
     get_general_sstv_decoder,
@@ -289,26 +289,19 @@ def delete_all_images():
 @sstv_general_bp.route('/stream')
 def stream_progress():
     """SSE stream of SSTV decode progress."""
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
-        keepalive_interval = 30.0
+    def _on_msg(msg: dict[str, Any]) -> None:
+        process_event('sstv_general', msg, msg.get('type'))
 
-        while True:
-            try:
-                progress = _sstv_general_queue.get(timeout=1)
-                last_keepalive = time.time()
-                try:
-                    process_event('sstv_general', progress, progress.get('type'))
-                except Exception:
-                    pass
-                yield format_sse(progress)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= keepalive_interval:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
-
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=_sstv_general_queue,
+            channel_key='sstv_general',
+            timeout=1.0,
+            keepalive_interval=30.0,
+            on_message=_on_msg,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Connection'] = 'keep-alive'

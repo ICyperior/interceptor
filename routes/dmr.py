@@ -17,7 +17,7 @@ from flask import Blueprint, jsonify, request, Response
 
 import app as app_module
 from utils.logging import get_logger
-from utils.sse import format_sse
+from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
 from utils.process import register_process, unregister_process
 from utils.validation import validate_frequency, validate_gain, validate_device_index, validate_ppm
@@ -735,24 +735,19 @@ def stream_dmr_audio() -> Response:
 @dmr_bp.route('/stream')
 def stream_dmr() -> Response:
     """SSE stream for DMR decoder events."""
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
-        while True:
-            try:
-                msg = dmr_queue.get(timeout=SSE_QUEUE_TIMEOUT)
-                last_keepalive = time.time()
-                try:
-                    process_event('dmr', msg, msg.get('type'))
-                except Exception:
-                    pass
-                yield format_sse(msg)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= SSE_KEEPALIVE_INTERVAL:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
+    def _on_msg(msg: dict[str, Any]) -> None:
+        process_event('dmr', msg, msg.get('type'))
 
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=dmr_queue,
+            channel_key='dmr',
+            timeout=SSE_QUEUE_TIMEOUT,
+            keepalive_interval=SSE_KEEPALIVE_INTERVAL,
+            on_message=_on_msg,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response

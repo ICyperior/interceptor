@@ -152,7 +152,7 @@ const BtLocate = (function() {
         // Include user location as fallback when GPS unavailable
         const userLat = localStorage.getItem('observerLat');
         const userLon = localStorage.getItem('observerLon');
-        if (userLat && userLon) {
+        if (userLat !== null && userLon !== null) {
             body.fallback_lat = parseFloat(userLat);
             body.fallback_lon = parseFloat(userLon);
         }

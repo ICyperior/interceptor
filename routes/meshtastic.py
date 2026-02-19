@@ -17,7 +17,7 @@ from typing import Generator
 from flask import Blueprint, jsonify, request, Response
 
 from utils.logging import get_logger
-from utils.sse import format_sse
+from utils.sse import sse_stream_fanout
 from utils.meshtastic import (
     get_meshtastic_client,
     start_meshtastic,
@@ -469,22 +469,15 @@ def stream_messages():
     Returns:
         SSE stream (text/event-stream)
     """
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
-        keepalive_interval = 30.0
-
-        while True:
-            try:
-                msg = _mesh_queue.get(timeout=1)
-                last_keepalive = time.time()
-                yield format_sse(msg)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= keepalive_interval:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
-
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=_mesh_queue,
+            channel_key='meshtastic',
+            timeout=1.0,
+            keepalive_interval=30.0,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Connection'] = 'keep-alive'

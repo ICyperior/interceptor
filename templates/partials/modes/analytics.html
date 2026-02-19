@@ -150,6 +150,43 @@
 
 <div class="section">
     <h3 class="section-header collapsible" onclick="toggleSection(this)">
+        <span>Target View</span>
+        <span class="collapse-icon">&#9660;</span>
+    </h3>
+    <div class="section-content">
+        <div class="analytics-target-toolbar">
+            <input id="analyticsTargetQuery" type="text" placeholder="Search callsign, ICAO, MMSI, MAC, SSID, node..." onkeydown="if(event.key==='Enter'){Analytics.searchTarget();}">
+            <button onclick="Analytics.searchTarget()">Search</button>
+        </div>
+        <div id="analyticsTargetSummary" class="analytics-target-summary">Search to correlate entities across modes</div>
+        <div id="analyticsTargetResults">
+            <div class="analytics-empty">No target selected</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3 class="section-header collapsible" onclick="toggleSection(this)">
+        <span>Session Replay</span>
+        <span class="collapse-icon">&#9660;</span>
+    </h3>
+    <div class="section-content">
+        <div class="analytics-replay-toolbar">
+            <select id="analyticsReplaySelect"></select>
+            <button onclick="Analytics.loadReplay()">Load</button>
+            <button onclick="Analytics.playReplay()">Play</button>
+            <button onclick="Analytics.pauseReplay()">Pause</button>
+            <button onclick="Analytics.stepReplay()">Step</button>
+        </div>
+        <div id="analyticsReplayMeta" class="analytics-target-summary">No replay loaded</div>
+        <div id="analyticsReplayTimeline">
+            <div class="analytics-empty">Select a recording to replay key events</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3 class="section-header collapsible" onclick="toggleSection(this)">
         <span>Export Data</span>
         <span class="collapse-icon">&#9660;</span>
     </h3>

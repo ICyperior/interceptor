@@ -599,7 +599,7 @@
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    if (parsed.lat && parsed.lon) return parsed;
+                    if (parsed.lat !== undefined && parsed.lat !== null && parsed.lon !== undefined && parsed.lon !== null) return parsed;
                 } catch (e) {}
             }
             return { lat: 51.5074, lon: -0.1278 };
@@ -985,7 +985,7 @@
             }
 
             // Distance calculation
-            if (ac.lat && ac.lon) {
+            if (ac.lat !== undefined && ac.lat !== null && ac.lon !== undefined && ac.lon !== null) {
                 const distance = calculateDistanceNm(
                     observerLocation.lat, observerLocation.lon,
                     ac.lat, ac.lon
@@ -1037,7 +1037,7 @@
                     fastest = ac.speed;
                     fastestIcao = icao;
                 }
-                if (ac.lat && ac.lon) {
+                if (ac.lat !== undefined && ac.lat !== null && ac.lon !== undefined && ac.lon !== null) {
                     const dist = calculateDistanceNm(
                         observerLocation.lat, observerLocation.lon,
                         ac.lat, ac.lon
@@ -1555,7 +1555,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             gpsEventSource.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'position' && data.latitude && data.longitude) {
+                    if (data.type === 'position' && data.latitude !== undefined && data.latitude !== null && data.longitude !== undefined && data.longitude !== null) {
                         updateLocationFromGps(data);
                     }
                 } catch (e) {
@@ -1627,7 +1627,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             Object.keys(markerState).forEach(icao => delete markerState[icao]);
             pendingMarkerUpdates.clear();
             Object.keys(aircraft).forEach(icao => {
-                if (aircraft[icao].lat && aircraft[icao].lon) {
+                if (aircraft[icao].lat !== undefined && aircraft[icao].lat !== null && aircraft[icao].lon !== undefined && aircraft[icao].lon !== null) {
                     pendingMarkerUpdates.add(icao);
                 }
             });
@@ -2556,7 +2556,7 @@ sudo make install</code>
             updateStatistics(icao, aircraft[icao]);
 
             // Record trail point
-            if (data.lat && data.lon) {
+            if (data.lat !== undefined && data.lat !== null && data.lon !== undefined && data.lon !== null) {
                 recordTrailPoint(icao, data.lat, data.lon, data.altitude);
                 if (showTrails) {
                     updateTrailLine(icao);
@@ -2571,7 +2571,7 @@ sudo make install</code>
 
         function updateMarkerImmediate(icao) {
             const ac = aircraft[icao];
-            if (!ac || !ac.lat || !ac.lon) return;
+            if (!ac || ac.lat === undefined || ac.lat === null || ac.lon === undefined || ac.lon === null) return;
 
             if (!passesFilter(icao, ac)) {
                 if (markers[icao]) {
@@ -2808,7 +2808,7 @@ sudo make install</code>
             updateFlightLookupBtn();
 
             const ac = aircraft[icao];
-            if (ac && ac.lat && ac.lon) {
+            if (ac && ac.lat !== undefined && ac.lat !== null && ac.lon !== undefined && ac.lon !== null) {
                 radarMap.setView([ac.lat, ac.lon], 10);
             }
         }
@@ -5124,7 +5124,7 @@ sudo make install</code>
                         const gps = typeof data.agent.gps_coords === 'string'
                             ? JSON.parse(data.agent.gps_coords)
                             : data.agent.gps_coords;
-                        if (gps.lat && gps.lon) {
+                        if (gps.lat !== undefined && gps.lat !== null && gps.lon !== undefined && gps.lon !== null) {
                             document.getElementById('obsLat').value = gps.lat.toFixed(4);
                             document.getElementById('obsLon').value = gps.lon.toFixed(4);
                             updateObserverLoc();

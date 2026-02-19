@@ -18,7 +18,7 @@ from utils.validation import (
     validate_frequency, validate_device_index, validate_gain, validate_ppm,
     validate_rtl_tcp_host, validate_rtl_tcp_port
 )
-from utils.sse import format_sse
+from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
 from utils.process import safe_terminate, register_process, unregister_process
 from utils.sdr import SDRFactory, SDRType
@@ -274,26 +274,19 @@ def stop_sensor() -> Response:
 
 @sensor_bp.route('/stream_sensor')
 def stream_sensor() -> Response:
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
-        keepalive_interval = 30.0
+    def _on_msg(msg: dict[str, Any]) -> None:
+        process_event('sensor', msg, msg.get('type'))
 
-        while True:
-            try:
-                msg = app_module.sensor_queue.get(timeout=1)
-                last_keepalive = time.time()
-                try:
-                    process_event('sensor', msg, msg.get('type'))
-                except Exception:
-                    pass
-                yield format_sse(msg)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= keepalive_interval:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
-
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=app_module.sensor_queue,
+            channel_key='sensor',
+            timeout=1.0,
+            keepalive_interval=30.0,
+            on_message=_on_msg,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Connection'] = 'keep-alive'

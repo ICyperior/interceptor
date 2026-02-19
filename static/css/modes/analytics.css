@@ -410,3 +410,91 @@
     padding: var(--space-4, 16px);
     font-style: italic;
 }
+
+.analytics-target-toolbar,
+.analytics-replay-toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.analytics-target-toolbar input {
+    flex: 1;
+    min-width: 220px;
+    background: var(--bg-card, #151f2b);
+    color: var(--text-primary, #e0e6ed);
+    border: 1px solid var(--border-color, #1e2d3d);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 11px;
+}
+
+.analytics-target-toolbar button,
+.analytics-replay-toolbar button,
+.analytics-replay-toolbar select {
+    font-size: 10px;
+    padding: 5px 9px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #1e2d3d);
+    background: var(--bg-card, #151f2b);
+    color: var(--text-primary, #e0e6ed);
+}
+
+.analytics-target-toolbar button,
+.analytics-replay-toolbar button {
+    cursor: pointer;
+    background: rgba(74, 163, 255, 0.2);
+    border-color: rgba(74, 163, 255, 0.45);
+}
+
+.analytics-target-summary {
+    font-size: 10px;
+    color: var(--text-dim, #5a6a7a);
+    margin-bottom: 8px;
+}
+
+.analytics-target-item,
+.analytics-replay-item {
+    border-bottom: 1px solid var(--border-color, #1e2d3d);
+    padding: 7px 0;
+    display: grid;
+    gap: 4px;
+}
+
+.analytics-target-item:last-child,
+.analytics-replay-item:last-child {
+    border-bottom: none;
+}
+
+.analytics-target-item .title,
+.analytics-replay-item .title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--text-primary, #e0e6ed);
+    font-weight: 600;
+}
+
+.analytics-target-item .mode,
+.analytics-replay-item .mode {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(74, 163, 255, 0.35);
+    color: var(--accent-cyan, #4aa3ff);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+.analytics-target-item .meta,
+.analytics-replay-item .meta {
+    font-size: 10px;
+    color: var(--text-dim, #5a6a7a);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}

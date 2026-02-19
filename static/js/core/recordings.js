@@ -96,7 +96,10 @@ const RecordingUI = (function() {
                 <div class="settings-feed-item">
                     <div class="settings-feed-title">
                         <span>${escapeHtml(rec.mode)}${rec.label ? ` • ${escapeHtml(rec.label)}` : ''}</span>
-                        <button class="preset-btn" style="font-size: 9px; padding: 2px 6px;" onclick="RecordingUI.download('${rec.id}')">Download</button>
+                        <div style="display:flex; gap:6px;">
+                            <button class="preset-btn" style="font-size: 9px; padding: 2px 6px;" onclick="RecordingUI.openReplay('${rec.id}')">Replay</button>
+                            <button class="preset-btn" style="font-size: 9px; padding: 2px 6px;" onclick="RecordingUI.download('${rec.id}')">Download</button>
+                        </div>
                     </div>
                     <div class="settings-feed-meta">${new Date(rec.started_at).toLocaleString()}${rec.stopped_at ? ` → ${new Date(rec.stopped_at).toLocaleString()}` : ''}</div>
                     <div class="settings-feed-meta">Events: ${rec.event_count || 0} • ${(rec.size_bytes || 0) / 1024.0 > 0 ? (rec.size_bytes / 1024).toFixed(1) + ' KB' : '0 KB'}</div>
@@ -107,6 +110,17 @@ const RecordingUI = (function() {
 
     function download(sessionId) {
         window.open(`/recordings/${sessionId}/download`, '_blank');
+    }
+
+    function openReplay(sessionId) {
+        if (!sessionId) return;
+        localStorage.setItem('analyticsReplaySession', sessionId);
+        if (typeof hideSettings === 'function') hideSettings();
+        if (typeof switchMode === 'function') {
+            switchMode('analytics', { updateUrl: true });
+            return;
+        }
+        window.location.href = '/?mode=analytics';
     }
 
     function escapeHtml(str) {
@@ -126,6 +140,7 @@ const RecordingUI = (function() {
         stop,
         stopById,
         download,
+        openReplay,
     };
 })();
 

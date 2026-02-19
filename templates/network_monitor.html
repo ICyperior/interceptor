@@ -787,7 +787,7 @@
 
             entry.rssiByAgent.forEach((info, agentName) => {
                 const gps = agentGPS.get(agentName);
-                if (gps && gps.lat && gps.lon) {
+                if (gps && gps.lat !== undefined && gps.lat !== null && gps.lon !== undefined && gps.lon !== null) {
                     observations.push({
                         agent_name: agentName,
                         agent_lat: gps.lat,
@@ -1073,7 +1073,7 @@
                                 const coords = agent.gps_coords;
                                 const lat = coords.lat || coords.latitude;
                                 const lon = coords.lon || coords.longitude;
-                                if (lat && lon) {
+                                if (lat !== undefined && lat !== null && lon !== undefined && lon !== null) {
                                     agentGPS.set(agent.name, { lat, lon });
                                     addLogEntry('gps', `Agent "${agent.name}" GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
                                 }

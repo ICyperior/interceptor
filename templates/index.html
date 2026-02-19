@@ -72,6 +72,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/ux-platform.css') }}">
 </head>
 
 <body>
@@ -404,6 +405,18 @@
                 id="activeModeIndicator"><span class="pulse-dot"></span>PAGER</span></p>
 
     </header>
+
+    <div id="runStateStrip" class="run-state-strip" aria-live="polite">
+        <div class="run-state-left">
+            <span class="run-state-label">Run State</span>
+            <div id="runStateChips"></div>
+        </div>
+        <div class="run-state-right">
+            <span id="runStateSummary" class="run-state-value">Loading...</span>
+            <button id="runStateRefreshBtn" class="run-state-btn" type="button">Refresh</button>
+            <button id="runStateSettingsBtn" class="run-state-btn" type="button">Tools</button>
+        </div>
+    </div>
 
     <!-- Mode Navigation Bar -->
     {% set is_index_page = true %}
@@ -3358,7 +3371,7 @@
         }
 
         // Selected mode from welcome screen
-        let selectedStartMode = 'pager';
+        let selectedStartMode = localStorage.getItem('intercept.default_mode') || 'pager';
 
         // Mode selection from welcome page
         function selectMode(mode) {
@@ -3487,6 +3500,17 @@
             const now = new Date();
             const utc = now.toISOString().substring(11, 19);
             document.getElementById('headerUtcTime').textContent = utc;
+        }
+
+        function setActiveModeIndicator(label) {
+            const indicator = document.getElementById('activeModeIndicator');
+            if (!indicator) return;
+
+            indicator.textContent = '';
+            const dot = document.createElement('span');
+            dot.className = 'pulse-dot';
+            indicator.appendChild(dot);
+            indicator.appendChild(document.createTextNode(String(label || '')));
         }
         // Update clock every second
         setInterval(updateHeaderClock, 1000);
@@ -3883,7 +3907,10 @@
                 if (isRunning) stopDecoding();
                 if (isSensorRunning) stopSensorDecoding();
                 if (isWifiRunning) stopWifiScan();
-                if (isBtRunning) stopBtScan();
+                const btScanActive = (typeof BluetoothMode !== 'undefined' &&
+                    typeof BluetoothMode.isScanning === 'function' &&
+                    BluetoothMode.isScanning()) || isBtRunning;
+                if (btScanActive && typeof stopBtScan === 'function') stopBtScan();
                 if (isAprsRunning) stopAprs();
                 if (isTscmRunning) stopTscmSweep();
             }
@@ -3994,8 +4021,7 @@
                 'analytics': 'ANALYTICS',
                 'spaceweather': 'SPACE WX'
             };
-            const activeModeIndicator = document.getElementById('activeModeIndicator');
-            if (activeModeIndicator) activeModeIndicator.innerHTML = '<span class="pulse-dot"></span>' + (modeNames[mode] || mode.toUpperCase());
+            setActiveModeIndicator(modeNames[mode] || mode.toUpperCase());
             const wifiLayoutContainer = document.getElementById('wifiLayoutContainer');
             const btLayoutContainer = document.getElementById('btLayoutContainer');
             const satelliteVisuals = document.getElementById('satelliteVisuals');
@@ -4872,9 +4898,9 @@
             // Update mode indicator with frequency
             if (running) {
                 const freq = document.getElementById('rtlamrFrequency').value;
-                document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>METERS @ ' + freq + ' MHz';
+                setActiveModeIndicator('METERS @ ' + freq + ' MHz');
             } else {
-                document.getElementById('activeModeIndicator').innerHTML = '<span class="pulse-dot"></span>METERS';
+                setActiveModeIndicator('METERS');
             }
         }
 
@@ -7206,7 +7232,8 @@
             // Fallback: simple OUI-based correlation
             deviceCorrelations = [];
             const wifiMacs = Object.keys(wifiNetworks).concat(Object.keys(wifiClients));
-            const btMacs = Object.keys(btDevices || {});
+            const btDeviceMap = getBluetoothDevicesSnapshot();
+            const btMacs = Object.keys(btDeviceMap);
 
             wifiMacs.forEach(wifiMac => {
                 const wifiOui = wifiMac.substring(0, 8).toUpperCase();
@@ -7214,7 +7241,7 @@
                     const btOui = btMac.substring(0, 8).toUpperCase();
                     if (wifiOui === btOui) {
                         const wifiDev = wifiNetworks[wifiMac] || wifiClients[wifiMac];
-                        const btDev = btDevices[btMac];
+                        const btDev = btDeviceMap[btMac];
                         deviceCorrelations.push({
                             wifi_mac: wifiMac,
                             bt_mac: btMac,
@@ -7227,6 +7254,23 @@
                 });
             });
             updateCorrelationDisplay();
+        }
+
+        function getBluetoothDevicesSnapshot() {
+            const snapshot = {};
+            if (typeof BluetoothMode === 'undefined' || typeof BluetoothMode.getDevices !== 'function') {
+                return snapshot;
+            }
+
+            const devices = BluetoothMode.getDevices();
+            devices.forEach(device => {
+                const address = String(device.address || device.mac || '').toUpperCase();
+                // Correlation fallback is OUI-based, so only include MAC-form addresses.
+                if (!/^[0-9A-F]{2}(:[0-9A-F]{2}){5}$/.test(address)) return;
+                snapshot[address] = device;
+            });
+
+            return snapshot;
         }
 
         function updateCorrelationDisplay() {
@@ -8846,847 +8890,61 @@
             }
         };
 
-        // ============== BLUETOOTH RECONNAISSANCE ==============
+        // ============== BLUETOOTH COMPATIBILITY SHIMS ==============
 
-        let btEventSource = null;
-        let btDevices = {};
-        let btDeviceCount = 0;
-        let btBeaconCount = 0;
-        let btRadarCtx = null;
-        let btRadarAngle = 0;
-        let btRadarAnimFrame = null;
-        let btRadarDevices = [];
+        function getBluetoothModeApi() {
+            if (typeof BluetoothMode === 'undefined') return null;
+            return BluetoothMode;
+        }
 
-        // Refresh Bluetooth interfaces (legacy - now handled by BluetoothMode.init())
-        function refreshBtInterfaces() {
-            // New Bluetooth mode uses /api/bluetooth/capabilities instead
-            // This function is kept for backwards compatibility but uses new API
-            if (typeof BluetoothMode !== 'undefined') {
-                BluetoothMode.checkCapabilities();
-                return;
+        function syncBtRunningState() {
+            const bt = getBluetoothModeApi();
+            if (!bt || typeof bt.isScanning !== 'function') {
+                return isBtRunning;
             }
-            // Legacy fallback (shouldn't be needed)
-            const select = document.getElementById('btInterfaceSelect') || document.getElementById('btAdapterSelect');
-            if (!select) return;
-
-            fetch('/bt/interfaces')
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.interfaces || data.interfaces.length === 0) {
-                        select.innerHTML = '<option value="">No BT interfaces found</option>';
-                    } else {
-                        select.innerHTML = data.interfaces.map(i =>
-                            `<option value="${i.name}">${i.name} (${i.type}) [${i.status}]</option>`
-                        ).join('');
-                    }
-
-                    // Update tool status (if element exists)
-                    const statusDiv = document.getElementById('btToolStatus');
-                    if (statusDiv) {
-                        statusDiv.innerHTML = `
-                            <span>hcitool:</span><span class="tool-status ${data.tools.hcitool ? 'ok' : 'missing'}">${data.tools.hcitool ? 'OK' : 'Missing'}</span>
-                            <span>bluetoothctl:</span><span class="tool-status ${data.tools.bluetoothctl ? 'ok' : 'missing'}">${data.tools.bluetoothctl ? 'OK' : 'Missing'}</span>
-                        `;
-                    }
-                })
-                .catch(err => console.warn('Legacy BT interface check failed:', err));
+            isBtRunning = bt.isScanning();
+            return isBtRunning;
         }
 
-        // Start Bluetooth scan
+        function refreshBtInterfaces() {
+            const bt = getBluetoothModeApi();
+            if (!bt) return;
+            if (typeof bt.checkCapabilities === 'function') bt.checkCapabilities();
+            syncBtRunningState();
+        }
+
         function startBtScan() {
-            const scanMode = document.querySelector('input[name="btScanMode"]:checked').value;
-            const iface = document.getElementById('btInterfaceSelect').value;
-            const duration = document.getElementById('btScanDuration').value;
-            const scanBLE = document.getElementById('btScanBLE').checked;
-            const scanClassic = document.getElementById('btScanClassic').checked;
-
-            fetch('/bt/scan/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mode: scanMode,
-                    interface: iface,
-                    duration: parseInt(duration),
-                    scan_ble: scanBLE,
-                    scan_classic: scanClassic
-                })
-            }).then(r => r.json())
-                .then(data => {
-                    if (data.status === 'started') {
-                        setBtRunning(true);
-                        startBtStream();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                });
+            const bt = getBluetoothModeApi();
+            if (!bt || typeof bt.startScan !== 'function') return;
+            bt.startScan();
+            setTimeout(syncBtRunningState, 0);
         }
 
-        // Stop Bluetooth scan
         function stopBtScan() {
-            fetch('/bt/scan/stop', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    setBtRunning(false);
-                    if (btEventSource) {
-                        btEventSource.close();
-                        btEventSource = null;
-                    }
-                });
-        }
-
-        function resetBtAdapter() {
-            const iface = document.getElementById('btInterfaceSelect')?.value || 'hci0';
-            fetch('/bt/reset', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interface: iface })
-            }).then(r => r.json())
-                .then(data => {
-                    setBtRunning(false);
-                    if (btEventSource) {
-                        btEventSource.close();
-                        btEventSource = null;
-                    }
-                    if (data.status === 'success') {
-                        showInfo('Bluetooth adapter reset. Status: ' + (data.is_up ? 'UP' : 'DOWN'));
-                        // Refresh interface list
-                        if (typeof refreshBtInterfaces === 'function') refreshBtInterfaces();
-                    } else {
-                        showError('Reset failed: ' + data.message);
-                    }
-                });
+            const bt = getBluetoothModeApi();
+            if (bt && typeof bt.stopScan === 'function') {
+                bt.stopScan();
+            }
+            setTimeout(syncBtRunningState, 0);
         }
 
         function setBtRunning(running) {
-            isBtRunning = running;
-            document.getElementById('statusDot').classList.toggle('running', running);
-            document.getElementById('statusText').textContent = running ? 'Scanning...' : 'Idle';
-            document.getElementById('startBtBtn').style.display = running ? 'none' : 'block';
-            document.getElementById('stopBtBtn').style.display = running ? 'block' : 'none';
+            isBtRunning = !!running;
+            syncBtRunningState();
         }
 
-        // Batching state for Bluetooth updates
-        let pendingBtUpdate = false;
-        let pendingBtDevices = [];
-
-        function scheduleBtUIUpdate() {
-            if (pendingBtUpdate) return;
-            pendingBtUpdate = true;
-            requestAnimationFrame(() => {
-                // Process devices (limit to 10 per frame)
-                const devicesToProcess = pendingBtDevices.slice(0, 10);
-                pendingBtDevices = pendingBtDevices.slice(10);
-
-                devicesToProcess.forEach(data => handleBtDeviceImmediate(data));
-
-                // If more pending, schedule another frame
-                if (pendingBtDevices.length > 0) {
-                    pendingBtUpdate = false;
-                    scheduleBtUIUpdate();
-                    return;
-                }
-
-                pendingBtUpdate = false;
-            });
-        }
-
-        // Start Bluetooth event stream
-        function startBtStream() {
-            if (btEventSource) btEventSource.close();
-
-            btEventSource = new EventSource('/bt/stream');
-
-            btEventSource.onmessage = function (e) {
-                const data = JSON.parse(e.data);
-
-                if (data.type === 'device') {
-                    pendingBtDevices.push(data);
-                    scheduleBtUIUpdate();
-                } else if (data.type === 'info' || data.type === 'raw') {
-                    showInfo(data.text);
-                } else if (data.type === 'error') {
-                    showError(data.text);
-                } else if (data.type === 'status') {
-                    if (data.text === 'stopped') {
-                        setBtRunning(false);
-                    }
-                }
-            };
-
-            btEventSource.onerror = function () {
-                console.error('BT stream error');
-            };
-        }
-
-        // Tracker following detection
-        let trackerHistory = {};  // MAC -> { firstSeen, lastSeen, seenCount, locations: [] }
-        const FOLLOWING_THRESHOLD_MINUTES = 30;
-        const FOLLOWING_MIN_DETECTIONS = 5;
-
-        // Find My network detection patterns
-        const FINDMY_PATTERNS = {
-            // Apple Find My / AirTag
-            apple: {
-                prefixes: ['4C:00'],
-                mfgData: [0x004C],  // Apple company ID
-                names: ['AirTag', 'Find My']
-            },
-            // Samsung SmartTag
-            samsung: {
-                prefixes: ['58:4D', 'A0:75', 'DC:0C', 'E4:5F'],
-                mfgData: [0x0075],  // Samsung company ID
-                names: ['SmartTag', 'Galaxy SmartTag']
-            },
-            // Tile
-            tile: {
-                prefixes: ['C4:E7', 'DC:54', 'E4:B0', 'F8:8A', 'D0:03'],
-                names: ['Tile', 'Tile Pro', 'Tile Mate', 'Tile Slim']
-            },
-            // Chipolo
-            chipolo: {
-                prefixes: ['00:0D'],
-                names: ['Chipolo', 'CHIPOLO']
-            }
-        };
-
-        function detectFindMyDevice(device) {
-            const mac = device.mac.toUpperCase();
-            const macPrefix = mac.substring(0, 5);
-            const name = (device.name || '').toLowerCase();
-
-            for (const [network, patterns] of Object.entries(FINDMY_PATTERNS)) {
-                // Check MAC prefix
-                if (patterns.prefixes && patterns.prefixes.some(p => mac.startsWith(p))) {
-                    return { network: network, type: 'Find My Network' };
-                }
-                // Check name patterns
-                if (patterns.names && patterns.names.some(n => name.includes(n.toLowerCase()))) {
-                    return { network: network, type: 'Find My Network' };
-                }
-            }
-
-            // Check manufacturer data for Apple continuity
-            if (device.manufacturer_data) {
-                const mfgData = device.manufacturer_data;
-                if (mfgData.includes('4c00') || mfgData.includes('004c')) {
-                    // Check for Find My payload (manufacturer specific data type 0x12)
-                    if (mfgData.includes('12') || mfgData.length > 40) {
-                        return { network: 'apple', type: 'Apple Find My' };
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        function checkTrackerFollowing(device) {
-            if (!device.tracker && !detectFindMyDevice(device)) return;
-
-            const mac = device.mac;
-            const now = Date.now();
-
-            if (!trackerHistory[mac]) {
-                trackerHistory[mac] = {
-                    firstSeen: now,
-                    lastSeen: now,
-                    seenCount: 1,
-                    name: device.name || device.mac
-                };
-            } else {
-                trackerHistory[mac].lastSeen = now;
-                trackerHistory[mac].seenCount++;
-            }
-
-            const tracker = trackerHistory[mac];
-            const durationMinutes = (now - tracker.firstSeen) / 60000;
-
-            // Alert if tracker has been following for a while
-            if (durationMinutes >= FOLLOWING_THRESHOLD_MINUTES && tracker.seenCount >= FOLLOWING_MIN_DETECTIONS) {
-                showTrackerFollowingAlert(mac, tracker);
-            }
-        }
-
-        function showTrackerFollowingAlert(mac, tracker) {
-            const alertDiv = document.getElementById('trackerFollowingAlert');
-            if (!alertDiv) return;
-
-            const durationMinutes = Math.floor((Date.now() - tracker.firstSeen) / 60000);
-
-            alertDiv.style.display = 'block';
-            alertDiv.innerHTML = `
-                <h4>POSSIBLE TRACKING DETECTED</h4>
-                <div style="font-size: 12px;">
-                    <div><strong>Device:</strong> ${escapeHtml(tracker.name)}</div>
-                    <div><strong>MAC:</strong> ${escapeHtml(mac)}</div>
-                    <div><strong>Duration:</strong> ${durationMinutes} minutes</div>
-                    <div><strong>Detections:</strong> ${tracker.seenCount}</div>
-                    <div style="margin-top: 10px; color: #ff6666;">
-                        This tracker has been detected near you for an extended period.
-                        If you don't recognize this device, consider your safety.
-                    </div>
-                    <button onclick="dismissTrackerAlert('${mac}')" class="preset-btn" style="margin-top: 10px; border-color: #ff4444; color: #ff4444;">
-                        Dismiss
-                    </button>
-                </div>
-            `;
-
-            if (!muted) {
-                // Play warning sound
-                for (let i = 0; i < 3; i++) {
-                    setTimeout(() => playAlertSound(), i * 300);
-                }
-            }
-
-            showNotification('Tracking Alert', `${tracker.name} detected for ${durationMinutes} min`);
-        }
-
-        function dismissTrackerAlert(mac) {
-            document.getElementById('trackerFollowingAlert').style.display = 'none';
-            // Reset the tracker history for this device
-            if (trackerHistory[mac]) {
-                trackerHistory[mac].firstSeen = Date.now();
-                trackerHistory[mac].seenCount = 0;
-            }
-        }
-
-        // Handle discovered Bluetooth device (called from batched update)
-        function handleBtDeviceImmediate(device) {
-            // Skip if new BluetoothMode is handling devices
-            if (typeof BluetoothMode !== 'undefined') {
-                return;
-            }
-
-            const isNew = !btDevices[device.mac];
-
-            // Check for Find My network
-            const findMyInfo = detectFindMyDevice(device);
-            if (findMyInfo) {
-                device.findmy = findMyInfo;
-                device.tracker = device.tracker || { name: findMyInfo.type };
-            }
-
-            // Merge with existing device data to preserve RSSI if not in update
-            if (btDevices[device.mac] && !device.rssi && btDevices[device.mac].rssi) {
-                device.rssi = btDevices[device.mac].rssi;
-            }
-            btDevices[device.mac] = device;
-
-
-            if (isNew) {
-                btDeviceCount++;
-                playAlert();
-                pulseSignal();
-            }
-
-            // Update selected device panel if this device is selected
-            if (selectedBtDevice === device.mac) {
-                updateBtSelectedDevice(device);
-            }
-
-            // Check for tracker following
-            checkTrackerFollowing(device);
-
-            // Track in device intelligence
-            trackDevice({
-                protocol: 'Bluetooth',
-                address: device.mac,
-                message: device.name,
-                model: device.manufacturer,
-                device_type: device.device_type || device.type || 'other'
-            });
-
-            // Update visualizations
-            addBtDeviceToRadar(device);
-
-            // Add device card
-            addBtDeviceCard(device, isNew);
-
-            // Update device list panel
-            updateBtDeviceList();
-
-            // Check for trackers and update tracker list
-            if (device.tracker || device.findmy) {
-                updateBtTrackerList();
-            }
-        }
-
-        // Currently selected BT device for signal tracking
-        let selectedBtDevice = null;
-
-        // Update the Bluetooth device list panel
-        function updateBtDeviceList() {
-            const listEl = document.getElementById('btDeviceList');
-            const countEl = document.getElementById('btListCount');
-            if (!listEl) return;
-
-            const devices = Object.values(btDevices);
-            countEl.textContent = devices.length;
-
-            if (devices.length === 0) {
-                listEl.innerHTML = '<div style="color: var(--text-dim); padding: 10px; text-align: center;">Start scanning to discover devices...</div>';
-                return;
-            }
-
-            // Sort by RSSI (strongest first)
-            devices.sort((a, b) => (b.rssi || -100) - (a.rssi || -100));
-
-            listEl.innerHTML = devices.map(d => {
-                const deviceType = d.device_type || d.type || 'device';
-
-                const rssiColor = d.rssi > -50 ? 'var(--accent-green)' :
-                    d.rssi > -70 ? 'var(--accent-cyan)' :
-                        d.rssi > -85 ? 'var(--accent-orange)' : 'var(--accent-red)';
-
-                const isSelected = selectedBtDevice === d.mac;
-                const trackerBadge = d.findmy ? `<span style="color:#007aff;font-size:9px;">FindMy</span>` :
-                    d.tracker ? `<span style="color:var(--accent-red);font-size:9px;">Tracker</span>` : '';
-
-                return `
-                    <div onclick="selectBtDevice('${d.mac}')" style="
-                        padding: 8px;
-                        border-bottom: 1px solid rgba(255,255,255,0.05);
-                        cursor: pointer;
-                        background: ${isSelected ? 'rgba(0,212,255,0.1)' : 'transparent'};
-                        border-left: 2px solid ${isSelected ? 'var(--accent-cyan)' : 'transparent'};
-                    " onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isSelected ? 'rgba(0,212,255,0.1)' : 'transparent'}'">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <span>${escapeHtml(d.name || 'Unknown')}</span>
-                            <span style="color:${rssiColor};font-weight:bold;">${d.rssi || '--'} dBm</span>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;color:var(--text-dim);font-size:10px;margin-top:2px;">
-                            <span>${escapeHtml(d.mac)}</span>
-                            ${trackerBadge}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Select a BT device for details
-        function selectBtDevice(mac) {
-            selectedBtDevice = mac;
-            const device = btDevices[mac];
-            if (device) {
-                document.getElementById('btTargetMac').value = mac;
-                updateBtSelectedDevice(device);
-            }
-            updateBtDeviceList(); // Refresh to show selection
-        }
-
-        // Update the selected device details panel
-        function updateBtSelectedDevice(device) {
-            const panel = document.getElementById('btSelectedDevice');
-            if (!panel || !device) return;
-
-            const deviceType = (device.device_type || device.type || 'unknown').toUpperCase();
-
-            const rssiColor = device.rssi > -50 ? 'var(--accent-green)' :
-                device.rssi > -70 ? 'var(--accent-cyan)' :
-                    device.rssi > -85 ? 'var(--accent-orange)' : 'var(--accent-red)';
-
-            const signalBars = Math.max(1, Math.min(5, Math.floor((device.rssi + 100) / 10)));
-            const barsHtml = Array(5).fill(0).map((_, i) =>
-                `<div style="width:4px;height:${8 + i * 4}px;background:${i < signalBars ? rssiColor : 'rgba(255,255,255,0.1)'};border-radius:1px;"></div>`
-            ).join('');
-
-            let trackerInfo = '';
-            if (device.findmy) {
-                trackerInfo = `
-                    <div style="background:rgba(0,122,255,0.15);border:1px solid #007aff;border-radius:6px;padding:8px;margin-top:8px;">
-                        <div style="color:#007aff;font-weight:bold;">${escapeHtml(device.findmy.type)}</div>
-                        <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">${escapeHtml(device.findmy.network)} Network Device</div>
-                    </div>`;
-            } else if (device.tracker) {
-                trackerInfo = `
-                    <div style="background:rgba(255,100,100,0.15);border:1px solid var(--accent-red);border-radius:6px;padding:8px;margin-top:8px;">
-                        <div style="color:var(--accent-red);font-weight:bold;">${escapeHtml(device.tracker.name)}</div>
-                        <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">Tracking Device Detected</div>
-                    </div>`;
-            }
-
-            panel.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-                    <div>
-                        <div style="font-size:16px;font-weight:bold;color:var(--accent-cyan);">${escapeHtml(device.name || 'Unknown Device')}</div>
-                        <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">${escapeHtml((device.device_type || device.type || 'unknown').toUpperCase())}</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:18px;font-weight:bold;color:${rssiColor};">${device.rssi || '--'} dBm</div>
-                        <div style="display:flex;gap:2px;justify-content:flex-end;align-items:flex-end;height:24px;margin-top:4px;">${barsHtml}</div>
-                    </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                    <div style="background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;">
-                        <div style="color:var(--text-dim);font-size:9px;">MAC ADDRESS</div>
-                        <div style="font-family:monospace;font-size:11px;">${escapeHtml(device.mac)}</div>
-                    </div>
-                    <div style="background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;">
-                        <div style="color:var(--text-dim);font-size:9px;">MANUFACTURER</div>
-                        <div style="font-size:11px;">${escapeHtml(device.manufacturer || 'Unknown')}</div>
-                    </div>
-                    <div style="background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;">
-                        <div style="color:var(--text-dim);font-size:9px;">ADDRESS TYPE</div>
-                        <div style="font-size:11px;">${escapeHtml(device.address_type || 'Unknown')}</div>
-                    </div>
-                    <div style="background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;">
-                        <div style="color:var(--text-dim);font-size:9px;">LAST SEEN</div>
-                        <div style="font-size:11px;">${device.last_seen ? new Date(device.last_seen * 1000).toLocaleTimeString() : 'Now'}</div>
-                    </div>
-                </div>
-                ${trackerInfo}
-                <div style="display:flex;gap:6px;margin-top:10px;">
-                    <button class="preset-btn" onclick="btEnumServicesFor('${escapeAttr(device.mac)}')" style="flex:1;font-size:10px;padding:6px;">Enumerate Services</button>
-                    <button class="preset-btn" onclick="copyToClipboard('${escapeAttr(device.mac)}')" style="flex:1;font-size:10px;padding:6px;">Copy MAC</button>
-                </div>
-            `;
-        }
-
-        // Copy text to clipboard helper
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                showNotification('Copied', text);
-            }).catch(() => {
-                showInfo('Failed to copy to clipboard');
-            });
-        }
-
-        // Update tracker list panel
-        function updateBtTrackerList() {
-            const listEl = document.getElementById('btTrackerList');
-            if (!listEl) return;
-
-            const trackers = Object.values(btDevices).filter(d => d.tracker || d.findmy);
-
-            if (trackers.length === 0) {
-                listEl.innerHTML = '<div style="color: var(--text-dim); padding: 10px; text-align: center;">Monitoring for AirTags, Tiles, and other trackers...</div>';
-                return;
-            }
-
-            listEl.innerHTML = trackers.map(d => {
-                const type = d.findmy ? d.findmy.type : (d.tracker ? d.tracker.name : 'Unknown');
-                const color = d.findmy ? '#007aff' : 'var(--accent-red)';
-
-                return `
-                    <div style="padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <div style="display:flex;justify-content:space-between;">
-                            <span style="color:${color};">${escapeHtml(type)}</span>
-                            <span style="color:var(--text-dim);">${d.rssi || '--'} dBm</span>
-                        </div>
-                        <div style="color:var(--text-dim);font-size:10px;">${escapeHtml(d.mac)}</div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Add Bluetooth device card to device list panel
-        function addBtDeviceCard(device, isNew) {
-            // Skip if new BluetoothMode is handling rendering
-            if (typeof BluetoothMode !== 'undefined' && BluetoothMode.isScanning()) {
-                return;
-            }
-
-            // Add to new device list panel
-            const deviceList = document.getElementById('btDeviceListContent');
-            if (deviceList) {
-                // Remove placeholder if present
-                const placeholder = deviceList.querySelector('div[style*="text-align: center"]');
-                if (placeholder && placeholder.textContent.includes('Start scanning')) {
-                    placeholder.remove();
-                }
-
-                let card = document.getElementById('btcard_' + device.mac.replace(/:/g, ''));
-                const devType = device.device_type || device.type || 'other';
-
-                if (!card) {
-                    card = document.createElement('div');
-                    card.id = 'btcard_' + device.mac.replace(/:/g, '');
-                    card.className = 'sensor-card bt-device-card' +
-                        (device.findmy ? ' findmy' : '') +
-                        (device.tracker && !device.findmy ? ' tracker' : '');
-                    card.style.cursor = 'pointer';
-                    card.onclick = () => selectBtDevice(device.mac);
-                    deviceList.insertBefore(card, deviceList.firstChild);
-
-                    // Update device count
-                    const countEl = document.getElementById('btDeviceListCount');
-                    if (countEl) countEl.textContent = Object.keys(btDevices).length;
-                }
-
-                const deviceType = devType.toUpperCase();
-
-                // Handle signal strength
-                const rssi = device.rssi || -100;
-                const signalBars = Math.max(0, Math.min(5, Math.floor((rssi + 100) / 15)));
-                const signalDisplay = rssi > -100 ? `${rssi} dBm` : 'N/A';
-
-                const findMyBadge = device.findmy
-                    ? `<span style="background: #007aff; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 9px; margin-left: 5px;">${device.findmy.network.toUpperCase()}</span>`
-                    : '';
-
-                const trackerBadge = device.tracker && !device.findmy
-                    ? `<span style="background: var(--accent-orange); color: #000; padding: 2px 6px; border-radius: 3px; font-size: 9px; margin-left: 5px;">TRACKER</span>`
-                    : '';
-
-                card.innerHTML = `
-                    <div class="header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span class="device-name" style="color: var(--accent-purple);">${escapeHtml(device.name || 'Unknown')}${findMyBadge}${trackerBadge}</span>
-                        <span style="font-size: 10px; color: var(--text-dim);">${deviceType}</span>
-                    </div>
-                    <div class="sensor-data">
-                        <div class="data-item">
-                            <div class="data-label">MAC</div>
-                            <div class="data-value" style="font-size: 11px;">${escapeHtml(device.mac)}</div>
-                        </div>
-                        <div class="data-item">
-                            <div class="data-label">Manufacturer</div>
-                            <div class="data-value">${escapeHtml(device.manufacturer || 'Unknown')}</div>
-                        </div>
-                        <div class="data-item">
-                            <div class="data-label">Signal</div>
-                            <div class="data-value">${signalDisplay} ${'█'.repeat(signalBars)}${'░'.repeat(5 - signalBars)}</div>
-                        </div>
-                    </div>
-                    <div style="margin-top: 8px; display: flex; gap: 5px;">
-                        <button class="preset-btn" onclick="event.stopPropagation(); btTargetDevice('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Target</button>
-                        <button class="preset-btn" onclick="event.stopPropagation(); btEnumServicesFor('${escapeAttr(device.mac)}')" style="font-size: 10px; padding: 4px 8px;">Services</button>
-                    </div>
-                `;
-            }
-
-            // Update statistics panels
-            updateBtStatsPanels();
-
-            // Feed to activity timeline if it's a new detection
-            if (isNew && typeof addTimelineEvent === 'function') {
-                const normalized = typeof BluetoothTimelineAdapter !== 'undefined'
-                    ? BluetoothTimelineAdapter.normalizeDevice(device)
-                    : {
-                        id: device.mac,
-                        label: device.name || device.mac.substring(0, 8) + '...',
-                        strength: device.rssi ? Math.min(5, Math.max(1, Math.ceil((device.rssi + 100) / 20))) : 3,
-                        duration: 1500,
-                        type: 'bluetooth'
-                    };
-                addTimelineEvent('bluetooth', normalized);
-            }
-        }
-
-        // Select a Bluetooth device
-        function selectBtDevice(mac) {
-            selectedBtDevice = mac;
-            const device = btDevices[mac];
-            if (device) {
-                updateBtSelectedDevice(device);
-            }
-        }
-
-        // Update Bluetooth statistics panels
-        function updateBtStatsPanels() {
-            const devices = Object.values(btDevices);
-
-            // Device type counts
-            let phones = 0, computers = 0, audio = 0, wearables = 0, other = 0;
-            let strong = 0, medium = 0, weak = 0;
-
-            devices.forEach(d => {
-                const devType = d.device_type || d.type || 'other';
-                if (devType === 'phone') phones++;
-                else if (devType === 'computer') computers++;
-                else if (devType === 'audio') audio++;
-                else if (devType === 'wearable') wearables++;
-                else other++;
-
-                const rssi = d.rssi || -100;
-                if (rssi >= -50) strong++;
-                else if (rssi >= -70) medium++;
-                else weak++;
-            });
-
-            // Update type counts
-            const phoneEl = document.getElementById('btPhoneCount');
-            const compEl = document.getElementById('btComputerCount');
-            const audioEl = document.getElementById('btAudioCount');
-            const wearEl = document.getElementById('btWearableCount');
-            const otherEl = document.getElementById('btOtherCount');
-            if (phoneEl) phoneEl.textContent = phones;
-            if (compEl) compEl.textContent = computers;
-            if (audioEl) audioEl.textContent = audio;
-            if (wearEl) wearEl.textContent = wearables;
-            if (otherEl) otherEl.textContent = other;
-
-            // Update signal distribution
-            const total = devices.length || 1;
-            const strongBar = document.getElementById('btSignalStrong');
-            const mediumBar = document.getElementById('btSignalMedium');
-            const weakBar = document.getElementById('btSignalWeak');
-            const strongCount = document.getElementById('btSignalStrongCount');
-            const mediumCount = document.getElementById('btSignalMediumCount');
-            const weakCount = document.getElementById('btSignalWeakCount');
-
-            if (strongBar) strongBar.style.width = (strong / total * 100) + '%';
-            if (mediumBar) mediumBar.style.width = (medium / total * 100) + '%';
-            if (weakBar) weakBar.style.width = (weak / total * 100) + '%';
-            if (strongCount) strongCount.textContent = strong;
-            if (mediumCount) mediumCount.textContent = medium;
-            if (weakCount) weakCount.textContent = weak;
-
-            // Update FindMy list
-            updateBtFindMyList();
-        }
-
-        // Update FindMy device list
-        function updateBtFindMyList() {
-            const listEl = document.getElementById('btFindMyList');
-            if (!listEl) return;
-
-            const findMyDevices = Object.values(btDevices).filter(d => d.findmy);
-
-            if (findMyDevices.length === 0) {
-                listEl.innerHTML = '<div style="color: var(--text-dim); padding: 10px; text-align: center;">Scanning for FindMy-compatible devices...</div>';
-                return;
-            }
-
-            listEl.innerHTML = findMyDevices.map(d => `
-                <div style="display: flex; justify-content: space-between; padding: 5px 8px; background: rgba(0,122,255,0.1); border-radius: 3px; margin-bottom: 4px; cursor: pointer;" onclick="selectBtDevice('${escapeAttr(d.mac)}')">
-                    <span>${escapeHtml(d.name || d.findmy.type)}</span>
-                    <span style="color: #007aff;">${d.rssi || '--'} dBm</span>
-                </div>
-            `).join('');
-        }
-
-        // Target a Bluetooth device
-        function btTargetDevice(mac) {
-            document.getElementById('btTargetMac').value = mac;
-            showInfo('Targeted: ' + mac);
-        }
-
-        // Enumerate services for a device
-        function btEnumServicesFor(mac) {
-            document.getElementById('btTargetMac').value = mac;
-            btEnumServices();
-        }
-
-        // Enumerate services
-        function btEnumServices() {
-            const mac = document.getElementById('btTargetMac').value;
-            if (!mac) { alert('Enter target MAC'); return; }
-
-            showInfo('Enumerating services for ' + mac + '...');
-
-            fetch('/bt/enum', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mac: mac })
-            }).then(r => r.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        let msg = 'Services for ' + mac + ': ';
-                        if (data.services.length === 0) {
-                            msg += 'None found';
-                        } else {
-                            msg += data.services.map(s => s.name).join(', ');
-                        }
-                        showInfo(msg);
-                    } else {
-                        showInfo('Error: ' + data.message);
-                    }
-                });
-        }
-
-        // Initialize Bluetooth radar
         function initBtRadar() {
-            const canvas = document.getElementById('btRadarCanvas');
-            if (!canvas) return;
-
-            btRadarCtx = canvas.getContext('2d');
-            canvas.width = 150;
-            canvas.height = 150;
-
-            if (!btRadarAnimFrame) {
-                animateBtRadar();
-            }
+            // Radar lifecycle is handled by BluetoothMode.
+            syncBtRunningState();
         }
 
-        // Animate Bluetooth radar
-        function animateBtRadar() {
-            if (!btRadarCtx) { btRadarAnimFrame = null; return; }
-
-            const canvas = btRadarCtx.canvas;
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const radius = Math.min(cx, cy) - 5;
-
-            btRadarCtx.fillStyle = 'rgba(0, 10, 20, 0.1)';
-            btRadarCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Grid circles
-            btRadarCtx.strokeStyle = 'rgba(138, 43, 226, 0.2)';
-            btRadarCtx.lineWidth = 1;
-            for (let r = radius / 4; r <= radius; r += radius / 4) {
-                btRadarCtx.beginPath();
-                btRadarCtx.arc(cx, cy, r, 0, Math.PI * 2);
-                btRadarCtx.stroke();
-            }
-
-            // Sweep line (purple for BT)
-            btRadarCtx.strokeStyle = 'rgba(138, 43, 226, 0.8)';
-            btRadarCtx.lineWidth = 2;
-            btRadarCtx.beginPath();
-            btRadarCtx.moveTo(cx, cy);
-            btRadarCtx.lineTo(cx + Math.cos(btRadarAngle) * radius, cy + Math.sin(btRadarAngle) * radius);
-            btRadarCtx.stroke();
-
-            // Device blips
-            btRadarDevices.forEach(dev => {
-                const age = Date.now() - dev.timestamp;
-                const alpha = Math.max(0.1, 1 - age / 15000);
-                const color = dev.isTracker ? '255, 51, 102' : '138, 43, 226';
-
-                btRadarCtx.fillStyle = `rgba(${color}, ${alpha})`;
-                btRadarCtx.beginPath();
-                btRadarCtx.arc(dev.x, dev.y, dev.isTracker ? 6 : 4, 0, Math.PI * 2);
-                btRadarCtx.fill();
-            });
-
-            btRadarAngle += 0.025;
-            if (btRadarAngle > Math.PI * 2) btRadarAngle = 0;
-
-            btRadarAnimFrame = requestAnimationFrame(animateBtRadar);
-        }
-
-        // Add device to BT radar
-        function addBtDeviceToRadar(device) {
-            const canvas = document.getElementById('btRadarCanvas');
-            if (!canvas) return;
-
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const radius = Math.min(cx, cy) - 10;
-
-            // Random position based on MAC hash
-            let angle = 0;
-            for (let i = 0; i < device.mac.length; i++) {
-                angle += device.mac.charCodeAt(i);
-            }
-            angle = (angle % 360) * Math.PI / 180;
-            const r = radius * (0.3 + Math.random() * 0.6);
-
-            const x = cx + Math.cos(angle) * r;
-            const y = cy + Math.sin(angle) * r;
-
-            const existing = btRadarDevices.find(d => d.mac === device.mac);
-            if (existing) {
-                existing.timestamp = Date.now();
+        function resetBtAdapter() {
+            // Legacy hook retained for old callers.
+            if (typeof showInfo === 'function') {
+                showInfo('Bluetooth adapter reset is handled by the Bluetooth mode backend.');
             } else {
-                btRadarDevices.push({
-                    x, y,
-                    mac: device.mac,
-                    isTracker: !!device.tracker,
-                    timestamp: Date.now()
-                });
+                console.info('Bluetooth adapter reset is handled by the Bluetooth mode backend.');
             }
-
-            if (btRadarDevices.length > 50) btRadarDevices.shift();
         }
 
         // ============================================
@@ -15897,6 +15155,10 @@
     <!-- Alerts + Recording -->
     <script src="{{ url_for('static', filename='js/core/alerts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/recordings.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/ui-feedback.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/run-state.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/command-palette.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/first-run-setup.js') }}"></script>
 </body>
 
 </html>

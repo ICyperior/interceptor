@@ -535,7 +535,7 @@ def parse_sbs_stream(service_addr):
                                     # Geofence check
                                     _gf_lat = snapshot.get('lat')
                                     _gf_lon = snapshot.get('lon')
-                                    if _gf_lat and _gf_lon:
+                                    if _gf_lat is not None and _gf_lon is not None:
                                         try:
                                             from utils.geofence import get_geofence_manager
                                             for _gf_evt in get_geofence_manager().check_position(

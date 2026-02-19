@@ -61,6 +61,7 @@ from utils.tscm.device_identity import (
     ingest_wifi_dict,
 )
 from utils.event_pipeline import process_event
+from utils.sse import sse_stream_fanout
 
 # Import unified Bluetooth scanner helper for TSCM integration
 try:
@@ -629,24 +630,17 @@ def sweep_status():
 @tscm_bp.route('/sweep/stream')
 def sweep_stream():
     """SSE stream for real-time sweep updates."""
-    def generate():
-        while True:
-            try:
-                if tscm_queue:
-                    msg = tscm_queue.get(timeout=1)
-                    try:
-                        process_event('tscm', msg, msg.get('type'))
-                    except Exception:
-                        pass
-                    yield f"data: {json.dumps(msg)}\n\n"
-                else:
-                    time.sleep(1)
-                    yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
-            except queue.Empty:
-                yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
+    def _on_msg(msg: dict[str, Any]) -> None:
+        process_event('tscm', msg, msg.get('type'))
 
     return Response(
-        generate(),
+        sse_stream_fanout(
+            source_queue=tscm_queue,
+            channel_key='tscm',
+            timeout=1.0,
+            keepalive_interval=30.0,
+            on_message=_on_msg,
+        ),
         mimetype='text/event-stream',
         headers={
             'Cache-Control': 'no-cache',

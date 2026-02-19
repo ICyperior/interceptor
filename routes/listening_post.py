@@ -19,7 +19,7 @@ from flask import Blueprint, jsonify, request, Response
 
 import app as app_module
 from utils.logging import get_logger
-from utils.sse import format_sse
+from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
 from utils.constants import (
     SSE_QUEUE_TIMEOUT,
@@ -1182,25 +1182,19 @@ def scanner_status() -> Response:
 @listening_post_bp.route('/scanner/stream')
 def stream_scanner_events() -> Response:
     """SSE stream for scanner events."""
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
+    def _on_msg(msg: dict[str, Any]) -> None:
+        process_event('listening_scanner', msg, msg.get('type'))
 
-        while True:
-            try:
-                msg = scanner_queue.get(timeout=SSE_QUEUE_TIMEOUT)
-                last_keepalive = time.time()
-                try:
-                    process_event('listening_scanner', msg, msg.get('type'))
-                except Exception:
-                    pass
-                yield format_sse(msg)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= SSE_KEEPALIVE_INTERVAL:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
-
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=scanner_queue,
+            channel_key='listening_scanner',
+            timeout=SSE_QUEUE_TIMEOUT,
+            keepalive_interval=SSE_KEEPALIVE_INTERVAL,
+            on_message=_on_msg,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response
@@ -1834,24 +1828,19 @@ def stop_waterfall() -> Response:
 @listening_post_bp.route('/waterfall/stream')
 def stream_waterfall() -> Response:
     """SSE stream for waterfall data."""
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
-        while True:
-            try:
-                msg = waterfall_queue.get(timeout=SSE_QUEUE_TIMEOUT)
-                last_keepalive = time.time()
-                try:
-                    process_event('waterfall', msg, msg.get('type'))
-                except Exception:
-                    pass
-                yield format_sse(msg)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= SSE_KEEPALIVE_INTERVAL:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
+    def _on_msg(msg: dict[str, Any]) -> None:
+        process_event('waterfall', msg, msg.get('type'))
 
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=waterfall_queue,
+            channel_key='listening_waterfall',
+            timeout=SSE_QUEUE_TIMEOUT,
+            keepalive_interval=SSE_KEEPALIVE_INTERVAL,
+            on_message=_on_msg,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response

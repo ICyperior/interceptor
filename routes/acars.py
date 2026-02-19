@@ -21,7 +21,7 @@ import app as app_module
 from utils.logging import sensor_logger as logger
 from utils.validation import validate_device_index, validate_gain, validate_ppm
 from utils.sdr import SDRFactory, SDRType
-from utils.sse import format_sse
+from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
 from utils.constants import (
     PROCESS_TERMINATE_TIMEOUT,
@@ -414,25 +414,19 @@ def stop_acars() -> Response:
 @acars_bp.route('/stream')
 def stream_acars() -> Response:
     """SSE stream for ACARS messages."""
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
+    def _on_msg(msg: dict[str, Any]) -> None:
+        process_event('acars', msg, msg.get('type'))
 
-        while True:
-            try:
-                msg = app_module.acars_queue.get(timeout=SSE_QUEUE_TIMEOUT)
-                last_keepalive = time.time()
-                try:
-                    process_event('acars', msg, msg.get('type'))
-                except Exception:
-                    pass
-                yield format_sse(msg)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= SSE_KEEPALIVE_INTERVAL:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
-
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=app_module.acars_queue,
+            channel_key='acars',
+            timeout=SSE_QUEUE_TIMEOUT,
+            keepalive_interval=SSE_KEEPALIVE_INTERVAL,
+            on_message=_on_msg,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response

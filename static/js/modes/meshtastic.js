@@ -401,7 +401,7 @@ const Meshtastic = (function() {
 
         // Position is nested in the response
         const pos = info.position;
-        if (pos && pos.latitude && pos.longitude) {
+        if (pos && pos.latitude !== undefined && pos.latitude !== null && pos.longitude !== undefined && pos.longitude !== null) {
             if (posRow) posRow.style.display = 'flex';
             if (posEl) posEl.textContent = `${pos.latitude.toFixed(5)}, ${pos.longitude.toFixed(5)}`;
         } else {

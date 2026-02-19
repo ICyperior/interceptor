@@ -36,12 +36,12 @@ let observerLocation = (function() {
         return ObserverLocation.getForModule('observerLocation');
     }
     const saved = localStorage.getItem('observerLocation');
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            if (parsed.lat && parsed.lon) return parsed;
-        } catch (e) {}
-    }
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.lat !== undefined && parsed.lat !== null && parsed.lon !== undefined && parsed.lon !== null) return parsed;
+                } catch (e) {}
+            }
     return { lat: 51.5074, lon: -0.1278 };
 })();
 

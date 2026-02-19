@@ -594,7 +594,7 @@ function loadObserverLocation() {
     }
 
     // Sync dashboard-specific location keys for backward compatibility
-    if (lat && lon) {
+    if (lat !== undefined && lat !== null && lat !== '' && lon !== undefined && lon !== null && lon !== '') {
         const locationObj = JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) });
         if (!localStorage.getItem('observerLocation')) {
             localStorage.setItem('observerLocation', locationObj);

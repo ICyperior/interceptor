@@ -21,7 +21,7 @@ from utils.gps import (
     stop_gpsd_daemon,
 )
 from utils.logging import get_logger
-from utils.sse import format_sse
+from utils.sse import sse_stream_fanout
 
 logger = get_logger('intercept.gps')
 
@@ -231,22 +231,15 @@ def get_satellites():
 @gps_bp.route('/stream')
 def stream_gps():
     """SSE stream of GPS position and sky updates."""
-    def generate() -> Generator[str, None, None]:
-        last_keepalive = time.time()
-        keepalive_interval = 30.0
-
-        while True:
-            try:
-                data = _gps_queue.get(timeout=1)
-                last_keepalive = time.time()
-                yield format_sse(data)
-            except queue.Empty:
-                now = time.time()
-                if now - last_keepalive >= keepalive_interval:
-                    yield format_sse({'type': 'keepalive'})
-                    last_keepalive = now
-
-    response = Response(generate(), mimetype='text/event-stream')
+    response = Response(
+        sse_stream_fanout(
+            source_queue=_gps_queue,
+            channel_key='gps',
+            timeout=1.0,
+            keepalive_interval=30.0,
+        ),
+        mimetype='text/event-stream',
+    )
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Connection'] = 'keep-alive'
