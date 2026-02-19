@@ -189,7 +189,7 @@ SCOTTIE_2 = SSTVMode(
 
 PD_120 = SSTVMode(
     name='PD120',
-    vis_code=93,
+    vis_code=95,
     width=640,
     height=496,
     color_model=ColorModel.YCRCB_DUAL,
@@ -207,7 +207,7 @@ PD_120 = SSTVMode(
 
 PD_180 = SSTVMode(
     name='PD180',
-    vis_code=95,
+    vis_code=97,
     width=640,
     height=496,
     color_model=ColorModel.YCRCB_DUAL,
@@ -225,7 +225,7 @@ PD_180 = SSTVMode(
 
 PD_90 = SSTVMode(
     name='PD90',
-    vis_code=96,
+    vis_code=99,
     width=640,
     height=496,
     color_model=ColorModel.YCRCB_DUAL,
@@ -261,7 +261,7 @@ PD_160 = SSTVMode(
 
 PD_240 = SSTVMode(
     name='PD240',
-    vis_code=113,
+    vis_code=96,
     width=640,
     height=496,
     color_model=ColorModel.YCRCB_DUAL,
@@ -283,7 +283,7 @@ PD_240 = SSTVMode(
 
 SCOTTIE_DX = SSTVMode(
     name='ScottieDX',
-    vis_code=55,
+    vis_code=76,
     width=320,
     height=256,
     color_model=ColorModel.RGB,

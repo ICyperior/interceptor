@@ -354,15 +354,15 @@ class TestVISDetector:
         assert mode_name == 'Scottie1'
 
     def test_detect_pd120(self):
-        """Should detect PD120 VIS code (93)."""
+        """Should detect PD120 VIS code (95)."""
         detector = VISDetector()
-        header = generate_vis_header(93)  # PD120
+        header = generate_vis_header(95)  # PD120
         audio = np.concatenate([np.zeros(2400), header, np.zeros(2400)])
 
         result = detector.feed(audio)
         assert result is not None
         vis_code, mode_name = result
-        assert vis_code == 93
+        assert vis_code == 95
         assert mode_name == 'PD120'
 
     def test_noise_rejection(self):
@@ -520,7 +520,7 @@ class TestModes:
 
     def test_all_vis_codes_have_modes(self):
         """All defined VIS codes should have matching mode specs."""
-        for vis_code in [8, 12, 44, 40, 60, 56, 93, 95, 96, 98, 113, 55]:
+        for vis_code in [8, 12, 44, 40, 60, 56, 95, 97, 99, 98, 96, 76]:
             mode = get_mode(vis_code)
             assert mode is not None, f"No mode for VIS code {vis_code}"
 

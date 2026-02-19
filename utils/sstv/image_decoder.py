@@ -20,7 +20,6 @@ from .constants import (
 )
 from .dsp import (
     goertzel,
-    goertzel_batch,
     samples_for_duration,
 )
 from .modes import (
@@ -97,10 +96,6 @@ class SSTVImageDecoder:
             else:
                 self._channel_data.append(
                     np.zeros((mode.height, mode.width), dtype=np.uint8))
-
-        # Pre-compute candidate frequencies for batch pixel decoding (5 Hz step)
-        self._freq_candidates = np.arange(
-            FREQ_PIXEL_LOW - 100, FREQ_PIXEL_HIGH + 105, 5.0)
 
         # Track sync position for re-synchronization
         self._expected_line_start = 0  # Sample offset within buffer
@@ -261,18 +256,16 @@ class SSTVImageDecoder:
         if self._current_line >= self._total_audio_lines:
             self._complete = True
 
-    # Minimum analysis window for meaningful Goertzel frequency estimation.
-    # With 96 samples (2ms at 48kHz), frequency accuracy is within ~25 Hz,
-    # giving pixel-level accuracy of ~8/255 levels.
-    _MIN_ANALYSIS_WINDOW = 96
-
     def _decode_channel_pixels(self, audio: np.ndarray) -> np.ndarray:
         """Decode pixel values from a channel's audio data.
 
-        Uses batch Goertzel to estimate frequencies for all pixels
-        simultaneously, then maps to luminance values.  When pixels have
-        fewer samples than ``_MIN_ANALYSIS_WINDOW``, overlapping analysis
-        windows are used to maintain frequency estimation accuracy.
+        Uses the analytic signal (Hilbert transform via FFT) to compute
+        the instantaneous frequency at every sample, then averages over
+        each pixel's duration.  This is the same FM-demodulation approach
+        used by QSSTV and other professional SSTV decoders, and provides
+        far better frequency resolution than windowed Goertzel — especially
+        for fast modes (Martin2, Scottie2) where each pixel spans only
+        ~11-13 audio samples.
 
         Args:
             audio: Audio samples for one channel of one scanline.
@@ -281,36 +274,48 @@ class SSTVImageDecoder:
             Array of pixel values (0-255), shape (width,).
         """
         width = self._mode.width
-        samples_per_pixel = max(1, len(audio) // width)
+        n = len(audio)
 
-        if len(audio) < width or samples_per_pixel < 2:
+        if n < width:
             return np.zeros(width, dtype=np.uint8)
 
-        window_size = max(samples_per_pixel, self._MIN_ANALYSIS_WINDOW)
+        # --- Analytic signal via Hilbert transform (FFT method) ---
+        spectrum = np.fft.fft(audio)
 
-        if window_size > samples_per_pixel and len(audio) >= window_size:
-            # Use overlapping windows centered on each pixel position
-            windows = np.lib.stride_tricks.sliding_window_view(
-                audio, window_size)
-            # Pixel centers, clamped to valid window indices
-            centers = np.arange(width) * samples_per_pixel
-            indices = np.minimum(centers, len(windows) - 1)
-            audio_matrix = np.ascontiguousarray(windows[indices])
+        # Build the analytic-signal multiplier:
+        #   h[0] = 1 (DC), h[1..N/2-1] = 2 (positive freqs),
+        #   h[N/2] = 1 (Nyquist), h[N/2+1..] = 0 (negative freqs)
+        h = np.zeros(n)
+        if n % 2 == 0:
+            h[0] = h[n // 2] = 1
+            h[1:n // 2] = 2
         else:
-            # Non-overlapping: each pixel has enough samples
-            usable = width * samples_per_pixel
-            audio_matrix = audio[:usable].reshape(width, samples_per_pixel)
+            h[0] = 1
+            h[1:(n + 1) // 2] = 2
 
-        # Batch Goertzel at all candidate frequencies
-        energies = goertzel_batch(
-            audio_matrix, self._freq_candidates, self._sample_rate)
+        analytic = np.fft.ifft(spectrum * h)
 
-        # Find peak frequency per pixel
-        best_idx = np.argmax(energies, axis=1)
-        best_freqs = self._freq_candidates[best_idx]
+        # --- Instantaneous frequency ---
+        phase = np.unwrap(np.angle(analytic))
+        inst_freq = np.diff(phase) * (self._sample_rate / (2.0 * np.pi))
 
-        # Map frequencies to pixel values (1500 Hz = 0, 2300 Hz = 255)
-        normalized = (best_freqs - FREQ_PIXEL_LOW) / (FREQ_PIXEL_HIGH - FREQ_PIXEL_LOW)
+        # --- Average frequency per pixel ---
+        freq_len = len(inst_freq)
+        if freq_len < width:
+            # Fewer freq samples than pixels — index directly
+            indices = np.linspace(0, freq_len - 1, width).astype(int)
+            avg_freqs = inst_freq[indices]
+        else:
+            pixel_edges = np.linspace(0, freq_len, width + 1).astype(int)
+            segment_starts = pixel_edges[:-1]
+            segment_lengths = np.diff(pixel_edges)
+            segment_lengths = np.maximum(segment_lengths, 1)
+            sums = np.add.reduceat(inst_freq, segment_starts)
+            avg_freqs = sums / segment_lengths
+
+        # Map to pixel values (1500 Hz → 0, 2300 Hz → 255)
+        normalized = (avg_freqs - FREQ_PIXEL_LOW) / (
+            FREQ_PIXEL_HIGH - FREQ_PIXEL_LOW)
         return np.clip(normalized * 255 + 0.5, 0, 255).astype(np.uint8)
 
     def get_image(self) -> Image.Image | None:
