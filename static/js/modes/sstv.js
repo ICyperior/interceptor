@@ -20,6 +20,7 @@ const SSTV = (function() {
 
     // ISS frequency
     const ISS_FREQ = 145.800;
+    const ISS_MODULATION = 'fm';
 
     // Signal scope state
     let sstvScopeCtx = null;
@@ -544,7 +545,7 @@ const SSTV = (function() {
             const response = await fetch('/sstv/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frequency, device })
+                body: JSON.stringify({ frequency, modulation: ISS_MODULATION, device })
             });
 
             const data = await response.json();
@@ -554,9 +555,11 @@ const SSTV = (function() {
                 if (typeof reserveDevice === 'function') {
                     reserveDevice(device, 'sstv');
                 }
-                updateStatusUI('listening', `${frequency} MHz`);
+                const tunedFrequency = Number(data.frequency || frequency);
+                const modulationText = String(data.modulation || ISS_MODULATION).toUpperCase();
+                updateStatusUI('listening', `${tunedFrequency.toFixed(3)} MHz ${modulationText}`);
                 startStream();
-                showNotification('SSTV', `Listening on ${frequency} MHz`);
+                showNotification('SSTV', `Listening on ${tunedFrequency.toFixed(3)} MHz ${modulationText}`);
             } else {
                 updateStatusUI('idle', 'Start failed');
                 showStatusMessage(data.message || 'Failed to start decoder', 'error');
