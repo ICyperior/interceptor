@@ -462,6 +462,26 @@ const WeatherSat = (function() {
     }
 
     /**
+     * Parse pass timestamps, accepting legacy malformed UTC strings (+00:00Z).
+     */
+    function parsePassDate(value) {
+        if (!value || typeof value !== 'string') return null;
+
+        let parsed = new Date(value);
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed;
+        }
+
+        // Backward-compatible cleanup for accidentally double-suffixed UTC timestamps.
+        parsed = new Date(value.replace(/\+00:00Z$/, 'Z'));
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed;
+        }
+
+        return null;
+    }
+
+    /**
      * Load pass predictions (with trajectory + ground track)
      */
     async function loadPasses() {
@@ -553,13 +573,15 @@ const WeatherSat = (function() {
             const modeClass = pass.mode === 'APT' ? 'apt' : 'lrpt';
             const timeStr = pass.startTime || '--';
             const now = new Date();
-            const passStart = new Date(pass.startTimeISO);
-            const diffMs = passStart - now;
-            const diffMins = Math.floor(diffMs / 60000);
+            const passStart = parsePassDate(pass.startTimeISO);
+            const diffMs = passStart ? passStart - now : NaN;
+            const diffMins = Number.isFinite(diffMs) ? Math.floor(diffMs / 60000) : NaN;
             const isSelected = idx === selectedPassIndex;
 
-            let countdown = '';
-            if (diffMs < 0) {
+            let countdown = '--';
+            if (!Number.isFinite(diffMs)) {
+                countdown = '--';
+            } else if (diffMs < 0) {
                 countdown = 'NOW';
             } else if (diffMins < 60) {
                 countdown = `in ${diffMins}m`;
@@ -828,8 +850,11 @@ const WeatherSat = (function() {
         let isActive = false;
 
         for (const pass of passes) {
-            const start = new Date(pass.startTimeISO);
-            const end = new Date(pass.endTimeISO);
+            const start = parsePassDate(pass.startTimeISO);
+            const end = parsePassDate(pass.endTimeISO);
+            if (!start || !end) {
+                continue;
+            }
             if (end > now) {
                 nextPass = pass;
                 isActive = start <= now;
@@ -858,7 +883,19 @@ const WeatherSat = (function() {
             return;
         }
 
-        const target = new Date(nextPass.startTimeISO);
+        const target = parsePassDate(nextPass.startTimeISO);
+        if (!target) {
+            if (daysEl) daysEl.textContent = '--';
+            if (hoursEl) hoursEl.textContent = '--';
+            if (minsEl) minsEl.textContent = '--';
+            if (secsEl) secsEl.textContent = '--';
+            if (satEl) satEl.textContent = '--';
+            if (detailEl) detailEl.textContent = 'Invalid pass time';
+            if (boxes) boxes.querySelectorAll('.wxsat-countdown-box').forEach(b => {
+                b.classList.remove('imminent', 'active');
+            });
+            return;
+        }
         let diffMs = target - now;
 
         if (isActive) {
@@ -918,8 +955,9 @@ const WeatherSat = (function() {
         const dayMs = 24 * 60 * 60 * 1000;
 
         passList.forEach((pass, idx) => {
-            const start = new Date(pass.startTimeISO);
-            const end = new Date(pass.endTimeISO);
+            const start = parsePassDate(pass.startTimeISO);
+            const end = parsePassDate(pass.endTimeISO);
+            if (!start || !end) return;
 
             const startPct = Math.max(0, Math.min(100, ((start - dayStart) / dayMs) * 100));
             const endPct = Math.max(0, Math.min(100, ((end - dayStart) / dayMs) * 100));
