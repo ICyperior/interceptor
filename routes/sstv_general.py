@@ -44,7 +44,7 @@ SSTV_FREQUENCIES = [
     {'band': '15 m', 'frequency': 21.340, 'modulation': 'usb', 'notes': 'International calling frequency', 'type': 'Terrestrial HF'},
     {'band': '10 m', 'frequency': 28.680, 'modulation': 'usb', 'notes': 'International calling frequency', 'type': 'Terrestrial HF'},
     {'band': '6 m', 'frequency': 50.950, 'modulation': 'usb', 'notes': 'SSTV calling (less common)', 'type': 'Terrestrial VHF'},
-    {'band': '2 m', 'frequency': 145.625, 'modulation': 'fm', 'notes': 'Australia/common simplex (FM sometimes used)', 'type': 'Terrestrial VHF'},
+    {'band': '2 m', 'frequency': 145.500, 'modulation': 'fm', 'notes': 'Australia/common simplex (FM sometimes used)', 'type': 'Terrestrial VHF'},
     {'band': '70 cm', 'frequency': 433.775, 'modulation': 'fm', 'notes': 'Australia/common simplex', 'type': 'Terrestrial UHF'},
 ]
 
