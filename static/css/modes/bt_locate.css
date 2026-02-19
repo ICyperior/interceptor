@@ -170,6 +170,23 @@
     flex-shrink: 0;
 }
 
+.btl-hud-export-row {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.btl-hud-export-format {
+    min-width: 62px;
+    padding: 3px 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+}
+
 .btl-hud-audio-toggle {
     display: flex;
     align-items: center;
@@ -256,6 +273,7 @@
 .btl-map-container {
     flex: 1;
     min-height: 250px;
+    position: relative;
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -265,6 +283,94 @@
     width: 100%;
     height: 100%;
     background: #1a1a2e;
+}
+
+.btl-map-overlay-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 450;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(4px);
+}
+
+.btl-map-overlay-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btl-map-overlay-toggle input[type="checkbox"] {
+    margin: 0;
+}
+
+.btl-map-overlay-toggle input[type="checkbox"]:disabled + span {
+    opacity: 0.45;
+}
+
+.btl-map-heat-legend {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    z-index: 430;
+    min-width: 120px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(4px);
+}
+
+.btl-map-heat-label {
+    display: block;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    margin-bottom: 4px;
+}
+
+.btl-map-heat-bar {
+    height: 7px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #2563eb 0%, #16a34a 40%, #f59e0b 70%, #ef4444 100%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btl-map-heat-scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3px;
+    font-size: 8px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btl-map-track-stats {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 430;
+    padding: 5px 8px;
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    backdrop-filter: blur(4px);
 }
 
 .btl-rssi-chart-container {
@@ -426,5 +532,29 @@
         flex-direction: row;
         width: 100%;
         justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btl-hud-export-row {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .btl-map-overlay-controls {
+        top: 8px;
+        right: 8px;
+        gap: 3px;
+        padding: 6px 7px;
+    }
+
+    .btl-map-heat-legend {
+        left: 8px;
+        bottom: 8px;
+    }
+
+    .btl-map-track-stats {
+        right: 8px;
+        bottom: 8px;
+        font-size: 9px;
     }
 }

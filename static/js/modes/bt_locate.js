@@ -8,6 +8,7 @@ const BtLocate = (function() {
     let eventSource = null;
     let map = null;
     let mapMarkers = [];
+    let trailPoints = [];
     let trailLine = null;
     let rssiHistory = [];
     const MAX_RSSI_POINTS = 60;
@@ -24,8 +25,48 @@ const BtLocate = (function() {
     let sessionStartedAt = null;
     let lastDetectionCount = 0;
     let gpsLocked = false;
+    let heatLayer = null;
+    let heatPoints = [];
+    let movementStartMarker = null;
+    let movementHeadMarker = null;
+    let strongestMarker = null;
+    let confidenceCircle = null;
+    let heatmapEnabled = true;
+    let movementEnabled = true;
+    let autoFollowEnabled = true;
+    let smoothingEnabled = true;
+    let lastRenderedDetectionKey = null;
+
+    const MAX_HEAT_POINTS = 1200;
+    const MAX_TRAIL_POINTS = 1200;
+    const CONFIDENCE_WINDOW_POINTS = 8;
+    const OUTLIER_HARD_JUMP_METERS = 2000;
+    const OUTLIER_SOFT_JUMP_METERS = 450;
+    const OUTLIER_MAX_SPEED_MPS = 50;
+    const OVERLAY_STORAGE_KEYS = {
+        heatmap: 'btLocateHeatmapEnabled',
+        movement: 'btLocateMovementEnabled',
+        follow: 'btLocateFollowEnabled',
+        smoothing: 'btLocateSmoothingEnabled',
+    };
+
+    const HEAT_LAYER_OPTIONS = {
+        radius: 26,
+        blur: 20,
+        minOpacity: 0.25,
+        maxZoom: 19,
+        gradient: {
+            0.15: '#2563eb',
+            0.45: '#16a34a',
+            0.75: '#f59e0b',
+            1.0: '#ef4444',
+        },
+    };
 
     function init() {
+        loadOverlayPreferences();
+        syncOverlayControls();
+
         if (initialized) {
             // Re-invalidate map on re-entry and ensure tiles are present
             if (map) {
@@ -63,6 +104,9 @@ const BtLocate = (function() {
                     attribution: '&copy; OSM &copy; CARTO'
                 }).addTo(map);
             }
+            ensureHeatLayer();
+            syncMovementLayer();
+            syncHeatLayer();
             setTimeout(() => map.invalidateSize(), 100);
         }
 
@@ -85,15 +129,7 @@ const BtLocate = (function() {
                     showActiveUI();
                     updateScanStatus(data);
                     if (!eventSource) connectSSE();
-                    // Restore trail from server
-                    fetch('/bt_locate/trail')
-                        .then(r => r.json())
-                        .then(trail => {
-                            if (trail.gps_trail) {
-                                trail.gps_trail.forEach(p => addMapMarker(p));
-                            }
-                            updateStats(data.detection_count, data.gps_trail_count);
-                        });
+                    restoreTrail();
                 }
             })
             .catch(() => {});
@@ -141,6 +177,7 @@ const BtLocate = (function() {
                     connectSSE();
                     rssiHistory = [];
                     gpsLocked = false;
+                    lastRenderedDetectionKey = null;
                     updateScanStatus(data.session);
                     // Restore any existing trail (e.g. from a stop/start cycle)
                     restoreTrail();
@@ -308,7 +345,7 @@ const BtLocate = (function() {
                         .then(trail => {
                             if (trail.trail && trail.trail.length > 0) {
                                 const latest = trail.trail[trail.trail.length - 1];
-                                handleDetection({ data: latest });
+                                handleDetection({ data: latest }, { skipStatsIncrement: true });
                             }
                             updateStats(data.detection_count, data.gps_trail_count);
                         });
@@ -361,48 +398,76 @@ const BtLocate = (function() {
         }
     }
 
-    function handleDetection(event) {
-        const d = event.data;
+    function handleDetection(event, options = {}) {
+        const d = event?.data || event;
         if (!d) return;
+        const detectionKey = buildDetectionKey(d);
+        if (!options.allowDuplicate && detectionKey && detectionKey === lastRenderedDetectionKey) {
+            return;
+        }
+        if (detectionKey) {
+            lastRenderedDetectionKey = detectionKey;
+        }
 
-        // Update proximity UI
+        updateDetectionHud(d);
+
+        // RSSI sparkline
+        if (typeof d.rssi === 'number' && isFinite(d.rssi)) {
+            rssiHistory.push(d.rssi);
+            if (rssiHistory.length > MAX_RSSI_POINTS) rssiHistory.shift();
+            drawRssiChart();
+        }
+
+        // Map marker
+        let mapPointAdded = false;
+        if (d.lat != null && d.lon != null) {
+            mapPointAdded = addMapMarker(d, { suppressFollow: options.suppressFollow === true });
+        }
+
+        // Update stats
+        if (!options.skipStatsIncrement) {
+            const detCountEl = document.getElementById('btLocateDetectionCount');
+            const gpsCountEl = document.getElementById('btLocateGpsCount');
+            if (detCountEl) {
+                const cur = parseInt(detCountEl.textContent) || 0;
+                detCountEl.textContent = cur + 1;
+            }
+            if (gpsCountEl && mapPointAdded) {
+                const cur = parseInt(gpsCountEl.textContent) || 0;
+                gpsCountEl.textContent = cur + 1;
+            }
+        }
+
+        // Audio
+        if (audioEnabled) playProximityTone(d.rssi);
+    }
+
+    function updateDetectionHud(d) {
         const bandEl = document.getElementById('btLocateBand');
         const distEl = document.getElementById('btLocateDistance');
         const rssiEl = document.getElementById('btLocateRssi');
         const rssiEmaEl = document.getElementById('btLocateRssiEma');
 
         if (bandEl) {
-            bandEl.textContent = d.proximity_band;
-            bandEl.className = 'btl-hud-band ' + d.proximity_band.toLowerCase();
+            bandEl.textContent = d.proximity_band || '---';
+            const bandClass = (d.proximity_band || '').toLowerCase();
+            bandEl.className = bandClass ? 'btl-hud-band ' + bandClass : 'btl-hud-band';
         }
-        if (distEl) distEl.textContent = d.estimated_distance.toFixed(1);
-        if (rssiEl) rssiEl.textContent = d.rssi;
-        if (rssiEmaEl) rssiEmaEl.textContent = d.rssi_ema.toFixed(1);
-
-        // RSSI sparkline
-        rssiHistory.push(d.rssi);
-        if (rssiHistory.length > MAX_RSSI_POINTS) rssiHistory.shift();
-        drawRssiChart();
-
-        // Map marker
-        if (d.lat != null && d.lon != null) {
-            addMapMarker(d);
+        if (distEl) {
+            if (typeof d.estimated_distance === 'number' && isFinite(d.estimated_distance)) {
+                distEl.textContent = d.estimated_distance.toFixed(1);
+            } else {
+                distEl.textContent = '--';
+            }
         }
-
-        // Update stats
-        const detCountEl = document.getElementById('btLocateDetectionCount');
-        const gpsCountEl = document.getElementById('btLocateGpsCount');
-        if (detCountEl) {
-            const cur = parseInt(detCountEl.textContent) || 0;
-            detCountEl.textContent = cur + 1;
+        if (rssiEl) rssiEl.textContent = d.rssi != null ? d.rssi : '--';
+        if (rssiEmaEl) {
+            if (typeof d.rssi_ema === 'number' && isFinite(d.rssi_ema)) {
+                rssiEmaEl.textContent = d.rssi_ema.toFixed(1);
+            } else {
+                rssiEmaEl.textContent = '--';
+            }
         }
-        if (gpsCountEl && d.lat != null) {
-            const cur = parseInt(gpsCountEl.textContent) || 0;
-            gpsCountEl.textContent = cur + 1;
-        }
-
-        // Audio
-        if (audioEnabled) playProximityTone(d.rssi);
     }
 
     function updateStats(detections, gpsPoints) {
@@ -412,71 +477,155 @@ const BtLocate = (function() {
         if (gpsCountEl) gpsCountEl.textContent = gpsPoints || 0;
     }
 
-    function addMapMarker(point) {
-        if (!map || point.lat == null || point.lon == null) return;
+    function addMapMarker(point, options = {}) {
+        if (!map || point.lat == null || point.lon == null) return false;
+        const lat = Number(point.lat);
+        const lon = Number(point.lon);
+        if (!isFinite(lat) || !isFinite(lon)) return false;
+        if (!shouldAcceptMapPoint(point, lat, lon)) return false;
 
-        const band = (point.proximity_band || 'FAR').toLowerCase();
+        const trailPoint = normalizeTrailPoint(point, lat, lon);
+        const band = (trailPoint.proximity_band || 'FAR').toLowerCase();
         const colors = { immediate: '#ef4444', near: '#f97316', far: '#eab308' };
         const sizes = { immediate: 8, near: 6, far: 5 };
         const color = colors[band] || '#eab308';
         const radius = sizes[band] || 5;
 
-        const marker = L.circleMarker([point.lat, point.lon], {
+        const marker = L.circleMarker([lat, lon], {
             radius: radius,
             fillColor: color,
             color: '#fff',
             weight: 1,
             opacity: 0.9,
             fillOpacity: 0.8,
+            btLocateMeta: trailPoint,
         }).addTo(map);
 
         marker.bindPopup(
             '<div style="font-family:monospace;font-size:11px;">' +
-            '<b>' + point.proximity_band + '</b><br>' +
-            'RSSI: ' + point.rssi + ' dBm<br>' +
-            'Distance: ~' + point.estimated_distance.toFixed(1) + ' m<br>' +
-            'Time: ' + new Date(point.timestamp).toLocaleTimeString() +
+            '<b>' + (trailPoint.proximity_band || 'Unknown') + '</b><br>' +
+            'RSSI: ' + (trailPoint.rssi != null ? trailPoint.rssi : '--') + ' dBm<br>' +
+            'Distance: ~' + formatDistanceForPopup(trailPoint.estimated_distance) + ' m<br>' +
+            'Time: ' + formatPointTimestamp(trailPoint.timestamp) +
             '</div>'
         );
 
+        trailPoints.push(trailPoint);
         mapMarkers.push(marker);
+        heatPoints.push([lat, lon, rssiToHeatWeight(trailPoint.rssi)]);
 
-        if (!gpsLocked) {
-            gpsLocked = true;
-            map.setView([point.lat, point.lon], map.getMaxZoom());
+        while (trailPoints.length > MAX_TRAIL_POINTS) {
+            trailPoints.shift();
+            const oldMarker = mapMarkers.shift();
+            if (oldMarker && map) map.removeLayer(oldMarker);
+        }
+        if (heatPoints.length > MAX_HEAT_POINTS) {
+            heatPoints.splice(0, heatPoints.length - MAX_HEAT_POINTS);
+        }
+        syncHeatLayer();
+
+        if (autoFollowEnabled && !options.suppressFollow) {
+            if (!gpsLocked) {
+                gpsLocked = true;
+                map.setView([lat, lon], Math.max(map.getZoom(), 16));
+            } else {
+                map.panTo([lat, lon], { animate: true, duration: 0.35 });
+            }
         } else {
-            map.panTo([point.lat, point.lon]);
+            gpsLocked = true;
         }
 
-        // Update trail line
-        const latlngs = mapMarkers.map(m => m.getLatLng());
-        if (trailLine) {
-            trailLine.setLatLngs(latlngs);
-        } else if (latlngs.length >= 2) {
-            trailLine = L.polyline(latlngs, {
-                color: 'rgba(0,255,136,0.5)',
-                weight: 2,
-                dashArray: '4 4',
-            }).addTo(map);
+        syncMovementLayer();
+        syncStrongestMarker();
+        updateConfidenceLayer();
+        updateMovementStats();
+        return true;
+    }
+
+    function normalizeTrailPoint(point, lat, lon) {
+        const rssiVal = Number(point.rssi);
+        const rssiEmaVal = Number(point.rssi_ema);
+        const distVal = Number(point.estimated_distance);
+        return {
+            lat: lat,
+            lon: lon,
+            rssi: isFinite(rssiVal) ? rssiVal : null,
+            rssi_ema: isFinite(rssiEmaVal) ? rssiEmaVal : null,
+            estimated_distance: isFinite(distVal) ? distVal : null,
+            proximity_band: point.proximity_band || 'FAR',
+            timestamp: point.timestamp || null,
+        };
+    }
+
+    function shouldAcceptMapPoint(point, lat, lon) {
+        if (trailPoints.length === 0) return true;
+        const prev = trailPoints[trailPoints.length - 1];
+        if (!prev) return true;
+
+        const distanceMeters = map
+            ? map.distance([prev.lat, prev.lon], [lat, lon])
+            : L.latLng(prev.lat, prev.lon).distanceTo(L.latLng(lat, lon));
+
+        if (!isFinite(distanceMeters)) return true;
+        if (distanceMeters > OUTLIER_HARD_JUMP_METERS) return false;
+
+        const prevTs = getTimestampMs(prev.timestamp);
+        const currTs = getTimestampMs(point.timestamp);
+        if (prevTs != null && currTs != null && currTs > prevTs) {
+            const elapsedSec = (currTs - prevTs) / 1000;
+            if (elapsedSec > 0) {
+                const speedMps = distanceMeters / elapsedSec;
+                if (distanceMeters > OUTLIER_SOFT_JUMP_METERS && speedMps > OUTLIER_MAX_SPEED_MPS) {
+                    return false;
+                }
+            }
+        } else if (distanceMeters > OUTLIER_SOFT_JUMP_METERS) {
+            return false;
         }
+
+        return true;
+    }
+
+    function getTimestampMs(value) {
+        if (!value) return null;
+        const ts = new Date(value).getTime();
+        return isNaN(ts) ? null : ts;
     }
 
     function restoreTrail() {
         fetch('/bt_locate/trail')
             .then(r => r.json())
             .then(trail => {
-                if (trail.gps_trail && trail.gps_trail.length > 0) {
-                    clearMapMarkers();
-                    trail.gps_trail.forEach(p => addMapMarker(p));
-                }
-                if (trail.trail && trail.trail.length > 0) {
-                    // Restore RSSI history from trail
-                    rssiHistory = trail.trail.map(p => p.rssi).slice(-MAX_RSSI_POINTS);
+                clearMapMarkers();
+
+                const gpsTrail = Array.isArray(trail.gps_trail) ? trail.gps_trail : [];
+                const allTrail = Array.isArray(trail.trail) ? trail.trail : [];
+
+                gpsTrail.forEach(p => addMapMarker(p, { suppressFollow: true }));
+
+                if (allTrail.length > 0) {
+                    rssiHistory = allTrail.map(p => p.rssi).filter(v => typeof v === 'number' && isFinite(v)).slice(-MAX_RSSI_POINTS);
                     drawRssiChart();
-                    // Update HUD with latest detection
-                    const latest = trail.trail[trail.trail.length - 1];
-                    handleDetection({ data: latest });
+                    const latest = allTrail[allTrail.length - 1];
+                    updateDetectionHud(latest);
+                    lastRenderedDetectionKey = buildDetectionKey(latest);
+                } else {
+                    rssiHistory = [];
+                    drawRssiChart();
                 }
+
+                updateStats(allTrail.length, gpsTrail.length);
+
+                if (trailPoints.length > 0 && map) {
+                    const latestGps = trailPoints[trailPoints.length - 1];
+                    gpsLocked = true;
+                    const targetZoom = Math.max(map.getZoom(), 15);
+                    map.setView([latestGps.lat, latestGps.lon], targetZoom);
+                }
+                syncMovementLayer();
+                syncStrongestMarker();
+                updateConfidenceLayer();
+                updateMovementStats();
             })
             .catch(() => {});
     }
@@ -484,9 +633,583 @@ const BtLocate = (function() {
     function clearMapMarkers() {
         mapMarkers.forEach(m => map?.removeLayer(m));
         mapMarkers = [];
+        trailPoints = [];
+        heatPoints = [];
         if (trailLine) {
             map?.removeLayer(trailLine);
             trailLine = null;
+        }
+        if (movementStartMarker) {
+            map?.removeLayer(movementStartMarker);
+            movementStartMarker = null;
+        }
+        if (movementHeadMarker) {
+            map?.removeLayer(movementHeadMarker);
+            movementHeadMarker = null;
+        }
+        if (strongestMarker) {
+            map?.removeLayer(strongestMarker);
+            strongestMarker = null;
+        }
+        if (confidenceCircle) {
+            map?.removeLayer(confidenceCircle);
+            confidenceCircle = null;
+        }
+        if (heatLayer) {
+            heatLayer.setLatLngs([]);
+        }
+        updateStrongestInfo(null);
+        updateConfidenceInfo(null);
+        updateMovementStats();
+    }
+
+    function syncStrongestMarker() {
+        if (!map) return;
+        const strongest = getStrongestTrailPoint();
+        if (!strongest) {
+            if (strongestMarker) {
+                map.removeLayer(strongestMarker);
+                strongestMarker = null;
+            }
+            updateStrongestInfo(null);
+            return;
+        }
+
+        const latlng = [strongest.lat, strongest.lon];
+        if (!strongestMarker) {
+            strongestMarker = L.circleMarker(latlng, {
+                radius: 7,
+                fillColor: '#f59e0b',
+                color: '#ffffff',
+                weight: 2,
+                fillOpacity: 0.9,
+            }).addTo(map).bindTooltip('Best RSSI', { direction: 'top' });
+        } else {
+            strongestMarker.setLatLng(latlng);
+            if (!map.hasLayer(strongestMarker)) {
+                strongestMarker.addTo(map);
+            }
+        }
+
+        strongestMarker.bindPopup(
+            '<div style="font-family:monospace;font-size:11px;">' +
+            '<b>Strongest Signal</b><br>' +
+            'RSSI: ' + strongest.rssi + ' dBm<br>' +
+            'Time: ' + formatPointTimestamp(strongest.timestamp) +
+            '</div>'
+        );
+        updateStrongestInfo(strongest);
+    }
+
+    function getStrongestTrailPoint() {
+        let best = null;
+        for (const p of trailPoints) {
+            if (typeof p.rssi !== 'number' || !isFinite(p.rssi)) continue;
+            if (!best || p.rssi > best.rssi) {
+                best = p;
+            }
+        }
+        return best;
+    }
+
+    function updateStrongestInfo(strongest) {
+        const strongestEl = document.getElementById('btLocateBestSignal');
+        if (!strongestEl) return;
+        if (!strongest || typeof strongest.rssi !== 'number' || !isFinite(strongest.rssi)) {
+            strongestEl.textContent = 'Best: --';
+            return;
+        }
+        strongestEl.textContent = 'Best: ' + strongest.rssi + ' dBm';
+    }
+
+    function updateConfidenceLayer() {
+        if (!map) return;
+        const latest = trailPoints[trailPoints.length - 1];
+        const radius = computeConfidenceRadiusMeters();
+        if (!latest || radius == null) {
+            if (confidenceCircle) {
+                map.removeLayer(confidenceCircle);
+                confidenceCircle = null;
+            }
+            updateConfidenceInfo(null);
+            return;
+        }
+
+        if (!confidenceCircle) {
+            confidenceCircle = L.circle([latest.lat, latest.lon], {
+                radius: radius,
+                color: '#93c5fd',
+                weight: 1,
+                fillColor: '#60a5fa',
+                fillOpacity: 0.08,
+            }).addTo(map);
+        } else {
+            confidenceCircle.setLatLng([latest.lat, latest.lon]);
+            confidenceCircle.setRadius(radius);
+            if (!map.hasLayer(confidenceCircle)) {
+                confidenceCircle.addTo(map);
+            }
+        }
+        updateConfidenceInfo(radius);
+    }
+
+    function computeConfidenceRadiusMeters() {
+        if (trailPoints.length < 2) return null;
+        const sample = trailPoints.slice(-CONFIDENCE_WINDOW_POINTS);
+        const distances = sample.map(p => p.estimated_distance).filter(v => typeof v === 'number' && isFinite(v) && v > 0);
+        const rssis = sample.map(p => p.rssi).filter(v => typeof v === 'number' && isFinite(v));
+        if (distances.length < 2 && rssis.length < 2) return null;
+
+        const meanDistance = distances.length > 0 ? average(distances) : 20;
+        const stdDistance = distances.length > 1 ? standardDeviation(distances) : 0;
+        const stdRssi = rssis.length > 1 ? standardDeviation(rssis) : 0;
+        const confidence = (meanDistance * 0.35) + (stdDistance * 1.6) + (stdRssi * 0.9) + 3;
+        return Math.max(4, Math.min(150, confidence));
+    }
+
+    function updateConfidenceInfo(radiusMeters) {
+        const confidenceEl = document.getElementById('btLocateConfidenceInfo');
+        if (!confidenceEl) return;
+        if (radiusMeters == null || !isFinite(radiusMeters)) {
+            confidenceEl.textContent = 'Confidence: --';
+            return;
+        }
+        confidenceEl.textContent = 'Confidence: +/-' + Math.round(radiusMeters) + ' m';
+    }
+
+    function buildDetectionKey(detection) {
+        if (!detection) return '';
+        const timestamp = detection.timestamp || '';
+        const lat = detection.lat != null ? Number(detection.lat).toFixed(6) : '';
+        const lon = detection.lon != null ? Number(detection.lon).toFixed(6) : '';
+        const rssi = detection.rssi != null ? String(detection.rssi) : '';
+        return [timestamp, lat, lon, rssi].join('|');
+    }
+
+    function rssiToHeatWeight(rssi) {
+        const value = Number(rssi);
+        if (!isFinite(value)) return 0.2;
+        const min = -100;
+        const max = -35;
+        const clamped = Math.max(min, Math.min(max, value));
+        return 0.1 + ((clamped - min) / (max - min)) * 0.9;
+    }
+
+    function ensureHeatLayer() {
+        if (!map || typeof L === 'undefined' || typeof L.heatLayer !== 'function') return;
+        if (!heatLayer) {
+            heatLayer = L.heatLayer([], HEAT_LAYER_OPTIONS);
+        }
+    }
+
+    function syncHeatLayer() {
+        if (!map) return;
+        ensureHeatLayer();
+        if (!heatLayer) return;
+        heatLayer.setLatLngs(heatPoints);
+        if (heatmapEnabled) {
+            if (!map.hasLayer(heatLayer)) {
+                heatLayer.addTo(map);
+            }
+        } else if (map.hasLayer(heatLayer)) {
+            map.removeLayer(heatLayer);
+        }
+    }
+
+    function syncMovementLayer() {
+        if (!map) return;
+        const rawLatlngs = trailPoints.map(p => L.latLng(p.lat, p.lon));
+        const latlngs = smoothingEnabled ? smoothLatLngs(rawLatlngs) : rawLatlngs;
+
+        if (!movementEnabled || latlngs.length < 2) {
+            if (trailLine) {
+                map.removeLayer(trailLine);
+                trailLine = null;
+            }
+        } else if (!trailLine) {
+            trailLine = L.polyline(latlngs, {
+                color: '#00ff88',
+                weight: 3,
+                opacity: 0.65,
+                smoothFactor: smoothingEnabled ? 1.0 : 0.2,
+            }).addTo(map);
+        } else {
+            trailLine.setLatLngs(latlngs);
+            trailLine.options.smoothFactor = smoothingEnabled ? 1.0 : 0.2;
+            if (!map.hasLayer(trailLine)) {
+                trailLine.addTo(map);
+            }
+        }
+
+        if (!movementEnabled || latlngs.length === 0) {
+            if (movementStartMarker) {
+                map.removeLayer(movementStartMarker);
+                movementStartMarker = null;
+            }
+            if (movementHeadMarker) {
+                map.removeLayer(movementHeadMarker);
+                movementHeadMarker = null;
+            }
+            return;
+        }
+
+        const start = rawLatlngs[0];
+        const latest = rawLatlngs[rawLatlngs.length - 1];
+
+        if (!movementStartMarker) {
+            movementStartMarker = L.circleMarker(start, {
+                radius: 4,
+                fillColor: '#38bdf8',
+                color: '#ffffff',
+                weight: 1,
+                fillOpacity: 0.9,
+            }).addTo(map).bindTooltip('Start', { direction: 'top' });
+        } else {
+            movementStartMarker.setLatLng(start);
+            if (!map.hasLayer(movementStartMarker)) {
+                movementStartMarker.addTo(map);
+            }
+        }
+
+        if (!movementHeadMarker) {
+            movementHeadMarker = L.circleMarker(latest, {
+                radius: 6,
+                fillColor: '#22c55e',
+                color: '#ffffff',
+                weight: 1,
+                fillOpacity: 1,
+            }).addTo(map).bindTooltip('Latest', { direction: 'top' });
+        } else {
+            movementHeadMarker.setLatLng(latest);
+            if (!map.hasLayer(movementHeadMarker)) {
+                movementHeadMarker.addTo(map);
+            }
+        }
+    }
+
+    function updateMovementStats() {
+        const statsEl = document.getElementById('btLocateTrackStats');
+        if (!statsEl) return;
+
+        const points = trailPoints.map(p => L.latLng(p.lat, p.lon));
+        if (points.length < 2) {
+            statsEl.textContent = 'Track: 0 m | ' + points.length + ' pts';
+            return;
+        }
+
+        let totalMeters = 0;
+        for (let i = 1; i < points.length; i++) {
+            totalMeters += points[i - 1].distanceTo(points[i]);
+        }
+
+        let speedSuffix = '';
+        const firstMeta = trailPoints[0] || null;
+        const lastMeta = trailPoints[points.length - 1] || null;
+        if (firstMeta?.timestamp && lastMeta?.timestamp) {
+            const elapsedSec = (new Date(lastMeta.timestamp).getTime() - new Date(firstMeta.timestamp).getTime()) / 1000;
+            if (elapsedSec > 5 && isFinite(elapsedSec)) {
+                const avgKmh = (totalMeters / elapsedSec) * 3.6;
+                if (isFinite(avgKmh)) {
+                    speedSuffix = ' | avg ' + avgKmh.toFixed(avgKmh < 10 ? 1 : 0) + ' km/h';
+                }
+            }
+        }
+
+        statsEl.textContent = 'Track: ' + humanDistance(totalMeters) + ' | ' + points.length + ' pts' + speedSuffix;
+    }
+
+    function smoothLatLngs(latlngs) {
+        if (!Array.isArray(latlngs) || latlngs.length < 3) return latlngs;
+        const smoothed = [];
+        for (let i = 0; i < latlngs.length; i++) {
+            const start = Math.max(0, i - 1);
+            const end = Math.min(latlngs.length - 1, i + 1);
+            let latSum = 0;
+            let lngSum = 0;
+            let count = 0;
+            for (let j = start; j <= end; j++) {
+                latSum += latlngs[j].lat;
+                lngSum += latlngs[j].lng;
+                count += 1;
+            }
+            smoothed.push(L.latLng(latSum / count, lngSum / count));
+        }
+        return smoothed;
+    }
+
+    function humanDistance(meters) {
+        if (!isFinite(meters) || meters <= 0) return '0 m';
+        if (meters >= 1000) {
+            return (meters / 1000).toFixed(meters >= 10000 ? 1 : 2) + ' km';
+        }
+        return Math.round(meters) + ' m';
+    }
+
+    function formatDistanceForPopup(value) {
+        const dist = Number(value);
+        if (!isFinite(dist)) return '--';
+        return dist.toFixed(1);
+    }
+
+    function formatPointTimestamp(value) {
+        if (!value) return '--';
+        const ts = new Date(value);
+        if (isNaN(ts.getTime())) return '--';
+        return ts.toLocaleTimeString();
+    }
+
+    function average(values) {
+        if (!Array.isArray(values) || values.length === 0) return 0;
+        return values.reduce((sum, val) => sum + val, 0) / values.length;
+    }
+
+    function standardDeviation(values) {
+        if (!Array.isArray(values) || values.length < 2) return 0;
+        const mean = average(values);
+        const variance = values.reduce((sum, val) => {
+            const delta = val - mean;
+            return sum + (delta * delta);
+        }, 0) / values.length;
+        return Math.sqrt(variance);
+    }
+
+    function loadOverlayPreferences() {
+        const heatmapPref = localStorage.getItem(OVERLAY_STORAGE_KEYS.heatmap);
+        const movementPref = localStorage.getItem(OVERLAY_STORAGE_KEYS.movement);
+        const followPref = localStorage.getItem(OVERLAY_STORAGE_KEYS.follow);
+        const smoothingPref = localStorage.getItem(OVERLAY_STORAGE_KEYS.smoothing);
+        if (heatmapPref !== null) heatmapEnabled = heatmapPref === 'true';
+        if (movementPref !== null) movementEnabled = movementPref === 'true';
+        if (followPref !== null) autoFollowEnabled = followPref === 'true';
+        if (smoothingPref !== null) smoothingEnabled = smoothingPref === 'true';
+    }
+
+    function syncOverlayControls() {
+        const heatmapCb = document.getElementById('btLocateHeatmapEnable');
+        const movementCb = document.getElementById('btLocateMovementEnable');
+        const followCb = document.getElementById('btLocateFollowEnable');
+        const smoothCb = document.getElementById('btLocateSmoothEnable');
+        const legend = document.getElementById('btLocateHeatLegend');
+        const heatAvailable = typeof L !== 'undefined' && typeof L.heatLayer === 'function';
+
+        if (heatmapCb) {
+            heatmapCb.checked = heatAvailable ? heatmapEnabled : false;
+            heatmapCb.disabled = !heatAvailable;
+        }
+        if (movementCb) movementCb.checked = movementEnabled;
+        if (followCb) followCb.checked = autoFollowEnabled;
+        if (smoothCb) smoothCb.checked = smoothingEnabled;
+        if (legend) legend.style.display = heatmapEnabled && heatAvailable ? '' : 'none';
+    }
+
+    function toggleHeatmap() {
+        const cb = document.getElementById('btLocateHeatmapEnable');
+        heatmapEnabled = cb ? cb.checked : !heatmapEnabled;
+        localStorage.setItem(OVERLAY_STORAGE_KEYS.heatmap, String(heatmapEnabled));
+        syncOverlayControls();
+        syncHeatLayer();
+    }
+
+    function toggleMovement() {
+        const cb = document.getElementById('btLocateMovementEnable');
+        movementEnabled = cb ? cb.checked : !movementEnabled;
+        localStorage.setItem(OVERLAY_STORAGE_KEYS.movement, String(movementEnabled));
+        syncOverlayControls();
+        syncMovementLayer();
+        updateMovementStats();
+    }
+
+    function toggleFollow() {
+        const cb = document.getElementById('btLocateFollowEnable');
+        autoFollowEnabled = cb ? cb.checked : !autoFollowEnabled;
+        localStorage.setItem(OVERLAY_STORAGE_KEYS.follow, String(autoFollowEnabled));
+        syncOverlayControls();
+    }
+
+    function toggleSmoothing() {
+        const cb = document.getElementById('btLocateSmoothEnable');
+        smoothingEnabled = cb ? cb.checked : !smoothingEnabled;
+        localStorage.setItem(OVERLAY_STORAGE_KEYS.smoothing, String(smoothingEnabled));
+        syncOverlayControls();
+        syncMovementLayer();
+    }
+
+    function exportTrail(format) {
+        const formatSel = document.getElementById('btLocateExportFormat');
+        const exportFormat = String(format || formatSel?.value || 'csv').toLowerCase();
+        fetch('/bt_locate/trail')
+            .then(r => r.json())
+            .then(data => {
+                const allTrail = Array.isArray(data.trail) ? data.trail : [];
+                if (allTrail.length === 0) {
+                    notifyExport('No data', 'No trail data to export yet.');
+                    return;
+                }
+
+                let payload = '';
+                let mime = 'text/plain;charset=utf-8';
+                let ext = exportFormat;
+
+                if (exportFormat === 'csv') {
+                    payload = buildTrailCsv(allTrail);
+                    mime = 'text/csv;charset=utf-8';
+                    ext = 'csv';
+                } else if (exportFormat === 'gpx') {
+                    payload = buildTrailGpx(allTrail);
+                    mime = 'application/gpx+xml;charset=utf-8';
+                    ext = 'gpx';
+                } else if (exportFormat === 'kml') {
+                    payload = buildTrailKml(allTrail);
+                    mime = 'application/vnd.google-earth.kml+xml;charset=utf-8';
+                    ext = 'kml';
+                } else {
+                    notifyExport('Export failed', 'Unsupported export format: ' + exportFormat);
+                    return;
+                }
+
+                const downloaded = downloadTrailFile('bt-locate-' + buildExportStamp() + '.' + ext, payload, mime);
+                if (downloaded) {
+                    notifyExport('Export ready', 'Downloaded BT Locate trail as ' + ext.toUpperCase());
+                }
+            })
+            .catch(err => {
+                console.error('[BtLocate] Export failed:', err);
+                notifyExport('Export failed', 'Could not export trail data.');
+            });
+    }
+
+    function buildTrailCsv(trail) {
+        const header = [
+            'timestamp',
+            'lat',
+            'lon',
+            'rssi',
+            'rssi_ema',
+            'estimated_distance',
+            'proximity_band',
+        ];
+        const rows = trail.map(p => [
+            csvEscape(p.timestamp || ''),
+            csvEscape(p.lat),
+            csvEscape(p.lon),
+            csvEscape(p.rssi),
+            csvEscape(p.rssi_ema),
+            csvEscape(p.estimated_distance),
+            csvEscape(p.proximity_band || ''),
+        ].join(','));
+        return [header.join(','), ...rows].join('\n');
+    }
+
+    function buildTrailGpx(trail) {
+        const pts = trail.filter(p => p.lat != null && p.lon != null);
+        if (pts.length === 0) return '';
+        const trkPts = pts.map(p => {
+            const rssi = p.rssi != null ? '<extensions><rssi>' + escapeXml(String(p.rssi)) + '</rssi></extensions>' : '';
+            const isoTime = toIsoStringSafe(p.timestamp);
+            const time = isoTime ? '<time>' + escapeXml(isoTime) + '</time>' : '';
+            return (
+                '<trkpt lat="' + escapeXml(String(Number(p.lat).toFixed(6))) + '" lon="' + escapeXml(String(Number(p.lon).toFixed(6))) + '">' +
+                time +
+                rssi +
+                '</trkpt>'
+            );
+        }).join('');
+
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<gpx version="1.1" creator="iNTERCEPT BT Locate" xmlns="http://www.topografix.com/GPX/1/1">' +
+            '<trk><name>BT Locate Trail</name><trkseg>' +
+            trkPts +
+            '</trkseg></trk>' +
+            '</gpx>'
+        );
+    }
+
+    function buildTrailKml(trail) {
+        const pts = trail.filter(p => p.lat != null && p.lon != null);
+        if (pts.length === 0) return '';
+        const lineCoords = pts.map(p => Number(p.lon).toFixed(6) + ',' + Number(p.lat).toFixed(6) + ',0').join(' ');
+        const pointPlacemarks = pts.map((p, idx) => {
+            const label = 'Point ' + (idx + 1) + ' | RSSI ' + (p.rssi != null ? p.rssi : '--') + ' dBm';
+            const desc = 'Time: ' + (toIsoStringSafe(p.timestamp) || '--');
+            return (
+                '<Placemark>' +
+                '<name>' + escapeXml(label) + '</name>' +
+                '<description>' + escapeXml(desc) + '</description>' +
+                '<Point><coordinates>' + Number(p.lon).toFixed(6) + ',' + Number(p.lat).toFixed(6) + ',0</coordinates></Point>' +
+                '</Placemark>'
+            );
+        }).join('');
+
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>' +
+            '<name>BT Locate Trail</name>' +
+            '<Placemark><name>Trail</name><LineString><tessellate>1</tessellate><coordinates>' + lineCoords + '</coordinates></LineString></Placemark>' +
+            pointPlacemarks +
+            '</Document></kml>'
+        );
+    }
+
+    function csvEscape(value) {
+        if (value == null) return '';
+        const text = String(value);
+        if (/[",\n]/.test(text)) {
+            return '"' + text.replace(/"/g, '""') + '"';
+        }
+        return text;
+    }
+
+    function escapeXml(value) {
+        if (value == null) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    }
+
+    function toIsoStringSafe(value) {
+        if (!value) return '';
+        const ts = new Date(value);
+        if (isNaN(ts.getTime())) return '';
+        return ts.toISOString();
+    }
+
+    function buildExportStamp() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        return '' + y + m + d + '-' + hh + mm + ss;
+    }
+
+    function downloadTrailFile(filename, content, mimeType) {
+        if (!content) {
+            notifyExport('No data', 'No GPS points available for this export format.');
+            return false;
+        }
+        const blob = new Blob([content], { type: mimeType || 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return true;
+    }
+
+    function notifyExport(title, message) {
+        if (typeof showNotification === 'function') {
+            showNotification(title, message);
+        } else {
+            console.log('[BtLocate] ' + title + ': ' + message);
         }
     }
 
@@ -732,6 +1455,7 @@ const BtLocate = (function() {
                 clearMapMarkers();
                 rssiHistory = [];
                 gpsLocked = false;
+                lastRenderedDetectionKey = null;
                 drawRssiChart();
                 updateStats(0, 0);
             })
@@ -750,6 +1474,11 @@ const BtLocate = (function() {
         clearHandoff,
         setEnvironment,
         toggleAudio,
+        toggleHeatmap,
+        toggleMovement,
+        toggleFollow,
+        toggleSmoothing,
+        exportTrail,
         clearTrail,
         handleDetection,
         invalidateMap,

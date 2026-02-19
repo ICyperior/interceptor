@@ -35,9 +35,11 @@
     {% if offline_settings.assets_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
     <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/leaflet-heat/leaflet-heat.js') }}"></script>
     {% else %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     {% endif %}
     <!-- Chart.js for signal strength graphs - Conditional CDN/Local loading -->
     {% if offline_settings.assets_source == 'local' %}
@@ -65,7 +67,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/sstv-general.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/gps.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/space-weather.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
@@ -2240,6 +2242,14 @@
                                     <input type="checkbox" id="btLocateAudioEnable" onchange="BtLocate.toggleAudio()">
                                     <span>Audio</span>
                                 </label>
+                                <div class="btl-hud-export-row">
+                                    <select id="btLocateExportFormat" class="btl-hud-export-format">
+                                        <option value="csv">CSV</option>
+                                        <option value="gpx">GPX</option>
+                                        <option value="kml">KML</option>
+                                    </select>
+                                    <button class="btl-hud-clear-btn" onclick="BtLocate.exportTrail()">Export</button>
+                                </div>
                                 <button class="btl-hud-clear-btn" onclick="BtLocate.clearTrail()">Clear Trail</button>
                             </div>
                         </div>
@@ -2252,12 +2262,43 @@
                                 <span class="btl-hud-info-item" id="btLocateGpsStatus">GPS: --</span>
                                 <span class="btl-hud-info-sep">&middot;</span>
                                 <span class="btl-hud-info-item" id="btLocateLastSeen">Last: --</span>
+                                <span class="btl-hud-info-sep">&middot;</span>
+                                <span class="btl-hud-info-item" id="btLocateConfidenceInfo">Confidence: --</span>
+                                <span class="btl-hud-info-sep">&middot;</span>
+                                <span class="btl-hud-info-item" id="btLocateBestSignal">Best: --</span>
                             </div>
                             <div id="btLocateDiag" class="btl-hud-diag"></div>
                         </div>
                     </div>
                     <div class="btl-map-container">
                         <div id="btLocateMap"></div>
+                        <div class="btl-map-overlay-controls">
+                            <label class="btl-map-overlay-toggle">
+                                <input type="checkbox" id="btLocateHeatmapEnable" onchange="BtLocate.toggleHeatmap()">
+                                <span>Heatmap</span>
+                            </label>
+                            <label class="btl-map-overlay-toggle">
+                                <input type="checkbox" id="btLocateMovementEnable" onchange="BtLocate.toggleMovement()">
+                                <span>Movement</span>
+                            </label>
+                            <label class="btl-map-overlay-toggle">
+                                <input type="checkbox" id="btLocateFollowEnable" onchange="BtLocate.toggleFollow()">
+                                <span>Auto follow</span>
+                            </label>
+                            <label class="btl-map-overlay-toggle">
+                                <input type="checkbox" id="btLocateSmoothEnable" onchange="BtLocate.toggleSmoothing()">
+                                <span>Smooth path</span>
+                            </label>
+                        </div>
+                        <div class="btl-map-heat-legend" id="btLocateHeatLegend">
+                            <span class="btl-map-heat-label">Signal Heat</span>
+                            <div class="btl-map-heat-bar"></div>
+                            <div class="btl-map-heat-scale">
+                                <span>Weak</span>
+                                <span>Strong</span>
+                            </div>
+                        </div>
+                        <div class="btl-map-track-stats" id="btLocateTrackStats">Track: 0 m | 0 pts</div>
                     </div>
                     <div class="btl-rssi-chart-container">
                         <span class="btl-chart-label">RSSI History</span>
@@ -3181,7 +3222,7 @@
     <script src="{{ url_for('static', filename='js/modes/dmr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
-    <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate2"></script>
+    <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate4"></script>
     <script src="{{ url_for('static', filename='js/modes/analytics.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/space-weather.js') }}"></script>
 
