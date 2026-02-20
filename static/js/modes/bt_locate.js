@@ -31,7 +31,7 @@ const BtLocate = (function() {
     let movementHeadMarker = null;
     let strongestMarker = null;
     let confidenceCircle = null;
-    let heatmapEnabled = true;
+    let heatmapEnabled = false;
     let movementEnabled = true;
     let autoFollowEnabled = true;
     let smoothingEnabled = true;
@@ -39,6 +39,10 @@ const BtLocate = (function() {
     let pendingHeatSync = false;
     let mapStabilizeTimer = null;
     let modeActive = false;
+    let queuedDetection = null;
+    let queuedDetectionOptions = null;
+    let queuedDetectionTimer = null;
+    let lastDetectionRenderAt = 0;
 
     const MAX_HEAT_POINTS = 1200;
     const MAX_TRAIL_POINTS = 1200;
@@ -46,8 +50,9 @@ const BtLocate = (function() {
     const OUTLIER_HARD_JUMP_METERS = 2000;
     const OUTLIER_SOFT_JUMP_METERS = 450;
     const OUTLIER_MAX_SPEED_MPS = 50;
-    const MAP_STABILIZE_INTERVAL_MS = 150;
-    const MAP_STABILIZE_ATTEMPTS = 28;
+    const MAP_STABILIZE_INTERVAL_MS = 220;
+    const MAP_STABILIZE_ATTEMPTS = 8;
+    const MIN_DETECTION_RENDER_MS = 220;
     const OVERLAY_STORAGE_KEYS = {
         heatmap: 'btLocateHeatmapEnabled',
         movement: 'btLocateMovementEnabled',
@@ -94,7 +99,7 @@ const BtLocate = (function() {
             // Re-invalidate map on re-entry and ensure tiles are present
             if (map) {
                 setTimeout(() => {
-                    safeInvalidateMap(true);
+                    safeInvalidateMap();
                     // Re-apply user's tile layer if tiles were lost
                     let hasTiles = false;
                     map.eachLayer(layer => {
@@ -144,7 +149,7 @@ const BtLocate = (function() {
                 flushPendingHeatSync();
             });
             setTimeout(() => {
-                safeInvalidateMap(true);
+                safeInvalidateMap();
                 flushPendingHeatSync();
             }, 100);
             scheduleMapStabilization();
@@ -259,6 +264,12 @@ const BtLocate = (function() {
         fetch('/bt_locate/stop', { method: 'POST' })
             .then(r => r.json())
             .then(() => {
+                if (queuedDetectionTimer) {
+                    clearTimeout(queuedDetectionTimer);
+                    queuedDetectionTimer = null;
+                }
+                queuedDetection = null;
+                queuedDetectionOptions = null;
                 showIdleUI();
                 disconnectSSE();
                 stopAudio();
@@ -275,6 +286,12 @@ const BtLocate = (function() {
     }
 
     function showIdleUI() {
+        if (queuedDetectionTimer) {
+            clearTimeout(queuedDetectionTimer);
+            queuedDetectionTimer = null;
+        }
+        queuedDetection = null;
+        queuedDetectionOptions = null;
         const startBtn = document.getElementById('btLocateStartBtn');
         const stopBtn = document.getElementById('btLocateStopBtn');
         if (startBtn) startBtn.style.display = 'inline-block';
@@ -475,7 +492,42 @@ const BtLocate = (function() {
         }
     }
 
+    function flushQueuedDetection() {
+        if (!queuedDetection) return;
+        const event = queuedDetection;
+        const options = queuedDetectionOptions || {};
+        queuedDetection = null;
+        queuedDetectionOptions = null;
+        queuedDetectionTimer = null;
+        renderDetection(event, options);
+    }
+
     function handleDetection(event, options = {}) {
+        if (!modeActive) {
+            return;
+        }
+        const now = Date.now();
+        if (options.force || (now - lastDetectionRenderAt) >= MIN_DETECTION_RENDER_MS) {
+            if (queuedDetectionTimer) {
+                clearTimeout(queuedDetectionTimer);
+                queuedDetectionTimer = null;
+            }
+            queuedDetection = null;
+            queuedDetectionOptions = null;
+            renderDetection(event, options);
+            return;
+        }
+
+        // Keep only the freshest event while throttled.
+        queuedDetection = event;
+        queuedDetectionOptions = options;
+        if (!queuedDetectionTimer) {
+            queuedDetectionTimer = setTimeout(flushQueuedDetection, MIN_DETECTION_RENDER_MS);
+        }
+    }
+
+    function renderDetection(event, options = {}) {
+        lastDetectionRenderAt = Date.now();
         const d = event?.data || event;
         if (!d) return;
         const detectionKey = buildDetectionKey(d);
@@ -906,7 +958,7 @@ const BtLocate = (function() {
     }
 
     function ensureHeatLayer() {
-        if (!map || typeof L === 'undefined' || typeof L.heatLayer !== 'function') return;
+        if (!map || !heatmapEnabled || typeof L === 'undefined' || typeof L.heatLayer !== 'function') return;
         if (!heatLayer) {
             heatLayer = L.heatLayer([], HEAT_LAYER_OPTIONS);
         }
@@ -914,6 +966,13 @@ const BtLocate = (function() {
 
     function syncHeatLayer() {
         if (!map) return;
+        if (!heatmapEnabled) {
+            if (heatLayer && map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
+            pendingHeatSync = false;
+            return;
+        }
         ensureHeatLayer();
         if (!heatLayer) return;
         if (!modeActive || !isMapContainerVisible()) {
@@ -929,6 +988,13 @@ const BtLocate = (function() {
                 pendingHeatSync = true;
                 return;
             }
+        }
+        if (!Array.isArray(heatPoints) || heatPoints.length === 0) {
+            if (map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
+            pendingHeatSync = false;
+            return;
         }
         try {
             heatLayer.setLatLngs(heatPoints);
@@ -955,6 +1021,14 @@ const BtLocate = (function() {
 
         if (!modeActive) {
             stopMapStabilization();
+            if (queuedDetectionTimer) {
+                clearTimeout(queuedDetectionTimer);
+                queuedDetectionTimer = null;
+            }
+            queuedDetection = null;
+            queuedDetectionOptions = null;
+            // Pause BT Locate frontend work when mode is hidden.
+            disconnectSSE();
             if (heatLayer && map.hasLayer(heatLayer)) {
                 map.removeLayer(heatLayer);
             }
@@ -964,23 +1038,23 @@ const BtLocate = (function() {
 
         setTimeout(() => {
             if (!modeActive) return;
-            safeInvalidateMap(true);
-            if (typeof window.requestAnimationFrame === 'function') {
-                window.requestAnimationFrame(() => {
-                    if (!modeActive) return;
-                    safeInvalidateMap(true);
-                    window.requestAnimationFrame(() => {
-                        if (!modeActive) return;
-                        safeInvalidateMap(true);
-                    });
-                });
-            }
+            safeInvalidateMap();
+            flushPendingHeatSync();
             syncHeatLayer();
             syncMovementLayer();
             syncStrongestMarker();
             updateConfidenceLayer();
-            scheduleMapStabilization(14);
+            scheduleMapStabilization(8);
+            checkStatus();
         }, 80);
+
+        // A second pass after layout settles (sidebar/visual transitions).
+        setTimeout(() => {
+            if (!modeActive) return;
+            safeInvalidateMap();
+            flushPendingHeatSync();
+            syncHeatLayer();
+        }, 260);
     }
 
     function isMapRenderable() {
@@ -992,26 +1066,9 @@ const BtLocate = (function() {
         return true;
     }
 
-    function refreshBaseTiles() {
-        if (!map || typeof L === 'undefined' || typeof map.eachLayer !== 'function') return;
-        map.eachLayer((layer) => {
-            if (layer instanceof L.TileLayer && typeof layer.redraw === 'function') {
-                try {
-                    layer.redraw();
-                } catch (_) {}
-            }
-        });
-    }
-
-    function safeInvalidateMap(forceRecenter = false) {
+    function safeInvalidateMap() {
         if (!map || !isMapContainerVisible()) return false;
-        map.invalidateSize({ pan: !!forceRecenter, animate: false });
-        if (forceRecenter) {
-            const center = map.getCenter();
-            const zoom = map.getZoom();
-            map.setView(center, zoom, { animate: false });
-        }
-        refreshBaseTiles();
+        map.invalidateSize({ pan: false, animate: false });
         return true;
     }
 
@@ -1032,7 +1089,7 @@ const BtLocate = (function() {
                 stopMapStabilization();
                 return;
             }
-            if (safeInvalidateMap(true)) {
+            if (safeInvalidateMap()) {
                 flushPendingHeatSync();
                 syncMovementLayer();
                 syncStrongestMarker();
@@ -1706,7 +1763,7 @@ const BtLocate = (function() {
     }
 
     function invalidateMap() {
-        if (safeInvalidateMap(true)) {
+        if (safeInvalidateMap()) {
             flushPendingHeatSync();
             syncMovementLayer();
             syncStrongestMarker();
