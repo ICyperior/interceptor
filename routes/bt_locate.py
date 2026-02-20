@@ -109,9 +109,22 @@ def start_session():
         f"env={environment.name}, fallback=({fallback_lat}, {fallback_lon})"
     )
 
-    session = start_locate_session(
-        target, environment, custom_exponent, fallback_lat, fallback_lon
-    )
+    try:
+        session = start_locate_session(
+            target, environment, custom_exponent, fallback_lat, fallback_lon
+        )
+    except RuntimeError as exc:
+        logger.warning(f"Unable to start BT Locate session: {exc}")
+        return jsonify({
+            'status': 'error',
+            'error': 'Bluetooth scanner could not be started. Check adapter permissions/capabilities.',
+        }), 503
+    except Exception as exc:
+        logger.exception(f"Unexpected error starting BT Locate session: {exc}")
+        return jsonify({
+            'status': 'error',
+            'error': 'Failed to start locate session',
+        }), 500
 
     return jsonify({
         'status': 'started',

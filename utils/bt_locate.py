@@ -27,6 +27,28 @@ MAX_TRAIL_POINTS = 500
 EMA_ALPHA = 0.3
 
 
+def _normalize_mac(address: str | None) -> str | None:
+    """Normalize MAC string to colon-separated uppercase form when possible."""
+    if not address:
+        return None
+
+    text = str(address).strip().upper().replace('-', ':')
+    if not text:
+        return None
+
+    # Handle raw 12-hex form: AABBCCDDEEFF
+    raw = ''.join(ch for ch in text if ch in '0123456789ABCDEF')
+    if ':' not in text and len(raw) == 12:
+        text = ':'.join(raw[i:i + 2] for i in range(0, 12, 2))
+
+    parts = text.split(':')
+    if len(parts) == 6 and all(len(p) == 2 and all(c in '0123456789ABCDEF' for c in p) for p in parts):
+        return ':'.join(parts)
+
+    # Return cleaned original when not a strict MAC (caller may still use exact matching)
+    return text
+
+
 class Environment(Enum):
     """RF propagation environment presets."""
     FREE_SPACE = 2.0
@@ -114,9 +136,9 @@ class LocateTarget:
 
         # Match by MAC/address (case-insensitive, normalize separators)
         if self.mac_address:
-            dev_addr = (device.address or '').upper().replace('-', ':')
-            target_addr = self.mac_address.upper().replace('-', ':')
-            if dev_addr == target_addr:
+            dev_addr = _normalize_mac(device.address)
+            target_addr = _normalize_mac(self.mac_address)
+            if dev_addr and target_addr and dev_addr == target_addr:
                 return True
 
         # Match by payload fingerprint (guard against low-stability generic fingerprints)
@@ -276,15 +298,21 @@ class LocateSession:
         """
         self._scanner = get_bluetooth_scanner()
         self._scanner.add_device_callback(self._on_device)
+        self._scanner_started_by_us = False
 
         # Ensure BLE scanning is active
         if not self._scanner.is_scanning:
             logger.info("BT scanner not running, starting scan for locate session")
             self._scanner_started_by_us = True
             if not self._scanner.start_scan(mode='auto'):
-                logger.warning("Failed to start BT scanner for locate session")
-        else:
-            self._scanner_started_by_us = False
+                # Surface startup failure to caller and avoid leaving stale callbacks.
+                status = self._scanner.get_status()
+                reason = status.error or "unknown error"
+                logger.warning(f"Failed to start BT scanner for locate session: {reason}")
+                self._scanner.remove_device_callback(self._on_device)
+                self._scanner = None
+                self._scanner_started_by_us = False
+                return False
 
         self.active = True
         self.started_at = datetime.now()
@@ -567,7 +595,9 @@ def start_locate_session(
         _session = LocateSession(
             target, environment, custom_exponent, fallback_lat, fallback_lon
         )
-        _session.start()
+        if not _session.start():
+            _session = None
+            raise RuntimeError("Bluetooth scanner failed to start")
         return _session
 
 

@@ -4004,6 +4004,11 @@
             if (btLocateVisuals) btLocateVisuals.style.display = mode === 'bt_locate' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
 
+            // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
+            if (typeof BtLocate !== 'undefined' && BtLocate.setActiveMode) {
+                BtLocate.setActiveMode(mode === 'bt_locate');
+            }
+
             // Hide sidebar by default for Meshtastic mode, show for others
             const mainContent = document.querySelector('.main-content');
             if (mainContent) {
@@ -10403,7 +10408,7 @@
 
             fetch('/satellite/celestrak/' + category)
                 .then(r => r.json())
-                .then(data => {
+                .then(async data => {
                     if (data.status === 'success' && data.satellites) {
                         const toAdd = data.satellites
                             .filter(sat => !trackedSatellites.find(s => s.norad === String(sat.norad)))
@@ -10420,27 +10425,36 @@
                             return;
                         }
 
-                        fetch('/satellite/tracked', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(toAdd)
-                        })
-                        .then(r => r.json())
-                        .then(result => {
-                            if (result.status === 'success') {
-                                _loadSatellitesFromAPI();
-                                status.innerHTML = `<span style="color: var(--accent-green);">Added ${result.added} satellites (${data.satellites.length} total in category)</span>`;
+                        const batchSize = 250;
+                        let addedTotal = 0;
+
+                        for (let i = 0; i < toAdd.length; i += batchSize) {
+                            const batch = toAdd.slice(i, i + batchSize);
+                            const completed = Math.min(i + batch.length, toAdd.length);
+                            status.innerHTML = `<span style="color: var(--accent-cyan);">Importing ${completed}/${toAdd.length} from ${category}...</span>`;
+
+                            const resp = await fetch('/satellite/tracked', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(batch)
+                            });
+                            const result = await resp.json().catch(() => ({}));
+
+                            if (!resp.ok || result.status !== 'success') {
+                                throw new Error(result.message || result.error || `HTTP ${resp.status}`);
                             }
-                        })
-                        .catch(() => {
-                            status.innerHTML = `<span style="color: var(--accent-red);">Failed to save satellites</span>`;
-                        });
+                            addedTotal += Number(result.added || 0);
+                        }
+
+                        _loadSatellitesFromAPI();
+                        status.innerHTML = `<span style="color: var(--accent-green);">Added ${addedTotal} satellites (${data.satellites.length} total in category)</span>`;
                     } else {
                         status.innerHTML = `<span style="color: var(--accent-red);">Error: ${data.message || 'Failed to fetch'}</span>`;
                     }
                 })
-                .catch(() => {
-                    status.innerHTML = `<span style="color: var(--accent-red);">Network error</span>`;
+                .catch((err) => {
+                    const msg = err && err.message ? err.message : 'Network error';
+                    status.innerHTML = `<span style="color: var(--accent-red);">Import failed: ${msg}</span>`;
                 });
         }
 

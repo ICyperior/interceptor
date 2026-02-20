@@ -38,6 +38,7 @@ const BtLocate = (function() {
     let lastRenderedDetectionKey = null;
     let pendingHeatSync = false;
     let mapStabilizeTimer = null;
+    let modeActive = false;
 
     const MAX_HEAT_POINTS = 1200;
     const MAX_TRAIL_POINTS = 1200;
@@ -85,6 +86,7 @@ const BtLocate = (function() {
     }
 
     function init() {
+        modeActive = true;
         loadOverlayPreferences();
         syncOverlayControls();
 
@@ -92,7 +94,7 @@ const BtLocate = (function() {
             // Re-invalidate map on re-entry and ensure tiles are present
             if (map) {
                 setTimeout(() => {
-                    safeInvalidateMap();
+                    safeInvalidateMap(true);
                     // Re-apply user's tile layer if tiles were lost
                     let hasTiles = false;
                     map.eachLayer(layer => {
@@ -142,7 +144,7 @@ const BtLocate = (function() {
                 flushPendingHeatSync();
             });
             setTimeout(() => {
-                safeInvalidateMap();
+                safeInvalidateMap(true);
                 flushPendingHeatSync();
             }, 100);
             scheduleMapStabilization();
@@ -173,8 +175,18 @@ const BtLocate = (function() {
             .catch(() => {});
     }
 
+    function normalizeMacInput(value) {
+        const raw = (value || '').trim().toUpperCase().replace(/-/g, ':');
+        if (!raw) return '';
+        const compact = raw.replace(/[^0-9A-F]/g, '');
+        if (compact.length === 12) {
+            return compact.match(/.{1,2}/g).join(':');
+        }
+        return raw;
+    }
+
     function start() {
-        const mac = document.getElementById('btLocateMac')?.value.trim();
+        const mac = normalizeMacInput(document.getElementById('btLocateMac')?.value);
         const namePattern = document.getElementById('btLocateNamePattern')?.value.trim();
         const irk = document.getElementById('btLocateIrk')?.value.trim();
 
@@ -210,7 +222,19 @@ const BtLocate = (function() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         })
-            .then(r => r.json())
+            .then(async (r) => {
+                let data = null;
+                try {
+                    data = await r.json();
+                } catch (_) {
+                    data = {};
+                }
+                if (!r.ok || data.status !== 'started') {
+                    const message = data.error || data.message || ('HTTP ' + r.status);
+                    throw new Error(message);
+                }
+                return data;
+            })
             .then(data => {
                 if (data.status === 'started') {
                     sessionStartedAt = data.session?.started_at ? new Date(data.session.started_at).getTime() : Date.now();
@@ -224,7 +248,11 @@ const BtLocate = (function() {
                     restoreTrail();
                 }
             })
-            .catch(err => console.error('[BtLocate] Start error:', err));
+            .catch(err => {
+                console.error('[BtLocate] Start error:', err);
+                alert('BT Locate failed to start: ' + (err?.message || 'Unknown error'));
+                showIdleUI();
+            });
     }
 
     function stop() {
@@ -888,7 +916,10 @@ const BtLocate = (function() {
         if (!map) return;
         ensureHeatLayer();
         if (!heatLayer) return;
-        if (!isMapContainerVisible()) {
+        if (!modeActive || !isMapContainerVisible()) {
+            if (map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
             pendingHeatSync = true;
             return;
         }
@@ -918,6 +949,40 @@ const BtLocate = (function() {
         }
     }
 
+    function setActiveMode(active) {
+        modeActive = !!active;
+        if (!map) return;
+
+        if (!modeActive) {
+            stopMapStabilization();
+            if (heatLayer && map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
+            pendingHeatSync = true;
+            return;
+        }
+
+        setTimeout(() => {
+            if (!modeActive) return;
+            safeInvalidateMap(true);
+            if (typeof window.requestAnimationFrame === 'function') {
+                window.requestAnimationFrame(() => {
+                    if (!modeActive) return;
+                    safeInvalidateMap(true);
+                    window.requestAnimationFrame(() => {
+                        if (!modeActive) return;
+                        safeInvalidateMap(true);
+                    });
+                });
+            }
+            syncHeatLayer();
+            syncMovementLayer();
+            syncStrongestMarker();
+            updateConfidenceLayer();
+            scheduleMapStabilization(14);
+        }, 80);
+    }
+
     function isMapRenderable() {
         if (!map || !isMapContainerVisible()) return false;
         if (typeof map.getSize === 'function') {
@@ -927,9 +992,26 @@ const BtLocate = (function() {
         return true;
     }
 
-    function safeInvalidateMap() {
+    function refreshBaseTiles() {
+        if (!map || typeof L === 'undefined' || typeof map.eachLayer !== 'function') return;
+        map.eachLayer((layer) => {
+            if (layer instanceof L.TileLayer && typeof layer.redraw === 'function') {
+                try {
+                    layer.redraw();
+                } catch (_) {}
+            }
+        });
+    }
+
+    function safeInvalidateMap(forceRecenter = false) {
         if (!map || !isMapContainerVisible()) return false;
-        map.invalidateSize({ pan: false, animate: false });
+        map.invalidateSize({ pan: !!forceRecenter, animate: false });
+        if (forceRecenter) {
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            map.setView(center, zoom, { animate: false });
+        }
+        refreshBaseTiles();
         return true;
     }
 
@@ -950,7 +1032,7 @@ const BtLocate = (function() {
                 stopMapStabilization();
                 return;
             }
-            if (safeInvalidateMap()) {
+            if (safeInvalidateMap(true)) {
                 flushPendingHeatSync();
                 syncMovementLayer();
                 syncStrongestMarker();
@@ -1624,7 +1706,7 @@ const BtLocate = (function() {
     }
 
     function invalidateMap() {
-        if (safeInvalidateMap()) {
+        if (safeInvalidateMap(true)) {
             flushPendingHeatSync();
             syncMovementLayer();
             syncStrongestMarker();
@@ -1635,6 +1717,7 @@ const BtLocate = (function() {
 
     return {
         init,
+        setActiveMode,
         start,
         stop,
         handoff,
@@ -1652,3 +1735,5 @@ const BtLocate = (function() {
         fetchPairedIrks,
     };
 })();
+
+window.BtLocate = BtLocate;

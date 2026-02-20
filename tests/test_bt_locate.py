@@ -136,6 +136,14 @@ class TestLocateTarget:
         device.name = None
         assert target.matches(device) is True
 
+    def test_match_by_mac_without_separators(self):
+        target = LocateTarget(mac_address='aabbccddeeff')
+        device = MagicMock()
+        device.device_id = 'other'
+        device.address = 'AA:BB:CC:DD:EE:FF'
+        device.name = None
+        assert target.matches(device) is True
+
     def test_match_by_name_pattern(self):
         target = LocateTarget(name_pattern='iPhone')
         device = MagicMock()
@@ -276,3 +284,16 @@ class TestModuleLevelSessionManagement:
         assert session2.active is True
 
         stop_locate_session()
+
+    @patch('utils.bt_locate.get_bluetooth_scanner')
+    def test_start_raises_when_scanner_cannot_start(self, mock_get_scanner):
+        mock_scanner = MagicMock()
+        mock_scanner.is_scanning = False
+        mock_scanner.start_scan.return_value = False
+        status = MagicMock()
+        status.error = 'No adapter'
+        mock_scanner.get_status.return_value = status
+        mock_get_scanner.return_value = mock_scanner
+
+        with pytest.raises(RuntimeError):
+            start_locate_session(LocateTarget(mac_address='AA:BB:CC:DD:EE:FF'))
