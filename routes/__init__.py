@@ -36,7 +36,6 @@ def register_blueprints(app):
     from .bt_locate import bt_locate_bp
     from .analytics import analytics_bp
     from .space_weather import space_weather_bp
-    from .drone_ops import drone_ops_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -72,7 +71,6 @@ def register_blueprints(app):
     app.register_blueprint(bt_locate_bp)  # BT Locate SAR device tracking
     app.register_blueprint(analytics_bp)  # Cross-mode analytics dashboard
     app.register_blueprint(space_weather_bp)  # Space weather monitoring
-    app.register_blueprint(drone_ops_bp)  # Drone Ops / professional workflow
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module
