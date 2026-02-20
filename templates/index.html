@@ -10352,7 +10352,7 @@
                 return;
             }
 
-            const lines = tleText.split('\\n').map(l => l.trim()).filter(l => l);
+            const lines = tleText.split(/\r?\n/).map(l => l.trim()).filter(l => l);
             const toAdd = [];
 
             for (let i = 0; i < lines.length; i += 3) {
