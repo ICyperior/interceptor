@@ -3592,9 +3592,9 @@ sudo make install</code>
             acarsCurrentAgent = isAgentMode ? adsbCurrentAgent : null;
 
             // Warn if using same device as ADS-B (only for local mode)
-            if (!isAgentMode && isTracking && device === '0') {
+            if (!isAgentMode && isTracking && adsbActiveDevice !== null && device === String(adsbActiveDevice)) {
                 const useAnyway = confirm(
-                    'Warning: ADS-B tracking may be using SDR device 0.\n\n' +
+                    `Warning: ADS-B tracking is using SDR device ${adsbActiveDevice}.\n\n` +
                     'ACARS uses VHF frequencies (129-131 MHz) while ADS-B uses 1090 MHz.\n' +
                     'You need TWO separate SDR devices to receive both simultaneously.\n\n' +
                     'Click OK to start ACARS on device ' + device + ' anyway.'
@@ -3904,10 +3904,6 @@ sudo make install</code>
                             opt.textContent = `SDR ${d.index || i}: ${d.name || d.type || 'SDR'}`;
                             select.appendChild(opt);
                         });
-                        // Default to device 1 if available (device 0 likely used for ADS-B)
-                        if (devices.length > 1) {
-                            select.value = '1';
-                        }
                     }
                 });
         });
@@ -4006,9 +4002,9 @@ sudo make install</code>
             vdl2CurrentAgent = isAgentMode ? adsbCurrentAgent : null;
 
             // Warn if using same device as ADS-B (only for local mode)
-            if (!isAgentMode && isTracking && device === '0') {
+            if (!isAgentMode && isTracking && adsbActiveDevice !== null && device === String(adsbActiveDevice)) {
                 const useAnyway = confirm(
-                    'Warning: ADS-B tracking may be using SDR device 0.\n\n' +
+                    `Warning: ADS-B tracking is using SDR device ${adsbActiveDevice}.\n\n` +
                     'VDL2 uses VHF frequencies (~137 MHz) while ADS-B uses 1090 MHz.\n' +
                     'You need TWO separate SDR devices to receive both simultaneously.\n\n' +
                     'Click OK to start VDL2 on device ' + device + ' anyway.'
@@ -4419,9 +4415,6 @@ sudo make install</code>
                             opt.textContent = `SDR ${d.index || i}: ${d.name || d.type || 'SDR'}`;
                             select.appendChild(opt);
                         });
-                        if (devices.length > 1) {
-                            select.value = '1';
-                        }
                     }
                 });
 
@@ -5379,8 +5372,9 @@ sudo make install</code>
             const adsbSelect = document.getElementById('adsbDeviceSelect');
             const airbandSelect = document.getElementById('airbandDeviceSelect');
             const acarsSelect = document.getElementById('acarsDeviceSelect');
+            const vdl2Select = document.getElementById('vdl2DeviceSelect');
 
-            [adsbSelect, airbandSelect, acarsSelect].forEach(select => {
+            [adsbSelect, airbandSelect, acarsSelect, vdl2Select].forEach(select => {
                 if (!select) return;
                 select.innerHTML = '';
 
@@ -5396,6 +5390,7 @@ sudo make install</code>
                     });
                 }
             });
+
         }
 
         // Hook into page init
