@@ -27,7 +27,7 @@ const KIWI_SAMPLE_RATE = 12000;
 
 // ============== INITIALIZATION ==============
 
-function initWebSDR() {
+async function initWebSDR() {
     if (websdrInitialized) {
         if (websdrMap) {
             setTimeout(() => websdrMap.invalidateSize(), 100);
@@ -51,11 +51,18 @@ function initWebSDR() {
         maxBoundsViscosity: 1.0,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19,
-    }).addTo(websdrMap);
+    if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+        await Settings.init();
+        Settings.createTileLayer().addTo(websdrMap);
+        Settings.registerMap(websdrMap);
+    } else {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19,
+            className: 'tile-layer-cyan',
+        }).addTo(websdrMap);
+    }
 
     // Match background to tile ocean color so any remaining edge is seamless
     mapEl.style.background = '#1a1d29';

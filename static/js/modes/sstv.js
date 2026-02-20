@@ -17,6 +17,7 @@ const SSTV = (function() {
     let issUpdateInterval = null;
     let countdownInterval = null;
     let nextPassData = null;
+    let pendingMapInvalidate = false;
 
     // ISS frequency
     const ISS_FREQ = 145.800;
@@ -45,6 +46,22 @@ const SSTV = (function() {
         initMap();
         startIssTracking();
         startCountdown();
+        // Ensure Leaflet recomputes dimensions after the SSTV pane becomes visible.
+        setTimeout(() => invalidateMap(), 80);
+        setTimeout(() => invalidateMap(), 260);
+    }
+
+    function isMapContainerVisible() {
+        if (!issMap || typeof issMap.getContainer !== 'function') return false;
+        const container = issMap.getContainer();
+        if (!container) return false;
+        if (container.offsetWidth <= 0 || container.offsetHeight <= 0) return false;
+        if (container.style && container.style.display === 'none') return false;
+        if (typeof window.getComputedStyle === 'function') {
+            const style = window.getComputedStyle(container);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+        }
+        return true;
     }
 
     /**
@@ -220,6 +237,14 @@ const SSTV = (function() {
             opacity: 0.6,
             dashArray: '5, 5'
         }).addTo(issMap);
+
+        issMap.on('resize moveend zoomend', () => {
+            if (pendingMapInvalidate) invalidateMap();
+        });
+
+        // Initial layout passes for first-time mode load.
+        setTimeout(() => invalidateMap(), 40);
+        setTimeout(() => invalidateMap(), 180);
     }
 
     /**
@@ -431,6 +456,7 @@ const SSTV = (function() {
      */
     function updateMap() {
         if (!issMap || !issPosition) return;
+        if (pendingMapInvalidate) invalidateMap();
 
         const lat = issPosition.lat;
         const lon = issPosition.lon;
@@ -490,8 +516,12 @@ const SSTV = (function() {
             issTrackLine.setLatLngs(segments.length > 0 ? segments : []);
         }
 
-        // Pan map to follow ISS
-        issMap.panTo([lat, lon], { animate: true, duration: 0.5 });
+        // Pan map to follow ISS only when the map pane is currently renderable.
+        if (isMapContainerVisible()) {
+            issMap.panTo([lat, lon], { animate: true, duration: 0.5 });
+        } else {
+            pendingMapInvalidate = true;
+        }
     }
 
     /**
@@ -1313,6 +1343,20 @@ const SSTV = (function() {
         }
     }
 
+    /**
+     * Invalidate ISS map size after pane/layout changes.
+     */
+    function invalidateMap() {
+        if (!issMap) return false;
+        if (!isMapContainerVisible()) {
+            pendingMapInvalidate = true;
+            return false;
+        }
+        issMap.invalidateSize({ pan: false, animate: false });
+        pendingMapInvalidate = false;
+        return true;
+    }
+
     // Public API
     return {
         init,
@@ -1328,7 +1372,8 @@ const SSTV = (function() {
         useGPS,
         updateTLE,
         stopIssTracking,
-        stopCountdown
+        stopCountdown,
+        invalidateMap
     };
 })();
 

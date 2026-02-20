@@ -1,7 +1,7 @@
 /**
  * Weather Satellite Mode
  * NOAA APT and Meteor LRPT decoder interface with auto-scheduler,
- * polar plot, mercator map, countdown, and timeline.
+ * polar plot, styled real-world map, countdown, and timeline.
  */
 
 const WeatherSat = (function() {
@@ -17,6 +17,7 @@ const WeatherSat = (function() {
     let groundMap = null;
     let groundTrackLayer = null;
     let groundOverlayLayer = null;
+    let groundGridLayer = null;
     let satCrosshairMarker = null;
     let observerMarker = null;
     let consoleEntries = [];
@@ -37,6 +38,39 @@ const WeatherSat = (function() {
         startCountdownTimer();
         checkSchedulerStatus();
         initGroundMap();
+    }
+
+    /**
+     * Get observer coordinates from shared location or local storage.
+     */
+    function getObserverCoords() {
+        let lat;
+        let lon;
+
+        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+            const shared = ObserverLocation.getShared();
+            lat = Number(shared?.lat);
+            lon = Number(shared?.lon);
+        } else {
+            lat = Number(localStorage.getItem('observerLat'));
+            lon = Number(localStorage.getItem('observerLon'));
+        }
+
+        if (!isFinite(lat) || !isFinite(lon)) return null;
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+        return { lat, lon };
+    }
+
+    /**
+     * Center the ground map on current observer coordinates when available.
+     */
+    function centerGroundMapOnObserver(zoom = 1) {
+        if (!groundMap) return;
+        const observer = getObserverCoords();
+        if (!observer) return;
+        const lat = Math.max(-85, Math.min(85, observer.lat));
+        const lon = normalizeLon(observer.lon);
+        groundMap.setView([lat, lon], zoom, { animate: false });
     }
 
     /**
@@ -85,6 +119,7 @@ const WeatherSat = (function() {
                 localStorage.setItem('observerLon', lon.toString());
             }
             loadPasses();
+            centerGroundMapOnObserver(1);
         }
     }
 
@@ -123,6 +158,7 @@ const WeatherSat = (function() {
                 btn.disabled = false;
                 showNotification('Weather Sat', 'Location updated');
                 loadPasses();
+                centerGroundMapOnObserver(1);
             },
             (err) => {
                 btn.innerHTML = originalText;
@@ -754,111 +790,133 @@ const WeatherSat = (function() {
     // ========================
 
     /**
-     * Initialize Leaflet ground track map
+     * Initialize styled real-world map panel.
      */
-    function initGroundMap() {
+    async function initGroundMap() {
         const container = document.getElementById('wxsatGroundMap');
-        if (!container || groundMap) return;
+        if (!container) return;
         if (typeof L === 'undefined') return;
+        const observer = getObserverCoords();
+        const defaultCenter = observer
+            ? [Math.max(-85, Math.min(85, observer.lat)), normalizeLon(observer.lon)]
+            : [12, 0];
+        const defaultZoom = 1;
 
-        groundMap = L.map(container, {
-            center: [20, 0],
-            zoom: 2,
-            zoomControl: false,
-            attributionControl: false,
-            crs: L.CRS.EPSG3857, // Web Mercator projection
-        });
+        if (!groundMap) {
+            groundMap = L.map(container, {
+                center: defaultCenter,
+                zoom: defaultZoom,
+                minZoom: 1,
+                maxZoom: 7,
+                zoomControl: false,
+                attributionControl: false,
+                worldCopyJump: true,
+                preferCanvas: true,
+            });
 
-        // Check tile provider from settings
-        let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-        try {
-            const provider = localStorage.getItem('tileProvider');
-            if (provider === 'osm') {
-                tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+            if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+                await Settings.init();
+                Settings.createTileLayer().addTo(groundMap);
+                Settings.registerMap(groundMap);
+            } else {
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    subdomains: 'abcd',
+                    maxZoom: 18,
+                    noWrap: false,
+                    crossOrigin: true,
+                    className: 'tile-layer-cyan',
+                }).addTo(groundMap);
             }
-        } catch (e) {}
 
-        L.tileLayer(tileUrl, { maxZoom: 10 }).addTo(groundMap);
+            groundGridLayer = L.layerGroup().addTo(groundMap);
+            addStyledGridOverlay(groundGridLayer);
 
-        groundTrackLayer = L.layerGroup().addTo(groundMap);
-        groundOverlayLayer = L.layerGroup().addTo(groundMap);
-
-        const selected = getSelectedPass();
-        if (selected) {
-            updateGroundTrack(selected);
-        } else {
-            updateSatelliteCrosshair(null);
+            groundTrackLayer = L.layerGroup().addTo(groundMap);
+            groundOverlayLayer = L.layerGroup().addTo(groundMap);
         }
 
-        // Delayed invalidation to fix sizing
-        setTimeout(() => { if (groundMap) groundMap.invalidateSize(); }, 200);
+        setTimeout(() => {
+            if (!groundMap) return;
+            groundMap.invalidateSize(false);
+            groundMap.setView(defaultCenter, defaultZoom, { animate: false });
+            updateGroundTrack(getSelectedPass());
+        }, 140);
     }
 
     /**
-     * Update ground track on the map
+     * Update map panel subtitle.
      */
-    function updateGroundTrack(pass) {
-        if (!groundMap || !groundTrackLayer) return;
-
-        groundTrackLayer.clearLayers();
-        if (!pass) {
-            updateSatelliteCrosshair(null);
-            return;
-        }
-
-        const track = pass.groundTrack;
-        if (!track || track.length === 0) {
-            updateSatelliteCrosshair(null);
-            return;
-        }
-
-        const color = pass.mode === 'LRPT' ? '#00ff88' : '#00d4ff';
-
-        // Draw polyline
-        const latlngs = track.map(p => [p.lat, p.lon]);
-        L.polyline(latlngs, { color, weight: 2, opacity: 0.8 }).addTo(groundTrackLayer);
-
-        // Start marker
-        L.circleMarker(latlngs[0], {
-            radius: 5, color: '#00ff88', fillColor: '#00ff88', fillOpacity: 1, weight: 0,
-        }).addTo(groundTrackLayer);
-
-        // End marker
-        L.circleMarker(latlngs[latlngs.length - 1], {
-            radius: 5, color: '#ff4444', fillColor: '#ff4444', fillOpacity: 1, weight: 0,
-        }).addTo(groundTrackLayer);
-
-        // Observer marker
-        let obsLat, obsLon;
-        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
-            const shared = ObserverLocation.getShared();
-            obsLat = shared?.lat;
-            obsLon = shared?.lon;
-        } else {
-            obsLat = parseFloat(localStorage.getItem('observerLat'));
-            obsLon = parseFloat(localStorage.getItem('observerLon'));
-        }
-        const lat = obsLat;
-        const lon = obsLon;
-        if (!isNaN(lat) && !isNaN(lon)) {
-            L.circleMarker([lat, lon], {
-                radius: 6, color: '#ffbb00', fillColor: '#ffbb00', fillOpacity: 0.8, weight: 1,
-            }).addTo(groundTrackLayer);
-        }
-
-        // Fit bounds
-        try {
-            const bounds = L.latLngBounds(latlngs);
-            if (!isNaN(lat) && !isNaN(lon)) bounds.extend([lat, lon]);
-            groundMap.fitBounds(bounds, { padding: [20, 20] });
-        } catch (e) {}
-
-        updateSatelliteCrosshair(pass);
+    function updateProjectionInfo(text) {
+        const infoEl = document.getElementById('wxsatMapInfo');
+        if (infoEl) infoEl.textContent = text || '--';
     }
 
-    function updateMercatorInfo(text) {
-        const infoEl = document.getElementById('wxsatMercatorInfo');
-        if (infoEl) infoEl.textContent = text || '--';
+    /**
+     * Normalize longitude to [-180, 180).
+     */
+    function normalizeLon(value) {
+        const lon = Number(value);
+        if (!isFinite(lon)) return 0;
+        return ((((lon + 180) % 360) + 360) % 360) - 180;
+    }
+
+    /**
+     * Build track segments that do not cross the date line.
+     */
+    function buildTrackSegments(track) {
+        const segments = [];
+        let currentSegment = [];
+
+        track.forEach((point) => {
+            const lat = Number(point?.lat);
+            const lon = normalizeLon(point?.lon);
+            if (!isFinite(lat) || !isFinite(lon)) return;
+
+            if (currentSegment.length > 0) {
+                const prevLon = currentSegment[currentSegment.length - 1][1];
+                if (Math.abs(lon - prevLon) > 180) {
+                    if (currentSegment.length > 1) segments.push(currentSegment);
+                    currentSegment = [];
+                }
+            }
+
+            currentSegment.push([lat, lon]);
+        });
+
+        if (currentSegment.length > 1) segments.push(currentSegment);
+        return segments;
+    }
+
+    /**
+     * Draw a subtle graticule over the base map for a cyber/wireframe look.
+     */
+    function addStyledGridOverlay(layer) {
+        if (!layer || typeof L === 'undefined') return;
+        layer.clearLayers();
+
+        for (let lon = -180; lon <= 180; lon += 30) {
+            const line = [];
+            for (let lat = -85; lat <= 85; lat += 5) line.push([lat, lon]);
+            L.polyline(line, {
+                color: '#4ed2ff',
+                weight: lon % 60 === 0 ? 1.1 : 0.8,
+                opacity: lon % 60 === 0 ? 0.2 : 0.12,
+                interactive: false,
+                lineCap: 'round',
+            }).addTo(layer);
+        }
+
+        for (let lat = -75; lat <= 75; lat += 15) {
+            const line = [];
+            for (let lon = -180; lon <= 180; lon += 5) line.push([lat, lon]);
+            L.polyline(line, {
+                color: '#5be7ff',
+                weight: lat % 30 === 0 ? 1.1 : 0.8,
+                opacity: lat % 30 === 0 ? 0.2 : 0.12,
+                interactive: false,
+                lineCap: 'round',
+            }).addTo(layer);
+        }
     }
 
     function clearSatelliteCrosshair() {
@@ -870,8 +928,8 @@ const WeatherSat = (function() {
     function createSatelliteCrosshairIcon() {
         return L.divIcon({
             className: 'wxsat-crosshair-icon',
-            iconSize: [26, 26],
-            iconAnchor: [13, 13],
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
             html: `
                 <div class="wxsat-crosshair-marker">
                     <span class="wxsat-crosshair-h"></span>
@@ -881,6 +939,92 @@ const WeatherSat = (function() {
                 </div>
             `,
         });
+    }
+
+    /**
+     * Update selected ground track and redraw map overlays.
+     */
+    function updateGroundTrack(pass) {
+        if (!groundMap || !groundTrackLayer) return;
+
+        groundTrackLayer.clearLayers();
+        observerMarker = null;
+
+        if (!pass) {
+            clearSatelliteCrosshair();
+            updateProjectionInfo('--');
+            return;
+        }
+
+        const track = pass?.groundTrack;
+        if (!Array.isArray(track) || track.length === 0) {
+            clearSatelliteCrosshair();
+            updateProjectionInfo(`${pass.name || pass.satellite || '--'} --`);
+            return;
+        }
+
+        const color = pass.mode === 'LRPT' ? '#27ffc6' : '#58ddff';
+        const glowClass = pass.mode === 'LRPT' ? 'wxsat-pass-track lrpt' : 'wxsat-pass-track apt';
+        const segments = buildTrackSegments(track);
+        const validPoints = track
+            .map((point) => [Number(point?.lat), normalizeLon(point?.lon)])
+            .filter((point) => isFinite(point[0]) && isFinite(point[1]));
+
+        segments.forEach((segment) => {
+            L.polyline(segment, {
+                color,
+                weight: 2.3,
+                opacity: 0.9,
+                className: glowClass,
+                interactive: false,
+                lineJoin: 'round',
+            }).addTo(groundTrackLayer);
+        });
+
+        if (validPoints.length > 0) {
+            L.circleMarker(validPoints[0], {
+                radius: 4.5,
+                color: '#00ffa2',
+                fillColor: '#00ffa2',
+                fillOpacity: 0.95,
+                weight: 0,
+                interactive: false,
+            }).addTo(groundTrackLayer);
+
+            L.circleMarker(validPoints[validPoints.length - 1], {
+                radius: 4.5,
+                color: '#ff5e5e',
+                fillColor: '#ff5e5e',
+                fillOpacity: 0.95,
+                weight: 0,
+                interactive: false,
+            }).addTo(groundTrackLayer);
+        }
+
+        let obsLat;
+        let obsLon;
+        if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
+            const shared = ObserverLocation.getShared();
+            obsLat = shared?.lat;
+            obsLon = shared?.lon;
+        } else {
+            obsLat = parseFloat(localStorage.getItem('observerLat'));
+            obsLon = parseFloat(localStorage.getItem('observerLon'));
+        }
+
+        if (isFinite(obsLat) && isFinite(obsLon)) {
+            observerMarker = L.circleMarker([obsLat, obsLon], {
+                radius: 5.5,
+                color: '#ffd45b',
+                fillColor: '#ffd45b',
+                fillOpacity: 0.8,
+                weight: 1,
+                className: 'wxsat-observer-marker',
+                interactive: false,
+            }).addTo(groundTrackLayer);
+        }
+
+        updateSatelliteCrosshair(pass);
     }
 
     function getSelectedPass() {
@@ -938,41 +1082,44 @@ const WeatherSat = (function() {
 
         if (!pass) {
             clearSatelliteCrosshair();
-            updateMercatorInfo('--');
+            updateProjectionInfo('--');
             return;
         }
 
         const position = getSatellitePositionForPass(pass);
         if (!position) {
             clearSatelliteCrosshair();
-            updateMercatorInfo(`${pass.name || pass.satellite || '--'} --`);
+            updateProjectionInfo(`${pass.name || pass.satellite || '--'} --`);
             return;
         }
 
-        const latlng = [position.lat, position.lon];
+        const latlng = [position.lat, normalizeLon(position.lon)];
         if (!satCrosshairMarker) {
             satCrosshairMarker = L.marker(latlng, {
                 icon: createSatelliteCrosshairIcon(),
                 interactive: false,
                 keyboard: false,
-                zIndexOffset: 800,
+                zIndexOffset: 900,
             }).addTo(groundOverlayLayer);
         } else {
             satCrosshairMarker.setLatLng(latlng);
         }
 
-        const tooltipText = `${pass.name || pass.satellite || 'Satellite'} ${position.lat.toFixed(2)}°, ${position.lon.toFixed(2)}°`;
+        const infoText =
+            `${pass.name || pass.satellite || 'Satellite'} ` +
+            `${position.lat.toFixed(2)}°, ${normalizeLon(position.lon).toFixed(2)}°`;
+        updateProjectionInfo(infoText);
+
         if (!satCrosshairMarker.getTooltip()) {
-            satCrosshairMarker.bindTooltip(tooltipText, {
+            satCrosshairMarker.bindTooltip(infoText, {
                 direction: 'top',
-                offset: [0, -10],
-                opacity: 0.9,
+                offset: [0, -12],
+                opacity: 0.92,
+                className: 'wxsat-map-tooltip',
             });
         } else {
-            satCrosshairMarker.setTooltipContent(tooltipText);
+            satCrosshairMarker.setTooltipContent(infoText);
         }
-
-        updateMercatorInfo(tooltipText);
     }
 
     // ========================
@@ -1506,9 +1653,14 @@ const WeatherSat = (function() {
      * Invalidate ground map size (call after container becomes visible)
      */
     function invalidateMap() {
-        if (groundMap) {
-            setTimeout(() => groundMap.invalidateSize(), 100);
-        }
+        setTimeout(() => {
+            if (!groundMap) {
+                initGroundMap();
+                return;
+            }
+            groundMap.invalidateSize(false);
+            updateGroundTrack(getSelectedPass());
+        }, 100);
     }
 
     // ========================

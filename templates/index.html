@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="{% if offline_settings.tile_provider in ['cartodb_dark', 'cartodb_dark_cyan'] %}map-cyber-enabled{% endif %}">
 
 <head>
     <meta charset="UTF-8">
@@ -57,7 +57,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/device-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/proximity-viz.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v={{ version }}&r=maptheme17">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/ux-platform.css') }}">
@@ -91,7 +91,7 @@
     </script>
 </head>
 
-<body>
+<body data-mode="pager">
     <!-- Welcome Page -->
     <div class="welcome-overlay" id="welcomePage">
         <!-- Spinning Globe Background -->
@@ -2880,8 +2880,8 @@
                             </div>
                             <div class="wxsat-map-container">
                                 <div class="wxsat-panel-header">
-                                    <span class="wxsat-panel-title">Mercator Projection</span>
-                                    <span class="wxsat-panel-subtitle" id="wxsatMercatorInfo">--</span>
+                                    <span class="wxsat-panel-title">Global Projection</span>
+                                    <span class="wxsat-panel-subtitle" id="wxsatMapInfo">--</span>
                                 </div>
                                 <div id="wxsatGroundMap" class="wxsat-ground-map"></div>
                             </div>
@@ -3970,6 +3970,7 @@
             }
 
             currentMode = mode;
+            document.body.setAttribute('data-mode', mode);
             if (updateUrl) {
                 updateModeUrl(mode);
             }
@@ -4219,6 +4220,9 @@
                 }, 100);
             } else if (mode === 'sstv') {
                 SSTV.init();
+                setTimeout(() => {
+                    if (typeof SSTV !== 'undefined' && SSTV.invalidateMap) SSTV.invalidateMap();
+                }, 120);
             } else if (mode === 'weathersat') {
                 WeatherSat.init();
                 setTimeout(() => {
@@ -4248,6 +4252,7 @@
             if (aprsMap) aprsMap.invalidateSize();
             if (typeof Meshtastic !== 'undefined') Meshtastic.invalidateMap();
             if (typeof BtLocate !== 'undefined') BtLocate.invalidateMap();
+            if (typeof SSTV !== 'undefined' && SSTV.invalidateMap) SSTV.invalidateMap();
         });
 
         window.addEventListener('popstate', function () {
@@ -4262,6 +4267,7 @@
             setTimeout(() => {
                 if (aprsMap) aprsMap.invalidateSize();
                 if (typeof Meshtastic !== 'undefined') Meshtastic.invalidateMap();
+                if (typeof SSTV !== 'undefined' && SSTV.invalidateMap) SSTV.invalidateMap();
             }, 200);
         });
 
@@ -15149,7 +15155,7 @@
     <!-- Updater -->
     <script src="{{ url_for('static', filename='js/core/updater.js') }}"></script>
     <!-- Settings Manager -->
-    <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}?v={{ version }}&r=maptheme17"></script>
     <!-- Alerts + Recording -->
     <script src="{{ url_for('static', filename='js/core/alerts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/recordings.js') }}"></script>
