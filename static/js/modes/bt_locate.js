@@ -431,7 +431,7 @@ const BtLocate = (function() {
         });
 
         eventSource.onerror = function() {
-            console.warn('[BtLocate] SSE error, polling fallback active');
+            debugLog('[BtLocate] SSE error, polling fallback active');
             if (eventSource && eventSource.readyState === EventSource.CLOSED) {
                 eventSource = null;
             }
@@ -645,7 +645,7 @@ const BtLocate = (function() {
             try {
                 mapPointAdded = addMapMarker(d, { suppressFollow: options.suppressFollow === true });
             } catch (error) {
-                console.warn('[BtLocate] Map update skipped:', error);
+                debugLog('[BtLocate] Map update skipped:', error);
                 mapPointAdded = false;
             }
         }
@@ -1103,7 +1103,7 @@ const BtLocate = (function() {
             if (map.hasLayer(heatLayer)) {
                 map.removeLayer(heatLayer);
             }
-            console.warn('[BtLocate] Heatmap redraw deferred:', error);
+            debugLog('[BtLocate] Heatmap redraw deferred:', error);
         }
     }
 

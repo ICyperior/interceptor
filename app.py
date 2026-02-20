@@ -100,11 +100,24 @@ def add_security_headers(response):
 def inject_offline_settings():
     """Inject offline settings into all templates."""
     from utils.database import get_setting
+
+    # Privacy-first defaults: keep dashboard assets/fonts local to avoid
+    # third-party tracker/storage defenses in strict browsers.
+    assets_source = str(get_setting('offline.assets_source', 'local') or 'local').lower()
+    fonts_source = str(get_setting('offline.fonts_source', 'local') or 'local').lower()
+    if assets_source not in ('local', 'cdn'):
+        assets_source = 'local'
+    if fonts_source not in ('local', 'cdn'):
+        fonts_source = 'local'
+    # Force local delivery for core dashboard pages.
+    assets_source = 'local'
+    fonts_source = 'local'
+
     return {
         'offline_settings': {
             'enabled': get_setting('offline.enabled', False),
-            'assets_source': get_setting('offline.assets_source', 'cdn'),
-            'fonts_source': get_setting('offline.fonts_source', 'cdn'),
+            'assets_source': assets_source,
+            'fonts_source': fonts_source,
             'tile_provider': get_setting('offline.tile_provider', 'cartodb_dark_cyan'),
             'tile_server_url': get_setting('offline.tile_server_url', '')
         }
