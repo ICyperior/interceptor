@@ -2809,11 +2809,30 @@ sudo make install</code>
             renderAircraftList();
             showAircraftDetails(icao);
             updateFlightLookupBtn();
+            highlightSidebarMessages(icao);
 
             const ac = aircraft[icao];
             if (ac && ac.lat !== undefined && ac.lat !== null && ac.lon !== undefined && ac.lon !== null) {
                 radarMap.setView([ac.lat, ac.lon], 10);
             }
+        }
+
+        function highlightSidebarMessages(icao) {
+            // Highlight ACARS/VDL2 sidebar messages matching the selected aircraft
+            const containers = ['acarsMessages', 'vdl2Messages'];
+            containers.forEach(containerId => {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                for (const item of container.children) {
+                    if (item.dataset.icao === icao) {
+                        item.style.borderLeft = '3px solid var(--accent-cyan)';
+                        item.style.background = 'rgba(0, 212, 255, 0.08)';
+                    } else {
+                        item.style.borderLeft = '';
+                        item.style.background = '';
+                    }
+                }
+            });
         }
 
         function showAircraftDetails(icao) {
@@ -3757,14 +3776,56 @@ sudo make install</code>
         // Track which aircraft have ACARS messages (by ICAO)
         const acarsAircraftIcaos = new Set();
 
+        // IATA (2-letter) → ICAO (3-letter) airline code mapping
+        const IATA_TO_ICAO = {
+            'AA':'AAL','DL':'DAL','UA':'UAL','WN':'SWA','B6':'JBU','AS':'ASA',
+            'NK':'NKS','F9':'FFT','G4':'AAY','HA':'HAL','SY':'SCX','WS':'WJA',
+            'AC':'ACA','WG':'WGN','TS':'TSC','PD':'POE','MX':'MXA','QX':'QXE',
+            'OH':'COM','OO':'SKW','YX':'RPA','9E':'FLG','PT':'SWQ','MQ':'ENY',
+            'YV':'ASH','AX':'LOF','ZW':'AWI','G7':'GJS','EV':'ASQ',
+            'AM':'AMX','VB':'VIV','4O':'AIJ','Y4':'VOI',
+            '5X':'UPS','FX':'FDX',
+            'BA':'BAW','LH':'DLH','AF':'AFR','KL':'KLM','IB':'IBE','AZ':'ITY',
+            'SK':'SAS','AY':'FIN','OS':'AUA','LX':'SWR','SN':'BEL','TP':'TAP',
+            'EI':'EIN','U2':'EZY','FR':'RYR','W6':'WZZ','VY':'VLG','PC':'PGT',
+            'TK':'THY','LO':'LOT','BT':'BTI','DY':'NAX','VS':'VIR','EW':'EWG',
+            'SQ':'SIA','CX':'CPA','QF':'QFA','JL':'JAL','NH':'ANA','KE':'KAL',
+            'OZ':'AAR','CI':'CAL','BR':'EVA','CZ':'CSN','MU':'CES','CA':'CCA',
+            'AI':'AIC','GA':'GIA','TG':'THA','MH':'MAS','PR':'PAL','VN':'HVN',
+            'NZ':'ANZ','3K':'JSA','JQ':'JST','AK':'AXM','TR':'TGW','5J':'CEB',
+            'EK':'UAE','QR':'QTR','EY':'ETD','GF':'GFA','SV':'SVA',
+            'ET':'ETH','MS':'MSR','SA':'SAA','RJ':'RJA','WY':'OMA',
+            'LA':'LAN','G3':'GLO','AD':'AZU','AV':'AVA','CM':'CMP','AR':'ARG'
+        };
+        const ICAO_TO_IATA = Object.fromEntries(Object.entries(IATA_TO_ICAO).map(([k,v]) => [v,k]));
+
+        function translateFlight(flight) {
+            if (!flight) return [];
+            const m = flight.match(/^([A-Z0-9]{2,3})(\d+[A-Z]?)$/);
+            if (!m) return [];
+            const [, prefix, num] = m;
+            const results = [];
+            if (IATA_TO_ICAO[prefix]) results.push(IATA_TO_ICAO[prefix] + num);
+            if (ICAO_TO_IATA[prefix]) results.push(ICAO_TO_IATA[prefix] + num);
+            return results;
+        }
+
         function findAircraftIcaoByFlight(flight) {
             if (!flight || flight === 'UNKNOWN') return null;
             const upper = flight.trim().toUpperCase();
-            for (const [icao, ac] of Object.entries(aircraft)) {
-                if ((ac.callsign || '').trim().toUpperCase() === upper) return icao;
+            // Build candidate list: original + translated variants
+            const candidates = [upper, ...translateFlight(upper)];
+            for (const candidate of candidates) {
+                for (const [icao, ac] of Object.entries(aircraft)) {
+                    const cs = (ac.callsign || '').trim().toUpperCase();
+                    if (cs === candidate) return icao;
+                    // Also match by registration (tail number)
+                    const reg = (ac.registration || '').trim().toUpperCase();
+                    if (reg && reg === candidate) return icao;
+                }
+                // Also check ICAO hex directly
+                if (aircraft[candidate]) return candidate;
             }
-            // Also check ICAO hex directly
-            if (aircraft[upper]) return upper;
             return null;
         }
 
@@ -3790,9 +3851,12 @@ sudo make install</code>
             const matchedIcao = findAircraftIcaoByFlight(flight) ||
                                 findAircraftIcaoByFlight(data.tail) ||
                                 findAircraftIcaoByFlight(data.reg) ||
-                                (data.icao ? data.icao.toUpperCase() : null);
+                                (data.icao && aircraft[data.icao.toUpperCase()] ? data.icao.toUpperCase() : null);
 
             if (matchedIcao) acarsAircraftIcaos.add(matchedIcao);
+
+            // Tag message with matched ICAO for cross-highlighting
+            if (matchedIcao) msg.dataset.icao = matchedIcao;
 
             // Make clickable if we have a matching aircraft
             msg.style.cssText = 'padding: 6px 8px; border-bottom: 1px solid var(--border-color); font-size: 10px;' +
@@ -4278,9 +4342,23 @@ sudo make install</code>
             });
             const label = flight || src || (avlc.frame_type || 'VDL2');
 
+            // Try to find matching tracked aircraft (same logic as ACARS)
+            const matchedIcao = findAircraftIcaoByFlight(flight) ||
+                                findAircraftIcaoByFlight(acars.reg) ||
+                                (src && aircraft[src.toUpperCase()] ? src.toUpperCase() : null);
+
+            if (matchedIcao) {
+                acarsAircraftIcaos.add(matchedIcao);
+                msg.dataset.icao = matchedIcao;
+            }
+
+            msg.style.cssText = 'padding: 6px 8px; border-bottom: 1px solid var(--border-color); font-size: 10px;' +
+                (matchedIcao ? ' cursor: pointer;' : '');
+            const linkIcon = matchedIcao ? '<span style="color:var(--accent-green);font-size:9px;margin-left:3px;" title="Tracked on map">&#9992;</span>' : '';
+
             msg.innerHTML = `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                    <span style="color: var(--accent-cyan); font-weight: bold;">${escapeHtml(label)}</span>
+                    <span style="color: var(--accent-cyan); font-weight: bold;">${escapeHtml(label)}${linkIcon}</span>
                     <span style="color: var(--text-muted);">${time}</span>
                 </div>
                 <div style="color: var(--text-dim); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -4288,7 +4366,12 @@ sudo make install</code>
                 </div>
             `;
 
-            msg.addEventListener('click', () => showVdl2Modal(data, time));
+            if (matchedIcao) {
+                msg.addEventListener('click', (e) => { e.stopPropagation(); selectAircraft(matchedIcao); });
+                msg.title = 'Click to locate ' + label + ' on map';
+            } else {
+                msg.addEventListener('click', () => showVdl2Modal(data, time));
+            }
 
             container.insertBefore(msg, container.firstChild);
 

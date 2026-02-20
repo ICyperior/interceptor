@@ -1186,9 +1186,12 @@ def get_aircraft_messages(icao: str):
 
     aircraft = app_module.adsb_aircraft.get(icao.upper())
     callsign = aircraft.get('callsign') if aircraft else None
+    registration = aircraft.get('registration') if aircraft else None
 
     from utils.flight_correlator import get_flight_correlator
-    messages = get_flight_correlator().get_messages_for_aircraft(icao=icao.upper(), callsign=callsign)
+    messages = get_flight_correlator().get_messages_for_aircraft(
+        icao=icao.upper(), callsign=callsign, registration=registration
+    )
 
     # Backfill translation on messages missing label_description
     try:
