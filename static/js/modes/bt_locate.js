@@ -37,6 +37,7 @@ const BtLocate = (function() {
     let smoothingEnabled = true;
     let lastRenderedDetectionKey = null;
     let pendingHeatSync = false;
+    let mapStabilizeTimer = null;
 
     const MAX_HEAT_POINTS = 1200;
     const MAX_TRAIL_POINTS = 1200;
@@ -44,6 +45,8 @@ const BtLocate = (function() {
     const OUTLIER_HARD_JUMP_METERS = 2000;
     const OUTLIER_SOFT_JUMP_METERS = 450;
     const OUTLIER_MAX_SPEED_MPS = 50;
+    const MAP_STABILIZE_INTERVAL_MS = 150;
+    const MAP_STABILIZE_ATTEMPTS = 28;
     const OVERLAY_STORAGE_KEYS = {
         heatmap: 'btLocateHeatmapEnabled',
         movement: 'btLocateMovementEnabled',
@@ -99,6 +102,7 @@ const BtLocate = (function() {
                         Settings.createTileLayer().addTo(map);
                     }
                     flushPendingHeatSync();
+                    scheduleMapStabilization(10);
                 }, 150);
             }
             checkStatus();
@@ -113,15 +117,23 @@ const BtLocate = (function() {
                 zoom: 2,
                 zoomControl: true,
             });
+            let tileLayer = null;
             // Use tile provider from user settings
             if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
-                Settings.createTileLayer().addTo(map);
+                tileLayer = Settings.createTileLayer();
+                tileLayer.addTo(map);
                 Settings.registerMap(map);
             } else {
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                     maxZoom: 19,
                     attribution: '&copy; OSM &copy; CARTO'
-                }).addTo(map);
+                });
+                tileLayer.addTo(map);
+            }
+            if (tileLayer && typeof tileLayer.on === 'function') {
+                tileLayer.on('load', () => {
+                    scheduleMapStabilization(8);
+                });
             }
             ensureHeatLayer();
             syncMovementLayer();
@@ -133,6 +145,7 @@ const BtLocate = (function() {
                 safeInvalidateMap();
                 flushPendingHeatSync();
             }, 100);
+            scheduleMapStabilization();
         }
 
         // Init RSSI chart canvas
@@ -524,6 +537,8 @@ const BtLocate = (function() {
         const lon = Number(point.lon);
         if (!isFinite(lat) || !isFinite(lon)) return false;
         if (!shouldAcceptMapPoint(point, lat, lon)) return false;
+        const suppressFollow = options.suppressFollow === true;
+        const bulkLoad = options.bulkLoad === true;
 
         const trailPoint = normalizeTrailPoint(point, lat, lon);
         const band = (trailPoint.proximity_band || 'FAR').toLowerCase();
@@ -563,13 +578,17 @@ const BtLocate = (function() {
         if (heatPoints.length > MAX_HEAT_POINTS) {
             heatPoints.splice(0, heatPoints.length - MAX_HEAT_POINTS);
         }
+        if (bulkLoad) {
+            pendingHeatSync = true;
+            return true;
+        }
         syncHeatLayer();
 
         if (!isMapRenderable()) {
             safeInvalidateMap();
         }
         const canFollowMap = isMapRenderable();
-        if (autoFollowEnabled && !options.suppressFollow && canFollowMap) {
+        if (autoFollowEnabled && !suppressFollow && canFollowMap) {
             if (!gpsLocked) {
                 gpsLocked = true;
                 map.setView([lat, lon], Math.max(map.getZoom(), 16));
@@ -645,8 +664,13 @@ const BtLocate = (function() {
 
                 const gpsTrail = Array.isArray(trail.gps_trail) ? trail.gps_trail : [];
                 const allTrail = Array.isArray(trail.trail) ? trail.trail : [];
+                const recentGpsTrail = gpsTrail.slice(-MAX_TRAIL_POINTS);
 
-                gpsTrail.forEach(p => addMapMarker(p, { suppressFollow: true }));
+                recentGpsTrail.forEach(p => addMapMarker(p, {
+                    suppressFollow: true,
+                    bulkLoad: true,
+                }));
+                syncHeatLayer();
 
                 if (allTrail.length > 0) {
                     rssiHistory = allTrail.map(p => p.rssi).filter(v => typeof v === 'number' && isFinite(v)).slice(-MAX_RSSI_POINTS);
@@ -659,7 +683,7 @@ const BtLocate = (function() {
                     drawRssiChart();
                 }
 
-                updateStats(allTrail.length, gpsTrail.length);
+                updateStats(allTrail.length, recentGpsTrail.length);
 
                 if (trailPoints.length > 0 && map) {
                     const latestGps = trailPoints[trailPoints.length - 1];
@@ -675,6 +699,7 @@ const BtLocate = (function() {
                 syncStrongestMarker();
                 updateConfidenceLayer();
                 updateMovementStats();
+                scheduleMapStabilization(12);
             })
             .catch(() => {});
     }
@@ -906,6 +931,45 @@ const BtLocate = (function() {
         if (!map || !isMapContainerVisible()) return false;
         map.invalidateSize({ pan: false, animate: false });
         return true;
+    }
+
+    function stopMapStabilization() {
+        if (mapStabilizeTimer) {
+            clearInterval(mapStabilizeTimer);
+            mapStabilizeTimer = null;
+        }
+    }
+
+    function scheduleMapStabilization(attempts = MAP_STABILIZE_ATTEMPTS) {
+        if (!map) return;
+        stopMapStabilization();
+        let remaining = Math.max(1, Number(attempts) || MAP_STABILIZE_ATTEMPTS);
+
+        const tick = () => {
+            if (!map) {
+                stopMapStabilization();
+                return;
+            }
+            if (safeInvalidateMap()) {
+                flushPendingHeatSync();
+                syncMovementLayer();
+                syncStrongestMarker();
+                updateConfidenceLayer();
+                if (isMapRenderable()) {
+                    stopMapStabilization();
+                    return;
+                }
+            }
+            remaining -= 1;
+            if (remaining <= 0) {
+                stopMapStabilization();
+            }
+        };
+
+        tick();
+        if (map && !mapStabilizeTimer && !isMapRenderable()) {
+            mapStabilizeTimer = setInterval(tick, MAP_STABILIZE_INTERVAL_MS);
+        }
     }
 
     function flushPendingHeatSync() {
@@ -1566,6 +1630,7 @@ const BtLocate = (function() {
             syncStrongestMarker();
             updateConfidenceLayer();
         }
+        scheduleMapStabilization(8);
     }
 
     return {

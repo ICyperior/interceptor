@@ -4242,6 +4242,12 @@
                 SubGhz.init();
             } else if (mode === 'bt_locate') {
                 BtLocate.init();
+                setTimeout(() => {
+                    if (typeof BtLocate !== 'undefined' && BtLocate.invalidateMap) BtLocate.invalidateMap();
+                }, 100);
+                setTimeout(() => {
+                    if (typeof BtLocate !== 'undefined' && BtLocate.invalidateMap) BtLocate.invalidateMap();
+                }, 320);
             } else if (mode === 'spaceweather') {
                 SpaceWeather.init();
             }

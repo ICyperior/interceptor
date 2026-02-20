@@ -2,6 +2,15 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.21.1] - 2026-02-20
+
+### Fixed
+- BT Locate map first-load rendering race that could cause blank/late map initialization
+- BT Locate mode switch timing so Leaflet invalidation runs after panel visibility settles
+- BT Locate trail restore startup latency by batching historical GPS point rendering
+
+---
+
 ## [2.21.0] - 2026-02-20
 
 ### Added

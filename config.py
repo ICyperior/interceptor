@@ -7,10 +7,19 @@ import os
 import sys
 
 # Application version
-VERSION = "2.21.0"
+VERSION = "2.21.1"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.21.1",
+        "date": "February 2026",
+        "highlights": [
+            "BT Locate map first-load fix with render stabilization retries during initial mode open",
+            "BT Locate trail restore optimization for faster startup when historical GPS points exist",
+            "BT Locate mode-switch map invalidation timing fix to prevent delayed/blank map render",
+        ]
+    },
     {
         "version": "2.21.0",
         "date": "February 2026",
