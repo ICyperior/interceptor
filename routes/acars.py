@@ -33,10 +33,11 @@ from utils.process import register_process, unregister_process
 
 acars_bp = Blueprint('acars', __name__, url_prefix='/acars')
 
-# Default VHF ACARS frequencies (MHz) - common worldwide
+# Default VHF ACARS frequencies (MHz) - North America primary
 DEFAULT_ACARS_FREQUENCIES = [
-    '131.725',  # North America
-    '131.825',  # North America
+    '131.550',  # North America primary
+    '130.025',  # North America secondary
+    '129.125',  # North America tertiary
 ]
 
 # Message counter for statistics
@@ -119,6 +120,16 @@ def stream_acars_output(process: subprocess.Popen, is_text_mode: bool = False) -
                 # Add our metadata
                 data['type'] = 'acars'
                 data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+
+                # Enrich with translated label and parsed fields
+                try:
+                    from utils.acars_translator import translate_message
+                    translation = translate_message(data)
+                    data['label_description'] = translation['label_description']
+                    data['message_type'] = translation['message_type']
+                    data['parsed'] = translation['parsed']
+                except Exception:
+                    pass
 
                 # Update stats
                 acars_message_count += 1
@@ -438,7 +449,7 @@ def get_frequencies() -> Response:
     return jsonify({
         'default': DEFAULT_ACARS_FREQUENCIES,
         'regions': {
-            'north_america': ['131.725', '131.825'],
+            'north_america': ['131.550', '130.025', '129.125'],
             'europe': ['131.525', '131.725', '131.550'],
             'asia_pacific': ['131.550', '131.450'],
         }

@@ -1189,4 +1189,17 @@ def get_aircraft_messages(icao: str):
 
     from utils.flight_correlator import get_flight_correlator
     messages = get_flight_correlator().get_messages_for_aircraft(icao=icao.upper(), callsign=callsign)
+
+    # Backfill translation on messages missing label_description
+    try:
+        from utils.acars_translator import translate_message
+        for msg in messages.get('acars', []):
+            if not msg.get('label_description'):
+                translation = translate_message(msg)
+                msg['label_description'] = translation['label_description']
+                msg['message_type'] = translation['message_type']
+                msg['parsed'] = translation['parsed']
+    except Exception:
+        pass
+
     return jsonify({'status': 'success', 'icao': icao.upper(), **messages})

@@ -2891,12 +2891,130 @@ sudo make install</code>
                         <div class="telemetry-label">Range</div>
                         <div class="telemetry-value">${ac.lat ? calculateDistanceNm(observerLocation.lat, observerLocation.lon, ac.lat, ac.lon).toFixed(1) + ' nm' : 'N/A'}</div>
                     </div>
+                </div>
+                <div id="aircraftAcarsSection" style="margin-top:12px;">
+                    <div style="font-size:10px;font-weight:600;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;border-top:1px solid var(--border-color);padding-top:8px;">Datalink Messages</div>
+                    <div id="aircraftAcarsMessages" style="font-size:10px;color:var(--text-dim);">Loading...</div>
                 </div>`;
 
             // Fetch aircraft photo if registration is available
             if (registration) {
                 fetchAircraftPhoto(registration);
             }
+
+            // Fetch ACARS messages for this aircraft
+            fetchAircraftMessages(icao);
+        }
+
+        // ACARS message refresh timer for selected aircraft
+        let acarsMessageTimer = null;
+
+        function fetchAircraftMessages(icao) {
+            // Clear previous timer
+            if (acarsMessageTimer) {
+                clearInterval(acarsMessageTimer);
+                acarsMessageTimer = null;
+            }
+
+            function doFetch() {
+                fetch('/adsb/aircraft/' + icao + '/messages')
+                    .then(r => r.json())
+                    .then(data => {
+                        const container = document.getElementById('aircraftAcarsMessages');
+                        if (!container) return;
+                        const msgs = (data.acars || []).concat(data.vdl2 || []);
+                        if (msgs.length === 0) {
+                            container.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">No messages yet</span>';
+                            return;
+                        }
+                        // Sort newest first
+                        msgs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+                        container.innerHTML = msgs.slice(0, 20).map(renderAcarsCard).join('');
+                    })
+                    .catch(() => {
+                        const container = document.getElementById('aircraftAcarsMessages');
+                        if (container) container.innerHTML = '<span style="color:var(--text-muted);">—</span>';
+                    });
+            }
+
+            doFetch();
+            acarsMessageTimer = setInterval(doFetch, 10000);
+        }
+
+        function getAcarsTypeBadge(type) {
+            const colors = {
+                position: '#00ff88',
+                engine_data: '#ff9500',
+                weather: '#00d4ff',
+                ats: '#ffdd00',
+                cpdlc: '#b388ff',
+                oooi: '#4fc3f7',
+                squawk: '#ff6b6b',
+                link_test: '#666',
+                handshake: '#555',
+                other: '#888',
+            };
+            const labels = {
+                position: 'POS',
+                engine_data: 'ENG',
+                weather: 'WX',
+                ats: 'ATS',
+                cpdlc: 'CPDLC',
+                oooi: 'OOOI',
+                squawk: 'SQK',
+                link_test: 'LINK',
+                handshake: 'HSHK',
+                other: 'MSG',
+            };
+            const color = colors[type] || '#888';
+            const lbl = labels[type] || 'MSG';
+            return '<span style="display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;color:#000;background:' + color + ';">' + lbl + '</span>';
+        }
+
+        function renderAcarsCard(msg) {
+            const type = msg.message_type || 'other';
+            const badge = getAcarsTypeBadge(type);
+            const desc = msg.label_description || ('Label ' + (msg.label || '?'));
+            const text = msg.text || msg.msg || '';
+            const truncText = text.length > 120 ? text.substring(0, 120) + '...' : text;
+            const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
+            const flight = msg.flight || '';
+
+            let parsedHtml = '';
+            if (msg.parsed) {
+                const p = msg.parsed;
+                if (type === 'position' && p.lat !== undefined) {
+                    parsedHtml = '<div style="color:var(--accent-green);margin-top:2px;">' +
+                        p.lat.toFixed(4) + ', ' + p.lon.toFixed(4) +
+                        (p.flight_level ? ' • ' + p.flight_level : '') +
+                        (p.destination ? ' → ' + p.destination : '') + '</div>';
+                } else if (type === 'engine_data') {
+                    const parts = [];
+                    Object.keys(p).forEach(k => {
+                        parts.push(k + ': ' + p[k].value);
+                    });
+                    if (parts.length) {
+                        parsedHtml = '<div style="color:var(--accent-orange,#ff9500);margin-top:2px;">' + parts.slice(0, 4).join(' | ') + '</div>';
+                    }
+                } else if (type === 'oooi' && p.origin) {
+                    parsedHtml = '<div style="color:var(--accent-cyan);margin-top:2px;">' +
+                        p.origin + ' → ' + p.destination +
+                        (p.out ? ' | OUT ' + p.out : '') +
+                        (p.off ? ' OFF ' + p.off : '') +
+                        (p.on ? ' ON ' + p.on : '') +
+                        (p['in'] ? ' IN ' + p['in'] : '') + '</div>';
+                }
+            }
+
+            return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">' +
+                '<span>' + badge + ' <span style="color:var(--text-primary);">' + desc + '</span></span>' +
+                '<span style="color:var(--text-muted);font-size:9px;">' + time + '</span></div>' +
+                (flight ? '<div style="color:var(--accent-cyan);font-size:9px;">' + flight + '</div>' : '') +
+                parsedHtml +
+                (truncText && type !== 'link_test' && type !== 'handshake' ?
+                    '<div style="color:var(--text-dim);font-family:var(--font-mono);font-size:9px;margin-top:2px;word-break:break-all;">' + truncText + '</div>' : '') +
+                '</div>';
         }
 
         // Cache for aircraft photos to avoid repeated API calls
@@ -3647,8 +3765,12 @@ sudo make install</code>
             const flight = data.flight || 'UNKNOWN';
             const reg = data.reg || '';
             const label = data.label || '';
+            const labelDesc = data.label_description || '';
+            const msgType = data.message_type || 'other';
             const text = data.text || data.msg || '';
             const time = new Date().toLocaleTimeString();
+
+            const typeBadge = typeof getAcarsTypeBadge === 'function' ? getAcarsTypeBadge(msgType) : '';
 
             msg.innerHTML = `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
@@ -3656,8 +3778,8 @@ sudo make install</code>
                     <span style="color: var(--text-muted);">${time}</span>
                 </div>
                 ${reg ? `<div style="color: var(--text-muted); font-size: 9px;">Reg: ${reg}</div>` : ''}
-                ${label ? `<div style="color: var(--accent-green);">Label: ${label}</div>` : ''}
-                ${text ? `<div style="color: var(--text-primary); margin-top: 3px; word-break: break-word;">${text}</div>` : ''}
+                <div style="margin-top: 2px;">${typeBadge} <span style="color: var(--text-primary);">${labelDesc || (label ? 'Label: ' + label : '')}</span></div>
+                ${text && msgType !== 'link_test' && msgType !== 'handshake' ? `<div style="color: var(--text-dim); margin-top: 3px; word-break: break-word; font-size: 9px;">${text.length > 80 ? text.substring(0, 80) + '...' : text}</div>` : ''}
             `;
 
             container.insertBefore(msg, container.firstChild);
