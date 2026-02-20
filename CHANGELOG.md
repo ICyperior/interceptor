@@ -2,6 +2,23 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.21.0] - 2026-02-20
+
+### Added
+- Analytics panels for operational insights and temporal pattern analysis
+
+### Changed
+- Global map theme refresh with improved contrast and cross-dashboard consistency
+- Cross-app UX refinements for accessibility, mode consistency, and render performance
+- BT Locate enhancements including improved continuity, smoothing, and confidence reporting
+
+### Fixed
+- Weather satellite auto-scheduler and Mercator tracking reliability issues
+- Bluetooth/WiFi runtime health issues affecting scanner continuity
+- ADS-B SSE multi-client fanout stability and remote VDL2 streaming reliability
+
+---
+
 ## [2.15.0] - 2026-02-09
 
 ### Added

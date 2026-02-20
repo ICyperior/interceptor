@@ -7,10 +7,22 @@ import os
 import sys
 
 # Application version
-VERSION = "2.20.0"
+VERSION = "2.21.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.21.0",
+        "date": "February 2026",
+        "highlights": [
+            "Global map theme refresh with improved contrast and cross-dashboard consistency",
+            "Cross-app UX updates for accessibility, mode consistency, and render performance",
+            "Weather satellite reliability fixes for auto-scheduler and Mercator pass tracking",
+            "Bluetooth/WiFi runtime health fixes with BT Locate continuity and confidence improvements",
+            "ADS-B/VDL2 streaming reliability upgrades for multi-client SSE fanout and remote decoding",
+            "Analytics enhancements with operational insights and temporal pattern panels",
+        ]
+    },
     {
         "version": "2.20.0",
         "date": "February 2026",
