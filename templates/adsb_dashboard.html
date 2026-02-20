@@ -2748,6 +2748,9 @@ sudo make install</code>
             // Agent badge if aircraft came from remote agent
             const agentBadge = ac._agent ?
                 `<span class="agent-badge">${ac._agent}</span>` : '';
+            // ACARS indicator if this aircraft has datalink messages
+            const acarsIndicator = (typeof acarsAircraftIcaos !== 'undefined' && acarsAircraftIcaos.has(ac.icao)) ?
+                `<span style="background:var(--accent-cyan);color:#000;padding:1px 4px;border-radius:2px;font-size:7px;font-weight:700;margin-left:4px;" title="Has ACARS messages">DLK</span>` : '';
             // Vertical rate indicator: arrow up (climbing), arrow down (descending), or dash (level)
             let vsIndicator = '-';
             let vsColor = '';
@@ -2758,7 +2761,7 @@ sudo make install</code>
 
             return `
                 <div class="aircraft-header">
-                    <span class="aircraft-callsign">${callsign}${badge}${agentBadge}</span>
+                    <span class="aircraft-callsign">${callsign}${badge}${acarsIndicator}${agentBadge}</span>
                     <span class="aircraft-icao">${typeCode ? typeCode + ' • ' : ''}${ac.icao}</span>
                 </div>
                 <div class="aircraft-details">
@@ -3470,7 +3473,7 @@ sudo make install</code>
         let acarsMessageCount = 0;
         let acarsSidebarCollapsed = localStorage.getItem('acarsSidebarCollapsed') !== 'false';
         let acarsFrequencies = {
-            'na': ['131.725', '131.825'],
+            'na': ['131.550', '130.025', '129.125'],
             'eu': ['131.525', '131.725', '131.550'],
             'ap': ['131.550', '131.450']
         };
@@ -3526,9 +3529,9 @@ sudo make install</code>
                 previouslyChecked.add(cb.value);
             });
 
-            container.innerHTML = freqs.map(freq => {
-                // Check by default if it was previously checked or if this is initial load
-                const checked = previouslyChecked.size === 0 || previouslyChecked.has(freq) ? 'checked' : '';
+            container.innerHTML = freqs.map((freq, i) => {
+                // On initial load, only check the first (primary) frequency; otherwise preserve state
+                const checked = previouslyChecked.size === 0 ? (i === 0 ? 'checked' : '') : (previouslyChecked.has(freq) ? 'checked' : '');
                 return `
                     <label style="display: flex; align-items: center; gap: 3px; padding: 2px 6px; background: var(--bg-secondary); border-radius: 3px; cursor: pointer;">
                         <input type="checkbox" class="acars-freq-cb" value="${freq}" ${checked} style="margin: 0; cursor: pointer;">
@@ -3751,6 +3754,20 @@ sudo make install</code>
             }, pollInterval);
         }
 
+        // Track which aircraft have ACARS messages (by ICAO)
+        const acarsAircraftIcaos = new Set();
+
+        function findAircraftIcaoByFlight(flight) {
+            if (!flight || flight === 'UNKNOWN') return null;
+            const upper = flight.trim().toUpperCase();
+            for (const [icao, ac] of Object.entries(aircraft)) {
+                if ((ac.callsign || '').trim().toUpperCase() === upper) return icao;
+            }
+            // Also check ICAO hex directly
+            if (aircraft[upper]) return upper;
+            return null;
+        }
+
         function addAcarsMessage(data) {
             const container = document.getElementById('acarsMessages');
 
@@ -3760,7 +3777,6 @@ sudo make install</code>
 
             const msg = document.createElement('div');
             msg.className = 'acars-message-item';
-            msg.style.cssText = 'padding: 6px 8px; border-bottom: 1px solid var(--border-color); font-size: 10px;';
 
             const flight = data.flight || 'UNKNOWN';
             const reg = data.reg || '';
@@ -3770,11 +3786,28 @@ sudo make install</code>
             const text = data.text || data.msg || '';
             const time = new Date().toLocaleTimeString();
 
+            // Try to find matching tracked aircraft
+            const matchedIcao = findAircraftIcaoByFlight(flight) ||
+                                findAircraftIcaoByFlight(data.tail) ||
+                                findAircraftIcaoByFlight(data.reg) ||
+                                (data.icao ? data.icao.toUpperCase() : null);
+
+            if (matchedIcao) acarsAircraftIcaos.add(matchedIcao);
+
+            // Make clickable if we have a matching aircraft
+            msg.style.cssText = 'padding: 6px 8px; border-bottom: 1px solid var(--border-color); font-size: 10px;' +
+                (matchedIcao ? ' cursor: pointer;' : '');
+            if (matchedIcao) {
+                msg.onclick = () => selectAircraft(matchedIcao);
+                msg.title = 'Click to locate ' + flight + ' on map';
+            }
+
             const typeBadge = typeof getAcarsTypeBadge === 'function' ? getAcarsTypeBadge(msgType) : '';
+            const linkIcon = matchedIcao ? '<span style="color:var(--accent-green);font-size:9px;margin-left:3px;" title="Tracked on map">&#9992;</span>' : '';
 
             msg.innerHTML = `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                    <span style="color: var(--accent-cyan); font-weight: bold;">${flight}</span>
+                    <span style="color: var(--accent-cyan); font-weight: bold;">${flight}${linkIcon}</span>
                     <span style="color: var(--text-muted);">${time}</span>
                 </div>
                 ${reg ? `<div style="color: var(--text-muted); font-size: 9px;">Reg: ${reg}</div>` : ''}

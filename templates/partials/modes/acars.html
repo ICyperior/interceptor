@@ -110,8 +110,8 @@
         const previouslyChecked = new Set();
         container.querySelectorAll('input:checked').forEach(cb => previouslyChecked.add(cb.value));
 
-        container.innerHTML = freqs.map(freq => {
-            const checked = previouslyChecked.size === 0 || previouslyChecked.has(freq) ? 'checked' : '';
+        container.innerHTML = freqs.map((freq, i) => {
+            const checked = previouslyChecked.size === 0 ? (i === 0 ? 'checked' : '') : (previouslyChecked.has(freq) ? 'checked' : '');
             return `
                 <label style="display: flex; align-items: center; gap: 3px; padding: 2px 6px; background: var(--bg-secondary); border-radius: 3px; cursor: pointer;">
                     <input type="checkbox" class="acars-main-freq-cb" value="${freq}" ${checked} style="margin: 0; cursor: pointer;">

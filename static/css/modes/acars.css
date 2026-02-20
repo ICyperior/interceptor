@@ -108,3 +108,8 @@
 .acars-feed-card:hover {
     background: rgba(74, 158, 255, 0.05);
 }
+
+/* Clickable ACARS sidebar messages (linked to tracked aircraft) */
+.acars-message-item[style*="cursor: pointer"]:hover {
+    background: rgba(74, 158, 255, 0.1);
+}
