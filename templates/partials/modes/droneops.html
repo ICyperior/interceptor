@@ -1,0 +1,152 @@
+<!-- DRONE OPS MODE -->
+<div id="droneOpsMode" class="mode-content">
+    <div class="section">
+        <h3 class="section-header collapsible" onclick="toggleSection(this)">
+            <span>Drone Ops Status</span>
+            <span class="collapse-icon">&#9660;</span>
+        </h3>
+        <div class="section-content">
+            <div class="droneops-status-grid" id="droneOpsStatusGrid">
+                <div class="droneops-status-card">
+                    <div class="droneops-status-label">Session</div>
+                    <div class="droneops-status-value" id="droneOpsSessionValue">Idle</div>
+                </div>
+                <div class="droneops-status-card">
+                    <div class="droneops-status-label">Armed</div>
+                    <div class="droneops-status-value" id="droneOpsArmedValue">No</div>
+                </div>
+                <div class="droneops-status-card">
+                    <div class="droneops-status-label">Detections</div>
+                    <div class="droneops-status-value" id="droneOpsDetectionCount">0</div>
+                </div>
+                <div class="droneops-status-card">
+                    <div class="droneops-status-label">Open Incidents</div>
+                    <div class="droneops-status-value" id="droneOpsIncidentCount">0</div>
+                </div>
+            </div>
+
+            <div class="droneops-row droneops-row--actions">
+                <button class="preset-btn" onclick="DroneOps.startSession('passive')">Start Passive Session</button>
+                <button class="preset-btn" onclick="DroneOps.startSession('active')">Start Active Session</button>
+                <button class="clear-btn" onclick="DroneOps.stopSession()">Stop Session</button>
+            </div>
+
+            <div class="droneops-row droneops-row--actions">
+                <label class="droneops-check">
+                    <input id="droneOpsDetectWifi" type="checkbox" checked>
+                    <span>WiFi</span>
+                </label>
+                <label class="droneops-check">
+                    <input id="droneOpsDetectBluetooth" type="checkbox" checked>
+                    <span>Bluetooth</span>
+                </label>
+                <button class="preset-btn" onclick="DroneOps.startDetection()">Start Detection</button>
+                <button class="clear-btn" onclick="DroneOps.stopDetection()">Stop Detection</button>
+            </div>
+
+            <div class="droneops-source-block">
+                <div class="droneops-source-title">Detection Sources</div>
+                <div class="droneops-row droneops-row--sources">
+                    <label class="droneops-field">
+                        <span class="droneops-field-label">WiFi Interface</span>
+                        <select id="droneOpsWifiInterfaceSelect" class="droneops-input" title="WiFi source interface">
+                            <option value="">Auto WiFi source</option>
+                        </select>
+                    </label>
+                    <label class="droneops-field">
+                        <span class="droneops-field-label">Bluetooth Adapter</span>
+                        <select id="droneOpsBtAdapterSelect" class="droneops-input" title="Bluetooth source adapter">
+                            <option value="">Auto Bluetooth source</option>
+                        </select>
+                    </label>
+                    <button class="preset-btn droneops-source-refresh" onclick="DroneOps.refreshDetectionSources()">Refresh Sources</button>
+                </div>
+            </div>
+            <div class="droneops-subtext">Sensors: <span id="droneOpsSensorsState">Idle</span></div>
+
+            <div class="droneops-row droneops-row--actions">
+                <input id="droneOpsArmIncident" class="droneops-input" type="number" placeholder="Incident ID" min="1">
+                <input id="droneOpsArmReason" class="droneops-input" type="text" placeholder="Arming reason">
+                <button class="preset-btn" onclick="DroneOps.arm()">Arm Actions</button>
+                <button class="clear-btn" onclick="DroneOps.disarm()">Disarm</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-header collapsible" onclick="toggleSection(this)">
+            <span>Detections</span>
+            <span class="collapse-icon">&#9660;</span>
+        </h3>
+        <div class="section-content">
+            <div class="droneops-row">
+                <select id="droneOpsSourceFilter" class="droneops-input" onchange="DroneOps.refreshDetections()">
+                    <option value="">All Sources</option>
+                    <option value="wifi">WiFi</option>
+                    <option value="bluetooth">Bluetooth</option>
+                    <option value="rf">RF</option>
+                </select>
+                <input id="droneOpsConfidenceFilter" class="droneops-input" type="number" min="0" max="1" step="0.05" value="0.5" placeholder="Min confidence">
+                <button class="preset-btn" onclick="DroneOps.refreshDetections()">Refresh</button>
+            </div>
+            <div id="droneOpsDetections" class="droneops-list">
+                <div class="droneops-empty">No detections yet</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-header collapsible" onclick="toggleSection(this)">
+            <span>Incidents</span>
+            <span class="collapse-icon">&#9660;</span>
+        </h3>
+        <div class="section-content">
+            <div class="droneops-row">
+                <input id="droneOpsIncidentTitle" class="droneops-input" type="text" placeholder="Incident title">
+                <select id="droneOpsIncidentSeverity" class="droneops-input">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                </select>
+                <button class="preset-btn" onclick="DroneOps.createIncident()">Create Incident</button>
+            </div>
+            <div id="droneOpsIncidents" class="droneops-list">
+                <div class="droneops-empty">No incidents</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-header collapsible" onclick="toggleSection(this)">
+            <span>Actions</span>
+            <span class="collapse-icon">&#9660;</span>
+        </h3>
+        <div class="section-content">
+            <div class="droneops-row">
+                <input id="droneOpsActionIncident" class="droneops-input" type="number" placeholder="Incident ID" min="1">
+                <input id="droneOpsActionType" class="droneops-input" type="text" placeholder="Action type (e.g. wifi_deauth_test)">
+                <button class="preset-btn" onclick="DroneOps.requestAction()">Request Action</button>
+            </div>
+            <div id="droneOpsActions" class="droneops-list">
+                <div class="droneops-empty">No action requests</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-header collapsible" onclick="toggleSection(this)">
+            <span>Evidence</span>
+            <span class="collapse-icon">&#9660;</span>
+        </h3>
+        <div class="section-content">
+            <div class="droneops-row">
+                <input id="droneOpsManifestIncident" class="droneops-input" type="number" placeholder="Incident ID" min="1">
+                <button class="preset-btn" onclick="DroneOps.generateManifest()">Generate Manifest</button>
+            </div>
+            <div id="droneOpsManifests" class="droneops-list">
+                <div class="droneops-empty">No manifests</div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -54,6 +54,13 @@ def process_event(mode: str, event: dict | Any, event_type: str | None = None) -
         # Alert failures should never break streaming
         pass
 
+    try:
+        from utils.drone import get_drone_ops_service
+        get_drone_ops_service().ingest_event(mode, event, event_type)
+    except Exception:
+        # Drone ingest should never break mode streaming
+        pass
+
 
 def _extract_device_id(event: dict) -> str | None:
     for field in DEVICE_ID_FIELDS:

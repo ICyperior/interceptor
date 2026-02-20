@@ -24,7 +24,6 @@ const CommandPalette = (function() {
         { mode: 'sstv_general', label: 'HF SSTV' },
         { mode: 'gps', label: 'GPS' },
         { mode: 'meshtastic', label: 'Meshtastic' },
-        { mode: 'dmr', label: 'Digital Voice' },
         { mode: 'websdr', label: 'WebSDR' },
         { mode: 'analytics', label: 'Analytics' },
         { mode: 'spaceweather', label: 'Space Weather' },

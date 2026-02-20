@@ -29,7 +29,6 @@ def register_blueprints(app):
     from .sstv import sstv_bp
     from .weather_sat import weather_sat_bp
     from .sstv_general import sstv_general_bp
-    from .dmr import dmr_bp
     from .websdr import websdr_bp
     from .alerts import alerts_bp
     from .recordings import recordings_bp
@@ -37,6 +36,7 @@ def register_blueprints(app):
     from .bt_locate import bt_locate_bp
     from .analytics import analytics_bp
     from .space_weather import space_weather_bp
+    from .drone_ops import drone_ops_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -65,7 +65,6 @@ def register_blueprints(app):
     app.register_blueprint(sstv_bp)  # ISS SSTV decoder
     app.register_blueprint(weather_sat_bp)  # NOAA/Meteor weather satellite decoder
     app.register_blueprint(sstv_general_bp)  # General terrestrial SSTV
-    app.register_blueprint(dmr_bp)  # DMR / P25 / Digital Voice
     app.register_blueprint(websdr_bp)  # HF/Shortwave WebSDR
     app.register_blueprint(alerts_bp)  # Cross-mode alerts
     app.register_blueprint(recordings_bp)  # Session recordings
@@ -73,6 +72,7 @@ def register_blueprints(app):
     app.register_blueprint(bt_locate_bp)  # BT Locate SAR device tracking
     app.register_blueprint(analytics_bp)  # Cross-mode analytics dashboard
     app.register_blueprint(space_weather_bp)  # Space weather monitoring
+    app.register_blueprint(drone_ops_bp)  # Drone Ops / professional workflow
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module

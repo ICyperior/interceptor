@@ -66,6 +66,7 @@
             aprs: "{{ url_for('static', filename='css/modes/aprs.css') }}",
             tscm: "{{ url_for('static', filename='css/modes/tscm.css') }}",
             analytics: "{{ url_for('static', filename='css/modes/analytics.css') }}",
+            droneops: "{{ url_for('static', filename='css/modes/droneops.css') }}?v={{ version }}&r=droneops6",
             spystations: "{{ url_for('static', filename='css/modes/spy-stations.css') }}",
             meshtastic: "{{ url_for('static', filename='css/modes/meshtastic.css') }}",
             sstv: "{{ url_for('static', filename='css/modes/sstv.css') }}",
@@ -280,6 +281,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('tscm')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                                 <span class="mode-name">TSCM</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('droneops')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="8" r="2"/><circle cx="19" cy="8" r="2"/><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/></svg></span>
+                                <span class="mode-name">Drone Ops</span>
                             </button>
                             <button class="mode-card mode-card-sm" onclick="selectMode('analytics')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span>
@@ -606,13 +611,13 @@
 
                 {% include 'partials/modes/analytics.html' %}
 
+                {% include 'partials/modes/droneops.html' %}
+
                 {% include 'partials/modes/ais.html' %}
 
                 {% include 'partials/modes/spy-stations.html' %}
 
                 {% include 'partials/modes/meshtastic.html' %}
-
-                {% include 'partials/modes/dmr.html' %}
 
                 {% include 'partials/modes/websdr.html' %}
 
@@ -1883,76 +1888,6 @@
                     </div>
                 </div>
 
-                <!-- DMR / Digital Voice Dashboard -->
-                <div id="dmrVisuals" style="display: none; padding: 12px; flex-direction: column; gap: 12px; flex: 1; min-height: 0;">
-                    <!-- DMR Synthesizer -->
-                    <div class="radio-module-box" style="padding: 10px;">
-                        <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px;">
-                            <span>SIGNAL ACTIVITY</span>
-                            <span id="dmrSynthStatus" style="color: var(--text-muted); font-size: 9px; font-family: var(--font-mono);">IDLE</span>
-                        </div>
-                        <canvas id="dmrSynthCanvas" style="width: 100%; height: 70px; background: rgba(0,0,0,0.4); border-radius: 4px; display: block;"></canvas>
-                    </div>
-                    <!-- Audio Output -->
-                    <div class="radio-module-box" style="padding: 8px 12px;">
-                        <audio id="dmrAudioPlayer" style="display: none;"></audio>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">AUDIO</span>
-                            <span id="dmrAudioStatus" style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);">OFF</span>
-                            <div style="display: flex; align-items: center; gap: 4px; margin-left: auto;">
-                                <span style="font-size: 10px; color: var(--text-muted);">VOL</span>
-                                <input type="range" id="dmrAudioVolume" min="0" max="100" value="80" style="width: 80px;" oninput="setDmrAudioVolume(this.value)">
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <!-- Call History Panel -->
-                        <div class="radio-module-box" style="padding: 10px;">
-                            <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 10px;">
-                                <span>CALL HISTORY</span>
-                                <span id="dmrHistoryCount" style="color: var(--accent-cyan);">0 calls</span>
-                            </div>
-                            <div style="max-height: 400px; overflow-y: auto;">
-                                <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
-                                    <thead>
-                                        <tr style="color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
-                                            <th style="text-align: left; padding: 4px;">Time</th>
-                                            <th style="text-align: left; padding: 4px;">Talkgroup</th>
-                                            <th style="text-align: left; padding: 4px;">Source</th>
-                                            <th style="text-align: left; padding: 4px;">Protocol</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dmrHistoryBody">
-                                        <tr><td colspan="4" style="padding: 15px; text-align: center; color: var(--text-muted);">No calls recorded</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <!-- Protocol Info Panel -->
-                        <div class="radio-module-box" style="padding: 10px;">
-                            <div class="module-header" style="margin-bottom: 8px; font-size: 10px;">
-                                <span>DECODER STATUS</span>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 12px; padding: 10px;">
-                                <div style="text-align: center;">
-                                    <div style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">PROTOCOL</div>
-                                    <div id="dmrMainProtocol" style="font-size: 28px; font-weight: bold; color: var(--accent-cyan); font-family: var(--font-mono);">--</div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                                    <div style="text-align: center; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px;">
-                                        <div style="font-size: 9px; color: var(--text-muted);">CALLS</div>
-                                        <div id="dmrMainCallCount" style="font-size: 22px; font-weight: bold; color: var(--accent-green); font-family: var(--font-mono);">0</div>
-                                    </div>
-                                    <div style="text-align: center; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px;">
-                                        <div style="font-size: 9px; color: var(--text-muted);">SYNCS</div>
-                                        <div id="dmrSyncCount" style="font-size: 22px; font-weight: bold; color: var(--accent-orange); font-family: var(--font-mono);">0</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- SubGHz Transceiver Dashboard -->
                 <div id="subghzVisuals" class="subghz-visuals-container" style="display: none;">
 
@@ -3204,6 +3139,74 @@
 
                 <div id="sensorTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
 
+                <div id="droneOpsMainPane" class="droneops-main-pane" style="display: none;">
+                    <div class="droneops-main-top">
+                        <div class="droneops-main-map-card">
+                            <div class="droneops-main-card-header">
+                                <h4>Operational Map</h4>
+                                <span id="droneOpsMapMeta" class="droneops-main-card-meta">Waiting for telemetry</span>
+                            </div>
+                            <div id="droneOpsMap" class="droneops-main-map"></div>
+                        </div>
+                        <div class="droneops-main-side">
+                            <div class="droneops-main-card">
+                                <div class="droneops-main-card-header">
+                                    <h4>Live Summary</h4>
+                                    <span id="droneOpsMainLastUpdate" class="droneops-main-card-meta">--</span>
+                                </div>
+                                <div class="droneops-main-kpis">
+                                    <div class="droneops-main-kpi">
+                                        <span>Detections</span>
+                                        <strong id="droneOpsMainSummaryDetections">0</strong>
+                                    </div>
+                                    <div class="droneops-main-kpi">
+                                        <span>Sources</span>
+                                        <strong id="droneOpsMainSummarySources">0</strong>
+                                    </div>
+                                    <div class="droneops-main-kpi">
+                                        <span>Track Points</span>
+                                        <strong id="droneOpsMainSummaryTracks">0</strong>
+                                    </div>
+                                    <div class="droneops-main-kpi">
+                                        <span>Telemetry IDs</span>
+                                        <strong id="droneOpsMainSummaryTelemetry">0</strong>
+                                    </div>
+                                    <div class="droneops-main-kpi">
+                                        <span>Correlations</span>
+                                        <strong id="droneOpsMainSummaryCorrelations">0</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="droneops-main-card">
+                                <div class="droneops-main-card-header">
+                                    <h4>Operator Correlations</h4>
+                                </div>
+                                <div id="droneOpsMainCorrelations" class="droneops-main-list compact">
+                                    <div class="droneops-empty">No correlations yet</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="droneops-main-bottom">
+                        <div class="droneops-main-card">
+                            <div class="droneops-main-card-header">
+                                <h4>Detections</h4>
+                            </div>
+                            <div id="droneOpsMainDetections" class="droneops-main-list">
+                                <div class="droneops-empty">No detections yet</div>
+                            </div>
+                        </div>
+                        <div class="droneops-main-card">
+                            <div class="droneops-main-card-header">
+                                <h4>Telemetry Stream</h4>
+                            </div>
+                            <div id="droneOpsMainTelemetry" class="droneops-main-list">
+                                <div class="droneops-empty">No telemetry yet</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="output-content signal-feed" id="output">
                     <div class="placeholder signal-empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -3270,11 +3273,11 @@
     <script src="{{ url_for('static', filename='js/modes/weather-satellite.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/sstv-general.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/gps.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modes/dmr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
     <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate4"></script>
     <script src="{{ url_for('static', filename='js/modes/analytics.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/droneops.js') }}?v={{ version }}&r=droneops6"></script>
     <script src="{{ url_for('static', filename='js/modes/space-weather.js') }}"></script>
 
     <script>
@@ -3426,6 +3429,7 @@
             bt_locate: { label: 'BT Locate', indicator: 'BT LOCATE', outputTitle: 'BT Locate — SAR Tracker', group: 'wireless' },
             meshtastic: { label: 'Meshtastic', indicator: 'MESHTASTIC', outputTitle: 'Meshtastic Mesh Monitor', group: 'wireless' },
             tscm: { label: 'TSCM', indicator: 'TSCM', outputTitle: 'TSCM Counter-Surveillance', group: 'intel' },
+            droneops: { label: 'Drone Ops', indicator: 'DRONE OPS', outputTitle: 'Drone Ops', group: 'intel' },
             analytics: { label: 'Analytics', indicator: 'ANALYTICS', outputTitle: 'Cross-Mode Analytics', group: 'intel' },
             spystations: { label: 'Spy Stations', indicator: 'SPY STATIONS', outputTitle: 'Spy Stations', group: 'intel' },
             websdr: { label: 'WebSDR', indicator: 'WEBSDR', outputTitle: 'HF/Shortwave WebSDR', group: 'intel' },
@@ -4016,10 +4020,10 @@
             document.getElementById('aisMode')?.classList.toggle('active', mode === 'ais');
             document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
             document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
-            document.getElementById('dmrMode')?.classList.toggle('active', mode === 'dmr');
             document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
             document.getElementById('subghzMode')?.classList.toggle('active', mode === 'subghz');
             document.getElementById('analyticsMode')?.classList.toggle('active', mode === 'analytics');
+            document.getElementById('droneOpsMode')?.classList.toggle('active', mode === 'droneops');
             document.getElementById('spaceWeatherMode')?.classList.toggle('active', mode === 'spaceweather');
 
 
@@ -4057,11 +4061,11 @@
             const weatherSatVisuals = document.getElementById('weatherSatVisuals');
             const sstvGeneralVisuals = document.getElementById('sstvGeneralVisuals');
             const gpsVisuals = document.getElementById('gpsVisuals');
-            const dmrVisuals = document.getElementById('dmrVisuals');
             const websdrVisuals = document.getElementById('websdrVisuals');
             const subghzVisuals = document.getElementById('subghzVisuals');
             const btLocateVisuals = document.getElementById('btLocateVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
+            const droneOpsMainPane = document.getElementById('droneOpsMainPane');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -4074,11 +4078,11 @@
             if (weatherSatVisuals) weatherSatVisuals.style.display = mode === 'weathersat' ? 'flex' : 'none';
             if (sstvGeneralVisuals) sstvGeneralVisuals.style.display = mode === 'sstv_general' ? 'flex' : 'none';
             if (gpsVisuals) gpsVisuals.style.display = mode === 'gps' ? 'flex' : 'none';
-            if (dmrVisuals) dmrVisuals.style.display = mode === 'dmr' ? 'flex' : 'none';
             if (websdrVisuals) websdrVisuals.style.display = mode === 'websdr' ? 'flex' : 'none';
             if (subghzVisuals) subghzVisuals.style.display = mode === 'subghz' ? 'flex' : 'none';
             if (btLocateVisuals) btLocateVisuals.style.display = mode === 'bt_locate' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
+            if (droneOpsMainPane) droneOpsMainPane.style.display = mode === 'droneops' ? 'flex' : 'none';
 
             // Hide sidebar by default for Meshtastic mode, show for others
             const mainContent = document.querySelector('.main-content');
@@ -4120,6 +4124,17 @@
                 if (typeof Analytics !== 'undefined' && Analytics.destroy) Analytics.destroy();
             }
 
+            // Initialize/destroy Drone Ops mode
+            if (mode === 'droneops') {
+                document.querySelectorAll('#droneOpsMode .section.collapsed').forEach(s => s.classList.remove('collapsed'));
+                if (typeof DroneOps !== 'undefined' && DroneOps.init) {
+                    DroneOps.init();
+                    if (DroneOps.invalidateMap) setTimeout(() => DroneOps.invalidateMap(), 120);
+                }
+            } else {
+                if (typeof DroneOps !== 'undefined' && DroneOps.destroy) DroneOps.destroy();
+            }
+
             // Initialize/destroy Space Weather mode
             if (mode !== 'spaceweather') {
                 if (typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy) SpaceWeather.destroy();
@@ -4134,7 +4149,7 @@
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'spaceweather') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'droneops' || mode === 'spaceweather') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -4154,7 +4169,7 @@
 
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
-            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'dmr') ? 'block' : 'none';
+            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'listening' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general') ? 'block' : 'none';
 
             // Show waterfall panel if running in listening mode
             const waterfallPanel = document.getElementById('waterfallPanel');
@@ -4172,8 +4187,8 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'dmr' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'spaceweather') ? 'none' : 'block';
-            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'dmr' || mode === 'subghz' || mode === 'spaceweather') ? 'none' : 'flex';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'droneops' || mode === 'spaceweather') ? 'none' : 'block';
+            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
             if (mode !== 'meshtastic') {
@@ -4232,10 +4247,6 @@
                 SSTVGeneral.init();
             } else if (mode === 'gps') {
                 GPS.init();
-            } else if (mode === 'dmr') {
-                if (typeof checkDmrTools === 'function') checkDmrTools();
-                if (typeof checkDmrStatus === 'function') checkDmrStatus();
-                if (typeof initDmrSynthesizer === 'function') setTimeout(initDmrSynthesizer, 100);
             } else if (mode === 'websdr') {
                 if (typeof initWebSDR === 'function') initWebSDR();
             } else if (mode === 'subghz') {

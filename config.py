@@ -99,7 +99,6 @@ CHANGELOG = [
             "Pure Python SSTV decoder replacing broken slowrx dependency",
             "Real-time signal scope for pager, sensor, and SSTV modes",
             "USB-level device probe to prevent cryptic rtl_fm crashes",
-            "DMR dsd-fme protocol fixes, tuning controls, and state sync",
             "SDR device lock-up fix from unreleased device registry on crash",
         ]
     },
@@ -107,8 +106,6 @@ CHANGELOG = [
         "version": "2.14.0",
         "date": "February 2026",
         "highlights": [
-            "DMR/P25/NXDN/D-STAR digital voice decoder with dsd-fme",
-            "DMR visual synthesizer with event-driven spring-physics bars",
             "HF SSTV general mode with predefined shortwave frequencies",
             "WebSDR integration for remote HF/shortwave listening",
             "Listening Post signal scanner and audio pipeline improvements",

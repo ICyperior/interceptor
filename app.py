@@ -177,12 +177,6 @@ dsc_rtl_process = None
 dsc_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 dsc_lock = threading.Lock()
 
-# DMR / Digital Voice
-dmr_process = None
-dmr_rtl_process = None
-dmr_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
-dmr_lock = threading.Lock()
-
 # TSCM (Technical Surveillance Countermeasures)
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
@@ -661,16 +655,6 @@ def _get_subghz_active() -> bool:
         return False
 
 
-def _get_dmr_active() -> bool:
-    """Check if Digital Voice decoder has an active process."""
-    try:
-        from routes import dmr as dmr_module
-        proc = dmr_module.dmr_dsd_process
-        return bool(dmr_module.dmr_running and proc and proc.poll() is None)
-    except Exception:
-        return False
-
-
 def _get_bluetooth_health() -> tuple[bool, int]:
     """Return Bluetooth active state and best-effort device count."""
     legacy_running = bt_process is not None and (bt_process.poll() is None if bt_process else False)
@@ -746,7 +730,6 @@ def health_check() -> Response:
             'wifi': wifi_active,
             'bluetooth': bt_active,
             'dsc': dsc_process is not None and (dsc_process.poll() is None if dsc_process else False),
-            'dmr': _get_dmr_active(),
             'subghz': _get_subghz_active(),
         },
         'data': {
@@ -766,7 +749,6 @@ def kill_all() -> Response:
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
     global vdl2_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
-    global dmr_process, dmr_rtl_process
 
     # Import adsb and ais modules to reset their state
     from routes import adsb as adsb_module
@@ -778,7 +760,7 @@ def kill_all() -> Response:
         'rtl_fm', 'multimon-ng', 'rtl_433',
         'airodump-ng', 'aireplay-ng', 'airmon-ng',
         'dump1090', 'acarsdec', 'dumpvdl2', 'direwolf', 'AIS-catcher',
-        'hcitool', 'bluetoothctl', 'satdump', 'dsd',
+        'hcitool', 'bluetoothctl', 'satdump',
         'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg',
         'hackrf_transfer', 'hackrf_sweep'
     ]
@@ -827,11 +809,6 @@ def kill_all() -> Response:
     with dsc_lock:
         dsc_process = None
         dsc_rtl_process = None
-
-    # Reset DMR state
-    with dmr_lock:
-        dmr_process = None
-        dmr_rtl_process = None
 
     # Reset Bluetooth state (legacy)
     with bt_lock:

@@ -2172,6 +2172,10 @@ header h1 .tagline {
 }
 
 .control-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 6px 12px;
     background: transparent;
     border: 1px solid var(--border-color);
@@ -2182,6 +2186,14 @@ header h1 .tagline {
     letter-spacing: 1px;
     transition: all 0.2s ease;
     font-family: var(--font-sans);
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.control-btn .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .control-btn:hover {

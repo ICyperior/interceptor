@@ -214,8 +214,6 @@ Extended base for full-screen dashboards (maps, visualizations).
 | `bt_locate` | BT Locate |
 | `analytics` | Analytics dashboard |
 | `spaceweather` | Space weather |
-| `dmr` | DMR/P25 digital voice |
-
 ### Navigation Groups
 
 The navigation is organized into groups:
