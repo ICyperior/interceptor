@@ -10,7 +10,8 @@ from __future__ import annotations
 import logging
 import queue
 import threading
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
@@ -25,6 +26,11 @@ MAX_TRAIL_POINTS = 500
 
 # EMA smoothing factor for RSSI
 EMA_ALPHA = 0.3
+
+# Polling/restart tuning for scanner resilience without high CPU churn.
+POLL_INTERVAL_SECONDS = 1.5
+SCAN_RESTART_BACKOFF_SECONDS = 8.0
+NO_MATCH_LOG_EVERY_POLLS = 10
 
 
 def _normalize_mac(address: str | None) -> str | None:
@@ -47,6 +53,22 @@ def _normalize_mac(address: str | None) -> str | None:
 
     # Return cleaned original when not a strict MAC (caller may still use exact matching)
     return text
+
+
+def _address_looks_like_rpa(address: str | None) -> bool:
+    """
+    Return True when an address looks like a Resolvable Private Address.
+
+    RPA check: most-significant two bits of the first octet are `01`.
+    """
+    normalized = _normalize_mac(address)
+    if not normalized:
+        return False
+    try:
+        first_octet = int(normalized.split(':', 1)[0], 16)
+    except (ValueError, TypeError):
+        return False
+    return (first_octet >> 6) == 1
 
 
 class Environment(Enum):
@@ -116,8 +138,27 @@ class LocateTarget:
     known_name: str | None = None
     known_manufacturer: str | None = None
     last_known_rssi: int | None = None
+    _cached_irk_hex: str | None = field(default=None, init=False, repr=False)
+    _cached_irk_bytes: bytes | None = field(default=None, init=False, repr=False)
 
-    def matches(self, device: BTDeviceAggregate) -> bool:
+    def _get_irk_bytes(self) -> bytes | None:
+        """Parse/cache target IRK bytes once for repeated match checks."""
+        if not self.irk_hex:
+            return None
+        if self._cached_irk_hex == self.irk_hex:
+            return self._cached_irk_bytes
+        self._cached_irk_hex = self.irk_hex
+        self._cached_irk_bytes = None
+        try:
+            parsed = bytes.fromhex(self.irk_hex)
+        except (ValueError, TypeError):
+            return None
+        if len(parsed) != 16:
+            return None
+        self._cached_irk_bytes = parsed
+        return parsed
+
+    def matches(self, device: BTDeviceAggregate, irk_bytes: bytes | None = None) -> bool:
         """Check if a device matches this target."""
         # Match by stable device key (survives MAC randomization for many devices)
         if self.device_key and getattr(device, 'device_key', None) == self.device_key:
@@ -141,21 +182,23 @@ class LocateTarget:
             if dev_addr and target_addr and dev_addr == target_addr:
                 return True
 
-        # Match by payload fingerprint (guard against low-stability generic fingerprints)
+        # Match by payload fingerprint.
+        # For explicit hand-off sessions, allow exact fingerprint matches even if
+        # stability is still warming up.
         if self.fingerprint_id:
             dev_fp = getattr(device, 'payload_fingerprint_id', None)
             dev_fp_stability = getattr(device, 'payload_fingerprint_stability', 0.0) or 0.0
-            if dev_fp and dev_fp == self.fingerprint_id and dev_fp_stability >= 0.35:
-                return True
+            if dev_fp and dev_fp == self.fingerprint_id:
+                if dev_fp_stability >= 0.35:
+                    return True
+                if any([self.device_id, self.device_key, self.mac_address, self.known_name]):
+                    return True
 
         # Match by RPA resolution
-        if self.irk_hex:
-            try:
-                irk = bytes.fromhex(self.irk_hex)
-                if len(irk) == 16 and device.address and resolve_rpa(irk, device.address):
-                    return True
-            except (ValueError, TypeError):
-                pass
+        if self.irk_hex and device.address and _address_looks_like_rpa(device.address):
+            irk = irk_bytes or self._get_irk_bytes()
+            if irk and resolve_rpa(irk, device.address):
+                return True
 
         # Match by name pattern
         if self.name_pattern and device.name and self.name_pattern.lower() in device.name.lower():
@@ -282,6 +325,8 @@ class LocateSession:
         self.callback_call_count = 0
         self.poll_count = 0
         self._last_seen_device: str | None = None
+        self._last_scan_restart_attempt = 0.0
+        self._target_irk = target._get_irk_bytes()
 
         # Scanner reference
         self._scanner: BluetoothScanner | None = None
@@ -304,6 +349,7 @@ class LocateSession:
         if not self._scanner.is_scanning:
             logger.info("BT scanner not running, starting scan for locate session")
             self._scanner_started_by_us = True
+            self._last_scan_restart_attempt = time.monotonic()
             if not self._scanner.start_scan(mode='auto'):
                 # Surface startup failure to caller and avoid leaving stale callbacks.
                 status = self._scanner.get_status()
@@ -343,7 +389,7 @@ class LocateSession:
     def _poll_loop(self) -> None:
         """Poll scanner aggregator for target device updates."""
         while not self._stop_event.is_set():
-            self._stop_event.wait(timeout=1.5)
+            self._stop_event.wait(timeout=POLL_INTERVAL_SECONDS)
             if self._stop_event.is_set():
                 break
             try:
@@ -360,8 +406,11 @@ class LocateSession:
 
         # Restart scan if it expired (bleak 10s timeout)
         if not self._scanner.is_scanning:
-            logger.info("Scanner stopped, restarting for locate session")
-            self._scanner.start_scan(mode='auto')
+            now = time.monotonic()
+            if (now - self._last_scan_restart_attempt) >= SCAN_RESTART_BACKOFF_SECONDS:
+                self._last_scan_restart_attempt = now
+                logger.info("Scanner stopped, restarting for locate session")
+                self._scanner.start_scan(mode='auto')
 
         # Check devices seen within a recent window.  Using a short window
         # (rather than the aggregator's full 120s) so that once a device
@@ -370,7 +419,7 @@ class LocateSession:
         devices = self._scanner.get_devices(max_age_seconds=15)
         found_target = False
         for device in devices:
-            if not self.target.matches(device):
+            if not self.target.matches(device, irk_bytes=self._target_irk):
                 continue
             found_target = True
             rssi = device.rssi_current
@@ -380,7 +429,11 @@ class LocateSession:
             break  # One match per poll cycle is sufficient
 
         # Log periodically for debugging
-        if self.poll_count % 20 == 0 or (self.poll_count <= 5) or not found_target:
+        if (
+            self.poll_count <= 5
+            or self.poll_count % 20 == 0
+            or (not found_target and self.poll_count % NO_MATCH_LOG_EVERY_POLLS == 0)
+        ):
             logger.info(
                 f"Poll #{self.poll_count}: {len(devices)} devices, "
                 f"target_found={found_target}, "
@@ -396,7 +449,7 @@ class LocateSession:
         self.callback_call_count += 1
         self._last_seen_device = f"{device.device_id}|{device.name}"
 
-        if not self.target.matches(device):
+        if not self.target.matches(device, irk_bytes=self._target_irk):
             return
 
         rssi = device.rssi_current
@@ -426,12 +479,8 @@ class LocateSession:
 
         # Check RPA resolution
         rpa_resolved = False
-        if self.target.irk_hex and device.address:
-            try:
-                irk = bytes.fromhex(self.target.irk_hex)
-                rpa_resolved = resolve_rpa(irk, device.address)
-            except (ValueError, TypeError):
-                pass
+        if self._target_irk and device.address and _address_looks_like_rpa(device.address):
+            rpa_resolved = resolve_rpa(self._target_irk, device.address)
 
         # GPS tag — prefer live GPS, fall back to user-set coordinates
         gps_pos = get_current_position()
@@ -493,7 +542,7 @@ class LocateSession:
         with self._lock:
             return [p.to_dict() for p in self.trail if p.lat is not None]
 
-    def get_status(self) -> dict:
+    def get_status(self, include_debug: bool = False) -> dict:
         """Get session status."""
         gps_pos = get_current_position()
 
@@ -501,7 +550,7 @@ class LocateSession:
         # deadlock: get_status would hold self._lock then wait on
         # aggregator._lock, while _poll_loop holds aggregator._lock then
         # waits on self._lock in _record_detection.
-        debug_devices = self._debug_device_sample()
+        debug_devices = self._debug_device_sample() if include_debug else []
         scanner_running = self._scanner.is_scanning if self._scanner else False
         scanner_device_count = self._scanner.device_count if self._scanner else 0
         callback_registered = (
@@ -559,7 +608,7 @@ class LocateSession:
                     'addr': d.address,
                     'name': d.name,
                     'rssi': d.rssi_current,
-                    'match': self.target.matches(d),
+                    'match': self.target.matches(d, irk_bytes=self._target_irk),
                 }
                 for d in devices[:8]
             ]

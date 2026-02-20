@@ -153,7 +153,8 @@ def get_status():
             'target': None,
         })
 
-    return jsonify(session.get_status())
+    include_debug = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
+    return jsonify(session.get_status(include_debug=include_debug))
 
 
 @bt_locate_bp.route('/trail', methods=['GET'])
