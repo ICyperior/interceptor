@@ -164,7 +164,6 @@ def get_mode_health() -> dict[str, dict]:
         'bluetooth': 'bt_process',
         'dsc': 'dsc_process',
         'rtlamr': 'rtlamr_process',
-        'dmr': 'dmr_process',
     }
 
     for mode, attr in process_map.items():

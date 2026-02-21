@@ -6,8 +6,8 @@ const Settings = {
     // Default settings
     defaults: {
         'offline.enabled': false,
-        'offline.assets_source': 'cdn',
-        'offline.fonts_source': 'cdn',
+        'offline.assets_source': 'local',
+        'offline.fonts_source': 'local',
         'offline.tile_provider': 'cartodb_dark_cyan',
         'offline.tile_server_url': ''
     },

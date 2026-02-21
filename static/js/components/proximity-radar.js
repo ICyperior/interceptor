@@ -33,10 +33,7 @@ const ProximityRadar = (function() {
     let activeFilter = null;
     let onDeviceClick = null;
     let selectedDeviceKey = null;
-    let isHovered = false;
-    let renderPending = false;
     let renderTimer = null;
-    let interactionLockUntil = 0; // timestamp: suppress renders briefly after click
 
     /**
      * Initialize the radar component
@@ -128,27 +125,9 @@ const ProximityRadar = (function() {
             if (!deviceEl) return;
             const deviceKey = deviceEl.getAttribute('data-device-key');
             if (onDeviceClick && deviceKey) {
-                // Lock out re-renders briefly so the DOM stays stable after click
-                interactionLockUntil = Date.now() + 500;
                 onDeviceClick(deviceKey);
             }
         });
-
-        devicesGroup.addEventListener('mouseenter', (e) => {
-            if (e.target.closest('.radar-device')) {
-                isHovered = true;
-            }
-        }, true); // capture phase so we catch enter on child elements
-
-        devicesGroup.addEventListener('mouseleave', (e) => {
-            if (e.target.closest('.radar-device')) {
-                isHovered = false;
-                if (renderPending) {
-                    renderPending = false;
-                    renderDevices();
-                }
-            }
-        }, true);
 
         // Add sweep animation
         animateSweep();
@@ -191,16 +170,9 @@ const ProximityRadar = (function() {
     function updateDevices(deviceList) {
         if (isPaused) return;
 
-        // Update device map
         deviceList.forEach(device => {
             devices.set(device.device_key, device);
         });
-
-        // Defer render while user is hovering or interacting to prevent DOM rebuild flicker
-        if (isHovered || Date.now() < interactionLockUntil) {
-            renderPending = true;
-            return;
-        }
 
         // Debounce rapid updates (e.g. per-device SSE events)
         if (renderTimer) clearTimeout(renderTimer);
@@ -211,7 +183,9 @@ const ProximityRadar = (function() {
     }
 
     /**
-     * Render device dots on the radar
+     * Render device dots on the radar using in-place DOM updates.
+     * Elements are never destroyed and recreated — only their attributes and
+     * transforms are mutated — so hover state is never disturbed by a render.
      */
     function renderDevices() {
         const devicesGroup = svg.querySelector('.radar-devices');
@@ -219,6 +193,7 @@ const ProximityRadar = (function() {
 
         const center = CONFIG.size / 2;
         const maxRadius = center - CONFIG.padding;
+        const ns = 'http://www.w3.org/2000/svg';
 
         // Filter devices
         let visibleDevices = Array.from(devices.values());
@@ -234,69 +209,195 @@ const ProximityRadar = (function() {
             visibleDevices = visibleDevices.filter(d => !d.in_baseline);
         }
 
-        // Build SVG for each device
-        const dots = visibleDevices.map(device => {
-            // Calculate position
-            const { x, y, radius } = calculateDevicePosition(device, center, maxRadius);
+        const visibleKeys = new Set(visibleDevices.map(d => d.device_key));
 
-            // Calculate dot size based on confidence
+        // Remove elements for devices no longer in the visible set
+        devicesGroup.querySelectorAll('.radar-device-wrapper').forEach(el => {
+            if (!visibleKeys.has(el.getAttribute('data-device-key'))) {
+                el.remove();
+            }
+        });
+
+        // Sort weakest signal first so strongest renders on top (SVG z-order)
+        visibleDevices.sort((a, b) => (a.rssi_current || -100) - (b.rssi_current || -100));
+
+        // Compute all positions upfront so we can spread overlapping dots
+        const posMap = new Map();
+        visibleDevices.forEach(device => {
+            posMap.set(device.device_key, calculateDevicePosition(device, center, maxRadius));
+        });
+
+        // Spread dots that land too close together within the same band.
+        // minGapPx = diameter of largest possible hit area + 2px breathing room.
+        const maxHitArea = CONFIG.dotMaxSize + 4;
+        spreadOverlappingDots(Array.from(posMap.values()), center, maxHitArea * 2 + 2);
+
+        visibleDevices.forEach(device => {
+            const { x, y } = posMap.get(device.device_key);
             const confidence = device.distance_confidence || 0.5;
             const dotSize = CONFIG.dotMinSize + (CONFIG.dotMaxSize - CONFIG.dotMinSize) * confidence;
-
-            // Get color based on proximity band
             const color = getBandColor(device.proximity_band);
-
-            // Check if newly seen (pulse animation)
             const isNew = device.age_seconds < 5;
-            const pulseClass = isNew ? 'radar-dot-pulse' : '';
-            const isSelected = selectedDeviceKey && device.device_key === selectedDeviceKey;
+            const isSelected = !!(selectedDeviceKey && device.device_key === selectedDeviceKey);
+            const hitAreaSize = dotSize + 4;
+            const key = device.device_key;
 
-            // Hit area size (prevents hover flicker when scaling)
-            const hitAreaSize = Math.max(dotSize * 2, 15);
+            const existing = devicesGroup.querySelector(
+                `.radar-device-wrapper[data-device-key="${CSS.escape(key)}"]`
+            );
 
-            return `
-                <g transform="translate(${x}, ${y})">
-                    <g class="radar-device ${pulseClass}${isSelected ? ' selected' : ''}" data-device-key="${escapeAttr(device.device_key)}"
-                       style="cursor: pointer;">
-                        <!-- Invisible hit area to prevent hover flicker -->
-                        <circle class="radar-device-hitarea" r="${hitAreaSize}" fill="transparent" />
-                        ${isSelected ? `<circle class="radar-select-ring" r="${dotSize + 8}" fill="none" stroke="#00d4ff" stroke-width="2" stroke-opacity="0.8">
-                            <animate attributeName="r" values="${dotSize + 6};${dotSize + 10};${dotSize + 6}" dur="1.5s" repeatCount="indefinite"/>
-                            <animate attributeName="stroke-opacity" values="0.8;0.4;0.8" dur="1.5s" repeatCount="indefinite"/>
-                        </circle>` : ''}
-                        <circle r="${dotSize}" fill="${color}"
-                                fill-opacity="${isSelected ? 1 : 0.4 + confidence * 0.5}"
-                                stroke="${isSelected ? '#00d4ff' : color}" stroke-width="${isSelected ? 2 : 1}" />
-                        ${device.is_new && !isSelected ? `<circle r="${dotSize + 3}" fill="none" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2,2" />` : ''}
-                        <title>${escapeHtml(device.name || device.address)} (${device.rssi_current || '--'} dBm)</title>
-                    </g>
-                </g>
-            `;
-        }).join('');
+            if (existing) {
+                // ── In-place update: mutate attributes, never recreate ──
+                existing.setAttribute('transform', `translate(${x}, ${y})`);
 
-        devicesGroup.innerHTML = dots;
+                const innerG = existing.querySelector('.radar-device');
+                if (innerG) {
+                    innerG.className.baseVal =
+                        `radar-device${isNew ? ' radar-dot-pulse' : ''}${isSelected ? ' selected' : ''}`;
+
+                    const hitArea = innerG.querySelector('.radar-device-hitarea');
+                    if (hitArea) hitArea.setAttribute('r', hitAreaSize);
+
+                    const dot = innerG.querySelector('.radar-dot');
+                    if (dot) {
+                        dot.setAttribute('r', dotSize);
+                        dot.setAttribute('fill', color);
+                        dot.setAttribute('fill-opacity', isSelected ? 1 : 0.4 + confidence * 0.5);
+                        dot.setAttribute('stroke', isSelected ? '#00d4ff' : color);
+                        dot.setAttribute('stroke-width', isSelected ? 2 : 1);
+                    }
+
+                    const title = innerG.querySelector('title');
+                    if (title) {
+                        title.textContent =
+                            `${escapeHtml(device.name || device.address)} (${device.rssi_current || '--'} dBm)`;
+                    }
+
+                    // Selection ring: add if newly selected, remove if deselected
+                    let ring = innerG.querySelector('.radar-select-ring');
+                    if (isSelected && !ring) {
+                        ring = buildSelectRing(ns, dotSize);
+                        const hitAreaEl = innerG.querySelector('.radar-device-hitarea');
+                        innerG.insertBefore(ring, hitAreaEl ? hitAreaEl.nextSibling : innerG.firstChild);
+                    } else if (!isSelected && ring) {
+                        ring.remove();
+                    }
+
+                    // New-device indicator ring
+                    let newRing = innerG.querySelector('.radar-new-ring');
+                    if (device.is_new && !isSelected) {
+                        if (!newRing) {
+                            newRing = document.createElementNS(ns, 'circle');
+                            newRing.classList.add('radar-new-ring');
+                            newRing.setAttribute('fill', 'none');
+                            newRing.setAttribute('stroke', '#3b82f6');
+                            newRing.setAttribute('stroke-width', '1');
+                            newRing.setAttribute('stroke-dasharray', '2,2');
+                            innerG.appendChild(newRing);
+                        }
+                        newRing.setAttribute('r', dotSize + 3);
+                    } else if (newRing) {
+                        newRing.remove();
+                    }
+                }
+            } else {
+                // ── Create new element ──
+                const wrapperG = document.createElementNS(ns, 'g');
+                wrapperG.classList.add('radar-device-wrapper');
+                wrapperG.setAttribute('data-device-key', key);
+                wrapperG.setAttribute('transform', `translate(${x}, ${y})`);
+
+                const innerG = document.createElementNS(ns, 'g');
+                innerG.classList.add('radar-device');
+                if (isNew) innerG.classList.add('radar-dot-pulse');
+                if (isSelected) innerG.classList.add('selected');
+                innerG.setAttribute('data-device-key', escapeAttr(key));
+                innerG.style.cursor = 'pointer';
+
+                const hitArea = document.createElementNS(ns, 'circle');
+                hitArea.classList.add('radar-device-hitarea');
+                hitArea.setAttribute('r', hitAreaSize);
+                hitArea.setAttribute('fill', 'transparent');
+                innerG.appendChild(hitArea);
+
+                if (isSelected) {
+                    innerG.appendChild(buildSelectRing(ns, dotSize));
+                }
+
+                const dot = document.createElementNS(ns, 'circle');
+                dot.classList.add('radar-dot');
+                dot.setAttribute('r', dotSize);
+                dot.setAttribute('fill', color);
+                dot.setAttribute('fill-opacity', isSelected ? 1 : 0.4 + confidence * 0.5);
+                dot.setAttribute('stroke', isSelected ? '#00d4ff' : color);
+                dot.setAttribute('stroke-width', isSelected ? 2 : 1);
+                innerG.appendChild(dot);
+
+                if (device.is_new && !isSelected) {
+                    const newRing = document.createElementNS(ns, 'circle');
+                    newRing.classList.add('radar-new-ring');
+                    newRing.setAttribute('r', dotSize + 3);
+                    newRing.setAttribute('fill', 'none');
+                    newRing.setAttribute('stroke', '#3b82f6');
+                    newRing.setAttribute('stroke-width', '1');
+                    newRing.setAttribute('stroke-dasharray', '2,2');
+                    innerG.appendChild(newRing);
+                }
+
+                const title = document.createElementNS(ns, 'title');
+                title.textContent =
+                    `${escapeHtml(device.name || device.address)} (${device.rssi_current || '--'} dBm)`;
+                innerG.appendChild(title);
+
+                wrapperG.appendChild(innerG);
+                devicesGroup.appendChild(wrapperG);
+            }
+        });
+    }
+
+    /**
+     * Build an animated SVG selection ring element
+     */
+    function buildSelectRing(ns, dotSize) {
+        const ring = document.createElementNS(ns, 'circle');
+        ring.classList.add('radar-select-ring');
+        ring.setAttribute('r', dotSize + 8);
+        ring.setAttribute('fill', 'none');
+        ring.setAttribute('stroke', '#00d4ff');
+        ring.setAttribute('stroke-width', '2');
+        ring.setAttribute('stroke-opacity', '0.8');
+
+        const animR = document.createElementNS(ns, 'animate');
+        animR.setAttribute('attributeName', 'r');
+        animR.setAttribute('values', `${dotSize + 6};${dotSize + 10};${dotSize + 6}`);
+        animR.setAttribute('dur', '1.5s');
+        animR.setAttribute('repeatCount', 'indefinite');
+        ring.appendChild(animR);
+
+        const animO = document.createElementNS(ns, 'animate');
+        animO.setAttribute('attributeName', 'stroke-opacity');
+        animO.setAttribute('values', '0.8;0.4;0.8');
+        animO.setAttribute('dur', '1.5s');
+        animO.setAttribute('repeatCount', 'indefinite');
+        ring.appendChild(animO);
+
+        return ring;
     }
 
     /**
      * Calculate device position on radar
      */
     function calculateDevicePosition(device, center, maxRadius) {
-        // Calculate radius based on proximity band/distance
+        // Position is band-only — the band is computed server-side from rssi_ema
+        // (already smoothed), so it changes infrequently and never jitters.
+        // Using raw estimated_distance_m caused constant micro-movement as RSSI
+        // fluctuated on every update cycle.
         let radiusRatio;
-        const band = device.proximity_band || 'unknown';
-
-        if (device.estimated_distance_m != null) {
-            // Use actual distance (log scale)
-            const maxDistance = 15;
-            radiusRatio = Math.min(1, Math.log10(device.estimated_distance_m + 1) / Math.log10(maxDistance + 1));
-        } else {
-            // Use band-based positioning
-            switch (band) {
-                case 'immediate': radiusRatio = 0.15; break;
-                case 'near': radiusRatio = 0.4; break;
-                case 'far': radiusRatio = 0.7; break;
-                default: radiusRatio = 0.9; break;
-            }
+        switch (device.proximity_band || 'unknown') {
+            case 'immediate': radiusRatio = 0.15; break;
+            case 'near':      radiusRatio = 0.40; break;
+            case 'far':       radiusRatio = 0.70; break;
+            default:          radiusRatio = 0.90; break;
         }
 
         // Calculate angle based on device key hash (stable positioning)
@@ -306,7 +407,53 @@ const ProximityRadar = (function() {
         const x = center + Math.sin(angle) * radius;
         const y = center - Math.cos(angle) * radius;
 
-        return { x, y, radius };
+        return { x, y, angle, radius };
+    }
+
+    /**
+     * Spread dots within the same band that land too close together.
+     * Groups entries by radius, sorts by angle, then nudges neighbours
+     * apart until the arc gap between any two dots is at least minGapPx.
+     * Positions are updated in-place on the entry objects.
+     */
+    function spreadOverlappingDots(entries, center, minGapPx) {
+        const groups = new Map();
+        entries.forEach(e => {
+            const key = Math.round(e.radius);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(e);
+        });
+
+        groups.forEach((group, r) => {
+            if (group.length < 2 || r < 1) return;
+            const minSep = minGapPx / r; // radians
+
+            group.sort((a, b) => a.angle - b.angle);
+
+            // Iterative push-apart (up to 8 passes)
+            for (let iter = 0; iter < 8; iter++) {
+                let moved = false;
+                for (let i = 0; i < group.length; i++) {
+                    const j = (i + 1) % group.length;
+                    let gap = group[j].angle - group[i].angle;
+                    if (gap < 0) gap += 2 * Math.PI;
+                    if (gap < minSep) {
+                        const push = (minSep - gap) / 2;
+                        group[i].angle -= push;
+                        group[j].angle += push;
+                        moved = true;
+                    }
+                }
+                if (!moved) break;
+            }
+
+            // Normalise angles back to [0, 2π) and recompute x/y
+            group.forEach(e => {
+                e.angle = ((e.angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+                e.x = center + Math.sin(e.angle) * r;
+                e.y = center - Math.cos(e.angle) * r;
+            });
+        });
     }
 
     /**

@@ -29,7 +29,6 @@ def register_blueprints(app):
     from .sstv import sstv_bp
     from .weather_sat import weather_sat_bp
     from .sstv_general import sstv_general_bp
-    from .dmr import dmr_bp
     from .websdr import websdr_bp
     from .alerts import alerts_bp
     from .recordings import recordings_bp
@@ -65,7 +64,6 @@ def register_blueprints(app):
     app.register_blueprint(sstv_bp)  # ISS SSTV decoder
     app.register_blueprint(weather_sat_bp)  # NOAA/Meteor weather satellite decoder
     app.register_blueprint(sstv_general_bp)  # General terrestrial SSTV
-    app.register_blueprint(dmr_bp)  # DMR / P25 / Digital Voice
     app.register_blueprint(websdr_bp)  # HF/Shortwave WebSDR
     app.register_blueprint(alerts_bp)  # Cross-mode alerts
     app.register_blueprint(recordings_bp)  # Session recordings

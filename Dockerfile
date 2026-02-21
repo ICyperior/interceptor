@@ -94,7 +94,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpulse-dev \
     libfftw3-dev \
     liblapack-dev \
-    libcodec2-dev \
     libglib2.0-dev \
     libxml2-dev \
     # Build dump1090
@@ -199,27 +198,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && go install github.com/bemasher/rtlamr@latest \
     && cp /tmp/gopath/bin/rtlamr /usr/bin/rtlamr \
     && rm -rf /usr/local/go /tmp/gopath \
-    # Build mbelib (required by DSD)
-    && cd /tmp \
-    && git clone https://github.com/lwvmobile/mbelib.git \
-    && cd mbelib \
-    && (git checkout ambe_tones || true) \
-    && mkdir build && cd build \
-    && cmake .. \
-    && make -j$(nproc) \
-    && make install \
-    && ldconfig \
-    && rm -rf /tmp/mbelib \
-    # Build DSD-FME (Digital Speech Decoder for DMR/P25)
-    && cd /tmp \
-    && git clone --depth 1 https://github.com/lwvmobile/dsd-fme.git \
-    && cd dsd-fme \
-    && mkdir build && cd build \
-    && cmake .. \
-    && make -j$(nproc) \
-    && make install \
-    && ldconfig \
-    && rm -rf /tmp/dsd-fme \
     # Cleanup build tools to reduce image size
     # libgtk-3-dev is explicitly removed; runtime GTK libs remain for slowrx
     && apt-get remove -y \
@@ -247,7 +225,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpulse-dev \
     libfftw3-dev \
     liblapack-dev \
-    libcodec2-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

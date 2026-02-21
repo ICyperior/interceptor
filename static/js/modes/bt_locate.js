@@ -31,13 +31,19 @@ const BtLocate = (function() {
     let movementHeadMarker = null;
     let strongestMarker = null;
     let confidenceCircle = null;
-    let heatmapEnabled = true;
+    let heatmapEnabled = false;
     let movementEnabled = true;
     let autoFollowEnabled = true;
     let smoothingEnabled = true;
     let lastRenderedDetectionKey = null;
     let pendingHeatSync = false;
     let mapStabilizeTimer = null;
+    let modeActive = false;
+    let queuedDetection = null;
+    let queuedDetectionOptions = null;
+    let queuedDetectionTimer = null;
+    let lastDetectionRenderAt = 0;
+    let startRequestInFlight = false;
 
     const MAX_HEAT_POINTS = 1200;
     const MAX_TRAIL_POINTS = 1200;
@@ -45,8 +51,9 @@ const BtLocate = (function() {
     const OUTLIER_HARD_JUMP_METERS = 2000;
     const OUTLIER_SOFT_JUMP_METERS = 450;
     const OUTLIER_MAX_SPEED_MPS = 50;
-    const MAP_STABILIZE_INTERVAL_MS = 150;
-    const MAP_STABILIZE_ATTEMPTS = 28;
+    const MAP_STABILIZE_INTERVAL_MS = 220;
+    const MAP_STABILIZE_ATTEMPTS = 8;
+    const MIN_DETECTION_RENDER_MS = 220;
     const OVERLAY_STORAGE_KEYS = {
         heatmap: 'btLocateHeatmapEnabled',
         movement: 'btLocateMovementEnabled',
@@ -66,6 +73,20 @@ const BtLocate = (function() {
             1.0: '#ef4444',
         },
     };
+    const BT_LOCATE_DEBUG = (() => {
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            return params.get('btlocate_debug') === '1' ||
+                localStorage.getItem('btLocateDebug') === 'true';
+        } catch (_) {
+            return false;
+        }
+    })();
+
+    function debugLog() {
+        if (!BT_LOCATE_DEBUG) return;
+        console.log.apply(console, arguments);
+    }
 
     function getMapContainer() {
         if (!map || typeof map.getContainer !== 'function') return null;
@@ -84,7 +105,71 @@ const BtLocate = (function() {
         return true;
     }
 
+    function statusUrl() {
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            const debugFlag = params.get('btlocate_debug') === '1' ||
+                localStorage.getItem('btLocateDebug') === 'true';
+            return debugFlag ? '/bt_locate/status?debug=1' : '/bt_locate/status';
+        } catch (_) {
+            return '/bt_locate/status';
+        }
+    }
+
+    function coerceLocation(lat, lon) {
+        const nLat = Number(lat);
+        const nLon = Number(lon);
+        if (!isFinite(nLat) || !isFinite(nLon)) return null;
+        if (nLat < -90 || nLat > 90 || nLon < -180 || nLon > 180) return null;
+        return { lat: nLat, lon: nLon };
+    }
+
+    function resolveFallbackLocation() {
+        try {
+            if (typeof ObserverLocation !== 'undefined' && ObserverLocation.getShared) {
+                const shared = ObserverLocation.getShared();
+                const normalized = coerceLocation(shared?.lat, shared?.lon);
+                if (normalized) return normalized;
+            }
+        } catch (_) {}
+
+        try {
+            const stored = localStorage.getItem('observerLocation');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                const normalized = coerceLocation(parsed?.lat, parsed?.lon);
+                if (normalized) return normalized;
+            }
+        } catch (_) {}
+
+        try {
+            const normalized = coerceLocation(
+                localStorage.getItem('observerLat'),
+                localStorage.getItem('observerLon')
+            );
+            if (normalized) return normalized;
+        } catch (_) {}
+
+        return coerceLocation(window.INTERCEPT_DEFAULT_LAT, window.INTERCEPT_DEFAULT_LON);
+    }
+
+    function setStartButtonBusy(busy) {
+        const startBtn = document.getElementById('btLocateStartBtn');
+        if (!startBtn) return;
+        if (busy) {
+            if (!startBtn.dataset.defaultLabel) {
+                startBtn.dataset.defaultLabel = startBtn.textContent || 'Start Locate';
+            }
+            startBtn.disabled = true;
+            startBtn.textContent = 'Starting...';
+            return;
+        }
+        startBtn.disabled = false;
+        startBtn.textContent = startBtn.dataset.defaultLabel || 'Start Locate';
+    }
+
     function init() {
+        modeActive = true;
         loadOverlayPreferences();
         syncOverlayControls();
 
@@ -159,7 +244,7 @@ const BtLocate = (function() {
     }
 
     function checkStatus() {
-        fetch('/bt_locate/status')
+        fetch(statusUrl())
             .then(r => r.json())
             .then(data => {
                 if (data.active) {
@@ -173,8 +258,21 @@ const BtLocate = (function() {
             .catch(() => {});
     }
 
+    function normalizeMacInput(value) {
+        const raw = (value || '').trim().toUpperCase().replace(/-/g, ':');
+        if (!raw) return '';
+        const compact = raw.replace(/[^0-9A-F]/g, '');
+        if (compact.length === 12) {
+            return compact.match(/.{1,2}/g).join(':');
+        }
+        return raw;
+    }
+
     function start() {
-        const mac = document.getElementById('btLocateMac')?.value.trim();
+        if (startRequestInFlight) {
+            return;
+        }
+        const mac = normalizeMacInput(document.getElementById('btLocateMac')?.value);
         const namePattern = document.getElementById('btLocateNamePattern')?.value.trim();
         const irk = document.getElementById('btLocateIrk')?.value.trim();
 
@@ -190,14 +288,13 @@ const BtLocate = (function() {
         if (handoffData?.last_known_rssi) body.last_known_rssi = handoffData.last_known_rssi;
 
         // Include user location as fallback when GPS unavailable
-        const userLat = localStorage.getItem('observerLat');
-        const userLon = localStorage.getItem('observerLon');
-        if (userLat !== null && userLon !== null) {
-            body.fallback_lat = parseFloat(userLat);
-            body.fallback_lon = parseFloat(userLon);
+        const fallbackLocation = resolveFallbackLocation();
+        if (fallbackLocation) {
+            body.fallback_lat = fallbackLocation.lat;
+            body.fallback_lon = fallbackLocation.lon;
         }
 
-        console.log('[BtLocate] Starting with body:', body);
+        debugLog('[BtLocate] Starting with body:', body);
 
         if (!body.mac_address && !body.name_pattern && !body.irk_hex &&
             !body.device_id && !body.device_key && !body.fingerprint_id) {
@@ -205,12 +302,27 @@ const BtLocate = (function() {
             return;
         }
 
+        startRequestInFlight = true;
+        setStartButtonBusy(true);
+
         fetch('/bt_locate/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         })
-            .then(r => r.json())
+            .then(async (r) => {
+                let data = null;
+                try {
+                    data = await r.json();
+                } catch (_) {
+                    data = {};
+                }
+                if (!r.ok || data.status !== 'started') {
+                    const message = data.error || data.message || ('HTTP ' + r.status);
+                    throw new Error(message);
+                }
+                return data;
+            })
             .then(data => {
                 if (data.status === 'started') {
                     sessionStartedAt = data.session?.started_at ? new Date(data.session.started_at).getTime() : Date.now();
@@ -222,15 +334,30 @@ const BtLocate = (function() {
                     updateScanStatus(data.session);
                     // Restore any existing trail (e.g. from a stop/start cycle)
                     restoreTrail();
+                    pollStatus();
                 }
             })
-            .catch(err => console.error('[BtLocate] Start error:', err));
+            .catch(err => {
+                console.error('[BtLocate] Start error:', err);
+                alert('BT Locate failed to start: ' + (err?.message || 'Unknown error'));
+                showIdleUI();
+            })
+            .finally(() => {
+                startRequestInFlight = false;
+                setStartButtonBusy(false);
+            });
     }
 
     function stop() {
         fetch('/bt_locate/stop', { method: 'POST' })
             .then(r => r.json())
             .then(() => {
+                if (queuedDetectionTimer) {
+                    clearTimeout(queuedDetectionTimer);
+                    queuedDetectionTimer = null;
+                }
+                queuedDetection = null;
+                queuedDetectionOptions = null;
                 showIdleUI();
                 disconnectSSE();
                 stopAudio();
@@ -239,6 +366,7 @@ const BtLocate = (function() {
     }
 
     function showActiveUI() {
+        setStartButtonBusy(false);
         const startBtn = document.getElementById('btLocateStartBtn');
         const stopBtn = document.getElementById('btLocateStopBtn');
         if (startBtn) startBtn.style.display = 'none';
@@ -247,6 +375,14 @@ const BtLocate = (function() {
     }
 
     function showIdleUI() {
+        startRequestInFlight = false;
+        setStartButtonBusy(false);
+        if (queuedDetectionTimer) {
+            clearTimeout(queuedDetectionTimer);
+            queuedDetectionTimer = null;
+        }
+        queuedDetection = null;
+        queuedDetectionOptions = null;
         const startBtn = document.getElementById('btLocateStartBtn');
         const stopBtn = document.getElementById('btLocateStopBtn');
         if (startBtn) startBtn.style.display = 'inline-block';
@@ -276,13 +412,13 @@ const BtLocate = (function() {
 
     function connectSSE() {
         if (eventSource) eventSource.close();
-        console.log('[BtLocate] Connecting SSE stream');
+        debugLog('[BtLocate] Connecting SSE stream');
         eventSource = new EventSource('/bt_locate/stream');
 
         eventSource.addEventListener('detection', function(e) {
             try {
                 const event = JSON.parse(e.data);
-                console.log('[BtLocate] Detection event:', event);
+                debugLog('[BtLocate] Detection event:', event);
                 handleDetection(event);
             } catch (err) {
                 console.error('[BtLocate] Parse error:', err);
@@ -295,7 +431,7 @@ const BtLocate = (function() {
         });
 
         eventSource.onerror = function() {
-            console.warn('[BtLocate] SSE error, polling fallback active');
+            debugLog('[BtLocate] SSE error, polling fallback active');
             if (eventSource && eventSource.readyState === EventSource.CLOSED) {
                 eventSource = null;
             }
@@ -303,6 +439,7 @@ const BtLocate = (function() {
 
         // Start polling fallback (catches data even if SSE fails)
         startPolling();
+        pollStatus();
     }
 
     function disconnectSSE() {
@@ -350,7 +487,7 @@ const BtLocate = (function() {
     }
 
     function pollStatus() {
-        fetch('/bt_locate/status')
+        fetch(statusUrl())
             .then(r => r.json())
             .then(data => {
                 if (!data.active) {
@@ -447,7 +584,42 @@ const BtLocate = (function() {
         }
     }
 
+    function flushQueuedDetection() {
+        if (!queuedDetection) return;
+        const event = queuedDetection;
+        const options = queuedDetectionOptions || {};
+        queuedDetection = null;
+        queuedDetectionOptions = null;
+        queuedDetectionTimer = null;
+        renderDetection(event, options);
+    }
+
     function handleDetection(event, options = {}) {
+        if (!modeActive) {
+            return;
+        }
+        const now = Date.now();
+        if (options.force || (now - lastDetectionRenderAt) >= MIN_DETECTION_RENDER_MS) {
+            if (queuedDetectionTimer) {
+                clearTimeout(queuedDetectionTimer);
+                queuedDetectionTimer = null;
+            }
+            queuedDetection = null;
+            queuedDetectionOptions = null;
+            renderDetection(event, options);
+            return;
+        }
+
+        // Keep only the freshest event while throttled.
+        queuedDetection = event;
+        queuedDetectionOptions = options;
+        if (!queuedDetectionTimer) {
+            queuedDetectionTimer = setTimeout(flushQueuedDetection, MIN_DETECTION_RENDER_MS);
+        }
+    }
+
+    function renderDetection(event, options = {}) {
+        lastDetectionRenderAt = Date.now();
         const d = event?.data || event;
         if (!d) return;
         const detectionKey = buildDetectionKey(d);
@@ -473,7 +645,7 @@ const BtLocate = (function() {
             try {
                 mapPointAdded = addMapMarker(d, { suppressFollow: options.suppressFollow === true });
             } catch (error) {
-                console.warn('[BtLocate] Map update skipped:', error);
+                debugLog('[BtLocate] Map update skipped:', error);
                 mapPointAdded = false;
             }
         }
@@ -878,7 +1050,7 @@ const BtLocate = (function() {
     }
 
     function ensureHeatLayer() {
-        if (!map || typeof L === 'undefined' || typeof L.heatLayer !== 'function') return;
+        if (!map || !heatmapEnabled || typeof L === 'undefined' || typeof L.heatLayer !== 'function') return;
         if (!heatLayer) {
             heatLayer = L.heatLayer([], HEAT_LAYER_OPTIONS);
         }
@@ -886,9 +1058,19 @@ const BtLocate = (function() {
 
     function syncHeatLayer() {
         if (!map) return;
+        if (!heatmapEnabled) {
+            if (heatLayer && map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
+            pendingHeatSync = false;
+            return;
+        }
         ensureHeatLayer();
         if (!heatLayer) return;
-        if (!isMapContainerVisible()) {
+        if (!modeActive || !isMapContainerVisible()) {
+            if (map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
             pendingHeatSync = true;
             return;
         }
@@ -898,6 +1080,13 @@ const BtLocate = (function() {
                 pendingHeatSync = true;
                 return;
             }
+        }
+        if (!Array.isArray(heatPoints) || heatPoints.length === 0) {
+            if (map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
+            pendingHeatSync = false;
+            return;
         }
         try {
             heatLayer.setLatLngs(heatPoints);
@@ -914,8 +1103,50 @@ const BtLocate = (function() {
             if (map.hasLayer(heatLayer)) {
                 map.removeLayer(heatLayer);
             }
-            console.warn('[BtLocate] Heatmap redraw deferred:', error);
+            debugLog('[BtLocate] Heatmap redraw deferred:', error);
         }
+    }
+
+    function setActiveMode(active) {
+        modeActive = !!active;
+        if (!map) return;
+
+        if (!modeActive) {
+            stopMapStabilization();
+            if (queuedDetectionTimer) {
+                clearTimeout(queuedDetectionTimer);
+                queuedDetectionTimer = null;
+            }
+            queuedDetection = null;
+            queuedDetectionOptions = null;
+            // Pause BT Locate frontend work when mode is hidden.
+            disconnectSSE();
+            if (heatLayer && map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
+            pendingHeatSync = true;
+            return;
+        }
+
+        setTimeout(() => {
+            if (!modeActive) return;
+            safeInvalidateMap();
+            flushPendingHeatSync();
+            syncHeatLayer();
+            syncMovementLayer();
+            syncStrongestMarker();
+            updateConfidenceLayer();
+            scheduleMapStabilization(8);
+            checkStatus();
+        }, 80);
+
+        // A second pass after layout settles (sidebar/visual transitions).
+        setTimeout(() => {
+            if (!modeActive) return;
+            safeInvalidateMap();
+            flushPendingHeatSync();
+            syncHeatLayer();
+        }, 260);
     }
 
     function isMapRenderable() {
@@ -1370,7 +1601,7 @@ const BtLocate = (function() {
         if (typeof showNotification === 'function') {
             showNotification(title, message);
         } else {
-            console.log('[BtLocate] ' + title + ': ' + message);
+            debugLog('[BtLocate] ' + title + ': ' + message);
         }
     }
 
@@ -1461,7 +1692,7 @@ const BtLocate = (function() {
             // Resume must happen within a user gesture handler
             const ctx = audioCtx;
             ctx.resume().then(() => {
-                console.log('[BtLocate] AudioContext state:', ctx.state);
+                debugLog('[BtLocate] AudioContext state:', ctx.state);
                 // Confirmation beep so user knows audio is working
                 playTone(600, 0.08);
             });
@@ -1482,14 +1713,14 @@ const BtLocate = (function() {
             btn.classList.toggle('active', btn.dataset.env === env);
         });
         // Push to running session if active
-        fetch('/bt_locate/status').then(r => r.json()).then(data => {
+        fetch(statusUrl()).then(r => r.json()).then(data => {
             if (data.active) {
                 fetch('/bt_locate/environment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ environment: env }),
                 }).then(r => r.json()).then(res => {
-                    console.log('[BtLocate] Environment updated:', res);
+                    debugLog('[BtLocate] Environment updated:', res);
                 });
             }
         }).catch(() => {});
@@ -1506,7 +1737,7 @@ const BtLocate = (function() {
     }
 
     function handoff(deviceInfo) {
-        console.log('[BtLocate] Handoff received:', deviceInfo);
+        debugLog('[BtLocate] Handoff received:', deviceInfo);
         handoffData = deviceInfo;
 
         // Populate fields
@@ -1635,6 +1866,7 @@ const BtLocate = (function() {
 
     return {
         init,
+        setActiveMode,
         start,
         stop,
         handoff,
@@ -1652,3 +1884,5 @@ const BtLocate = (function() {
         fetchPairedIrks,
     };
 })();
+
+window.BtLocate = BtLocate;

@@ -234,10 +234,6 @@ check_tools() {
   check_required "gpsd" "GPS daemon" gpsd
 
   echo
-  info "Digital Voice:"
-  check_optional "dsd" "Digital Speech Decoder (DMR/P25)" dsd dsd-fme
-
-  echo
   info "Audio:"
   check_required "ffmpeg" "Audio encoder/decoder" ffmpeg
 
@@ -455,95 +451,6 @@ install_multimon_ng_from_source_macos() {
       $SUDO install -m 0755 multimon-ng /usr/local/bin/multimon-ng
     fi
     ok "multimon-ng installed successfully from source"
-  )
-}
-
-install_dsd_from_source() {
-  info "Building DSD (Digital Speech Decoder) from source..."
-  info "This requires mbelib (vocoder library) as a prerequisite."
-
-  if [[ "$OS" == "macos" ]]; then
-    brew_install cmake
-    brew_install libsndfile
-    brew_install ncurses
-    brew_install fftw
-    brew_install codec2
-    brew_install librtlsdr
-    brew_install pulseaudio || true
-  else
-    apt_install build-essential git cmake libsndfile1-dev libpulse-dev \
-      libfftw3-dev liblapack-dev libncurses-dev librtlsdr-dev libcodec2-dev
-  fi
-
-  (
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' EXIT
-
-    # Step 1: Build and install mbelib (required dependency)
-    info "Building mbelib (vocoder library)..."
-    git clone https://github.com/lwvmobile/mbelib.git "$tmp_dir/mbelib" >/dev/null 2>&1 \
-      || { warn "Failed to clone mbelib"; exit 1; }
-
-    cd "$tmp_dir/mbelib"
-    git checkout ambe_tones >/dev/null 2>&1 || true
-    mkdir -p build && cd build
-
-    if cmake .. >/dev/null 2>&1 && make -j "$(nproc 2>/dev/null || sysctl -n hw.ncpu)" >/dev/null 2>&1; then
-      if [[ "$OS" == "macos" ]]; then
-        if [[ -w /usr/local/lib ]]; then
-          make install >/dev/null 2>&1
-        else
-          refresh_sudo
-          $SUDO make install >/dev/null 2>&1
-        fi
-      else
-        $SUDO make install >/dev/null 2>&1
-        $SUDO ldconfig 2>/dev/null || true
-      fi
-      ok "mbelib installed"
-    else
-      warn "Failed to build mbelib. Cannot build DSD without it."
-      exit 1
-    fi
-
-    # Step 2: Build dsd-fme (or fall back to original dsd)
-    info "Building dsd-fme..."
-    git clone --depth 1 https://github.com/lwvmobile/dsd-fme.git "$tmp_dir/dsd-fme" >/dev/null 2>&1 \
-      || { warn "Failed to clone dsd-fme, trying original DSD...";
-           git clone --depth 1 https://github.com/szechyjs/dsd.git "$tmp_dir/dsd-fme" >/dev/null 2>&1 \
-             || { warn "Failed to clone DSD"; exit 1; }; }
-
-    cd "$tmp_dir/dsd-fme"
-    mkdir -p build && cd build
-
-    # On macOS, help cmake find Homebrew ncurses
-    local cmake_flags=""
-    if [[ "$OS" == "macos" ]]; then
-      local ncurses_prefix
-      ncurses_prefix="$(brew --prefix ncurses 2>/dev/null || echo /opt/homebrew/opt/ncurses)"
-      cmake_flags="-DCMAKE_PREFIX_PATH=$ncurses_prefix"
-    fi
-
-    info "Compiling DSD..."
-    if cmake .. $cmake_flags >/dev/null 2>&1 && make -j "$(nproc 2>/dev/null || sysctl -n hw.ncpu)" >/dev/null 2>&1; then
-      if [[ "$OS" == "macos" ]]; then
-        if [[ -w /usr/local/bin ]]; then
-          install -m 0755 dsd-fme /usr/local/bin/dsd 2>/dev/null || install -m 0755 dsd /usr/local/bin/dsd 2>/dev/null || true
-        else
-          refresh_sudo
-          $SUDO install -m 0755 dsd-fme /usr/local/bin/dsd 2>/dev/null || $SUDO install -m 0755 dsd /usr/local/bin/dsd 2>/dev/null || true
-        fi
-      else
-        $SUDO make install >/dev/null 2>&1 \
-          || $SUDO install -m 0755 dsd-fme /usr/local/bin/dsd 2>/dev/null \
-          || $SUDO install -m 0755 dsd /usr/local/bin/dsd 2>/dev/null \
-          || true
-        $SUDO ldconfig 2>/dev/null || true
-      fi
-      ok "DSD installed successfully"
-    else
-      warn "Failed to build DSD from source. DMR/P25 decoding will not be available."
-    fi
   )
 }
 
@@ -918,7 +825,7 @@ install_macos_packages() {
     sudo -v || { fail "sudo authentication failed"; exit 1; }
   fi
 
-  TOTAL_STEPS=22
+  TOTAL_STEPS=21
   CURRENT_STEP=0
 
   progress "Checking Homebrew"
@@ -940,19 +847,6 @@ install_macos_packages() {
 
   progress "SSTV decoder"
   ok "SSTV uses built-in pure Python decoder (no external tools needed)"
-
-  progress "Installing DSD (Digital Speech Decoder, optional)"
-  if ! cmd_exists dsd && ! cmd_exists dsd-fme; then
-    echo
-    info "DSD is used for DMR, P25, NXDN, and D-STAR digital voice decoding."
-    if ask_yes_no "Do you want to install DSD?"; then
-      install_dsd_from_source || warn "DSD build failed. DMR/P25 decoding will not be available."
-    else
-      warn "Skipping DSD installation. DMR/P25 decoding will not be available."
-    fi
-  else
-    ok "DSD already installed"
-  fi
 
   progress "Installing ffmpeg"
   brew_install ffmpeg
@@ -1409,7 +1303,7 @@ install_debian_packages() {
     export NEEDRESTART_MODE=a
   fi
 
-  TOTAL_STEPS=28
+  TOTAL_STEPS=27
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -1473,19 +1367,6 @@ install_debian_packages() {
 
   progress "SSTV decoder"
   ok "SSTV uses built-in pure Python decoder (no external tools needed)"
-
-  progress "Installing DSD (Digital Speech Decoder, optional)"
-  if ! cmd_exists dsd && ! cmd_exists dsd-fme; then
-    echo
-    info "DSD is used for DMR, P25, NXDN, and D-STAR digital voice decoding."
-    if ask_yes_no "Do you want to install DSD?"; then
-      install_dsd_from_source || warn "DSD build failed. DMR/P25 decoding will not be available."
-    else
-      warn "Skipping DSD installation. DMR/P25 decoding will not be available."
-    fi
-  else
-    ok "DSD already installed"
-  fi
 
   progress "Installing ffmpeg"
   apt_install ffmpeg

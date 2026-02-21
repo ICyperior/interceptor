@@ -54,7 +54,6 @@ def process_event(mode: str, event: dict | Any, event_type: str | None = None) -
         # Alert failures should never break streaming
         pass
 
-
 def _extract_device_id(event: dict) -> str | None:
     for field in DEVICE_ID_FIELDS:
         value = event.get(field)

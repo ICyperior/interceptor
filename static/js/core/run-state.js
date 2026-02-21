@@ -2,7 +2,7 @@ const RunState = (function() {
     'use strict';
 
     const REFRESH_MS = 5000;
-    const CHIP_MODES = ['pager', 'sensor', 'wifi', 'bluetooth', 'adsb', 'ais', 'acars', 'vdl2', 'aprs', 'dsc', 'dmr', 'subghz'];
+    const CHIP_MODES = ['pager', 'sensor', 'wifi', 'bluetooth', 'adsb', 'ais', 'acars', 'vdl2', 'aprs', 'dsc', 'subghz'];
     const MODE_ALIASES = {
         bt: 'bluetooth',
         bt_locate: 'bluetooth',
@@ -21,7 +21,6 @@ const RunState = (function() {
         vdl2: 'VDL2',
         aprs: 'APRS',
         dsc: 'DSC',
-        dmr: 'DMR',
         subghz: 'SubGHz',
     };
 
@@ -181,7 +180,6 @@ const RunState = (function() {
         if (normalized.includes('aprs')) return 'aprs';
         if (normalized.includes('dsc')) return 'dsc';
         if (normalized.includes('subghz')) return 'subghz';
-        if (normalized.includes('dmr')) return 'dmr';
         if (normalized.includes('433')) return 'sensor';
         return 'pager';
     }
