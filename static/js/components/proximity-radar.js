@@ -25,10 +25,14 @@ const ProximityRadar = (function() {
         newDeviceThreshold: 30, // seconds
     };
 
+    // Configuration
+    const POSITION_EMA_ALPHA = 0.25; // lower = more smoothing (0.25 → ~4 updates to reach 68% of a step)
+
     // State
     let container = null;
     let svg = null;
     let devices = new Map();
+    let positionCache = new Map(); // device_key → { x, y } smoothed position
     let isPaused = false;
     let activeFilter = null;
     let onDeviceClick = null;
@@ -213,13 +217,24 @@ const ProximityRadar = (function() {
 
         // Remove elements for devices no longer in the visible set
         devicesGroup.querySelectorAll('.radar-device-wrapper').forEach(el => {
-            if (!visibleKeys.has(el.getAttribute('data-device-key'))) {
+            const k = el.getAttribute('data-device-key');
+            if (!visibleKeys.has(k)) {
+                positionCache.delete(k);
                 el.remove();
             }
         });
 
         visibleDevices.forEach(device => {
-            const { x, y } = calculateDevicePosition(device, center, maxRadius);
+            // Raw target position from distance/band
+            const { x: rawX, y: rawY } = calculateDevicePosition(device, center, maxRadius);
+
+            // EMA smoothing: blend towards the new position rather than snapping,
+            // so RSSI noise doesn't translate 1:1 into visible movement.
+            const cached = positionCache.get(device.device_key);
+            const x = cached ? cached.x * (1 - POSITION_EMA_ALPHA) + rawX * POSITION_EMA_ALPHA : rawX;
+            const y = cached ? cached.y * (1 - POSITION_EMA_ALPHA) + rawY * POSITION_EMA_ALPHA : rawY;
+            positionCache.set(device.device_key, { x, y });
+
             const confidence = device.distance_confidence || 0.5;
             const dotSize = CONFIG.dotMinSize + (CONFIG.dotMaxSize - CONFIG.dotMinSize) * confidence;
             const color = getBandColor(device.proximity_band);
@@ -234,7 +249,7 @@ const ProximityRadar = (function() {
 
             if (existing) {
                 // ── In-place update: mutate attributes, never recreate ──
-                existing.setAttribute('transform', `translate(${x}, ${y})`);
+                existing.style.transform = `translate(${x}px, ${y}px)`;
 
                 const innerG = existing.querySelector('.radar-device');
                 if (innerG) {
@@ -291,7 +306,8 @@ const ProximityRadar = (function() {
                 const wrapperG = document.createElementNS(ns, 'g');
                 wrapperG.classList.add('radar-device-wrapper');
                 wrapperG.setAttribute('data-device-key', key);
-                wrapperG.setAttribute('transform', `translate(${x}, ${y})`);
+                wrapperG.style.transform = `translate(${x}px, ${y}px)`;
+                wrapperG.style.transition = 'transform 0.6s ease-out';
 
                 const innerG = document.createElementNS(ns, 'g');
                 innerG.classList.add('radar-device');
@@ -446,6 +462,7 @@ const ProximityRadar = (function() {
      */
     function clear() {
         devices.clear();
+        positionCache.clear();
         selectedDeviceKey = null;
         renderDevices();
     }
