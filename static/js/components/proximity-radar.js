@@ -218,14 +218,28 @@ const ProximityRadar = (function() {
             }
         });
 
+        // Sort weakest signal first so strongest renders on top (SVG z-order)
+        visibleDevices.sort((a, b) => (a.rssi_current || -100) - (b.rssi_current || -100));
+
+        // Compute all positions upfront so we can spread overlapping dots
+        const posMap = new Map();
         visibleDevices.forEach(device => {
-            const { x, y } = calculateDevicePosition(device, center, maxRadius);
+            posMap.set(device.device_key, calculateDevicePosition(device, center, maxRadius));
+        });
+
+        // Spread dots that land too close together within the same band.
+        // minGapPx = diameter of largest possible hit area + 2px breathing room.
+        const maxHitArea = CONFIG.dotMaxSize + 4;
+        spreadOverlappingDots(Array.from(posMap.values()), center, maxHitArea * 2 + 2);
+
+        visibleDevices.forEach(device => {
+            const { x, y } = posMap.get(device.device_key);
             const confidence = device.distance_confidence || 0.5;
             const dotSize = CONFIG.dotMinSize + (CONFIG.dotMaxSize - CONFIG.dotMinSize) * confidence;
             const color = getBandColor(device.proximity_band);
             const isNew = device.age_seconds < 5;
             const isSelected = !!(selectedDeviceKey && device.device_key === selectedDeviceKey);
-            const hitAreaSize = Math.max(dotSize * 2, 15);
+            const hitAreaSize = dotSize + 4;
             const key = device.device_key;
 
             const existing = devicesGroup.querySelector(
@@ -393,7 +407,53 @@ const ProximityRadar = (function() {
         const x = center + Math.sin(angle) * radius;
         const y = center - Math.cos(angle) * radius;
 
-        return { x, y, radius };
+        return { x, y, angle, radius };
+    }
+
+    /**
+     * Spread dots within the same band that land too close together.
+     * Groups entries by radius, sorts by angle, then nudges neighbours
+     * apart until the arc gap between any two dots is at least minGapPx.
+     * Positions are updated in-place on the entry objects.
+     */
+    function spreadOverlappingDots(entries, center, minGapPx) {
+        const groups = new Map();
+        entries.forEach(e => {
+            const key = Math.round(e.radius);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(e);
+        });
+
+        groups.forEach((group, r) => {
+            if (group.length < 2 || r < 1) return;
+            const minSep = minGapPx / r; // radians
+
+            group.sort((a, b) => a.angle - b.angle);
+
+            // Iterative push-apart (up to 8 passes)
+            for (let iter = 0; iter < 8; iter++) {
+                let moved = false;
+                for (let i = 0; i < group.length; i++) {
+                    const j = (i + 1) % group.length;
+                    let gap = group[j].angle - group[i].angle;
+                    if (gap < 0) gap += 2 * Math.PI;
+                    if (gap < minSep) {
+                        const push = (minSep - gap) / 2;
+                        group[i].angle -= push;
+                        group[j].angle += push;
+                        moved = true;
+                    }
+                }
+                if (!moved) break;
+            }
+
+            // Normalise angles back to [0, 2π) and recompute x/y
+            group.forEach(e => {
+                e.angle = ((e.angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+                e.x = center + Math.sin(e.angle) * r;
+                e.y = center - Math.cos(e.angle) * r;
+            });
+        });
     }
 
     /**
