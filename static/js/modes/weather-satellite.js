@@ -9,6 +9,7 @@ const WeatherSat = (function() {
     let isRunning = false;
     let eventSource = null;
     let images = [];
+    let allPasses = [];
     let passes = [];
     let selectedPassIndex = -1;
     let currentSatellite = null;
@@ -96,6 +97,8 @@ const WeatherSat = (function() {
         if (!locationListenersAttached) {
             if (latInput) latInput.addEventListener('change', saveLocationFromInputs);
             if (lonInput) lonInput.addEventListener('change', saveLocationFromInputs);
+            const satSelect = document.getElementById('weatherSatSelect');
+            if (satSelect) satSelect.addEventListener('change', applyPassFilter);
             locationListenersAttached = true;
         }
     }
@@ -536,6 +539,7 @@ const WeatherSat = (function() {
         }
 
         if (!storedLat || !storedLon) {
+            allPasses = [];
             passes = [];
             selectedPassIndex = -1;
             renderPasses([]);
@@ -551,21 +555,34 @@ const WeatherSat = (function() {
             const data = await response.json();
 
             if (data.status === 'ok') {
-                passes = data.passes || [];
-                selectedPassIndex = -1;
-                renderPasses(passes);
-                renderTimeline(passes);
-                updateCountdownFromPasses();
-                // Always select the first upcoming pass so the polar plot
-                // and ground track reflect the current list after every refresh.
-                if (passes.length > 0) {
-                    selectPass(0);
-                } else {
-                    updateGroundTrack(null);
-                }
+                allPasses = data.passes || [];
+                applyPassFilter();
             }
         } catch (err) {
             console.error('Failed to load passes:', err);
+        }
+    }
+
+    /**
+     * Filter displayed passes by the currently selected satellite dropdown value.
+     * Updates the module-level `passes` from `allPasses` so selectPass/countdown work.
+     */
+    function applyPassFilter() {
+        const satSelect = document.getElementById('weatherSatSelect');
+        const selected = satSelect?.value;
+        passes = selected
+            ? allPasses.filter(p => p.satellite === selected)
+            : allPasses.slice();
+
+        selectedPassIndex = -1;
+        renderPasses(passes);
+        renderTimeline(passes);
+        updateCountdownFromPasses();
+        if (passes.length > 0) {
+            selectPass(0);
+        } else {
+            updateGroundTrack(null);
+            drawPolarPlot(null);
         }
     }
 
@@ -731,7 +748,7 @@ const WeatherSat = (function() {
         ctx.stroke();
 
         // Trajectory
-        const trajectory = pass.trajectory;
+        const trajectory = pass?.trajectory;
         if (!trajectory || trajectory.length === 0) return;
 
         const color = pass.mode === 'LRPT' ? '#00ff88' : '#00d4ff';
