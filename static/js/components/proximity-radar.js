@@ -134,21 +134,28 @@ const ProximityRadar = (function() {
             }
         });
 
-        devicesGroup.addEventListener('mouseenter', (e) => {
+        // mouseover/mouseout bubble, so we get events from all descendants.
+        // Use devicesGroup.contains(relatedTarget) to detect true entry/exit
+        // rather than capture-phase mouseenter/mouseleave, which can leave
+        // isHovered stuck when innerHTML is rebuilt under the cursor.
+        devicesGroup.addEventListener('mouseover', (e) => {
             if (e.target.closest('.radar-device')) {
                 isHovered = true;
             }
-        }, true); // capture phase so we catch enter on child elements
+        });
 
-        devicesGroup.addEventListener('mouseleave', (e) => {
-            if (e.target.closest('.radar-device')) {
+        devicesGroup.addEventListener('mouseout', (e) => {
+            if (!e.target.closest('.radar-device')) return;
+            // Only clear hover when the mouse leaves the group entirely —
+            // moving between sibling children keeps relatedTarget inside the group.
+            if (!devicesGroup.contains(e.relatedTarget)) {
                 isHovered = false;
                 if (renderPending) {
                     renderPending = false;
                     renderDevices();
                 }
             }
-        }, true);
+        });
 
         // Add sweep animation
         animateSweep();
