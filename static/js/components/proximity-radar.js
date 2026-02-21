@@ -25,14 +25,10 @@ const ProximityRadar = (function() {
         newDeviceThreshold: 30, // seconds
     };
 
-    // Configuration
-    const POSITION_EMA_ALPHA = 0.25; // lower = more smoothing (0.25 → ~4 updates to reach 68% of a step)
-
     // State
     let container = null;
     let svg = null;
     let devices = new Map();
-    let positionCache = new Map(); // device_key → { x, y } smoothed position
     let isPaused = false;
     let activeFilter = null;
     let onDeviceClick = null;
@@ -217,24 +213,13 @@ const ProximityRadar = (function() {
 
         // Remove elements for devices no longer in the visible set
         devicesGroup.querySelectorAll('.radar-device-wrapper').forEach(el => {
-            const k = el.getAttribute('data-device-key');
-            if (!visibleKeys.has(k)) {
-                positionCache.delete(k);
+            if (!visibleKeys.has(el.getAttribute('data-device-key'))) {
                 el.remove();
             }
         });
 
         visibleDevices.forEach(device => {
-            // Raw target position from distance/band
-            const { x: rawX, y: rawY } = calculateDevicePosition(device, center, maxRadius);
-
-            // EMA smoothing: blend towards the new position rather than snapping,
-            // so RSSI noise doesn't translate 1:1 into visible movement.
-            const cached = positionCache.get(device.device_key);
-            const x = cached ? cached.x * (1 - POSITION_EMA_ALPHA) + rawX * POSITION_EMA_ALPHA : rawX;
-            const y = cached ? cached.y * (1 - POSITION_EMA_ALPHA) + rawY * POSITION_EMA_ALPHA : rawY;
-            positionCache.set(device.device_key, { x, y });
-
+            const { x, y } = calculateDevicePosition(device, center, maxRadius);
             const confidence = device.distance_confidence || 0.5;
             const dotSize = CONFIG.dotMinSize + (CONFIG.dotMaxSize - CONFIG.dotMinSize) * confidence;
             const color = getBandColor(device.proximity_band);
@@ -249,7 +234,7 @@ const ProximityRadar = (function() {
 
             if (existing) {
                 // ── In-place update: mutate attributes, never recreate ──
-                existing.style.transform = `translate(${x}px, ${y}px)`;
+                existing.setAttribute('transform', `translate(${x}, ${y})`);
 
                 const innerG = existing.querySelector('.radar-device');
                 if (innerG) {
@@ -306,8 +291,7 @@ const ProximityRadar = (function() {
                 const wrapperG = document.createElementNS(ns, 'g');
                 wrapperG.classList.add('radar-device-wrapper');
                 wrapperG.setAttribute('data-device-key', key);
-                wrapperG.style.transform = `translate(${x}px, ${y}px)`;
-                wrapperG.style.transition = 'transform 0.6s ease-out';
+                wrapperG.setAttribute('transform', `translate(${x}, ${y})`);
 
                 const innerG = document.createElementNS(ns, 'g');
                 innerG.classList.add('radar-device');
@@ -390,22 +374,16 @@ const ProximityRadar = (function() {
      * Calculate device position on radar
      */
     function calculateDevicePosition(device, center, maxRadius) {
-        // Calculate radius based on proximity band/distance
+        // Position is band-only — the band is computed server-side from rssi_ema
+        // (already smoothed), so it changes infrequently and never jitters.
+        // Using raw estimated_distance_m caused constant micro-movement as RSSI
+        // fluctuated on every update cycle.
         let radiusRatio;
-        const band = device.proximity_band || 'unknown';
-
-        if (device.estimated_distance_m != null) {
-            // Use actual distance (log scale)
-            const maxDistance = 15;
-            radiusRatio = Math.min(1, Math.log10(device.estimated_distance_m + 1) / Math.log10(maxDistance + 1));
-        } else {
-            // Use band-based positioning
-            switch (band) {
-                case 'immediate': radiusRatio = 0.15; break;
-                case 'near': radiusRatio = 0.4; break;
-                case 'far': radiusRatio = 0.7; break;
-                default: radiusRatio = 0.9; break;
-            }
+        switch (device.proximity_band || 'unknown') {
+            case 'immediate': radiusRatio = 0.15; break;
+            case 'near':      radiusRatio = 0.40; break;
+            case 'far':       radiusRatio = 0.70; break;
+            default:          radiusRatio = 0.90; break;
         }
 
         // Calculate angle based on device key hash (stable positioning)
@@ -462,7 +440,6 @@ const ProximityRadar = (function() {
      */
     function clear() {
         devices.clear();
-        positionCache.clear();
         selectedDeviceKey = null;
         renderDevices();
     }
