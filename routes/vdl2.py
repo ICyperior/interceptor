@@ -79,6 +79,22 @@ def stream_vdl2_output(process: subprocess.Popen, is_text_mode: bool = False) ->
                 data['type'] = 'vdl2'
                 data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
 
+                # Enrich embedded ACARS payload with translated label
+                try:
+                    vdl2_inner = data.get('vdl2', data)
+                    acars_payload = (vdl2_inner.get('avlc') or {}).get('acars')
+                    if acars_payload and acars_payload.get('label'):
+                        from utils.acars_translator import translate_message
+                        translation = translate_message({
+                            'label': acars_payload.get('label'),
+                            'text': acars_payload.get('msg_text', ''),
+                        })
+                        acars_payload['label_description'] = translation['label_description']
+                        acars_payload['message_type'] = translation['message_type']
+                        acars_payload['parsed'] = translation['parsed']
+                except Exception:
+                    pass
+
                 # Update stats
                 vdl2_message_count += 1
                 vdl2_last_message_time = time.time()
@@ -368,6 +384,26 @@ def stream_vdl2() -> Response:
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response
+
+
+@vdl2_bp.route('/messages')
+def get_vdl2_messages() -> Response:
+    """Get recent VDL2 messages from correlator (for history reload)."""
+    from utils.flight_correlator import get_flight_correlator
+    limit = request.args.get('limit', 50, type=int)
+    limit = max(1, min(limit, 200))
+    msgs = get_flight_correlator().get_recent_messages('vdl2', limit)
+    return jsonify(msgs)
+
+
+@vdl2_bp.route('/clear', methods=['POST'])
+def clear_vdl2_messages() -> Response:
+    """Clear stored VDL2 messages and reset counter."""
+    global vdl2_message_count
+    from utils.flight_correlator import get_flight_correlator
+    get_flight_correlator().clear_vdl2()
+    vdl2_message_count = 0
+    return jsonify({'status': 'cleared'})
 
 
 @vdl2_bp.route('/frequencies')

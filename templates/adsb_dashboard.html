@@ -171,9 +171,14 @@
                             <div id="acarsFreqSelector" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; font-size: 9px;">
                                 <!-- Frequency checkboxes populated by JS -->
                             </div>
-                            <button class="acars-btn" id="acarsToggleBtn" onclick="toggleAcars()" style="width: 100%;">
-                                ▶ START ACARS
-                            </button>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="acars-btn" id="acarsToggleBtn" onclick="toggleAcars()" style="flex: 1;">
+                                    ▶ START ACARS
+                                </button>
+                                <button class="acars-btn" id="acarsClearBtn" onclick="clearAcarsMessages()" title="Clear messages" style="padding: 4px 8px; font-size: 9px; opacity: 0.7;">
+                                    CLEAR
+                                </button>
+                            </div>
                         </div>
                         <div class="acars-messages" id="acarsMessages">
                             <div class="no-aircraft" style="padding: 20px; text-align: center;">
@@ -221,9 +226,14 @@
                             <div id="vdl2FreqSelector" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; font-size: 9px;">
                                 <!-- Frequency checkboxes populated by JS -->
                             </div>
-                            <button class="vdl2-btn" id="vdl2ToggleBtn" onclick="toggleVdl2()" style="width: 100%;">
-                                &#9654; START VDL2
-                            </button>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="vdl2-btn" id="vdl2ToggleBtn" onclick="toggleVdl2()" style="flex: 1;">
+                                    &#9654; START VDL2
+                                </button>
+                                <button class="vdl2-btn" id="vdl2ClearBtn" onclick="clearVdl2Messages()" title="Clear messages" style="padding: 4px 8px; font-size: 9px; opacity: 0.7;">
+                                    CLEAR
+                                </button>
+                            </div>
                         </div>
                         <div class="vdl2-messages" id="vdl2Messages">
                             <div class="no-aircraft" style="padding: 20px; text-align: center;">
@@ -2786,6 +2796,31 @@ sudo make install</code>
         }
 
         function selectAircraft(icao) {
+            // Toggle: clicking the same aircraft deselects it
+            if (selectedIcao === icao) {
+                const prev = selectedIcao;
+                selectedIcao = null;
+                // Reset previous marker icon
+                if (prev && markers[prev] && aircraft[prev]) {
+                    const ac = aircraft[prev];
+                    const militaryInfo = isMilitaryAircraft(prev, ac.callsign);
+                    const rotation = Math.round((ac.heading || 0) / 5) * 5;
+                    const color = militaryInfo.military ? '#556b2f' : getAltitudeColor(ac.altitude);
+                    const iconType = getAircraftIconType(ac.type_code, militaryInfo.military);
+                    markers[prev].setIcon(createMarkerIcon(rotation, color, iconType, false));
+                    if (markerState[prev]) markerState[prev].isSelected = false;
+                }
+                renderAircraftList();
+                showAircraftDetails(null);
+                updateFlightLookupBtn();
+                highlightSidebarMessages(null);
+                if (acarsMessageTimer) {
+                    clearInterval(acarsMessageTimer);
+                    acarsMessageTimer = null;
+                }
+                return;
+            }
+
             const prevSelected = selectedIcao;
             selectedIcao = icao;
 
@@ -2915,8 +2950,11 @@ sudo make install</code>
                     </div>
                 </div>
                 <div id="aircraftAcarsSection" style="margin-top:12px;">
-                    <div style="font-size:10px;font-weight:600;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;border-top:1px solid var(--border-color);padding-top:8px;">Datalink Messages</div>
-                    <div id="aircraftAcarsMessages" style="font-size:10px;color:var(--text-dim);">Loading...</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:600;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;border-top:1px solid var(--border-color);padding-top:8px;">
+                        <span>Datalink Messages</span>
+                        <button onclick="clearAircraftMessages()" title="Clear datalink messages" style="background:none;border:1px solid var(--border-color);color:var(--text-muted);cursor:pointer;font-size:9px;padding:1px 5px;border-radius:3px;font-family:var(--font-mono);line-height:1;">&#10005;</button>
+                    </div>
+                    <div id="aircraftAcarsMessages" style="font-size:10px;color:var(--text-dim);transition:opacity 0.15s ease;">Loading...</div>
                 </div>`;
 
             // Fetch aircraft photo if registration is available
@@ -2945,18 +2983,23 @@ sudo make install</code>
                         const container = document.getElementById('aircraftAcarsMessages');
                         if (!container) return;
                         const msgs = (data.acars || []).concat(data.vdl2 || []);
+                        let newHtml;
                         if (msgs.length === 0) {
-                            container.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">No messages yet</span>';
-                            return;
+                            newHtml = '<span style="color:var(--text-muted);font-style:italic;">No messages yet</span>';
+                        } else {
+                            msgs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+                            newHtml = msgs.slice(0, 20).map(renderAcarsCard).join('');
                         }
-                        // Sort newest first
-                        msgs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-                        container.innerHTML = msgs.slice(0, 20).map(renderAcarsCard).join('');
+                        // Only update DOM if content actually changed
+                        if (container.innerHTML !== newHtml) {
+                            container.style.opacity = '0.7';
+                            setTimeout(() => {
+                                container.innerHTML = newHtml;
+                                container.style.opacity = '1';
+                            }, 150);
+                        }
                     })
-                    .catch(() => {
-                        const container = document.getElementById('aircraftAcarsMessages');
-                        if (container) container.innerHTML = '<span style="color:var(--text-muted);">—</span>';
-                    });
+                    .catch(() => { /* keep existing content on error */ });
             }
 
             doFetch();
@@ -3532,6 +3575,17 @@ sudo make install</code>
                         document.getElementById('acarsToggleBtn').classList.add('active');
                         document.getElementById('acarsPanelIndicator').classList.add('active');
                         startAcarsStream(false);
+                        // Reload message history from backend
+                        fetch('/acars/messages?limit=50')
+                            .then(r => r.json())
+                            .then(msgs => {
+                                if (!msgs || !msgs.length) return;
+                                // Add oldest first so newest ends up on top
+                                for (let i = msgs.length - 1; i >= 0; i--) {
+                                    addAcarsMessage(msgs[i]);
+                                }
+                            })
+                            .catch(() => {});
                     }
                 })
                 .catch(() => {});
@@ -3887,6 +3941,33 @@ sudo make install</code>
             }
         }
 
+        function clearAcarsMessages() {
+            fetch('/acars/clear', { method: 'POST' }).catch(() => {});
+            const container = document.getElementById('acarsMessages');
+            container.innerHTML = '<div class="no-aircraft" style="padding: 20px; text-align: center;"><div style="font-size: 10px; color: var(--text-muted);">No ACARS messages</div><div style="font-size: 9px; color: var(--text-dim); margin-top: 5px;">Start ACARS to receive aircraft datalink messages</div></div>';
+            acarsMessageCount = 0;
+            document.getElementById('acarsCount').textContent = '0';
+        }
+
+        function clearVdl2Messages() {
+            fetch('/vdl2/clear', { method: 'POST' }).catch(() => {});
+            const container = document.getElementById('vdl2Messages');
+            container.innerHTML = '<div class="no-aircraft" style="padding: 20px; text-align: center;"><div style="font-size: 10px; color: var(--text-muted);">No VDL2 messages</div><div style="font-size: 9px; color: var(--text-dim); margin-top: 5px;">Start VDL2 to receive digital datalink messages</div></div>';
+            vdl2MessageCount = 0;
+            document.getElementById('vdl2Count').textContent = '0';
+        }
+
+        function clearAircraftMessages() {
+            const container = document.getElementById('aircraftAcarsMessages');
+            if (container) {
+                container.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">No messages yet</span>';
+            }
+            if (acarsMessageTimer) {
+                clearInterval(acarsMessageTimer);
+                acarsMessageTimer = null;
+            }
+        }
+
         // Populate ACARS device selector
         document.addEventListener('DOMContentLoaded', () => {
             fetch('/devices')
@@ -4213,13 +4294,14 @@ sudo make install</code>
             if (acars.reg) acarsFields.push(['Registration', acars.reg]);
             if (acars.flight) acarsFields.push(['Flight', acars.flight]);
             if (acars.mode) acarsFields.push(['Mode', acars.mode]);
-            if (acars.label) acarsFields.push(['Label', acars.label]);
+            if (acars.label) acarsFields.push(['Label', acars.label + (acars.label_description ? ' — ' + acars.label_description : '')]);
             if (acars.sublabel) acarsFields.push(['Sublabel', acars.sublabel]);
             if (acars.blk_id) acarsFields.push(['Block ID', acars.blk_id]);
             if (acars.ack) acarsFields.push(['ACK', acars.ack === '!' ? 'NAK' : acars.ack]);
             if (acars.msg_num) acarsFields.push(['Msg Number', acars.msg_num]);
             if (acars.msg_num_seq) acarsFields.push(['Msg Seq', acars.msg_num_seq]);
             if (acars.more != null) acarsFields.push(['More Follows', acars.more ? 'Yes' : 'No']);
+            if (acars.message_type && acars.message_type !== 'other') acarsFields.push(['Message Type', acars.message_type.replace(/_/g, ' ')]);
             const acarsHtml = buildSection('ACARS', acarsFields);
 
             // XID fields
@@ -4352,11 +4434,16 @@ sudo make install</code>
                 (matchedIcao ? ' cursor: pointer;' : '');
             const linkIcon = matchedIcao ? '<span style="color:var(--accent-green);font-size:9px;margin-left:3px;" title="Tracked on map">&#9992;</span>' : '';
 
+            const acarsLabelDesc = acars.label_description || '';
+            const acarsMsgType = acars.message_type || 'other';
+            const vdl2TypeBadge = typeof getAcarsTypeBadge === 'function' && acars.label ? getAcarsTypeBadge(acarsMsgType) : '';
+
             msg.innerHTML = `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
                     <span style="color: var(--accent-cyan); font-weight: bold;">${escapeHtml(label)}${linkIcon}</span>
                     <span style="color: var(--text-muted);">${time}</span>
                 </div>
+                ${acarsLabelDesc ? `<div style="margin-top: 2px;">${vdl2TypeBadge} <span style="color: var(--text-primary);">${escapeHtml(acarsLabelDesc)}</span></div>` : ''}
                 <div style="color: var(--text-dim); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     ${freq ? freq + ' MHz' : ''}${freq && acars.label ? ' · ' : ''}${acars.label ? 'Label: ' + escapeHtml(acars.label) : ''}${msgText ? ' · ' + escapeHtml(msgText.substring(0, 50)) + (msgText.length > 50 ? '…' : '') : ''}
                 </div>
@@ -4430,6 +4517,16 @@ sudo make install</code>
                         document.getElementById('vdl2ToggleBtn').classList.add('active');
                         document.getElementById('vdl2PanelIndicator').classList.add('active');
                         startVdl2Stream(false);
+                        // Reload message history from backend
+                        fetch('/vdl2/messages?limit=50')
+                            .then(r => r.json())
+                            .then(msgs => {
+                                if (!msgs || !msgs.length) return;
+                                for (let i = msgs.length - 1; i >= 0; i--) {
+                                    addVdl2Message(msgs[i]);
+                                }
+                            })
+                            .catch(() => {});
                     }
                 })
                 .catch(() => {});

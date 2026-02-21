@@ -443,6 +443,26 @@ def stream_acars() -> Response:
     return response
 
 
+@acars_bp.route('/messages')
+def get_acars_messages() -> Response:
+    """Get recent ACARS messages from correlator (for history reload)."""
+    from utils.flight_correlator import get_flight_correlator
+    limit = request.args.get('limit', 50, type=int)
+    limit = max(1, min(limit, 200))
+    msgs = get_flight_correlator().get_recent_messages('acars', limit)
+    return jsonify(msgs)
+
+
+@acars_bp.route('/clear', methods=['POST'])
+def clear_acars_messages() -> Response:
+    """Clear stored ACARS messages and reset counter."""
+    global acars_message_count
+    from utils.flight_correlator import get_flight_correlator
+    get_flight_correlator().clear_acars()
+    acars_message_count = 0
+    return jsonify({'status': 'cleared'})
+
+
 @acars_bp.route('/frequencies')
 def get_frequencies() -> Response:
     """Get default ACARS frequencies."""

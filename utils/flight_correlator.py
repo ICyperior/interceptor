@@ -81,6 +81,21 @@ class FlightCorrelator:
         """Return message without internal correlation fields."""
         return {k: v for k, v in msg.items() if not k.startswith('_corr_')}
 
+    def get_recent_messages(self, msg_type: str = 'acars', limit: int = 50) -> list[dict]:
+        """Return the most recent messages (newest first)."""
+        source = self._acars_messages if msg_type == 'acars' else self._vdl2_messages
+        msgs = [self._clean_msg(m) for m in source]
+        msgs.reverse()
+        return msgs[:limit]
+
+    def clear_acars(self) -> None:
+        """Clear all stored ACARS messages."""
+        self._acars_messages.clear()
+
+    def clear_vdl2(self) -> None:
+        """Clear all stored VDL2 messages."""
+        self._vdl2_messages.clear()
+
     @property
     def acars_count(self) -> int:
         return len(self._acars_messages)
