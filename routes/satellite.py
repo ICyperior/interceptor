@@ -166,9 +166,11 @@ def _fetch_iss_realtime(observer_lat: Optional[float] = None, observer_lon: Opti
 @satellite_bp.route('/dashboard')
 def satellite_dashboard():
     """Popout satellite tracking dashboard."""
+    embedded = request.args.get('embedded', 'false') == 'true'
     return render_template(
         'satellite_dashboard.html',
         shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
+        embedded=embedded,
     )
 
 

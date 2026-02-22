@@ -74,8 +74,10 @@
         </div>
     </header>
 
+    {% if not embedded %}
     {% set active_mode = 'satellite' %}
     {% include 'partials/nav.html' with context %}
+    {% endif %}
 
     <main class="dashboard">
         <!-- Polar Plot -->

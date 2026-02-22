@@ -54,8 +54,10 @@
         </div>
     </header>
 
+    {% if not embedded %}
     {% set active_mode = 'ais' %}
     {% include 'partials/nav.html' with context %}
+    {% endif %}
 
     <div class="stats-strip">
         <div class="stats-strip-inner">

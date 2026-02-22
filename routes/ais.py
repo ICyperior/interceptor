@@ -540,7 +540,9 @@ def get_vessel_dsc(mmsi: str):
 @ais_bp.route('/dashboard')
 def ais_dashboard():
     """Popout AIS dashboard."""
+    embedded = request.args.get('embedded', 'false') == 'true'
     return render_template(
         'ais_dashboard.html',
         shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
+        embedded=embedded,
     )
