@@ -1,0 +1,142 @@
+<!-- WATERFALL MODE -->
+<div id="waterfallMode" class="mode-content">
+    <div class="section">
+        <h3>Spectrum Waterfall</h3>
+        <div style="font-size:11px; color:var(--text-secondary); line-height:1.45;">
+            Click spectrum or waterfall to tune. Scroll to step-tune. Ctrl/Cmd + scroll to zoom span.
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Device</h3>
+        <div class="form-group">
+            <label>SDR Device</label>
+            <select id="wfDevice" onchange="Waterfall && Waterfall.onDeviceChange && Waterfall.onDeviceChange()">
+                <option value="">Loading devices...</option>
+            </select>
+        </div>
+        <div id="wfDeviceInfo" style="display:none; background:rgba(0,0,0,0.32); border:1px solid rgba(74,163,255,0.22); border-radius:6px; padding:8px; margin-top:6px; font-size:11px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="color:var(--text-muted); text-transform:uppercase; font-size:10px; letter-spacing:.05em;">Type</span>
+                <span id="wfDeviceType" style="color:var(--accent-cyan); font-family:var(--font-mono);">--</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="color:var(--text-muted); text-transform:uppercase; font-size:10px; letter-spacing:.05em;">Range</span>
+                <span id="wfDeviceRange" style="color:var(--text-secondary); font-family:var(--font-mono);">--</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-muted); text-transform:uppercase; font-size:10px; letter-spacing:.05em;">Capture SR</span>
+                <span id="wfDeviceBw" style="color:var(--text-secondary); font-family:var(--font-mono);">--</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Tuning</h3>
+        <div class="form-group">
+            <label>Center Frequency (MHz)</label>
+            <input type="number" id="wfCenterFreq" value="100.0000" step="0.001" min="0.001" max="6000">
+        </div>
+        <div class="form-group">
+            <label>Span (MHz)</label>
+            <input type="number" id="wfSpanMhz" value="2.4" step="0.1" min="0.05" max="30">
+        </div>
+        <div class="button-group" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <button class="preset-btn" onclick="Waterfall.applyPreset('fm')">FM Broadcast</button>
+            <button class="preset-btn" onclick="Waterfall.applyPreset('air')">Airband</button>
+            <button class="preset-btn" onclick="Waterfall.applyPreset('marine')">Marine</button>
+            <button class="preset-btn" onclick="Waterfall.applyPreset('ham2m')">2m Ham</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Capture</h3>
+        <div class="form-group">
+            <label>Gain <span style="color:var(--text-dim); font-weight:normal;">(dB or AUTO)</span></label>
+            <input type="text" id="wfGain" value="AUTO" placeholder="AUTO or numeric">
+        </div>
+        <div class="form-group">
+            <label>FFT Size</label>
+            <select id="wfFftSize">
+                <option value="256">256</option>
+                <option value="512">512</option>
+                <option value="1024" selected>1024</option>
+                <option value="2048">2048</option>
+                <option value="4096">4096</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Frame Rate</label>
+            <select id="wfFps">
+                <option value="10">10 fps</option>
+                <option value="20" selected>20 fps</option>
+                <option value="30">30 fps</option>
+                <option value="40">40 fps</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>FFT Averaging</label>
+            <select id="wfAvgCount">
+                <option value="1">1 (none)</option>
+                <option value="2">2</option>
+                <option value="4" selected>4</option>
+                <option value="8">8</option>
+                <option value="16">16</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>PPM Correction</label>
+            <input type="number" id="wfPpm" value="0" step="1" min="-200" max="200" placeholder="0">
+        </div>
+        <div class="checkbox-group" style="margin-top:8px;">
+            <label>
+                <input type="checkbox" id="wfBiasT">
+                Bias-T (antenna power)
+            </label>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Display</h3>
+        <div class="form-group">
+            <label>Color Palette</label>
+            <select id="wfPalette" onchange="Waterfall.setPalette(this.value)">
+                <option value="turbo" selected>Turbo</option>
+                <option value="plasma">Plasma</option>
+                <option value="inferno">Inferno</option>
+                <option value="viridis">Viridis</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Noise Floor (dB)</label>
+            <input type="number" id="wfDbMin" value="-100" step="5" disabled>
+        </div>
+        <div class="form-group">
+            <label>Ceiling (dB)</label>
+            <input type="number" id="wfDbMax" value="-20" step="5" disabled>
+        </div>
+        <div class="checkbox-group" style="margin-top:8px;">
+            <label>
+                <input type="checkbox" id="wfPeakHold" onchange="Waterfall.togglePeakHold(this.checked)">
+                Peak Hold
+            </label>
+            <label>
+                <input type="checkbox" id="wfBandAnnotations" checked onchange="Waterfall.toggleAnnotations(this.checked)">
+                Band Labels
+            </label>
+            <label>
+                <input type="checkbox" id="wfAutoRange" checked onchange="Waterfall.toggleAutoRange(this.checked)">
+                Auto Range
+            </label>
+        </div>
+    </div>
+
+    <div class="section">
+        <button class="run-btn" id="wfStartBtn" onclick="Waterfall.start()">Start Waterfall</button>
+        <button class="stop-btn" id="wfStopBtn" style="display:none;" onclick="Waterfall.stop()">Stop Waterfall</button>
+        <div id="wfStatus" style="margin-top:8px; font-size:11px; color:var(--text-dim);"></div>
+        <div style="margin-top:6px; font-size:10px; color:var(--text-muted);">
+            Tune with click. Use Monitor in the top strip for audio listen.
+        </div>
+    </div>
+</div>

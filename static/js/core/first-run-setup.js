@@ -139,7 +139,6 @@ const FirstRunSetup = (function() {
                     ['sstv', 'ISS SSTV'],
                     ['weathersat', 'Weather Sat'],
                     ['sstv_general', 'HF SSTV'],
-                    ['analytics', 'Analytics'],
                 ];
                 for (const [value, label] of modes) {
                     const opt = document.createElement('option');

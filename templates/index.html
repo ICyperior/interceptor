@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>iNTERCEPT // See the Invisible</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0b1118">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icons/icon.svg">
     <!-- Disclaimer gate - must accept before seeing welcome page -->
     <script>
         // Check BEFORE page renders - if disclaimer not accepted, hide welcome page
@@ -65,7 +70,6 @@
         window.INTERCEPT_MODE_STYLE_MAP = {
             aprs: "{{ url_for('static', filename='css/modes/aprs.css') }}",
             tscm: "{{ url_for('static', filename='css/modes/tscm.css') }}",
-            analytics: "{{ url_for('static', filename='css/modes/analytics.css') }}",
             spystations: "{{ url_for('static', filename='css/modes/spy-stations.css') }}",
             meshtastic: "{{ url_for('static', filename='css/modes/meshtastic.css') }}",
             sstv: "{{ url_for('static', filename='css/modes/sstv.css') }}",
@@ -74,7 +78,10 @@
             gps: "{{ url_for('static', filename='css/modes/gps.css') }}",
             subghz: "{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9",
             bt_locate: "{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4",
-            spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}"
+            spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}",
+            waterfall: "{{ url_for('static', filename='css/modes/waterfall.css') }}?v={{ version }}&r=wfdeck10",
+            rfheatmap: "{{ url_for('static', filename='css/modes/rfheatmap.css') }}",
+            fingerprint: "{{ url_for('static', filename='css/modes/fingerprint.css') }}"
         };
         window.INTERCEPT_MODE_STYLE_LOADED = {};
         window.ensureModeStyles = function(mode) {
@@ -281,10 +288,6 @@
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                                 <span class="mode-name">TSCM</span>
                             </button>
-                            <button class="mode-card mode-card-sm" onclick="selectMode('analytics')">
-                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span>
-                                <span class="mode-name">Analytics</span>
-                            </button>
                             <button class="mode-card mode-card-sm" onclick="selectMode('spystations')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><circle cx="12" cy="12" r="2"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></span>
                                 <span class="mode-name">Spy Stations</span>
@@ -292,6 +295,25 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('websdr')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                                 <span class="mode-name">WebSDR</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('rfheatmap')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                                <span class="mode-name">RF Heatmap</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('fingerprint')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/></svg></span>
+                                <span class="mode-name">RF Fingerprint</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Signals (extended) -->
+                    <div class="mode-category">
+                        <h3 class="mode-category-title"><span class="mode-category-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 3 16 3-8h4"/></svg></span> Spectrum</h3>
+                        <div class="mode-grid mode-grid-compact">
+                            <button class="mode-card mode-card-sm" onclick="selectMode('waterfall')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 3 16 3-8h4"/><path d="M2 18h20" opacity="0.5"/><path d="M2 21h20" opacity="0.3"/></svg></span>
+                                <span class="mode-name">Waterfall</span>
                             </button>
                         </div>
                     </div>
@@ -604,8 +626,6 @@
 
                 {% include 'partials/modes/tscm.html' %}
 
-                {% include 'partials/modes/analytics.html' %}
-
                 {% include 'partials/modes/ais.html' %}
 
                 {% include 'partials/modes/spy-stations.html' %}
@@ -617,6 +637,9 @@
                 {% include 'partials/modes/subghz.html' %}
 
                 {% include 'partials/modes/bt_locate.html' %}
+                {% include 'partials/modes/waterfall.html' %}
+                {% include 'partials/modes/rfheatmap.html' %}
+                {% include 'partials/modes/fingerprint.html' %}
 
 
 
@@ -2177,7 +2200,7 @@
                 </div>
 
                 <!-- BT Locate SAR Dashboard -->
-                <div id="btLocateVisuals" class="btl-visuals-container" style="display: none;">
+                <div id="btLocateVisuals" class="btl-visuals-container" style="display: none; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow: hidden; padding: 8px;">
                     <!-- Proximity HUD -->
                     <div class="btl-hud" id="btLocateHud" style="display: none;">
                         <div class="btl-hud-top">
@@ -2248,8 +2271,8 @@
                             <div id="btLocateDiag" class="btl-hud-diag"></div>
                         </div>
                     </div>
-                    <div class="btl-map-container">
-                        <div id="btLocateMap"></div>
+                    <div class="btl-map-container" style="flex: 1; min-height: 250px; position: relative; overflow: hidden;">
+                        <div id="btLocateMap" style="position: absolute; inset: 0;"></div>
                         <div class="btl-map-overlay-controls">
                             <label class="btl-map-overlay-toggle">
                                 <input type="checkbox" id="btLocateHeatmapEnable" onchange="BtLocate.toggleHeatmap()">
@@ -3077,6 +3100,161 @@
                     </div>
                 </div>
 
+                <!-- Waterfall Visuals -->
+                <div id="waterfallVisuals" style="display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+                    <div class="wf-container">
+                        <div class="wf-headline">
+                            <div class="wf-headline-left">
+                                <span class="wf-headline-tag">SPECTRUM RECEIVER</span>
+                                <span class="wf-headline-sub">Local SDR</span>
+                            </div>
+                            <div class="wf-headline-right">
+                                <span class="wf-range-text" id="wfRangeDisplay">98.8000 - 101.2000 MHz</span>
+                                <span class="wf-tune-text" id="wfTuneDisplay">Tune 100.0000 MHz</span>
+                            </div>
+                        </div>
+
+                        <div class="wf-monitor-strip">
+                            <div class="wf-rx-vfo">
+                                <div class="wf-rx-vfo-top">
+                                    <span class="wf-rx-vfo-name">VFO-A</span>
+                                    <span class="wf-rx-vfo-status" id="wfVisualStatus">IDLE</span>
+                                </div>
+                                <div class="wf-rx-vfo-readout">
+                                    <span id="wfRxFreqReadout">100.0000</span>
+                                    <span class="wf-rx-vfo-unit">MHz</span>
+                                </div>
+                                <div class="wf-rx-vfo-bottom">
+                                    <span id="wfRxModeReadout">WFM</span>
+                                    <span id="wfRxStepReadout">STEP 100 kHz</span>
+                                </div>
+                            </div>
+
+                            <div class="wf-rx-modebank" id="wfModeBank">
+                                <button class="wf-mode-btn is-active" data-mode="wfm">WFM</button>
+                                <button class="wf-mode-btn" data-mode="fm">NFM</button>
+                                <button class="wf-mode-btn" data-mode="am">AM</button>
+                                <button class="wf-mode-btn" data-mode="usb">USB</button>
+                                <button class="wf-mode-btn" data-mode="lsb">LSB</button>
+                                <select id="wfMonitorMode" class="wf-monitor-select wf-monitor-select-hidden">
+                                    <option value="wfm" selected>WFM</option>
+                                    <option value="fm">NFM</option>
+                                    <option value="am">AM</option>
+                                    <option value="usb">USB</option>
+                                    <option value="lsb">LSB</option>
+                                </select>
+                            </div>
+
+                            <div class="wf-rx-levels">
+                                <div class="wf-monitor-group">
+                                    <span class="wf-monitor-label">Squelch</span>
+                                    <div class="wf-monitor-slider-wrap">
+                                        <input type="range" id="wfMonitorSquelch" min="0" max="100" value="0">
+                                        <span id="wfMonitorSquelchValue" class="wf-monitor-value">0</span>
+                                    </div>
+                                </div>
+                                <div class="wf-monitor-group">
+                                    <span class="wf-monitor-label">Gain</span>
+                                    <div class="wf-monitor-slider-wrap">
+                                        <input type="range" id="wfMonitorGain" min="0" max="60" value="40">
+                                        <span id="wfMonitorGainValue" class="wf-monitor-value">40</span>
+                                    </div>
+                                </div>
+                                <div class="wf-monitor-group">
+                                    <span class="wf-monitor-label">Volume</span>
+                                    <div class="wf-monitor-slider-wrap">
+                                        <input type="range" id="wfMonitorVolume" min="0" max="100" value="82">
+                                        <span id="wfMonitorVolumeValue" class="wf-monitor-value">82</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="wf-rx-meter-wrap">
+                                <span class="wf-monitor-label">S-Meter</span>
+                                <div class="wf-rx-smeter">
+                                    <div class="wf-rx-smeter-fill" id="wfSmeterBar"></div>
+                                </div>
+                                <div class="wf-rx-smeter-text" id="wfSmeterText">S0</div>
+                            </div>
+
+                            <div class="wf-rx-actions">
+                                <div class="wf-rx-action-row">
+                                    <button class="wf-monitor-btn" id="wfMonitorBtn" onclick="Waterfall.toggleMonitor()">Monitor</button>
+                                    <button class="wf-monitor-btn wf-monitor-btn-secondary" id="wfMuteBtn" onclick="Waterfall.toggleMute()">Mute</button>
+                                    <button class="wf-monitor-btn wf-monitor-btn-unlock" id="wfAudioUnlockBtn" onclick="Waterfall.unlockAudio()" style="display:none;">Unlock Audio</button>
+                                </div>
+                                <div class="wf-monitor-state" id="wfMonitorState">No audio monitor</div>
+                            </div>
+                            <audio id="wfAudioPlayer" autoplay playsinline></audio>
+                        </div>
+
+                        <!-- Frequency control bar -->
+                        <div class="wf-freq-bar">
+                            <button class="wf-step-btn" onclick="Waterfall.stepFreq && Waterfall.stepFreq(-10)" title="Step down ×10">«</button>
+                            <button class="wf-step-btn" onclick="Waterfall.stepFreq && Waterfall.stepFreq(-1)" title="Step down">‹</button>
+                            <div class="wf-freq-display-wrap">
+                                <span class="wf-freq-bar-label">CENTER</span>
+                                <input type="text" id="wfFreqCenterDisplay" class="wf-freq-center-input" value="100.0000" inputmode="decimal" autocomplete="off" spellcheck="false">
+                                <span class="wf-freq-bar-unit">MHz</span>
+                            </div>
+                            <button class="wf-step-btn" onclick="Waterfall.stepFreq && Waterfall.stepFreq(1)" title="Step up">›</button>
+                            <button class="wf-step-btn" onclick="Waterfall.stepFreq && Waterfall.stepFreq(10)" title="Step up ×10">»</button>
+                            <div class="wf-freq-bar-sep"></div>
+                            <span class="wf-freq-bar-label">STEP</span>
+                            <select id="wfStepSize" class="wf-step-select">
+                                <option value="0.001">1 kHz</option>
+                                <option value="0.005">5 kHz</option>
+                                <option value="0.01">10 kHz</option>
+                                <option value="0.025">25 kHz</option>
+                                <option value="0.05">50 kHz</option>
+                                <option value="0.1" selected>100 kHz</option>
+                                <option value="0.5">500 kHz</option>
+                                <option value="1">1 MHz</option>
+                                <option value="5">5 MHz</option>
+                            </select>
+                            <div class="wf-freq-bar-sep"></div>
+                            <span class="wf-freq-bar-label">SPAN</span>
+                            <span id="wfSpanDisplay" class="wf-span-display">2.4 MHz</span>
+                        </div>
+
+                        <!-- Spectrum canvas -->
+                        <div class="wf-spectrum-canvas-wrap">
+                            <canvas id="wfSpectrumCanvas"></canvas>
+                            <div class="wf-center-line"></div>
+                            <div class="wf-tune-line" id="wfTuneLineSpec"></div>
+                        </div>
+
+                        <!-- Drag handle to resize spectrum vs waterfall -->
+                        <div class="wf-resize-handle" id="wfResizeHandle">
+                            <div class="wf-resize-grip"></div>
+                        </div>
+
+                        <!-- Waterfall canvas -->
+                        <div class="wf-waterfall-canvas-wrap">
+                            <canvas id="wfWaterfallCanvas"></canvas>
+                            <div class="wf-tooltip" id="wfTooltip"></div>
+                            <div class="wf-center-line"></div>
+                            <div class="wf-tune-line" id="wfTuneLineWf"></div>
+                        </div>
+
+                        <div class="wf-freq-axis" id="wfFreqAxis"></div>
+                    </div>
+                </div>
+
+                <!-- RF Heatmap Visuals -->
+                <div id="rfheatmapVisuals" style="display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+                    <div class="rfhm-map-container" style="flex: 1; min-height: 0; position: relative;">
+                        <div id="rfheatmapMapEl" style="width: 100%; height: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Fingerprint Visuals -->
+                <div id="fingerprintVisuals" style="display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; padding: 10px; gap: 10px;">
+                    <div class="fp-chart-container" style="flex: 1; min-height: 200px;">
+                        <canvas id="fpChartCanvas"></canvas>
+                    </div>
+                </div>
+
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
                 <div class="recon-panel collapsed" id="reconPanel">
                     <div class="recon-header" onclick="toggleReconCollapse()" style="cursor: pointer;">
@@ -3201,8 +3379,13 @@
     <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
     <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate4"></script>
-    <script src="{{ url_for('static', filename='js/modes/analytics.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/space-weather.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/voice-alerts.js') }}?v={{ version }}&r=voicefix1"></script>
+    <script src="{{ url_for('static', filename='js/core/keyboard-shortcuts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/cheat-sheets.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/waterfall.js') }}?v={{ version }}&r=wfdeck10"></script>
+    <script src="{{ url_for('static', filename='js/modes/rfheatmap.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/fingerprint.js') }}"></script>
 
     <script>
         // ============================================
@@ -3353,9 +3536,11 @@
             bt_locate: { label: 'BT Locate', indicator: 'BT LOCATE', outputTitle: 'BT Locate — SAR Tracker', group: 'wireless' },
             meshtastic: { label: 'Meshtastic', indicator: 'MESHTASTIC', outputTitle: 'Meshtastic Mesh Monitor', group: 'wireless' },
             tscm: { label: 'TSCM', indicator: 'TSCM', outputTitle: 'TSCM Counter-Surveillance', group: 'intel' },
-            analytics: { label: 'Analytics', indicator: 'ANALYTICS', outputTitle: 'Cross-Mode Analytics', group: 'intel' },
             spystations: { label: 'Spy Stations', indicator: 'SPY STATIONS', outputTitle: 'Spy Stations', group: 'intel' },
             websdr: { label: 'WebSDR', indicator: 'WEBSDR', outputTitle: 'HF/Shortwave WebSDR', group: 'intel' },
+            waterfall: { label: 'Waterfall', indicator: 'WATERFALL', outputTitle: 'Spectrum Waterfall', group: 'signals' },
+            rfheatmap: { label: 'RF Heatmap', indicator: 'RF HEATMAP', outputTitle: 'RF Signal Heatmap', group: 'intel' },
+            fingerprint: { label: 'Fingerprint', indicator: 'RF FINGERPRINT', outputTitle: 'Signal Fingerprinting', group: 'intel' },
         };
         const validModes = new Set(Object.keys(modeCatalog));
         window.interceptModeCatalog = Object.assign({}, modeCatalog);
@@ -3945,8 +4130,10 @@
             document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
             document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
             document.getElementById('subghzMode')?.classList.toggle('active', mode === 'subghz');
-            document.getElementById('analyticsMode')?.classList.toggle('active', mode === 'analytics');
             document.getElementById('spaceWeatherMode')?.classList.toggle('active', mode === 'spaceweather');
+            document.getElementById('waterfallMode')?.classList.toggle('active', mode === 'waterfall');
+            document.getElementById('rfheatmapMode')?.classList.toggle('active', mode === 'rfheatmap');
+            document.getElementById('fingerprintMode')?.classList.toggle('active', mode === 'fingerprint');
 
 
             const pagerStats = document.getElementById('pagerStats');
@@ -3987,6 +4174,9 @@
             const subghzVisuals = document.getElementById('subghzVisuals');
             const btLocateVisuals = document.getElementById('btLocateVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
+            const waterfallVisuals = document.getElementById('waterfallVisuals');
+            const rfheatmapVisuals = document.getElementById('rfheatmapVisuals');
+            const fingerprintVisuals = document.getElementById('fingerprintVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -4003,6 +4193,9 @@
             if (subghzVisuals) subghzVisuals.style.display = mode === 'subghz' ? 'flex' : 'none';
             if (btLocateVisuals) btLocateVisuals.style.display = mode === 'bt_locate' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
+            if (waterfallVisuals) waterfallVisuals.style.display = (mode === 'waterfall' || mode === 'listening') ? 'flex' : 'none';
+            if (rfheatmapVisuals) rfheatmapVisuals.style.display = mode === 'rfheatmap' ? 'flex' : 'none';
+            if (fingerprintVisuals) fingerprintVisuals.style.display = mode === 'fingerprint' ? 'flex' : 'none';
 
             // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
             if (typeof BtLocate !== 'undefined' && BtLocate.setActiveMode) {
@@ -4017,8 +4210,6 @@
                 } else {
                     mainContent.classList.remove('mesh-sidebar-hidden');
                 }
-                // Analytics is sidebar-only — hide output panel and expand sidebar
-                mainContent.classList.toggle('analytics-active', mode === 'analytics');
             }
 
             // Show/hide mode-specific timeline containers
@@ -4040,15 +4231,6 @@
                 refreshTscmDevices();
             }
 
-            // Initialize/destroy Analytics mode
-            if (mode === 'analytics') {
-                // Expand all analytics sections (sidebar sections default to collapsed)
-                document.querySelectorAll('#analyticsMode .section.collapsed').forEach(s => s.classList.remove('collapsed'));
-                if (typeof Analytics !== 'undefined') Analytics.init();
-            } else {
-                if (typeof Analytics !== 'undefined' && Analytics.destroy) Analytics.destroy();
-            }
-
             // Initialize/destroy Space Weather mode
             if (mode !== 'spaceweather') {
                 if (typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy) SpaceWeather.destroy();
@@ -4063,7 +4245,7 @@
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'spaceweather') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'listening' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall' || mode === 'rfheatmap' || mode === 'fingerprint') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -4078,7 +4260,7 @@
 
             // Show agent selector for modes that support remote agents
             const agentSection = document.getElementById('agentSection');
-            const agentModes = ['pager', 'sensor', 'rtlamr', 'listening', 'aprs', 'wifi', 'bluetooth', 'aircraft', 'tscm', 'ais', 'dsc'];
+            const agentModes = ['pager', 'sensor', 'rtlamr', 'listening', 'aprs', 'wifi', 'bluetooth', 'aircraft', 'tscm', 'ais'];
             if (agentSection) agentSection.style.display = agentModes.includes(mode) ? 'block' : 'none';
 
             // Show RTL-SDR device section for modes that use it
@@ -4101,8 +4283,8 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'analytics' || mode === 'spaceweather') ? 'none' : 'block';
-            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather') ? 'none' : 'flex';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'listening' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'bt_locate' || mode === 'waterfall' || mode === 'rfheatmap' || mode === 'fingerprint') ? 'none' : 'block';
+            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
             if (mode !== 'meshtastic') {
@@ -4139,6 +4321,7 @@
                 if (typeof checkIncomingTuneRequest === 'function') {
                     checkIncomingTuneRequest();
                 }
+                if (typeof Waterfall !== 'undefined') Waterfall.init();
             } else if (mode === 'spystations') {
                 SpyStations.init();
             } else if (mode === 'meshtastic') {
@@ -4175,6 +4358,20 @@
                 }, 320);
             } else if (mode === 'spaceweather') {
                 SpaceWeather.init();
+            } else if (mode === 'waterfall') {
+                if (typeof Waterfall !== 'undefined') Waterfall.init();
+            } else if (mode === 'rfheatmap') {
+                if (typeof RFHeatmap !== 'undefined') {
+                    RFHeatmap.init();
+                    setTimeout(() => RFHeatmap.invalidateMap(), 100);
+                }
+            } else if (mode === 'fingerprint') {
+                if (typeof Fingerprint !== 'undefined') Fingerprint.init();
+            }
+
+            // Destroy Waterfall WebSocket when leaving SDR receiver modes
+            if (mode !== 'waterfall' && mode !== 'listening' && typeof Waterfall !== 'undefined' && Waterfall.destroy) {
+                Promise.resolve(Waterfall.destroy()).catch(() => {});
             }
         }
 
@@ -15103,6 +15300,49 @@
     <script src="{{ url_for('static', filename='js/core/run-state.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/command-palette.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/first-run-setup.js') }}"></script>
+
+    <!-- Cheat Sheet Modal -->
+    <div id="cheatSheetModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this)CheatSheets.hide()">
+        <div style="background:var(--bg-card, #1a1f2e); border:1px solid rgba(255,255,255,0.15); border-radius:12px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto; padding:20px; position:relative;">
+            <button onclick="CheatSheets.hide()" style="position:absolute; top:12px; right:12px; background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:18px; line-height:1;">✕</button>
+            <div id="cheatSheetContent"></div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="kbShortcutsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this)KeyboardShortcuts.hideHelp()">
+        <div style="background:var(--bg-card, #1a1f2e); border:1px solid rgba(255,255,255,0.15); border-radius:12px; max-width:520px; width:100%; max-height:80vh; overflow-y:auto; padding:20px; position:relative;">
+            <button onclick="KeyboardShortcuts.hideHelp()" style="position:absolute; top:12px; right:12px; background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:18px; line-height:1;">✕</button>
+            <h2 style="margin:0 0 16px; font-size:16px; color:var(--accent-cyan, #4aa3ff); font-family:var(--font-mono);">Keyboard Shortcuts</h2>
+            <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12px;">
+                <tbody>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+W</td><td style="padding:6px 8px; color:var(--text-secondary);">Switch to Waterfall</td></tr>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+H</td><td style="padding:6px 8px; color:var(--text-secondary);">Switch to RF Heatmap</td></tr>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+N</td><td style="padding:6px 8px; color:var(--text-secondary);">Switch to Fingerprint</td></tr>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+M</td><td style="padding:6px 8px; color:var(--text-secondary);">Toggle voice mute</td></tr>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+S</td><td style="padding:6px 8px; color:var(--text-secondary);">Toggle sidebar</td></tr>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+K / ?</td><td style="padding:6px 8px; color:var(--text-secondary);">Show keyboard shortcuts</td></tr>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+C</td><td style="padding:6px 8px; color:var(--text-secondary);">Show cheat sheet for current mode</td></tr>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);"><td style="padding:6px 8px; color:var(--accent-cyan);">Alt+1..9</td><td style="padding:6px 8px; color:var(--text-secondary);">Switch to Nth mode in current group</td></tr>
+                    <tr><td style="padding:6px 8px; color:var(--accent-cyan);">Escape</td><td style="padding:6px 8px; color:var(--text-secondary);">Close modal / Return to welcome</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+        });
+    }
+    // Initialize global core modules after page load
+    window.addEventListener('DOMContentLoaded', () => {
+        if (typeof VoiceAlerts !== 'undefined') VoiceAlerts.init();
+        if (typeof KeyboardShortcuts !== 'undefined') KeyboardShortcuts.init();
+    });
+    </script>
 </body>
 
 </html>

@@ -1,0 +1,16 @@
+{
+  "name": "INTERCEPT Signal Intelligence",
+  "short_name": "INTERCEPT",
+  "description": "Unified SIGINT platform for software-defined radio analysis",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1118",
+  "theme_color": "#0b1118",
+  "icons": [
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

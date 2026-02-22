@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0b1118" rx="80"/>
+  <!-- Signal wave arcs radiating from center-left -->
+  <g fill="none" stroke="#4aa3ff" stroke-linecap="round">
+    <!-- Inner arc -->
+    <path stroke-width="22" d="M 160 256 Q 192 210 192 256 Q 192 302 160 256" opacity="0.5"/>
+    <!-- Small arc -->
+    <path stroke-width="22" d="M 130 256 Q 180 185 180 256 Q 180 327 130 256" opacity="0.65"/>
+    <!-- Medium arc -->
+    <path stroke-width="24" d="M 100 256 Q 175 155 175 256 Q 175 357 100 256" opacity="0.8"/>
+    <!-- Large arc -->
+    <path stroke-width="26" d="M 68 256 Q 170 120 170 256 Q 170 392 68 256" opacity="0.95"/>
+  </g>
+  <!-- Horizontal beam line -->
+  <line x1="190" y1="256" x2="420" y2="256" stroke="#4aa3ff" stroke-width="20" stroke-linecap="round"/>
+  <!-- Signal dot at origin -->
+  <circle cx="190" cy="256" r="18" fill="#4aa3ff"/>
+  <!-- Target reticle at end -->
+  <circle cx="420" cy="256" r="28" fill="none" stroke="#4aa3ff" stroke-width="14"/>
+  <circle cx="420" cy="256" r="8" fill="#4aa3ff"/>
+</svg>

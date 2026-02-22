@@ -9,11 +9,12 @@ import queue
 import select
 import signal
 import shutil
+import struct
 import subprocess
 import threading
 import time
 from datetime import datetime
-from typing import Generator, Optional, List, Dict
+from typing import Any, Dict, Generator, List, Optional
 
 from flask import Blueprint, jsonify, request, Response
 
@@ -43,6 +44,7 @@ audio_lock = threading.Lock()
 audio_running = False
 audio_frequency = 0.0
 audio_modulation = 'fm'
+audio_source = 'process'
 
 # Scanner state
 scanner_thread: Optional[threading.Thread] = None
@@ -117,6 +119,22 @@ def _rtl_fm_demod_mode(modulation: str) -> str:
     """Map UI modulation names to rtl_fm demod tokens."""
     mod = str(modulation or '').lower().strip()
     return 'wbfm' if mod == 'wfm' else mod
+
+
+def _wav_header(sample_rate: int = 48000, bits_per_sample: int = 16, channels: int = 1) -> bytes:
+    """Create a streaming WAV header with unknown data length."""
+    bytes_per_sample = bits_per_sample // 8
+    byte_rate = sample_rate * channels * bytes_per_sample
+    block_align = channels * bytes_per_sample
+    return (
+        b'RIFF'
+        + struct.pack('<I', 0xFFFFFFFF)
+        + b'WAVE'
+        + b'fmt '
+        + struct.pack('<IHHIIHH', 16, 1, channels, sample_rate, byte_rate, block_align, bits_per_sample)
+        + b'data'
+        + struct.pack('<I', 0xFFFFFFFF)
+    )
 
 
 
@@ -697,8 +715,8 @@ def _start_audio_stream(frequency: float, modulation: str):
             ]
             if scanner_config.get('bias_t', False):
                 sdr_cmd.append('-T')
-            # Explicitly output to stdout (some rtl_fm versions need this)
-            sdr_cmd.append('-')
+            # Omit explicit filename: rtl_fm defaults to stdout.
+            # (Some builds intermittently stall when '-' is passed explicitly.)
         else:
             # Use SDR abstraction layer for HackRF, Airspy, LimeSDR, SDRPlay
             rx_fm_path = find_rx_fm()
@@ -842,15 +860,15 @@ def _start_audio_stream(frequency: float, modulation: str):
                 # Pipeline started successfully
                 break
 
-            # Validate that audio is producing data quickly
-            try:
-                ready, _, _ = select.select([audio_process.stdout], [], [], 4.0)
-                if not ready:
-                    logger.warning("Audio pipeline produced no data in startup window — killing stalled pipeline")
-                    _stop_audio_stream_internal()
-                    return
-            except Exception as e:
-                logger.warning(f"Audio startup check failed: {e}")
+            # Keep monitor startup tolerant: some demod chains can take
+            # several seconds before producing stream bytes.
+            if (
+                not audio_process
+                or not audio_rtl_process
+                or audio_process.poll() is not None
+                or audio_rtl_process.poll() is not None
+            ):
+                logger.warning("Audio pipeline did not remain alive after startup")
                 _stop_audio_stream_internal()
                 return
 
@@ -871,11 +889,21 @@ def _stop_audio_stream():
 
 def _stop_audio_stream_internal():
     """Internal stop (must hold lock)."""
-    global audio_process, audio_rtl_process, audio_running, audio_frequency
+    global audio_process, audio_rtl_process, audio_running, audio_frequency, audio_source
 
     # Set flag first to stop any streaming
     audio_running = False
     audio_frequency = 0.0
+    previous_source = audio_source
+    audio_source = 'process'
+
+    if previous_source == 'waterfall':
+        try:
+            from routes.waterfall_websocket import stop_shared_monitor_from_capture
+
+            stop_shared_monitor_from_capture()
+        except Exception:
+            pass
 
     had_processes = audio_process is not None or audio_rtl_process is not None
 
@@ -1243,6 +1271,7 @@ def get_presets() -> Response:
 def start_audio() -> Response:
     """Start audio at specific frequency (manual mode)."""
     global scanner_running, scanner_active_device, listening_active_device, scanner_power_process, scanner_thread
+    global audio_running, audio_frequency, audio_modulation, audio_source
 
     # Stop scanner if running
     if scanner_running:
@@ -1280,6 +1309,11 @@ def start_audio() -> Response:
         gain = int(data.get('gain', 40))
         device = int(data.get('device', 0))
         sdr_type = str(data.get('sdr_type', 'rtlsdr')).lower()
+        bias_t_raw = data.get('bias_t', scanner_config.get('bias_t', False))
+        if isinstance(bias_t_raw, str):
+            bias_t = bias_t_raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+        else:
+            bias_t = bool(bias_t_raw)
     except (ValueError, TypeError) as e:
         return jsonify({
             'status': 'error',
@@ -1304,6 +1338,43 @@ def start_audio() -> Response:
     scanner_config['gain'] = gain
     scanner_config['device'] = device
     scanner_config['sdr_type'] = sdr_type
+    scanner_config['bias_t'] = bias_t
+
+    # Preferred path: when waterfall WebSocket is active on the same SDR,
+    # derive monitor audio from that IQ stream instead of spawning rtl_fm.
+    try:
+        from routes.waterfall_websocket import (
+            get_shared_capture_status,
+            start_shared_monitor_from_capture,
+        )
+
+        shared = get_shared_capture_status()
+        if shared.get('running') and shared.get('device') == device:
+            _stop_audio_stream()
+            ok, msg = start_shared_monitor_from_capture(
+                device=device,
+                frequency_mhz=frequency,
+                modulation=modulation,
+                squelch=squelch,
+            )
+            if ok:
+                audio_running = True
+                audio_frequency = frequency
+                audio_modulation = modulation
+                audio_source = 'waterfall'
+                # Shared monitor uses the waterfall's existing SDR claim.
+                if listening_active_device is not None:
+                    app_module.release_sdr_device(listening_active_device)
+                    listening_active_device = None
+                return jsonify({
+                    'status': 'started',
+                    'frequency': frequency,
+                    'modulation': modulation,
+                    'source': 'waterfall',
+                })
+            logger.warning(f"Shared waterfall monitor unavailable: {msg}")
+    except Exception as e:
+        logger.debug(f"Shared waterfall monitor probe failed: {e}")
 
     # Stop waterfall if it's using the same SDR (SSE path)
     if waterfall_running and waterfall_active_device == device:
@@ -1322,13 +1393,6 @@ def start_audio() -> Response:
         error = None
         max_claim_attempts = 6
         for attempt in range(max_claim_attempts):
-            # Force-release a stale waterfall registry entry on each
-            # attempt — the WebSocket handler may not have finished
-            # cleanup yet.
-            device_status = app_module.get_sdr_device_status()
-            if device_status.get(device) == 'waterfall':
-                app_module.release_sdr_device(device)
-
             error = app_module.claim_sdr_device(device, 'listening')
             if not error:
                 break
@@ -1350,15 +1414,36 @@ def start_audio() -> Response:
     _start_audio_stream(frequency, modulation)
 
     if audio_running:
+        audio_source = 'process'
         return jsonify({
             'status': 'started',
             'frequency': frequency,
-            'modulation': modulation
+            'modulation': modulation,
+            'source': 'process',
         })
     else:
+        # Avoid leaving a stale device claim after startup failure.
+        if listening_active_device is not None:
+            app_module.release_sdr_device(listening_active_device)
+            listening_active_device = None
+
+        start_error = ''
+        for log_path in ('/tmp/rtl_fm_stderr.log', '/tmp/ffmpeg_stderr.log'):
+            try:
+                with open(log_path, 'r') as handle:
+                    content = handle.read().strip()
+                if content:
+                    start_error = content.splitlines()[-1]
+                    break
+            except Exception:
+                continue
+
+        message = 'Failed to start audio. Check SDR device.'
+        if start_error:
+            message = f'Failed to start audio: {start_error}'
         return jsonify({
             'status': 'error',
-            'message': 'Failed to start audio. Check SDR device.'
+            'message': message
         }), 500
 
 
@@ -1376,10 +1461,21 @@ def stop_audio() -> Response:
 @listening_post_bp.route('/audio/status')
 def audio_status() -> Response:
     """Get audio status."""
+    running = audio_running
+    if audio_source == 'waterfall':
+        try:
+            from routes.waterfall_websocket import get_shared_capture_status
+
+            shared = get_shared_capture_status()
+            running = bool(shared.get('running') and shared.get('monitor_enabled'))
+        except Exception:
+            running = False
+
     return jsonify({
-        'running': audio_running,
+        'running': running,
         'frequency': audio_frequency,
-        'modulation': audio_modulation
+        'modulation': audio_modulation,
+        'source': audio_source,
     })
 
 
@@ -1397,15 +1493,26 @@ def audio_debug() -> Response:
         except Exception:
             return ''
 
+    shared = {}
+    if audio_source == 'waterfall':
+        try:
+            from routes.waterfall_websocket import get_shared_capture_status
+
+            shared = get_shared_capture_status()
+        except Exception:
+            shared = {}
+
     return jsonify({
         'running': audio_running,
         'frequency': audio_frequency,
         'modulation': audio_modulation,
+        'source': audio_source,
         'sdr_type': scanner_config.get('sdr_type', 'rtlsdr'),
         'device': scanner_config.get('device', 0),
         'gain': scanner_config.get('gain', 0),
         'squelch': scanner_config.get('squelch', 0),
         'audio_process_alive': bool(audio_process and audio_process.poll() is None),
+        'shared_capture': shared,
         'rtl_fm_stderr': _read_log(rtl_log_path),
         'ffmpeg_stderr': _read_log(ffmpeg_log_path),
         'audio_probe_bytes': os.path.getsize(sample_path) if os.path.exists(sample_path) else 0,
@@ -1416,6 +1523,20 @@ def audio_debug() -> Response:
 def audio_probe() -> Response:
     """Grab a small chunk of audio bytes from the pipeline for debugging."""
     global audio_process
+
+    if audio_source == 'waterfall':
+        try:
+            from routes.waterfall_websocket import read_shared_monitor_audio_chunk
+
+            data = read_shared_monitor_audio_chunk(timeout=2.0)
+            if not data:
+                return jsonify({'status': 'error', 'message': 'no shared audio data available'}), 504
+            sample_path = '/tmp/audio_probe.bin'
+            with open(sample_path, 'wb') as handle:
+                handle.write(data)
+            return jsonify({'status': 'ok', 'bytes': len(data), 'source': 'waterfall'})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
 
     if not audio_process or not audio_process.stdout:
         return jsonify({'status': 'error', 'message': 'audio process not running'}), 400
@@ -1441,14 +1562,58 @@ def audio_probe() -> Response:
 @listening_post_bp.route('/audio/stream')
 def stream_audio() -> Response:
     """Stream WAV audio."""
-    # Wait for audio to be ready (up to 2 seconds for modulation/squelch changes)
+    if audio_source == 'waterfall':
+        for _ in range(40):
+            if audio_running:
+                break
+            time.sleep(0.05)
+
+        if not audio_running:
+            return Response(b'', mimetype='audio/wav', status=204)
+
+        def generate_shared():
+            global audio_running, audio_source
+            try:
+                from routes.waterfall_websocket import (
+                    get_shared_capture_status,
+                    read_shared_monitor_audio_chunk,
+                )
+            except Exception:
+                return
+
+            # Browser expects an immediate WAV header.
+            yield _wav_header(sample_rate=48000)
+
+            while audio_running and audio_source == 'waterfall':
+                chunk = read_shared_monitor_audio_chunk(timeout=1.0)
+                if chunk:
+                    yield chunk
+                    continue
+                shared = get_shared_capture_status()
+                if not shared.get('running') or not shared.get('monitor_enabled'):
+                    audio_running = False
+                    audio_source = 'process'
+                    break
+
+        return Response(
+            generate_shared(),
+            mimetype='audio/wav',
+            headers={
+                'Content-Type': 'audio/wav',
+                'Cache-Control': 'no-cache, no-store',
+                'X-Accel-Buffering': 'no',
+                'Transfer-Encoding': 'chunked',
+            }
+        )
+
+    # Wait for audio process to be ready (up to 2 seconds).
     for _ in range(40):
         if audio_running and audio_process:
             break
         time.sleep(0.05)
 
     if not audio_running or not audio_process:
-        return Response(b'', mimetype='audio/mpeg', status=204)
+        return Response(b'', mimetype='audio/wav', status=204)
 
     def generate():
         # Capture local reference to avoid race condition with stop
@@ -1474,21 +1639,25 @@ def stream_audio() -> Response:
                 yield header_chunk
 
             # Stream real-time audio
-            first_chunk_deadline = time.time() + 3.0
+            first_chunk_deadline = time.time() + 20.0
+            warned_wait = False
             while audio_running and proc.poll() is None:
                 # Use select to avoid blocking forever
                 ready, _, _ = select.select([proc.stdout], [], [], 2.0)
                 if ready:
                     chunk = proc.stdout.read(8192)
                     if chunk:
+                        warned_wait = False
                         yield chunk
                     else:
                         break
                 else:
-                    # If no data arrives shortly after start, exit so caller can retry
+                    # Keep connection open while demodulator settles.
                     if time.time() > first_chunk_deadline:
-                        logger.warning("Audio stream timed out waiting for first chunk")
-                        break
+                        if not warned_wait:
+                            logger.warning("Audio stream still waiting for first chunk")
+                            warned_wait = True
+                        continue
                     # Timeout - check if process died
                     if proc.poll() is not None:
                         break
@@ -1621,9 +1790,20 @@ def _waterfall_loop():
     """Continuous rtl_power sweep loop emitting waterfall data."""
     global waterfall_running, waterfall_process
 
+    def _queue_waterfall_error(message: str) -> None:
+        try:
+            waterfall_queue.put_nowait({
+                'type': 'waterfall_error',
+                'message': message,
+                'timestamp': datetime.now().isoformat(),
+            })
+        except queue.Full:
+            pass
+
     rtl_power_path = find_rtl_power()
     if not rtl_power_path:
         logger.error("rtl_power not found for waterfall")
+        _queue_waterfall_error('rtl_power not found')
         waterfall_running = False
         return
 
@@ -1646,17 +1826,33 @@ def _waterfall_loop():
         waterfall_process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             bufsize=1,
             text=True,
         )
+
+        # Detect immediate startup failures (e.g. device busy / no device).
+        time.sleep(0.35)
+        if waterfall_process.poll() is not None:
+            stderr_text = ''
+            try:
+                if waterfall_process.stderr:
+                    stderr_text = waterfall_process.stderr.read().strip()
+            except Exception:
+                stderr_text = ''
+            msg = stderr_text or f'rtl_power exited early (code {waterfall_process.returncode})'
+            logger.error(f"Waterfall startup failed: {msg}")
+            _queue_waterfall_error(msg)
+            return
 
         current_ts = None
         all_bins: list[float] = []
         sweep_start_hz = start_hz
         sweep_end_hz = end_hz
+        received_any = False
 
         if not waterfall_process.stdout:
+            _queue_waterfall_error('rtl_power stdout unavailable')
             return
 
         for line in waterfall_process.stdout:
@@ -1666,6 +1862,7 @@ def _waterfall_loop():
             ts, seg_start, seg_end, bins = _parse_rtl_power_line(line)
             if ts is None or not bins:
                 continue
+            received_any = True
 
             if current_ts is None:
                 current_ts = ts
@@ -1723,8 +1920,12 @@ def _waterfall_loop():
             except queue.Full:
                 pass
 
+        if waterfall_running and not received_any:
+            _queue_waterfall_error('No waterfall FFT data received from rtl_power')
+
     except Exception as e:
         logger.error(f"Waterfall loop error: {e}")
+        _queue_waterfall_error(f"Waterfall loop error: {e}")
     finally:
         waterfall_running = False
         if waterfall_process and waterfall_process.poll() is None:
@@ -1768,7 +1969,12 @@ def start_waterfall() -> Response:
 
     with waterfall_lock:
         if waterfall_running:
-            return jsonify({'status': 'error', 'message': 'Waterfall already running'}), 409
+            return jsonify({
+                'status': 'started',
+                'already_running': True,
+                'message': 'Waterfall already running',
+                'config': waterfall_config,
+            })
 
     if not find_rtl_power():
         return jsonify({'status': 'error', 'message': 'rtl_power not found'}), 503

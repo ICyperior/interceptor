@@ -34,8 +34,8 @@ def register_blueprints(app):
     from .recordings import recordings_bp
     from .subghz import subghz_bp
     from .bt_locate import bt_locate_bp
-    from .analytics import analytics_bp
     from .space_weather import space_weather_bp
+    from .fingerprint import fingerprint_bp
 
     app.register_blueprint(pager_bp)
     app.register_blueprint(sensor_bp)
@@ -69,8 +69,8 @@ def register_blueprints(app):
     app.register_blueprint(recordings_bp)  # Session recordings
     app.register_blueprint(subghz_bp)  # SubGHz transceiver (HackRF)
     app.register_blueprint(bt_locate_bp)  # BT Locate SAR device tracking
-    app.register_blueprint(analytics_bp)  # Cross-mode analytics dashboard
     app.register_blueprint(space_weather_bp)  # Space weather monitoring
+    app.register_blueprint(fingerprint_bp)  # RF fingerprinting
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module

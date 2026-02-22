@@ -1265,6 +1265,7 @@ function switchSettingsTab(tabName) {
     } else if (tabName === 'location') {
         loadObserverLocation();
     } else if (tabName === 'alerts') {
+        loadVoiceAlertConfig();
         if (typeof AlertCenter !== 'undefined') {
             AlertCenter.loadFeed();
         }
@@ -1275,6 +1276,61 @@ function switchSettingsTab(tabName) {
     } else if (tabName === 'apikeys') {
         loadApiKeyStatus();
     }
+}
+
+/**
+ * Load voice alert configuration into Settings > Alerts tab
+ */
+function loadVoiceAlertConfig() {
+    if (typeof VoiceAlerts === 'undefined') return;
+    const cfg = VoiceAlerts.getConfig();
+
+    const pager   = document.getElementById('voiceCfgPager');
+    const tscm    = document.getElementById('voiceCfgTscm');
+    const tracker = document.getElementById('voiceCfgTracker');
+    const squawk  = document.getElementById('voiceCfgSquawk');
+    const rate    = document.getElementById('voiceCfgRate');
+    const pitch   = document.getElementById('voiceCfgPitch');
+    const rateVal = document.getElementById('voiceCfgRateVal');
+    const pitchVal = document.getElementById('voiceCfgPitchVal');
+
+    if (pager)    pager.checked    = cfg.streams.pager !== false;
+    if (tscm)     tscm.checked     = cfg.streams.tscm !== false;
+    if (tracker)  tracker.checked   = cfg.streams.bluetooth !== false;
+    if (squawk)   squawk.checked    = cfg.streams.squawks !== false;
+    if (rate)     rate.value        = cfg.rate;
+    if (pitch)    pitch.value       = cfg.pitch;
+    if (rateVal)  rateVal.textContent  = cfg.rate;
+    if (pitchVal) pitchVal.textContent = cfg.pitch;
+
+    // Populate voice dropdown
+    VoiceAlerts.getAvailableVoices().then(function (voices) {
+        var sel = document.getElementById('voiceCfgVoice');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Default</option>' +
+            voices.filter(function (v) { return v.lang.startsWith('en'); }).map(function (v) {
+                return '<option value="' + v.name + '"' + (v.name === cfg.voiceName ? ' selected' : '') + '>' + v.name + '</option>';
+            }).join('');
+    });
+}
+
+function saveVoiceAlertConfig() {
+    if (typeof VoiceAlerts === 'undefined') return;
+    VoiceAlerts.setConfig({
+        rate:      parseFloat(document.getElementById('voiceCfgRate')?.value) || 1.1,
+        pitch:     parseFloat(document.getElementById('voiceCfgPitch')?.value) || 0.9,
+        voiceName: document.getElementById('voiceCfgVoice')?.value || '',
+        streams: {
+            pager:     !!document.getElementById('voiceCfgPager')?.checked,
+            tscm:      !!document.getElementById('voiceCfgTscm')?.checked,
+            bluetooth: !!document.getElementById('voiceCfgTracker')?.checked,
+            squawks:   !!document.getElementById('voiceCfgSquawk')?.checked,
+        },
+    });
+}
+
+function testVoiceAlert() {
+    if (typeof VoiceAlerts !== 'undefined') VoiceAlerts.testVoice();
 }
 
 /**

@@ -25,7 +25,6 @@ const CommandPalette = (function() {
         { mode: 'gps', label: 'GPS' },
         { mode: 'meshtastic', label: 'Meshtastic' },
         { mode: 'websdr', label: 'WebSDR' },
-        { mode: 'analytics', label: 'Analytics' },
         { mode: 'spaceweather', label: 'Space Weather' },
     ];
 

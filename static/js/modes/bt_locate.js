@@ -226,11 +226,11 @@ const BtLocate = (function() {
             map.on('resize moveend zoomend', () => {
                 flushPendingHeatSync();
             });
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 safeInvalidateMap();
                 flushPendingHeatSync();
-            }, 100);
-            scheduleMapStabilization();
+                scheduleMapStabilization();
+            });
         }
 
         // Init RSSI chart canvas

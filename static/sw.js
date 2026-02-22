@@ -1,0 +1,85 @@
+/* INTERCEPT Service Worker — cache-first static, network-only for API/SSE/WS */
+const CACHE_NAME = 'intercept-v1';
+
+const NETWORK_ONLY_PREFIXES = [
+    '/stream', '/ws/', '/api/', '/gps/', '/wifi/', '/bluetooth/',
+    '/adsb/', '/ais/', '/acars/', '/aprs/', '/tscm/', '/satellite/',
+    '/meshtastic/', '/bt_locate/', '/listening/', '/sensor/', '/pager/',
+    '/sstv/', '/weather-sat/', '/subghz/', '/rtlamr/', '/dsc/', '/vdl2/',
+    '/spy/', '/space-weather/', '/websdr/', '/analytics/', '/correlation/',
+    '/recordings/', '/controller/', '/fingerprint/', '/ops/',
+];
+
+const STATIC_PREFIXES = [
+    '/static/css/',
+    '/static/js/',
+    '/static/icons/',
+    '/static/fonts/',
+];
+
+const CACHE_EXACT = ['/manifest.json'];
+
+function isNetworkOnly(req) {
+    if (req.method !== 'GET') return true;
+    const accept = req.headers.get('Accept') || '';
+    if (accept.includes('text/event-stream')) return true;
+    const url = new URL(req.url);
+    return NETWORK_ONLY_PREFIXES.some(p => url.pathname.startsWith(p));
+}
+
+function isStaticAsset(req) {
+    const url = new URL(req.url);
+    if (CACHE_EXACT.includes(url.pathname)) return true;
+    return STATIC_PREFIXES.some(p => url.pathname.startsWith(p));
+}
+
+self.addEventListener('install', (e) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
+        caches.keys().then(keys =>
+            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+        ).then(() => self.clients.claim())
+    );
+});
+
+self.addEventListener('fetch', (e) => {
+    const req = e.request;
+
+    // Always bypass service worker for non-GET and streaming routes
+    if (isNetworkOnly(req)) {
+        e.respondWith(fetch(req));
+        return;
+    }
+
+    // Cache-first for static assets
+    if (isStaticAsset(req)) {
+        e.respondWith(
+            caches.open(CACHE_NAME).then(cache =>
+                cache.match(req).then(cached => {
+                    if (cached) {
+                        // Revalidate in background
+                        fetch(req).then(res => {
+                            if (res && res.status === 200) cache.put(req, res.clone());
+                        }).catch(() => {});
+                        return cached;
+                    }
+                    return fetch(req).then(res => {
+                        if (res && res.status === 200) cache.put(req, res.clone());
+                        return res;
+                    });
+                })
+            )
+        );
+        return;
+    }
+
+    // Network-first for HTML pages
+    e.respondWith(
+        fetch(req).catch(() =>
+            caches.match(req).then(cached => cached || new Response('Offline', { status: 503 }))
+        )
+    );
+});

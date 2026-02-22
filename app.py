@@ -25,7 +25,7 @@ import subprocess
 
 from typing import Any
 
-from flask import Flask, render_template, jsonify, send_file, Response, request,redirect, url_for, flash, session
+from flask import Flask, render_template, jsonify, send_file, Response, request,redirect, url_for, flash, session, send_from_directory
 from werkzeug.security import check_password_hash
 from config import VERSION, CHANGELOG, SHARED_OBSERVER_LOCATION_ENABLED, DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
@@ -394,6 +394,18 @@ def index() -> str:
 @app.route('/favicon.svg')
 def favicon() -> Response:
     return send_file('favicon.svg', mimetype='image/svg+xml')
+
+
+@app.route('/sw.js')
+def service_worker() -> Response:
+    resp = send_from_directory('static', 'sw.js', mimetype='application/javascript')
+    resp.headers['Service-Worker-Allowed'] = '/'
+    return resp
+
+
+@app.route('/manifest.json')
+def pwa_manifest() -> Response:
+    return send_from_directory('static', 'manifest.json', mimetype='application/manifest+json')
 
 
 @app.route('/devices')
