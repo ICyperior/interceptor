@@ -3602,26 +3602,89 @@
             }
         }
 
+        const LOCAL_STOP_TIMEOUT_MS = 2200;
+        const REMOTE_STOP_TIMEOUT_MS = 8000;
+
+        function postStopRequest(url, timeoutMs = LOCAL_STOP_TIMEOUT_MS) {
+            const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+            const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+            const started = performance.now();
+            return fetch(url, {
+                method: 'POST',
+                ...(controller ? { signal: controller.signal } : {}),
+            })
+                .then((response) => response.json().catch(() => ({ status: response.ok ? 'ok' : 'error' })))
+                .catch((err) => {
+                    if (err && err.name === 'AbortError') {
+                        console.warn(`[Stop] ${url} timed out after ${timeoutMs}ms`);
+                        return { status: 'timeout', timed_out: true };
+                    }
+                    console.warn(`[Stop] ${url} failed: ${err?.message || err}`);
+                    return { status: 'error', message: err?.message || String(err) };
+                })
+                .finally(() => {
+                    if (timeoutId) clearTimeout(timeoutId);
+                    const elapsedMs = Math.round(performance.now() - started);
+                    console.debug(`[Stop] ${url} finished in ${elapsedMs}ms`);
+                });
+        }
+
+        async function awaitStopAction(name, action, timeoutMs = LOCAL_STOP_TIMEOUT_MS) {
+            const started = performance.now();
+            try {
+                const result = action();
+                const promise = (result && typeof result.then === 'function')
+                    ? result
+                    : Promise.resolve(result);
+                await Promise.race([
+                    promise,
+                    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+                ]);
+            } catch (err) {
+                console.warn(`[ModeSwitch] stop ${name} failed: ${err?.message || err}`);
+            } finally {
+                const elapsedMs = Math.round(performance.now() - started);
+                console.debug(`[ModeSwitch] stop ${name} finished in ${elapsedMs}ms`);
+            }
+        }
+
         // Mode switching
-        function switchMode(mode, options = {}) {
+        async function switchMode(mode, options = {}) {
             const { updateUrl = true } = options;
             if (mode === 'listening') mode = 'waterfall';
             if (!validModes.has(mode)) mode = 'pager';
             // Only stop local scans if in local mode (not agent mode)
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
             if (!isAgentMode) {
-                if (isRunning) stopDecoding();
-                if (isSensorRunning) stopSensorDecoding();
-                if (isWifiRunning) stopWifiScan();
+                if (isRunning) {
+                    await awaitStopAction('pager', () => stopDecoding(), LOCAL_STOP_TIMEOUT_MS);
+                }
+                if (isSensorRunning) {
+                    await awaitStopAction('sensor', () => stopSensorDecoding(), LOCAL_STOP_TIMEOUT_MS);
+                }
+                const wifiScanActive = (
+                    typeof WiFiMode !== 'undefined'
+                    && typeof WiFiMode.isScanning === 'function'
+                    && WiFiMode.isScanning()
+                ) || isWifiRunning;
+                if (wifiScanActive) {
+                    await awaitStopAction('wifi', () => stopWifiScan(), LOCAL_STOP_TIMEOUT_MS);
+                }
                 const btScanActive = (typeof BluetoothMode !== 'undefined' &&
                     typeof BluetoothMode.isScanning === 'function' &&
                     BluetoothMode.isScanning()) || isBtRunning;
                 const isBtModeTransition =
                     (currentMode === 'bluetooth' && mode === 'bt_locate') ||
                     (currentMode === 'bt_locate' && mode === 'bluetooth');
-                if (btScanActive && !isBtModeTransition && typeof stopBtScan === 'function') stopBtScan();
-                if (isAprsRunning) stopAprs();
-                if (isTscmRunning) stopTscmSweep();
+                if (btScanActive && !isBtModeTransition && typeof stopBtScan === 'function') {
+                    await awaitStopAction('bluetooth', () => stopBtScan(), LOCAL_STOP_TIMEOUT_MS);
+                }
+                if (isAprsRunning) {
+                    await awaitStopAction('aprs', () => stopAprs(), LOCAL_STOP_TIMEOUT_MS);
+                }
+                if (isTscmRunning) {
+                    await awaitStopAction('tscm', () => stopTscmSweep(), LOCAL_STOP_TIMEOUT_MS);
+                }
             }
 
             // Clean up SubGHz SSE connection when leaving the mode
@@ -4343,35 +4406,31 @@
 
         // Stop sensor decoding
         function stopSensorDecoding() {
-            // Check if using remote agent
-            if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
-                fetch(`/controller/agents/${currentAgent}/sensor/stop`, { method: 'POST' })
-                    .then(r => r.json())
-                    .then(data => {
-                        setSensorRunning(false);
-                        if (eventSource) {
-                            eventSource.close();
-                            eventSource = null;
-                        }
-                        if (agentPollInterval) {
-                            clearInterval(agentPollInterval);
-                            agentPollInterval = null;
-                        }
-                        showInfo('Sensor stopped on remote agent');
-                    });
-                return;
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/sensor/stop`
+                : '/stop_sensor';
+            const timeoutMs = isAgentMode ? REMOTE_STOP_TIMEOUT_MS : LOCAL_STOP_TIMEOUT_MS;
+
+            setSensorRunning(false);
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            if (agentPollInterval) {
+                clearInterval(agentPollInterval);
+                agentPollInterval = null;
+            }
+            if (!isAgentMode) {
+                releaseDevice('sensor');
             }
 
-            fetch('/stop_sensor', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    releaseDevice('sensor');
-                    setSensorRunning(false);
-                    if (eventSource) {
-                        eventSource.close();
-                        eventSource = null;
-                    }
-                });
+            return postStopRequest(endpoint, timeoutMs).then((data) => {
+                if (isAgentMode && data && data.status !== 'error' && data.status !== 'timeout') {
+                    showInfo('Sensor stopped on remote agent');
+                }
+                return data;
+            });
         }
 
         // Polling interval for agent data
@@ -4685,25 +4744,23 @@
             const endpoint = isAgentMode
                 ? `/controller/agents/${rtlamrCurrentAgent}/rtlamr/stop`
                 : '/stop_rtlamr';
+            const timeoutMs = isAgentMode ? REMOTE_STOP_TIMEOUT_MS : LOCAL_STOP_TIMEOUT_MS;
 
-            fetch(endpoint, { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    if (!isAgentMode) {
-                        releaseDevice('rtlamr');
-                    }
-                    rtlamrCurrentAgent = null;
-                    setRtlamrRunning(false);
-                    if (eventSource) {
-                        eventSource.close();
-                        eventSource = null;
-                    }
-                    // Clear polling timer
-                    if (rtlamrPollTimer) {
-                        clearInterval(rtlamrPollTimer);
-                        rtlamrPollTimer = null;
-                    }
-                });
+            rtlamrCurrentAgent = null;
+            setRtlamrRunning(false);
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            if (rtlamrPollTimer) {
+                clearInterval(rtlamrPollTimer);
+                rtlamrPollTimer = null;
+            }
+            if (!isAgentMode) {
+                releaseDevice('rtlamr');
+            }
+
+            return postStopRequest(endpoint, timeoutMs);
         }
 
         function setRtlamrRunning(running) {
@@ -5727,24 +5784,22 @@
             const endpoint = isAgentMode
                 ? `/controller/agents/${currentAgent}/pager/stop`
                 : '/stop';
+            const timeoutMs = isAgentMode ? REMOTE_STOP_TIMEOUT_MS : LOCAL_STOP_TIMEOUT_MS;
 
-            fetch(endpoint, { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    if (!isAgentMode) {
-                        releaseDevice('pager');
-                    }
-                    setRunning(false);
-                    if (eventSource) {
-                        eventSource.close();
-                        eventSource = null;
-                    }
-                    // Clear polling timer if active
-                    if (pagerPollTimer) {
-                        clearInterval(pagerPollTimer);
-                        pagerPollTimer = null;
-                    }
-                });
+            if (!isAgentMode) {
+                releaseDevice('pager');
+            }
+            setRunning(false);
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            if (pagerPollTimer) {
+                clearInterval(pagerPollTimer);
+                pagerPollTimer = null;
+            }
+
+            return postStopRequest(endpoint, timeoutMs);
         }
 
         function killAll() {
@@ -7642,15 +7697,19 @@
 
         // Stop WiFi scan
         function stopWifiScan() {
-            fetch('/wifi/scan/stop', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    setWifiRunning(false);
-                    if (wifiEventSource) {
-                        wifiEventSource.close();
-                        wifiEventSource = null;
-                    }
+            setWifiRunning(false);
+            if (wifiEventSource) {
+                wifiEventSource.close();
+                wifiEventSource = null;
+            }
+
+            if (typeof WiFiMode !== 'undefined' && typeof WiFiMode.stopScan === 'function') {
+                return Promise.resolve(WiFiMode.stopScan()).catch((err) => {
+                    console.warn('[WiFi] stop via WiFiMode failed:', err);
                 });
+            }
+
+            return postStopRequest('/wifi/scan/stop', LOCAL_STOP_TIMEOUT_MS);
         }
 
         function setWifiRunning(running) {
@@ -8856,10 +8915,14 @@
 
         function stopBtScan() {
             const bt = getBluetoothModeApi();
+            let stopPromise = Promise.resolve();
             if (bt && typeof bt.stopScan === 'function') {
-                bt.stopScan();
+                stopPromise = Promise.resolve(bt.stopScan()).catch((err) => {
+                    console.warn('[BT] stop failed:', err);
+                });
             }
             setTimeout(syncBtRunningState, 0);
+            return stopPromise;
         }
 
         function setBtRunning(running) {
@@ -9175,44 +9238,36 @@
             const endpoint = isAgentMode
                 ? `/controller/agents/${aprsCurrentAgent}/aprs/stop`
                 : '/aprs/stop';
+            const timeoutMs = isAgentMode ? REMOTE_STOP_TIMEOUT_MS : LOCAL_STOP_TIMEOUT_MS;
 
-            fetch(endpoint, { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    isAprsRunning = false;
-                    aprsCurrentAgent = null;
-                    // Update function bar buttons
-                    document.getElementById('aprsStripStartBtn').style.display = 'inline-block';
-                    document.getElementById('aprsStripStopBtn').style.display = 'none';
-                    // Update map status
-                    document.getElementById('aprsMapStatus').textContent = 'STANDBY';
-                    document.getElementById('aprsMapStatus').style.color = '';
-                    // Reset function bar status
-                    updateAprsStatus('standby');
-                    document.getElementById('aprsStripFreq').textContent = '--';
-                    document.getElementById('aprsStripSignal').textContent = '--';
-                    // Re-enable controls
-                    document.getElementById('aprsStripRegion').disabled = false;
-                    document.getElementById('aprsStripGain').disabled = false;
-                    const customFreqInput = document.getElementById('aprsStripCustomFreq');
-                    if (customFreqInput) customFreqInput.disabled = false;
-                    // Remove signal quality class
-                    const signalStat = document.getElementById('aprsStripSignalStat');
-                    if (signalStat) {
-                        signalStat.classList.remove('good', 'warning', 'poor');
-                    }
-                    // Stop meter check interval
-                    stopAprsMeterCheck();
-                    if (aprsEventSource) {
-                        aprsEventSource.close();
-                        aprsEventSource = null;
-                    }
-                    // Clear polling timer
-                    if (aprsPollTimer) {
-                        clearInterval(aprsPollTimer);
-                        aprsPollTimer = null;
-                    }
-                });
+            isAprsRunning = false;
+            aprsCurrentAgent = null;
+            document.getElementById('aprsStripStartBtn').style.display = 'inline-block';
+            document.getElementById('aprsStripStopBtn').style.display = 'none';
+            document.getElementById('aprsMapStatus').textContent = 'STANDBY';
+            document.getElementById('aprsMapStatus').style.color = '';
+            updateAprsStatus('standby');
+            document.getElementById('aprsStripFreq').textContent = '--';
+            document.getElementById('aprsStripSignal').textContent = '--';
+            document.getElementById('aprsStripRegion').disabled = false;
+            document.getElementById('aprsStripGain').disabled = false;
+            const customFreqInput = document.getElementById('aprsStripCustomFreq');
+            if (customFreqInput) customFreqInput.disabled = false;
+            const signalStat = document.getElementById('aprsStripSignalStat');
+            if (signalStat) {
+                signalStat.classList.remove('good', 'warning', 'poor');
+            }
+            stopAprsMeterCheck();
+            if (aprsEventSource) {
+                aprsEventSource.close();
+                aprsEventSource = null;
+            }
+            if (aprsPollTimer) {
+                clearInterval(aprsPollTimer);
+                aprsPollTimer = null;
+            }
+
+            return postStopRequest(endpoint, timeoutMs);
         }
 
         function startAprsStream(isAgentMode = false) {
@@ -10902,16 +10957,11 @@
         }
 
         async function stopTscmSweep() {
-            try {
-                // Route to agent or local based on selection
-                const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
-                const endpoint = isAgentMode
-                    ? `/controller/agents/${currentAgent}/tscm/stop`
-                    : '/tscm/sweep/stop';
-                await fetch(endpoint, { method: 'POST' });
-            } catch (e) {
-                console.error('Error stopping sweep:', e);
-            }
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const endpoint = isAgentMode
+                ? `/controller/agents/${currentAgent}/tscm/stop`
+                : '/tscm/sweep/stop';
+            const timeoutMs = isAgentMode ? REMOTE_STOP_TIMEOUT_MS : LOCAL_STOP_TIMEOUT_MS;
 
             isTscmRunning = false;
             tscmSweepEndTime = new Date();
@@ -10931,6 +10981,8 @@
             // Show report button if we have any data
             const hasData = tscmWifiDevices.length > 0 || tscmBtDevices.length > 0 || tscmRfSignals.length > 0;
             document.getElementById('tscmReportBtn').style.display = hasData ? 'block' : 'none';
+
+            return postStopRequest(endpoint, timeoutMs);
         }
 
         function generateTscmReport() {
