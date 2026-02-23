@@ -18,7 +18,6 @@ CHANGELOG = [
             "Waterfall receiver overhaul: WebSocket I/Q streaming with server-side FFT, click-to-tune, and zoom controls",
             "Voice alerts for configurable event notifications across modes",
             "Signal fingerprinting mode for RF device identification and pattern analysis",
-            "RF Heatmap for geographic signal density visualization",
             "SignalID integration via SigIDWiki API for automatic signal classification",
             "PWA support: installable web app with service worker and manifest",
             "Mode stop responsiveness improvements with faster timeout handling",

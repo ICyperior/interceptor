@@ -17,7 +17,6 @@ All notable changes to iNTERCEPT will be documented in this file.
 - **Waterfall Receiver Overhaul** - WebSocket-based I/Q streaming with server-side FFT, click-to-tune, zoom controls, and auto-scaling
 - **Voice Alerts** - Configurable text-to-speech event notifications across modes
 - **Signal Fingerprinting** - RF device identification and pattern analysis mode
-- **RF Heatmap** - Geographic signal density visualization with Leaflet heatmap overlay
 - **SignalID** - Automatic signal classification via SigIDWiki API integration
 - **PWA Support** - Installable web app with service worker caching and manifest
 - **Real-time Signal Scope** - Live signal visualization for pager, sensor, and SSTV modes
