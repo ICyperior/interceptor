@@ -214,6 +214,10 @@
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h6l3-9 3 18 3-9h5"/></svg></span>
                                 <span class="mode-name">SubGHz</span>
                             </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('waterfall')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 3 16 3-8h4"/><path d="M2 18h20" opacity="0.5"/><path d="M2 21h20" opacity="0.3"/></svg></span>
+                                <span class="mode-name">Waterfall</span>
+                            </button>
                         </div>
                     </div>
 
@@ -309,16 +313,6 @@
                         </div>
                     </div>
 
-                    <!-- Signals (extended) -->
-                    <div class="mode-category">
-                        <h3 class="mode-category-title"><span class="mode-category-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 3 16 3-8h4"/></svg></span> Spectrum</h3>
-                        <div class="mode-grid mode-grid-compact">
-                            <button class="mode-card mode-card-sm" onclick="selectMode('waterfall')">
-                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 3 16 3-8h4"/><path d="M2 18h20" opacity="0.5"/><path d="M2 21h20" opacity="0.3"/></svg></span>
-                                <span class="mode-name">Waterfall</span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -3604,6 +3598,93 @@
 
         const LOCAL_STOP_TIMEOUT_MS = 2200;
         const REMOTE_STOP_TIMEOUT_MS = 8000;
+        const DASHBOARD_NAV_PATHS = new Set([
+            '/adsb/dashboard',
+            '/ais/dashboard',
+            '/satellite/dashboard',
+        ]);
+
+        function getActiveScanSummary() {
+            return {
+                pager: Boolean(isRunning),
+                sensor: Boolean(isSensorRunning),
+                wifi: Boolean(
+                    ((typeof WiFiMode !== 'undefined' && typeof WiFiMode.isScanning === 'function' && WiFiMode.isScanning()) || isWifiRunning)
+                ),
+                bluetooth: Boolean(
+                    ((typeof BluetoothMode !== 'undefined' && typeof BluetoothMode.isScanning === 'function' && BluetoothMode.isScanning()) || isBtRunning)
+                ),
+                aprs: Boolean(typeof isAprsRunning !== 'undefined' && isAprsRunning),
+                tscm: Boolean(typeof isTscmRunning !== 'undefined' && isTscmRunning),
+            };
+        }
+
+        function stopActiveLocalScansForNavigation() {
+            const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            if (isAgentMode) return;
+
+            if (isRunning && typeof stopDecoding === 'function') {
+                Promise.resolve(stopDecoding()).catch(() => { });
+            }
+            if (isSensorRunning && typeof stopSensorDecoding === 'function') {
+                Promise.resolve(stopSensorDecoding()).catch(() => { });
+            }
+
+            const wifiScanActive = (
+                typeof WiFiMode !== 'undefined'
+                && typeof WiFiMode.isScanning === 'function'
+                && WiFiMode.isScanning()
+            ) || isWifiRunning;
+            if (wifiScanActive && typeof stopWifiScan === 'function') {
+                Promise.resolve(stopWifiScan()).catch(() => { });
+            }
+
+            const btScanActive = (
+                typeof BluetoothMode !== 'undefined'
+                && typeof BluetoothMode.isScanning === 'function'
+                && BluetoothMode.isScanning()
+            ) || isBtRunning;
+            if (btScanActive && typeof stopBtScan === 'function') {
+                Promise.resolve(stopBtScan()).catch(() => { });
+            }
+
+            if (typeof isAprsRunning !== 'undefined' && isAprsRunning && typeof stopAprs === 'function') {
+                Promise.resolve(stopAprs()).catch(() => { });
+            }
+            if (typeof isTscmRunning !== 'undefined' && isTscmRunning && typeof stopTscmSweep === 'function') {
+                Promise.resolve(stopTscmSweep()).catch(() => { });
+            }
+        }
+
+        if (!window._dashboardNavigationStopHookBound) {
+            window._dashboardNavigationStopHookBound = true;
+            document.addEventListener('click', (event) => {
+                if (event.defaultPrevented || event.button !== 0) return;
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+                const link = event.target && event.target.closest
+                    ? event.target.closest('a[href]')
+                    : null;
+                if (!link || link.target === '_blank') return;
+
+                try {
+                    const href = new URL(link.href, window.location.href);
+                    if (href.origin !== window.location.origin) return;
+                    if (!DASHBOARD_NAV_PATHS.has(href.pathname)) return;
+                    if (window.InterceptNavPerf && typeof window.InterceptNavPerf.markStart === 'function') {
+                        window.InterceptNavPerf.markStart({
+                            targetPath: href.pathname,
+                            trigger: 'index-link',
+                            sourceMode: currentMode,
+                            activeScans: getActiveScanSummary(),
+                        });
+                    }
+                    stopActiveLocalScansForNavigation();
+                } catch (_) {
+                    // Ignore malformed hrefs.
+                }
+            });
+        }
 
         function postStopRequest(url, timeoutMs = LOCAL_STOP_TIMEOUT_MS) {
             const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -3651,16 +3732,22 @@
         // Mode switching
         async function switchMode(mode, options = {}) {
             const { updateUrl = true } = options;
+            const switchStartMs = performance.now();
+            const previousMode = currentMode;
             if (mode === 'listening') mode = 'waterfall';
             if (!validModes.has(mode)) mode = 'pager';
             // Only stop local scans if in local mode (not agent mode)
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
+            const stopPhaseStartMs = performance.now();
+            let stopTaskCount = 0;
             if (!isAgentMode) {
+                const stopTasks = [];
+
                 if (isRunning) {
-                    await awaitStopAction('pager', () => stopDecoding(), LOCAL_STOP_TIMEOUT_MS);
+                    stopTasks.push(awaitStopAction('pager', () => stopDecoding(), LOCAL_STOP_TIMEOUT_MS));
                 }
                 if (isSensorRunning) {
-                    await awaitStopAction('sensor', () => stopSensorDecoding(), LOCAL_STOP_TIMEOUT_MS);
+                    stopTasks.push(awaitStopAction('sensor', () => stopSensorDecoding(), LOCAL_STOP_TIMEOUT_MS));
                 }
                 const wifiScanActive = (
                     typeof WiFiMode !== 'undefined'
@@ -3668,7 +3755,7 @@
                     && WiFiMode.isScanning()
                 ) || isWifiRunning;
                 if (wifiScanActive) {
-                    await awaitStopAction('wifi', () => stopWifiScan(), LOCAL_STOP_TIMEOUT_MS);
+                    stopTasks.push(awaitStopAction('wifi', () => stopWifiScan(), LOCAL_STOP_TIMEOUT_MS));
                 }
                 const btScanActive = (typeof BluetoothMode !== 'undefined' &&
                     typeof BluetoothMode.isScanning === 'function' &&
@@ -3677,15 +3764,21 @@
                     (currentMode === 'bluetooth' && mode === 'bt_locate') ||
                     (currentMode === 'bt_locate' && mode === 'bluetooth');
                 if (btScanActive && !isBtModeTransition && typeof stopBtScan === 'function') {
-                    await awaitStopAction('bluetooth', () => stopBtScan(), LOCAL_STOP_TIMEOUT_MS);
+                    stopTasks.push(awaitStopAction('bluetooth', () => stopBtScan(), LOCAL_STOP_TIMEOUT_MS));
                 }
                 if (isAprsRunning) {
-                    await awaitStopAction('aprs', () => stopAprs(), LOCAL_STOP_TIMEOUT_MS);
+                    stopTasks.push(awaitStopAction('aprs', () => stopAprs(), LOCAL_STOP_TIMEOUT_MS));
                 }
                 if (isTscmRunning) {
-                    await awaitStopAction('tscm', () => stopTscmSweep(), LOCAL_STOP_TIMEOUT_MS);
+                    stopTasks.push(awaitStopAction('tscm', () => stopTscmSweep(), LOCAL_STOP_TIMEOUT_MS));
                 }
+
+                if (stopTasks.length) {
+                    await Promise.allSettled(stopTasks);
+                }
+                stopTaskCount = stopTasks.length;
             }
+            const stopPhaseMs = Math.round(performance.now() - stopPhaseStartMs);
 
             // Clean up SubGHz SSE connection when leaving the mode
             if (typeof SubGhz !== 'undefined' && currentMode === 'subghz' && mode !== 'subghz') {
@@ -3955,6 +4048,19 @@
             if (mode !== 'waterfall' && typeof Waterfall !== 'undefined' && Waterfall.destroy) {
                 Promise.resolve(Waterfall.destroy()).catch(() => {});
             }
+
+            const totalMs = Math.round(performance.now() - switchStartMs);
+            console.info(
+                `[Perf] switchMode ${previousMode} -> ${mode}: stop=${stopPhaseMs}ms tasks=${stopTaskCount} total=${totalMs}ms`,
+                {
+                    updateUrl,
+                    agentMode: isAgentMode,
+                }
+            );
+            requestAnimationFrame(() => {
+                const firstFrameMs = Math.round(performance.now() - switchStartMs);
+                console.info(`[Perf] switchMode ${previousMode} -> ${mode}: first-frame=${firstFrameMs}ms`);
+            });
         }
 
         // Handle window resize for maps (especially important on mobile orientation change)

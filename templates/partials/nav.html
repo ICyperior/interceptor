@@ -227,6 +227,62 @@
 
 {# JavaScript stub for pages that don't have switchMode defined #}
 <script>
+    (function () {
+        const NAV_PERF_KEY = 'intercept_nav_perf_v1';
+        const MAX_NAV_AGE_MS = 30000;
+
+        function parseNavPerf(raw) {
+            if (!raw) return null;
+            try {
+                return JSON.parse(raw);
+            } catch (_) {
+                return null;
+            }
+        }
+
+        if (!window.InterceptNavPerf) {
+            window.InterceptNavPerf = {
+                markStart(meta = {}) {
+                    try {
+                        const payload = {
+                            startedAtEpochMs: Date.now(),
+                            sourcePath: window.location.pathname + window.location.search,
+                            sourceMode: document.body?.getAttribute('data-mode') || null,
+                            ...meta,
+                        };
+                        sessionStorage.setItem(NAV_PERF_KEY, JSON.stringify(payload));
+                    } catch (_) {
+                        // Ignore storage errors in private/incognito mode.
+                    }
+                }
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const payload = parseNavPerf(sessionStorage.getItem(NAV_PERF_KEY));
+            if (!payload || !payload.targetPath) return;
+
+            const ageMs = Date.now() - (payload.startedAtEpochMs || 0);
+            if (ageMs < 0 || ageMs > MAX_NAV_AGE_MS) {
+                try { sessionStorage.removeItem(NAV_PERF_KEY); } catch (_) { }
+                return;
+            }
+
+            if (window.location.pathname !== payload.targetPath) return;
+
+            console.info(
+                `[Perf] Nav ${payload.sourcePath || '(unknown)'} -> ${payload.targetPath} in ${Math.round(ageMs)}ms`,
+                {
+                    trigger: payload.trigger || 'unknown',
+                    sourceMode: payload.sourceMode || null,
+                    activeScans: payload.activeScans || null,
+                }
+            );
+
+            try { sessionStorage.removeItem(NAV_PERF_KEY); } catch (_) { }
+        });
+    })();
+
     // Ensure navigation functions exist (for dashboard pages that don't have the full JS)
     if (typeof switchMode === 'undefined') {
         window.switchMode = function(mode) {
