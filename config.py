@@ -7,18 +7,19 @@ import os
 import sys
 
 # Application version
-VERSION = "2.22.2"
+VERSION = "2.22.3"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
     {
-        "version": "2.22.2",
+        "version": "2.22.3",
         "date": "February 2026",
         "highlights": [
             "Waterfall control panel no longer shows as unstyled text on first visit",
             "WebSDR globe renders correctly on first page load without requiring a refresh",
             "Waterfall monitor audio no longer takes minutes to start — playback detection now waits for real audio data instead of just the WAV header",
             "Waterfall monitor stop is now instant — audio pauses and UI updates immediately instead of waiting for backend cleanup",
+            "Stopping the waterfall no longer shows a stale 'WebSocket closed before ready' message",
         ]
     },
     {
