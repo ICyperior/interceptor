@@ -413,6 +413,10 @@ def init_waterfall_websocket(app: Flask):
                 cmd = data.get('cmd')
 
                 if cmd == 'start':
+                    shared_before = get_shared_capture_status()
+                    keep_monitor_enabled = bool(shared_before.get('monitor_enabled'))
+                    keep_monitor_modulation = str(shared_before.get('monitor_modulation', 'wfm'))
+                    keep_monitor_squelch = int(shared_before.get('monitor_squelch', 0) or 0)
                     # Stop any existing capture
                     was_restarting = iq_process is not None
                     stop_event.set()
@@ -441,6 +445,12 @@ def init_waterfall_websocket(app: Flask):
                     # Parse config
                     try:
                         center_freq_mhz = _parse_center_freq_mhz(data)
+                        requested_vfo_mhz = float(
+                            data.get(
+                                'vfo_freq_mhz',
+                                data.get('frequency_mhz', center_freq_mhz),
+                            )
+                        )
                         span_mhz = _parse_span_mhz(data)
                         gain_raw = data.get('gain')
                         if gain_raw is None or str(gain_raw).lower() == 'auto':
@@ -491,6 +501,9 @@ def init_waterfall_websocket(app: Flask):
                     effective_span_mhz = sample_rate / 1e6
                     start_freq = center_freq_mhz - effective_span_mhz / 2
                     end_freq = center_freq_mhz + effective_span_mhz / 2
+                    target_vfo_mhz = requested_vfo_mhz
+                    if not (start_freq <= target_vfo_mhz <= end_freq):
+                        target_vfo_mhz = center_freq_mhz
 
                     # Claim the device (retry when restarting to allow
                     # the kernel time to release the USB handle).
@@ -591,10 +604,10 @@ def init_waterfall_websocket(app: Flask):
                         sample_rate=sample_rate,
                     )
                     _set_shared_monitor(
-                        enabled=False,
-                        frequency_mhz=center_freq_mhz,
-                        modulation='wfm',
-                        squelch=0,
+                        enabled=keep_monitor_enabled,
+                        frequency_mhz=target_vfo_mhz,
+                        modulation=keep_monitor_modulation,
+                        squelch=keep_monitor_squelch,
                     )
 
                     # Send started confirmation
@@ -608,7 +621,7 @@ def init_waterfall_websocket(app: Flask):
                         'effective_span_mhz': effective_span_mhz,
                         'db_min': db_min,
                         'db_max': db_max,
-                        'vfo_freq_mhz': center_freq_mhz,
+                        'vfo_freq_mhz': target_vfo_mhz,
                     }))
 
                     # Start reader thread — puts frames on queue, never calls ws.send()

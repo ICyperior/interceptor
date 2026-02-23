@@ -44,6 +44,7 @@ const Waterfall = (function () {
     let _startingMonitor = false;
     let _monitorSource = 'process';
     let _pendingSharedMonitorRearm = false;
+    let _pendingCaptureVfoMhz = null;
     let _audioConnectNonce = 0;
     let _audioAnalyser = null;
     let _audioContext = null;
@@ -1183,6 +1184,7 @@ const Waterfall = (function () {
     function _scanTuneTo(freqMhz) {
         const clamped = _clamp(freqMhz, 0.001, 6000.0);
         _monitorFreqMhz = clamped;
+        _pendingCaptureVfoMhz = clamped;
         _updateFreqDisplay();
 
         if (_monitoring && !_isSharedMonitorActive()) {
@@ -1873,6 +1875,7 @@ const Waterfall = (function () {
         if (input) input.value = clamped.toFixed(4);
 
         _monitorFreqMhz = clamped;
+        _pendingCaptureVfoMhz = clamped;
         const currentSpan = _endMhz - _startMhz;
         const configuredSpan = _clamp(_currentSpan(), 0.05, 30.0);
         const activeSpan = Number.isFinite(currentSpan) && currentSpan > 0 ? currentSpan : configuredSpan;
@@ -1930,6 +1933,8 @@ const Waterfall = (function () {
         if (!msg || msg.status !== 'retune_required') return false;
         _setStatus(msg.message || 'Retuning SDR capture...');
         if (Number.isFinite(msg.vfo_freq_mhz)) {
+            _monitorFreqMhz = Number(msg.vfo_freq_mhz);
+            _pendingCaptureVfoMhz = _monitorFreqMhz;
             const input = document.getElementById('wfCenterFreq');
             if (input) input.value = Number(msg.vfo_freq_mhz).toFixed(4);
         }
@@ -2210,7 +2215,6 @@ const Waterfall = (function () {
         const spanMhz = _clamp(_currentSpan(), 0.05, 30.0);
         _startMhz = centerMhz - spanMhz / 2;
         _endMhz = centerMhz + spanMhz / 2;
-        _monitorFreqMhz = centerMhz;
         _peakLine = null;
         _drawFreqAxis();
 
@@ -2239,11 +2243,13 @@ const Waterfall = (function () {
     function _sendWsStartCmd() {
         if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
         const cfg = _waterfallRequestConfig();
+        const targetVfoMhz = Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : cfg.centerMhz;
 
         const payload = {
             cmd: 'start',
             center_freq_mhz: cfg.centerMhz,
             center_freq: cfg.centerMhz,
+            vfo_freq_mhz: targetVfoMhz,
             span_mhz: cfg.spanMhz,
             gain: cfg.gain,
             sdr_type: cfg.device.sdrType,
@@ -2492,7 +2498,10 @@ const Waterfall = (function () {
                     _scanAwaitingCapture = false;
                     _scanStartPending = false;
                     _scanRestartAttempts = 0;
-                    if (Number.isFinite(msg.vfo_freq_mhz)) {
+                    if (Number.isFinite(_pendingCaptureVfoMhz)) {
+                        _monitorFreqMhz = _pendingCaptureVfoMhz;
+                        _pendingCaptureVfoMhz = null;
+                    } else if (Number.isFinite(msg.vfo_freq_mhz)) {
                         _monitorFreqMhz = Number(msg.vfo_freq_mhz);
                     }
                     if (Number.isFinite(msg.start_freq) && Number.isFinite(msg.end_freq)) {
@@ -2502,15 +2511,20 @@ const Waterfall = (function () {
                     }
                     _setStatus(`Streaming ${_startMhz.toFixed(4)} - ${_endMhz.toFixed(4)} MHz`);
                     _setVisualStatus('RUNNING');
-                    if (_pendingSharedMonitorRearm) {
+                    if (_monitoring) {
                         _pendingSharedMonitorRearm = false;
-                        if (_monitoring && _monitorSource === 'waterfall') {
-                            _queueMonitorRetune(120);
-                        }
+                        // After any capture restart, always retune monitor
+                        // audio to the current VFO frequency.
+                        _queueMonitorRetune(_monitorSource === 'waterfall' ? 120 : 80);
+                    } else if (_pendingSharedMonitorRearm) {
+                        _pendingSharedMonitorRearm = false;
                     }
                 } else if (msg.status === 'tuned') {
                     if (_onRetuneRequired(msg)) return;
-                    if (Number.isFinite(msg.vfo_freq_mhz)) {
+                    if (Number.isFinite(_pendingCaptureVfoMhz)) {
+                        _monitorFreqMhz = _pendingCaptureVfoMhz;
+                        _pendingCaptureVfoMhz = null;
+                    } else if (Number.isFinite(msg.vfo_freq_mhz)) {
                         _monitorFreqMhz = Number(msg.vfo_freq_mhz);
                     }
                     _updateFreqDisplay();
@@ -2520,6 +2534,7 @@ const Waterfall = (function () {
                     return;
                 } else if (msg.status === 'stopped') {
                     _running = false;
+                    _pendingCaptureVfoMhz = null;
                     _scanAwaitingCapture = false;
                     _scanStartPending = false;
                     _scanRestartAttempts = 0;
@@ -2531,6 +2546,7 @@ const Waterfall = (function () {
                     _setVisualStatus('STOPPED');
                 } else if (msg.status === 'error') {
                     _running = false;
+                    _pendingCaptureVfoMhz = null;
                     _scanStartPending = false;
                     _pendingSharedMonitorRearm = false;
                     // If the monitor was using the shared IQ stream that
@@ -2915,6 +2931,7 @@ const Waterfall = (function () {
         _monitoring = false;
         _monitorSource = 'process';
         _pendingSharedMonitorRearm = false;
+        _pendingCaptureVfoMhz = null;
         _syncMonitorButtons();
         _setMonitorState('No audio monitor');
 
@@ -3107,6 +3124,7 @@ const Waterfall = (function () {
         _clearWsFallbackTimer();
         _wsOpened = false;
         _pendingSharedMonitorRearm = false;
+        _pendingCaptureVfoMhz = null;
         // Reset in-flight monitor start flag so the button is not left
         // disabled after a waterfall stop/restart cycle.
         if (_startingMonitor) {
@@ -3386,6 +3404,7 @@ const Waterfall = (function () {
         _setUnlockVisible(false);
         _audioUnlockRequired = false;
         _pendingSharedMonitorRearm = false;
+        _pendingCaptureVfoMhz = null;
         _sseStartConfigKey = '';
         _sseStartPromise = null;
     }

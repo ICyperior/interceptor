@@ -1585,13 +1585,23 @@ def stream_audio() -> Response:
 
             # Browser expects an immediate WAV header.
             yield _wav_header(sample_rate=48000)
+            inactive_since: float | None = None
 
             while audio_running and audio_source == 'waterfall':
                 chunk = read_shared_monitor_audio_chunk(timeout=1.0)
                 if chunk:
+                    inactive_since = None
                     yield chunk
                     continue
                 shared = get_shared_capture_status()
+                if shared.get('running') and shared.get('monitor_enabled'):
+                    inactive_since = None
+                    continue
+                if inactive_since is None:
+                    inactive_since = time.monotonic()
+                    continue
+                if (time.monotonic() - inactive_since) < 4.0:
+                    continue
                 if not shared.get('running') or not shared.get('monitor_enabled'):
                     audio_running = False
                     audio_source = 'process'
