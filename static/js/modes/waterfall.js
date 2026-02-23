@@ -1879,9 +1879,9 @@ const Waterfall = (function () {
         const edgeMargin = activeSpan * 0.08;
         const withinCapture = clamped >= (_startMhz + edgeMargin) && clamped <= (_endMhz - edgeMargin);
         const sharedMonitor = _isSharedMonitorActive();
-        // Shared-IQ monitor retunes are most reliable when we recenter
-        // capture on the requested frequency, not only at the edges.
-        const needsRetune = !withinCapture || sharedMonitor;
+        // While monitoring audio, force a capture recenter/restart for each
+        // click so monitor retunes are deterministic across the full span.
+        const needsRetune = !withinCapture || _monitoring;
 
         if (needsRetune) {
             _startMhz = clamped - configuredSpan / 2;
