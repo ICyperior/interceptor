@@ -900,19 +900,27 @@ const Waterfall = (function () {
                 resolve(ok);
             };
 
-            const onReady = () => finish(true);
+            // Only treat actual playback as success.  `loadeddata` and
+            // `canplay` fire when just the WAV header arrives — before any
+            // real audio samples have been decoded — which caused the
+            // monitor to report "started" while the stream was still silent.
+            const onReady = () => {
+                if (player.currentTime > 0 || (!player.paused && player.readyState >= 4)) {
+                    finish(true);
+                }
+            };
             const onFail = () => finish(false);
-            const events = ['playing', 'timeupdate', 'canplay', 'loadeddata'];
+            const events = ['playing', 'timeupdate'];
             const failEvents = ['error', 'abort', 'stalled', 'ended'];
 
             events.forEach((evt) => player.addEventListener(evt, onReady));
             failEvents.forEach((evt) => player.addEventListener(evt, onFail));
 
             timer = setTimeout(() => {
-                finish(!player.paused && (player.currentTime > 0 || player.readyState >= 2));
+                finish(!player.paused && player.currentTime > 0);
             }, timeoutMs);
 
-            if (!player.paused && (player.currentTime > 0 || player.readyState >= 2)) {
+            if (!player.paused && player.currentTime > 0) {
                 finish(true);
             }
         });
@@ -2571,6 +2579,7 @@ const Waterfall = (function () {
             }
 
             if (attempt < maxAttempts) {
+                _setMonitorState(`Waiting for audio stream (attempt ${attempt}/${maxAttempts})...`);
                 await _wait(220 * attempt);
                 continue;
             }
@@ -2813,12 +2822,9 @@ const Waterfall = (function () {
         clearTimeout(_monitorRetuneTimer);
         _audioConnectNonce += 1;
 
-        try {
-            await fetch('/receiver/audio/stop', { method: 'POST' });
-        } catch (_) {
-            // Ignore backend stop errors
-        }
-
+        // Immediately pause audio and update the UI so the user gets instant
+        // feedback.  The backend cleanup (which can block for 1-2 s while the
+        // SDR process group is reaped) happens afterwards.
         _stopSmeter();
         _setUnlockVisible(false);
         _audioUnlockRequired = false;
@@ -2834,6 +2840,13 @@ const Waterfall = (function () {
             _setVisualStatus('RUNNING');
         } else {
             _setVisualStatus('READY');
+        }
+
+        // Backend stop is fire-and-forget; UI is already updated above.
+        try {
+            await fetch('/receiver/audio/stop', { method: 'POST' });
+        } catch (_) {
+            // Ignore backend stop errors
         }
 
         if (resumeWaterfall && _active) {

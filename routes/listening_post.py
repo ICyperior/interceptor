@@ -932,9 +932,11 @@ def _stop_audio_stream_internal():
     audio_process = None
     audio_rtl_process = None
 
-    # Pause for SDR device USB interface to be released by kernel
+    # Brief pause for SDR device USB interface to be released by kernel.
+    # The _start_audio_stream retry loop handles longer contention windows
+    # so only a minimal delay is needed here.
     if had_processes:
-        time.sleep(1.0)
+        time.sleep(0.15)
 
 
 # ============================================
