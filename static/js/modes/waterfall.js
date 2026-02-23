@@ -2996,6 +2996,8 @@ const Waterfall = (function () {
         };
 
         _ws.onclose = () => {
+            // stop() sets _ws = null before the async onclose fires.
+            if (!_ws) return;
             if (!_wsOpened && _active) {
                 // Wait for timeout-based fallback; avoid flapping to SSE on brief close/retry.
                 _setStatus('WebSocket closed before ready. Waiting to retry/fallback...');
