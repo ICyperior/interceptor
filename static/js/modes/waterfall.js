@@ -45,6 +45,7 @@ const Waterfall = (function () {
     let _monitorSource = 'process';
     let _pendingSharedMonitorRearm = false;
     let _pendingCaptureVfoMhz = null;
+    let _pendingMonitorTuneMhz = null;
     let _audioConnectNonce = 0;
     let _audioAnalyser = null;
     let _audioContext = null;
@@ -1185,6 +1186,7 @@ const Waterfall = (function () {
         const clamped = _clamp(freqMhz, 0.001, 6000.0);
         _monitorFreqMhz = clamped;
         _pendingCaptureVfoMhz = clamped;
+        _pendingMonitorTuneMhz = clamped;
         _updateFreqDisplay();
 
         if (_monitoring && !_isSharedMonitorActive()) {
@@ -1876,6 +1878,7 @@ const Waterfall = (function () {
 
         _monitorFreqMhz = clamped;
         _pendingCaptureVfoMhz = clamped;
+        _pendingMonitorTuneMhz = clamped;
         const currentSpan = _endMhz - _startMhz;
         const configuredSpan = _clamp(_currentSpan(), 0.05, 30.0);
         const activeSpan = Number.isFinite(currentSpan) && currentSpan > 0 ? currentSpan : configuredSpan;
@@ -1935,6 +1938,7 @@ const Waterfall = (function () {
         if (Number.isFinite(msg.vfo_freq_mhz)) {
             _monitorFreqMhz = Number(msg.vfo_freq_mhz);
             _pendingCaptureVfoMhz = _monitorFreqMhz;
+            _pendingMonitorTuneMhz = _monitorFreqMhz;
             const input = document.getElementById('wfCenterFreq');
             if (input) input.value = Number(msg.vfo_freq_mhz).toFixed(4);
         }
@@ -2243,7 +2247,9 @@ const Waterfall = (function () {
     function _sendWsStartCmd() {
         if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
         const cfg = _waterfallRequestConfig();
-        const targetVfoMhz = Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : cfg.centerMhz;
+        const targetVfoMhz = Number.isFinite(_pendingCaptureVfoMhz)
+            ? _pendingCaptureVfoMhz
+            : (Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : cfg.centerMhz);
 
         const payload = {
             cmd: 'start',
@@ -2535,6 +2541,7 @@ const Waterfall = (function () {
                 } else if (msg.status === 'stopped') {
                     _running = false;
                     _pendingCaptureVfoMhz = null;
+                    _pendingMonitorTuneMhz = null;
                     _scanAwaitingCapture = false;
                     _scanStartPending = false;
                     _scanRestartAttempts = 0;
@@ -2547,6 +2554,7 @@ const Waterfall = (function () {
                 } else if (msg.status === 'error') {
                     _running = false;
                     _pendingCaptureVfoMhz = null;
+                    _pendingMonitorTuneMhz = null;
                     _scanStartPending = false;
                     _pendingSharedMonitorRearm = false;
                     // If the monitor was using the shared IQ stream that
@@ -2750,9 +2758,18 @@ const Waterfall = (function () {
                 _resumeWaterfallAfterMonitor = !!wasRunningWaterfall;
             }
 
-            // For retune-only calls, keep the current VFO frequency so
-            // user clicks during the async reconnect are not overridden.
-            const centerMhz = retuneOnly ? _monitorFreqMhz : _currentCenter();
+            // Keep an explicit pending tune target so retunes cannot fall
+            // back to a stale frequency during capture restart churn.
+            const requestedTuneMhz = Number.isFinite(_pendingMonitorTuneMhz)
+                ? _pendingMonitorTuneMhz
+                : (
+                    Number.isFinite(_pendingCaptureVfoMhz)
+                        ? _pendingCaptureVfoMhz
+                        : (Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : _currentCenter())
+                );
+            const centerMhz = retuneOnly
+                ? (Number.isFinite(requestedTuneMhz) ? requestedTuneMhz : _currentCenter())
+                : _currentCenter();
             const mode = document.getElementById('wfMonitorMode')?.value || 'wfm';
             const squelch = parseInt(document.getElementById('wfMonitorSquelch')?.value, 10) || 0;
             const sliderGain = parseInt(document.getElementById('wfMonitorGain')?.value, 10);
@@ -2767,6 +2784,8 @@ const Waterfall = (function () {
             const usingSecondaryDevice = !!altDevice;
 
             if (!retuneOnly) {
+                _monitorFreqMhz = centerMhz;
+            } else if (Number.isFinite(centerMhz)) {
                 _monitorFreqMhz = centerMhz;
             }
             _drawFreqAxis();
@@ -2787,7 +2806,7 @@ const Waterfall = (function () {
             // clicks that changed the VFO during the async setup are
             // picked up rather than overridden.
             let { response, payload } = await _requestAudioStart({
-                frequency: retuneOnly ? _monitorFreqMhz : centerMhz,
+                frequency: centerMhz,
                 modulation: mode,
                 squelch,
                 gain,
@@ -2838,6 +2857,12 @@ const Waterfall = (function () {
             const attach = await _attachMonitorAudio(nonce);
             if (nonce !== _audioConnectNonce) return;
             _monitorSource = payload?.source === 'waterfall' ? 'waterfall' : 'process';
+            if (
+                Number.isFinite(_pendingMonitorTuneMhz)
+                && Math.abs(_pendingMonitorTuneMhz - centerMhz) < 1e-6
+            ) {
+                _pendingMonitorTuneMhz = null;
+            }
 
             if (!attach.ok) {
                 if (attach.reason === 'autoplay_blocked') {
@@ -2932,6 +2957,7 @@ const Waterfall = (function () {
         _monitorSource = 'process';
         _pendingSharedMonitorRearm = false;
         _pendingCaptureVfoMhz = null;
+        _pendingMonitorTuneMhz = null;
         _syncMonitorButtons();
         _setMonitorState('No audio monitor');
 
@@ -3125,6 +3151,7 @@ const Waterfall = (function () {
         _wsOpened = false;
         _pendingSharedMonitorRearm = false;
         _pendingCaptureVfoMhz = null;
+        _pendingMonitorTuneMhz = null;
         // Reset in-flight monitor start flag so the button is not left
         // disabled after a waterfall stop/restart cycle.
         if (_startingMonitor) {
@@ -3405,6 +3432,7 @@ const Waterfall = (function () {
         _audioUnlockRequired = false;
         _pendingSharedMonitorRearm = false;
         _pendingCaptureVfoMhz = null;
+        _pendingMonitorTuneMhz = null;
         _sseStartConfigKey = '';
         _sseStartPromise = null;
     }
