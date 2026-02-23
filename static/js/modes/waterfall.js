@@ -14,7 +14,6 @@ const Waterfall = (function () {
     let _sseStartConfigKey = '';
     let _active = false;
     let _running = false;
-    let _listenersAttached = false;
     let _controlListenersAttached = false;
 
     let _retuneTimer = null;
@@ -50,6 +49,7 @@ const Waterfall = (function () {
     let _audioSourceNode = null;
     let _smeterRaf = null;
     let _audioUnlockRequired = false;
+    let _lastTouchTuneAt = 0;
 
     let _devices = [];
     let _scanRunning = false;
@@ -1760,15 +1760,24 @@ const Waterfall = (function () {
         return _startMhz + frac * (_endMhz - _startMhz);
     }
 
+    function _clientXFromEvent(event) {
+        if (event && Number.isFinite(event.clientX)) return event.clientX;
+        const touch = event?.changedTouches?.[0] || event?.touches?.[0];
+        if (touch && Number.isFinite(touch.clientX)) return touch.clientX;
+        return null;
+    }
+
     function _showTooltip(canvas, event) {
         const tooltip = document.getElementById('wfTooltip');
         if (!tooltip) return;
 
-        const freq = _freqAtX(canvas, event.clientX);
+        const clientX = _clientXFromEvent(event);
+        if (!Number.isFinite(clientX)) return;
+        const freq = _freqAtX(canvas, clientX);
         const wrap = document.querySelector('.wf-waterfall-canvas-wrap');
         if (wrap) {
             const rect = wrap.getBoundingClientRect();
-            tooltip.style.left = `${event.clientX - rect.left}px`;
+            tooltip.style.left = `${clientX - rect.left}px`;
             tooltip.style.transform = 'translateX(-50%)';
             tooltip.style.top = '4px';
         }
@@ -1928,25 +1937,42 @@ const Waterfall = (function () {
     }
 
     function _clickTune(canvas, event) {
-        const target = _freqAtX(canvas, event.clientX);
+        const clientX = _clientXFromEvent(event);
+        if (!Number.isFinite(clientX)) return;
+        const target = _freqAtX(canvas, clientX);
+        if (!Number.isFinite(target)) return;
         _setAndTune(target, true);
     }
 
+    function _bindCanvasInteraction(canvas) {
+        if (!canvas) return;
+        if (canvas.dataset.wfInteractive === '1') return;
+        canvas.dataset.wfInteractive = '1';
+        canvas.style.cursor = 'crosshair';
+
+        canvas.addEventListener('mousemove', (e) => _showTooltip(canvas, e));
+        canvas.addEventListener('mouseleave', _hideTooltip);
+        canvas.addEventListener('click', (e) => {
+            // Mobile touch emits a synthetic click shortly after touchend.
+            if (Date.now() - _lastTouchTuneAt < 450) return;
+            _clickTune(canvas, e);
+        });
+        canvas.addEventListener('wheel', _handleCanvasWheel, { passive: false });
+        canvas.addEventListener('touchmove', (e) => {
+            _showTooltip(canvas, e);
+        }, { passive: true });
+        canvas.addEventListener('touchend', (e) => {
+            _lastTouchTuneAt = Date.now();
+            _clickTune(canvas, e);
+            _hideTooltip();
+            e.preventDefault();
+        }, { passive: false });
+        canvas.addEventListener('touchcancel', _hideTooltip);
+    }
+
     function _setupCanvasInteraction() {
-        if (_listenersAttached) return;
-        _listenersAttached = true;
-
-        const bindCanvas = (canvas) => {
-            if (!canvas) return;
-            canvas.style.cursor = 'crosshair';
-            canvas.addEventListener('mousemove', (e) => _showTooltip(canvas, e));
-            canvas.addEventListener('mouseleave', _hideTooltip);
-            canvas.addEventListener('click', (e) => _clickTune(canvas, e));
-            canvas.addEventListener('wheel', _handleCanvasWheel, { passive: false });
-        };
-
-        bindCanvas(_wfCanvas);
-        bindCanvas(_specCanvas);
+        _bindCanvasInteraction(_wfCanvas);
+        _bindCanvasInteraction(_specCanvas);
     }
 
     function _setupResizeHandle() {
