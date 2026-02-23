@@ -944,10 +944,12 @@ def stream_adsb():
 @adsb_bp.route('/dashboard')
 def adsb_dashboard():
     """Popout ADS-B dashboard."""
+    embedded = request.args.get('embedded', 'false') == 'true'
     return render_template(
         'adsb_dashboard.html',
         shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
         adsb_auto_start=ADSB_AUTO_START,
+        embedded=embedded,
     )
 
 

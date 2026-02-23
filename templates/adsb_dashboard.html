@@ -54,8 +54,10 @@
         </div>
     </header>
 
+    {% if not embedded %}
     {% set active_mode = 'adsb' %}
     {% include 'partials/nav.html' with context %}
+    {% endif %}
 
     <!-- Slim Statistics Bar -->
     <div class="stats-strip">
