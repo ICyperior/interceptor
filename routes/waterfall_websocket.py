@@ -212,18 +212,21 @@ def _demodulate_monitor_audio(
     monitor_freq_mhz: float,
     modulation: str,
     squelch: int,
-) -> bytes | None:
+    rotator_phase: float = 0.0,
+) -> tuple[bytes | None, float]:
     if samples.size < 32 or sample_rate <= 0:
-        return None
+        return None, float(rotator_phase)
 
     fs = float(sample_rate)
     freq_offset_hz = (float(monitor_freq_mhz) - float(center_mhz)) * 1e6
     nyquist = fs * 0.5
     if abs(freq_offset_hz) > nyquist * 0.98:
-        return None
+        return None, float(rotator_phase)
 
-    n = np.arange(samples.size, dtype=np.float32)
-    rotator = np.exp(-1j * (2.0 * np.pi * freq_offset_hz / fs) * n)
+    phase_inc = (2.0 * np.pi * freq_offset_hz) / fs
+    n = np.arange(samples.size, dtype=np.float64)
+    rotator = np.exp(-1j * (float(rotator_phase) + phase_inc * n)).astype(np.complex64)
+    next_phase = float((float(rotator_phase) + phase_inc * samples.size) % (2.0 * np.pi))
     shifted = samples * rotator
 
     mod = str(modulation or 'wfm').lower().strip()
@@ -232,11 +235,11 @@ def _demodulate_monitor_audio(
     if pre_decim > 1:
         usable = (shifted.size // pre_decim) * pre_decim
         if usable < pre_decim:
-            return None
+            return None, next_phase
         shifted = shifted[:usable].reshape(-1, pre_decim).mean(axis=1)
     fs1 = fs / pre_decim
     if shifted.size < 16:
-        return None
+        return None, next_phase
 
     if mod in ('wfm', 'fm'):
         audio = np.angle(shifted[1:] * np.conj(shifted[:-1])).astype(np.float32)
@@ -251,7 +254,7 @@ def _demodulate_monitor_audio(
         audio = np.real(shifted).astype(np.float32)
 
     if audio.size < 8:
-        return None
+        return None, next_phase
 
     audio = audio - float(np.mean(audio))
 
@@ -263,7 +266,7 @@ def _demodulate_monitor_audio(
 
     out_len = int(audio.size * AUDIO_SAMPLE_RATE / fs1)
     if out_len < 32:
-        return None
+        return None, next_phase
     x_old = np.linspace(0.0, 1.0, audio.size, endpoint=False, dtype=np.float32)
     x_new = np.linspace(0.0, 1.0, out_len, endpoint=False, dtype=np.float32)
     audio = np.interp(x_new, x_old, audio).astype(np.float32)
@@ -278,7 +281,7 @@ def _demodulate_monitor_audio(
         audio = audio * min(20.0, 0.85 / peak)
 
     pcm = np.clip(audio, -1.0, 1.0)
-    return (pcm * 32767.0).astype(np.int16).tobytes()
+    return (pcm * 32767.0).astype(np.int16).tobytes(), next_phase
 
 
 def _parse_center_freq_mhz(payload: dict[str, Any]) -> float:
@@ -620,6 +623,8 @@ def init_waterfall_websocket(app: Flask):
                         timeslice_samples = max(required_fft_samples, int(_sample_rate / max(1, _fps)))
                         bytes_per_frame = timeslice_samples * 2
                         frame_interval = 1.0 / _fps
+                        monitor_rotator_phase = 0.0
+                        last_monitor_offset_hz = None
 
                         try:
                             while not stop_evt.is_set():
@@ -664,16 +669,30 @@ def init_waterfall_websocket(app: Flask):
 
                                 monitor_cfg = _snapshot_monitor_config()
                                 if monitor_cfg:
-                                    audio_chunk = _demodulate_monitor_audio(
+                                    center_mhz_cfg = float(monitor_cfg.get('center_mhz', _center_mhz))
+                                    monitor_mhz_cfg = float(monitor_cfg.get('monitor_freq_mhz', _center_mhz))
+                                    offset_hz = (monitor_mhz_cfg - center_mhz_cfg) * 1e6
+                                    if (
+                                        last_monitor_offset_hz is None
+                                        or abs(offset_hz - last_monitor_offset_hz) > 1.0
+                                    ):
+                                        monitor_rotator_phase = 0.0
+                                        last_monitor_offset_hz = offset_hz
+
+                                    audio_chunk, monitor_rotator_phase = _demodulate_monitor_audio(
                                         samples=samples,
                                         sample_rate=_sample_rate,
-                                        center_mhz=monitor_cfg.get('center_mhz', _center_mhz),
-                                        monitor_freq_mhz=monitor_cfg.get('monitor_freq_mhz', _center_mhz),
+                                        center_mhz=center_mhz_cfg,
+                                        monitor_freq_mhz=monitor_mhz_cfg,
                                         modulation=monitor_cfg.get('modulation', 'wfm'),
                                         squelch=int(monitor_cfg.get('squelch', 0)),
+                                        rotator_phase=monitor_rotator_phase,
                                     )
                                     if audio_chunk:
                                         _push_shared_audio_chunk(audio_chunk)
+                                else:
+                                    monitor_rotator_phase = 0.0
+                                    last_monitor_offset_hz = None
 
                                 # Pace to target FPS
                                 elapsed = time.monotonic() - frame_start
