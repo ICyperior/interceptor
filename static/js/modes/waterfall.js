@@ -1797,9 +1797,14 @@ const Waterfall = (function () {
     function _queueMonitorRetune(delayMs) {
         if (!_monitoring) return;
         clearTimeout(_monitorRetuneTimer);
+        // If a monitor start is already in-flight, invalidate it so the
+        // new retune can proceed once the finally-block resets the flag.
+        if (_startingMonitor) {
+            _audioConnectNonce += 1;
+        }
         _monitorRetuneTimer = setTimeout(() => {
             _startMonitorInternal({ wasRunningWaterfall: false, retuneOnly: true }).catch(() => {});
-        }, delayMs);
+        }, _startingMonitor ? Math.max(delayMs, 250) : delayMs);
     }
 
     function _isSharedMonitorActive() {
@@ -2453,9 +2458,11 @@ const Waterfall = (function () {
                     }
                     _setStatus(`Streaming ${_startMhz.toFixed(4)} - ${_endMhz.toFixed(4)} MHz`);
                     _setVisualStatus('RUNNING');
-                    if (_pendingSharedMonitorRearm && _monitoring && _monitorSource === 'waterfall') {
+                    if (_pendingSharedMonitorRearm) {
                         _pendingSharedMonitorRearm = false;
-                        _queueMonitorRetune(120);
+                        if (_monitoring && _monitorSource === 'waterfall') {
+                            _queueMonitorRetune(120);
+                        }
                     }
                 } else if (msg.status === 'tuned') {
                     if (_onRetuneRequired(msg)) return;
@@ -3021,9 +3028,17 @@ const Waterfall = (function () {
     async function stop({ keepStatus = false } = {}) {
         stopScan('Scan stopped', { silent: keepStatus });
         clearTimeout(_retuneTimer);
+        clearTimeout(_monitorRetuneTimer);
         _clearWsFallbackTimer();
         _wsOpened = false;
         _pendingSharedMonitorRearm = false;
+        // Reset in-flight monitor start flag so the button is not left
+        // disabled after a waterfall stop/restart cycle.
+        if (_startingMonitor) {
+            _audioConnectNonce += 1;
+            _startingMonitor = false;
+            _syncMonitorButtons();
+        }
 
         if (_ws) {
             try {
