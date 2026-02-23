@@ -46,6 +46,10 @@ _shared_state: dict[str, Any] = {
     'monitor_modulation': 'wfm',
     'monitor_squelch': 0,
 }
+# Generation counter to prevent stale WebSocket handlers from clobbering
+# shared state set by a newer handler (e.g. old handler's finally block
+# running after a new connection has already started capture).
+_capture_generation: int = 0
 
 # Maximum bandwidth per SDR type (Hz)
 MAX_BANDWIDTH = {
@@ -72,8 +76,23 @@ def _set_shared_capture_state(
     center_mhz: float | None = None,
     span_mhz: float | None = None,
     sample_rate: int | None = None,
-) -> None:
+    generation: int | None = None,
+) -> int:
+    """Update shared capture state.
+
+    Returns the current generation counter.  When *running* is True and
+    *generation* is None the counter is bumped; callers should capture
+    the returned value and pass it back when setting running=False so
+    that stale handlers cannot clobber a newer session.
+    """
+    global _capture_generation
     with _shared_state_lock:
+        if not running and generation is not None:
+            # Only allow the matching generation to clear the state.
+            if generation != _capture_generation:
+                return _capture_generation
+        if running and generation is None:
+            _capture_generation += 1
         _shared_state['running'] = bool(running)
         _shared_state['device'] = device if running else None
         if center_mhz is not None:
@@ -84,8 +103,10 @@ def _set_shared_capture_state(
             _shared_state['sample_rate'] = int(sample_rate)
         if not running:
             _shared_state['monitor_enabled'] = False
+        gen = _capture_generation
     if not running:
         _clear_shared_audio_queue()
+    return gen
 
 
 def _set_shared_monitor(
@@ -336,6 +357,7 @@ def init_waterfall_websocket(app: Flask):
         reader_thread = None
         stop_event = threading.Event()
         claimed_device = None
+        my_generation = None  # tracks which capture generation this handler owns
         capture_center_mhz = 0.0
         capture_start_freq = 0.0
         capture_end_freq = 0.0
@@ -396,7 +418,8 @@ def init_waterfall_websocket(app: Flask):
                     if claimed_device is not None:
                         app_module.release_sdr_device(claimed_device)
                         claimed_device = None
-                    _set_shared_capture_state(running=False)
+                    _set_shared_capture_state(running=False, generation=my_generation)
+                    my_generation = None
                     stop_event.clear()
                     # Flush stale frames from previous capture
                     while not send_queue.empty():
@@ -553,7 +576,7 @@ def init_waterfall_websocket(app: Flask):
                     capture_end_freq = end_freq
                     capture_span_mhz = effective_span_mhz
 
-                    _set_shared_capture_state(
+                    my_generation = _set_shared_capture_state(
                         running=True,
                         device=device_index,
                         center_mhz=center_freq_mhz,
@@ -730,14 +753,16 @@ def init_waterfall_websocket(app: Flask):
                     if claimed_device is not None:
                         app_module.release_sdr_device(claimed_device)
                         claimed_device = None
-                    _set_shared_capture_state(running=False)
+                    _set_shared_capture_state(running=False, generation=my_generation)
+                    my_generation = None
                     stop_event.clear()
                     ws.send(json.dumps({'status': 'stopped'}))
 
         except Exception as e:
             logger.info(f"WebSocket waterfall closed: {e}")
         finally:
-            # Cleanup
+            # Cleanup — use generation guard so a stale handler cannot
+            # clobber shared state owned by a newer WS connection.
             stop_event.set()
             if reader_thread and reader_thread.is_alive():
                 reader_thread.join(timeout=2)
@@ -746,7 +771,7 @@ def init_waterfall_websocket(app: Flask):
                 unregister_process(iq_process)
             if claimed_device is not None:
                 app_module.release_sdr_device(claimed_device)
-            _set_shared_capture_state(running=False)
+            _set_shared_capture_state(running=False, generation=my_generation)
             # Complete WebSocket close handshake, then shut down the
             # raw socket so Werkzeug cannot write its HTTP 200 response
             # on top of the WebSocket stream (which browsers see as
