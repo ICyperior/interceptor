@@ -18,6 +18,7 @@ const Waterfall = (function () {
 
     let _retuneTimer = null;
     let _monitorRetuneTimer = null;
+    let _pendingMonitorRetune = false;
 
     let _peakHold = false;
     let _showAnnotations = true;
@@ -1806,14 +1807,29 @@ const Waterfall = (function () {
     function _queueMonitorRetune(delayMs) {
         if (!_monitoring) return;
         clearTimeout(_monitorRetuneTimer);
+
         // If a monitor start is already in-flight, invalidate it so the
-        // new retune can proceed once the finally-block resets the flag.
+        // latest click/retune request wins.
         if (_startingMonitor) {
             _audioConnectNonce += 1;
+            _pendingMonitorRetune = true;
         }
-        _monitorRetuneTimer = setTimeout(() => {
+
+        const runRetune = () => {
+            if (!_monitoring) return;
+            if (_startingMonitor) {
+                // Keep trying until the in-flight monitor start fully exits.
+                _monitorRetuneTimer = setTimeout(runRetune, 90);
+                return;
+            }
+            _pendingMonitorRetune = false;
             _startMonitorInternal({ wasRunningWaterfall: false, retuneOnly: true }).catch(() => {});
-        }, _startingMonitor ? Math.max(delayMs, 250) : delayMs);
+        };
+
+        _monitorRetuneTimer = setTimeout(
+            runRetune,
+            _startingMonitor ? Math.max(delayMs, 220) : delayMs
+        );
     }
 
     function _isSharedMonitorActive() {
@@ -2884,6 +2900,7 @@ const Waterfall = (function () {
     async function stopMonitor({ resumeWaterfall = false } = {}) {
         clearTimeout(_monitorRetuneTimer);
         _audioConnectNonce += 1;
+        _pendingMonitorRetune = false;
 
         // Immediately pause audio and update the UI so the user gets instant
         // feedback.  The backend cleanup (which can block for 1-2 s while the
@@ -3345,6 +3362,7 @@ const Waterfall = (function () {
         _active = false;
         clearTimeout(_retuneTimer);
         clearTimeout(_monitorRetuneTimer);
+        _pendingMonitorRetune = false;
         stopScan('Scan stopped', { silent: true });
         _lastBins = null;
 
