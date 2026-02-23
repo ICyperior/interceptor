@@ -34,7 +34,7 @@ logger = get_logger('intercept.waterfall_ws')
 
 AUDIO_SAMPLE_RATE = 48000
 _shared_state_lock = threading.Lock()
-_shared_audio_queue: queue.Queue[bytes] = queue.Queue(maxsize=80)
+_shared_audio_queue: queue.Queue[bytes] = queue.Queue(maxsize=20)
 _shared_state: dict[str, Any] = {
     'running': False,
     'device': None,
@@ -117,16 +117,20 @@ def _set_shared_monitor(
     squelch: int | None = None,
 ) -> None:
     was_enabled = False
+    freq_changed = False
     with _shared_state_lock:
         was_enabled = bool(_shared_state.get('monitor_enabled'))
         _shared_state['monitor_enabled'] = bool(enabled)
         if frequency_mhz is not None:
+            old_freq = float(_shared_state.get('monitor_freq_mhz', 0.0) or 0.0)
             _shared_state['monitor_freq_mhz'] = float(frequency_mhz)
+            if abs(float(frequency_mhz) - old_freq) > 1e-6:
+                freq_changed = True
         if modulation is not None:
             _shared_state['monitor_modulation'] = str(modulation).lower().strip()
         if squelch is not None:
             _shared_state['monitor_squelch'] = max(0, min(100, int(squelch)))
-    if was_enabled and not enabled:
+    if (was_enabled and not enabled) or (enabled and freq_changed):
         _clear_shared_audio_queue()
 
 
