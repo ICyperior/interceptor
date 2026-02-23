@@ -479,6 +479,10 @@
     filter: sepia(0.35) hue-rotate(185deg) saturate(1.75) brightness(1.06) contrast(1.05);
 }
 
+.tile-layer-flir {
+    filter: grayscale(1) sepia(1) hue-rotate(-18deg) saturate(4.85) brightness(0.96) contrast(1.34);
+}
+
 /* Global Leaflet map theme: cyber overlay */
 .leaflet-container.map-theme-cyber {
     position: relative;
@@ -525,6 +529,55 @@ html.map-cyber-enabled .leaflet-container::after {
         linear-gradient(rgba(78, 188, 255, 0.14) 1px, transparent 1px),
         linear-gradient(90deg, rgba(78, 188, 255, 0.14) 1px, transparent 1px);
     background-size: 52px 52px, 52px 52px;
+}
+
+/* Global Leaflet map theme: FLIR thermal overlay */
+.leaflet-container.map-theme-flir {
+    position: relative;
+    background: #090602;
+    isolation: isolate;
+}
+
+.leaflet-container.map-theme-flir .leaflet-tile-pane {
+    filter: grayscale(1) sepia(1) hue-rotate(-18deg) saturate(4.85) brightness(0.96) contrast(1.34);
+    opacity: 1;
+}
+
+/* Hard global fallback: enforce FLIR tint on all Leaflet tile images */
+html.map-flir-enabled .leaflet-container .leaflet-tile {
+    filter: grayscale(1) sepia(1) hue-rotate(-18deg) saturate(4.85) brightness(0.96) contrast(1.34) !important;
+}
+
+/* Hard global fallback: thermal glow + scanline/grid overlay */
+html.map-flir-enabled .leaflet-container {
+    position: relative;
+    isolation: isolate;
+}
+
+html.map-flir-enabled .leaflet-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 620;
+    background:
+        radial-gradient(115% 90% at 50% 40%, rgba(255, 132, 28, 0.22), rgba(255, 132, 28, 0) 63%),
+        linear-gradient(180deg, rgba(14, 229, 255, 0.08) 0%, rgba(255, 96, 18, 0.15) 58%, rgba(255, 233, 128, 0.11) 100%);
+}
+
+html.map-flir-enabled .leaflet-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 621;
+    opacity: 0.32;
+    mix-blend-mode: screen;
+    background-image:
+        repeating-linear-gradient(0deg, rgba(255, 188, 92, 0.08) 0 1px, transparent 1px 3px),
+        linear-gradient(90deg, rgba(255, 141, 66, 0.12) 1px, transparent 1px),
+        linear-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px);
+    background-size: 100% 3px, 68px 68px, 68px 68px;
 }
 
 /* Responsive */

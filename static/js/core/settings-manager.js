@@ -33,6 +33,15 @@ const Settings = {
             mapTheme: 'cyber',
             options: {}
         },
+        cartodb_dark_flir: {
+            url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+            subdomains: 'abcd',
+            mapTheme: 'flir',
+            options: {
+                className: 'tile-layer-flir'
+            }
+        },
         cartodb_light: {
             url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
@@ -99,23 +108,15 @@ const Settings = {
     },
 
     /**
-     * Whether Cyber map theme should be considered active globally.
-     * @param {Object} [config]
-     * @returns {boolean}
-     */
-    _isCyberThemeEnabled(config) {
-        const resolvedConfig = config || this.getTileConfig();
-        return this._getMapThemeClass(resolvedConfig) === 'map-theme-cyber';
-    },
-
-    /**
      * Toggle root class used for hard global Leaflet theming.
      * @param {Object} [config]
      */
     _syncRootMapThemeClass(config) {
         if (typeof document === 'undefined' || !document.documentElement) return;
-        const enabled = this._isCyberThemeEnabled(config);
-        document.documentElement.classList.toggle('map-cyber-enabled', enabled);
+        const resolvedConfig = config || this.getTileConfig();
+        const themeClass = this._getMapThemeClass(resolvedConfig);
+        document.documentElement.classList.toggle('map-cyber-enabled', themeClass === 'map-theme-cyber');
+        document.documentElement.classList.toggle('map-flir-enabled', themeClass === 'map-theme-flir');
     },
 
     /**
@@ -350,6 +351,7 @@ const Settings = {
     _getMapThemeClass(config) {
         if (!config || !config.mapTheme) return null;
         if (config.mapTheme === 'cyber') return 'map-theme-cyber';
+        if (config.mapTheme === 'flir') return 'map-theme-flir';
         return null;
     },
 
@@ -373,7 +375,7 @@ const Settings = {
             container.style.background = '';
         }
 
-        container.classList.remove('map-theme-cyber');
+        container.classList.remove('map-theme-cyber', 'map-theme-flir');
 
         const resolvedConfig = config || this.getTileConfig();
         const themeClass = this._getMapThemeClass(resolvedConfig);
@@ -381,17 +383,28 @@ const Settings = {
 
         container.classList.add(themeClass);
 
-        if (container.style) {
-            container.style.background = '#020813';
-        }
-        if (tilePane && tilePane.style) {
-            tilePane.style.filter = 'sepia(0.74) hue-rotate(176deg) saturate(1.72) brightness(1.05) contrast(1.08)';
-            tilePane.style.opacity = '1';
-            tilePane.style.willChange = 'filter';
+        if (themeClass === 'map-theme-cyber') {
+            if (container.style) {
+                container.style.background = '#020813';
+            }
+            if (tilePane && tilePane.style) {
+                tilePane.style.filter = 'sepia(0.74) hue-rotate(176deg) saturate(1.72) brightness(1.05) contrast(1.08)';
+                tilePane.style.opacity = '1';
+                tilePane.style.willChange = 'filter';
+            }
+        } else if (themeClass === 'map-theme-flir') {
+            if (container.style) {
+                container.style.background = '#090602';
+            }
+            if (tilePane && tilePane.style) {
+                tilePane.style.filter = 'grayscale(1) sepia(1) hue-rotate(-18deg) saturate(4.85) brightness(0.96) contrast(1.34)';
+                tilePane.style.opacity = '1';
+                tilePane.style.willChange = 'filter';
+            }
         }
 
-        // Grid/glow overlays are rendered via CSS pseudo elements on
-        // `html.map-cyber-enabled .leaflet-container` for consistent stacking.
+        // Map overlays are rendered via CSS pseudo elements on
+        // `html.map-*-enabled .leaflet-container` for consistent stacking.
     },
 
     /**

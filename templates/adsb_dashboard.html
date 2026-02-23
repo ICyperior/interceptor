@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="{% if offline_settings.tile_provider in ['cartodb_dark', 'cartodb_dark_cyan'] %}map-cyber-enabled{% endif %}">
+<html lang="en" class="{% if offline_settings.tile_provider in ['cartodb_dark', 'cartodb_dark_cyan'] %}map-cyber-enabled{% elif offline_settings.tile_provider == 'cartodb_dark_flir' %}map-flir-enabled{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
