@@ -51,6 +51,17 @@ async function initWebSDR() {
     if (!mapEl) return;
 
     const globeReady = await ensureWebsdrGlobeLibrary();
+
+    // Wait for a paint frame so the browser computes layout after the
+    // display:flex change in switchMode.  Without this, Globe()(mapEl) can
+    // run before clientWidth/clientHeight are non-zero (especially when
+    // scripts are served from cache and resolve before the first layout pass).
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    // If the mode was switched away while scripts were loading, abort so
+    // websdrInitialized stays false and we retry cleanly next time.
+    if (!mapEl.clientWidth || !mapEl.clientHeight) return;
+
     if (globeReady && initWebsdrGlobe(mapEl)) {
         websdrMapType = 'globe';
     } else if (typeof L !== 'undefined' && await initWebsdrLeaflet(mapEl)) {

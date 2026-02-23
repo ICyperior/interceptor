@@ -66,6 +66,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/ux-platform.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/waterfall.css') }}?v={{ version }}&r=wfdeck19">
     <script>
         window.INTERCEPT_MODE_STYLE_MAP = {
             aprs: "{{ url_for('static', filename='css/modes/aprs.css') }}",
@@ -78,8 +79,7 @@
             gps: "{{ url_for('static', filename='css/modes/gps.css') }}",
             subghz: "{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9",
             bt_locate: "{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4",
-            spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}",
-            waterfall: "{{ url_for('static', filename='css/modes/waterfall.css') }}?v={{ version }}&r=wfdeck19"
+            spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}"
         };
         window.INTERCEPT_MODE_STYLE_LOADED = {};
         window.ensureModeStyles = function(mode) {

@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.22.1"
+VERSION = "2.22.2"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.22.2",
+        "date": "February 2026",
+        "highlights": [
+            "Waterfall control panel no longer shows as unstyled text on first visit",
+            "WebSDR globe renders correctly on first page load without requiring a refresh",
+        ]
+    },
     {
         "version": "2.22.1",
         "date": "February 2026",
