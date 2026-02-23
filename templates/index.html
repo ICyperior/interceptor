@@ -1831,6 +1831,10 @@
                     </div>
                     <div class="btl-map-container" style="flex: 1; min-height: 250px; position: relative; overflow: hidden;">
                         <div id="btLocateMap" style="position: absolute; inset: 0;"></div>
+                        <div id="btLocateCrosshairOverlay" class="btl-crosshair-overlay" aria-hidden="true">
+                            <div class="btl-crosshair-line btl-crosshair-vertical"></div>
+                            <div class="btl-crosshair-line btl-crosshair-horizontal"></div>
+                        </div>
                         <div class="btl-map-overlay-controls">
                             <label class="btl-map-overlay-toggle">
                                 <input type="checkbox" id="btLocateHeatmapEnable" onchange="BtLocate.toggleHeatmap()">

@@ -9,16 +9,16 @@ const KeyboardShortcuts = (function () {
         if (e.target.matches(GUARD_SELECTOR)) return;
 
         if (e.altKey) {
-            switch (e.key.toLowerCase()) {
-                case 'w': e.preventDefault(); window.switchMode && switchMode('waterfall');    break;
-                case 'm': e.preventDefault(); window.VoiceAlerts && VoiceAlerts.toggleMute(); break;
-                case 's': e.preventDefault(); _toggleSidebar();                                break;
-                case 'k': e.preventDefault(); showHelp();                                      break;
-                case 'c': e.preventDefault(); window.CheatSheets && CheatSheets.showForCurrentMode(); break;
+            switch (e.code) {
+                case 'KeyW': e.preventDefault(); window.switchMode && switchMode('waterfall');    break;
+                case 'KeyM': e.preventDefault(); window.VoiceAlerts && VoiceAlerts.toggleMute(); break;
+                case 'KeyS': e.preventDefault(); _toggleSidebar();                                break;
+                case 'KeyK': e.preventDefault(); showHelp();                                      break;
+                case 'KeyC': e.preventDefault(); window.CheatSheets && CheatSheets.showForCurrentMode(); break;
                 default:
-                    if (e.key >= '1' && e.key <= '9') {
+                    if (e.code >= 'Digit1' && e.code <= 'Digit9') {
                         e.preventDefault();
-                        _switchToNthMode(parseInt(e.key) - 1);
+                        _switchToNthMode(parseInt(e.code.replace('Digit', '')) - 1);
                     }
             }
         } else if (!e.ctrlKey && !e.metaKey) {

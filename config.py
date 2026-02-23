@@ -7,10 +7,29 @@ import os
 import sys
 
 # Application version
-VERSION = "2.21.1"
+VERSION = "2.22.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.22.0",
+        "date": "February 2026",
+        "highlights": [
+            "Waterfall receiver overhaul: WebSocket I/Q streaming with server-side FFT, click-to-tune, and zoom controls",
+            "Voice alerts for configurable event notifications across modes",
+            "Signal fingerprinting mode for RF device identification and pattern analysis",
+            "RF Heatmap for geographic signal density visualization",
+            "SignalID integration via SigIDWiki API for automatic signal classification",
+            "PWA support: installable web app with service worker and manifest",
+            "Mode stop responsiveness improvements with faster timeout handling",
+            "Navigation performance instrumentation and smoother mode transitions",
+            "Pager, sensor, and SSTV real-time signal scope visualization",
+            "ADS-B MSG2 surface movement parsing for ground vehicle tracking",
+            "WebSDR major overhaul with improved receiver management and audio streaming",
+            "Documentation audit: fixed license, tool names, entry points, and SSTV decoder references",
+            "Help modal updated with ACARS and VDL2 mode descriptions",
+        ]
+    },
     {
         "version": "2.21.1",
         "date": "February 2026",

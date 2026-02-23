@@ -166,11 +166,27 @@
                 <li>View next pass predictions with elevation and duration</li>
             </ul>
 
+            <h3>ACARS Mode</h3>
+            <ul class="tip-list">
+                <li>Decodes Aircraft Communications Addressing and Reporting System messages via acarsdec</li>
+                <li>Receives operational, weather, and position reports on 129-136 MHz</li>
+                <li>Supports North America, Europe, and Asia-Pacific regional frequency presets</li>
+                <li>Filter by message type, flight ID, or aircraft registration</li>
+            </ul>
+
+            <h3>VDL2 Mode</h3>
+            <ul class="tip-list">
+                <li>Decodes VHF Data Link Mode 2 aircraft datalink messages via dumpvdl2</li>
+                <li>Captures ACARS-over-AVLC frames with full signal analysis (SNR, burst length)</li>
+                <li>Monitor multiple VDL2 frequencies simultaneously (136.725, 136.775, 136.975 MHz)</li>
+                <li>Export captured messages to CSV or JSON for offline analysis</li>
+            </ul>
+
             <h3>ISS SSTV Mode</h3>
             <ul class="tip-list">
                 <li>Decodes Slow Scan Television (SSTV) images from the International Space Station</li>
                 <li>Automated ISS pass tracking with Doppler correction on 145.800 MHz</li>
-                <li>Images decoded in real-time using slowrx</li>
+                <li>Images decoded in real-time using the built-in pure Python decoder</li>
                 <li>Gallery view with timestamped decoded images</li>
             </ul>
 
@@ -336,9 +352,11 @@
                 <li><strong>WebSDR:</strong> Internet connection (remote receivers)</li>
                 <li><strong>SubGHz:</strong> RTL-SDR or compatible SDR hardware</li>
                 <li><strong>Satellite:</strong> Internet for Celestrak (optional), skyfield</li>
-                <li><strong>ISS SSTV:</strong> RTL-SDR, slowrx</li>
+                <li><strong>ACARS:</strong> RTL-SDR, acarsdec</li>
+                <li><strong>VDL2:</strong> RTL-SDR, dumpvdl2</li>
+                <li><strong>ISS SSTV:</strong> RTL-SDR (pure Python decoder — no external tools needed)</li>
                 <li><strong>Weather Sat:</strong> RTL-SDR, SatDump</li>
-                <li><strong>HF SSTV:</strong> RTL-SDR or SoapySDR-compatible hardware, slowrx</li>
+                <li><strong>HF SSTV:</strong> RTL-SDR or SoapySDR-compatible hardware (pure Python decoder)</li>
                 <li><strong>GPS:</strong> RTL-SDR or GPS-capable SDR</li>
                 <li><strong>Space Weather:</strong> Internet connection (public APIs)</li>
                 <li><strong>WiFi:</strong> Monitor-mode adapter, aircrack-ng suite</li>
