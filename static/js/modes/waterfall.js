@@ -1878,7 +1878,10 @@ const Waterfall = (function () {
         const activeSpan = Number.isFinite(currentSpan) && currentSpan > 0 ? currentSpan : configuredSpan;
         const edgeMargin = activeSpan * 0.08;
         const withinCapture = clamped >= (_startMhz + edgeMargin) && clamped <= (_endMhz - edgeMargin);
-        const needsRetune = !withinCapture;
+        const sharedMonitor = _isSharedMonitorActive();
+        // Shared-IQ monitor retunes are most reliable when we recenter
+        // capture on the requested frequency, not only at the edges.
+        const needsRetune = !withinCapture || sharedMonitor;
 
         if (needsRetune) {
             _startMhz = clamped - configuredSpan / 2;
@@ -1888,7 +1891,6 @@ const Waterfall = (function () {
             _updateFreqDisplay();
         }
 
-        const sharedMonitor = _isSharedMonitorActive();
         if (_monitoring) {
             if (!sharedMonitor) {
                 _queueMonitorRetune(immediate ? 35 : 140);
