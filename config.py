@@ -7,12 +7,12 @@ import os
 import sys
 
 # Application version
-VERSION = "2.22.0"
+VERSION = "2.22.1"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
     {
-        "version": "2.22.0",
+        "version": "2.22.1",
         "date": "February 2026",
         "highlights": [
             "Waterfall receiver overhaul: WebSocket I/Q streaming with server-side FFT, click-to-tune, and zoom controls",

@@ -2,6 +2,15 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.22.1] - 2026-02-23
+
+### Fixed
+- PWA install prompt not appearing — manifest now includes required PNG icons (192×192, 512×512)
+- Apple touch icon updated to PNG for iOS Safari compatibility
+- Service worker cache bumped to bust stale cached assets
+
+---
+
 ## [2.22.0] - 2026-02-23
 
 ### Added
