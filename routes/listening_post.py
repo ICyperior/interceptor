@@ -1,4 +1,4 @@
-"""Listening Post routes for radio monitoring and frequency scanning."""
+"""Receiver routes for radio monitoring and frequency scanning."""
 
 from __future__ import annotations
 
@@ -29,9 +29,9 @@ from utils.constants import (
 )
 from utils.sdr import SDRFactory, SDRType
 
-logger = get_logger('intercept.listening_post')
+logger = get_logger('intercept.receiver')
 
-listening_post_bp = Blueprint('listening_post', __name__, url_prefix='/listening')
+receiver_bp = Blueprint('receiver', __name__, url_prefix='/receiver')
 
 # ============================================
 # GLOBAL STATE
@@ -53,7 +53,7 @@ scanner_lock = threading.Lock()
 scanner_paused = False
 scanner_current_freq = 0.0
 scanner_active_device: Optional[int] = None
-listening_active_device: Optional[int] = None
+receiver_active_device: Optional[int] = None
 scanner_power_process: Optional[subprocess.Popen] = None
 scanner_config = {
     'start_freq': 88.0,
@@ -941,7 +941,7 @@ def _stop_audio_stream_internal():
 # API ENDPOINTS
 # ============================================
 
-@listening_post_bp.route('/tools')
+@receiver_bp.route('/tools')
 def check_tools() -> Response:
     """Check for required tools."""
     rtl_fm = find_rtl_fm()
@@ -967,10 +967,10 @@ def check_tools() -> Response:
     })
 
 
-@listening_post_bp.route('/scanner/start', methods=['POST'])
+@receiver_bp.route('/scanner/start', methods=['POST'])
 def start_scanner() -> Response:
     """Start the frequency scanner."""
-    global scanner_thread, scanner_running, scanner_config, scanner_active_device, listening_active_device
+    global scanner_thread, scanner_running, scanner_config, scanner_active_device, receiver_active_device
 
     with scanner_lock:
         if scanner_running:
@@ -1036,9 +1036,9 @@ def start_scanner() -> Response:
                 'message': 'rtl_power not found. Install rtl-sdr tools.'
             }), 503
         # Release listening device if active
-        if listening_active_device is not None:
-            app_module.release_sdr_device(listening_active_device)
-            listening_active_device = None
+        if receiver_active_device is not None:
+            app_module.release_sdr_device(receiver_active_device)
+            receiver_active_device = None
         # Claim device for scanner
         error = app_module.claim_sdr_device(scanner_config['device'], 'scanner')
         if error:
@@ -1064,9 +1064,9 @@ def start_scanner() -> Response:
                     'status': 'error',
                     'message': f'rx_fm not found. Install SoapySDR utilities for {sdr_type}.'
                 }), 503
-        if listening_active_device is not None:
-            app_module.release_sdr_device(listening_active_device)
-            listening_active_device = None
+        if receiver_active_device is not None:
+            app_module.release_sdr_device(receiver_active_device)
+            receiver_active_device = None
         error = app_module.claim_sdr_device(scanner_config['device'], 'scanner')
         if error:
             return jsonify({
@@ -1086,7 +1086,7 @@ def start_scanner() -> Response:
     })
 
 
-@listening_post_bp.route('/scanner/stop', methods=['POST'])
+@receiver_bp.route('/scanner/stop', methods=['POST'])
 def stop_scanner() -> Response:
     """Stop the frequency scanner."""
     global scanner_running, scanner_active_device, scanner_power_process
@@ -1110,7 +1110,7 @@ def stop_scanner() -> Response:
     return jsonify({'status': 'stopped'})
 
 
-@listening_post_bp.route('/scanner/pause', methods=['POST'])
+@receiver_bp.route('/scanner/pause', methods=['POST'])
 def pause_scanner() -> Response:
     """Pause/resume the scanner."""
     global scanner_paused
@@ -1132,7 +1132,7 @@ def pause_scanner() -> Response:
 scanner_skip_signal = False
 
 
-@listening_post_bp.route('/scanner/skip', methods=['POST'])
+@receiver_bp.route('/scanner/skip', methods=['POST'])
 def skip_signal() -> Response:
     """Skip current signal and continue scanning."""
     global scanner_skip_signal
@@ -1152,7 +1152,7 @@ def skip_signal() -> Response:
     })
 
 
-@listening_post_bp.route('/scanner/config', methods=['POST'])
+@receiver_bp.route('/scanner/config', methods=['POST'])
 def update_scanner_config() -> Response:
     """Update scanner config while running (step, squelch, gain, dwell)."""
     data = request.json or {}
@@ -1194,7 +1194,7 @@ def update_scanner_config() -> Response:
     })
 
 
-@listening_post_bp.route('/scanner/status')
+@receiver_bp.route('/scanner/status')
 def scanner_status() -> Response:
     """Get scanner status."""
     return jsonify({
@@ -1207,16 +1207,16 @@ def scanner_status() -> Response:
     })
 
 
-@listening_post_bp.route('/scanner/stream')
+@receiver_bp.route('/scanner/stream')
 def stream_scanner_events() -> Response:
     """SSE stream for scanner events."""
     def _on_msg(msg: dict[str, Any]) -> None:
-        process_event('listening_scanner', msg, msg.get('type'))
+        process_event('receiver_scanner', msg, msg.get('type'))
 
     response = Response(
         sse_stream_fanout(
             source_queue=scanner_queue,
-            channel_key='listening_scanner',
+            channel_key='receiver_scanner',
             timeout=SSE_QUEUE_TIMEOUT,
             keepalive_interval=SSE_KEEPALIVE_INTERVAL,
             on_message=_on_msg,
@@ -1228,7 +1228,7 @@ def stream_scanner_events() -> Response:
     return response
 
 
-@listening_post_bp.route('/scanner/log')
+@receiver_bp.route('/scanner/log')
 def get_activity_log() -> Response:
     """Get activity log."""
     limit = request.args.get('limit', 100, type=int)
@@ -1239,7 +1239,7 @@ def get_activity_log() -> Response:
         })
 
 
-@listening_post_bp.route('/scanner/log/clear', methods=['POST'])
+@receiver_bp.route('/scanner/log/clear', methods=['POST'])
 def clear_activity_log() -> Response:
     """Clear activity log."""
     with activity_log_lock:
@@ -1247,7 +1247,7 @@ def clear_activity_log() -> Response:
     return jsonify({'status': 'cleared'})
 
 
-@listening_post_bp.route('/presets')
+@receiver_bp.route('/presets')
 def get_presets() -> Response:
     """Get scanner presets."""
     presets = [
@@ -1267,10 +1267,10 @@ def get_presets() -> Response:
 # MANUAL AUDIO ENDPOINTS (for direct listening)
 # ============================================
 
-@listening_post_bp.route('/audio/start', methods=['POST'])
+@receiver_bp.route('/audio/start', methods=['POST'])
 def start_audio() -> Response:
     """Start audio at specific frequency (manual mode)."""
-    global scanner_running, scanner_active_device, listening_active_device, scanner_power_process, scanner_thread
+    global scanner_running, scanner_active_device, receiver_active_device, scanner_power_process, scanner_thread
     global audio_running, audio_frequency, audio_modulation, audio_source
 
     # Stop scanner if running
@@ -1363,9 +1363,9 @@ def start_audio() -> Response:
                 audio_modulation = modulation
                 audio_source = 'waterfall'
                 # Shared monitor uses the waterfall's existing SDR claim.
-                if listening_active_device is not None:
-                    app_module.release_sdr_device(listening_active_device)
-                    listening_active_device = None
+                if receiver_active_device is not None:
+                    app_module.release_sdr_device(receiver_active_device)
+                    receiver_active_device = None
                 return jsonify({
                     'status': 'started',
                     'frequency': frequency,
@@ -1385,15 +1385,15 @@ def start_audio() -> Response:
     # may still be tearing down its IQ capture process (thread join +
     # safe_terminate can take several seconds), so we retry with back-off
     # to give the USB device time to be fully released.
-    if listening_active_device is None or listening_active_device != device:
-        if listening_active_device is not None:
-            app_module.release_sdr_device(listening_active_device)
-            listening_active_device = None
+    if receiver_active_device is None or receiver_active_device != device:
+        if receiver_active_device is not None:
+            app_module.release_sdr_device(receiver_active_device)
+            receiver_active_device = None
 
         error = None
         max_claim_attempts = 6
         for attempt in range(max_claim_attempts):
-            error = app_module.claim_sdr_device(device, 'listening')
+            error = app_module.claim_sdr_device(device, 'receiver')
             if not error:
                 break
             if attempt < max_claim_attempts - 1:
@@ -1409,7 +1409,7 @@ def start_audio() -> Response:
                 'error_type': 'DEVICE_BUSY',
                 'message': error
             }), 409
-        listening_active_device = device
+        receiver_active_device = device
 
     _start_audio_stream(frequency, modulation)
 
@@ -1423,9 +1423,9 @@ def start_audio() -> Response:
         })
     else:
         # Avoid leaving a stale device claim after startup failure.
-        if listening_active_device is not None:
-            app_module.release_sdr_device(listening_active_device)
-            listening_active_device = None
+        if receiver_active_device is not None:
+            app_module.release_sdr_device(receiver_active_device)
+            receiver_active_device = None
 
         start_error = ''
         for log_path in ('/tmp/rtl_fm_stderr.log', '/tmp/ffmpeg_stderr.log'):
@@ -1447,18 +1447,18 @@ def start_audio() -> Response:
         }), 500
 
 
-@listening_post_bp.route('/audio/stop', methods=['POST'])
+@receiver_bp.route('/audio/stop', methods=['POST'])
 def stop_audio() -> Response:
     """Stop audio."""
-    global listening_active_device
+    global receiver_active_device
     _stop_audio_stream()
-    if listening_active_device is not None:
-        app_module.release_sdr_device(listening_active_device)
-        listening_active_device = None
+    if receiver_active_device is not None:
+        app_module.release_sdr_device(receiver_active_device)
+        receiver_active_device = None
     return jsonify({'status': 'stopped'})
 
 
-@listening_post_bp.route('/audio/status')
+@receiver_bp.route('/audio/status')
 def audio_status() -> Response:
     """Get audio status."""
     running = audio_running
@@ -1479,7 +1479,7 @@ def audio_status() -> Response:
     })
 
 
-@listening_post_bp.route('/audio/debug')
+@receiver_bp.route('/audio/debug')
 def audio_debug() -> Response:
     """Get audio debug status and recent stderr logs."""
     rtl_log_path = '/tmp/rtl_fm_stderr.log'
@@ -1519,7 +1519,7 @@ def audio_debug() -> Response:
     })
 
 
-@listening_post_bp.route('/audio/probe')
+@receiver_bp.route('/audio/probe')
 def audio_probe() -> Response:
     """Grab a small chunk of audio bytes from the pipeline for debugging."""
     global audio_process
@@ -1559,7 +1559,7 @@ def audio_probe() -> Response:
     return jsonify({'status': 'ok', 'bytes': size})
 
 
-@listening_post_bp.route('/audio/stream')
+@receiver_bp.route('/audio/stream')
 def stream_audio() -> Response:
     """Stream WAV audio."""
     if audio_source == 'waterfall':
@@ -1682,7 +1682,7 @@ def stream_audio() -> Response:
 # SIGNAL IDENTIFICATION ENDPOINT
 # ============================================
 
-@listening_post_bp.route('/signal/guess', methods=['POST'])
+@receiver_bp.route('/signal/guess', methods=['POST'])
 def guess_signal() -> Response:
     """Identify a signal based on frequency, modulation, and other parameters."""
     data = request.json or {}
@@ -1962,7 +1962,7 @@ def _stop_waterfall_internal() -> None:
         waterfall_active_device = None
 
 
-@listening_post_bp.route('/waterfall/start', methods=['POST'])
+@receiver_bp.route('/waterfall/start', methods=['POST'])
 def start_waterfall() -> Response:
     """Start the waterfall/spectrogram display."""
     global waterfall_thread, waterfall_running, waterfall_config, waterfall_active_device
@@ -2023,7 +2023,7 @@ def start_waterfall() -> Response:
     return jsonify({'status': 'started', 'config': waterfall_config})
 
 
-@listening_post_bp.route('/waterfall/stop', methods=['POST'])
+@receiver_bp.route('/waterfall/stop', methods=['POST'])
 def stop_waterfall() -> Response:
     """Stop the waterfall display."""
     _stop_waterfall_internal()
@@ -2031,7 +2031,7 @@ def stop_waterfall() -> Response:
     return jsonify({'status': 'stopped'})
 
 
-@listening_post_bp.route('/waterfall/stream')
+@receiver_bp.route('/waterfall/stream')
 def stream_waterfall() -> Response:
     """SSE stream for waterfall data."""
     def _on_msg(msg: dict[str, Any]) -> None:
@@ -2040,7 +2040,7 @@ def stream_waterfall() -> Response:
     response = Response(
         sse_stream_fanout(
             source_queue=waterfall_queue,
-            channel_key='listening_waterfall',
+            channel_key='receiver_waterfall',
             timeout=SSE_QUEUE_TIMEOUT,
             keepalive_interval=SSE_KEEPALIVE_INTERVAL,
             on_message=_on_msg,

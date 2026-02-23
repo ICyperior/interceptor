@@ -10,6 +10,10 @@ const VoiceAlerts = (function () {
     let _sources = {};
     const STORAGE_KEY = 'intercept-voice-muted';
     const CONFIG_KEY  = 'intercept-voice-config';
+    const RATE_MIN = 0.5;
+    const RATE_MAX = 2.0;
+    const PITCH_MIN = 0.5;
+    const PITCH_MAX = 2.0;
 
     // Default config
     let _config = {
@@ -18,6 +22,28 @@ const VoiceAlerts = (function () {
         voiceName: '',
         streams: { pager: true, tscm: true, bluetooth: true },
     };
+
+    function _toNumberInRange(value, fallback, min, max) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return fallback;
+        return Math.min(max, Math.max(min, n));
+    }
+
+    function _normalizeConfig() {
+        _config.rate = _toNumberInRange(_config.rate, 1.1, RATE_MIN, RATE_MAX);
+        _config.pitch = _toNumberInRange(_config.pitch, 0.9, PITCH_MIN, PITCH_MAX);
+        _config.voiceName = typeof _config.voiceName === 'string' ? _config.voiceName : '';
+    }
+
+    function _isSpeechSupported() {
+        return !!(window.speechSynthesis && typeof window.SpeechSynthesisUtterance !== 'undefined');
+    }
+
+    function _showVoiceToast(title, message, type) {
+        if (typeof window.showAppToast === 'function') {
+            window.showAppToast(title, message, type || 'warning');
+        }
+    }
 
     function _loadConfig() {
         _muted = localStorage.getItem(STORAGE_KEY) === 'true';
@@ -33,6 +59,7 @@ const VoiceAlerts = (function () {
                 }
             }
         } catch (_) {}
+        _normalizeConfig();
         _updateMuteButton();
     }
 
@@ -48,6 +75,15 @@ const VoiceAlerts = (function () {
         if (!_config.voiceName) return null;
         const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
         return voices.find(v => v.name === _config.voiceName) || null;
+    }
+
+    function _createUtterance(text) {
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.rate = _toNumberInRange(_config.rate, 1.1, RATE_MIN, RATE_MAX);
+        utt.pitch = _toNumberInRange(_config.pitch, 0.9, PITCH_MIN, PITCH_MAX);
+        const voice = _getVoice();
+        if (voice) utt.voice = voice;
+        return utt;
     }
 
     function speak(text, priority) {
@@ -68,11 +104,7 @@ const VoiceAlerts = (function () {
         if (_queue.length === 0) { _speaking = false; return; }
         _speaking = true;
         const item = _queue.shift();
-        const utt = new SpeechSynthesisUtterance(item.text);
-        utt.rate  = _config.rate;
-        utt.pitch = _config.pitch;
-        const voice = _getVoice();
-        if (voice) utt.voice = voice;
+        const utt = _createUtterance(item.text);
         utt.onend = () => { _speaking = false; _dequeue(); };
         utt.onerror = () => { _speaking = false; _dequeue(); };
         window.speechSynthesis.speak(utt);
@@ -141,6 +173,10 @@ const VoiceAlerts = (function () {
 
     function init() {
         _loadConfig();
+        if (_isSpeechSupported()) {
+            // Prime voices list early so user-triggered test calls are less likely to be silent.
+            speechSynthesis.getVoices();
+        }
         _startStreams();
     }
 
@@ -161,10 +197,11 @@ const VoiceAlerts = (function () {
     }
 
     function setConfig(cfg) {
-        if (cfg.rate !== undefined)      _config.rate      = cfg.rate;
-        if (cfg.pitch !== undefined)     _config.pitch     = cfg.pitch;
+        if (cfg.rate !== undefined)      _config.rate      = _toNumberInRange(cfg.rate, _config.rate, RATE_MIN, RATE_MAX);
+        if (cfg.pitch !== undefined)     _config.pitch     = _toNumberInRange(cfg.pitch, _config.pitch, PITCH_MIN, PITCH_MAX);
         if (cfg.voiceName !== undefined) _config.voiceName = cfg.voiceName;
         if (cfg.streams) Object.assign(_config.streams, cfg.streams);
+        _normalizeConfig();
         localStorage.setItem(CONFIG_KEY, JSON.stringify(_config));
         // Restart streams to apply per-stream toggle changes
         _stopStreams();
@@ -185,13 +222,31 @@ const VoiceAlerts = (function () {
     }
 
     function testVoice(text) {
-        if (!window.speechSynthesis) return;
-        const utt = new SpeechSynthesisUtterance(text || 'Voice alert test. All systems nominal.');
-        utt.rate  = _config.rate;
-        utt.pitch = _config.pitch;
-        const voice = _getVoice();
-        if (voice) utt.voice = voice;
+        if (!_isSpeechSupported()) {
+            _showVoiceToast('Voice Unavailable', 'This browser does not support speech synthesis.', 'warning');
+            return;
+        }
+
+        // Make the test immediate and recover from a paused/stalled synthesis engine.
+        try {
+            speechSynthesis.getVoices();
+            if (speechSynthesis.paused) speechSynthesis.resume();
+            speechSynthesis.cancel();
+        } catch (_) {}
+
+        const utt = _createUtterance(text || 'Voice alert test. All systems nominal.');
+        let started = false;
+        utt.onstart = () => { started = true; };
+        utt.onerror = () => {
+            _showVoiceToast('Voice Test Failed', 'Speech synthesis failed to start. Check browser audio output.', 'warning');
+        };
         speechSynthesis.speak(utt);
+
+        window.setTimeout(() => {
+            if (!started && !speechSynthesis.speaking && !speechSynthesis.pending) {
+                _showVoiceToast('No Voice Output', 'Test speech did not play. Verify browser audio and selected voice.', 'warning');
+            }
+        }, 1200);
     }
 
     return { init, speak, toggleMute, setEnabled, getConfig, setConfig, getAvailableVoices, testVoice, PRIORITY };

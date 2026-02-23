@@ -1,13 +1,13 @@
 /* INTERCEPT Service Worker — cache-first static, network-only for API/SSE/WS */
-const CACHE_NAME = 'intercept-v1';
+const CACHE_NAME = 'intercept-v2';
 
 const NETWORK_ONLY_PREFIXES = [
     '/stream', '/ws/', '/api/', '/gps/', '/wifi/', '/bluetooth/',
     '/adsb/', '/ais/', '/acars/', '/aprs/', '/tscm/', '/satellite/',
-    '/meshtastic/', '/bt_locate/', '/listening/', '/sensor/', '/pager/',
+    '/meshtastic/', '/bt_locate/', '/receiver/', '/sensor/', '/pager/',
     '/sstv/', '/weather-sat/', '/subghz/', '/rtlamr/', '/dsc/', '/vdl2/',
     '/spy/', '/space-weather/', '/websdr/', '/analytics/', '/correlation/',
-    '/recordings/', '/controller/', '/fingerprint/', '/ops/',
+    '/recordings/', '/controller/', '/ops/',
 ];
 
 const STATIC_PREFIXES = [

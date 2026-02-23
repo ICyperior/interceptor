@@ -32,6 +32,7 @@ const Waterfall = (function () {
     let _wfCanvas = null;
     let _wfCtx = null;
     let _peakLine = null;
+    let _lastBins = null;
 
     let _startMhz = 98.8;
     let _endMhz = 101.2;
@@ -51,25 +52,89 @@ const Waterfall = (function () {
     let _audioUnlockRequired = false;
 
     let _devices = [];
+    let _scanRunning = false;
+    let _scanPausedOnSignal = false;
+    let _scanTimer = null;
+    let _scanConfig = null;
+    let _scanAwaitingCapture = false;
+    let _scanStartPending = false;
+    let _scanRestartAttempts = 0;
+    let _scanLogEntries = [];
+    let _scanSignalHits = [];
+    let _scanRecentHitTimes = new Map();
+    let _scanSignalCount = 0;
+    let _scanStepCount = 0;
+    let _scanCycleCount = 0;
+    let _frequencyBookmarks = [];
 
     const PALETTES = {};
+    const SCAN_LOG_LIMIT = 160;
+    const SIGNAL_HIT_LIMIT = 60;
+    const BOOKMARK_STORAGE_KEY = 'wfBookmarks';
 
     const RF_BANDS = [
-        [0.535, 1.705, 'AM', 'rgba(255,200,50,0.15)'],
-        [87.5, 108.0, 'FM', 'rgba(255,100,100,0.15)'],
-        [108.0, 137.0, 'Aviation', 'rgba(100,220,100,0.12)'],
-        [137.5, 137.9125, 'NOAA APT', 'rgba(50,200,255,0.25)'],
+        [0.1485, 0.2835, 'LW Broadcast', 'rgba(255,220,120,0.18)'],
+        [0.530, 1.705, 'AM Broadcast', 'rgba(255,200,50,0.15)'],
+        [1.8, 2.0, '160m Ham', 'rgba(255,168,88,0.22)'],
+        [2.3, 2.495, '120m SW', 'rgba(255,205,84,0.18)'],
+        [3.2, 3.4, '90m SW', 'rgba(255,205,84,0.18)'],
+        [3.5, 4.0, '80m Ham', 'rgba(255,168,88,0.22)'],
+        [4.75, 5.06, '60m SW', 'rgba(255,205,84,0.18)'],
+        [5.3305, 5.4065, '60m Ham', 'rgba(255,168,88,0.22)'],
+        [5.9, 6.2, '49m SW', 'rgba(255,205,84,0.18)'],
+        [7.0, 7.3, '40m Ham', 'rgba(255,168,88,0.22)'],
+        [9.4, 9.9, '31m SW', 'rgba(255,205,84,0.18)'],
+        [10.1, 10.15, '30m Ham', 'rgba(255,168,88,0.22)'],
+        [11.6, 12.1, '25m SW', 'rgba(255,205,84,0.18)'],
+        [13.57, 13.87, '22m SW', 'rgba(255,205,84,0.18)'],
+        [14.0, 14.35, '20m Ham', 'rgba(255,168,88,0.22)'],
+        [15.1, 15.8, '19m SW', 'rgba(255,205,84,0.18)'],
+        [17.48, 17.9, '16m SW', 'rgba(255,205,84,0.18)'],
+        [18.068, 18.168, '17m Ham', 'rgba(255,168,88,0.22)'],
+        [21.0, 21.45, '15m Ham', 'rgba(255,168,88,0.22)'],
+        [24.89, 24.99, '12m Ham', 'rgba(255,168,88,0.22)'],
+        [26.965, 27.405, 'CB 11m', 'rgba(255,186,88,0.2)'],
+        [28.0, 29.7, '10m Ham', 'rgba(255,168,88,0.22)'],
+        [50.0, 54.0, '6m Ham', 'rgba(255,168,88,0.22)'],
+        [70.0, 70.5, '4m Ham', 'rgba(255,168,88,0.22)'],
+        [87.5, 108.0, 'FM Broadcast', 'rgba(255,100,100,0.15)'],
+        [108.0, 137.0, 'Airband', 'rgba(100,220,100,0.12)'],
+        [137.0, 138.0, 'NOAA WX Sat', 'rgba(50,200,255,0.25)'],
+        [138.0, 144.0, 'VHF Federal', 'rgba(120,210,255,0.15)'],
         [144.0, 148.0, '2m Ham', 'rgba(255,165,0,0.20)'],
-        [156.0, 174.0, 'Marine', 'rgba(50,150,255,0.15)'],
-        [162.4, 162.55, 'Wx Radio', 'rgba(50,255,200,0.35)'],
+        [150.0, 156.0, 'VHF Land Mobile', 'rgba(85,170,255,0.2)'],
+        [156.0, 162.025, 'Marine', 'rgba(50,150,255,0.15)'],
+        [162.4, 162.55, 'NOAA Weather', 'rgba(50,255,200,0.35)'],
+        [174.0, 216.0, 'VHF TV', 'rgba(129,160,255,0.13)'],
+        [216.0, 225.0, '1.25m Ham', 'rgba(255,165,0,0.2)'],
+        [225.0, 400.0, 'UHF Mil Air', 'rgba(106,221,120,0.12)'],
+        [315.0, 316.0, 'ISM 315', 'rgba(255,80,255,0.2)'],
+        [380.0, 400.0, 'TETRA', 'rgba(90,180,255,0.2)'],
+        [400.0, 406.1, 'Meteosonde', 'rgba(85,225,225,0.2)'],
+        [406.0, 420.0, 'UHF Sat', 'rgba(90,215,170,0.17)'],
         [420.0, 450.0, '70cm Ham', 'rgba(255,165,0,0.18)'],
         [433.05, 434.79, 'ISM 433', 'rgba(255,80,255,0.25)'],
         [446.0, 446.2, 'PMR446', 'rgba(180,80,255,0.30)'],
-        [868.0, 868.6, 'ISM 868', 'rgba(255,80,255,0.22)'],
+        [462.5625, 467.7125, 'FRS/GMRS', 'rgba(101,186,255,0.22)'],
+        [470.0, 608.0, 'UHF TV', 'rgba(129,160,255,0.13)'],
+        [758.0, 768.0, 'P25 700 UL', 'rgba(95,145,255,0.18)'],
+        [788.0, 798.0, 'P25 700 DL', 'rgba(95,145,255,0.18)'],
+        [806.0, 824.0, 'SMR 800', 'rgba(95,145,255,0.18)'],
+        [824.0, 849.0, 'Cell 850 UL', 'rgba(130,130,255,0.16)'],
+        [851.0, 869.0, 'Public Safety 800', 'rgba(95,145,255,0.2)'],
+        [863.0, 870.0, 'ISM 868', 'rgba(255,80,255,0.22)'],
+        [869.0, 894.0, 'Cell 850 DL', 'rgba(130,130,255,0.16)'],
         [902.0, 928.0, 'ISM 915', 'rgba(255,80,255,0.18)'],
+        [929.0, 932.0, 'Paging', 'rgba(125,180,255,0.2)'],
+        [935.0, 941.0, 'Studio Link', 'rgba(110,180,255,0.16)'],
+        [960.0, 1215.0, 'L-Band Aero/Nav', 'rgba(120,225,140,0.13)'],
         [1089.95, 1090.05, 'ADS-B', 'rgba(50,255,80,0.45)'],
-        [2400.0, 2500.0, '2.4G WiFi', 'rgba(255,165,0,0.12)'],
-        [5725.0, 5875.0, '5.8G WiFi', 'rgba(255,165,0,0.12)'],
+        [1200.0, 1300.0, '23cm Ham', 'rgba(255,165,0,0.2)'],
+        [1575.3, 1575.6, 'GPS L1', 'rgba(88,220,120,0.2)'],
+        [1610.0, 1626.5, 'Iridium', 'rgba(95,225,165,0.18)'],
+        [2400.0, 2483.5, '2.4G ISM', 'rgba(255,165,0,0.12)'],
+        [5150.0, 5925.0, '5G WiFi', 'rgba(255,165,0,0.1)'],
+        [5725.0, 5875.0, '5.8G ISM', 'rgba(255,165,0,0.12)'],
     ];
 
     const PRESETS = {
@@ -92,6 +157,10 @@ const Waterfall = (function () {
         if (el) {
             el.textContent = text || 'IDLE';
         }
+        const hero = document.getElementById('wfHeroVisualStatus');
+        if (hero) {
+            hero.textContent = text || 'IDLE';
+        }
     }
 
     function _setMonitorState(text) {
@@ -99,6 +168,544 @@ const Waterfall = (function () {
         if (el) {
             el.textContent = text || 'No audio monitor';
         }
+    }
+
+    function _setHandoffStatus(text, isError = false) {
+        const el = document.getElementById('wfHandoffStatus');
+        if (!el) return;
+        el.textContent = text || '';
+        el.style.color = isError ? 'var(--accent-red)' : 'var(--text-dim)';
+    }
+
+    function _setScanState(text, isError = false) {
+        const el = document.getElementById('wfScanState');
+        if (!el) return;
+        el.textContent = text || '';
+        el.style.color = isError ? 'var(--accent-red)' : 'var(--text-dim)';
+        _updateHeroReadout();
+    }
+
+    function _updateHeroReadout() {
+        const freqEl = document.getElementById('wfHeroFreq');
+        if (freqEl) {
+            freqEl.textContent = `${_monitorFreqMhz.toFixed(4)} MHz`;
+        }
+
+        const modeEl = document.getElementById('wfHeroMode');
+        if (modeEl) {
+            modeEl.textContent = _getMonitorMode().toUpperCase();
+        }
+
+        const scanEl = document.getElementById('wfHeroScan');
+        if (scanEl) {
+            let text = 'Idle';
+            if (_scanRunning) text = _scanPausedOnSignal ? 'Hold' : 'Running';
+            scanEl.textContent = text;
+        }
+
+        const hitEl = document.getElementById('wfHeroHits');
+        if (hitEl) {
+            hitEl.textContent = String(_scanSignalCount);
+        }
+    }
+
+    function _syncScanStatsUi() {
+        const signals = document.getElementById('wfScanSignalsCount');
+        const steps = document.getElementById('wfScanStepsCount');
+        const cycles = document.getElementById('wfScanCyclesCount');
+        const hitCount = document.getElementById('wfSignalHitCount');
+
+        if (signals) signals.textContent = String(_scanSignalCount);
+        if (steps) steps.textContent = String(_scanStepCount);
+        if (cycles) cycles.textContent = String(_scanCycleCount);
+        if (hitCount) hitCount.textContent = `${_scanSignalCount} signals found`;
+        _updateHeroReadout();
+    }
+
+    function _escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function _safeSigIdUrl(url) {
+        try {
+            const parsed = new URL(String(url || ''));
+            if (parsed.protocol === 'https:' && parsed.hostname.endsWith('sigidwiki.com')) {
+                return parsed.toString();
+            }
+        } catch (_) {
+            // Ignore malformed URLs.
+        }
+        return null;
+    }
+
+    function _setSignalIdStatus(text, isError = false) {
+        const el = document.getElementById('wfSigIdStatus');
+        if (!el) return;
+        el.textContent = text || '';
+        el.style.color = isError ? 'var(--accent-red)' : 'var(--text-dim)';
+    }
+
+    function _signalIdFreqInput() {
+        return document.getElementById('wfSigIdFreq');
+    }
+
+    function _syncSignalIdFreq(force = false) {
+        const input = _signalIdFreqInput();
+        if (!input) return;
+        if (!force && document.activeElement === input) return;
+        input.value = _monitorFreqMhz.toFixed(4);
+    }
+
+    function _clearSignalIdPanels() {
+        const local = document.getElementById('wfSigIdResult');
+        const external = document.getElementById('wfSigIdExternal');
+        if (local) {
+            local.style.display = 'none';
+            local.innerHTML = '';
+        }
+        if (external) {
+            external.style.display = 'none';
+            external.innerHTML = '';
+        }
+    }
+
+    function _signalIdModeHint() {
+        const modeEl = document.getElementById('wfSigIdMode');
+        const raw = String(modeEl?.value || 'auto').toLowerCase();
+        if (!raw || raw === 'auto') return _getMonitorMode();
+        return raw;
+    }
+
+    function _renderLocalSignalGuess(result, frequencyMhz) {
+        const panel = document.getElementById('wfSigIdResult');
+        if (!panel) return;
+
+        if (!result || result.status !== 'ok') {
+            panel.style.display = 'block';
+            panel.innerHTML = '<div style="font-size:10px; color:var(--accent-red);">Local signal guess failed</div>';
+            return;
+        }
+
+        const label = _escapeHtml(result.primary_label || 'Unknown Signal');
+        const confidence = _escapeHtml(result.confidence || 'LOW');
+        const confidenceColor = {
+            HIGH: 'var(--accent-green)',
+            MEDIUM: 'var(--accent-orange)',
+            LOW: 'var(--text-dim)',
+        }[String(result.confidence || '').toUpperCase()] || 'var(--text-dim)';
+        const explanation = _escapeHtml(result.explanation || '');
+        const tags = Array.isArray(result.tags) ? result.tags : [];
+        const alternatives = Array.isArray(result.alternatives) ? result.alternatives : [];
+
+        const tagsHtml = tags.slice(0, 8).map((tag) => (
+            `<span style="background:rgba(0,200,255,0.15); color:var(--accent-cyan); padding:1px 6px; border-radius:3px; font-size:9px;">${_escapeHtml(tag)}</span>`
+        )).join('');
+
+        const altsHtml = alternatives.slice(0, 4).map((alt) => {
+            const altLabel = _escapeHtml(alt.label || 'Unknown');
+            const altConf = _escapeHtml(alt.confidence || 'LOW');
+            return `${altLabel} <span style="color:var(--text-dim)">(${altConf})</span>`;
+        }).join(', ');
+
+        panel.style.display = 'block';
+        panel.innerHTML = `
+            <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+                <div style="font-size:11px; font-weight:600; color:var(--text-primary);">${label}</div>
+                <div style="font-size:9px; font-weight:700; color:${confidenceColor};">${confidence}</div>
+            </div>
+            <div style="margin-top:4px; font-size:9px; color:var(--text-muted);">${Number(frequencyMhz).toFixed(4)} MHz</div>
+            <div style="margin-top:6px; font-size:10px; color:var(--text-secondary); line-height:1.35;">${explanation}</div>
+            ${tagsHtml ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${tagsHtml}</div>` : ''}
+            ${altsHtml ? `<div style="margin-top:6px; font-size:9px; color:var(--text-muted);"><strong>Also:</strong> ${altsHtml}</div>` : ''}
+        `;
+    }
+
+    function _renderExternalSignalMatches(result) {
+        const panel = document.getElementById('wfSigIdExternal');
+        if (!panel) return;
+
+        if (!result || result.status !== 'ok') {
+            panel.style.display = 'block';
+            panel.innerHTML = '<div style="font-size:10px; color:var(--accent-red);">SigID Wiki lookup failed</div>';
+            return;
+        }
+
+        const matches = Array.isArray(result.matches) ? result.matches : [];
+        if (!matches.length) {
+            panel.style.display = 'block';
+            panel.innerHTML = '<div style="font-size:10px; color:var(--text-muted);">SigID Wiki: no close matches</div>';
+            return;
+        }
+
+        const items = matches.slice(0, 5).map((match) => {
+            const title = _escapeHtml(match.title || 'Unknown');
+            const safeUrl = _safeSigIdUrl(match.url);
+            const titleHtml = safeUrl
+                ? `<a href="${_escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-cyan); text-decoration:none;">${title}</a>`
+                : `<span style="color:var(--accent-cyan);">${title}</span>`;
+            const freqs = Array.isArray(match.frequencies_mhz)
+                ? match.frequencies_mhz.slice(0, 3).map((f) => Number(f).toFixed(4)).join(', ')
+                : '';
+            const modes = Array.isArray(match.modes) ? match.modes.join(', ') : '';
+            const mods = Array.isArray(match.modulations) ? match.modulations.join(', ') : '';
+            const distance = Number.isFinite(match.distance_hz) ? `${Math.round(match.distance_hz)} Hz offset` : '';
+            return `
+                <div style="margin-top:6px; padding:6px; border:1px solid rgba(255,255,255,0.08); border-radius:4px;">
+                    <div style="font-size:10px; font-weight:600;">${titleHtml}</div>
+                    <div style="font-size:9px; color:var(--text-muted); margin-top:2px;">
+                        ${freqs ? `Freq: ${_escapeHtml(freqs)} MHz` : 'Freq: n/a'}
+                        ${distance ? ` • ${_escapeHtml(distance)}` : ''}
+                    </div>
+                    <div style="font-size:9px; color:var(--text-muted); margin-top:2px;">
+                        ${modes ? `Mode: ${_escapeHtml(modes)}` : 'Mode: n/a'}
+                        ${mods ? ` • Modulation: ${_escapeHtml(mods)}` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const label = result.search_used ? 'SigID Wiki (search fallback)' : 'SigID Wiki';
+        panel.style.display = 'block';
+        panel.innerHTML = `<div style="font-size:10px; color:var(--text-muted);">${_escapeHtml(label)}</div>${items}`;
+    }
+
+    function useTuneForSignalId() {
+        _syncSignalIdFreq(true);
+        _setSignalIdStatus(`Using tuned ${_monitorFreqMhz.toFixed(4)} MHz`);
+    }
+
+    async function identifySignal() {
+        const input = _signalIdFreqInput();
+        const fallbackFreq = Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : _currentCenter();
+        const frequencyMhz = Number.parseFloat(input?.value || `${fallbackFreq}`);
+        if (!Number.isFinite(frequencyMhz) || frequencyMhz <= 0) {
+            _setSignalIdStatus('Signal ID frequency is invalid', true);
+            return;
+        }
+        if (input) input.value = frequencyMhz.toFixed(4);
+
+        const modulation = _signalIdModeHint();
+        _setSignalIdStatus(`Identifying ${frequencyMhz.toFixed(4)} MHz...`);
+        _clearSignalIdPanels();
+
+        const localReq = fetch('/receiver/signal/guess', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frequency_mhz: frequencyMhz, modulation }),
+        }).then((r) => r.json());
+
+        const externalReq = fetch('/signalid/sigidwiki', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frequency_mhz: frequencyMhz, modulation, limit: 5 }),
+        }).then((r) => r.json());
+
+        const [localRes, externalRes] = await Promise.allSettled([localReq, externalReq]);
+
+        const localOk = localRes.status === 'fulfilled' && localRes.value && localRes.value.status === 'ok';
+        const externalOk = externalRes.status === 'fulfilled' && externalRes.value && externalRes.value.status === 'ok';
+
+        if (localRes.status === 'fulfilled') {
+            _renderLocalSignalGuess(localRes.value, frequencyMhz);
+        } else {
+            _renderLocalSignalGuess({ status: 'error' }, frequencyMhz);
+        }
+
+        if (externalRes.status === 'fulfilled') {
+            _renderExternalSignalMatches(externalRes.value);
+        } else {
+            _renderExternalSignalMatches({ status: 'error' });
+        }
+
+        if (localOk && externalOk) {
+            _setSignalIdStatus(`Signal ID complete for ${frequencyMhz.toFixed(4)} MHz`);
+        } else if (localOk) {
+            _setSignalIdStatus(`Local ID complete; SigID lookup unavailable`, true);
+        } else {
+            _setSignalIdStatus('Signal ID lookup failed', true);
+        }
+    }
+
+    function _safeMode(mode) {
+        const raw = String(mode || '').toLowerCase();
+        if (['wfm', 'fm', 'am', 'usb', 'lsb'].includes(raw)) return raw;
+        return 'wfm';
+    }
+
+    function _bookmarkMode(mode) {
+        const raw = String(mode || '').toLowerCase();
+        if (raw === 'auto' || !raw) return _getMonitorMode();
+        return _safeMode(raw);
+    }
+
+    function _saveBookmarks() {
+        try {
+            localStorage.setItem(BOOKMARK_STORAGE_KEY, JSON.stringify(_frequencyBookmarks));
+        } catch (_) {
+            // Ignore storage quota/permission failures.
+        }
+    }
+
+    function _renderBookmarks() {
+        const list = document.getElementById('wfBookmarkList');
+        if (!list) return;
+
+        if (!_frequencyBookmarks.length) {
+            list.innerHTML = '<div class="wf-empty">No bookmarks saved</div>';
+            return;
+        }
+
+        list.innerHTML = _frequencyBookmarks.map((b, idx) => {
+            const freq = Number(b.freq);
+            const mode = _safeMode(b.mode);
+            return `
+                <div class="wf-bookmark-item">
+                    <button class="wf-bookmark-link" onclick="Waterfall.quickTune(${freq}, '${mode}')" title="Tune ${freq.toFixed(4)} MHz">
+                        ${freq.toFixed(4)} MHz
+                    </button>
+                    <span class="wf-bookmark-mode">${mode.toUpperCase()}</span>
+                    <button class="wf-bookmark-remove" onclick="Waterfall.removeBookmark(${idx})" title="Remove bookmark">x</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function _renderRecentSignals() {
+        const list = document.getElementById('wfRecentSignals');
+        if (!list) return;
+
+        const items = _scanSignalHits.slice(0, 10);
+        if (!items.length) {
+            list.innerHTML = '<div class="wf-empty">No recent signal hits</div>';
+            return;
+        }
+
+        list.innerHTML = items.map((hit) => {
+            const freq = Number(hit.frequencyMhz);
+            const mode = _safeMode(hit.modulation);
+            return `
+                <div class="wf-recent-item">
+                    <button class="wf-recent-link" onclick="Waterfall.quickTune(${freq}, '${mode}')">
+                        ${freq.toFixed(4)} MHz
+                    </button>
+                    <span class="wf-bookmark-mode">${_escapeHtml(hit.timestamp)}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function _loadBookmarks() {
+        try {
+            const raw = localStorage.getItem(BOOKMARK_STORAGE_KEY);
+            if (!raw) {
+                _frequencyBookmarks = [];
+                _renderBookmarks();
+                return;
+            }
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                _frequencyBookmarks = [];
+                _renderBookmarks();
+                return;
+            }
+            _frequencyBookmarks = parsed
+                .map((entry) => ({
+                    freq: Number.parseFloat(entry.freq),
+                    mode: _safeMode(entry.mode),
+                }))
+                .filter((entry) => Number.isFinite(entry.freq) && entry.freq > 0)
+                .slice(0, 80);
+            _renderBookmarks();
+        } catch (_) {
+            _frequencyBookmarks = [];
+            _renderBookmarks();
+        }
+    }
+
+    function useTuneForBookmark() {
+        const input = document.getElementById('wfBookmarkFreqInput');
+        if (!input) return;
+        input.value = _monitorFreqMhz.toFixed(4);
+    }
+
+    function addBookmarkFromInput() {
+        const input = document.getElementById('wfBookmarkFreqInput');
+        const modeInput = document.getElementById('wfBookmarkMode');
+        if (!input) return;
+        const freq = Number.parseFloat(input.value);
+        if (!Number.isFinite(freq) || freq <= 0) {
+            if (typeof showNotification === 'function') {
+                showNotification('Bookmark', 'Enter a valid frequency');
+            }
+            return;
+        }
+        const mode = _bookmarkMode(modeInput?.value || 'auto');
+        const duplicate = _frequencyBookmarks.some((entry) => Math.abs(entry.freq - freq) < 0.0005 && entry.mode === mode);
+        if (duplicate) {
+            if (typeof showNotification === 'function') {
+                showNotification('Bookmark', 'Frequency already saved');
+            }
+            return;
+        }
+        _frequencyBookmarks.unshift({ freq, mode });
+        if (_frequencyBookmarks.length > 80) _frequencyBookmarks.length = 80;
+        _saveBookmarks();
+        _renderBookmarks();
+        input.value = '';
+        if (typeof showNotification === 'function') {
+            showNotification('Bookmark', `Saved ${freq.toFixed(4)} MHz (${mode.toUpperCase()})`);
+        }
+    }
+
+    function removeBookmark(index) {
+        if (!Number.isInteger(index) || index < 0 || index >= _frequencyBookmarks.length) return;
+        _frequencyBookmarks.splice(index, 1);
+        _saveBookmarks();
+        _renderBookmarks();
+    }
+
+    function quickTunePreset(freqMhz, mode = 'auto') {
+        const freq = Number.parseFloat(`${freqMhz}`);
+        if (!Number.isFinite(freq) || freq <= 0) return;
+        const safeMode = _bookmarkMode(mode);
+        _setMonitorMode(safeMode);
+        _setAndTune(freq, true);
+        _setStatus(`Quick tuned ${freq.toFixed(4)} MHz (${safeMode.toUpperCase()})`);
+        _addScanLogEntry('Quick tune', `${freq.toFixed(4)} MHz (${safeMode.toUpperCase()})`);
+    }
+
+    function _renderScanLog() {
+        const el = document.getElementById('wfActivityLog');
+        if (!el) return;
+
+        if (!_scanLogEntries.length) {
+            el.innerHTML = '<div class="wf-empty">Ready</div>';
+            return;
+        }
+
+        el.innerHTML = _scanLogEntries.slice(0, 60).map((entry) => {
+            const cls = entry.type === 'signal' ? 'is-signal' : (entry.type === 'error' ? 'is-error' : '');
+            const detail = entry.detail ? ` ${_escapeHtml(entry.detail)}` : '';
+            return `<div class="wf-log-entry ${cls}"><span class="wf-log-time">${_escapeHtml(entry.timestamp)}</span><strong>${_escapeHtml(entry.title)}</strong>${detail}</div>`;
+        }).join('');
+    }
+
+    function _addScanLogEntry(title, detail = '', type = 'info') {
+        const now = new Date();
+        _scanLogEntries.unshift({
+            timestamp: now.toLocaleTimeString(),
+            title: String(title || ''),
+            detail: String(detail || ''),
+            type: String(type || 'info'),
+        });
+        if (_scanLogEntries.length > SCAN_LOG_LIMIT) {
+            _scanLogEntries.length = SCAN_LOG_LIMIT;
+        }
+        _renderScanLog();
+    }
+
+    function _renderSignalHits() {
+        const tbody = document.getElementById('wfSignalHitsBody');
+        if (!tbody) return;
+
+        if (!_scanSignalHits.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="wf-empty">No signals detected</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = _scanSignalHits.slice(0, 80).map((hit) => {
+            const freq = Number(hit.frequencyMhz);
+            const mode = _safeMode(hit.modulation);
+            const level = Math.round(Number(hit.level) || 0);
+            return `
+                <tr>
+                    <td>${_escapeHtml(hit.timestamp)}</td>
+                    <td style="color:var(--accent-cyan); font-family:var(--font-mono, monospace);">${freq.toFixed(4)}</td>
+                    <td>${level}</td>
+                    <td>${mode.toUpperCase()}</td>
+                    <td><button class="wf-hit-action" onclick="Waterfall.quickTune(${freq}, '${mode}')">Tune</button></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function _recordSignalHit({ frequencyMhz, level, modulation }) {
+        const freq = Number.parseFloat(`${frequencyMhz}`);
+        if (!Number.isFinite(freq) || freq <= 0) return;
+
+        const now = Date.now();
+        const key = freq.toFixed(4);
+        const last = _scanRecentHitTimes.get(key);
+        if (last && (now - last) < 5000) return;
+        _scanRecentHitTimes.set(key, now);
+
+        for (const [hitKey, timestamp] of _scanRecentHitTimes.entries()) {
+            if ((now - timestamp) > 60000) _scanRecentHitTimes.delete(hitKey);
+        }
+
+        const entry = {
+            timestamp: new Date(now).toLocaleTimeString(),
+            frequencyMhz: freq,
+            level: Number.isFinite(level) ? level : 0,
+            modulation: _safeMode(modulation),
+        };
+        _scanSignalHits.unshift(entry);
+        if (_scanSignalHits.length > SIGNAL_HIT_LIMIT) {
+            _scanSignalHits.length = SIGNAL_HIT_LIMIT;
+        }
+        _scanSignalCount += 1;
+        _renderSignalHits();
+        _renderRecentSignals();
+        _syncScanStatsUi();
+        _addScanLogEntry(
+            'Signal hit',
+            `${freq.toFixed(4)} MHz (level ${Math.round(entry.level)})`,
+            'signal'
+        );
+    }
+
+    function _recordScanStep(wrapped) {
+        _scanStepCount += 1;
+        if (wrapped) _scanCycleCount += 1;
+        _syncScanStatsUi();
+    }
+
+    function clearScanHistory() {
+        _scanLogEntries = [];
+        _scanSignalHits = [];
+        _scanRecentHitTimes = new Map();
+        _scanSignalCount = 0;
+        _scanStepCount = 0;
+        _scanCycleCount = 0;
+        _renderScanLog();
+        _renderSignalHits();
+        _renderRecentSignals();
+        _syncScanStatsUi();
+        _setStatus('Scan history cleared');
+    }
+
+    function exportScanLog() {
+        if (!_scanLogEntries.length) {
+            if (typeof showNotification === 'function') {
+                showNotification('Export', 'No scan activity to export');
+            }
+            return;
+        }
+        const csv = 'Timestamp,Event,Detail\n' + _scanLogEntries.map((entry) => (
+            `"${entry.timestamp}","${String(entry.title || '').replace(/"/g, '""')}","${String(entry.detail || '').replace(/"/g, '""')}"`
+        )).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `waterfall_scan_log_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
     }
 
     function _buildPalettes() {
@@ -321,6 +928,29 @@ const Waterfall = (function () {
         return value >= 1 ? `STEP ${value.toFixed(0)} MHz` : `STEP ${(value * 1000).toFixed(0)} kHz`;
     }
 
+    function _formatBandFreq(freqMhz) {
+        if (!Number.isFinite(freqMhz)) return '--';
+        if (freqMhz >= 1000) return freqMhz.toFixed(2);
+        if (freqMhz >= 100) return freqMhz.toFixed(3);
+        return freqMhz.toFixed(4);
+    }
+
+    function _shortBandLabel(label) {
+        const lookup = {
+            'AM Broadcast': 'AM BC',
+            'FM Broadcast': 'FM BC',
+            'NOAA WX Sat': 'NOAA SAT',
+            'NOAA Weather': 'NOAA WX',
+            'VHF Land Mobile': 'VHF LMR',
+            'Public Safety 800': 'PS 800',
+            'L-Band Aero/Nav': 'L-BAND',
+        };
+        if (lookup[label]) return lookup[label];
+        const compact = String(label || '').trim().replace(/\s+/g, ' ');
+        if (compact.length <= 11) return compact;
+        return `${compact.slice(0, 10)}.`;
+    }
+
     function _getMonitorMode() {
         return document.getElementById('wfMonitorMode')?.value || 'wfm';
     }
@@ -340,6 +970,7 @@ const Waterfall = (function () {
         _setModeButtons(safeMode);
         const modeReadout = document.getElementById('wfRxModeReadout');
         if (modeReadout) modeReadout.textContent = safeMode.toUpperCase();
+        _updateHeroReadout();
     }
 
     function _setSmeter(levelPct, text) {
@@ -423,6 +1054,7 @@ const Waterfall = (function () {
         const stopBtn = document.getElementById('wfStopBtn');
         if (startBtn) startBtn.style.display = _running ? 'none' : '';
         if (stopBtn) stopBtn.style.display = _running ? '' : 'none';
+        _updateScanButtons();
     }
 
     function _updateTuneLine() {
@@ -480,7 +1112,339 @@ const Waterfall = (function () {
         const modeReadout = document.getElementById('wfRxModeReadout');
         if (modeReadout) modeReadout.textContent = _getMonitorMode().toUpperCase();
 
+        _syncSignalIdFreq(false);
         _updateTuneLine();
+        _updateHeroReadout();
+    }
+
+    function _updateScanButtons() {
+        const startBtn = document.getElementById('wfScanStartBtn');
+        const stopBtn = document.getElementById('wfScanStopBtn');
+        if (startBtn) startBtn.disabled = _scanRunning;
+        if (stopBtn) stopBtn.disabled = !_scanRunning;
+    }
+
+    function _scanSignalLevelAt(freqMhz) {
+        const bins = _lastBins;
+        if (!bins || !bins.length) return 0;
+        const span = _endMhz - _startMhz;
+        if (!Number.isFinite(span) || span <= 0) return 0;
+        const frac = (freqMhz - _startMhz) / span;
+        if (!Number.isFinite(frac)) return 0;
+        const centerIdx = Math.round(_clamp(frac, 0, 1) * (bins.length - 1));
+        let peak = 0;
+        for (let i = -2; i <= 2; i += 1) {
+            const idx = centerIdx + i;
+            if (idx < 0 || idx >= bins.length) continue;
+            peak = Math.max(peak, Number(bins[idx]) || 0);
+        }
+        return peak;
+    }
+
+    function _readScanConfig() {
+        const start = parseFloat(document.getElementById('wfScanStart')?.value || `${_startMhz}`);
+        const end = parseFloat(document.getElementById('wfScanEnd')?.value || `${_endMhz}`);
+        const stepKhz = parseFloat(document.getElementById('wfScanStepKhz')?.value || '100');
+        const dwellMs = parseInt(document.getElementById('wfScanDwellMs')?.value, 10);
+        const threshold = parseInt(document.getElementById('wfScanThreshold')?.value, 10);
+        const holdMs = parseInt(document.getElementById('wfScanHoldMs')?.value, 10);
+        const stopOnSignal = !!document.getElementById('wfScanStopOnSignal')?.checked;
+
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end <= 0 || end <= start) {
+            throw new Error('Scan range is invalid');
+        }
+        if (!Number.isFinite(stepKhz) || stepKhz <= 0) {
+            throw new Error('Scan step must be > 0');
+        }
+        if (!Number.isFinite(dwellMs) || dwellMs < 60) {
+            throw new Error('Dwell must be at least 60 ms');
+        }
+
+        return {
+            start,
+            end,
+            stepMhz: stepKhz / 1000.0,
+            dwellMs: Math.max(60, dwellMs),
+            threshold: _clamp(Number.isFinite(threshold) ? threshold : 170, 0, 255),
+            holdMs: Math.max(0, Number.isFinite(holdMs) ? holdMs : 2500),
+            stopOnSignal,
+        };
+    }
+
+    function _scanTuneTo(freqMhz) {
+        const clamped = _clamp(freqMhz, 0.001, 6000.0);
+        _monitorFreqMhz = clamped;
+        _updateFreqDisplay();
+
+        if (_monitoring && !_isSharedMonitorActive()) {
+            _queueMonitorRetune(70);
+        }
+
+        const hasTransport = ((_ws && _ws.readyState === WebSocket.OPEN) || _transport === 'sse');
+        if (!hasTransport) return false;
+
+        const configuredSpan = _clamp(_currentSpan(), 0.05, 30.0);
+        const insideCapture = clamped >= _startMhz && clamped <= _endMhz;
+
+        if (_transport === 'ws') {
+            if (insideCapture) {
+                _sendWsTuneCmd();
+                return false;
+            }
+
+            const input = document.getElementById('wfCenterFreq');
+            if (input) input.value = clamped.toFixed(4);
+            _startMhz = clamped - configuredSpan / 2;
+            _endMhz = clamped + configuredSpan / 2;
+            _drawFreqAxis();
+            _scanStartPending = true;
+            _sendStartCmd();
+            return true;
+        }
+
+        const input = document.getElementById('wfCenterFreq');
+        if (input) input.value = clamped.toFixed(4);
+        _startMhz = clamped - configuredSpan / 2;
+        _endMhz = clamped + configuredSpan / 2;
+        _drawFreqAxis();
+        _scanStartPending = true;
+        _sendStartCmd();
+        return true;
+    }
+
+    function _clearScanTimer() {
+        if (_scanTimer) {
+            clearTimeout(_scanTimer);
+            _scanTimer = null;
+        }
+    }
+
+    function _scheduleScanTick(delayMs) {
+        _clearScanTimer();
+        if (!_scanRunning) return;
+        _scanTimer = setTimeout(() => {
+            _runScanTick().catch((err) => {
+                stopScan(`Scan error: ${err}`, { silent: false, isError: true });
+            });
+        }, Math.max(10, delayMs));
+    }
+
+    async function _runScanTick() {
+        if (!_scanRunning) return;
+        if (!_scanConfig) _scanConfig = _readScanConfig();
+        const cfg = _scanConfig;
+
+        if (_scanAwaitingCapture) {
+            if (_scanStartPending) {
+                _setScanState('Waiting for capture retune...');
+                _scheduleScanTick(Math.max(180, Math.min(650, cfg.dwellMs)));
+                return;
+            }
+
+            if (_running) {
+                _scanAwaitingCapture = false;
+                _scanRestartAttempts = 0;
+            } else {
+                _scanRestartAttempts += 1;
+                if (_scanRestartAttempts > 6) {
+                    stopScan('Waterfall error - scan ended after retry limit', { silent: false, isError: true });
+                    return;
+                }
+                const restarted = _scanTuneTo(_monitorFreqMhz);
+                if (!restarted) {
+                    stopScan('Waterfall error - unable to restart capture', { silent: false, isError: true });
+                    return;
+                }
+                _setScanState(`Retuning capture... retry ${_scanRestartAttempts}/6`);
+                _scheduleScanTick(Math.max(700, cfg.dwellMs + 280));
+                return;
+            }
+        }
+
+        if (!_running) {
+            stopScan('Waterfall stopped - scan ended', { silent: false, isError: true });
+            return;
+        }
+
+        if (cfg.stopOnSignal) {
+            const level = _scanSignalLevelAt(_monitorFreqMhz);
+            if (level >= cfg.threshold) {
+                const isNewHit = !_scanPausedOnSignal;
+                _scanPausedOnSignal = true;
+                if (isNewHit) {
+                    _recordSignalHit({
+                        frequencyMhz: _monitorFreqMhz,
+                        level,
+                        modulation: _getMonitorMode(),
+                    });
+                }
+                _setScanState(`Signal hit ${_monitorFreqMhz.toFixed(4)} MHz (level ${Math.round(level)})`);
+                _setStatus(`Scan paused on signal at ${_monitorFreqMhz.toFixed(4)} MHz`);
+                _scheduleScanTick(Math.max(120, cfg.holdMs));
+                return;
+            }
+        }
+
+        if (_scanPausedOnSignal) {
+            _addScanLogEntry('Signal cleared', `${_monitorFreqMhz.toFixed(4)} MHz`);
+        }
+        _scanPausedOnSignal = false;
+        let current = Number(_monitorFreqMhz);
+        if (!Number.isFinite(current) || current < cfg.start || current > cfg.end) {
+            current = cfg.start;
+        }
+
+        let next = current + cfg.stepMhz;
+        const wrapped = next > cfg.end + 1e-9;
+        if (wrapped) next = cfg.start;
+        _recordScanStep(wrapped);
+        const restarted = _scanTuneTo(next);
+        if (restarted) {
+            _scanAwaitingCapture = true;
+            _scanRestartAttempts = 0;
+            _setScanState(`Retuning capture window @ ${next.toFixed(4)} MHz`);
+            _scheduleScanTick(Math.max(cfg.dwellMs, 900));
+            return;
+        }
+        _setScanState(`Scanning ${cfg.start.toFixed(4)}-${cfg.end.toFixed(4)} MHz @ ${next.toFixed(4)} MHz`);
+        _scheduleScanTick(cfg.dwellMs);
+    }
+
+    async function startScan() {
+        if (_scanRunning) {
+            _setScanState('Scan already running');
+            return;
+        }
+        let cfg = null;
+        try {
+            cfg = _readScanConfig();
+        } catch (err) {
+            const msg = err && err.message ? err.message : 'Invalid scan configuration';
+            _setScanState(msg, true);
+            _setStatus(msg);
+            return;
+        }
+
+        if (!_running) {
+            try {
+                await start();
+            } catch (err) {
+                const msg = `Cannot start scan: ${err}`;
+                _setScanState(msg, true);
+                _setStatus(msg);
+                return;
+            }
+        }
+
+        _scanConfig = cfg;
+        _scanRunning = true;
+        _scanPausedOnSignal = false;
+        _scanAwaitingCapture = false;
+        _scanStartPending = false;
+        _scanRestartAttempts = 0;
+        _addScanLogEntry(
+            'Scan started',
+            `${cfg.start.toFixed(4)}-${cfg.end.toFixed(4)} MHz step ${(cfg.stepMhz * 1000).toFixed(1)} kHz`
+        );
+        const restarted = _scanTuneTo(cfg.start);
+        _updateScanButtons();
+        _setScanState(`Scanning ${cfg.start.toFixed(4)}-${cfg.end.toFixed(4)} MHz`);
+        _setStatus(`Scan started ${cfg.start.toFixed(4)}-${cfg.end.toFixed(4)} MHz`);
+        if (restarted) {
+            _scanAwaitingCapture = true;
+            _scheduleScanTick(Math.max(cfg.dwellMs, 900));
+        } else {
+            _scheduleScanTick(cfg.dwellMs);
+        }
+    }
+
+    function stopScan(reason = 'Scan stopped', { silent = false, isError = false } = {}) {
+        _scanRunning = false;
+        _scanPausedOnSignal = false;
+        _scanConfig = null;
+        _scanAwaitingCapture = false;
+        _scanStartPending = false;
+        _scanRestartAttempts = 0;
+        _clearScanTimer();
+        _updateScanButtons();
+        _updateHeroReadout();
+        if (!silent) {
+            _addScanLogEntry(isError ? 'Scan error' : 'Scan stopped', reason, isError ? 'error' : 'info');
+        }
+        if (!silent) {
+            _setScanState(reason, isError);
+            _setStatus(reason);
+        }
+    }
+
+    function setScanRangeFromView() {
+        const startEl = document.getElementById('wfScanStart');
+        const endEl = document.getElementById('wfScanEnd');
+        if (startEl) startEl.value = _startMhz.toFixed(4);
+        if (endEl) endEl.value = _endMhz.toFixed(4);
+        _setScanState(`Range synced to ${_startMhz.toFixed(4)}-${_endMhz.toFixed(4)} MHz`);
+    }
+
+    function _switchMode(modeName) {
+        if (typeof switchMode === 'function') {
+            switchMode(modeName);
+            return true;
+        }
+        if (typeof selectMode === 'function') {
+            selectMode(modeName);
+            return true;
+        }
+        return false;
+    }
+
+    function handoff(target) {
+        const currentFreq = Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : _currentCenter();
+
+        try {
+            if (target === 'pager') {
+                if (typeof setFreq === 'function') {
+                    setFreq(currentFreq.toFixed(4));
+                } else {
+                    const el = document.getElementById('frequency');
+                    if (el) el.value = currentFreq.toFixed(4);
+                }
+                _switchMode('pager');
+                _setHandoffStatus(`Sent ${currentFreq.toFixed(4)} MHz to Pager`);
+            } else if (target === 'subghz' || target === 'subghz433') {
+                const freq = target === 'subghz433' ? 433.920 : currentFreq;
+                if (typeof SubGhz !== 'undefined' && SubGhz.setFreq) {
+                    SubGhz.setFreq(freq);
+                    if (SubGhz.switchTab) SubGhz.switchTab('rx');
+                } else {
+                    const el = document.getElementById('subghzFrequency');
+                    if (el) el.value = freq.toFixed(3);
+                }
+                _switchMode('subghz');
+                _setHandoffStatus(`Sent ${freq.toFixed(4)} MHz to SubGHz`);
+            } else if (target === 'signalid') {
+                useTuneForSignalId();
+                _setHandoffStatus(`Running Signal ID at ${currentFreq.toFixed(4)} MHz`);
+                identifySignal().catch((err) => {
+                    _setSignalIdStatus(`Signal ID failed: ${err && err.message ? err.message : 'unknown error'}`, true);
+                });
+            } else {
+                throw new Error('Unsupported handoff target');
+            }
+
+            if (typeof showNotification === 'function') {
+                const targetLabel = {
+                    pager: 'Pager',
+                    subghz: 'SubGHz',
+                    subghz433: 'SubGHz 433 profile',
+                    signalid: 'Signal ID',
+                }[target] || target;
+                showNotification('Frequency Handoff', `${currentFreq.toFixed(4)} MHz routed to ${targetLabel}`);
+            }
+        } catch (err) {
+            const msg = err && err.message ? err.message : 'Handoff failed';
+            _setHandoffStatus(msg, true);
+            _setStatus(msg);
+        }
     }
 
     function _drawBandAnnotations(width, height) {
@@ -551,6 +1515,7 @@ const Waterfall = (function () {
 
     function _drawSpectrum(bins) {
         if (!_specCtx || !_specCanvas || !bins || bins.length === 0) return;
+        _lastBins = bins;
 
         const width = _specCanvas.width;
         const height = _specCanvas.height;
@@ -634,20 +1599,133 @@ const Waterfall = (function () {
         _wfCtx.putImageData(row, 0, 0);
     }
 
+    function _drawBandStrip() {
+        const strip = document.getElementById('wfBandStrip');
+        if (!strip) return;
+
+        if (!_showAnnotations) {
+            strip.innerHTML = '';
+            strip.style.display = 'none';
+            return;
+        }
+
+        strip.style.display = '';
+        strip.innerHTML = '';
+
+        const span = _endMhz - _startMhz;
+        if (!Number.isFinite(span) || span <= 0) return;
+
+        const stripWidth = strip.clientWidth || 0;
+        const markerLaneRight = [-Infinity, -Infinity];
+        let markerOrdinal = 0;
+        for (const [bandStart, bandEnd, bandLabel, bandColor] of RF_BANDS) {
+            if (bandEnd <= _startMhz || bandStart >= _endMhz) continue;
+
+            const visibleStart = Math.max(bandStart, _startMhz);
+            const visibleEnd = Math.min(bandEnd, _endMhz);
+            const widthRatio = (visibleEnd - visibleStart) / span;
+            if (!Number.isFinite(widthRatio) || widthRatio <= 0) continue;
+
+            const leftPct = ((visibleStart - _startMhz) / span) * 100;
+            const widthPct = widthRatio * 100;
+            const centerPct = leftPct + widthPct / 2;
+            const px = stripWidth > 0 ? stripWidth * widthRatio : 0;
+
+            if (px > 0 && px < 40) {
+                const marker = document.createElement('div');
+                marker.className = 'wf-band-marker';
+                marker.style.left = `${centerPct.toFixed(4)}%`;
+                marker.title = `${bandLabel}: ${visibleStart.toFixed(4)} - ${visibleEnd.toFixed(4)} MHz`;
+
+                const markerLabel = document.createElement('span');
+                markerLabel.className = 'wf-band-marker-label';
+                markerLabel.textContent = _shortBandLabel(bandLabel);
+                marker.appendChild(markerLabel);
+
+                let lane = 0;
+                if (stripWidth > 0) {
+                    const centerPx = (centerPct / 100) * stripWidth;
+                    const estWidth = Math.max(26, markerLabel.textContent.length * 6 + 10);
+                    const canLane0 = (centerPx - (estWidth / 2)) > (markerLaneRight[0] + 4);
+                    const canLane1 = (centerPx - (estWidth / 2)) > (markerLaneRight[1] + 4);
+
+                    if (canLane0) {
+                        lane = 0;
+                        markerLaneRight[0] = centerPx + (estWidth / 2);
+                    } else if (canLane1) {
+                        lane = 1;
+                        markerLaneRight[1] = centerPx + (estWidth / 2);
+                    } else {
+                        marker.classList.add('is-overlap');
+                        lane = markerLaneRight[0] <= markerLaneRight[1] ? 0 : 1;
+                    }
+                } else {
+                    lane = markerOrdinal % 2;
+                }
+                markerOrdinal += 1;
+                marker.classList.add(lane === 0 ? 'lane-0' : 'lane-1');
+                strip.appendChild(marker);
+                continue;
+            }
+
+            const block = document.createElement('div');
+            block.className = 'wf-band-block';
+            block.style.left = `${leftPct.toFixed(4)}%`;
+            block.style.width = `${widthPct.toFixed(4)}%`;
+            block.title = `${bandLabel}: ${visibleStart.toFixed(4)} - ${visibleEnd.toFixed(4)} MHz`;
+            if (bandColor) {
+                block.style.background = bandColor;
+            }
+
+            const isTight = !!(px && px < 128);
+            const isMini = !!(px && px < 72);
+            if (isTight) block.classList.add('is-tight');
+            if (isMini) block.classList.add('is-mini');
+
+            const start = document.createElement('span');
+            start.className = 'wf-band-edge wf-band-edge-start';
+            start.textContent = _formatBandFreq(visibleStart);
+
+            const name = document.createElement('span');
+            name.className = 'wf-band-name';
+            name.textContent = isMini
+                ? `${_formatBandFreq(visibleStart)}-${_formatBandFreq(visibleEnd)}`
+                : bandLabel;
+
+            const end = document.createElement('span');
+            end.className = 'wf-band-edge wf-band-edge-end';
+            end.textContent = _formatBandFreq(visibleEnd);
+
+            block.appendChild(start);
+            block.appendChild(name);
+            block.appendChild(end);
+            strip.appendChild(block);
+        }
+
+        if (!strip.childElementCount) {
+            const empty = document.createElement('div');
+            empty.className = 'wf-band-strip-empty';
+            empty.textContent = 'No known bands in current span';
+            strip.appendChild(empty);
+        }
+    }
+
     function _drawFreqAxis() {
         const axis = document.getElementById('wfFreqAxis');
-        if (!axis) return;
-        axis.innerHTML = '';
-        const ticks = 8;
-        for (let i = 0; i <= ticks; i += 1) {
-            const frac = i / ticks;
-            const freq = _startMhz + frac * (_endMhz - _startMhz);
-            const tick = document.createElement('div');
-            tick.className = 'wf-freq-tick';
-            tick.style.left = `${frac * 100}%`;
-            tick.textContent = freq.toFixed(2);
-            axis.appendChild(tick);
+        if (axis) {
+            axis.innerHTML = '';
+            const ticks = 8;
+            for (let i = 0; i <= ticks; i += 1) {
+                const frac = i / ticks;
+                const freq = _startMhz + frac * (_endMhz - _startMhz);
+                const tick = document.createElement('div');
+                tick.className = 'wf-freq-tick';
+                tick.style.left = `${frac * 100}%`;
+                tick.textContent = freq.toFixed(2);
+                axis.appendChild(tick);
+            }
         }
+        _drawBandStrip();
         _updateFreqDisplay();
     }
 
@@ -736,6 +1814,20 @@ const Waterfall = (function () {
         _queueMonitorRetune(delayMs);
     }
 
+    function _setSpanAndRetune(spanMhz, { retuneDelayMs = 250 } = {}) {
+        const safeSpan = _clamp(spanMhz, 0.05, 30.0);
+        const spanEl = document.getElementById('wfSpanMhz');
+        if (spanEl) spanEl.value = safeSpan.toFixed(3);
+
+        _startMhz = _currentCenter() - safeSpan / 2;
+        _endMhz = _currentCenter() + safeSpan / 2;
+        _drawFreqAxis();
+
+        if (_monitoring) _queueMonitorAdjust(retuneDelayMs, { allowSharedTune: false });
+        if (_running) _queueRetune(retuneDelayMs);
+        return safeSpan;
+    }
+
     function _setAndTune(freqMhz, immediate = false) {
         const clamped = _clamp(freqMhz, 0.001, 6000.0);
 
@@ -809,20 +1901,10 @@ const Waterfall = (function () {
         event.preventDefault();
 
         if (event.ctrlKey || event.metaKey) {
-            const spanEl = document.getElementById('wfSpanMhz');
             const current = _currentSpan();
             const factor = event.deltaY < 0 ? 1 / 1.2 : 1.2;
             const next = _clamp(current * factor, 0.05, 30.0);
-            if (spanEl) spanEl.value = next.toFixed(3);
-            _startMhz = _currentCenter() - next / 2;
-            _endMhz = _currentCenter() + next / 2;
-            _drawFreqAxis();
-
-            if (_monitoring) {
-                _queueMonitorAdjust(260, { allowSharedTune: false });
-            } else if (_running) {
-                _queueRetune(260);
-            }
+            _setSpanAndRetune(next, { retuneDelayMs: 260 });
             return;
         }
 
@@ -944,14 +2026,7 @@ const Waterfall = (function () {
         const spanEl = document.getElementById('wfSpanMhz');
         if (spanEl) {
             spanEl.addEventListener('change', () => {
-                const span = _clamp(_currentSpan(), 0.05, 30.0);
-                spanEl.value = span.toFixed(3);
-                _startMhz = _currentCenter() - span / 2;
-                _endMhz = _currentCenter() + span / 2;
-                _drawFreqAxis();
-
-                if (_monitoring) _queueMonitorAdjust(250, { allowSharedTune: false });
-                if (_running) _queueRetune(250);
+                _setSpanAndRetune(_currentSpan(), { retuneDelayMs: 250 });
             });
         }
 
@@ -1020,6 +2095,44 @@ const Waterfall = (function () {
                 if (volValue) volValue.textContent = String(v);
                 const player = document.getElementById('wfAudioPlayer');
                 if (player) player.volume = v / 100;
+            });
+        }
+
+        const scanThreshold = document.getElementById('wfScanThreshold');
+        const scanThresholdValue = document.getElementById('wfScanThresholdValue');
+        if (scanThreshold) {
+            scanThreshold.addEventListener('input', () => {
+                const v = parseInt(scanThreshold.value, 10) || 0;
+                if (scanThresholdValue) scanThresholdValue.textContent = String(v);
+                if (_scanConfig) _scanConfig.threshold = _clamp(v, 0, 255);
+            });
+            if (scanThresholdValue) {
+                scanThresholdValue.textContent = String(parseInt(scanThreshold.value, 10) || 0);
+            }
+        }
+
+        ['wfScanStart', 'wfScanEnd', 'wfScanStepKhz', 'wfScanDwellMs', 'wfScanHoldMs', 'wfScanStopOnSignal'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const evt = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
+            el.addEventListener(evt, () => {
+                if (!_scanRunning) return;
+                try {
+                    _scanConfig = _readScanConfig();
+                    _setScanState('Scan configuration updated');
+                } catch (err) {
+                    _setScanState(err && err.message ? err.message : 'Invalid scan configuration', true);
+                }
+            });
+        });
+
+        const bookmarkFreq = document.getElementById('wfBookmarkFreqInput');
+        if (bookmarkFreq) {
+            bookmarkFreq.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addBookmarkFromInput();
+                }
             });
         }
 
@@ -1144,7 +2257,7 @@ const Waterfall = (function () {
         const payloadKey = _ssePayloadKey(payload);
 
         const startOnce = async () => {
-            const response = await fetch('/listening/waterfall/start', {
+            const response = await fetch('/receiver/waterfall/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -1167,7 +2280,7 @@ const Waterfall = (function () {
         const runStart = (async () => {
             const shouldRestart = forceRestart || (_running && _sseStartConfigKey && _sseStartConfigKey !== payloadKey);
             if (shouldRestart) {
-                await fetch('/listening/waterfall/stop', { method: 'POST' }).catch(() => {});
+                await fetch('/receiver/waterfall/stop', { method: 'POST' }).catch(() => {});
                 _running = false;
                 _updateRunButtons();
                 await _wait(140);
@@ -1182,7 +2295,7 @@ const Waterfall = (function () {
             // If we attached to an existing backend worker after a page refresh,
             // restart once so requested center/span is definitely applied.
             if (_isWaterfallAlreadyRunningConflict(response, body) && !_sseStartConfigKey) {
-                await fetch('/listening/waterfall/stop', { method: 'POST' }).catch(() => {});
+                await fetch('/receiver/waterfall/stop', { method: 'POST' }).catch(() => {});
                 await _wait(140);
                 ({ response, body } = await startOnce());
                 if (_isWaterfallDeviceBusy(response, body)) {
@@ -1251,7 +2364,7 @@ const Waterfall = (function () {
 
     function _openSseStream() {
         if (_es) return;
-        const source = new EventSource(`/listening/waterfall/stream?t=${Date.now()}`);
+        const source = new EventSource(`/receiver/waterfall/stream?t=${Date.now()}`);
         _es = source;
         source.onmessage = (event) => {
             let msg = null;
@@ -1319,6 +2432,9 @@ const Waterfall = (function () {
                 if (msg.status === 'started') {
                     _running = true;
                     _updateRunButtons();
+                    _scanAwaitingCapture = false;
+                    _scanStartPending = false;
+                    _scanRestartAttempts = 0;
                     if (Number.isFinite(msg.vfo_freq_mhz)) {
                         _monitorFreqMhz = Number(msg.vfo_freq_mhz);
                     }
@@ -1345,11 +2461,27 @@ const Waterfall = (function () {
                     return;
                 } else if (msg.status === 'stopped') {
                     _running = false;
+                    _scanAwaitingCapture = false;
+                    _scanStartPending = false;
+                    _scanRestartAttempts = 0;
+                    if (_scanRunning) {
+                        stopScan('Waterfall stopped - scan ended', { silent: false, isError: true });
+                    }
                     _updateRunButtons();
                     _setStatus('Waterfall stopped');
                     _setVisualStatus('STOPPED');
                 } else if (msg.status === 'error') {
                     _running = false;
+                    _scanStartPending = false;
+                    if (_scanRunning) {
+                        _scanAwaitingCapture = true;
+                        _setScanState(msg.message || 'Waterfall retune error, retrying...', true);
+                        _setStatus(msg.message || 'Waterfall retune error, retrying...');
+                        _scheduleScanTick(850);
+                        return;
+                    }
+                    _scanAwaitingCapture = false;
+                    _scanRestartAttempts = 0;
                     _updateRunButtons();
                     _setStatus(msg.message || 'Waterfall error');
                     _setVisualStatus('ERROR');
@@ -1396,7 +2528,7 @@ const Waterfall = (function () {
             }
 
             await _pauseMonitorAudioElement();
-            player.src = `/listening/audio/stream?fresh=1&t=${Date.now()}-${attempt}`;
+            player.src = `/receiver/audio/stream?fresh=1&t=${Date.now()}-${attempt}`;
             player.load();
 
             try {
@@ -1478,7 +2610,7 @@ const Waterfall = (function () {
         device,
         biasT,
     }) {
-        const response = await fetch('/listening/audio/start', {
+        const response = await fetch('/receiver/audio/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1630,7 +2762,7 @@ const Waterfall = (function () {
                 _setVisualStatus('ERROR');
                 _syncMonitorButtons();
                 try {
-                    await fetch('/listening/audio/stop', { method: 'POST' });
+                    await fetch('/receiver/audio/stop', { method: 'POST' });
                 } catch (_) {
                     // Ignore cleanup stop failures
                 }
@@ -1682,7 +2814,7 @@ const Waterfall = (function () {
         _audioConnectNonce += 1;
 
         try {
-            await fetch('/listening/audio/stop', { method: 'POST' });
+            await fetch('/receiver/audio/stop', { method: 'POST' });
         } catch (_) {
             // Ignore backend stop errors
         }
@@ -1859,6 +2991,9 @@ const Waterfall = (function () {
             _clearWsFallbackTimer();
             _running = false;
             _updateRunButtons();
+            if (_scanRunning) {
+                stopScan('Waterfall disconnected - scan stopped', { silent: false, isError: true });
+            }
             if (_active) {
                 _setStatus('Waterfall disconnected');
                 if (!_monitoring) {
@@ -1869,6 +3004,7 @@ const Waterfall = (function () {
     }
 
     async function stop({ keepStatus = false } = {}) {
+        stopScan('Scan stopped', { silent: keepStatus });
         clearTimeout(_retuneTimer);
         _clearWsFallbackTimer();
         _wsOpened = false;
@@ -1891,7 +3027,7 @@ const Waterfall = (function () {
         if (_es) {
             _closeSseStream();
             try {
-                await fetch('/listening/waterfall/stop', { method: 'POST' });
+                await fetch('/receiver/waterfall/stop', { method: 'POST' });
             } catch (_) {
                 // Ignore fallback stop errors.
             }
@@ -1899,6 +3035,7 @@ const Waterfall = (function () {
 
         _sseStartConfigKey = '';
         _running = false;
+        _lastBins = null;
         _updateRunButtons();
         if (!keepStatus) {
             _setStatus('Waterfall stopped');
@@ -1917,6 +3054,12 @@ const Waterfall = (function () {
 
     function toggleAnnotations(value) {
         _showAnnotations = !!value;
+        _drawBandStrip();
+        if (_lastBins && _lastBins.length) {
+            _drawSpectrum(_lastBins);
+        } else {
+            _drawFreqAxis();
+        }
     }
 
     function toggleAutoRange(value) {
@@ -1934,6 +3077,20 @@ const Waterfall = (function () {
     function stepFreq(multiplier) {
         const step = _getNumber('wfStepSize', 0.1);
         _setAndTune(_currentCenter() + multiplier * step, true);
+    }
+
+    function zoomBy(factor) {
+        if (!Number.isFinite(factor) || factor <= 0) return;
+        const next = _setSpanAndRetune(_currentSpan() * factor, { retuneDelayMs: 220 });
+        _setStatus(`Span set to ${next.toFixed(3)} MHz`);
+    }
+
+    function zoomIn() {
+        zoomBy(1 / 1.25);
+    }
+
+    function zoomOut() {
+        zoomBy(1.25);
     }
 
     function _renderDeviceOptions(devices) {
@@ -2068,6 +3225,18 @@ const Waterfall = (function () {
         const dbMaxEl = document.getElementById('wfDbMax');
         if (dbMinEl) dbMinEl.disabled = true;
         if (dbMaxEl) dbMaxEl.disabled = true;
+        _loadBookmarks();
+        _renderRecentSignals();
+        _renderSignalHits();
+        _renderScanLog();
+        _syncScanStatsUi();
+        _setHandoffStatus('Ready');
+        _setSignalIdStatus('Ready');
+        _syncSignalIdFreq(true);
+        _clearSignalIdPanels();
+        _setScanState('Scan idle');
+        _updateScanButtons();
+        setScanRangeFromView();
 
         _setMonitorMode(_getMonitorMode());
         _setUnlockVisible(false);
@@ -2076,6 +3245,7 @@ const Waterfall = (function () {
         _updateRunButtons();
         _setVisualStatus('CONNECTING');
         _setStatus('Connecting waterfall stream...');
+        _updateHeroReadout();
 
         setTimeout(_resizeCanvases, 60);
         _drawFreqAxis();
@@ -2089,6 +3259,8 @@ const Waterfall = (function () {
         _active = false;
         clearTimeout(_retuneTimer);
         clearTimeout(_monitorRetuneTimer);
+        stopScan('Scan stopped', { silent: true });
+        _lastBins = null;
 
         if (_monitoring) {
             await stopMonitor({ resumeWaterfall: false });
@@ -2118,6 +3290,9 @@ const Waterfall = (function () {
         start,
         stop,
         stepFreq,
+        zoomIn,
+        zoomOut,
+        zoomBy,
         setPalette,
         togglePeakHold,
         toggleAnnotations,
@@ -2128,6 +3303,18 @@ const Waterfall = (function () {
         unlockAudio,
         applyPreset,
         stopMonitor,
+        handoff,
+        identifySignal,
+        useTuneForSignalId,
+        quickTune: quickTunePreset,
+        addBookmarkFromInput,
+        removeBookmark,
+        useTuneForBookmark,
+        clearScanHistory,
+        exportScanLog,
+        startScan,
+        stopScan,
+        setScanRangeFromView,
     };
 })();
 

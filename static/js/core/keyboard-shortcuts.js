@@ -11,8 +11,6 @@ const KeyboardShortcuts = (function () {
         if (e.altKey) {
             switch (e.key.toLowerCase()) {
                 case 'w': e.preventDefault(); window.switchMode && switchMode('waterfall');    break;
-                case 'h': e.preventDefault(); window.switchMode && switchMode('rfheatmap');    break;
-                case 'n': e.preventDefault(); window.switchMode && switchMode('fingerprint');  break;
                 case 'm': e.preventDefault(); window.VoiceAlerts && VoiceAlerts.toggleMute(); break;
                 case 's': e.preventDefault(); _toggleSidebar();                                break;
                 case 'k': e.preventDefault(); showHelp();                                      break;

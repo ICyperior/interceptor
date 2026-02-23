@@ -248,6 +248,10 @@
             <div class="display-container">
                 <div id="radarMap">
                 </div>
+                <div id="mapCrosshairOverlay" class="map-crosshair-overlay" aria-hidden="true">
+                    <div class="map-crosshair-line map-crosshair-vertical"></div>
+                    <div class="map-crosshair-line map-crosshair-horizontal"></div>
+                </div>
             </div>
         </div>
 
@@ -419,6 +423,10 @@
         let alertsEnabled = true;
         let detectionSoundEnabled = localStorage.getItem('adsb_detectionSound') !== 'false';  // Default on
         let soundedAircraft = {};  // Track aircraft we've played detection sound for
+        const MAP_CROSSHAIR_DURATION_MS = 620;
+        let mapCrosshairResetTimer = null;
+        let mapCrosshairFallbackTimer = null;
+        let mapCrosshairRequestId = 0;
         // Watchlist - persisted to localStorage
         let watchlist = JSON.parse(localStorage.getItem('adsb_watchlist') || '[]');
 
@@ -2610,7 +2618,7 @@ sudo make install</code>
             } else {
                 markers[icao] = L.marker([ac.lat, ac.lon], { icon: createMarkerIcon(rotation, color, iconType, isSelected) })
                     .addTo(radarMap)
-                    .on('click', () => selectAircraft(icao));
+                    .on('click', () => selectAircraft(icao, 'map'));
                 markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
                     permanent: false, direction: 'top', className: 'aircraft-tooltip'
                 });
@@ -2714,7 +2722,7 @@ sudo make install</code>
                     const div = document.createElement('div');
                     div.className = `aircraft-item ${selectedIcao === ac.icao ? 'selected' : ''} ${isOnWatchlist(ac) ? 'watched' : ''}`;
                     div.setAttribute('data-icao', ac.icao);
-                    div.onclick = () => selectAircraft(ac.icao);
+                    div.onclick = () => selectAircraft(ac.icao, 'panel');
                     div.innerHTML = buildAircraftItemHTML(ac);
                     fragment.appendChild(div);
                 });
@@ -2784,9 +2792,39 @@ sudo make install</code>
             `;
         }
 
-        function selectAircraft(icao) {
+        function triggerMapCrosshairAnimation(lat, lon) {
+            if (!radarMap) return;
+            const overlay = document.getElementById('mapCrosshairOverlay');
+            if (!overlay) return;
+
+            const point = radarMap.latLngToContainerPoint([lat, lon]);
+            const size = radarMap.getSize();
+            const targetX = Math.max(0, Math.min(size.x, point.x));
+            const targetY = Math.max(0, Math.min(size.y, point.y));
+
+            overlay.style.setProperty('--target-x', `${targetX}px`);
+            overlay.style.setProperty('--target-y', `${targetY}px`);
+            overlay.classList.remove('active');
+            void overlay.offsetWidth;
+            overlay.classList.add('active');
+
+            if (mapCrosshairResetTimer) {
+                clearTimeout(mapCrosshairResetTimer);
+            }
+            mapCrosshairResetTimer = setTimeout(() => {
+                overlay.classList.remove('active');
+                mapCrosshairResetTimer = null;
+            }, MAP_CROSSHAIR_DURATION_MS + 40);
+        }
+
+        function selectAircraft(icao, source = 'map') {
             const prevSelected = selectedIcao;
             selectedIcao = icao;
+            mapCrosshairRequestId += 1;
+            if (mapCrosshairFallbackTimer) {
+                clearTimeout(mapCrosshairFallbackTimer);
+                mapCrosshairFallbackTimer = null;
+            }
 
             // Update marker icons for both previous and new selection
             [prevSelected, icao].forEach(targetIcao => {
@@ -2811,7 +2849,26 @@ sudo make install</code>
 
             const ac = aircraft[icao];
             if (ac && ac.lat !== undefined && ac.lat !== null && ac.lon !== undefined && ac.lon !== null) {
-                radarMap.setView([ac.lat, ac.lon], 10);
+                const targetLat = ac.lat;
+                const targetLon = ac.lon;
+
+                if (source === 'panel' && radarMap) {
+                    const requestId = mapCrosshairRequestId;
+                    let crosshairTriggered = false;
+                    const runCrosshair = () => {
+                        if (crosshairTriggered || requestId !== mapCrosshairRequestId) return;
+                        crosshairTriggered = true;
+                        if (mapCrosshairFallbackTimer) {
+                            clearTimeout(mapCrosshairFallbackTimer);
+                            mapCrosshairFallbackTimer = null;
+                        }
+                        triggerMapCrosshairAnimation(targetLat, targetLon);
+                    };
+                    radarMap.once('moveend', runCrosshair);
+                    mapCrosshairFallbackTimer = setTimeout(runCrosshair, 450);
+                }
+
+                radarMap.setView([targetLat, targetLon], 10);
             }
         }
 
@@ -3081,7 +3138,7 @@ sudo make install</code>
 
         function initAirband() {
             // Check if audio tools are available
-            fetch('/listening/tools')
+            fetch('/receiver/tools')
                 .then(r => r.json())
                 .then(data => {
                     const missingTools = [];
@@ -3231,7 +3288,7 @@ sudo make install</code>
 
             try {
                 // Start audio on backend
-                const response = await fetch('/listening/audio/start', {
+                const response = await fetch('/receiver/audio/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -3268,7 +3325,7 @@ sudo make install</code>
                 audioPlayer.load();
 
                 // Connect to stream
-                const streamUrl = `/listening/audio/stream?t=${Date.now()}`;
+                const streamUrl = `/receiver/audio/stream?t=${Date.now()}`;
                 console.log('[AIRBAND] Connecting to stream:', streamUrl);
                 audioPlayer.src = streamUrl;
 
@@ -3312,7 +3369,7 @@ sudo make install</code>
             audioPlayer.pause();
             audioPlayer.src = '';
 
-            fetch('/listening/audio/stop', { method: 'POST' })
+            fetch('/receiver/audio/stop', { method: 'POST' })
                 .then(r => r.json())
                 .then(() => {
                     isAirbandPlaying = false;

@@ -130,7 +130,7 @@ const FirstRunSetup = (function() {
                     ['pager', 'Pager'],
                     ['sensor', '433MHz'],
                     ['rtlamr', 'Meters'],
-                    ['listening', 'Listening Post'],
+                    ['waterfall', 'Waterfall'],
                     ['wifi', 'WiFi'],
                     ['bluetooth', 'Bluetooth'],
                     ['bt_locate', 'BT Locate'],
@@ -149,7 +149,11 @@ const FirstRunSetup = (function() {
 
                 const savedDefaultMode = localStorage.getItem(DEFAULT_MODE_KEY);
                 if (savedDefaultMode) {
-                    modeSelectEl.value = savedDefaultMode;
+                    const normalizedMode = savedDefaultMode === 'listening' ? 'waterfall' : savedDefaultMode;
+                    modeSelectEl.value = normalizedMode;
+                    if (normalizedMode !== savedDefaultMode) {
+                        localStorage.setItem(DEFAULT_MODE_KEY, normalizedMode);
+                    }
                 }
 
                 actionsEl.appendChild(modeSelectEl);
