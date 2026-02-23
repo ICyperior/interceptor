@@ -2667,7 +2667,10 @@ const Waterfall = (function () {
         if (monitorBtn) {
             monitorBtn.textContent = _monitoring ? 'Stop Monitor' : 'Monitor';
             monitorBtn.classList.toggle('is-active', _monitoring);
-            monitorBtn.disabled = _startingMonitor;
+            // Allow clicking Stop Monitor during retunes (monitor already
+            // active, just reconnecting audio).  Only disable when starting
+            // from scratch so users can't double-click Start.
+            monitorBtn.disabled = _startingMonitor && !_monitoring;
         }
 
         if (muteBtn) {
@@ -2687,7 +2690,9 @@ const Waterfall = (function () {
                 _resumeWaterfallAfterMonitor = !!wasRunningWaterfall;
             }
 
-            const centerMhz = _currentCenter();
+            // For retune-only calls, keep the current VFO frequency so
+            // user clicks during the async reconnect are not overridden.
+            const centerMhz = retuneOnly ? _monitorFreqMhz : _currentCenter();
             const mode = document.getElementById('wfMonitorMode')?.value || 'wfm';
             const squelch = parseInt(document.getElementById('wfMonitorSquelch')?.value, 10) || 0;
             const sliderGain = parseInt(document.getElementById('wfMonitorGain')?.value, 10);
@@ -2701,7 +2706,9 @@ const Waterfall = (function () {
             const biasT = !!document.getElementById('wfBiasT')?.checked;
             const usingSecondaryDevice = !!altDevice;
 
-            _monitorFreqMhz = centerMhz;
+            if (!retuneOnly) {
+                _monitorFreqMhz = centerMhz;
+            }
             _drawFreqAxis();
             _stopSmeter();
             _setUnlockVisible(false);
@@ -2716,8 +2723,11 @@ const Waterfall = (function () {
                 _setMonitorState(`Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()}...`);
             }
 
+            // Use live _monitorFreqMhz for retunes so that any user
+            // clicks that changed the VFO during the async setup are
+            // picked up rather than overridden.
             let { response, payload } = await _requestAudioStart({
-                frequency: centerMhz,
+                frequency: retuneOnly ? _monitorFreqMhz : centerMhz,
                 modulation: mode,
                 squelch,
                 gain,
@@ -2802,20 +2812,29 @@ const Waterfall = (function () {
             _monitoring = true;
             _syncMonitorButtons();
             _startSmeter(attach.player);
+            // Use live VFO for display — user may have clicked a new
+            // frequency while the retune was reconnecting audio.
+            const displayMhz = retuneOnly ? _monitorFreqMhz : centerMhz;
             if (_monitorSource === 'waterfall') {
                 _setMonitorState(
-                    `Monitoring ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} via shared IQ`
+                    `Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()} via shared IQ`
                 );
             } else if (usingSecondaryDevice) {
                 _setMonitorState(
-                    `Monitoring ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} `
+                    `Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()} `
                     + `via ${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}`
                 );
             } else {
-                _setMonitorState(`Monitoring ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()}`);
+                _setMonitorState(`Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()}`);
             }
-            _setStatus(`Audio monitor active on ${centerMhz.toFixed(4)} MHz (${mode.toUpperCase()})`);
+            _setStatus(`Audio monitor active on ${displayMhz.toFixed(4)} MHz (${mode.toUpperCase()})`);
             _setVisualStatus('MONITOR');
+            // After a retune reconnect, sync the backend to the latest
+            // VFO in case the user clicked a new frequency while the
+            // audio stream was reconnecting.
+            if (retuneOnly && _monitorSource === 'waterfall' && _ws && _ws.readyState === WebSocket.OPEN) {
+                _sendWsTuneCmd();
+            }
         } catch (err) {
             if (nonce !== _audioConnectNonce) return;
             _monitoring = false;
