@@ -1,5 +1,5 @@
 /* INTERCEPT Service Worker — cache-first static, network-only for API/SSE/WS */
-const CACHE_NAME = 'intercept-v2';
+const CACHE_NAME = 'intercept-v3';
 
 const NETWORK_ONLY_PREFIXES = [
     '/stream', '/ws/', '/api/', '/gps/', '/wifi/', '/bluetooth/',
