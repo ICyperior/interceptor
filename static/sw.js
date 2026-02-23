@@ -19,6 +19,11 @@ const STATIC_PREFIXES = [
 
 const CACHE_EXACT = ['/manifest.json'];
 
+function isHttpRequest(req) {
+    const url = new URL(req.url);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
 function isNetworkOnly(req) {
     if (req.method !== 'GET') return true;
     const accept = req.headers.get('Accept') || '';
@@ -31,6 +36,31 @@ function isStaticAsset(req) {
     const url = new URL(req.url);
     if (CACHE_EXACT.includes(url.pathname)) return true;
     return STATIC_PREFIXES.some(p => url.pathname.startsWith(p));
+}
+
+function fallbackResponse(req, status = 503) {
+    const accept = req.headers.get('Accept') || '';
+    if (accept.includes('application/json')) {
+        return new Response(
+            JSON.stringify({ status: 'error', message: 'Network unavailable' }),
+            {
+                status,
+                headers: { 'Content-Type': 'application/json' },
+            }
+        );
+    }
+
+    if (accept.includes('text/event-stream')) {
+        return new Response('', {
+            status,
+            headers: { 'Content-Type': 'text/event-stream' },
+        });
+    }
+
+    return new Response('Offline', {
+        status,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
 }
 
 self.addEventListener('install', (e) => {
@@ -48,9 +78,16 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     const req = e.request;
 
+    // Ignore non-HTTP(S) requests so extensions/browser-internal URLs are untouched.
+    if (!isHttpRequest(req)) {
+        return;
+    }
+
     // Always bypass service worker for non-GET and streaming routes
     if (isNetworkOnly(req)) {
-        e.respondWith(fetch(req));
+        e.respondWith(
+            fetch(req).catch(() => fallbackResponse(req, 503))
+        );
         return;
     }
 
@@ -69,7 +106,7 @@ self.addEventListener('fetch', (e) => {
                     return fetch(req).then(res => {
                         if (res && res.status === 200) cache.put(req, res.clone());
                         return res;
-                    });
+                    }).catch(() => fallbackResponse(req, 504));
                 })
             )
         );
