@@ -462,8 +462,16 @@ def init_waterfall_websocket(app: Flask):
                     start_freq = center_freq_mhz - effective_span_mhz / 2
                     end_freq = center_freq_mhz + effective_span_mhz / 2
 
-                    # Claim the device
-                    claim_err = app_module.claim_sdr_device(device_index, 'waterfall')
+                    # Claim the device (retry when restarting to allow
+                    # the kernel time to release the USB handle).
+                    max_claim_attempts = 4 if was_restarting else 1
+                    claim_err = None
+                    for _claim_attempt in range(max_claim_attempts):
+                        claim_err = app_module.claim_sdr_device(device_index, 'waterfall')
+                        if not claim_err:
+                            break
+                        if _claim_attempt < max_claim_attempts - 1:
+                            time.sleep(0.4)
                     if claim_err:
                         ws.send(json.dumps({
                             'status': 'error',

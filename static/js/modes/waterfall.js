@@ -2488,6 +2488,17 @@ const Waterfall = (function () {
                 } else if (msg.status === 'error') {
                     _running = false;
                     _scanStartPending = false;
+                    _pendingSharedMonitorRearm = false;
+                    // If the monitor was using the shared IQ stream that
+                    // just failed, tear down the stale monitor state so
+                    // the button becomes clickable again after restart.
+                    if (_monitoring && _monitorSource === 'waterfall') {
+                        clearTimeout(_monitorRetuneTimer);
+                        _monitoring = false;
+                        _monitorSource = 'process';
+                        _syncMonitorButtons();
+                        _setMonitorState('Monitor stopped (waterfall error)');
+                    }
                     if (_scanRunning) {
                         _scanAwaitingCapture = true;
                         _setScanState(msg.message || 'Waterfall retune error, retrying...', true);
