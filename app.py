@@ -869,6 +869,36 @@ def kill_all() -> Response:
     return jsonify({'status': 'killed', 'processes': killed})
 
 
+def _ensure_self_signed_cert(cert_dir: str) -> tuple:
+    """Generate a self-signed certificate if one doesn't already exist.
+
+    Returns (cert_path, key_path) tuple.
+    """
+    cert_path = os.path.join(cert_dir, 'intercept.crt')
+    key_path = os.path.join(cert_dir, 'intercept.key')
+
+    if os.path.exists(cert_path) and os.path.exists(key_path):
+        print(f"Using existing SSL certificate: {cert_path}")
+        return cert_path, key_path
+
+    os.makedirs(cert_dir, exist_ok=True)
+    print("Generating self-signed SSL certificate...")
+
+    import subprocess
+    result = subprocess.run([
+        'openssl', 'req', '-x509', '-newkey', 'rsa:2048',
+        '-keyout', key_path, '-out', cert_path,
+        '-days', '365', '-nodes',
+        '-subj', '/CN=intercept/O=INTERCEPT/C=US',
+    ], capture_output=True, text=True)
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to generate SSL certificate: {result.stderr}")
+
+    print(f"SSL certificate generated: {cert_path}")
+    return cert_path, key_path
+
+
 def main() -> None:
     """Main entry point."""
     import argparse
@@ -894,6 +924,12 @@ def main() -> None:
         action='store_true',
         default=config.DEBUG,
         help='Enable debug mode'
+    )
+    parser.add_argument(
+        '--https',
+        action='store_true',
+        default=config.HTTPS,
+        help='Enable HTTPS with self-signed certificate'
     )
     parser.add_argument(
         '--check-deps',
@@ -1020,7 +1056,18 @@ def main() -> None:
     except ImportError as e:
         print(f"WebSocket waterfall disabled: {e}")
 
-    print(f"Open http://localhost:{args.port} in your browser")
+    # Configure SSL if HTTPS is enabled
+    ssl_context = None
+    if args.https:
+        cert_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'certs')
+        if config.SSL_CERT and config.SSL_KEY:
+            ssl_context = (config.SSL_CERT, config.SSL_KEY)
+            print(f"Using provided SSL certificate: {config.SSL_CERT}")
+        else:
+            ssl_context = _ensure_self_signed_cert(cert_dir)
+
+    protocol = 'https' if ssl_context else 'http'
+    print(f"Open {protocol}://localhost:{args.port} in your browser")
     print()
     print("Press Ctrl+C to stop")
     print()
@@ -1032,4 +1079,5 @@ def main() -> None:
         debug=args.debug,
         threaded=True,
         load_dotenv=False,
+        ssl_context=ssl_context,
     )

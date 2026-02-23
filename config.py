@@ -280,6 +280,11 @@ PORT = _get_env_int('PORT', 5050)
 DEBUG = _get_env_bool('DEBUG', False)
 THREADED = _get_env_bool('THREADED', True)
 
+# HTTPS / SSL settings
+HTTPS = _get_env_bool('HTTPS', False)
+SSL_CERT = _get_env('SSL_CERT', '')
+SSL_KEY = _get_env('SSL_KEY', '')
+
 # Default RTL-SDR settings
 DEFAULT_GAIN = _get_env('DEFAULT_GAIN', '40')
 DEFAULT_DEVICE = _get_env('DEFAULT_DEVICE', '0')

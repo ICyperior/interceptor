@@ -250,6 +250,7 @@ RUN mkdir -p /app/data /app/data/weather_sat
 
 # Expose web interface port
 EXPOSE 5050
+EXPOSE 5443
 
 # Environment variables with defaults
 ENV INTERCEPT_HOST=0.0.0.0 \
