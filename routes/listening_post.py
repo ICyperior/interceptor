@@ -41,10 +41,12 @@ receiver_bp = Blueprint('receiver', __name__, url_prefix='/receiver')
 audio_process = None
 audio_rtl_process = None
 audio_lock = threading.Lock()
+audio_start_lock = threading.Lock()
 audio_running = False
 audio_frequency = 0.0
 audio_modulation = 'fm'
 audio_source = 'process'
+audio_start_token = 0
 
 # Scanner state
 scanner_thread: Optional[threading.Thread] = None
@@ -1273,34 +1275,7 @@ def get_presets() -> Response:
 def start_audio() -> Response:
     """Start audio at specific frequency (manual mode)."""
     global scanner_running, scanner_active_device, receiver_active_device, scanner_power_process, scanner_thread
-    global audio_running, audio_frequency, audio_modulation, audio_source
-
-    # Stop scanner if running
-    if scanner_running:
-        scanner_running = False
-        if scanner_active_device is not None:
-            app_module.release_sdr_device(scanner_active_device)
-            scanner_active_device = None
-        if scanner_thread and scanner_thread.is_alive():
-            try:
-                scanner_thread.join(timeout=2.0)
-            except Exception:
-                pass
-        if scanner_power_process and scanner_power_process.poll() is None:
-            try:
-                scanner_power_process.terminate()
-                scanner_power_process.wait(timeout=1)
-            except Exception:
-                try:
-                    scanner_power_process.kill()
-                except Exception:
-                    pass
-            scanner_power_process = None
-        try:
-            subprocess.run(['pkill', '-9', 'rtl_power'], capture_output=True, timeout=0.5)
-        except Exception:
-            pass
-        time.sleep(0.5)
+    global audio_running, audio_frequency, audio_modulation, audio_source, audio_start_token
 
     data = request.json or {}
 
@@ -1311,6 +1286,8 @@ def start_audio() -> Response:
         gain = int(data.get('gain', 40))
         device = int(data.get('device', 0))
         sdr_type = str(data.get('sdr_type', 'rtlsdr')).lower()
+        request_token_raw = data.get('request_token')
+        request_token = int(request_token_raw) if request_token_raw is not None else None
         bias_t_raw = data.get('bias_t', scanner_config.get('bias_t', False))
         if isinstance(bias_t_raw, str):
             bias_t = bias_t_raw.strip().lower() in {'1', 'true', 'yes', 'on'}
@@ -1335,95 +1312,138 @@ def start_audio() -> Response:
             'message': f'Invalid sdr_type. Use: {", ".join(valid_sdr_types)}'
         }), 400
 
-    # Update config for audio
-    scanner_config['squelch'] = squelch
-    scanner_config['gain'] = gain
-    scanner_config['device'] = device
-    scanner_config['sdr_type'] = sdr_type
-    scanner_config['bias_t'] = bias_t
-
-    # Preferred path: when waterfall WebSocket is active on the same SDR,
-    # derive monitor audio from that IQ stream instead of spawning rtl_fm.
-    try:
-        from routes.waterfall_websocket import (
-            get_shared_capture_status,
-            start_shared_monitor_from_capture,
-        )
-
-        shared = get_shared_capture_status()
-        if shared.get('running') and shared.get('device') == device:
-            _stop_audio_stream()
-            ok, msg = start_shared_monitor_from_capture(
-                device=device,
-                frequency_mhz=frequency,
-                modulation=modulation,
-                squelch=squelch,
-            )
-            if ok:
-                audio_running = True
-                audio_frequency = frequency
-                audio_modulation = modulation
-                audio_source = 'waterfall'
-                # Shared monitor uses the waterfall's existing SDR claim.
-                if receiver_active_device is not None:
-                    app_module.release_sdr_device(receiver_active_device)
-                    receiver_active_device = None
+    with audio_start_lock:
+        if request_token is not None:
+            if request_token < audio_start_token:
                 return jsonify({
-                    'status': 'started',
-                    'frequency': frequency,
-                    'modulation': modulation,
-                    'source': 'waterfall',
-                })
-            logger.warning(f"Shared waterfall monitor unavailable: {msg}")
-    except Exception as e:
-        logger.debug(f"Shared waterfall monitor probe failed: {e}")
+                    'status': 'stale',
+                    'message': 'Superseded audio start request',
+                    'source': audio_source,
+                    'superseded': True,
+                }), 409
+            audio_start_token = request_token
+        else:
+            audio_start_token += 1
+            request_token = audio_start_token
 
-    # Stop waterfall if it's using the same SDR (SSE path)
-    if waterfall_running and waterfall_active_device == device:
-        _stop_waterfall_internal()
-        time.sleep(0.2)
+        # Stop scanner if running
+        if scanner_running:
+            scanner_running = False
+            if scanner_active_device is not None:
+                app_module.release_sdr_device(scanner_active_device)
+                scanner_active_device = None
+            if scanner_thread and scanner_thread.is_alive():
+                try:
+                    scanner_thread.join(timeout=2.0)
+                except Exception:
+                    pass
+            if scanner_power_process and scanner_power_process.poll() is None:
+                try:
+                    scanner_power_process.terminate()
+                    scanner_power_process.wait(timeout=1)
+                except Exception:
+                    try:
+                        scanner_power_process.kill()
+                    except Exception:
+                        pass
+                scanner_power_process = None
+            try:
+                subprocess.run(['pkill', '-9', 'rtl_power'], capture_output=True, timeout=0.5)
+            except Exception:
+                pass
+            time.sleep(0.5)
 
-    # Claim device for listening audio.  The WebSocket waterfall handler
-    # may still be tearing down its IQ capture process (thread join +
-    # safe_terminate can take several seconds), so we retry with back-off
-    # to give the USB device time to be fully released.
-    if receiver_active_device is None or receiver_active_device != device:
-        if receiver_active_device is not None:
-            app_module.release_sdr_device(receiver_active_device)
-            receiver_active_device = None
+        # Update config for audio
+        scanner_config['squelch'] = squelch
+        scanner_config['gain'] = gain
+        scanner_config['device'] = device
+        scanner_config['sdr_type'] = sdr_type
+        scanner_config['bias_t'] = bias_t
 
-        error = None
-        max_claim_attempts = 6
-        for attempt in range(max_claim_attempts):
-            error = app_module.claim_sdr_device(device, 'receiver')
-            if not error:
-                break
-            if attempt < max_claim_attempts - 1:
-                logger.debug(
-                    f"Device claim attempt {attempt + 1}/{max_claim_attempts} "
-                    f"failed, retrying in 0.5s: {error}"
+        # Preferred path: when waterfall WebSocket is active on the same SDR,
+        # derive monitor audio from that IQ stream instead of spawning rtl_fm.
+        try:
+            from routes.waterfall_websocket import (
+                get_shared_capture_status,
+                start_shared_monitor_from_capture,
+            )
+
+            shared = get_shared_capture_status()
+            if shared.get('running') and shared.get('device') == device:
+                _stop_audio_stream()
+                ok, msg = start_shared_monitor_from_capture(
+                    device=device,
+                    frequency_mhz=frequency,
+                    modulation=modulation,
+                    squelch=squelch,
                 )
-                time.sleep(0.5)
+                if ok:
+                    audio_running = True
+                    audio_frequency = frequency
+                    audio_modulation = modulation
+                    audio_source = 'waterfall'
+                    # Shared monitor uses the waterfall's existing SDR claim.
+                    if receiver_active_device is not None:
+                        app_module.release_sdr_device(receiver_active_device)
+                        receiver_active_device = None
+                    return jsonify({
+                        'status': 'started',
+                        'frequency': frequency,
+                        'modulation': modulation,
+                        'source': 'waterfall',
+                        'request_token': request_token,
+                    })
+                logger.warning(f"Shared waterfall monitor unavailable: {msg}")
+        except Exception as e:
+            logger.debug(f"Shared waterfall monitor probe failed: {e}")
 
-        if error:
+        # Stop waterfall if it's using the same SDR (SSE path)
+        if waterfall_running and waterfall_active_device == device:
+            _stop_waterfall_internal()
+            time.sleep(0.2)
+
+        # Claim device for listening audio.  The WebSocket waterfall handler
+        # may still be tearing down its IQ capture process (thread join +
+        # safe_terminate can take several seconds), so we retry with back-off
+        # to give the USB device time to be fully released.
+        if receiver_active_device is None or receiver_active_device != device:
+            if receiver_active_device is not None:
+                app_module.release_sdr_device(receiver_active_device)
+                receiver_active_device = None
+
+            error = None
+            max_claim_attempts = 6
+            for attempt in range(max_claim_attempts):
+                error = app_module.claim_sdr_device(device, 'receiver')
+                if not error:
+                    break
+                if attempt < max_claim_attempts - 1:
+                    logger.debug(
+                        f"Device claim attempt {attempt + 1}/{max_claim_attempts} "
+                        f"failed, retrying in 0.5s: {error}"
+                    )
+                    time.sleep(0.5)
+
+            if error:
+                return jsonify({
+                    'status': 'error',
+                    'error_type': 'DEVICE_BUSY',
+                    'message': error
+                }), 409
+            receiver_active_device = device
+
+        _start_audio_stream(frequency, modulation)
+
+        if audio_running:
+            audio_source = 'process'
             return jsonify({
-                'status': 'error',
-                'error_type': 'DEVICE_BUSY',
-                'message': error
-            }), 409
-        receiver_active_device = device
+                'status': 'started',
+                'frequency': audio_frequency,
+                'modulation': audio_modulation,
+                'source': 'process',
+                'request_token': request_token,
+            })
 
-    _start_audio_stream(frequency, modulation)
-
-    if audio_running:
-        audio_source = 'process'
-        return jsonify({
-            'status': 'started',
-            'frequency': frequency,
-            'modulation': modulation,
-            'source': 'process',
-        })
-    else:
         # Avoid leaving a stale device claim after startup failure.
         if receiver_active_device is not None:
             app_module.release_sdr_device(receiver_active_device)

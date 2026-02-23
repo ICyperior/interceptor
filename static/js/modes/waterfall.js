@@ -2704,6 +2704,7 @@ const Waterfall = (function () {
         gain,
         device,
         biasT,
+        requestToken,
     }) {
         const response = await fetch('/receiver/audio/start', {
             method: 'POST',
@@ -2716,6 +2717,7 @@ const Waterfall = (function () {
                 device: device.deviceIndex,
                 sdr_type: device.sdrType,
                 bias_t: biasT,
+                request_token: requestToken,
             }),
         });
 
@@ -2812,10 +2814,13 @@ const Waterfall = (function () {
                 gain,
                 device: monitorDevice,
                 biasT,
+                requestToken: nonce,
             });
             if (nonce !== _audioConnectNonce) return;
 
-            const busy = payload?.error_type === 'DEVICE_BUSY' || response.status === 409;
+            const staleStart = payload?.superseded === true || payload?.status === 'stale';
+            if (staleStart) return;
+            const busy = payload?.error_type === 'DEVICE_BUSY' || (response.status === 409 && !staleStart);
             if (
                 busy
                 && _running
@@ -2834,8 +2839,10 @@ const Waterfall = (function () {
                     gain,
                     device: monitorDevice,
                     biasT,
+                    requestToken: nonce,
                 }));
                 if (nonce !== _audioConnectNonce) return;
+                if (payload?.superseded === true || payload?.status === 'stale') return;
             }
 
             if (!response.ok || payload.status !== 'started') {
