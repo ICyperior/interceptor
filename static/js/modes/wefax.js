@@ -17,6 +17,8 @@ var WeFax = (function () {
         selectedStation: null,
         pollTimer: null,
         countdownInterval: null,
+        schedulerPollTimer: null,
+        schedulerEnabled: false,
     };
 
     // ---- Scope state ----
@@ -59,6 +61,7 @@ var WeFax = (function () {
         disconnectSSE();
         stopScope();
         stopCountdownTimer();
+        stopSchedulerPoll();
         if (state.pollTimer) {
             clearInterval(state.pollTimer);
             state.pollTimer = null;
@@ -210,7 +213,9 @@ var WeFax = (function () {
         state.running = false;
         updateButtons(false);
         setStatus('Stopping...');
-        disconnectSSE();
+        if (!state.schedulerEnabled) {
+            disconnectSSE();
+        }
 
         fetch('/wefax/stop', { method: 'POST' })
             .then(function (r) { return r.json(); })
@@ -983,6 +988,11 @@ var WeFax = (function () {
                 var sidebar = document.getElementById('wefaxSidebarAutoSchedule');
                 if (strip) strip.checked = !!data.enabled;
                 if (sidebar) sidebar.checked = !!data.enabled;
+                state.schedulerEnabled = !!data.enabled;
+                if (data.enabled) {
+                    connectSSE();
+                    startSchedulerPoll();
+                }
             })
             .catch(function () { /* ignore */ });
     }
@@ -1024,6 +1034,9 @@ var WeFax = (function () {
                 if (data.status === 'ok') {
                     setStatus('Auto-capture enabled — ' + (data.scheduled_count || 0) + ' broadcasts scheduled');
                     syncSchedulerCheckboxes(true);
+                    state.schedulerEnabled = true;
+                    connectSSE();
+                    startSchedulerPoll();
                 } else {
                     setStatus('Scheduler error: ' + (data.message || 'unknown'));
                     syncSchedulerCheckboxes(false);
@@ -1041,6 +1054,11 @@ var WeFax = (function () {
             .then(function () {
                 setStatus('Auto-capture disabled');
                 syncSchedulerCheckboxes(false);
+                state.schedulerEnabled = false;
+                stopSchedulerPoll();
+                if (!state.running) {
+                    disconnectSSE();
+                }
             })
             .catch(function (err) {
                 console.error('WeFax scheduler disable error:', err);
@@ -1052,6 +1070,34 @@ var WeFax = (function () {
             enableScheduler();
         } else {
             disableScheduler();
+        }
+    }
+
+    function startSchedulerPoll() {
+        stopSchedulerPoll();
+        state.schedulerPollTimer = setInterval(function () {
+            fetch('/wefax/status')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.running && !state.running) {
+                        state.running = true;
+                        updateButtons(true);
+                        setStatus('Auto-capture in progress...');
+                        connectSSE();
+                    } else if (!data.running && state.running) {
+                        state.running = false;
+                        updateButtons(false);
+                        loadImages();
+                    }
+                })
+                .catch(function () { /* ignore poll errors */ });
+        }, 10000);
+    }
+
+    function stopSchedulerPoll() {
+        if (state.schedulerPollTimer) {
+            clearInterval(state.schedulerPollTimer);
+            state.schedulerPollTimer = null;
         }
     }
 

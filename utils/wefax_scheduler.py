@@ -296,6 +296,11 @@ class WeFaxScheduler:
                 sb._timer.daemon = True
                 sb._timer.start()
 
+                logger.info(
+                    "Scheduled capture: %s at %s UTC (fires in %.0fs)",
+                    content, utc_time, delay,
+                )
+
                 self._broadcasts.append(sb)
 
             logger.info(
@@ -314,6 +319,24 @@ class WeFaxScheduler:
         self._refresh_timer.start()
 
     def _execute_capture(self, sb: ScheduledBroadcast) -> None:
+        """Execute capture for a scheduled broadcast (with error guard)."""
+        logger.info("Timer fired for broadcast: %s at %s", sb.content, sb.utc_time)
+        try:
+            self._execute_capture_inner(sb)
+        except Exception:
+            logger.exception(
+                "Unhandled exception in scheduled capture: %s at %s",
+                sb.content, sb.utc_time,
+            )
+            sb.status = 'skipped'
+            self._emit_event({
+                'type': 'schedule_capture_skipped',
+                'broadcast': sb.to_dict(),
+                'reason': 'error',
+                'detail': 'internal error — see server logs',
+            })
+
+    def _execute_capture_inner(self, sb: ScheduledBroadcast) -> None:
         """Execute capture for a scheduled broadcast."""
         if not self._enabled or sb.status != 'scheduled':
             return
