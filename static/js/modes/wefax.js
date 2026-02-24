@@ -16,6 +16,7 @@ var WeFax = (function () {
         images: [],
         selectedStation: null,
         pollTimer: null,
+        countdownInterval: null,
     };
 
     // ---- Scope state ----
@@ -56,6 +57,7 @@ var WeFax = (function () {
     function destroy() {
         disconnectSSE();
         stopScope();
+        stopCountdownTimer();
         if (state.pollTimer) {
             clearInterval(state.pollTimer);
             state.pollTimer = null;
@@ -101,6 +103,8 @@ var WeFax = (function () {
             state.selectedStation = null;
             renderFrequencyDropdown([]);
             renderScheduleTimeline([]);
+            renderBroadcastTimeline([]);
+            stopCountdownTimer();
             return;
         }
 
@@ -115,6 +119,8 @@ var WeFax = (function () {
             if (iocSel && station.ioc) iocSel.value = String(station.ioc);
             if (lpmSel && station.lpm) lpmSel.value = String(station.lpm);
             renderScheduleTimeline(station.schedule || []);
+            renderBroadcastTimeline(station.schedule || []);
+            startCountdownTimer();
         }
     }
 
@@ -676,6 +682,29 @@ var WeFax = (function () {
 
     function flashStartError() {
         setStatus('Select a station and frequency first');
+
+        // Flash the Start button itself (most visible feedback)
+        var startBtn = document.getElementById('wefaxStartBtn');
+        if (startBtn) {
+            startBtn.classList.add('wefax-strip-btn-error');
+            setTimeout(function () {
+                startBtn.classList.remove('wefax-strip-btn-error');
+            }, 2500);
+        }
+
+        // Show error in strip status text (right next to the button)
+        var stripStatus = document.getElementById('wefaxStripStatus');
+        if (stripStatus) {
+            var prevText = stripStatus.textContent;
+            stripStatus.textContent = 'Select Station';
+            stripStatus.style.color = '#ffaa00';
+            setTimeout(function () {
+                stripStatus.textContent = prevText || 'Idle';
+                stripStatus.style.color = '';
+            }, 2500);
+        }
+
+        // Also update the schedule panel status
         var statusEl = document.getElementById('wefaxStatusText');
         if (statusEl) {
             statusEl.style.color = '#ffaa00';
@@ -685,6 +714,8 @@ var WeFax = (function () {
                 statusEl.style.fontWeight = '';
             }, 2500);
         }
+
+        // Flash station/frequency dropdowns
         var stationSel = document.getElementById('wefaxStation');
         var freqSel = document.getElementById('wefaxFrequency');
         [stationSel, freqSel].forEach(function (el) {
@@ -696,6 +727,180 @@ var WeFax = (function () {
                 el.style.boxShadow = '';
             }, 2500);
         });
+    }
+
+    // ---- Broadcast Timeline + Countdown ----
+
+    function renderBroadcastTimeline(schedule) {
+        var bar = document.getElementById('wefaxCountdownBar');
+        var track = document.getElementById('wefaxTimelineTrack');
+        if (!bar || !track) return;
+
+        if (!schedule || schedule.length === 0) {
+            bar.style.display = 'none';
+            return;
+        }
+
+        bar.style.display = 'flex';
+
+        // Clear existing broadcast markers
+        var existing = track.querySelectorAll('.wefax-timeline-broadcast');
+        for (var i = 0; i < existing.length; i++) {
+            existing[i].parentNode.removeChild(existing[i]);
+        }
+
+        var now = new Date();
+        var nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+        schedule.forEach(function (entry) {
+            var parts = entry.utc.split(':');
+            var startMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            var duration = entry.duration_min || 20;
+            var leftPct = (startMin / 1440) * 100;
+            var widthPct = (duration / 1440) * 100;
+
+            var block = document.createElement('div');
+            block.className = 'wefax-timeline-broadcast';
+            block.title = entry.utc + ' — ' + entry.content;
+
+            // Mark active broadcasts
+            var diff = nowMin - startMin;
+            if (diff >= 0 && diff < duration) {
+                block.classList.add('active');
+            }
+
+            block.style.left = leftPct + '%';
+            block.style.width = Math.max(widthPct, 0.3) + '%';
+            track.appendChild(block);
+        });
+
+        updateTimelineCursor();
+    }
+
+    function updateTimelineCursor() {
+        var cursor = document.getElementById('wefaxTimelineCursor');
+        if (!cursor) return;
+
+        var now = new Date();
+        var nowMin = now.getUTCHours() * 60 + now.getUTCMinutes() + now.getUTCSeconds() / 60;
+        cursor.style.left = ((nowMin / 1440) * 100) + '%';
+    }
+
+    function startCountdownTimer() {
+        stopCountdownTimer();
+        updateCountdown();
+        state.countdownInterval = setInterval(function () {
+            updateCountdown();
+            updateTimelineCursor();
+        }, 1000);
+    }
+
+    function updateCountdown() {
+        var station = state.selectedStation;
+        if (!station || !station.schedule || !station.schedule.length) return;
+
+        var now = new Date();
+        var nowMin = now.getUTCHours() * 60 + now.getUTCMinutes() + now.getUTCSeconds() / 60;
+
+        // Find next upcoming or currently active broadcast
+        var bestDiff = Infinity;
+        var bestEntry = null;
+        var isActive = false;
+
+        station.schedule.forEach(function (entry) {
+            var parts = entry.utc.split(':');
+            var startMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            var duration = entry.duration_min || 20;
+
+            // Check if currently active
+            var elapsed = nowMin - startMin;
+            if (elapsed < 0) elapsed += 1440;
+            if (elapsed >= 0 && elapsed < duration) {
+                bestEntry = entry;
+                bestDiff = 0;
+                isActive = true;
+                return;
+            }
+
+            // Time until start
+            var diff = startMin - nowMin;
+            if (diff < 0) diff += 1440;
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestEntry = entry;
+            }
+        });
+
+        if (!bestEntry) return;
+
+        var hoursEl = document.getElementById('wefaxCdHours');
+        var minsEl = document.getElementById('wefaxCdMins');
+        var secsEl = document.getElementById('wefaxCdSecs');
+        var contentEl = document.getElementById('wefaxCountdownContent');
+        var detailEl = document.getElementById('wefaxCountdownDetail');
+        var boxes = document.getElementById('wefaxCountdownBoxes');
+
+        if (isActive) {
+            // Show "LIVE" countdown
+            var parts = bestEntry.utc.split(':');
+            var startMin2 = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            var duration2 = bestEntry.duration_min || 20;
+            var elapsed2 = nowMin - startMin2;
+            if (elapsed2 < 0) elapsed2 += 1440;
+            var remaining = duration2 - elapsed2;
+            var remTotalSec = Math.max(0, Math.floor(remaining * 60));
+            var h = Math.floor(remTotalSec / 3600);
+            var m = Math.floor((remTotalSec % 3600) / 60);
+            var s = remTotalSec % 60;
+
+            if (hoursEl) hoursEl.textContent = String(h).padStart(2, '0');
+            if (minsEl) minsEl.textContent = String(m).padStart(2, '0');
+            if (secsEl) secsEl.textContent = String(s).padStart(2, '0');
+            if (contentEl) contentEl.textContent = bestEntry.content;
+            if (detailEl) detailEl.textContent = 'LIVE — ' + bestEntry.utc + ' UTC';
+
+            // Set active class on boxes
+            if (boxes) {
+                var boxEls = boxes.querySelectorAll('.wefax-countdown-box');
+                for (var i = 0; i < boxEls.length; i++) {
+                    boxEls[i].classList.remove('imminent');
+                    boxEls[i].classList.add('active');
+                }
+            }
+        } else {
+            // Countdown to next
+            var totalSec = Math.max(0, Math.floor(bestDiff * 60));
+            var h2 = Math.floor(totalSec / 3600);
+            var m2 = Math.floor((totalSec % 3600) / 60);
+            var s2 = totalSec % 60;
+
+            if (hoursEl) hoursEl.textContent = String(h2).padStart(2, '0');
+            if (minsEl) minsEl.textContent = String(m2).padStart(2, '0');
+            if (secsEl) secsEl.textContent = String(s2).padStart(2, '0');
+            if (contentEl) contentEl.textContent = bestEntry.content;
+            if (detailEl) detailEl.textContent = 'Next at ' + bestEntry.utc + ' UTC';
+
+            // Set imminent class when < 10 min
+            if (boxes) {
+                var boxEls2 = boxes.querySelectorAll('.wefax-countdown-box');
+                var isImminent = bestDiff < 10;
+                for (var j = 0; j < boxEls2.length; j++) {
+                    boxEls2[j].classList.remove('active');
+                    if (isImminent) {
+                        boxEls2[j].classList.add('imminent');
+                    } else {
+                        boxEls2[j].classList.remove('imminent');
+                    }
+                }
+            }
+        }
+    }
+
+    function stopCountdownTimer() {
+        if (state.countdownInterval) {
+            clearInterval(state.countdownInterval);
+            state.countdownInterval = null;
+        }
     }
 
     // ---- Auto-Capture Scheduler ----
