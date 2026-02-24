@@ -1336,6 +1336,7 @@ def start_audio() -> Response:
                     'message': 'Superseded audio start request',
                     'source': audio_source,
                     'superseded': True,
+                    'current_token': audio_start_token,
                 }), 409
             audio_start_token = request_token
         else:

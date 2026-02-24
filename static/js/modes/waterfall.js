@@ -2810,19 +2810,46 @@ const Waterfall = (function () {
             // Use live _monitorFreqMhz for retunes so that any user
             // clicks that changed the VFO during the async setup are
             // picked up rather than overridden.
-            let { response, payload } = await _requestAudioStart({
-                frequency: centerMhz,
-                modulation: mode,
-                squelch,
-                gain,
-                device: monitorDevice,
-                biasT,
-                requestToken,
-            });
+            const requestAudioStartResynced = async (deviceForRequest) => {
+                let startResult = await _requestAudioStart({
+                    frequency: centerMhz,
+                    modulation: mode,
+                    squelch,
+                    gain,
+                    device: deviceForRequest,
+                    biasT,
+                    requestToken,
+                });
+                const startPayload = startResult?.payload || {};
+                const isStale = startPayload.superseded === true || startPayload.status === 'stale';
+                if (isStale) {
+                    const currentToken = Number(startPayload.current_token);
+                    if (Number.isFinite(currentToken) && currentToken >= 0) {
+                        startResult = await _requestAudioStart({
+                            frequency: centerMhz,
+                            modulation: mode,
+                            squelch,
+                            gain,
+                            device: deviceForRequest,
+                            biasT,
+                            requestToken: currentToken + 1,
+                        });
+                    }
+                }
+                return startResult;
+            };
+
+            let { response, payload } = await requestAudioStartResynced(monitorDevice);
             if (nonce !== _audioConnectNonce) return;
 
             const staleStart = payload?.superseded === true || payload?.status === 'stale';
-            if (staleStart) return;
+            if (staleStart) {
+                // If the backend still reports stale after token resync,
+                // schedule a fresh retune so monitor audio does not stay on
+                // an older station indefinitely.
+                if (_monitoring) _queueMonitorRetune(90);
+                return;
+            }
             const busy = payload?.error_type === 'DEVICE_BUSY' || (response.status === 409 && !staleStart);
             if (
                 busy
@@ -2835,17 +2862,12 @@ const Waterfall = (function () {
                 _resumeWaterfallAfterMonitor = true;
                 await _wait(220);
                 monitorDevice = selectedDevice;
-                ({ response, payload } = await _requestAudioStart({
-                    frequency: centerMhz,
-                    modulation: mode,
-                    squelch,
-                    gain,
-                    device: monitorDevice,
-                    biasT,
-                    requestToken,
-                }));
+                ({ response, payload } = await requestAudioStartResynced(monitorDevice));
                 if (nonce !== _audioConnectNonce) return;
-                if (payload?.superseded === true || payload?.status === 'stale') return;
+                if (payload?.superseded === true || payload?.status === 'stale') {
+                    if (_monitoring) _queueMonitorRetune(90);
+                    return;
+                }
             }
 
             if (!response.ok || payload.status !== 'started') {
