@@ -419,6 +419,7 @@
         let agentPollTimer = null;  // Polling fallback for agent mode
         let isTracking = false;
         let currentFilter = 'all';
+        // ICAO -> { emergency: bool, watchlist: bool, military: bool }
         let alertedAircraft = {};
         let alertsEnabled = true;
         let detectionSoundEnabled = localStorage.getItem('adsb_detectionSound') !== 'false';  // Default on
@@ -668,24 +669,64 @@
             }
         }
 
+        function speakAircraftAlert(kind, icao, ac, detail) {
+            if (typeof VoiceAlerts === 'undefined' || typeof VoiceAlerts.speak !== 'function') return;
+
+            const cfg = (typeof VoiceAlerts.getConfig === 'function')
+                ? VoiceAlerts.getConfig()
+                : { streams: {} };
+            const streams = cfg && cfg.streams ? cfg.streams : {};
+            const callsign = (ac && ac.callsign ? String(ac.callsign).trim() : '') || icao;
+
+            if (kind === 'emergency') {
+                if (streams.squawks === false) return;
+                const squawk = detail && detail.squawk ? ` squawk ${detail.squawk}.` : '.';
+                const meaning = detail && detail.name ? ` ${detail.name}.` : '';
+                VoiceAlerts.speak(`Aircraft emergency: ${callsign}.${squawk}${meaning}`, VoiceAlerts.PRIORITY.HIGH);
+                return;
+            }
+
+            if (kind === 'military') {
+                if (streams.adsb_military === false) return;
+                const country = detail && detail.country ? ` ${detail.country}.` : '';
+                VoiceAlerts.speak(`Military aircraft detected: ${callsign}.${country}`, VoiceAlerts.PRIORITY.HIGH);
+            }
+        }
+
         function checkAndAlertAircraft(icao, ac) {
-            if (alertedAircraft[icao]) return;
+            if (!alertedAircraft[icao]) {
+                alertedAircraft[icao] = { emergency: false, watchlist: false, military: false };
+            }
+
+            const alertState = alertedAircraft[icao];
             const militaryInfo = isMilitaryAircraft(icao, ac.callsign);
             const squawkInfo = checkSquawkCode(ac);
             const onWatchlist = isOnWatchlist(ac);
 
             if (squawkInfo && squawkInfo.type === 'emergency') {
-                alertedAircraft[icao] = 'emergency';
-                playAlertSound('emergency');
-                showAlertBanner(`EMERGENCY: ${squawkInfo.name} - ${ac.callsign || icao}`, '#ff0000');
-            } else if (onWatchlist) {
-                alertedAircraft[icao] = 'watchlist';
+                if (!alertState.emergency) {
+                    alertState.emergency = true;
+                    playAlertSound('emergency');
+                    showAlertBanner(`EMERGENCY: ${squawkInfo.name} - ${ac.callsign || icao}`, '#ff0000');
+                    speakAircraftAlert('emergency', icao, ac, {
+                        squawk: ac.squawk,
+                        name: squawkInfo.name,
+                    });
+                }
+                return;
+            }
+
+            if (onWatchlist && !alertState.watchlist) {
+                alertState.watchlist = true;
                 playAlertSound('military');  // Use military sound for watchlist
                 showAlertBanner(`WATCHLIST: ${ac.callsign || ac.registration || icao} detected!`, '#00d4ff');
-            } else if (militaryInfo.military) {
-                alertedAircraft[icao] = 'military';
+            } else if (militaryInfo.military && !alertState.military) {
+                alertState.military = true;
                 playAlertSound('military');
                 showAlertBanner(`MILITARY: ${ac.callsign || icao}${militaryInfo.country ? ' (' + militaryInfo.country + ')' : ''}`, '#556b2f');
+                speakAircraftAlert('military', icao, ac, {
+                    country: militaryInfo.country || null,
+                });
             }
         }
 
@@ -5037,7 +5078,13 @@ sudo make install</code>
     <!-- Help Modal -->
     {% include 'partials/help-modal.html' %}
 
+    <script src="{{ url_for('static', filename='js/core/voice-alerts.js') }}?v={{ version }}&r=adsbvoice1"></script>
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}?v={{ version }}&r=maptheme17"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof VoiceAlerts !== 'undefined') VoiceAlerts.init();
+        });
+    </script>
 
     <!-- Agent Manager -->
     <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>

@@ -1281,6 +1281,7 @@ function loadVoiceAlertConfig() {
     const pager   = document.getElementById('voiceCfgPager');
     const tscm    = document.getElementById('voiceCfgTscm');
     const tracker = document.getElementById('voiceCfgTracker');
+    const military = document.getElementById('voiceCfgAdsbMilitary');
     const squawk  = document.getElementById('voiceCfgSquawk');
     const rate    = document.getElementById('voiceCfgRate');
     const pitch   = document.getElementById('voiceCfgPitch');
@@ -1290,6 +1291,7 @@ function loadVoiceAlertConfig() {
     if (pager)    pager.checked    = cfg.streams.pager !== false;
     if (tscm)     tscm.checked     = cfg.streams.tscm !== false;
     if (tracker)  tracker.checked   = cfg.streams.bluetooth !== false;
+    if (military) military.checked  = cfg.streams.adsb_military !== false;
     if (squawk)   squawk.checked    = cfg.streams.squawks !== false;
     if (rate)     rate.value        = cfg.rate;
     if (pitch)    pitch.value       = cfg.pitch;
@@ -1314,10 +1316,11 @@ function saveVoiceAlertConfig() {
         pitch:     parseFloat(document.getElementById('voiceCfgPitch')?.value) || 0.9,
         voiceName: document.getElementById('voiceCfgVoice')?.value || '',
         streams: {
-            pager:     !!document.getElementById('voiceCfgPager')?.checked,
-            tscm:      !!document.getElementById('voiceCfgTscm')?.checked,
-            bluetooth: !!document.getElementById('voiceCfgTracker')?.checked,
-            squawks:   !!document.getElementById('voiceCfgSquawk')?.checked,
+            pager:         !!document.getElementById('voiceCfgPager')?.checked,
+            tscm:          !!document.getElementById('voiceCfgTscm')?.checked,
+            bluetooth:     !!document.getElementById('voiceCfgTracker')?.checked,
+            adsb_military: !!document.getElementById('voiceCfgAdsbMilitary')?.checked,
+            squawks:       !!document.getElementById('voiceCfgSquawk')?.checked,
         },
     });
 }
