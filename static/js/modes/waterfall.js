@@ -2681,25 +2681,6 @@ const Waterfall = (function () {
         };
     }
 
-    function _deviceKey(device) {
-        if (!device) return '';
-        return `${device.sdrType || ''}:${device.deviceIndex || 0}`;
-    }
-
-    function _findAlternateDevice(currentDevice) {
-        const currentKey = _deviceKey(currentDevice);
-        for (const d of _devices) {
-            const candidate = {
-                sdrType: String(d.sdr_type || 'rtlsdr'),
-                deviceIndex: parseInt(d.index, 10) || 0,
-            };
-            if (_deviceKey(candidate) !== currentKey) {
-                return candidate;
-            }
-        }
-        return null;
-    }
-
     async function _requestAudioStart({
         frequency,
         modulation,
@@ -2784,10 +2765,11 @@ const Waterfall = (function () {
                 ? sliderGain
                 : (Number.isFinite(fallbackGain) ? Math.round(fallbackGain) : 40);
             const selectedDevice = _selectedDevice();
-            const altDevice = _running ? _findAlternateDevice(selectedDevice) : null;
-            let monitorDevice = altDevice || selectedDevice;
+            // Always target the currently selected SDR for monitor start/retune.
+            // This keeps waterfall-shared monitor tuning deterministic and avoids
+            // retuning a different receiver than the one driving the display.
+            let monitorDevice = selectedDevice;
             const biasT = !!document.getElementById('wfBiasT')?.checked;
-            const usingSecondaryDevice = !!altDevice;
             // Use a high monotonic token so backend start ordering remains
             // valid across page reloads (local nonces reset to small values).
             const requestToken = Math.trunc((Date.now() * 4096) + (nonce & 0x0fff));
@@ -2804,14 +2786,10 @@ const Waterfall = (function () {
             _setUnlockVisible(false);
             _audioUnlockRequired = false;
 
-            if (usingSecondaryDevice) {
-                _setMonitorState(
-                    `Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} on `
-                    + `${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}...`
-                );
-            } else {
-                _setMonitorState(`Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()}...`);
-            }
+            _setMonitorState(
+                `Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} on `
+                + `${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}...`
+            );
 
             // Use live _monitorFreqMhz for retunes so that any user
             // clicks that changed the VFO during the async setup are
@@ -2857,12 +2835,7 @@ const Waterfall = (function () {
                 return;
             }
             const busy = payload?.error_type === 'DEVICE_BUSY' || (response.status === 409 && !staleStart);
-            if (
-                busy
-                && _running
-                && !usingSecondaryDevice
-                && !retuneOnly
-            ) {
+            if (busy && _running && !retuneOnly) {
                 _setMonitorState('Audio device busy, pausing waterfall and retrying monitor...');
                 await stop({ keepStatus: true });
                 _resumeWaterfallAfterMonitor = true;
@@ -2944,13 +2917,11 @@ const Waterfall = (function () {
                 _setMonitorState(
                     `Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()} via shared IQ`
                 );
-            } else if (usingSecondaryDevice) {
+            } else {
                 _setMonitorState(
                     `Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()} `
                     + `via ${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}`
                 );
-            } else {
-                _setMonitorState(`Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()}`);
             }
             _setStatus(`Audio monitor active on ${displayMhz.toFixed(4)} MHz (${mode.toUpperCase()})`);
             _setVisualStatus('MONITOR');
