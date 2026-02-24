@@ -592,6 +592,84 @@
     font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 
+/* --- Image Modal --- */
+.wefax-image-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 40px;
+}
+
+.wefax-image-modal.show {
+    display: flex;
+}
+
+.wefax-image-modal img {
+    max-width: 100%;
+    max-height: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.wefax-modal-toolbar {
+    position: absolute;
+    top: 20px;
+    right: 60px;
+    display: flex;
+    gap: 8px;
+    z-index: 1;
+}
+
+.wefax-modal-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+}
+
+.wefax-modal-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.wefax-modal-btn.delete:hover {
+    background: var(--accent-red, #ff3366);
+    border-color: var(--accent-red, #ff3366);
+}
+
+.wefax-modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 32px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+    z-index: 1;
+}
+
+.wefax-modal-close:hover {
+    opacity: 1;
+}
+
 /* --- Responsive --- */
 @media (max-width: 768px) {
     .wefax-main-row {

@@ -55,6 +55,7 @@ var WeFax = (function () {
     }
 
     function destroy() {
+        closeImage();
         disconnectSSE();
         stopScope();
         stopCountdownTimer();
@@ -586,14 +587,10 @@ var WeFax = (function () {
             var station = img.station || '';
             var freq = img.frequency_khz ? (img.frequency_khz + ' kHz') : '';
             html += '<div class="wefax-gallery-item">';
-            html += '<img src="' + img.url + '" alt="WeFax" loading="lazy" onclick="WeFax.viewImage(\'' + img.url + '\')">';
+            html += '<img src="' + img.url + '" alt="WeFax" loading="lazy" onclick="WeFax.viewImage(\'' + img.url + '\', \'' + img.filename + '\')">';
             html += '<div class="wefax-gallery-meta">';
             html += '<span>' + station + (freq ? ' ' + freq : '') + '</span>';
             html += '<span>' + ts + '</span>';
-            html += '</div>';
-            html += '<div class="wefax-gallery-actions">';
-            html += '<a href="' + img.url + '" download class="wefax-gallery-action" title="Download">&#x2B73;</a>';
-            html += '<button class="wefax-gallery-action delete" onclick="WeFax.deleteImage(\'' + img.filename + '\')" title="Delete">&times;</button>';
             html += '</div>';
             html += '</div>';
         });
@@ -601,8 +598,12 @@ var WeFax = (function () {
     }
 
     function deleteImage(filename) {
+        if (!confirm('Delete this image?')) return;
         fetch('/wefax/images/' + encodeURIComponent(filename), { method: 'DELETE' })
-            .then(function () { loadImages(); })
+            .then(function () {
+                closeImage();
+                loadImages();
+            })
             .catch(function (err) { console.error('WeFax delete error:', err); });
     }
 
@@ -613,9 +614,59 @@ var WeFax = (function () {
             .catch(function (err) { console.error('WeFax delete all error:', err); });
     }
 
-    function viewImage(url) {
-        // Open image in modal or new tab
-        window.open(url, '_blank');
+    var currentModalUrl = null;
+    var currentModalFilename = null;
+
+    function viewImage(url, filename) {
+        currentModalUrl = url;
+        currentModalFilename = filename || null;
+
+        var modal = document.getElementById('wefaxImageModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'wefaxImageModal';
+            modal.className = 'wefax-image-modal';
+            modal.innerHTML =
+                '<div class="wefax-modal-toolbar">' +
+                    '<button class="wefax-modal-btn" id="wefaxModalDownload" title="Download">' +
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+                        ' Download' +
+                    '</button>' +
+                    '<button class="wefax-modal-btn delete" id="wefaxModalDelete" title="Delete">' +
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>' +
+                        ' Delete' +
+                    '</button>' +
+                '</div>' +
+                '<button class="wefax-modal-close" onclick="WeFax.closeImage()">&times;</button>' +
+                '<img src="" alt="WeFax Image">';
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) closeImage();
+            });
+            modal.querySelector('#wefaxModalDownload').addEventListener('click', function () {
+                if (currentModalUrl && currentModalFilename) {
+                    var a = document.createElement('a');
+                    a.href = currentModalUrl;
+                    a.download = currentModalFilename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+            });
+            modal.querySelector('#wefaxModalDelete').addEventListener('click', function () {
+                if (currentModalFilename) {
+                    deleteImage(currentModalFilename);
+                }
+            });
+            document.body.appendChild(modal);
+        }
+
+        modal.querySelector('img').src = url;
+        modal.classList.add('show');
+    }
+
+    function closeImage() {
+        var modal = document.getElementById('wefaxImageModal');
+        if (modal) modal.classList.remove('show');
     }
 
     // ---- Schedule Timeline ----
@@ -1023,6 +1074,7 @@ var WeFax = (function () {
         deleteImage: deleteImage,
         deleteAllImages: deleteAllImages,
         viewImage: viewImage,
+        closeImage: closeImage,
         toggleScheduler: toggleScheduler,
     };
 })();
