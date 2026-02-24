@@ -38,6 +38,7 @@ const GPS = (function() {
         'https://cdn.jsdelivr.net/npm/globe.gl@2.33.1/dist/globe.gl.min.js',
     ];
     const GPS_GLOBE_TEXTURE_URL = '/static/images/globe/earth-dark.jpg';
+    const GPS_SATELLITE_ICON_URL = '/static/images/globe/satellite-icon.svg';
 
     function init() {
         const initPromise = initSkyRenderer();
@@ -227,19 +228,14 @@ const GPS = (function() {
             .pointAltitude('altitude')
             .pointColor('color')
             .pointLabel(point => point.label || '')
-            .pointsTransitionDuration(260)
-            .arcColor('color')
-            .arcAltitude('altitude')
-            .arcStroke('stroke')
-            .arcDashLength('dashLength')
-            .arcDashGap('dashGap')
-            .arcDashInitialGap('dashInitialGap')
-            .arcDashAnimateTime('dashAnimateTime');
+            .pointsTransitionDuration(0)
+            .htmlAltitude('altitude')
+            .htmlElementsData([])
+            .htmlElement((sat) => createSatelliteIconElement(sat));
 
         const controls = globe.controls();
         if (controls) {
-            controls.autoRotate = true;
-            controls.autoRotateSpeed = 0.22;
+            controls.autoRotate = false;
             controls.enablePan = false;
             controls.minDistance = 130;
             controls.maxDistance = 420;
@@ -271,7 +267,7 @@ const GPS = (function() {
 
             const observer = getObserverCoords();
             const points = [];
-            const arcs = [];
+            const satelliteIcons = [];
 
             if (observer) {
                 points.push({
@@ -284,7 +280,7 @@ const GPS = (function() {
                 });
             }
 
-            lastSatellites.forEach((sat, index) => {
+            lastSatellites.forEach((sat) => {
                 const azimuth = Number(sat.azimuth);
                 const elevation = Number(sat.elevation);
                 if (!observer || !Number.isFinite(azimuth) || !Number.isFinite(elevation)) return;
@@ -292,39 +288,42 @@ const GPS = (function() {
                 const color = CONST_COLORS[sat.constellation] || CONST_COLORS.GPS;
                 const shellAltitude = getSatelliteShellAltitude(sat.constellation, elevation);
                 const footprint = projectSkyTrackToEarth(observer.lat, observer.lon, azimuth, elevation);
-                const label = buildSatelliteLabel(sat);
-
-                points.push({
+                satelliteIcons.push({
                     lat: footprint.lat,
                     lng: footprint.lon,
                     altitude: shellAltitude,
-                    radius: sat.used ? 0.34 : 0.26,
-                    color: sat.used ? color : hexToRgba(color, 0.66),
-                    label: label,
-                });
-
-                arcs.push({
-                    startLat: observer.lat,
-                    startLng: observer.lon,
-                    endLat: footprint.lat,
-                    endLng: footprint.lon,
-                    color: [hexToRgba(color, 0.55), hexToRgba(color, 0.08)],
-                    altitude: Math.max(0.12, shellAltitude * 0.55),
-                    stroke: sat.used ? 0.62 : 0.36,
-                    dashLength: sat.used ? 0.82 : 0.56,
-                    dashGap: sat.used ? 0.58 : 1.1,
-                    dashInitialGap: (index % 12) / 12,
-                    dashAnimateTime: sat.used ? 2200 : 3400,
+                    color: color,
+                    used: !!sat.used,
+                    sizePx: sat.used ? 20 : 17,
+                    title: buildSatelliteTitle(sat),
+                    iconUrl: GPS_SATELLITE_ICON_URL,
                 });
             });
 
             globe.pointsData(points);
-            globe.arcsData(arcs);
+            globe.htmlElementsData(satelliteIcons);
 
             if (observer && !hasInitialView) {
                 globe.pointOfView({ lat: observer.lat, lng: observer.lon, altitude: 1.6 }, 950);
                 hasInitialView = true;
             }
+        }
+
+        function createSatelliteIconElement(sat) {
+            const marker = document.createElement('div');
+            marker.className = `gps-globe-sat-icon ${sat.used ? 'used' : 'unused'}`;
+            marker.style.setProperty('--sat-color', sat.color || '#9fb2c5');
+            marker.style.setProperty('--sat-size', `${Math.max(12, Number(sat.sizePx) || 18)}px`);
+            marker.title = sat.title || 'Satellite';
+
+            const img = document.createElement('img');
+            img.src = sat.iconUrl || GPS_SATELLITE_ICON_URL;
+            img.alt = 'Satellite';
+            img.decoding = 'async';
+            img.draggable = false;
+
+            marker.appendChild(img);
+            return marker;
         }
 
         function setSatellites(satellites) {
@@ -355,22 +354,15 @@ const GPS = (function() {
         };
     }
 
-    function buildSatelliteLabel(sat) {
-        const constellation = escapeHtml(sat.constellation || 'GPS');
-        const prn = escapeHtml(String(sat.prn || '--'));
+    function buildSatelliteTitle(sat) {
+        const constellation = String(sat.constellation || 'GPS');
+        const prn = String(sat.prn || '--');
         const elevation = Number.isFinite(Number(sat.elevation)) ? `${Number(sat.elevation).toFixed(1)}\u00b0` : '--';
         const azimuth = Number.isFinite(Number(sat.azimuth)) ? `${Number(sat.azimuth).toFixed(1)}\u00b0` : '--';
         const snr = Number.isFinite(Number(sat.snr)) ? `${Math.round(Number(sat.snr))} dB-Hz` : 'n/a';
         const used = sat.used ? 'USED IN FIX' : 'TRACKED';
 
-        return `
-            <div style="padding:6px 8px; font-size:11px; background:rgba(4,12,19,0.92); border:1px solid rgba(0,212,255,0.3); border-radius:5px; min-width:150px;">
-                <div style="color:#00d4ff; font-weight:700; margin-bottom:3px;">${constellation} PRN ${prn}</div>
-                <div style="color:#a5b1c3;">El ${elevation} · Az ${azimuth}</div>
-                <div style="color:#8f9fb3;">SNR ${snr}</div>
-                <div style="color:#7a899b; margin-top:3px;">${used}</div>
-            </div>
-        `;
+        return `${constellation} PRN ${prn} | El ${elevation} | Az ${azimuth} | SNR ${snr} | ${used}`;
     }
 
     function getSatelliteShellAltitude(constellation, elevation) {
@@ -419,20 +411,6 @@ const GPS = (function() {
 
     function radToDeg(rad) {
         return rad * 180 / Math.PI;
-    }
-
-    function hexToRgba(hex, alpha) {
-        const rgb = hexToRgb01(hex);
-        return `rgba(${Math.round(rgb[0] * 255)}, ${Math.round(rgb[1] * 255)}, ${Math.round(rgb[2] * 255)}, ${Math.max(0, Math.min(1, alpha))})`;
-    }
-
-    function escapeHtml(value) {
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
     }
 
     function connect() {

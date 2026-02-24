@@ -189,6 +189,36 @@
     display: block;
 }
 
+.gps-globe-sat-icon {
+    --sat-size: 18px;
+    --sat-color: #8ea6bd;
+    width: var(--sat-size);
+    height: var(--sat-size);
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--sat-color);
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.22), rgba(7, 14, 23, 0.82) 72%);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px var(--sat-color);
+}
+
+.gps-globe-sat-icon img {
+    width: 76%;
+    height: 76%;
+    object-fit: contain;
+}
+
+.gps-globe-sat-icon.used {
+    opacity: 0.98;
+}
+
+.gps-globe-sat-icon.unused {
+    opacity: 0.72;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 6px var(--sat-color);
+}
+
 .gps-sky-label {
     position: absolute;
     transform: translate(-50%, -50%);
