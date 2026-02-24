@@ -665,7 +665,16 @@ def scanner_loop_power():
         logger.info("Power sweep scanner thread stopped")
 
 
-def _start_audio_stream(frequency: float, modulation: str):
+def _start_audio_stream(
+    frequency: float,
+    modulation: str,
+    *,
+    device: int | None = None,
+    sdr_type: str | None = None,
+    gain: int | None = None,
+    squelch: int | None = None,
+    bias_t: bool | None = None,
+):
     """Start audio streaming at given frequency."""
     global audio_process, audio_rtl_process, audio_running, audio_frequency, audio_modulation
 
@@ -678,8 +687,15 @@ def _start_audio_stream(frequency: float, modulation: str):
             logger.error("ffmpeg not found")
             return
 
+        # Snapshot runtime tuning config so the spawned demod command cannot
+        # drift if shared scanner_config changes while startup is in-flight.
+        device_index = int(device if device is not None else scanner_config.get('device', 0))
+        gain_value = int(gain if gain is not None else scanner_config.get('gain', 40))
+        squelch_value = int(squelch if squelch is not None else scanner_config.get('squelch', 0))
+        bias_t_enabled = bool(scanner_config.get('bias_t', False) if bias_t is None else bias_t)
+        sdr_type_str = str(sdr_type if sdr_type is not None else scanner_config.get('sdr_type', 'rtlsdr')).lower()
+
         # Determine SDR type and build appropriate command
-        sdr_type_str = scanner_config.get('sdr_type', 'rtlsdr')
         try:
             sdr_type = SDRType(sdr_type_str)
         except ValueError:
@@ -711,11 +727,11 @@ def _start_audio_stream(frequency: float, modulation: str):
                 '-f', str(freq_hz),
                 '-s', str(sample_rate),
                 '-r', str(resample_rate),
-                '-g', str(scanner_config['gain']),
-                '-d', str(scanner_config['device']),
-                '-l', str(scanner_config['squelch']),
+                '-g', str(gain_value),
+                '-d', str(device_index),
+                '-l', str(squelch_value),
             ]
-            if scanner_config.get('bias_t', False):
+            if bias_t_enabled:
                 sdr_cmd.append('-T')
             # Omit explicit filename: rtl_fm defaults to stdout.
             # (Some builds intermittently stall when '-' is passed explicitly.)
@@ -727,18 +743,18 @@ def _start_audio_stream(frequency: float, modulation: str):
                 return
 
             # Create device and get command builder
-            device = SDRFactory.create_default_device(sdr_type, index=scanner_config['device'])
+            sdr_device = SDRFactory.create_default_device(sdr_type, index=device_index)
             builder = SDRFactory.get_builder(sdr_type)
 
             # Build FM demod command
             sdr_cmd = builder.build_fm_demod_command(
-                device=device,
+                device=sdr_device,
                 frequency_mhz=frequency,
                 sample_rate=resample_rate,
-                gain=float(scanner_config['gain']),
+                gain=float(gain_value),
                 modulation=modulation,
-                squelch=scanner_config['squelch'],
-                bias_t=scanner_config.get('bias_t', False)
+                squelch=squelch_value,
+                bias_t=bias_t_enabled,
             )
             # Ensure we use the found rx_fm path
             sdr_cmd[0] = rx_fm_path
@@ -766,7 +782,7 @@ def _start_audio_stream(frequency: float, modulation: str):
             # Log stderr to temp files for error diagnosis.
             rtl_stderr_log = '/tmp/rtl_fm_stderr.log'
             ffmpeg_stderr_log = '/tmp/ffmpeg_stderr.log'
-            logger.info(f"Starting audio: {frequency} MHz, mod={modulation}, device={scanner_config['device']}")
+            logger.info(f"Starting audio: {frequency} MHz, mod={modulation}, device={device_index}")
 
             # Retry loop for USB device contention (device may not be
             # released immediately after a previous process exits)
@@ -1432,7 +1448,15 @@ def start_audio() -> Response:
                 }), 409
             receiver_active_device = device
 
-        _start_audio_stream(frequency, modulation)
+        _start_audio_stream(
+            frequency,
+            modulation,
+            device=device,
+            sdr_type=sdr_type,
+            gain=gain,
+            squelch=squelch,
+            bias_t=bias_t,
+        )
 
         if audio_running:
             audio_source = 'process'
