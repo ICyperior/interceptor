@@ -208,9 +208,31 @@ const AppFeedback = (function() {
         return state;
     }
 
+    function isOffline() {
+        return typeof navigator !== 'undefined' && navigator.onLine === false;
+    }
+
+    function isTransientNetworkError(error) {
+        const text = String(extractMessage(error) || '').toLowerCase();
+        if (!text) return false;
+
+        return text.includes('networkerror') ||
+            text.includes('failed to fetch') ||
+            text.includes('network request failed') ||
+            text.includes('load failed') ||
+            text.includes('err_network_io_suspended') ||
+            text.includes('network io suspended') ||
+            text.includes('the network connection was lost') ||
+            text.includes('connection reset') ||
+            text.includes('timeout');
+    }
+
+    function isTransientOrOffline(error) {
+        return isOffline() || isTransientNetworkError(error);
+    }
+
     function isNetworkError(message) {
-        const text = String(message || '').toLowerCase();
-        return text.includes('networkerror') || text.includes('failed to fetch') || text.includes('timeout');
+        return isTransientNetworkError(message);
     }
 
     function isSettingsError(message) {
@@ -224,6 +246,9 @@ const AppFeedback = (function() {
         reportError,
         removeToast,
         renderCollectionState,
+        isOffline,
+        isTransientNetworkError,
+        isTransientOrOffline,
     };
 })();
 
@@ -241,6 +266,18 @@ window.reportActionableError = function(context, error, options) {
 
 window.renderCollectionState = function(container, options) {
     return AppFeedback.renderCollectionState(container, options);
+};
+
+window.isOffline = function() {
+    return AppFeedback.isOffline();
+};
+
+window.isTransientNetworkError = function(error) {
+    return AppFeedback.isTransientNetworkError(error);
+};
+
+window.isTransientOrOffline = function(error) {
+    return AppFeedback.isTransientOrOffline(error);
 };
 
 document.addEventListener('DOMContentLoaded', () => {

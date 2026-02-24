@@ -5655,10 +5655,19 @@
                     renderSdrStatus(devices);
                 })
                 .catch(err => {
-                    console.error('Failed to fetch SDR status:', err);
+                    const transient = (typeof window.isTransientOrOffline === 'function' && window.isTransientOrOffline(err)) ||
+                        (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+                        /failed to fetch|network io suspended|networkerror|timeout/i.test(String((err && err.message) || err || ''));
+                    if (!transient) {
+                        console.error('Failed to fetch SDR status:', err);
+                    }
                     const container = document.getElementById('sdrStatusList');
                     if (container) {
-                        container.innerHTML = '<div style="padding: 8px; color: #ff6666; font-size: 11px; text-align: center;">Error loading status</div>';
+                        if (transient) {
+                            container.innerHTML = '<div style="padding: 8px; color: #888; font-size: 11px; text-align: center;">Status temporarily unavailable</div>';
+                        } else {
+                            container.innerHTML = '<div style="padding: 8px; color: #ff6666; font-size: 11px; text-align: center;">Error loading status</div>';
+                        }
                     }
                 });
         }

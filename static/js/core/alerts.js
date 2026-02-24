@@ -7,6 +7,7 @@ const AlertCenter = (function() {
     let rules = [];
     let eventSource = null;
     let reconnectTimer = null;
+    let lastConnectionWarningAt = 0;
 
     function init() {
         loadRules();
@@ -31,7 +32,14 @@ const AlertCenter = (function() {
         };
 
         eventSource.onerror = function() {
-            console.warn('[Alerts] SSE connection error');
+            const now = Date.now();
+            const offline = (typeof window.isOffline === 'function' && window.isOffline()) ||
+                (typeof navigator !== 'undefined' && navigator.onLine === false);
+            const shouldLog = !offline && !document.hidden && (now - lastConnectionWarningAt) > 15000;
+            if (shouldLog) {
+                lastConnectionWarningAt = now;
+                console.warn('[Alerts] SSE connection error; retrying');
+            }
             if (reconnectTimer) clearTimeout(reconnectTimer);
             reconnectTimer = setTimeout(connect, 2500);
         };
