@@ -255,6 +255,152 @@ def delete_all_images():
     return jsonify({'status': 'ok', 'deleted': count})
 
 
+# ========================
+# Auto-Scheduler Endpoints
+# ========================
+
+
+def _scheduler_event_callback(event: dict) -> None:
+    """Forward scheduler events to the SSE queue."""
+    try:
+        _wefax_queue.put_nowait(event)
+    except queue.Full:
+        try:
+            _wefax_queue.get_nowait()
+            _wefax_queue.put_nowait(event)
+        except queue.Empty:
+            pass
+
+
+@wefax_bp.route('/schedule/enable', methods=['POST'])
+def enable_schedule():
+    """Enable auto-scheduling of WeFax broadcast captures.
+
+    JSON body:
+        {
+            "station": "NOJ",
+            "frequency_khz": 4298,
+            "device": 0,
+            "gain": 40,
+            "ioc": 576,
+            "lpm": 120,
+            "direct_sampling": true
+        }
+
+    Returns:
+        JSON with scheduler status.
+    """
+    from utils.wefax_scheduler import get_wefax_scheduler
+
+    data = request.get_json(silent=True) or {}
+
+    station = str(data.get('station', '')).strip()
+    if not station:
+        return jsonify({
+            'status': 'error',
+            'message': 'station is required',
+        }), 400
+
+    frequency_khz = data.get('frequency_khz')
+    if frequency_khz is None:
+        return jsonify({
+            'status': 'error',
+            'message': 'frequency_khz is required',
+        }), 400
+
+    try:
+        frequency_khz = float(frequency_khz)
+        freq_mhz = frequency_khz / 1000.0
+        validate_frequency(freq_mhz, min_mhz=2.0, max_mhz=30.0)
+    except (TypeError, ValueError) as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid frequency: {e}',
+        }), 400
+
+    device = int(data.get('device', 0))
+    gain = float(data.get('gain', 40.0))
+    ioc = int(data.get('ioc', 576))
+    lpm = int(data.get('lpm', 120))
+    direct_sampling = bool(data.get('direct_sampling', True))
+
+    scheduler = get_wefax_scheduler()
+    scheduler.set_callbacks(_progress_callback, _scheduler_event_callback)
+
+    try:
+        result = scheduler.enable(
+            station=station,
+            frequency_khz=frequency_khz,
+            device=device,
+            gain=gain,
+            ioc=ioc,
+            lpm=lpm,
+            direct_sampling=direct_sampling,
+        )
+    except Exception:
+        logger.exception("Failed to enable WeFax scheduler")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to enable scheduler',
+        }), 500
+
+    return jsonify({'status': 'ok', **result})
+
+
+@wefax_bp.route('/schedule/disable', methods=['POST'])
+def disable_schedule():
+    """Disable auto-scheduling."""
+    from utils.wefax_scheduler import get_wefax_scheduler
+
+    scheduler = get_wefax_scheduler()
+    result = scheduler.disable()
+    return jsonify(result)
+
+
+@wefax_bp.route('/schedule/status')
+def schedule_status():
+    """Get current scheduler state."""
+    from utils.wefax_scheduler import get_wefax_scheduler
+
+    scheduler = get_wefax_scheduler()
+    return jsonify(scheduler.get_status())
+
+
+@wefax_bp.route('/schedule/broadcasts')
+def schedule_broadcasts():
+    """List scheduled broadcasts."""
+    from utils.wefax_scheduler import get_wefax_scheduler
+
+    scheduler = get_wefax_scheduler()
+    broadcasts = scheduler.get_broadcasts()
+    return jsonify({
+        'status': 'ok',
+        'broadcasts': broadcasts,
+        'count': len(broadcasts),
+    })
+
+
+@wefax_bp.route('/schedule/skip/<broadcast_id>', methods=['POST'])
+def skip_broadcast(broadcast_id: str):
+    """Skip a scheduled broadcast."""
+    from utils.wefax_scheduler import get_wefax_scheduler
+
+    if not broadcast_id.replace('_', '').replace('-', '').isalnum():
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid broadcast ID',
+        }), 400
+
+    scheduler = get_wefax_scheduler()
+    if scheduler.skip_broadcast(broadcast_id):
+        return jsonify({'status': 'skipped', 'broadcast_id': broadcast_id})
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': 'Broadcast not found or already processed',
+        }), 404
+
+
 @wefax_bp.route('/stations')
 def list_stations():
     """Get all WeFax stations from the database."""

@@ -50,6 +50,18 @@
         </div>
     </div>
 
+    <div class="section">
+        <h3>Auto Capture</h3>
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="wefaxSidebarAutoSchedule"
+                   onchange="WeFax.toggleScheduler(this)">
+            <label for="wefaxSidebarAutoSchedule" style="margin: 0; cursor: pointer;">Auto-capture scheduled broadcasts</label>
+        </div>
+        <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+            Automatically decode at scheduled broadcast times.
+        </p>
+    </div>
+
     <!-- Antenna Guide -->
     <div class="section">
         <h3>HF Antenna Guide</h3>

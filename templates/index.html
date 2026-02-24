@@ -2545,6 +2545,11 @@
                             </div>
                             <button class="wefax-strip-btn start" id="wefaxStartBtn" onclick="WeFax.start()">Start</button>
                             <button class="wefax-strip-btn stop" id="wefaxStopBtn" onclick="WeFax.stop()" style="display: none;">Stop</button>
+                            <label class="wefax-schedule-toggle" title="Auto-capture broadcasts">
+                                <input type="checkbox" id="wefaxStripAutoSchedule"
+                                       onchange="WeFax.toggleScheduler(this)">
+                                <span>Auto</span>
+                            </label>
                         </div>
                         <div class="wefax-strip-divider"></div>
                         <div class="wefax-strip-group">

@@ -50,6 +50,7 @@ var WeFax = (function () {
         state.initialized = true;
         loadStations();
         loadImages();
+        checkSchedulerStatus();
     }
 
     function destroy() {
@@ -147,7 +148,7 @@ var WeFax = (function () {
         var freqSel = document.getElementById('wefaxFrequency');
         var freqKhz = freqSel ? parseFloat(freqSel.value) : 0;
         if (!freqKhz || isNaN(freqKhz)) {
-            setStatus('Select a station and frequency first');
+            flashStartError();
             return;
         }
 
@@ -248,6 +249,24 @@ var WeFax = (function () {
     }
 
     function handleProgress(data) {
+        // Handle scheduler events
+        if (data.type === 'schedule_capture_start') {
+            setStatus('Auto-capture started: ' + (data.broadcast ? data.broadcast.content : ''));
+            state.running = true;
+            updateButtons(true);
+            connectSSE();
+            return;
+        }
+        if (data.type === 'schedule_capture_complete') {
+            setStatus('Auto-capture complete');
+            loadImages();
+            return;
+        }
+        if (data.type === 'schedule_capture_skipped') {
+            setStatus('Broadcast skipped: ' + (data.reason || ''));
+            return;
+        }
+
         if (data.type !== 'wefax_progress') return;
 
         var statusText = data.message || data.status || '';
@@ -655,6 +674,119 @@ var WeFax = (function () {
         if (el) el.textContent = String(khz);
     }
 
+    function flashStartError() {
+        setStatus('Select a station and frequency first');
+        var statusEl = document.getElementById('wefaxStatusText');
+        if (statusEl) {
+            statusEl.style.color = '#ffaa00';
+            statusEl.style.fontWeight = '600';
+            setTimeout(function () {
+                statusEl.style.color = '';
+                statusEl.style.fontWeight = '';
+            }, 2500);
+        }
+        var stationSel = document.getElementById('wefaxStation');
+        var freqSel = document.getElementById('wefaxFrequency');
+        [stationSel, freqSel].forEach(function (el) {
+            if (!el) return;
+            el.style.borderColor = '#ffaa00';
+            el.style.boxShadow = '0 0 4px #ffaa0066';
+            setTimeout(function () {
+                el.style.borderColor = '';
+                el.style.boxShadow = '';
+            }, 2500);
+        });
+    }
+
+    // ---- Auto-Capture Scheduler ----
+
+    function checkSchedulerStatus() {
+        fetch('/wefax/schedule/status')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var strip = document.getElementById('wefaxStripAutoSchedule');
+                var sidebar = document.getElementById('wefaxSidebarAutoSchedule');
+                if (strip) strip.checked = !!data.enabled;
+                if (sidebar) sidebar.checked = !!data.enabled;
+            })
+            .catch(function () { /* ignore */ });
+    }
+
+    function enableScheduler() {
+        var stationSel = document.getElementById('wefaxStation');
+        var station = stationSel ? stationSel.value : '';
+        var freqSel = document.getElementById('wefaxFrequency');
+        var freqKhz = freqSel ? parseFloat(freqSel.value) : 0;
+
+        if (!station || !freqKhz || isNaN(freqKhz)) {
+            flashStartError();
+            syncSchedulerCheckboxes(false);
+            return;
+        }
+
+        var deviceSel = document.getElementById('rtlDevice');
+        var device = deviceSel ? parseInt(deviceSel.value, 10) || 0 : 0;
+        var gainInput = document.getElementById('wefaxGain');
+        var iocSel = document.getElementById('wefaxIOC');
+        var lpmSel = document.getElementById('wefaxLPM');
+        var dsCheckbox = document.getElementById('wefaxDirectSampling');
+
+        fetch('/wefax/schedule/enable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                station: station,
+                frequency_khz: freqKhz,
+                device: device,
+                gain: gainInput ? parseFloat(gainInput.value) || 40 : 40,
+                ioc: iocSel ? parseInt(iocSel.value, 10) : 576,
+                lpm: lpmSel ? parseInt(lpmSel.value, 10) : 120,
+                direct_sampling: dsCheckbox ? dsCheckbox.checked : true,
+            }),
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'ok') {
+                    setStatus('Auto-capture enabled — ' + (data.scheduled_count || 0) + ' broadcasts scheduled');
+                    syncSchedulerCheckboxes(true);
+                } else {
+                    setStatus('Scheduler error: ' + (data.message || 'unknown'));
+                    syncSchedulerCheckboxes(false);
+                }
+            })
+            .catch(function (err) {
+                setStatus('Scheduler error: ' + err.message);
+                syncSchedulerCheckboxes(false);
+            });
+    }
+
+    function disableScheduler() {
+        fetch('/wefax/schedule/disable', { method: 'POST' })
+            .then(function (r) { return r.json(); })
+            .then(function () {
+                setStatus('Auto-capture disabled');
+                syncSchedulerCheckboxes(false);
+            })
+            .catch(function (err) {
+                console.error('WeFax scheduler disable error:', err);
+            });
+    }
+
+    function toggleScheduler(checkbox) {
+        if (checkbox.checked) {
+            enableScheduler();
+        } else {
+            disableScheduler();
+        }
+    }
+
+    function syncSchedulerCheckboxes(enabled) {
+        var strip = document.getElementById('wefaxStripAutoSchedule');
+        var sidebar = document.getElementById('wefaxSidebarAutoSchedule');
+        if (strip) strip.checked = enabled;
+        if (sidebar) sidebar.checked = enabled;
+    }
+
     // ---- Public API ----
 
     return {
@@ -667,5 +799,6 @@ var WeFax = (function () {
         deleteImage: deleteImage,
         deleteAllImages: deleteAllImages,
         viewImage: viewImage,
+        toggleScheduler: toggleScheduler,
     };
 })();

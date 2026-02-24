@@ -108,6 +108,30 @@
     letter-spacing: 1px;
 }
 
+/* --- Schedule Toggle --- */
+.wefax-schedule-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    color: var(--text-dim, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wefax-schedule-toggle input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: #ffaa00;
+}
+
+.wefax-schedule-toggle input:checked + span {
+    color: #ffaa00;
+}
+
 /* --- Visuals Container --- */
 .wefax-visuals-container {
     display: flex;
