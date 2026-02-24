@@ -2784,6 +2784,9 @@ const Waterfall = (function () {
             let monitorDevice = altDevice || selectedDevice;
             const biasT = !!document.getElementById('wfBiasT')?.checked;
             const usingSecondaryDevice = !!altDevice;
+            // Use a high monotonic token so backend start ordering remains
+            // valid across page reloads (local nonces reset to small values).
+            const requestToken = Math.trunc((Date.now() * 4096) + (nonce & 0x0fff));
 
             if (!retuneOnly) {
                 _monitorFreqMhz = centerMhz;
@@ -2814,7 +2817,7 @@ const Waterfall = (function () {
                 gain,
                 device: monitorDevice,
                 biasT,
-                requestToken: nonce,
+                requestToken,
             });
             if (nonce !== _audioConnectNonce) return;
 
@@ -2839,7 +2842,7 @@ const Waterfall = (function () {
                     gain,
                     device: monitorDevice,
                     biasT,
-                    requestToken: nonce,
+                    requestToken,
                 }));
                 if (nonce !== _audioConnectNonce) return;
                 if (payload?.superseded === true || payload?.status === 'stale') return;
