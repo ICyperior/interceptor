@@ -83,33 +83,85 @@
             wefax: "{{ url_for('static', filename='css/modes/wefax.css') }}"
         };
         window.INTERCEPT_MODE_STYLE_LOADED = {};
+        window.INTERCEPT_MODE_STYLE_PROMISES = {};
         window.ensureModeStyles = function(mode) {
             const href = window.INTERCEPT_MODE_STYLE_MAP ? window.INTERCEPT_MODE_STYLE_MAP[mode] : null;
-            if (!href) return;
+            if (!href) return Promise.resolve();
+            if (window.INTERCEPT_MODE_STYLE_LOADED[href] === 'loaded') {
+                return Promise.resolve();
+            }
+            if (window.INTERCEPT_MODE_STYLE_PROMISES[href]) {
+                return window.INTERCEPT_MODE_STYLE_PROMISES[href];
+            }
             const absHref = new URL(href, window.location.href).href;
             const existing = Array.from(document.querySelectorAll('link[data-mode-style]'))
                 .find((link) => link.href === absHref);
-            if (existing) {
+            if (existing && existing.sheet) {
                 window.INTERCEPT_MODE_STYLE_LOADED[href] = 'loaded';
-                return;
+                return Promise.resolve();
             }
-            if (window.INTERCEPT_MODE_STYLE_LOADED[href] === 'loading') return;
             window.INTERCEPT_MODE_STYLE_LOADED[href] = 'loading';
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = href;
-            link.dataset.modeStyle = mode;
-            link.onload = () => {
-                window.INTERCEPT_MODE_STYLE_LOADED[href] = 'loaded';
-            };
-            link.onerror = () => {
-                delete window.INTERCEPT_MODE_STYLE_LOADED[href];
-                try {
-                    link.remove();
-                } catch (_) {}
-            };
-            document.head.appendChild(link);
+            const link = existing || document.createElement('link');
+            if (!existing) {
+                link.rel = 'stylesheet';
+                link.href = href;
+                link.dataset.modeStyle = mode;
+            }
+            const promise = new Promise((resolve, reject) => {
+                const onLoad = () => {
+                    window.INTERCEPT_MODE_STYLE_LOADED[href] = 'loaded';
+                    delete window.INTERCEPT_MODE_STYLE_PROMISES[href];
+                    resolve();
+                };
+                const onError = () => {
+                    delete window.INTERCEPT_MODE_STYLE_LOADED[href];
+                    delete window.INTERCEPT_MODE_STYLE_PROMISES[href];
+                    try {
+                        link.remove();
+                    } catch (_) {}
+                    reject(new Error(`failed to load mode stylesheet: ${mode}`));
+                };
+                link.addEventListener('load', onLoad, { once: true });
+                link.addEventListener('error', onError, { once: true });
+                if (existing) {
+                    // Existing links may have finished loading before listeners attached.
+                    if (existing.sheet) onLoad();
+                } else {
+                    document.head.appendChild(link);
+                }
+            });
+            window.INTERCEPT_MODE_STYLE_PROMISES[href] = promise;
+            return promise;
         };
+        // Start loading a deep-linked mode stylesheet as early as possible.
+        (function preloadQueryModeStyles() {
+            const queryMode = new URLSearchParams(window.location.search).get('mode');
+            const mode = queryMode === 'listening' ? 'waterfall' : queryMode;
+            if (!mode) return;
+            window.ensureModeStyles(mode).catch(() => {});
+        })();
+        // Warm remaining lazy mode styles in the background to avoid first-switch FOUC.
+        (function warmModeStylesInBackground() {
+            const modeMap = window.INTERCEPT_MODE_STYLE_MAP || {};
+            const queryMode = new URLSearchParams(window.location.search).get('mode');
+            const selectedMode = queryMode === 'listening' ? 'waterfall' : queryMode;
+            const modes = Object.keys(modeMap).filter((mode) => mode !== selectedMode);
+            if (!modes.length) return;
+
+            const warm = function () {
+                modes.forEach(function (mode, index) {
+                    setTimeout(function () {
+                        window.ensureModeStyles(mode).catch(() => {});
+                    }, index * 40);
+                });
+            };
+
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(warm, { timeout: 2000 });
+            } else {
+                setTimeout(warm, 600);
+            }
+        })();
     </script>
 </head>
 
@@ -3880,6 +3932,11 @@
             const previousMode = currentMode;
             if (mode === 'listening') mode = 'waterfall';
             if (!validModes.has(mode)) mode = 'pager';
+            const styleReadyPromise = (typeof window.ensureModeStyles === 'function')
+                ? Promise.resolve(window.ensureModeStyles(mode)).catch((err) => {
+                    console.warn(`[ModeSwitch] style load failed for ${mode}: ${err?.message || err}`);
+                })
+                : Promise.resolve();
             // Only stop local scans if in local mode (not agent mode)
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
             const stopPhaseStartMs = performance.now();
@@ -3923,6 +3980,7 @@
                 stopTaskCount = stopTasks.length;
             }
             const stopPhaseMs = Math.round(performance.now() - stopPhaseStartMs);
+            await styleReadyPromise;
 
             // Clean up SubGHz SSE connection when leaving the mode
             if (typeof SubGhz !== 'undefined' && currentMode === 'subghz' && mode !== 'subghz') {
@@ -3947,10 +4005,6 @@
             // Close dropdowns and update active state
             closeAllDropdowns();
             updateDropdownActiveState();
-
-            if (typeof window.ensureModeStyles === 'function') {
-                window.ensureModeStyles(mode);
-            }
 
             // Remove active from all nav buttons, then add to the correct one
             document.querySelectorAll('.mode-nav-btn').forEach(btn => {
