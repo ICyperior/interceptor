@@ -9,6 +9,7 @@ const GPS = (function() {
     let lastPosition = null;
     let lastSky = null;
     let skyPollTimer = null;
+    let statusPollTimer = null;
     let themeObserver = null;
     let skyRenderer = null;
     let skyRendererInitAttempted = false;
@@ -430,8 +431,10 @@ const GPS = (function() {
                     }
                     subscribeToStream();
                     startSkyPolling();
+                    startStatusPolling();
                     // Ensure the global GPS stream is running
-                    if (typeof startGpsStream === 'function' && !gpsEventSource) {
+                    const hasGlobalGpsStream = typeof gpsEventSource !== 'undefined' && !!gpsEventSource;
+                    if (typeof startGpsStream === 'function' && !hasGlobalGpsStream) {
                         startGpsStream();
                     }
                 } else {
@@ -448,6 +451,7 @@ const GPS = (function() {
     function disconnect() {
         unsubscribeFromStream();
         stopSkyPolling();
+        stopStatusPolling();
         fetch('/gps/stop', { method: 'POST' })
             .then(() => {
                 connected = false;
@@ -491,6 +495,43 @@ const GPS = (function() {
             .then(r => r.json())
             .then(data => {
                 if (data.status === 'ok' && data.sky) {
+                    lastSky = data.sky;
+                    updateSkyUI(data.sky);
+                }
+            })
+            .catch(() => {});
+    }
+
+    function startStatusPolling() {
+        stopStatusPolling();
+        // Poll full status as a fallback when SSE is unavailable or blocked.
+        pollStatus();
+        statusPollTimer = setInterval(pollStatus, 2000);
+    }
+
+    function stopStatusPolling() {
+        if (statusPollTimer) {
+            clearInterval(statusPollTimer);
+            statusPollTimer = null;
+        }
+    }
+
+    function pollStatus() {
+        if (!connected) return;
+        fetch('/gps/status')
+            .then(r => r.json())
+            .then(data => {
+                if (!connected || !data || data.running !== true) return;
+
+                if (data.position) {
+                    lastPosition = data.position;
+                    updatePositionUI(data.position);
+                    updateConnectionUI(true, true);
+                } else {
+                    updateConnectionUI(true, false);
+                }
+
+                if (data.sky) {
                     lastSky = data.sky;
                     updateSkyUI(data.sky);
                 }
@@ -1443,6 +1484,7 @@ const GPS = (function() {
     function destroy() {
         unsubscribeFromStream();
         stopSkyPolling();
+        stopStatusPolling();
         if (themeObserver) {
             themeObserver.disconnect();
             themeObserver = null;

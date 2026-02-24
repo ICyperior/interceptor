@@ -68,6 +68,9 @@ def auto_connect_gps():
     # Check if already running
     reader = get_gps_reader()
     if reader and reader.is_running:
+        # Ensure stream callbacks are attached for this process.
+        reader.add_callback(_position_callback)
+        reader.add_sky_callback(_sky_callback)
         position = reader.position
         sky = reader.sky
         return jsonify({
