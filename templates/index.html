@@ -1241,23 +1241,25 @@
                 <!-- GPS Receiver Dashboard -->
                 <div id="gpsVisuals" class="gps-visuals-container" style="display: none;">
                     <div class="gps-visuals-top">
-                        <!-- Sky View Polar Plot -->
+                        <!-- Sky View Globe -->
                         <div class="gps-skyview-panel">
-                            <h4>Satellite Sky View</h4>
+                            <h4>Satellite Globe View</h4>
                             <div class="gps-skyview-canvas-wrap" id="gpsSkyViewWrap">
-                                <canvas id="gpsSkyCanvas" width="400" height="400" aria-label="GPS satellite sky globe"></canvas>
+                                <div id="gpsSkyGlobe" class="gps-sky-globe" aria-label="GPS satellite globe"></div>
+                                <canvas id="gpsSkyCanvas" width="400" height="400" aria-label="GPS satellite sky fallback globe"></canvas>
                                 <div class="gps-sky-overlay" id="gpsSkyOverlay" aria-hidden="true"></div>
                             </div>
-                            <div class="gps-sky-hint">Drag to orbit | Scroll to zoom</div>
+                            <div class="gps-sky-hint">Drag to orbit globe | Scroll to zoom | Hover satellites for details</div>
                             <div class="gps-legend">
+                                <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#ffffff;"></span> Observer</div>
                                 <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#00d4ff;"></span> GPS</div>
                                 <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#00ff88;"></span> GLONASS</div>
                                 <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#ff8800;"></span> Galileo</div>
                                 <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#ff4466;"></span> BeiDou</div>
                                 <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#ffdd00;"></span> SBAS</div>
                                 <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#cc66ff;"></span> QZSS</div>
-                                <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#00d4ff;"></span> Used (filled)</div>
-                                <div class="gps-legend-item"><span class="gps-legend-dot" style="background:transparent; border:1.5px solid #00d4ff;"></span> Unused (hollow)</div>
+                                <div class="gps-legend-item"><span class="gps-legend-dot" style="background:#00d4ff;"></span> Used (bright)</div>
+                                <div class="gps-legend-item"><span class="gps-legend-dot" style="background:rgba(0,212,255,0.45);"></span> Unused (dim)</div>
                             </div>
                         </div>
                         <!-- Position Info -->
