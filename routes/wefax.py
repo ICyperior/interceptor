@@ -15,7 +15,13 @@ from utils.logging import get_logger
 from utils.sse import sse_stream_fanout
 from utils.validation import validate_frequency
 from utils.wefax import get_wefax_decoder
-from utils.wefax_stations import get_current_broadcasts, get_station, load_stations
+from utils.wefax_stations import (
+    WEFAX_USB_ALIGNMENT_OFFSET_KHZ,
+    get_current_broadcasts,
+    get_station,
+    load_stations,
+    resolve_tuning_frequency_khz,
+)
 
 logger = get_logger('intercept.wefax')
 
@@ -76,7 +82,8 @@ def start_decoder():
             "gain": 40,
             "ioc": 576,
             "lpm": 120,
-            "direct_sampling": true
+            "direct_sampling": true,
+            "frequency_reference": "auto"  // auto, carrier, or dial
         }
     """
     decoder = get_wefax_decoder()
@@ -121,6 +128,25 @@ def start_decoder():
     ioc = int(data.get('ioc', 576))
     lpm = int(data.get('lpm', 120))
     direct_sampling = bool(data.get('direct_sampling', True))
+    frequency_reference = str(data.get('frequency_reference', 'auto')).strip().lower()
+    if not frequency_reference:
+        frequency_reference = 'auto'
+
+    try:
+        tuned_frequency_khz, resolved_reference, usb_offset_applied = (
+            resolve_tuning_frequency_khz(
+                listed_frequency_khz=frequency_khz,
+                station_callsign=station,
+                frequency_reference=frequency_reference,
+            )
+        )
+        tuned_mhz = tuned_frequency_khz / 1000.0
+        validate_frequency(tuned_mhz, min_mhz=2.0, max_mhz=30.0)
+    except ValueError as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid frequency settings: {e}',
+        }), 400
 
     # Validate IOC and LPM
     if ioc not in (288, 576):
@@ -149,7 +175,7 @@ def start_decoder():
     # Set callback and start
     decoder.set_callback(_progress_callback)
     success = decoder.start(
-        frequency_khz=frequency_khz,
+        frequency_khz=tuned_frequency_khz,
         station=station,
         device_index=device_int,
         gain=gain,
@@ -163,6 +189,12 @@ def start_decoder():
         return jsonify({
             'status': 'started',
             'frequency_khz': frequency_khz,
+            'tuned_frequency_khz': tuned_frequency_khz,
+            'frequency_reference': resolved_reference,
+            'usb_offset_applied': usb_offset_applied,
+            'usb_offset_khz': (
+                WEFAX_USB_ALIGNMENT_OFFSET_KHZ if usb_offset_applied else 0.0
+            ),
             'station': station,
             'ioc': ioc,
             'lpm': lpm,
@@ -297,7 +329,8 @@ def enable_schedule():
             "gain": 40,
             "ioc": 576,
             "lpm": 120,
-            "direct_sampling": true
+            "direct_sampling": true,
+            "frequency_reference": "auto"  // auto, carrier, or dial
         }
 
     Returns:
@@ -336,6 +369,25 @@ def enable_schedule():
     ioc = int(data.get('ioc', 576))
     lpm = int(data.get('lpm', 120))
     direct_sampling = bool(data.get('direct_sampling', True))
+    frequency_reference = str(data.get('frequency_reference', 'auto')).strip().lower()
+    if not frequency_reference:
+        frequency_reference = 'auto'
+
+    try:
+        tuned_frequency_khz, resolved_reference, usb_offset_applied = (
+            resolve_tuning_frequency_khz(
+                listed_frequency_khz=frequency_khz,
+                station_callsign=station,
+                frequency_reference=frequency_reference,
+            )
+        )
+        tuned_mhz = tuned_frequency_khz / 1000.0
+        validate_frequency(tuned_mhz, min_mhz=2.0, max_mhz=30.0)
+    except ValueError as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid frequency settings: {e}',
+        }), 400
 
     scheduler = get_wefax_scheduler()
     scheduler.set_callbacks(_progress_callback, _scheduler_event_callback)
@@ -343,7 +395,7 @@ def enable_schedule():
     try:
         result = scheduler.enable(
             station=station,
-            frequency_khz=frequency_khz,
+            frequency_khz=tuned_frequency_khz,
             device=device,
             gain=gain,
             ioc=ioc,
@@ -357,7 +409,17 @@ def enable_schedule():
             'message': 'Failed to enable scheduler',
         }), 500
 
-    return jsonify({'status': 'ok', **result})
+    return jsonify({
+        'status': 'ok',
+        **result,
+        'frequency_khz': frequency_khz,
+        'tuned_frequency_khz': tuned_frequency_khz,
+        'frequency_reference': resolved_reference,
+        'usb_offset_applied': usb_offset_applied,
+        'usb_offset_khz': (
+            WEFAX_USB_ALIGNMENT_OFFSET_KHZ if usb_offset_applied else 0.0
+        ),
+    })
 
 
 @wefax_bp.route('/schedule/disable', methods=['POST'])

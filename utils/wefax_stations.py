@@ -12,6 +12,8 @@ from pathlib import Path
 
 _stations_cache: list[dict] | None = None
 _stations_by_callsign: dict[str, dict] = {}
+_VALID_FREQUENCY_REFERENCES = {'auto', 'carrier', 'dial'}
+WEFAX_USB_ALIGNMENT_OFFSET_KHZ = 1.9
 
 _STATIONS_PATH = Path(__file__).resolve().parent.parent / 'data' / 'wefax_stations.json'
 
@@ -35,6 +37,75 @@ def get_station(callsign: str) -> dict | None:
     """Get a single station by callsign."""
     load_stations()
     return _stations_by_callsign.get(callsign.upper())
+
+
+def _normalize_frequency_reference(value: str | None) -> str:
+    """Normalize and validate frequency reference token."""
+    reference = str(value or 'auto').strip().lower()
+    if reference not in _VALID_FREQUENCY_REFERENCES:
+        choices = ', '.join(sorted(_VALID_FREQUENCY_REFERENCES))
+        raise ValueError(f'frequency_reference must be one of: {choices}')
+    return reference
+
+
+def _station_frequency_reference(station: dict, listed_frequency_khz: float) -> str:
+    """Infer whether a station frequency entry is carrier or already USB dial."""
+    for entry in station.get('frequencies', []):
+        try:
+            entry_khz = float(entry.get('khz'))
+        except (TypeError, ValueError):
+            continue
+        if abs(entry_khz - listed_frequency_khz) > 0.001:
+            continue
+        entry_ref = str(entry.get('reference', '')).strip().lower()
+        if entry_ref in ('carrier', 'dial'):
+            return entry_ref
+
+    station_ref = str(station.get('frequency_reference', '')).strip().lower()
+    if station_ref in ('carrier', 'dial'):
+        return station_ref
+
+    # Most published marine WeFax channel lists are carrier frequencies.
+    return 'carrier'
+
+
+def resolve_tuning_frequency_khz(
+    listed_frequency_khz: float,
+    station_callsign: str = '',
+    frequency_reference: str = 'auto',
+) -> tuple[float, str, bool]:
+    """Resolve listed frequency to the actual USB dial frequency.
+
+    Args:
+        listed_frequency_khz: Frequency value provided by UI/API.
+        station_callsign: Station callsign used for metadata lookup.
+        frequency_reference: One of auto/carrier/dial.
+
+    Returns:
+        (tuned_frequency_khz, resolved_reference, offset_applied)
+    """
+    listed = float(listed_frequency_khz)
+    if listed <= 0:
+        raise ValueError('frequency_khz must be greater than zero')
+
+    requested_ref = _normalize_frequency_reference(frequency_reference)
+    resolved_ref = requested_ref
+
+    if requested_ref == 'auto':
+        station = get_station(station_callsign) if station_callsign else None
+        if station:
+            resolved_ref = _station_frequency_reference(station, listed)
+        else:
+            # For ad-hoc frequencies (no station metadata), treat input as dial.
+            resolved_ref = 'dial'
+
+    if resolved_ref == 'carrier':
+        tuned = round(listed - WEFAX_USB_ALIGNMENT_OFFSET_KHZ, 3)
+        if tuned <= 0:
+            raise ValueError('frequency_khz too low after USB alignment offset')
+        return tuned, resolved_ref, True
+
+    return listed, resolved_ref, False
 
 
 def get_current_broadcasts(callsign: str) -> list[dict]:

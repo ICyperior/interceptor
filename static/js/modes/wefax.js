@@ -152,6 +152,14 @@ var WeFax = (function () {
 
     // ---- Start / Stop ----
 
+    function selectedFrequencyReference() {
+        var alignCheckbox = document.getElementById('wefaxAutoUsbAlign');
+        if (alignCheckbox && !alignCheckbox.checked) {
+            return 'dial';
+        }
+        return 'auto';
+    }
+
     function start() {
         if (state.running) return;
 
@@ -180,6 +188,7 @@ var WeFax = (function () {
             ioc: iocSel ? parseInt(iocSel.value, 10) : 576,
             lpm: lpmSel ? parseInt(lpmSel.value, 10) : 120,
             direct_sampling: dsCheckbox ? dsCheckbox.checked : true,
+            frequency_reference: selectedFrequencyReference(),
         };
 
         fetch('/wefax/start', {
@@ -190,10 +199,16 @@ var WeFax = (function () {
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.status === 'started' || data.status === 'already_running') {
+                    var tunedKhz = Number(data.tuned_frequency_khz);
+                    if (isNaN(tunedKhz) || tunedKhz <= 0) tunedKhz = freqKhz;
                     state.running = true;
                     updateButtons(true);
-                    setStatus('Scanning ' + freqKhz + ' kHz...');
-                    setStripFreq(freqKhz);
+                    if (data.usb_offset_applied) {
+                        setStatus('Scanning ' + tunedKhz + ' kHz (USB aligned from ' + freqKhz + ' kHz)...');
+                    } else {
+                        setStatus('Scanning ' + tunedKhz + ' kHz...');
+                    }
+                    setStripFreq(tunedKhz);
                     connectSSE();
                 } else {
                     var errMsg = data.message || 'unknown error';
@@ -1051,12 +1066,17 @@ var WeFax = (function () {
                 ioc: iocSel ? parseInt(iocSel.value, 10) : 576,
                 lpm: lpmSel ? parseInt(lpmSel.value, 10) : 120,
                 direct_sampling: dsCheckbox ? dsCheckbox.checked : true,
+                frequency_reference: selectedFrequencyReference(),
             }),
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.status === 'ok') {
-                    setStatus('Auto-capture enabled — ' + (data.scheduled_count || 0) + ' broadcasts scheduled');
+                    var status = 'Auto-capture enabled — ' + (data.scheduled_count || 0) + ' broadcasts scheduled';
+                    if (data.usb_offset_applied && !isNaN(Number(data.tuned_frequency_khz))) {
+                        status += ' (tuning ' + Number(data.tuned_frequency_khz) + ' kHz)';
+                    }
+                    setStatus(status);
                     syncSchedulerCheckboxes(true);
                     state.schedulerEnabled = true;
                     connectSSE();

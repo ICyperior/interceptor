@@ -59,6 +59,62 @@ class TestWeFaxStations:
         from utils.wefax_stations import get_station
         assert get_station('XXXXX') is None
 
+    def test_resolve_tuning_frequency_auto_uses_carrier_for_known_station(self):
+        """Known station frequencies default to carrier-list behavior in auto mode."""
+        from utils.wefax_stations import resolve_tuning_frequency_khz
+
+        tuned, reference, offset_applied = resolve_tuning_frequency_khz(
+            listed_frequency_khz=4298.0,
+            station_callsign='NOJ',
+            frequency_reference='auto',
+        )
+
+        assert math.isclose(tuned, 4296.1, abs_tol=1e-6)
+        assert reference == 'carrier'
+        assert offset_applied is True
+
+    def test_resolve_tuning_frequency_auto_preserves_unknown_station_input(self):
+        """Ad-hoc frequencies (no station metadata) should be treated as dial."""
+        from utils.wefax_stations import resolve_tuning_frequency_khz
+
+        tuned, reference, offset_applied = resolve_tuning_frequency_khz(
+            listed_frequency_khz=4298.0,
+            station_callsign='',
+            frequency_reference='auto',
+        )
+
+        assert math.isclose(tuned, 4298.0, abs_tol=1e-6)
+        assert reference == 'dial'
+        assert offset_applied is False
+
+    def test_resolve_tuning_frequency_dial_override(self):
+        """Explicit dial reference must bypass USB alignment."""
+        from utils.wefax_stations import resolve_tuning_frequency_khz
+
+        tuned, reference, offset_applied = resolve_tuning_frequency_khz(
+            listed_frequency_khz=4298.0,
+            station_callsign='NOJ',
+            frequency_reference='dial',
+        )
+
+        assert math.isclose(tuned, 4298.0, abs_tol=1e-6)
+        assert reference == 'dial'
+        assert offset_applied is False
+
+    def test_resolve_tuning_frequency_rejects_invalid_reference(self):
+        """Invalid frequency reference values should raise a validation error."""
+        from utils.wefax_stations import resolve_tuning_frequency_khz
+
+        try:
+            resolve_tuning_frequency_khz(
+                listed_frequency_khz=4298.0,
+                station_callsign='NOJ',
+                frequency_reference='invalid',
+            )
+            assert False, "Expected ValueError for invalid frequency_reference"
+        except ValueError as exc:
+            assert 'frequency_reference' in str(exc)
+
     def test_station_frequencies_have_khz(self):
         """Each frequency entry must have 'khz' and 'description'."""
         from utils.wefax_stations import load_stations
@@ -359,8 +415,42 @@ class TestWeFaxRoutes:
         data = response.get_json()
         assert data['status'] == 'started'
         assert data['frequency_khz'] == 4298
+        assert data['usb_offset_applied'] is True
+        assert math.isclose(data['tuned_frequency_khz'], 4296.1, abs_tol=1e-6)
+        assert data['frequency_reference'] == 'carrier'
         assert data['station'] == 'NOJ'
         mock_decoder.start.assert_called_once()
+        start_kwargs = mock_decoder.start.call_args.kwargs
+        assert math.isclose(start_kwargs['frequency_khz'], 4296.1, abs_tol=1e-6)
+
+    def test_start_respects_dial_reference_override(self, client):
+        """POST /wefax/start with dial reference should not apply USB offset."""
+        _login_session(client)
+        mock_decoder = MagicMock()
+        mock_decoder.is_running = False
+        mock_decoder.start.return_value = True
+
+        with patch('routes.wefax.get_wefax_decoder', return_value=mock_decoder), \
+             patch('routes.wefax.app_module.claim_sdr_device', return_value=None):
+            response = client.post(
+                '/wefax/start',
+                data=json.dumps({
+                    'frequency_khz': 4298,
+                    'station': 'NOJ',
+                    'device': 0,
+                    'frequency_reference': 'dial',
+                }),
+                content_type='application/json',
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'started'
+        assert data['usb_offset_applied'] is False
+        assert math.isclose(data['tuned_frequency_khz'], 4298.0, abs_tol=1e-6)
+        assert data['frequency_reference'] == 'dial'
+        start_kwargs = mock_decoder.start.call_args.kwargs
+        assert math.isclose(start_kwargs['frequency_khz'], 4298.0, abs_tol=1e-6)
 
     def test_start_device_busy(self, client):
         """POST /wefax/start should return 409 when device is busy."""
@@ -428,6 +518,35 @@ class TestWeFaxRoutes:
             response = client.delete('/wefax/images/test.jpg')
 
         assert response.status_code == 400
+
+    def test_schedule_enable_applies_usb_alignment(self, client):
+        """Scheduler should receive tuned USB dial frequency in auto mode."""
+        _login_session(client)
+        mock_scheduler = MagicMock()
+        mock_scheduler.enable.return_value = {
+            'enabled': True,
+            'scheduled_count': 2,
+            'total_broadcasts': 2,
+        }
+
+        with patch('utils.wefax_scheduler.get_wefax_scheduler', return_value=mock_scheduler):
+            response = client.post(
+                '/wefax/schedule/enable',
+                data=json.dumps({
+                    'station': 'NOJ',
+                    'frequency_khz': 4298,
+                    'device': 0,
+                }),
+                content_type='application/json',
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'ok'
+        assert data['usb_offset_applied'] is True
+        assert math.isclose(data['tuned_frequency_khz'], 4296.1, abs_tol=1e-6)
+        enable_kwargs = mock_scheduler.enable.call_args.kwargs
+        assert math.isclose(enable_kwargs['frequency_khz'], 4296.1, abs_tol=1e-6)
 
 
 class TestWeFaxProgressCallback:
