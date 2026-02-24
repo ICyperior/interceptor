@@ -15,6 +15,8 @@ import base64
 import contextlib
 import io
 import math
+import os
+import select
 import subprocess
 import threading
 import time
@@ -297,11 +299,6 @@ class WeFaxDecoder:
                     f"WeFax decoder started: {frequency_khz} kHz, "
                     f"station={station}, IOC={ioc}, LPM={lpm}"
                 )
-                self._emit_progress(WeFaxProgress(
-                    status='scanning',
-                    station=station,
-                    message=f'Scanning {frequency_khz} kHz for WeFax start tone...',
-                ))
                 return True
 
             except Exception as e:
@@ -395,9 +392,29 @@ class WeFaxDecoder:
             f"samples/line={samples_per_line}"
         )
 
+        # Emit initial scanning progress here (not in start()) so the
+        # frontend SSE connection is established before this event fires.
+        time.sleep(0.1)
+        self._emit_progress(WeFaxProgress(
+            status='scanning',
+            station=self._station,
+            message=f'Scanning {self._frequency_khz} kHz for WeFax start tone...',
+        ))
+
         while self._running and self._rtl_process:
             try:
-                raw_data = self._rtl_process.stdout.read(chunk_bytes)
+                proc = self._rtl_process
+                if not proc or not proc.stdout:
+                    break
+                # Non-blocking read via select() — allows checking _running
+                # on timeout instead of blocking indefinitely in read().
+                fd = proc.stdout.fileno()
+                ready, _, _ = select.select([fd], [], [], 0.5)
+                if not ready:
+                    if not self._running:
+                        break
+                    continue
+                raw_data = os.read(fd, chunk_bytes)
                 if not raw_data:
                     if self._running:
                         stderr_msg = ''
@@ -667,20 +684,22 @@ class WeFaxDecoder:
             ))
 
     def stop(self) -> None:
-        """Stop WeFax decoder."""
+        """Stop WeFax decoder.
+
+        Non-blocking: sets _running=False and terminates the process,
+        then returns immediately.  The decode thread handles cleanup
+        when its read() returns empty.
+        """
         with self._lock:
             self._running = False
+            proc = self._rtl_process
+            self._rtl_process = None
 
-            if self._rtl_process:
-                try:
-                    self._rtl_process.terminate()
-                    self._rtl_process.wait(timeout=5)
-                except Exception:
-                    with contextlib.suppress(Exception):
-                        self._rtl_process.kill()
-                self._rtl_process = None
+        if proc:
+            with contextlib.suppress(Exception):
+                proc.terminate()
 
-            logger.info("WeFax decoder stopped")
+        logger.info("WeFax decoder stopped")
 
     def get_images(self) -> list[WeFaxImage]:
         """Get list of decoded images."""

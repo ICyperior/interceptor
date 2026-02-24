@@ -205,16 +205,20 @@ var WeFax = (function () {
     }
 
     function stop() {
+        // Immediate UI feedback before waiting for backend response
+        state.running = false;
+        updateButtons(false);
+        setStatus('Stopping...');
+        disconnectSSE();
+
         fetch('/wefax/stop', { method: 'POST' })
             .then(function (r) { return r.json(); })
             .then(function () {
-                state.running = false;
-                updateButtons(false);
                 setStatus('Stopped');
-                disconnectSSE();
                 loadImages();
             })
             .catch(function (err) {
+                setStatus('Stopped');
                 console.error('WeFax stop error:', err);
             });
     }
