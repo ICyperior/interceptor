@@ -1,5 +1,7 @@
 """WebSocket-based waterfall streaming with I/Q capture and server-side FFT."""
 
+from __future__ import annotations
+
 import json
 import queue
 import socket
