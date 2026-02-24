@@ -109,6 +109,26 @@ MODEM 1200
     return DIREWOLF_CONFIG_PATH
 
 
+def normalize_aprs_output_line(line: str) -> str:
+    """Normalize a decoder output line to raw APRS packet format.
+
+    Handles common decoder prefixes:
+    - multimon-ng: ``AFSK1200: ...``
+    - direwolf tags: ``[0.4] ...``, ``[0L] ...``, etc.
+    """
+    if not line:
+        return ''
+
+    normalized = line.strip()
+    if normalized.startswith('AFSK1200:'):
+        normalized = normalized[9:].strip()
+
+    # Strip one or more leading bracket tags emitted by decoders.
+    # Examples: [0.4], [0L], [NONE]
+    normalized = re.sub(r'^(?:\[[^\]]+\]\s*)+', '', normalized)
+    return normalized
+
+
 def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
     """Parse APRS packet into structured data.
 
@@ -125,6 +145,10 @@ def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
     - User-defined formats
     """
     try:
+        raw_packet = normalize_aprs_output_line(raw_packet)
+        if not raw_packet:
+            return None
+
         # Basic APRS packet format: CALLSIGN>PATH:DATA
         # Example: N0CALL-9>APRS,TCPIP*:@092345z4903.50N/07201.75W_090/000g005t077
 
@@ -1348,13 +1372,8 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                     app_module.aprs_queue.put(meter_msg)
                 continue  # Audio level lines are not packets
 
-            # multimon-ng prefixes decoded packets with "AFSK1200: "
-            if line.startswith('AFSK1200:'):
-                line = line[9:].strip()
-
-            # direwolf often prefixes packets with "[0.4] " or similar audio level indicator
-            # Strip any leading bracket prefix like "[0.4] " before parsing
-            line = re.sub(r'^\[\d+\.\d+\]\s*', '', line)
+            # Normalize decoder prefixes (multimon/direwolf) before parsing.
+            line = normalize_aprs_output_line(line)
 
             # Skip non-packet lines (APRS format: CALL>PATH:DATA)
             if '>' not in line or ':' not in line:
