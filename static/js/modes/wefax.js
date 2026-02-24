@@ -192,11 +192,15 @@ var WeFax = (function () {
                     setStripFreq(freqKhz);
                     connectSSE();
                 } else {
-                    setStatus('Error: ' + (data.message || 'unknown'));
+                    var errMsg = data.message || 'unknown error';
+                    setStatus('Error: ' + errMsg);
+                    showStripError(errMsg);
                 }
             })
             .catch(function (err) {
-                setStatus('Error: ' + err.message);
+                var errMsg = err.message || 'Network error';
+                setStatus('Error: ' + errMsg);
+                showStripError(errMsg);
             });
     }
 
@@ -323,6 +327,7 @@ var WeFax = (function () {
         if (data.status === 'error') {
             state.running = false;
             updateButtons(false);
+            showStripError(data.message || 'Decode error');
         }
 
         if (data.status === 'stopped') {
@@ -678,6 +683,16 @@ var WeFax = (function () {
     function setStripFreq(khz) {
         var el = document.getElementById('wefaxStripFreq');
         if (el) el.textContent = String(khz);
+    }
+
+    function showStripError(msg) {
+        var statusEl = document.getElementById('wefaxStripStatus');
+        if (statusEl) {
+            statusEl.textContent = 'Error: ' + msg;
+            statusEl.style.color = '#ff4444';
+        }
+        var dot = document.getElementById('wefaxStripDot');
+        if (dot) dot.className = 'wefax-strip-dot error';
     }
 
     function flashStartError() {

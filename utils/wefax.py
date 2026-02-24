@@ -26,6 +26,7 @@ from typing import Callable
 
 import numpy as np
 
+from utils.dependencies import get_tool_path
 from utils.logging import get_logger
 
 logger = get_logger('intercept.wefax')
@@ -235,10 +236,16 @@ class WeFaxDecoder:
         self._direct_sampling = True
 
         self._output_dir.mkdir(parents=True, exist_ok=True)
+        self._last_error: str = ''
 
     @property
     def is_running(self) -> bool:
         return self._running
+
+    @property
+    def last_error(self) -> str:
+        """Last error message from a failed start() attempt."""
+        return self._last_error
 
     def set_callback(self, callback: Callable[[dict], None]) -> None:
         """Set callback for progress updates (fed to SSE queue)."""
@@ -283,6 +290,7 @@ class WeFaxDecoder:
 
             try:
                 self._running = True
+                self._last_error = ''
                 self._start_pipeline()
 
                 logger.info(
@@ -298,6 +306,7 @@ class WeFaxDecoder:
 
             except Exception as e:
                 self._running = False
+                self._last_error = str(e)
                 logger.error(f"Failed to start WeFax decoder: {e}")
                 self._emit_progress(WeFaxProgress(
                     status='error',
@@ -307,10 +316,14 @@ class WeFaxDecoder:
 
     def _start_pipeline(self) -> None:
         """Start rtl_fm subprocess in USB mode for WeFax."""
+        rtl_fm_path = get_tool_path('rtl_fm')
+        if not rtl_fm_path:
+            raise RuntimeError('rtl_fm not found')
+
         freq_hz = int(self._frequency_khz * 1000)
 
         rtl_cmd = [
-            'rtl_fm',
+            rtl_fm_path,
             '-d', str(self._device_index),
             '-f', str(freq_hz),
             '-M', 'usb',
@@ -331,6 +344,18 @@ class WeFaxDecoder:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+
+        # Post-spawn health check — catch immediate failures
+        time.sleep(0.3)
+        if self._rtl_process.poll() is not None:
+            stderr_detail = ''
+            if self._rtl_process.stderr:
+                stderr_detail = self._rtl_process.stderr.read().decode(
+                    errors='replace').strip()
+            rc = self._rtl_process.returncode
+            self._rtl_process = None
+            detail = stderr_detail.split('\n')[-1] if stderr_detail else f'exit code {rc}'
+            raise RuntimeError(f'rtl_fm failed: {detail}')
 
         self._decode_thread = threading.Thread(
             target=self._decode_audio_stream, daemon=True)

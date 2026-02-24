@@ -406,6 +406,7 @@ class WeFaxScheduler:
                 'type': 'schedule_capture_skipped',
                 'broadcast': sb.to_dict(),
                 'reason': 'start_failed',
+                'detail': decoder.last_error or 'unknown error',
             })
 
     def _stop_capture(
