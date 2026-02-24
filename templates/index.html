@@ -9466,6 +9466,59 @@
         // APRS mode polling timer for agent mode
         let aprsPollTimer = null;
         let aprsCurrentAgent = null;
+        const aprsAgentStationSignatures = new Map();
+
+        function resetAprsAgentStationTracking() {
+            aprsAgentStationSignatures.clear();
+        }
+
+        function extractAprsStationsFromPayload(payload) {
+            if (!payload) return [];
+            if (Array.isArray(payload)) return payload;
+            if (Array.isArray(payload.stations)) return payload.stations;
+            if (Array.isArray(payload.data)) return payload.data;
+            if (payload.data && Array.isArray(payload.data.data)) return payload.data.data;
+            if (payload.result && Array.isArray(payload.result.data)) return payload.result.data;
+            return [];
+        }
+
+        function getAprsStationSignature(station) {
+            if (!station || typeof station !== 'object') return '';
+            const receivedAt = station.received_at || station.last_seen || station.timestamp || '';
+            const lat = station.lat ?? station.latitude ?? '';
+            const lon = station.lon ?? station.longitude ?? '';
+            const payloadHint = station.raw || station.comment || station.path || '';
+            return `${receivedAt}|${lat},${lon}|${payloadHint}`;
+        }
+
+        function processAprsAgentStations(stations, agentName) {
+            if (!Array.isArray(stations) || stations.length === 0) return;
+
+            stations.forEach((station) => {
+                const callsign = String(station && station.callsign ? station.callsign : '').trim();
+                if (!callsign) return;
+
+                const signature = getAprsStationSignature(station);
+                if (aprsAgentStationSignatures.get(callsign) === signature) return;
+                aprsAgentStationSignatures.set(callsign, signature);
+
+                aprsPacketCount++;
+                document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
+                document.getElementById('aprsStripPackets').textContent = aprsPacketCount;
+
+                const dot = document.getElementById('aprsStripDot');
+                if (dot && !dot.classList.contains('tracking')) {
+                    updateAprsStatus('tracking');
+                }
+
+                processAprsPacket({
+                    type: 'aprs',
+                    ...station,
+                    callsign,
+                    agent_name: station.agent_name || agentName || 'Remote Agent'
+                });
+            });
+        }
 
         function startAprs() {
             // Get values from function bar controls
@@ -9515,6 +9568,16 @@
                     isAprsRunning = true;
                     aprsPacketCount = 0;
                     aprsStationCount = 0;
+                    resetAprsAgentStationTracking();
+
+                    if (aprsMap) {
+                        Object.values(aprsMarkers).forEach((marker) => {
+                            try {
+                                aprsMap.removeLayer(marker);
+                            } catch (_) {}
+                        });
+                    }
+                    aprsMarkers = {};
 
                     // Initialize APRS filter bar and clear history
                     const filterContainer = document.getElementById('aprsFilterBarContainer');
@@ -9527,6 +9590,12 @@
 
                     // Clear existing station cards
                     stationList.innerHTML = '<div class="signal-cards-placeholder" style="padding: 20px; text-align: center; color: var(--text-muted);">Waiting for stations...</div>';
+                    const packetLog = document.getElementById('aprsPacketLog');
+                    if (packetLog) {
+                        packetLog.innerHTML = '<div style="color: var(--text-muted);">Waiting for packets...</div>';
+                    }
+                    document.getElementById('aprsPacketCount').textContent = '0';
+                    document.getElementById('aprsStationCount').textContent = '0';
 
                     // Update function bar buttons
                     document.getElementById('aprsStripStartBtn').style.display = 'none';
@@ -9567,6 +9636,7 @@
 
             isAprsRunning = false;
             aprsCurrentAgent = null;
+            resetAprsAgentStationTracking();
             document.getElementById('aprsStripStartBtn').style.display = 'inline-block';
             document.getElementById('aprsStripStopBtn').style.display = 'none';
             document.getElementById('aprsMapStatus').textContent = 'STANDBY';
@@ -9622,6 +9692,9 @@
                             processAprsPacket(payload);
                         } else if (payload.type === 'meter') {
                             updateAprsMeter(payload.level);
+                        } else {
+                            const stations = extractAprsStationsFromPayload(payload);
+                            processAprsAgentStations(stations, data.agent_name);
                         }
                     }
                 } else {
@@ -9655,12 +9728,9 @@
             }
         }
 
-        // Track last station count for polling
-        let lastAprsStationCount = 0;
-
         function startAprsPolling() {
             if (aprsPollTimer) return;
-            lastAprsStationCount = 0;
+            resetAprsAgentStationTracking();
 
             const pollInterval = 2000;
             aprsPollTimer = setInterval(async () => {
@@ -9674,31 +9744,12 @@
                     const response = await fetch(`/controller/agents/${aprsCurrentAgent}/aprs/data`);
                     if (!response.ok) return;
 
-                    const data = await response.json();
-                    const result = data.result || data;
-                    const stations = result.data || [];
-
-                    // Process new stations
-                    if (stations.length > lastAprsStationCount) {
-                        const newStations = stations.slice(lastAprsStationCount);
-                        newStations.forEach(station => {
-                            aprsPacketCount++;
-                            document.getElementById('aprsPacketCount').textContent = aprsPacketCount;
-                            document.getElementById('aprsStripPackets').textContent = aprsPacketCount;
-                            const dot = document.getElementById('aprsStripDot');
-                            if (dot && !dot.classList.contains('tracking')) {
-                                updateAprsStatus('tracking');
-                            }
-                            // Convert to expected packet format
-                            const packet = {
-                                type: 'aprs',
-                                ...station,
-                                agent_name: result.agent_name || 'Remote Agent'
-                            };
-                            processAprsPacket(packet);
-                        });
-                        lastAprsStationCount = stations.length;
-                    }
+                    const payload = await response.json();
+                    const stations = extractAprsStationsFromPayload(payload);
+                    const agentName = payload.agent_name ||
+                        (payload.data && payload.data.agent_name) ||
+                        'Remote Agent';
+                    processAprsAgentStations(stations, agentName);
                 } catch (err) {
                     console.error('APRS polling error:', err);
                 }
