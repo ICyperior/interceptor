@@ -2763,6 +2763,7 @@ const Waterfall = (function () {
                 _resumeWaterfallAfterMonitor = !!wasRunningWaterfall;
             }
 
+            const liveCenterMhz = _currentCenter();
             // Keep an explicit pending tune target so retunes cannot fall
             // back to a stale frequency during capture restart churn.
             const requestedTuneMhz = Number.isFinite(_pendingMonitorTuneMhz)
@@ -2770,11 +2771,11 @@ const Waterfall = (function () {
                 : (
                     Number.isFinite(_pendingCaptureVfoMhz)
                         ? _pendingCaptureVfoMhz
-                        : (Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : _currentCenter())
+                        : (Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : liveCenterMhz)
                 );
             const centerMhz = retuneOnly
-                ? (Number.isFinite(requestedTuneMhz) ? requestedTuneMhz : _currentCenter())
-                : _currentCenter();
+                ? (Number.isFinite(liveCenterMhz) ? liveCenterMhz : requestedTuneMhz)
+                : liveCenterMhz;
             const mode = document.getElementById('wfMonitorMode')?.value || 'wfm';
             const squelch = parseInt(document.getElementById('wfMonitorSquelch')?.value, 10) || 0;
             const sliderGain = parseInt(document.getElementById('wfMonitorGain')?.value, 10);
@@ -2795,6 +2796,8 @@ const Waterfall = (function () {
                 _monitorFreqMhz = centerMhz;
             } else if (Number.isFinite(centerMhz)) {
                 _monitorFreqMhz = centerMhz;
+                _pendingMonitorTuneMhz = centerMhz;
+                _pendingCaptureVfoMhz = centerMhz;
             }
             _drawFreqAxis();
             _stopSmeter();
@@ -2892,10 +2895,11 @@ const Waterfall = (function () {
             const attach = await _attachMonitorAudio(nonce, payload?.request_token);
             if (nonce !== _audioConnectNonce) return;
             _monitorSource = payload?.source === 'waterfall' ? 'waterfall' : 'process';
-            if (
+            const pendingTuneMismatch = (
                 Number.isFinite(_pendingMonitorTuneMhz)
-                && Math.abs(_pendingMonitorTuneMhz - centerMhz) < 1e-6
-            ) {
+                && Math.abs(_pendingMonitorTuneMhz - centerMhz) >= 1e-6
+            );
+            if (!pendingTuneMismatch) {
                 _pendingMonitorTuneMhz = null;
             }
 
@@ -2906,6 +2910,7 @@ const Waterfall = (function () {
                     _setMonitorState(`Monitoring ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} (audio locked)`);
                     _setStatus('Monitor started but browser blocked playback. Click Unlock Audio.');
                     _setVisualStatus('MONITOR');
+                    if (pendingTuneMismatch) _queueMonitorRetune(45);
                     return;
                 }
 
@@ -2949,10 +2954,19 @@ const Waterfall = (function () {
             }
             _setStatus(`Audio monitor active on ${displayMhz.toFixed(4)} MHz (${mode.toUpperCase()})`);
             _setVisualStatus('MONITOR');
+            if (pendingTuneMismatch) {
+                _queueMonitorRetune(45);
+            }
             // After a retune reconnect, sync the backend to the latest
             // VFO in case the user clicked a new frequency while the
             // audio stream was reconnecting.
-            if (retuneOnly && _monitorSource === 'waterfall' && _ws && _ws.readyState === WebSocket.OPEN) {
+            if (
+                !pendingTuneMismatch
+                && retuneOnly
+                && _monitorSource === 'waterfall'
+                && _ws
+                && _ws.readyState === WebSocket.OPEN
+            ) {
                 _sendWsTuneCmd();
             }
         } catch (err) {
