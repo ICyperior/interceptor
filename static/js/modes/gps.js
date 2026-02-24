@@ -74,12 +74,32 @@ const GPS = (function() {
         if (skyRendererInitPromise) return skyRendererInitPromise;
         skyRendererInitAttempted = true;
 
+        let fallbackRenderer = null;
+        const fallbackCanvas = document.getElementById('gpsSkyCanvas');
+        const fallbackOverlay = document.getElementById('gpsSkyOverlay');
+
+        // Show an immediate fallback while the globe library loads.
+        setSkyCanvasFallbackMode(true);
+        if (fallbackCanvas) {
+            try {
+                fallbackRenderer = createWebGlSkyRenderer(fallbackCanvas, fallbackOverlay);
+                skyRenderer = fallbackRenderer;
+            } catch (err) {
+                fallbackRenderer = null;
+                skyRenderer = null;
+                console.warn('GPS sky WebGL renderer failed, falling back to 2D', err);
+            }
+        }
+
         skyRendererInitPromise = (async function() {
             const globeContainer = document.getElementById('gpsSkyGlobe');
             if (globeContainer) {
                 try {
                     const globeRenderer = await createGlobeSkyRenderer(globeContainer);
                     if (globeRenderer) {
+                        if (fallbackRenderer && fallbackRenderer !== globeRenderer && typeof fallbackRenderer.destroy === 'function') {
+                            fallbackRenderer.destroy();
+                        }
                         setSkyCanvasFallbackMode(false);
                         skyRenderer = globeRenderer;
                         return skyRenderer;
@@ -90,19 +110,17 @@ const GPS = (function() {
             }
 
             setSkyCanvasFallbackMode(true);
-
-            const canvas = document.getElementById('gpsSkyCanvas');
-            if (!canvas) return null;
-
-            const overlay = document.getElementById('gpsSkyOverlay');
-            try {
-                skyRenderer = createWebGlSkyRenderer(canvas, overlay);
-                return skyRenderer;
-            } catch (err) {
-                skyRenderer = null;
-                console.warn('GPS sky WebGL renderer failed, falling back to 2D', err);
-                return null;
+            if (!fallbackRenderer && fallbackCanvas) {
+                try {
+                    fallbackRenderer = createWebGlSkyRenderer(fallbackCanvas, fallbackOverlay);
+                } catch (err) {
+                    fallbackRenderer = null;
+                    console.warn('GPS sky WebGL renderer failed, falling back to 2D', err);
+                }
             }
+
+            skyRenderer = fallbackRenderer;
+            return skyRenderer;
         })();
 
         return skyRendererInitPromise;
@@ -158,10 +176,35 @@ const GPS = (function() {
     }
 
     function loadGpsGlobeScript(src) {
+        const state = getSharedGlobeScriptState();
+        if (!state.promises[src]) {
+            state.promises[src] = loadSharedGlobeScript(src);
+        }
+        return state.promises[src].catch((error) => {
+            delete state.promises[src];
+            throw error;
+        });
+    }
+
+    function getSharedGlobeScriptState() {
+        const key = '__interceptGlobeScriptState';
+        if (!window[key]) {
+            window[key] = {
+                promises: Object.create(null),
+            };
+        }
+        return window[key];
+    }
+
+    function loadSharedGlobeScript(src) {
         return new Promise((resolve, reject) => {
-            const existing = document.querySelector(
-                `script[data-websdr-src="${src}"], script[data-gps-globe-src="${src}"], script[src="${src}"]`
-            );
+            const selector = [
+                `script[data-intercept-globe-src="${src}"]`,
+                `script[data-websdr-src="${src}"]`,
+                `script[data-gps-globe-src="${src}"]`,
+                `script[src="${src}"]`,
+            ].join(', ');
+            const existing = document.querySelector(selector);
 
             if (existing) {
                 if (existing.dataset.loaded === 'true') {
@@ -181,6 +224,7 @@ const GPS = (function() {
             script.src = src;
             script.async = true;
             script.crossOrigin = 'anonymous';
+            script.dataset.interceptGlobeSrc = src;
             script.dataset.gpsGlobeSrc = src;
             script.onload = () => {
                 script.dataset.loaded = 'true';
@@ -521,7 +565,14 @@ const GPS = (function() {
         fetch('/gps/status')
             .then(r => r.json())
             .then(data => {
-                if (!connected || !data || data.running !== true) return;
+                if (!connected || !data) return;
+                if (data.running !== true) {
+                    connected = false;
+                    stopSkyPolling();
+                    stopStatusPolling();
+                    updateConnectionUI(false, false, 'error', data.message || 'GPS disconnected');
+                    return;
+                }
 
                 if (data.position) {
                     lastPosition = data.position;

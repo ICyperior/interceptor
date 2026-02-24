@@ -185,8 +185,34 @@ async function ensureWebsdrGlobeLibrary() {
 }
 
 function loadWebsdrScript(src) {
+    const state = getSharedGlobeScriptState();
+    if (!state.promises[src]) {
+        state.promises[src] = loadSharedGlobeScript(src);
+    }
+    return state.promises[src].catch((error) => {
+        delete state.promises[src];
+        throw error;
+    });
+}
+
+function getSharedGlobeScriptState() {
+    const key = '__interceptGlobeScriptState';
+    if (!window[key]) {
+        window[key] = {
+            promises: Object.create(null),
+        };
+    }
+    return window[key];
+}
+
+function loadSharedGlobeScript(src) {
     return new Promise((resolve, reject) => {
-        const selector = `script[data-websdr-src="${src}"], script[data-gps-globe-src="${src}"], script[src="${src}"]`;
+        const selector = [
+            `script[data-intercept-globe-src="${src}"]`,
+            `script[data-websdr-src="${src}"]`,
+            `script[data-gps-globe-src="${src}"]`,
+            `script[src="${src}"]`,
+        ].join(', ');
         const existing = document.querySelector(selector);
 
         if (existing) {
@@ -207,6 +233,7 @@ function loadWebsdrScript(src) {
         script.src = src;
         script.async = true;
         script.crossOrigin = 'anonymous';
+        script.dataset.interceptGlobeSrc = src;
         script.dataset.websdrSrc = src;
         script.onload = () => {
             script.dataset.loaded = 'true';

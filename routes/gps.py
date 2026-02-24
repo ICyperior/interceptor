@@ -214,9 +214,10 @@ def get_satellites():
 
     if not reader or not reader.is_running:
         return jsonify({
-            'status': 'error',
+            'status': 'waiting',
+            'running': False,
             'message': 'GPS client not running'
-        }), 400
+        })
 
     sky = reader.sky
     if sky:
