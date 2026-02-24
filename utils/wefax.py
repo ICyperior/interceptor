@@ -686,18 +686,25 @@ class WeFaxDecoder:
     def stop(self) -> None:
         """Stop WeFax decoder.
 
-        Non-blocking: sets _running=False and terminates the process,
-        then returns immediately.  The decode thread handles cleanup
-        when its read() returns empty.
+        Sets _running=False and terminates the process outside the lock,
+        then waits briefly for the decode thread to finish saving any
+        partial image before returning.
         """
         with self._lock:
             self._running = False
             proc = self._rtl_process
             self._rtl_process = None
+            thread = self._decode_thread
 
         if proc:
             with contextlib.suppress(Exception):
                 proc.terminate()
+
+        # Wait for the decode thread to save any partial image.
+        # With select()-based reads the thread exits within ~0.5s.
+        if thread:
+            with contextlib.suppress(Exception):
+                thread.join(timeout=2)
 
         logger.info("WeFax decoder stopped")
 
