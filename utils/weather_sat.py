@@ -173,7 +173,7 @@ class WeatherSatDecoder:
         self._current_frequency: float = 0.0
         self._current_mode: str = ''
         self._capture_start_time: float = 0
-        self._device_index: int = 0
+        self._device_index: int = -1
         self._capture_output_dir: Path | None = None
         self._on_complete_callback: Callable[[], None] | None = None
         self._capture_phase: str = 'idle'
@@ -306,6 +306,7 @@ class WeatherSatDecoder:
             self._current_satellite = satellite
             self._current_frequency = sat_info['frequency']
             self._current_mode = sat_info['mode']
+            self._device_index = -1  # Offline decode does not claim an SDR device
             self._capture_start_time = time.time()
             self._capture_phase = 'decoding'
             self._stop_event.clear()
@@ -472,7 +473,10 @@ class WeatherSatDecoder:
             close_fds=True,
         )
         register_process(self._process)
-        os.close(slave_fd)  # parent doesn't need the slave side
+        try:
+            os.close(slave_fd)  # parent doesn't need the slave side
+        except OSError:
+            pass
 
         # Check for early exit asynchronously (avoid blocking /start for 3s)
         def _check_early_exit():
@@ -572,7 +576,10 @@ class WeatherSatDecoder:
             close_fds=True,
         )
         register_process(self._process)
-        os.close(slave_fd)  # parent doesn't need the slave side
+        try:
+            os.close(slave_fd)  # parent doesn't need the slave side
+        except OSError:
+            pass
 
         # For offline mode, don't check for early exit — file decoding
         # may complete very quickly and exit code 0 is normal success.
@@ -896,7 +903,15 @@ class WeatherSatDecoder:
                     product = self._parse_product_name(filepath)
 
                     # Copy image to main output dir for serving
-                    serve_name = f"{self._current_satellite}_{filepath.stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                    safe_sat = re.sub(r'[^A-Za-z0-9_-]+', '_', self._current_satellite).strip('_') or 'satellite'
+                    safe_stem = re.sub(r'[^A-Za-z0-9_-]+', '_', filepath.stem).strip('_') or 'image'
+                    suffix = filepath.suffix.lower()
+                    if suffix not in ('.png', '.jpg', '.jpeg'):
+                        suffix = '.png'
+                    serve_name = (
+                        f"{safe_sat}_{safe_stem}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+                        f"{suffix}"
+                    )
                     serve_path = self._output_dir / serve_name
                     try:
                         shutil.copy2(filepath, serve_path)
@@ -948,7 +963,7 @@ class WeatherSatDecoder:
         if 'ndvi' in name:
             return 'NDVI Vegetation'
         if 'channel' in name or 'ch' in name:
-            match = re.search(r'(?:channel|ch)\s*(\d+)', name)
+            match = re.search(r'(?:channel|ch)[\s_-]*(\d+)', name)
             if match:
                 return f'Channel {match.group(1)}'
         if 'avhrr' in name:
@@ -978,6 +993,7 @@ class WeatherSatDecoder:
 
             elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
             logger.info(f"Weather satellite capture stopped after {elapsed}s")
+            self._device_index = -1
 
     def get_images(self) -> list[WeatherSatImage]:
         """Get list of decoded images."""
@@ -1024,6 +1040,7 @@ class WeatherSatDecoder:
                     product=self._parse_product_name(filepath),
                 )
                 self._images.append(image)
+                known_filenames.add(filepath.name)
 
     def delete_image(self, filename: str) -> bool:
         """Delete a decoded image."""

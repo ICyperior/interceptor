@@ -30,6 +30,8 @@ wefax_active_device: int | None = None
 
 def _progress_callback(data: dict) -> None:
     """Callback to queue progress updates for SSE stream."""
+    global wefax_active_device
+
     try:
         _wefax_queue.put_nowait(data)
     except queue.Full:
@@ -38,6 +40,17 @@ def _progress_callback(data: dict) -> None:
             _wefax_queue.put_nowait(data)
         except queue.Empty:
             pass
+
+    # Ensure manually claimed SDR devices are always released when a
+    # decode session ends on its own (complete/error/stopped).
+    if (
+        isinstance(data, dict)
+        and data.get('type') == 'wefax_progress'
+        and data.get('status') in ('complete', 'error', 'stopped')
+        and wefax_active_device is not None
+    ):
+        app_module.release_sdr_device(wefax_active_device)
+        wefax_active_device = None
 
 
 @wefax_bp.route('/status')

@@ -42,6 +42,7 @@ class ScheduledBroadcast:
         utc_time: str,
         duration_min: int,
         content: str,
+        occurrence_date: str = '',
     ):
         self.id: str = str(uuid.uuid4())[:8]
         self.station = station
@@ -50,6 +51,7 @@ class ScheduledBroadcast:
         self.utc_time = utc_time
         self.duration_min = duration_min
         self.content = content
+        self.occurrence_date = occurrence_date
         self.status: str = 'scheduled'  # scheduled, capturing, complete, skipped
         self._timer: threading.Timer | None = None
         self._stop_timer: threading.Timer | None = None
@@ -63,6 +65,7 @@ class ScheduledBroadcast:
             'utc_time': self.utc_time,
             'duration_min': self.duration_min,
             'content': self.content,
+            'occurrence_date': self.occurrence_date,
             'status': self.status,
         }
 
@@ -209,6 +212,11 @@ class WeFaxScheduler:
         with self._lock:
             return [b.to_dict() for b in self._broadcasts]
 
+    @staticmethod
+    def _history_key(callsign: str, utc_time: str, occurrence_date: str) -> str:
+        """Build a stable key for one station UTC slot on one calendar day."""
+        return f'{callsign}_{utc_time}_{occurrence_date}'
+
     def _refresh_schedule(self) -> None:
         """Recompute broadcast schedule and set timers."""
         if not self._enabled:
@@ -270,11 +278,20 @@ class WeFaxScheduler:
                     )
 
                 capture_start = broadcast_dt - timedelta(seconds=buffer)
+                occurrence_date = broadcast_dt.date().isoformat()
 
-                # Check if already in history
-                history_key = f"{self._callsign}_{utc_time}"
+                # Check if this specific day/slot was already processed.
+                history_key = self._history_key(
+                    self._callsign,
+                    utc_time,
+                    occurrence_date,
+                )
                 if any(
-                    f"{h.callsign}_{h.utc_time}" == history_key
+                    self._history_key(
+                        h.callsign,
+                        h.utc_time,
+                        getattr(h, 'occurrence_date', ''),
+                    ) == history_key
                     for h in history
                 ):
                     continue
@@ -286,6 +303,7 @@ class WeFaxScheduler:
                     utc_time=utc_time,
                     duration_min=duration_min,
                     content=content,
+                    occurrence_date=occurrence_date,
                 )
 
                 # Schedule capture timer
@@ -373,16 +391,55 @@ class WeFaxScheduler:
 
         sb.status = 'capturing'
 
-        # Set up callbacks
-        if self._progress_callback:
-            decoder.set_callback(self._progress_callback)
-
         def _release_device():
             try:
                 import app as app_module
                 app_module.release_sdr_device(self._device)
             except ImportError:
                 pass
+
+        released = False
+        release_lock = threading.Lock()
+
+        def _release_device_once() -> None:
+            nonlocal released
+            with release_lock:
+                if released:
+                    return
+                released = True
+            _release_device()
+
+        def _scheduler_progress_callback(progress: dict) -> None:
+            """Forward progress updates and release scheduler resources on terminal states."""
+            if self._progress_callback:
+                self._progress_callback(progress)
+
+            if not isinstance(progress, dict) or progress.get('type') != 'wefax_progress':
+                return
+
+            status = progress.get('status')
+            if status not in ('complete', 'error', 'stopped'):
+                return
+
+            if sb.status == 'capturing':
+                if status == 'complete':
+                    sb.status = 'complete'
+                    self._emit_event({
+                        'type': 'schedule_capture_complete',
+                        'broadcast': sb.to_dict(),
+                    })
+                else:
+                    sb.status = 'skipped'
+                    self._emit_event({
+                        'type': 'schedule_capture_skipped',
+                        'broadcast': sb.to_dict(),
+                        'reason': 'decoder_error',
+                        'detail': progress.get('message', ''),
+                    })
+
+            _release_device_once()
+
+        decoder.set_callback(_scheduler_progress_callback)
 
         success = decoder.start(
             frequency_khz=self._frequency_khz,
@@ -418,13 +475,22 @@ class WeFaxScheduler:
 
             if stop_delay > 0:
                 sb._stop_timer = threading.Timer(
-                    stop_delay, self._stop_capture, args=[sb, _release_device]
+                    stop_delay, self._stop_capture, args=[sb, _release_device_once]
                 )
                 sb._stop_timer.daemon = True
                 sb._stop_timer.start()
+            else:
+                # If execution was delayed beyond end-of-window, close out
+                # immediately so SDR allocation is never stranded.
+                logger.warning(
+                    "Capture window already elapsed for %s at %s UTC; stopping immediately",
+                    sb.content,
+                    sb.utc_time,
+                )
+                self._stop_capture(sb, _release_device_once)
         else:
             sb.status = 'skipped'
-            _release_device()
+            _release_device_once()
             self._emit_event({
                 'type': 'schedule_capture_skipped',
                 'broadcast': sb.to_dict(),
@@ -436,12 +502,17 @@ class WeFaxScheduler:
         self, sb: ScheduledBroadcast, release_fn: Callable
     ) -> None:
         """Stop capture at broadcast end."""
+        if sb.status != 'capturing':
+            release_fn()
+            return
+
+        sb.status = 'complete'
+
         decoder = get_wefax_decoder()
         if decoder.is_running:
             decoder.stop()
             logger.info("Auto-scheduler stopped capture: %s", sb.content)
 
-        sb.status = 'complete'
         release_fn()
         self._emit_event({
             'type': 'schedule_capture_complete',

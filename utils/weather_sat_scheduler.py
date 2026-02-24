@@ -322,6 +322,20 @@ class WeatherSatScheduler:
         def _release_device():
             try:
                 import app as app_module
+                owner = None
+                get_status = getattr(app_module, 'get_sdr_device_status', None)
+                if callable(get_status):
+                    try:
+                        owner = get_status().get(self._device)
+                    except Exception:
+                        owner = None
+                if owner and owner != 'weather_sat':
+                    logger.debug(
+                        "Skipping SDR release for device %s owned by %s",
+                        self._device,
+                        owner,
+                    )
+                    return
                 app_module.release_sdr_device(self._device)
             except ImportError:
                 pass

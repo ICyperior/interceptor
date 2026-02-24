@@ -428,3 +428,45 @@ class TestWeFaxRoutes:
             response = client.delete('/wefax/images/test.jpg')
 
         assert response.status_code == 400
+
+
+class TestWeFaxProgressCallback:
+    """Regression tests for WeFax route-level progress callback behavior."""
+
+    def test_terminal_progress_releases_active_device(self):
+        """Terminal decoder events must release any manually claimed SDR."""
+        import routes.wefax as wefax_routes
+
+        original_device = wefax_routes.wefax_active_device
+        try:
+            wefax_routes.wefax_active_device = 3
+            with patch('routes.wefax.app_module.release_sdr_device') as mock_release:
+                wefax_routes._progress_callback({
+                    'type': 'wefax_progress',
+                    'status': 'error',
+                    'message': 'decode failed',
+                })
+
+            mock_release.assert_called_once_with(3)
+            assert wefax_routes.wefax_active_device is None
+        finally:
+            wefax_routes.wefax_active_device = original_device
+
+    def test_non_terminal_progress_does_not_release_active_device(self):
+        """Non-terminal progress updates must not release SDR ownership."""
+        import routes.wefax as wefax_routes
+
+        original_device = wefax_routes.wefax_active_device
+        try:
+            wefax_routes.wefax_active_device = 4
+            with patch('routes.wefax.app_module.release_sdr_device') as mock_release:
+                wefax_routes._progress_callback({
+                    'type': 'wefax_progress',
+                    'status': 'receiving',
+                    'line_count': 120,
+                })
+
+            mock_release.assert_not_called()
+            assert wefax_routes.wefax_active_device == 4
+        finally:
+            wefax_routes.wefax_active_device = original_device

@@ -41,6 +41,35 @@ def _progress_callback(progress: CaptureProgress) -> None:
             pass
 
 
+def _release_weather_sat_device(device_index: int) -> None:
+    """Release an SDR device only if weather-sat currently owns it."""
+    if device_index < 0:
+        return
+
+    try:
+        import app as app_module
+    except ImportError:
+        return
+
+    owner = None
+    get_status = getattr(app_module, 'get_sdr_device_status', None)
+    if callable(get_status):
+        try:
+            owner = get_status().get(device_index)
+        except Exception:
+            owner = None
+
+    if owner and owner != 'weather_sat':
+        logger.debug(
+            'Skipping SDR release for device %s owned by %s',
+            device_index,
+            owner,
+        )
+        return
+
+    app_module.release_sdr_device(device_index)
+
+
 @weather_sat_bp.route('/status')
 def get_status():
     """Get weather satellite decoder status.
@@ -153,11 +182,7 @@ def start_capture():
     decoder.set_callback(_progress_callback)
 
     def _release_device():
-        try:
-            import app as app_module
-            app_module.release_sdr_device(device_index)
-        except ImportError:
-            pass
+        _release_weather_sat_device(device_index)
 
     decoder.set_on_complete(_release_device)
 
@@ -320,12 +345,7 @@ def stop_capture():
 
     decoder.stop()
 
-    # Release SDR device
-    try:
-        import app as app_module
-        app_module.release_sdr_device(device_index)
-    except ImportError:
-        pass
+    _release_weather_sat_device(device_index)
 
     return jsonify({'status': 'stopped'})
 

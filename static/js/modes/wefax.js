@@ -334,6 +334,14 @@ var WeFax = (function () {
             setStatus('Image decoded: ' + (data.line_count || '?') + ' lines');
         }
 
+        if (data.status === 'complete') {
+            state.running = false;
+            updateButtons(false);
+            if (!state.schedulerEnabled) {
+                disconnectSSE();
+            }
+        }
+
         if (data.status === 'error') {
             state.running = false;
             updateButtons(false);
