@@ -3262,7 +3262,8 @@ const Waterfall = (function () {
 
     function stepFreq(multiplier) {
         const step = _getNumber('wfStepSize', 0.1);
-        _setAndTune(_currentCenter() + multiplier * step, true);
+        // Coalesce rapid step-button presses into one final retune.
+        _setAndTune(_currentCenter() + multiplier * step, false);
     }
 
     function zoomBy(factor) {
