@@ -603,19 +603,33 @@ var WeFax = (function () {
     }
 
     function deleteImage(filename) {
+        if (!filename) return;
         if (!confirm('Delete this image?')) return;
         fetch('/wefax/images/' + encodeURIComponent(filename), { method: 'DELETE' })
-            .then(function () {
-                closeImage();
-                loadImages();
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'ok') {
+                    closeImage();
+                    loadImages();
+                } else {
+                    setStatus('Delete failed: ' + (data.message || 'unknown error'));
+                }
             })
-            .catch(function (err) { console.error('WeFax delete error:', err); });
+            .catch(function (err) {
+                console.error('WeFax delete error:', err);
+                setStatus('Delete failed: ' + err.message);
+            });
     }
 
     function deleteAllImages() {
         if (!confirm('Delete all WeFax images?')) return;
         fetch('/wefax/images', { method: 'DELETE' })
-            .then(function () { loadImages(); })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'ok') {
+                    loadImages();
+                }
+            })
             .catch(function (err) { console.error('WeFax delete all error:', err); });
     }
 
@@ -647,7 +661,8 @@ var WeFax = (function () {
             modal.addEventListener('click', function (e) {
                 if (e.target === modal) closeImage();
             });
-            modal.querySelector('#wefaxModalDownload').addEventListener('click', function () {
+            modal.querySelector('#wefaxModalDownload').addEventListener('click', function (e) {
+                e.stopPropagation();
                 if (currentModalUrl && currentModalFilename) {
                     var a = document.createElement('a');
                     a.href = currentModalUrl;
@@ -657,7 +672,8 @@ var WeFax = (function () {
                     document.body.removeChild(a);
                 }
             });
-            modal.querySelector('#wefaxModalDelete').addEventListener('click', function () {
+            modal.querySelector('#wefaxModalDelete').addEventListener('click', function (e) {
+                e.stopPropagation();
                 if (currentModalFilename) {
                     deleteImage(currentModalFilename);
                 }
