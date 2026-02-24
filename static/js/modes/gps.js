@@ -34,7 +34,6 @@ const GPS = (function() {
     };
 
     const GPS_GLOBE_SCRIPT_URLS = [
-        'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
         'https://cdn.jsdelivr.net/npm/globe.gl@2.33.1/dist/globe.gl.min.js',
     ];
     const GPS_GLOBE_TEXTURE_URL = '/static/images/globe/earth-dark.jpg';
@@ -160,7 +159,7 @@ const GPS = (function() {
     function loadGpsGlobeScript(src) {
         return new Promise((resolve, reject) => {
             const existing = document.querySelector(
-                `script[data-websdr-src="${src}"], script[data-gps-globe-src="${src}"]`
+                `script[data-websdr-src="${src}"], script[data-gps-globe-src="${src}"], script[src="${src}"]`
             );
 
             if (existing) {

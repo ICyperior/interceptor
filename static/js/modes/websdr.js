@@ -19,7 +19,6 @@ let websdrResizeHooked = false;
 let websdrGlobeFallbackNotified = false;
 
 const WEBSDR_GLOBE_SCRIPT_URLS = [
-    'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
     'https://cdn.jsdelivr.net/npm/globe.gl@2.33.1/dist/globe.gl.min.js',
 ];
 const WEBSDR_GLOBE_TEXTURE_URL = '/static/images/globe/earth-dark.jpg';
@@ -187,7 +186,7 @@ async function ensureWebsdrGlobeLibrary() {
 
 function loadWebsdrScript(src) {
     return new Promise((resolve, reject) => {
-        const selector = `script[data-websdr-src="${src}"]`;
+        const selector = `script[data-websdr-src="${src}"], script[data-gps-globe-src="${src}"], script[src="${src}"]`;
         const existing = document.querySelector(selector);
 
         if (existing) {
