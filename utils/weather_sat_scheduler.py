@@ -21,10 +21,12 @@ try:
     from config import (
         WEATHER_SAT_SCHEDULE_REFRESH_MINUTES,
         WEATHER_SAT_CAPTURE_BUFFER_SECONDS,
+        WEATHER_SAT_SAMPLE_RATE,
     )
 except ImportError:
     WEATHER_SAT_SCHEDULE_REFRESH_MINUTES = 30
     WEATHER_SAT_CAPTURE_BUFFER_SECONDS = 30
+    WEATHER_SAT_SAMPLE_RATE = 2400000
 
 
 class ScheduledPass:
@@ -330,6 +332,7 @@ class WeatherSatScheduler:
             satellite=sp.satellite,
             device_index=self._device,
             gain=self._gain,
+            sample_rate=WEATHER_SAT_SAMPLE_RATE,
             bias_t=self._bias_t,
         )
 

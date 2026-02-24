@@ -85,7 +85,11 @@ WEATHER_SATELLITES = {
 }
 
 # Default sample rate for weather satellite reception
-DEFAULT_SAMPLE_RATE = 1000000  # 1 MHz
+try:
+    from config import WEATHER_SAT_SAMPLE_RATE as _configured_rate
+    DEFAULT_SAMPLE_RATE = _configured_rate
+except ImportError:
+    DEFAULT_SAMPLE_RATE = 2400000  # 2.4 MHz — minimum for Meteor LRPT
 
 
 @dataclass

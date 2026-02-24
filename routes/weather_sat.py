@@ -18,6 +18,7 @@ from utils.weather_sat import (
     is_weather_sat_available,
     CaptureProgress,
     WEATHER_SATELLITES,
+    DEFAULT_SAMPLE_RATE,
 )
 
 logger = get_logger('intercept.weather_sat')
@@ -164,6 +165,7 @@ def start_capture():
         satellite=satellite,
         device_index=device_index,
         gain=gain,
+        sample_rate=DEFAULT_SAMPLE_RATE,
         bias_t=bias_t,
     )
 
