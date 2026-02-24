@@ -1609,6 +1609,17 @@ def audio_probe() -> Response:
 @receiver_bp.route('/audio/stream')
 def stream_audio() -> Response:
     """Stream WAV audio."""
+    request_token_raw = request.args.get('request_token')
+    request_token = None
+    if request_token_raw is not None:
+        try:
+            request_token = int(request_token_raw)
+        except (ValueError, TypeError):
+            request_token = None
+
+    if request_token is not None and request_token < audio_start_token:
+        return Response(b'', mimetype='audio/wav', status=204)
+
     if audio_source == 'waterfall':
         for _ in range(40):
             if audio_running:
@@ -1633,6 +1644,8 @@ def stream_audio() -> Response:
             inactive_since: float | None = None
 
             while audio_running and audio_source == 'waterfall':
+                if request_token is not None and request_token < audio_start_token:
+                    break
                 chunk = read_shared_monitor_audio_chunk(timeout=1.0)
                 if chunk:
                     inactive_since = None
@@ -1699,6 +1712,8 @@ def stream_audio() -> Response:
             first_chunk_deadline = time.time() + 20.0
             warned_wait = False
             while audio_running and proc.poll() is None:
+                if request_token is not None and request_token < audio_start_token:
+                    break
                 # Use select to avoid blocking forever
                 ready, _, _ = select.select([proc.stdout], [], [], 2.0)
                 if ready:

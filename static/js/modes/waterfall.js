@@ -2603,7 +2603,7 @@ const Waterfall = (function () {
         player.load();
     }
 
-    async function _attachMonitorAudio(nonce) {
+    async function _attachMonitorAudio(nonce, streamToken = null) {
         const player = document.getElementById('wfAudioPlayer');
         if (!player) {
             return { ok: false, reason: 'player_missing', message: 'Audio player is unavailable.' };
@@ -2622,7 +2622,10 @@ const Waterfall = (function () {
             }
 
             await _pauseMonitorAudioElement();
-            player.src = `/receiver/audio/stream?fresh=1&t=${Date.now()}-${attempt}`;
+            const tokenQuery = (streamToken !== null && streamToken !== undefined && String(streamToken).length > 0)
+                ? `&request_token=${encodeURIComponent(String(streamToken))}`
+                : '';
+            player.src = `/receiver/audio/stream?fresh=1&t=${Date.now()}-${attempt}${tokenQuery}`;
             player.load();
 
             try {
@@ -2886,7 +2889,7 @@ const Waterfall = (function () {
                 return;
             }
 
-            const attach = await _attachMonitorAudio(nonce);
+            const attach = await _attachMonitorAudio(nonce, payload?.request_token);
             if (nonce !== _audioConnectNonce) return;
             _monitorSource = payload?.source === 'waterfall' ? 'waterfall' : 'process';
             if (
