@@ -2535,6 +2535,12 @@ const Waterfall = (function () {
                     }
                     _updateFreqDisplay();
                     _setStatus(`Tuned ${_monitorFreqMhz.toFixed(4)} MHz`);
+                    if (_monitoring && _monitorSource === 'waterfall') {
+                        const mode = _getMonitorMode().toUpperCase();
+                        _setMonitorState(`Monitoring ${_monitorFreqMhz.toFixed(4)} MHz ${mode} via shared IQ`);
+                        _setStatus(`Audio monitor active on ${_monitorFreqMhz.toFixed(4)} MHz (${mode})`);
+                        _setVisualStatus('MONITOR');
+                    }
                     if (!_monitoring) _setVisualStatus('RUNNING');
                 } else if (_onRetuneRequired(msg)) {
                     return;
@@ -2786,10 +2792,14 @@ const Waterfall = (function () {
             _setUnlockVisible(false);
             _audioUnlockRequired = false;
 
-            _setMonitorState(
-                `Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} on `
-                + `${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}...`
-            );
+            if (retuneOnly && _monitoring) {
+                _setMonitorState(`Retuning ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()}...`);
+            } else {
+                _setMonitorState(
+                    `Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} on `
+                    + `${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}...`
+                );
+            }
 
             // Use live _monitorFreqMhz for retunes so that any user
             // clicks that changed the VFO during the async setup are
@@ -2831,7 +2841,13 @@ const Waterfall = (function () {
                 // If the backend still reports stale after token resync,
                 // schedule a fresh retune so monitor audio does not stay on
                 // an older station indefinitely.
-                if (_monitoring) _queueMonitorRetune(90);
+                if (_monitoring) {
+                    const liveMode = _getMonitorMode().toUpperCase();
+                    _setMonitorState(`Monitoring ${_monitorFreqMhz.toFixed(4)} MHz ${liveMode}`);
+                    _setStatus(`Audio monitor active on ${_monitorFreqMhz.toFixed(4)} MHz (${liveMode})`);
+                    _setVisualStatus('MONITOR');
+                    _queueMonitorRetune(90);
+                }
                 return;
             }
             const busy = payload?.error_type === 'DEVICE_BUSY' || (response.status === 409 && !staleStart);
