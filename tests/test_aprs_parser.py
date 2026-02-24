@@ -25,3 +25,19 @@ def test_parse_aprs_packet_accepts_decoder_prefix_variants(line: str) -> None:
     assert packet is not None
     assert packet["callsign"] == "N0CALL-9"
     assert packet["type"] == "aprs"
+
+
+def test_parse_aprs_packet_accepts_callsign_with_tactical_suffix() -> None:
+    packet = parse_aprs_packet("CALL/1>APRS:!4903.50N/07201.75W-Test")
+    assert packet is not None
+    assert packet["callsign"] == "CALL/1"
+    assert packet["lat"] == pytest.approx(49.058333, rel=0, abs=1e-6)
+    assert packet["lon"] == pytest.approx(-72.029167, rel=0, abs=1e-6)
+
+
+def test_parse_aprs_packet_handles_ambiguous_uncompressed_position() -> None:
+    packet = parse_aprs_packet("KJ7ABC-7>APRS,WIDE1-1:!4903.  N/07201.  W-Test")
+    assert packet is not None
+    assert packet["packet_type"] == "position"
+    assert packet["lat"] == pytest.approx(49.05, rel=0, abs=1e-6)
+    assert packet["lon"] == pytest.approx(-72.016667, rel=0, abs=1e-6)

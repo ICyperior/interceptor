@@ -9298,19 +9298,25 @@
             return R * c;
         }
 
+        function aprsHasValidCoordinates(lat, lon) {
+            return Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
+        }
+
         // Update APRS user location from GPS
         function updateAprsUserLocation(position) {
-            if (!position || !position.latitude || !position.longitude) return;
+            const lat = Number(position && position.latitude);
+            const lon = Number(position && position.longitude);
+            if (!aprsHasValidCoordinates(lat, lon)) return;
 
-            aprsUserLocation.lat = position.latitude;
-            aprsUserLocation.lon = position.longitude;
+            aprsUserLocation.lat = lat;
+            aprsUserLocation.lon = lon;
 
             // Update user marker on map
             if (aprsMap) {
                 if (aprsUserMarker) {
-                    aprsUserMarker.setLatLng([position.latitude, position.longitude]);
+                    aprsUserMarker.setLatLng([lat, lon]);
                 } else {
-                    aprsUserMarker = L.marker([position.latitude, position.longitude], {
+                    aprsUserMarker = L.marker([lat, lon], {
                         icon: L.divIcon({
                             className: 'aprs-user-marker',
                             html: '<div style="width: 14px; height: 14px; background: #ff0; border: 2px solid #000; border-radius: 50%; box-shadow: 0 0 10px #ff0;"></div>',
@@ -9323,7 +9329,7 @@
 
                 // Center map on first GPS fix
                 if (!aprsMap._gpsInitialized) {
-                    aprsMap.setView([position.latitude, position.longitude], 8);
+                    aprsMap.setView([lat, lon], 8);
                     aprsMap._gpsInitialized = true;
                 }
             }
@@ -9338,7 +9344,7 @@
 
         // Update distances for all stations in the list
         function updateAprsStationDistances() {
-            if (!aprsUserLocation.lat || !aprsUserLocation.lon) return;
+            if (!aprsHasValidCoordinates(aprsUserLocation.lat, aprsUserLocation.lon)) return;
 
             // Update station list items
             const listEl = document.getElementById('aprsStationList');
@@ -9395,9 +9401,14 @@
             if (!mapContainer) return;
 
             // Use GPS location if available, otherwise default to center of US
-            const initialLat = aprsUserLocation.lat || gpsLastPosition?.latitude || 39.8283;
-            const initialLon = aprsUserLocation.lon || gpsLastPosition?.longitude || -98.5795;
-            const initialZoom = (aprsUserLocation.lat || gpsLastPosition?.latitude) ? 8 : 4;
+            const gpsLat = Number(gpsLastPosition && gpsLastPosition.latitude);
+            const gpsLon = Number(gpsLastPosition && gpsLastPosition.longitude);
+            const hasUserLocation = aprsHasValidCoordinates(aprsUserLocation.lat, aprsUserLocation.lon);
+            const hasGpsLocation = aprsHasValidCoordinates(gpsLat, gpsLon);
+
+            const initialLat = hasUserLocation ? aprsUserLocation.lat : (hasGpsLocation ? gpsLat : 39.8283);
+            const initialLon = hasUserLocation ? aprsUserLocation.lon : (hasGpsLocation ? gpsLon : -98.5795);
+            const initialZoom = (hasUserLocation || hasGpsLocation) ? 8 : 4;
 
             aprsMap = L.map('aprsMap').setView([initialLat, initialLon], initialZoom);
             window.aprsMap = aprsMap;
@@ -9418,8 +9429,8 @@
             }
 
             // Add user marker if GPS position is already available
-            if (gpsConnected && gpsLastPosition && gpsLastPosition.latitude && gpsLastPosition.longitude) {
-                updateAprsUserLocation(gpsLastPosition);
+            if (gpsConnected && hasGpsLocation) {
+                updateAprsUserLocation({ latitude: gpsLat, longitude: gpsLon });
                 aprsMap._gpsInitialized = true;
             }
 
@@ -9863,7 +9874,7 @@
             }
 
             // Update map if position data
-            if (packet.lat && packet.lon && aprsMap) {
+            if (aprsHasValidCoordinates(packet.lat, packet.lon) && aprsMap) {
                 updateAprsMarker(packet);
             }
 
@@ -9908,22 +9919,27 @@
 
         function updateAprsMarker(packet) {
             const callsign = packet.callsign;
+            const lat = Number(packet.lat);
+            const lon = Number(packet.lon);
+            if (!aprsHasValidCoordinates(lat, lon)) {
+                return;
+            }
 
             // Calculate distance if user location available
             let distStr = '';
-            if (aprsUserLocation.lat && aprsUserLocation.lon) {
-                const dist = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, packet.lat, packet.lon);
+            if (aprsHasValidCoordinates(aprsUserLocation.lat, aprsUserLocation.lon)) {
+                const dist = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, lat, lon);
                 distStr = `Distance: ${dist.toFixed(1)} mi<br>`;
             }
 
             if (aprsMarkers[callsign]) {
                 // Update existing marker position and popup
-                aprsMarkers[callsign].setLatLng([packet.lat, packet.lon]);
+                aprsMarkers[callsign].setLatLng([lat, lon]);
                 aprsMarkers[callsign].setIcon(buildAprsMarkerIcon(packet));
                 aprsMarkers[callsign].setPopupContent(`
                     <div style="font-family: monospace;">
                         <strong>${callsign}</strong><br>
-                        Position: ${packet.lat.toFixed(4)}, ${packet.lon.toFixed(4)}<br>
+                        Position: ${lat.toFixed(4)}, ${lon.toFixed(4)}<br>
                         ${distStr}
                         ${packet.altitude ? `Altitude: ${packet.altitude} ft<br>` : ''}
                         ${packet.speed ? `Speed: ${packet.speed} kts<br>` : ''}
@@ -9937,12 +9953,12 @@
                 document.getElementById('aprsStationCount').textContent = aprsStationCount;
                 document.getElementById('aprsStripStations').textContent = aprsStationCount;
 
-                const marker = L.marker([packet.lat, packet.lon], { icon: buildAprsMarkerIcon(packet) }).addTo(aprsMap);
+                const marker = L.marker([lat, lon], { icon: buildAprsMarkerIcon(packet) }).addTo(aprsMap);
 
                 marker.bindPopup(`
                     <div style="font-family: monospace;">
                         <strong>${callsign}</strong><br>
-                        Position: ${packet.lat.toFixed(4)}, ${packet.lon.toFixed(4)}<br>
+                        Position: ${lat.toFixed(4)}, ${lon.toFixed(4)}<br>
                         ${distStr}
                         ${packet.altitude ? `Altitude: ${packet.altitude} ft<br>` : ''}
                         ${packet.speed ? `Speed: ${packet.speed} kts<br>` : ''}
@@ -9966,9 +9982,11 @@
 
             // Calculate distance if user location available
             let distance = null;
-            const hasPos = packet.lat && packet.lon;
-            if (hasPos && aprsUserLocation.lat && aprsUserLocation.lon) {
-                distance = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, packet.lat, packet.lon);
+            const hasPos = aprsHasValidCoordinates(packet.lat, packet.lon);
+            const lat = hasPos ? Number(packet.lat) : null;
+            const lon = hasPos ? Number(packet.lon) : null;
+            if (hasPos && aprsHasValidCoordinates(aprsUserLocation.lat, aprsUserLocation.lon)) {
+                distance = aprsCalculateDistanceMi(aprsUserLocation.lat, aprsUserLocation.lon, lat, lon);
             }
 
             // Check if station already exists
@@ -9979,8 +9997,8 @@
             const msg = {
                 callsign: callsign,
                 packet_type: packet.packet_type || 'unknown',
-                latitude: packet.lat,
-                longitude: packet.lon,
+                latitude: lat,
+                longitude: lon,
                 altitude: packet.altitude,
                 speed: packet.speed,
                 course: packet.course,
@@ -9998,8 +10016,8 @@
 
             // Store position for distance updates
             if (hasPos) {
-                newCard.dataset.lat = packet.lat;
-                newCard.dataset.lon = packet.lon;
+                newCard.dataset.lat = lat;
+                newCard.dataset.lon = lon;
             }
 
             // Add click handler to focus map

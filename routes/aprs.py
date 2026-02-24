@@ -14,7 +14,7 @@ import threading
 import time
 from datetime import datetime
 from subprocess import PIPE, STDOUT
-from typing import Generator, Optional
+from typing import Any, Generator, Optional
 
 from flask import Blueprint, jsonify, request, Response
 
@@ -152,7 +152,8 @@ def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
         # Basic APRS packet format: CALLSIGN>PATH:DATA
         # Example: N0CALL-9>APRS,TCPIP*:@092345z4903.50N/07201.75W_090/000g005t077
 
-        match = re.match(r'^([A-Z0-9-]+)>([^:]+):(.+)$', raw_packet, re.IGNORECASE)
+        # Source callsigns can include tactical suffixes like "/1" on some stations.
+        match = re.match(r'^([A-Z0-9/\-]+)>([^:]+):(.+)$', raw_packet, re.IGNORECASE)
         if not match:
             return None
 
@@ -467,6 +468,66 @@ def parse_position(data: str) -> Optional[dict]:
                 result['altitude'] = int(alt_match.group(1))  # feet
 
             return result
+
+        # Fallback: tolerate APRS ambiguity spaces in minute fields.
+        # Example: 4903.  N/07201.  W
+        if len(data) >= 18:
+            lat_field = data[0:7]
+            lat_dir = data[7]
+            symbol_table = data[8] if len(data) > 8 else ''
+            lon_field = data[9:17] if len(data) >= 17 else ''
+            lon_dir = data[17] if len(data) > 17 else ''
+            symbol_code = data[18] if len(data) > 18 else ''
+
+            if (
+                len(lat_field) == 7
+                and len(lon_field) == 8
+                and lat_dir in ('N', 'S')
+                and lon_dir in ('E', 'W')
+            ):
+                lat_deg_txt = lat_field[:2]
+                lat_min_txt = lat_field[2:].replace(' ', '0')
+                lon_deg_txt = lon_field[:3]
+                lon_min_txt = lon_field[3:].replace(' ', '0')
+
+                if (
+                    lat_deg_txt.isdigit()
+                    and lon_deg_txt.isdigit()
+                    and re.match(r'^\d{2}\.\d+$', lat_min_txt)
+                    and re.match(r'^\d{2}\.\d+$', lon_min_txt)
+                ):
+                    lat_deg = int(lat_deg_txt)
+                    lon_deg = int(lon_deg_txt)
+                    lat_min = float(lat_min_txt)
+                    lon_min = float(lon_min_txt)
+
+                    lat = lat_deg + lat_min / 60.0
+                    if lat_dir == 'S':
+                        lat = -lat
+
+                    lon = lon_deg + lon_min / 60.0
+                    if lon_dir == 'W':
+                        lon = -lon
+
+                    result = {
+                        'lat': round(lat, 6),
+                        'lon': round(lon, 6),
+                        'symbol': symbol_table + symbol_code,
+                    }
+
+                    # Keep same extension parsing behavior as primary branch.
+                    remaining = data[19:] if len(data) > 19 else ''
+
+                    cs_match = re.search(r'(\d{3})/(\d{3})', remaining)
+                    if cs_match:
+                        result['course'] = int(cs_match.group(1))
+                        result['speed'] = int(cs_match.group(2))
+
+                    alt_match = re.search(r'/A=(-?\d+)', remaining)
+                    if alt_match:
+                        result['altitude'] = int(alt_match.group(1))
+
+                    return result
 
     except Exception as e:
         logger.debug(f"Failed to parse position: {e}")
@@ -1389,20 +1450,24 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                 if callsign and callsign not in aprs_stations:
                     aprs_station_count += 1
 
-                # Update station data
+                # Update station data, preserving last known coordinates when
+                # packets do not contain position fields.
                 if callsign:
+                    existing = aprs_stations.get(callsign, {})
+                    packet_lat = packet.get('lat')
+                    packet_lon = packet.get('lon')
                     aprs_stations[callsign] = {
                         'callsign': callsign,
-                        'lat': packet.get('lat'),
-                        'lon': packet.get('lon'),
-                        'symbol': packet.get('symbol'),
+                        'lat': packet_lat if packet_lat is not None else existing.get('lat'),
+                        'lon': packet_lon if packet_lon is not None else existing.get('lon'),
+                        'symbol': packet.get('symbol') or existing.get('symbol'),
                         'last_seen': packet.get('timestamp'),
                         'packet_type': packet.get('packet_type'),
                     }
                     # Geofence check
-                    _aprs_lat = packet.get('lat')
-                    _aprs_lon = packet.get('lon')
-                    if _aprs_lat and _aprs_lon:
+                    _aprs_lat = packet_lat
+                    _aprs_lon = packet_lon
+                    if _aprs_lat is not None and _aprs_lon is not None:
                         try:
                             from utils.geofence import get_geofence_manager
                             for _gf_evt in get_geofence_manager().check_position(
@@ -1494,6 +1559,24 @@ def get_stations() -> Response:
     return jsonify({
         'stations': list(aprs_stations.values()),
         'count': len(aprs_stations)
+    })
+
+
+@aprs_bp.route('/data')
+def aprs_data() -> Response:
+    """Get APRS data snapshot for remote controller polling compatibility."""
+    running = False
+    if app_module.aprs_process:
+        running = app_module.aprs_process.poll() is None
+
+    return jsonify({
+        'status': 'success',
+        'running': running,
+        'stations': list(aprs_stations.values()),
+        'count': len(aprs_stations),
+        'packet_count': aprs_packet_count,
+        'station_count': aprs_station_count,
+        'last_packet_time': aprs_last_packet_time,
     })
 
 
