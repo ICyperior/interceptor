@@ -79,7 +79,8 @@
             gps: "{{ url_for('static', filename='css/modes/gps.css') }}",
             subghz: "{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9",
             bt_locate: "{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4",
-            spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}"
+            spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}",
+            wefax: "{{ url_for('static', filename='css/modes/wefax.css') }}"
         };
         window.INTERCEPT_MODE_STYLE_LOADED = {};
         window.ensureModeStyles = function(mode) {
@@ -263,6 +264,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('sstv_general')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span>
                                 <span class="mode-name">HF SSTV</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('wefax')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+                                <span class="mode-name">WeFax</span>
                             </button>
                             <button class="mode-card mode-card-sm" onclick="selectMode('spaceweather')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
@@ -615,6 +620,8 @@
                 {% include 'partials/modes/sstv-general.html' %}
 
                 {% include 'partials/modes/gps.html' %}
+
+                {% include 'partials/modes/wefax.html' %}
 
                 {% include 'partials/modes/space-weather.html' %}
 
@@ -2527,6 +2534,110 @@
                     </div>
                 </div>
 
+                <!-- WeFax Decoder Dashboard -->
+                <div id="wefaxVisuals" class="wefax-visuals-container" style="display: none;">
+                    <!-- Stats Strip -->
+                    <div class="wefax-stats-strip">
+                        <div class="wefax-strip-group">
+                            <div class="wefax-strip-status">
+                                <span class="wefax-strip-dot idle" id="wefaxStripDot"></span>
+                                <span class="wefax-strip-status-text" id="wefaxStripStatus">Idle</span>
+                            </div>
+                            <button class="wefax-strip-btn start" id="wefaxStartBtn" onclick="WeFax.start()">Start</button>
+                            <button class="wefax-strip-btn stop" id="wefaxStopBtn" onclick="WeFax.stop()" style="display: none;">Stop</button>
+                        </div>
+                        <div class="wefax-strip-divider"></div>
+                        <div class="wefax-strip-group">
+                            <div class="wefax-strip-stat">
+                                <span class="wefax-strip-value accent-amber" id="wefaxStripFreq">---</span>
+                                <span class="wefax-strip-label">KHZ</span>
+                            </div>
+                            <div class="wefax-strip-stat">
+                                <span class="wefax-strip-value" id="wefaxStripLines">0</span>
+                                <span class="wefax-strip-label">LINES</span>
+                            </div>
+                            <div class="wefax-strip-stat">
+                                <span class="wefax-strip-value" id="wefaxStripImageCount">0</span>
+                                <span class="wefax-strip-label">IMAGES</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio Waveform Scope -->
+                    <div id="wefaxScopePanel" style="display: none;">
+                        <div style="background: #0a0a0a; border: 1px solid #2e2a1a; border-radius: 6px; padding: 8px 10px; font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                                <span>Audio Waveform</span>
+                                <div style="display: flex; gap: 14px;">
+                                    <span>RMS: <span id="wefaxScopeRmsLabel" style="color: #ffaa00; font-variant-numeric: tabular-nums;">0</span></span>
+                                    <span>PEAK: <span id="wefaxScopePeakLabel" style="color: #f44; font-variant-numeric: tabular-nums;">0</span></span>
+                                    <span id="wefaxScopeStatusLabel" style="color: #444;">IDLE</span>
+                                </div>
+                            </div>
+                            <canvas id="wefaxScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Timeline -->
+                    <div class="wefax-schedule-panel">
+                        <div class="wefax-schedule-header">
+                            <span class="wefax-schedule-title">Broadcast Schedule</span>
+                            <span id="wefaxStatusText" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);"></span>
+                        </div>
+                        <div id="wefaxScheduleTimeline">
+                            <div class="wefax-schedule-empty">Select a station to see broadcast schedule</div>
+                        </div>
+                    </div>
+
+                    <!-- Main Content: Live Preview + Gallery -->
+                    <div class="wefax-main-row">
+                        <div class="wefax-live-section">
+                            <div class="wefax-live-header">
+                                <div class="wefax-live-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align: -2px; margin-right: 4px; color: #ffaa00;">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                    </svg>
+                                    Live Decode
+                                </div>
+                            </div>
+                            <div class="wefax-live-content" id="wefaxLiveContent">
+                                <div class="wefax-idle-state" id="wefaxIdleState">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                        <line x1="16" y1="13" x2="8" y2="13"/>
+                                        <line x1="16" y1="17" x2="8" y2="17"/>
+                                    </svg>
+                                    <h4>WeFax Decoder</h4>
+                                    <p>Select a station and click Start to decode weather fax transmissions</p>
+                                </div>
+                                <img id="wefaxLivePreview" class="wefax-live-preview" style="display: none;" alt="WeFax decode in progress">
+                            </div>
+                        </div>
+
+                        <div class="wefax-gallery-section">
+                            <div class="wefax-gallery-header">
+                                <div class="wefax-gallery-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align: -2px; margin-right: 4px; color: #ffaa00;">
+                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    Decoded Images
+                                </div>
+                                <div class="wefax-gallery-controls">
+                                    <span class="wefax-gallery-count" id="wefaxImageCount">0</span>
+                                    <button class="wefax-gallery-clear-btn" onclick="WeFax.deleteAllImages()" title="Delete all images">Clear All</button>
+                                </div>
+                            </div>
+                            <div class="wefax-gallery-grid" id="wefaxGallery">
+                                <div class="wefax-gallery-empty">No images decoded yet</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Space Weather Dashboard -->
                 <div id="spaceWeatherVisuals" class="sw-visuals-container" style="display: none;">
                     <!-- Header metrics strip -->
@@ -2932,6 +3043,7 @@
     <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
     <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate4"></script>
+    <script src="{{ url_for('static', filename='js/modes/wefax.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/space-weather.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/voice-alerts.js') }}?v={{ version }}&r=voicefix2"></script>
     <script src="{{ url_for('static', filename='js/core/keyboard-shortcuts.js') }}"></script>
@@ -3075,6 +3187,7 @@
             sstv: { label: 'ISS SSTV', indicator: 'ISS SSTV', outputTitle: 'ISS SSTV Decoder', group: 'space' },
             weathersat: { label: 'Weather Sat', indicator: 'WEATHER SAT', outputTitle: 'Weather Satellite Decoder', group: 'space' },
             sstv_general: { label: 'HF SSTV', indicator: 'HF SSTV', outputTitle: 'HF SSTV Decoder', group: 'space' },
+            wefax: { label: 'WeFax', indicator: 'WEFAX', outputTitle: 'Weather Fax Decoder', group: 'space' },
             spaceweather: { label: 'Space Weather', indicator: 'SPACE WX', outputTitle: 'Space Weather Monitor', group: 'space' },
             wifi: { label: 'WiFi', indicator: 'WIFI', outputTitle: 'WiFi Scanner', group: 'wireless' },
             bluetooth: { label: 'Bluetooth', indicator: 'BLUETOOTH', outputTitle: 'Bluetooth Scanner', group: 'wireless' },
@@ -3826,6 +3939,7 @@
             document.getElementById('sstvMode')?.classList.toggle('active', mode === 'sstv');
             document.getElementById('weatherSatMode')?.classList.toggle('active', mode === 'weathersat');
             document.getElementById('sstvGeneralMode')?.classList.toggle('active', mode === 'sstv_general');
+            document.getElementById('wefaxMode')?.classList.toggle('active', mode === 'wefax');
             document.getElementById('gpsMode')?.classList.toggle('active', mode === 'gps');
             document.getElementById('wifiMode')?.classList.toggle('active', mode === 'wifi');
             document.getElementById('bluetoothMode')?.classList.toggle('active', mode === 'bluetooth');
@@ -3877,6 +3991,7 @@
             const websdrVisuals = document.getElementById('websdrVisuals');
             const subghzVisuals = document.getElementById('subghzVisuals');
             const btLocateVisuals = document.getElementById('btLocateVisuals');
+            const wefaxVisuals = document.getElementById('wefaxVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
             const waterfallVisuals = document.getElementById('waterfallVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
@@ -3893,6 +4008,7 @@
             if (websdrVisuals) websdrVisuals.style.display = mode === 'websdr' ? 'flex' : 'none';
             if (subghzVisuals) subghzVisuals.style.display = mode === 'subghz' ? 'flex' : 'none';
             if (btLocateVisuals) btLocateVisuals.style.display = mode === 'bt_locate' ? 'flex' : 'none';
+            if (wefaxVisuals) wefaxVisuals.style.display = mode === 'wefax' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
             if (waterfallVisuals) waterfallVisuals.style.display = mode === 'waterfall' ? 'flex' : 'none';
 
@@ -3940,11 +4056,16 @@
                 if (typeof WeatherSat !== 'undefined' && WeatherSat.suspend) WeatherSat.suspend();
             }
 
+            // Suspend WeFax background streams when leaving the mode
+            if (mode !== 'wefax') {
+                if (typeof WeFax !== 'undefined' && WeFax.destroy) WeFax.destroy();
+            }
+
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'gps' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'gps' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -3964,7 +4085,7 @@
 
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
-            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general') ? 'block' : 'none';
+            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax') ? 'block' : 'none';
 
             // Toggle mode-specific tool status displays
             const toolStatusPager = document.getElementById('toolStatusPager');
@@ -3975,7 +4096,7 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'bt_locate' || mode === 'waterfall') ? 'none' : 'block';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'bt_locate' || mode === 'waterfall') ? 'none' : 'block';
             if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
@@ -4042,6 +4163,8 @@
                 setTimeout(() => {
                     if (typeof BtLocate !== 'undefined' && BtLocate.invalidateMap) BtLocate.invalidateMap();
                 }, 320);
+            } else if (mode === 'wefax') {
+                WeFax.init();
             } else if (mode === 'spaceweather') {
                 SpaceWeather.init();
             } else if (mode === 'waterfall') {

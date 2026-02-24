@@ -1,0 +1,671 @@
+/**
+ * WeFax (Weather Fax) decoder module.
+ *
+ * IIFE providing start/stop controls, station selector, broadcast
+ * schedule timeline, live image preview, decoded image gallery,
+ * and audio waveform scope.
+ */
+var WeFax = (function () {
+    'use strict';
+
+    var state = {
+        running: false,
+        initialized: false,
+        eventSource: null,
+        stations: [],
+        images: [],
+        selectedStation: null,
+        pollTimer: null,
+    };
+
+    // ---- Scope state ----
+
+    var scopeCtx = null;
+    var scopeAnim = null;
+    var scopeHistory = [];
+    var scopeWaveBuffer = [];
+    var scopeDisplayWave = [];
+    var SCOPE_HISTORY_LEN = 200;
+    var SCOPE_WAVE_BUFFER_LEN = 2048;
+    var SCOPE_WAVE_INPUT_SMOOTH = 0.55;
+    var SCOPE_WAVE_DISPLAY_SMOOTH = 0.22;
+    var SCOPE_WAVE_IDLE_DECAY = 0.96;
+    var scopeRms = 0;
+    var scopePeak = 0;
+    var scopeTargetRms = 0;
+    var scopeTargetPeak = 0;
+    var scopeLastWaveAt = 0;
+    var scopeLastInputSample = 0;
+    var scopeImageBurst = 0;
+
+    // ---- Initialisation ----
+
+    function init() {
+        if (state.initialized) {
+            // Re-render cached data immediately so UI isn't empty
+            if (state.stations.length) renderStationDropdown();
+            loadImages();
+            return;
+        }
+        state.initialized = true;
+        loadStations();
+        loadImages();
+    }
+
+    function destroy() {
+        disconnectSSE();
+        stopScope();
+        if (state.pollTimer) {
+            clearInterval(state.pollTimer);
+            state.pollTimer = null;
+        }
+    }
+
+    // ---- Stations ----
+
+    function loadStations() {
+        fetch('/wefax/stations')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'ok' && data.stations) {
+                    state.stations = data.stations;
+                    renderStationDropdown();
+                }
+            })
+            .catch(function (err) {
+                console.error('WeFax: failed to load stations', err);
+            });
+    }
+
+    function renderStationDropdown() {
+        var sel = document.getElementById('wefaxStation');
+        if (!sel) return;
+
+        // Keep the placeholder
+        sel.innerHTML = '<option value="">Select a station...</option>';
+
+        state.stations.forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s.callsign;
+            opt.textContent = s.callsign + ' — ' + s.name + ' (' + s.country + ')';
+            sel.appendChild(opt);
+        });
+    }
+
+    function onStationChange() {
+        var sel = document.getElementById('wefaxStation');
+        var callsign = sel ? sel.value : '';
+
+        if (!callsign) {
+            state.selectedStation = null;
+            renderFrequencyDropdown([]);
+            renderScheduleTimeline([]);
+            return;
+        }
+
+        var station = state.stations.find(function (s) { return s.callsign === callsign; });
+        state.selectedStation = station || null;
+
+        if (station) {
+            renderFrequencyDropdown(station.frequencies || []);
+            // Set IOC/LPM from station defaults
+            var iocSel = document.getElementById('wefaxIOC');
+            var lpmSel = document.getElementById('wefaxLPM');
+            if (iocSel && station.ioc) iocSel.value = String(station.ioc);
+            if (lpmSel && station.lpm) lpmSel.value = String(station.lpm);
+            renderScheduleTimeline(station.schedule || []);
+        }
+    }
+
+    function renderFrequencyDropdown(frequencies) {
+        var sel = document.getElementById('wefaxFrequency');
+        if (!sel) return;
+
+        sel.innerHTML = '';
+
+        if (frequencies.length === 0) {
+            var opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Select station first';
+            sel.appendChild(opt);
+            return;
+        }
+
+        frequencies.forEach(function (f) {
+            var opt = document.createElement('option');
+            opt.value = String(f.khz);
+            opt.textContent = f.khz + ' kHz — ' + f.description;
+            sel.appendChild(opt);
+        });
+    }
+
+    // ---- Start / Stop ----
+
+    function start() {
+        if (state.running) return;
+
+        var freqSel = document.getElementById('wefaxFrequency');
+        var freqKhz = freqSel ? parseFloat(freqSel.value) : 0;
+        if (!freqKhz || isNaN(freqKhz)) {
+            setStatus('Select a station and frequency first');
+            return;
+        }
+
+        var stationSel = document.getElementById('wefaxStation');
+        var station = stationSel ? stationSel.value : '';
+        var iocSel = document.getElementById('wefaxIOC');
+        var lpmSel = document.getElementById('wefaxLPM');
+        var gainInput = document.getElementById('wefaxGain');
+        var dsCheckbox = document.getElementById('wefaxDirectSampling');
+
+        var deviceSel = document.getElementById('rtlDevice');
+        var device = deviceSel ? parseInt(deviceSel.value, 10) || 0 : 0;
+
+        var body = {
+            frequency_khz: freqKhz,
+            station: station,
+            device: device,
+            gain: gainInput ? parseFloat(gainInput.value) || 40 : 40,
+            ioc: iocSel ? parseInt(iocSel.value, 10) : 576,
+            lpm: lpmSel ? parseInt(lpmSel.value, 10) : 120,
+            direct_sampling: dsCheckbox ? dsCheckbox.checked : true,
+        };
+
+        fetch('/wefax/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'started' || data.status === 'already_running') {
+                    state.running = true;
+                    updateButtons(true);
+                    setStatus('Scanning ' + freqKhz + ' kHz...');
+                    setStripFreq(freqKhz);
+                    connectSSE();
+                } else {
+                    setStatus('Error: ' + (data.message || 'unknown'));
+                }
+            })
+            .catch(function (err) {
+                setStatus('Error: ' + err.message);
+            });
+    }
+
+    function stop() {
+        fetch('/wefax/stop', { method: 'POST' })
+            .then(function (r) { return r.json(); })
+            .then(function () {
+                state.running = false;
+                updateButtons(false);
+                setStatus('Stopped');
+                disconnectSSE();
+                loadImages();
+            })
+            .catch(function (err) {
+                console.error('WeFax stop error:', err);
+            });
+    }
+
+    // ---- SSE ----
+
+    function connectSSE() {
+        disconnectSSE();
+
+        var es = new EventSource('/wefax/stream');
+        state.eventSource = es;
+
+        es.onmessage = function (evt) {
+            try {
+                var data = JSON.parse(evt.data);
+                if (data.type === 'scope') {
+                    applyScopeData(data);
+                } else {
+                    handleProgress(data);
+                }
+            } catch (e) { /* ignore keepalives */ }
+        };
+
+        es.onerror = function () {
+            // EventSource will auto-reconnect
+        };
+
+        // Show scope and start animation
+        var panel = document.getElementById('wefaxScopePanel');
+        if (panel) panel.style.display = 'block';
+        initScope();
+    }
+
+    function disconnectSSE() {
+        if (state.eventSource) {
+            state.eventSource.close();
+            state.eventSource = null;
+        }
+        stopScope();
+        var panel = document.getElementById('wefaxScopePanel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    function handleProgress(data) {
+        if (data.type !== 'wefax_progress') return;
+
+        var statusText = data.message || data.status || '';
+        setStatus(statusText);
+
+        var dot = document.getElementById('wefaxStripDot');
+        if (dot) {
+            dot.className = 'wefax-strip-dot ' + (data.status || 'idle');
+        }
+
+        var statusEl = document.getElementById('wefaxStripStatus');
+        if (statusEl) {
+            var labels = {
+                scanning: 'Scanning',
+                phasing: 'Phasing',
+                receiving: 'Receiving',
+                complete: 'Complete',
+                error: 'Error',
+                stopped: 'Idle',
+            };
+            statusEl.textContent = labels[data.status] || data.status || 'Idle';
+        }
+
+        // Update line count
+        if (data.line_count) {
+            var lineEl = document.getElementById('wefaxStripLines');
+            if (lineEl) lineEl.textContent = String(data.line_count);
+        }
+
+        // Live preview
+        if (data.partial_image) {
+            var previewEl = document.getElementById('wefaxLivePreview');
+            if (previewEl) {
+                previewEl.src = data.partial_image;
+                previewEl.style.display = 'block';
+            }
+            var idleEl = document.getElementById('wefaxIdleState');
+            if (idleEl) idleEl.style.display = 'none';
+        }
+
+        // Image complete
+        if (data.status === 'complete' && data.image) {
+            scopeImageBurst = 1.0;
+            loadImages();
+            setStatus('Image decoded: ' + (data.line_count || '?') + ' lines');
+        }
+
+        if (data.status === 'error') {
+            state.running = false;
+            updateButtons(false);
+        }
+
+        if (data.status === 'stopped') {
+            state.running = false;
+            updateButtons(false);
+        }
+    }
+
+    // ---- Audio Waveform Scope ----
+
+    function initScope() {
+        var canvas = document.getElementById('wefaxScopeCanvas');
+        if (!canvas) return;
+
+        if (scopeAnim) { cancelAnimationFrame(scopeAnim); scopeAnim = null; }
+
+        resizeScopeCanvas(canvas);
+        scopeCtx = canvas.getContext('2d');
+        scopeHistory = new Array(SCOPE_HISTORY_LEN).fill(0);
+        scopeWaveBuffer = [];
+        scopeDisplayWave = [];
+        scopeRms = scopePeak = scopeTargetRms = scopeTargetPeak = 0;
+        scopeImageBurst = scopeLastWaveAt = scopeLastInputSample = 0;
+        drawScope();
+    }
+
+    function stopScope() {
+        if (scopeAnim) { cancelAnimationFrame(scopeAnim); scopeAnim = null; }
+        scopeCtx = null;
+        scopeWaveBuffer = [];
+        scopeDisplayWave = [];
+        scopeHistory = [];
+        scopeLastWaveAt = 0;
+        scopeLastInputSample = 0;
+    }
+
+    function resizeScopeCanvas(canvas) {
+        if (!canvas) return;
+        var rect = canvas.getBoundingClientRect();
+        var dpr = window.devicePixelRatio || 1;
+        var width  = Math.max(1, Math.floor(rect.width  * dpr));
+        var height = Math.max(1, Math.floor(rect.height * dpr));
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width  = width;
+            canvas.height = height;
+        }
+    }
+
+    function applyScopeData(scopeData) {
+        if (!scopeData || typeof scopeData !== 'object') return;
+
+        scopeTargetRms  = Number(scopeData.rms)  || 0;
+        scopeTargetPeak = Number(scopeData.peak) || 0;
+
+        if (Array.isArray(scopeData.waveform) && scopeData.waveform.length) {
+            for (var i = 0; i < scopeData.waveform.length; i++) {
+                var sample = Number(scopeData.waveform[i]);
+                if (!isFinite(sample)) continue;
+                var normalized = Math.max(-127, Math.min(127, sample)) / 127;
+                scopeLastInputSample += (normalized - scopeLastInputSample) * SCOPE_WAVE_INPUT_SMOOTH;
+                scopeWaveBuffer.push(scopeLastInputSample);
+            }
+            if (scopeWaveBuffer.length > SCOPE_WAVE_BUFFER_LEN) {
+                scopeWaveBuffer.splice(0, scopeWaveBuffer.length - SCOPE_WAVE_BUFFER_LEN);
+            }
+            scopeLastWaveAt = performance.now();
+        }
+    }
+
+    function drawScope() {
+        var ctx = scopeCtx;
+        if (!ctx) return;
+
+        resizeScopeCanvas(ctx.canvas);
+        var W = ctx.canvas.width, H = ctx.canvas.height, midY = H / 2;
+
+        // Phosphor persistence
+        ctx.fillStyle = 'rgba(5, 5, 16, 0.26)';
+        ctx.fillRect(0, 0, W, H);
+
+        // Smooth RMS/Peak
+        scopeRms  += (scopeTargetRms  - scopeRms)  * 0.25;
+        scopePeak += (scopeTargetPeak - scopePeak) * 0.15;
+
+        // Rolling envelope
+        scopeHistory.push(Math.min(scopeRms / 32768, 1.0));
+        if (scopeHistory.length > SCOPE_HISTORY_LEN) scopeHistory.shift();
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(40, 40, 80, 0.4)';
+        ctx.lineWidth = 0.8;
+        var gx, gy;
+        for (var i = 1; i < 8; i++) {
+            gx = (W / 8) * i;
+            ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+        }
+        for (var g = 0.25; g < 1; g += 0.25) {
+            gy = midY - g * midY;
+            var gy2 = midY + g * midY;
+            ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy);
+            ctx.moveTo(0, gy2); ctx.lineTo(W, gy2); ctx.stroke();
+        }
+
+        // Center baseline
+        ctx.strokeStyle = 'rgba(60, 60, 100, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
+
+        // Amplitude envelope (amber tint)
+        var envStepX = W / (SCOPE_HISTORY_LEN - 1);
+        ctx.strokeStyle = 'rgba(255, 170, 0, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (var ei = 0; ei < scopeHistory.length; ei++) {
+            var ex = ei * envStepX, amp = scopeHistory[ei] * midY * 0.85;
+            if (ei === 0) ctx.moveTo(ex, midY - amp); else ctx.lineTo(ex, midY - amp);
+        }
+        ctx.stroke();
+        ctx.beginPath();
+        for (var ej = 0; ej < scopeHistory.length; ej++) {
+            var ex2 = ej * envStepX, amp2 = scopeHistory[ej] * midY * 0.85;
+            if (ej === 0) ctx.moveTo(ex2, midY + amp2); else ctx.lineTo(ex2, midY + amp2);
+        }
+        ctx.stroke();
+
+        // Waveform trace (amber)
+        var wavePoints = Math.min(Math.max(120, Math.floor(W / 3.2)), 420);
+        if (scopeWaveBuffer.length > 1) {
+            var waveIsFresh = (performance.now() - scopeLastWaveAt) < 700;
+            var srcLen = scopeWaveBuffer.length;
+            var srcWindow = Math.min(srcLen, 1536);
+            var srcStart = srcLen - srcWindow;
+
+            if (scopeDisplayWave.length !== wavePoints) {
+                scopeDisplayWave = new Array(wavePoints).fill(0);
+            }
+
+            for (var wi = 0; wi < wavePoints; wi++) {
+                var a = srcStart + Math.floor((wi / wavePoints) * srcWindow);
+                var b = srcStart + Math.floor(((wi + 1) / wavePoints) * srcWindow);
+                var start = Math.max(srcStart, Math.min(srcLen - 1, a));
+                var end   = Math.max(start + 1, Math.min(srcLen, b));
+                var sum = 0, count = 0;
+                for (var j = start; j < end; j++) { sum += scopeWaveBuffer[j]; count++; }
+                var targetSample = count > 0 ? sum / count : 0;
+                scopeDisplayWave[wi] += (targetSample - scopeDisplayWave[wi]) * SCOPE_WAVE_DISPLAY_SMOOTH;
+            }
+
+            ctx.strokeStyle = waveIsFresh ? '#ffaa00' : 'rgba(255, 170, 0, 0.45)';
+            ctx.lineWidth = 1.7;
+            ctx.shadowColor = '#ffaa00';
+            ctx.shadowBlur = waveIsFresh ? 6 : 2;
+
+            var stepX = wavePoints > 1 ? W / (wavePoints - 1) : W;
+            ctx.beginPath();
+            ctx.moveTo(0, midY - scopeDisplayWave[0] * midY * 0.9);
+            for (var qi = 1; qi < wavePoints - 1; qi++) {
+                var x  = qi * stepX,       y  = midY - scopeDisplayWave[qi]     * midY * 0.9;
+                var nx = (qi + 1) * stepX, ny = midY - scopeDisplayWave[qi + 1] * midY * 0.9;
+                ctx.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2);
+            }
+            ctx.lineTo((wavePoints - 1) * stepX,
+                       midY - scopeDisplayWave[wavePoints - 1] * midY * 0.9);
+            ctx.stroke();
+
+            if (!waveIsFresh) {
+                for (var di = 0; di < scopeDisplayWave.length; di++) {
+                    scopeDisplayWave[di] *= SCOPE_WAVE_IDLE_DECAY;
+                }
+            }
+        }
+        ctx.shadowBlur = 0;
+
+        // Peak indicator
+        var peakNorm = Math.min(scopePeak / 32768, 1.0);
+        if (peakNorm > 0.01) {
+            var peakY = midY - peakNorm * midY * 0.9;
+            ctx.strokeStyle = 'rgba(255, 68, 68, 0.6)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(0, peakY); ctx.lineTo(W, peakY); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Image-decoded flash (amber overlay)
+        if (scopeImageBurst > 0.01) {
+            ctx.fillStyle = 'rgba(255, 170, 0, ' + (scopeImageBurst * 0.15) + ')';
+            ctx.fillRect(0, 0, W, H);
+            scopeImageBurst *= 0.88;
+        }
+
+        // Label updates
+        var rmsLabel = document.getElementById('wefaxScopeRmsLabel');
+        var peakLabel = document.getElementById('wefaxScopePeakLabel');
+        var statusLabel = document.getElementById('wefaxScopeStatusLabel');
+        if (rmsLabel) rmsLabel.textContent = Math.round(scopeRms);
+        if (peakLabel) peakLabel.textContent = Math.round(scopePeak);
+        if (statusLabel) {
+            var fresh = (performance.now() - scopeLastWaveAt) < 700;
+            if (fresh && scopeRms > 1300) {
+                statusLabel.textContent = 'DEMODULATING';
+                statusLabel.style.color = '#ffaa00';
+            } else if (fresh && scopeRms > 500) {
+                statusLabel.textContent = 'CARRIER';
+                statusLabel.style.color = '#cc8800';
+            } else if (fresh) {
+                statusLabel.textContent = 'QUIET';
+                statusLabel.style.color = '#666';
+            } else {
+                statusLabel.textContent = 'IDLE';
+                statusLabel.style.color = '#444';
+            }
+        }
+
+        scopeAnim = requestAnimationFrame(drawScope);
+    }
+
+    // ---- Images ----
+
+    function loadImages() {
+        fetch('/wefax/images')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'ok') {
+                    state.images = data.images || [];
+                    renderImageGallery();
+                    var countEl = document.getElementById('wefaxImageCount');
+                    if (countEl) countEl.textContent = String(state.images.length);
+                    var stripCount = document.getElementById('wefaxStripImageCount');
+                    if (stripCount) stripCount.textContent = String(state.images.length);
+                }
+            })
+            .catch(function (err) {
+                console.error('WeFax: failed to load images', err);
+            });
+    }
+
+    function renderImageGallery() {
+        var gallery = document.getElementById('wefaxGallery');
+        if (!gallery) return;
+
+        if (state.images.length === 0) {
+            gallery.innerHTML = '<div class="wefax-gallery-empty">No images decoded yet</div>';
+            return;
+        }
+
+        var html = '';
+        // Show newest first
+        var sorted = state.images.slice().reverse();
+        sorted.forEach(function (img) {
+            var ts = img.timestamp ? new Date(img.timestamp).toLocaleString() : '';
+            var station = img.station || '';
+            var freq = img.frequency_khz ? (img.frequency_khz + ' kHz') : '';
+            html += '<div class="wefax-gallery-item">';
+            html += '<img src="' + img.url + '" alt="WeFax" loading="lazy" onclick="WeFax.viewImage(\'' + img.url + '\')">';
+            html += '<div class="wefax-gallery-meta">';
+            html += '<span>' + station + (freq ? ' ' + freq : '') + '</span>';
+            html += '<span>' + ts + '</span>';
+            html += '</div>';
+            html += '<div class="wefax-gallery-actions">';
+            html += '<a href="' + img.url + '" download class="wefax-gallery-action" title="Download">&#x2B73;</a>';
+            html += '<button class="wefax-gallery-action delete" onclick="WeFax.deleteImage(\'' + img.filename + '\')" title="Delete">&times;</button>';
+            html += '</div>';
+            html += '</div>';
+        });
+        gallery.innerHTML = html;
+    }
+
+    function deleteImage(filename) {
+        fetch('/wefax/images/' + encodeURIComponent(filename), { method: 'DELETE' })
+            .then(function () { loadImages(); })
+            .catch(function (err) { console.error('WeFax delete error:', err); });
+    }
+
+    function deleteAllImages() {
+        if (!confirm('Delete all WeFax images?')) return;
+        fetch('/wefax/images', { method: 'DELETE' })
+            .then(function () { loadImages(); })
+            .catch(function (err) { console.error('WeFax delete all error:', err); });
+    }
+
+    function viewImage(url) {
+        // Open image in modal or new tab
+        window.open(url, '_blank');
+    }
+
+    // ---- Schedule Timeline ----
+
+    function renderScheduleTimeline(schedule) {
+        var container = document.getElementById('wefaxScheduleTimeline');
+        if (!container) return;
+
+        if (!schedule || schedule.length === 0) {
+            container.innerHTML = '<div class="wefax-schedule-empty">Select a station to see broadcast schedule</div>';
+            return;
+        }
+
+        var now = new Date();
+        var nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+        var html = '<div class="wefax-schedule-list">';
+        schedule.forEach(function (entry) {
+            var parts = entry.utc.split(':');
+            var entryMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            var diff = entryMin - nowMin;
+            if (diff < -720) diff += 1440;
+            if (diff > 720) diff -= 1440;
+
+            var cls = 'wefax-schedule-entry';
+            var badge = '';
+            if (diff >= 0 && diff <= entry.duration_min) {
+                cls += ' active';
+                badge = '<span class="wefax-schedule-badge live">LIVE</span>';
+            } else if (diff > 0 && diff <= 60) {
+                cls += ' upcoming';
+                badge = '<span class="wefax-schedule-badge soon">' + diff + 'm</span>';
+            } else if (diff > 0) {
+                badge = '<span class="wefax-schedule-badge">' + Math.floor(diff / 60) + 'h ' + (diff % 60) + 'm</span>';
+            } else {
+                cls += ' past';
+            }
+
+            html += '<div class="' + cls + '">';
+            html += '<span class="wefax-schedule-time">' + entry.utc + '</span>';
+            html += '<span class="wefax-schedule-content">' + entry.content + '</span>';
+            html += badge;
+            html += '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // ---- UI helpers ----
+
+    function updateButtons(running) {
+        var startBtn = document.getElementById('wefaxStartBtn');
+        var stopBtn = document.getElementById('wefaxStopBtn');
+        if (startBtn) startBtn.style.display = running ? 'none' : 'inline-flex';
+        if (stopBtn) stopBtn.style.display = running ? 'inline-flex' : 'none';
+
+        var dot = document.getElementById('wefaxStripDot');
+        if (dot) dot.className = 'wefax-strip-dot ' + (running ? 'scanning' : 'idle');
+
+        var statusEl = document.getElementById('wefaxStripStatus');
+        if (statusEl && !running) statusEl.textContent = 'Idle';
+    }
+
+    function setStatus(msg) {
+        var el = document.getElementById('wefaxStatusText');
+        if (el) el.textContent = msg;
+    }
+
+    function setStripFreq(khz) {
+        var el = document.getElementById('wefaxStripFreq');
+        if (el) el.textContent = String(khz);
+    }
+
+    // ---- Public API ----
+
+    return {
+        init: init,
+        destroy: destroy,
+        start: start,
+        stop: stop,
+        onStationChange: onStationChange,
+        loadImages: loadImages,
+        deleteImage: deleteImage,
+        deleteAllImages: deleteAllImages,
+        viewImage: viewImage,
+    };
+})();
