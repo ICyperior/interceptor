@@ -3,9 +3,13 @@
    Amber/gold theme (#ffaa00) for HF
    ============================================ */
 
-/* Place WeFax sidebar panel above the shared SDR Device section */
+/* Place WeFax sidebar panel above the shared SDR Device section
+   while keeping the collapse button at the very top. */
 #wefaxMode.active {
     order: -1;
+}
+.sidebar:has(#wefaxMode.active) > .sidebar-collapse-btn {
+    order: -2;
 }
 
 /* --- Stats Strip --- */
