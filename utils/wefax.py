@@ -1,10 +1,11 @@
 """WeFax (Weather Fax) decoder.
 
-Decodes HF radiofax (weather fax) transmissions using RTL-SDR direct
-sampling mode.  The decoder implements the standard WeFax AM protocol:
+Decodes HF radiofax (weather fax) transmissions using any supported SDR
+(RTL-SDR, HackRF, LimeSDR, Airspy, SDRPlay) via the SDRFactory
+abstraction layer.  The decoder implements the standard WeFax AM protocol:
 carrier 1900 Hz, deviation +/-400 Hz (black=1500, white=2300).
 
-Pipeline: rtl_fm -M usb -E direct2 -> stdout PCM -> Python DSP state machine
+Pipeline: rtl_fm/rx_fm -M usb -> stdout PCM -> Python DSP state machine
 
 State machine: SCANNING -> PHASING -> RECEIVING -> COMPLETE
 """
@@ -30,6 +31,7 @@ import numpy as np
 
 from utils.dependencies import get_tool_path
 from utils.logging import get_logger
+from utils.sdr import SDRFactory, SDRType
 
 logger = get_logger('intercept.wefax')
 
@@ -262,17 +264,19 @@ class WeFaxDecoder:
         ioc: int = DEFAULT_IOC,
         lpm: int = DEFAULT_LPM,
         direct_sampling: bool = True,
+        sdr_type: str = 'rtlsdr',
     ) -> bool:
         """Start WeFax decoder.
 
         Args:
             frequency_khz: Frequency in kHz (e.g. 4298 for NOJ).
             station: Station callsign for metadata.
-            device_index: RTL-SDR device index.
+            device_index: SDR device index.
             gain: Receiver gain in dB.
             ioc: Index of Cooperation (576 or 288).
             lpm: Lines per minute (120 or 60).
             direct_sampling: Enable RTL-SDR direct sampling for HF.
+            sdr_type: SDR hardware type (rtlsdr, hackrf, limesdr, airspy, sdrplay).
 
         Returns:
             True if started successfully.
@@ -288,6 +292,7 @@ class WeFaxDecoder:
             self._device_index = device_index
             self._gain = gain
             self._direct_sampling = direct_sampling
+            self._sdr_type = sdr_type
             self._sample_rate = DEFAULT_SAMPLE_RATE
 
             try:
@@ -312,27 +317,39 @@ class WeFaxDecoder:
                 return False
 
     def _start_pipeline(self) -> None:
-        """Start rtl_fm subprocess in USB mode for WeFax."""
-        rtl_fm_path = get_tool_path('rtl_fm')
-        if not rtl_fm_path:
-            raise RuntimeError('rtl_fm not found')
+        """Start SDR FM demod subprocess in USB mode for WeFax."""
+        try:
+            sdr_type_enum = SDRType(self._sdr_type)
+        except ValueError:
+            sdr_type_enum = SDRType.RTL_SDR
 
-        freq_hz = int(self._frequency_khz * 1000)
+        # Validate that the required tool is available
+        if sdr_type_enum == SDRType.RTL_SDR:
+            if not get_tool_path('rtl_fm'):
+                raise RuntimeError('rtl_fm not found')
+        else:
+            if not get_tool_path('rx_fm'):
+                raise RuntimeError('rx_fm not found (required for non-RTL-SDR devices)')
 
-        rtl_cmd = [
-            rtl_fm_path,
-            '-d', str(self._device_index),
-            '-f', str(freq_hz),
-            '-M', 'usb',
-            '-s', str(self._sample_rate),
-            '-r', str(self._sample_rate),
-            '-g', str(self._gain),
-        ]
+        sdr_device = SDRFactory.create_default_device(
+            sdr_type_enum, index=self._device_index)
+        builder = SDRFactory.get_builder(sdr_type_enum)
+        rtl_cmd = builder.build_fm_demod_command(
+            device=sdr_device,
+            frequency_mhz=self._frequency_khz / 1000.0,
+            sample_rate=self._sample_rate,
+            gain=self._gain,
+            modulation='usb',
+        )
 
-        if self._direct_sampling:
-            rtl_cmd.extend(['-E', 'direct2'])
-
-        rtl_cmd.append('-')
+        # RTL-SDR: append direct sampling flag for HF reception
+        if sdr_type_enum == SDRType.RTL_SDR and self._direct_sampling:
+            # Insert before trailing '-' stdout marker
+            if rtl_cmd and rtl_cmd[-1] == '-':
+                rtl_cmd.insert(-1, '-E')
+                rtl_cmd.insert(-1, 'direct2')
+            else:
+                rtl_cmd.extend(['-E', 'direct2', '-'])
 
         logger.info(f"Starting rtl_fm: {' '.join(rtl_cmd)}")
 

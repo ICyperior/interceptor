@@ -177,13 +177,14 @@ var WeFax = (function () {
         var gainInput = document.getElementById('wefaxGain');
         var dsCheckbox = document.getElementById('wefaxDirectSampling');
 
-        var deviceSel = document.getElementById('rtlDevice');
-        var device = deviceSel ? parseInt(deviceSel.value, 10) || 0 : 0;
+        var device = (typeof getSelectedDevice === 'function')
+            ? parseInt(getSelectedDevice(), 10) || 0 : 0;
 
         var body = {
             frequency_khz: freqKhz,
             station: station,
             device: device,
+            sdr_type: (typeof getSelectedSDRType === 'function') ? getSelectedSDRType() : 'rtlsdr',
             gain: gainInput ? parseFloat(gainInput.value) || 40 : 40,
             ioc: iocSel ? parseInt(iocSel.value, 10) : 576,
             lpm: lpmSel ? parseInt(lpmSel.value, 10) : 120,

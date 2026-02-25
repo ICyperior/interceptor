@@ -12,6 +12,7 @@ from flask import Blueprint, Response, jsonify, request, send_file
 
 import app as app_module
 from utils.logging import get_logger
+from utils.sdr import SDRType
 from utils.sse import sse_stream_fanout
 from utils.validation import validate_frequency
 from utils.wefax import get_wefax_decoder
@@ -129,6 +130,12 @@ def start_decoder():
     lpm = int(data.get('lpm', 120))
     direct_sampling = bool(data.get('direct_sampling', True))
     frequency_reference = str(data.get('frequency_reference', 'auto')).strip().lower()
+
+    sdr_type_str = str(data.get('sdr_type', 'rtlsdr')).lower()
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
     if not frequency_reference:
         frequency_reference = 'auto'
 
@@ -182,6 +189,7 @@ def start_decoder():
         ioc=ioc,
         lpm=lpm,
         direct_sampling=direct_sampling,
+        sdr_type=sdr_type_str,
     )
 
     if success:
