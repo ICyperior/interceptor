@@ -170,8 +170,19 @@
     }
 
     function stopVdl2Mode() {
-        fetch('/vdl2/stop', { method: 'POST' })
-        .then(r => r.json())
+        fetch('/vdl2/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'vdl2_mode' })
+        })
+        .then(async (r) => {
+            const text = await r.text();
+            const data = text ? JSON.parse(text) : {};
+            if (!r.ok || (data.status !== 'stopped' && data.status !== 'success')) {
+                throw new Error(data.message || `HTTP ${r.status}`);
+            }
+            return data;
+        })
         .then(() => {
             document.getElementById('startVdl2Btn').style.display = 'block';
             document.getElementById('stopVdl2Btn').style.display = 'none';
@@ -181,7 +192,8 @@
                 vdl2MainEventSource.close();
                 vdl2MainEventSource = null;
             }
-        });
+        })
+        .catch(err => alert('Failed to stop VDL2: ' + err.message));
     }
 
     function startVdl2MainSSE() {

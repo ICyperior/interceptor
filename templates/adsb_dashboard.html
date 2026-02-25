@@ -2214,21 +2214,44 @@ sudo make install</code>
                 }
             } else {
                 try {
-                    // Route stop through agent proxy if using remote agent
-                    const url = useAgent
-                        ? `/controller/agents/${adsbCurrentAgent}/adsb/stop`
+                    // Route stop through the source that actually started tracking.
+                    const stopSource = adsbTrackingSource || (useAgent ? adsbCurrentAgent : 'local');
+                    const stopViaAgent = stopSource !== null && stopSource !== undefined && stopSource !== 'local';
+                    const url = stopViaAgent
+                        ? `/controller/agents/${stopSource}/adsb/stop`
                         : '/adsb/stop';
-                    await fetch(url, {
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
+                        body: JSON.stringify({ source: 'adsb_dashboard' })
                     });
+                    const text = await response.text();
+                    let data = {};
+                    if (text) {
+                        try {
+                            data = JSON.parse(text);
+                        } catch (e) {
+                            throw new Error(`Invalid response: ${text}`);
+                        }
+                    }
+                    const result = stopViaAgent && data.result ? data.result : data;
+                    const stopped = response.ok && (
+                        result.status === 'stopped' ||
+                        result.status === 'success' ||
+                        data.status === 'success'
+                    );
+                    if (!stopped) {
+                        throw new Error(result.message || data.message || `HTTP ${response.status}`);
+                    }
 
                     // Update agent running modes tracking
-                    if (useAgent && typeof agentRunningModes !== 'undefined') {
+                    if (stopViaAgent && typeof agentRunningModes !== 'undefined') {
                         agentRunningModes = agentRunningModes.filter(m => m !== 'adsb');
                     }
-                } catch (err) {}
+                } catch (err) {
+                    alert('Failed to stop ADS-B: ' + err.message);
+                    return;
+                }
 
                 stopEventStream();
                 isTracking = false;
@@ -2381,16 +2404,17 @@ sudo make install</code>
         function startEventStream() {
             if (eventSource) eventSource.close();
 
-            const useAgent = typeof adsbCurrentAgent !== 'undefined' && adsbCurrentAgent !== 'local';
+            const activeSource = (isTracking && adsbTrackingSource) ? adsbTrackingSource : adsbCurrentAgent;
+            const useAgent = typeof activeSource !== 'undefined' && activeSource !== null && activeSource !== 'local';
             const streamUrl = useAgent ? '/controller/stream/all' : '/adsb/stream';
 
-            console.log(`[ADS-B] startEventStream called - adsbCurrentAgent=${adsbCurrentAgent}, useAgent=${useAgent}, streamUrl=${streamUrl}`);
+            console.log(`[ADS-B] startEventStream called - activeSource=${activeSource}, useAgent=${useAgent}, streamUrl=${streamUrl}`);
             eventSource = new EventSource(streamUrl);
 
             // Get agent name for filtering multi-agent stream
             let targetAgentName = null;
             if (useAgent && typeof agents !== 'undefined') {
-                const agent = agents.find(a => a.id == adsbCurrentAgent);
+                const agent = agents.find(a => a.id == activeSource);
                 targetAgentName = agent ? agent.name : null;
             }
 
@@ -4023,30 +4047,56 @@ sudo make install</code>
             .catch(err => alert('VDL2 Error: ' + err));
         }
 
-        function stopVdl2() {
-            const isAgentMode = vdl2CurrentAgent !== null;
+        async function stopVdl2() {
+            const sourceAgentId = vdl2CurrentAgent;
+            const isAgentMode = sourceAgentId !== null && sourceAgentId !== undefined;
             const endpoint = isAgentMode
-                ? `/controller/agents/${vdl2CurrentAgent}/vdl2/stop`
+                ? `/controller/agents/${sourceAgentId}/vdl2/stop`
                 : '/vdl2/stop';
 
-            fetch(endpoint, { method: 'POST' })
-                .then(r => r.json())
-                .then(() => {
-                    isVdl2Running = false;
-                    vdl2CurrentAgent = null;
-                    document.getElementById('vdl2ToggleBtn').innerHTML = '&#9654; START VDL2';
-                    document.getElementById('vdl2ToggleBtn').classList.remove('active');
-                    document.getElementById('vdl2PanelIndicator').classList.remove('active');
-                    if (vdl2EventSource) {
-                        vdl2EventSource.close();
-                        vdl2EventSource = null;
-                    }
-                    // Clear polling timer
-                    if (vdl2PollTimer) {
-                        clearInterval(vdl2PollTimer);
-                        vdl2PollTimer = null;
-                    }
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source: 'adsb_dashboard' })
                 });
+                const text = await response.text();
+                let data = {};
+                if (text) {
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        throw new Error(`Invalid response: ${text}`);
+                    }
+                }
+
+                const result = isAgentMode && data.result ? data.result : data;
+                const stopped = response.ok && (
+                    result.status === 'stopped' ||
+                    result.status === 'success' ||
+                    data.status === 'success'
+                );
+                if (!stopped) {
+                    throw new Error(result.message || data.message || `HTTP ${response.status}`);
+                }
+
+                isVdl2Running = false;
+                vdl2CurrentAgent = null;
+                document.getElementById('vdl2ToggleBtn').innerHTML = '&#9654; START VDL2';
+                document.getElementById('vdl2ToggleBtn').classList.remove('active');
+                document.getElementById('vdl2PanelIndicator').classList.remove('active');
+                if (vdl2EventSource) {
+                    vdl2EventSource.close();
+                    vdl2EventSource = null;
+                }
+                // Clear polling timer
+                if (vdl2PollTimer) {
+                    clearInterval(vdl2PollTimer);
+                    vdl2PollTimer = null;
+                }
+            } catch (err) {
+                alert('Failed to stop VDL2: ' + err.message);
+            }
         }
 
         // Sync VDL2 UI state (called by syncModeUI in agents.js)
@@ -4064,6 +4114,7 @@ sudo make install</code>
                     startVdl2Stream(agentId !== null);
                 }
             } else {
+                vdl2CurrentAgent = null;
                 btn.innerHTML = '&#9654; START VDL2';
                 btn.classList.remove('active');
                 if (indicator) indicator.classList.remove('active');
@@ -5216,24 +5267,27 @@ sudo make install</code>
 
             if (running) {
                 isTracking = true;
+                const normalizedSource = source === null || source === undefined
+                    ? (adsbTrackingSource || 'local')
+                    : source;
 
                 // If source is an agent ID (not 'local' and not null), update adsbCurrentAgent
                 // This ensures startEventStream uses the correct routing
-                if (source && source !== 'local') {
-                    adsbCurrentAgent = source;
+                if (normalizedSource !== 'local') {
+                    adsbCurrentAgent = normalizedSource;
                     // Also update the dropdown to match
                     const agentSelect = document.getElementById('agentSelect');
                     if (agentSelect) {
-                        agentSelect.value = source;
+                        agentSelect.value = normalizedSource;
                     }
                     // Update global agent state too
                     if (typeof currentAgent !== 'undefined') {
-                        currentAgent = source;
+                        currentAgent = normalizedSource;
                     }
-                    console.log(`[ADS-B] Updated adsbCurrentAgent to ${source}`);
+                    console.log(`[ADS-B] Updated adsbCurrentAgent to ${normalizedSource}`);
                 }
 
-                adsbTrackingSource = source || adsbCurrentAgent;  // Track which source is active
+                adsbTrackingSource = normalizedSource;  // Track which source is active
 
                 // Update button
                 if (btn) {
@@ -5253,9 +5307,9 @@ sudo make install</code>
                 if (agentSelect) agentSelect.disabled = true;
 
                 // Start data stream for the active source
-                const isAgentSource = adsbCurrentAgent !== 'local';
+                const isAgentSource = normalizedSource !== 'local';
                 if (isAgentSource) {
-                    console.log(`[ADS-B] Starting data stream from agent ${adsbCurrentAgent}`);
+                    console.log(`[ADS-B] Starting data stream from agent ${normalizedSource}`);
                     startEventStream();
                     drawRangeRings();
                     startSessionTimer();
