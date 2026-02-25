@@ -2515,6 +2515,10 @@ const Waterfall = (function () {
                         _endMhz = msg.end_freq;
                         _drawFreqAxis();
                     }
+                    if (Number.isFinite(msg.effective_span_mhz)) {
+                        const spanEl = document.getElementById('wfSpanMhz');
+                        if (spanEl) spanEl.value = msg.effective_span_mhz;
+                    }
                     _setStatus(`Streaming ${_startMhz.toFixed(4)} - ${_endMhz.toFixed(4)} MHz`);
                     _setVisualStatus('RUNNING');
                     if (_monitoring) {

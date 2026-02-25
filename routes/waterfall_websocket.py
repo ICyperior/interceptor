@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import queue
+import shutil
 import socket
 import subprocess
 import threading
@@ -546,6 +547,16 @@ def init_waterfall_websocket(app: Flask):
                         }))
                         continue
 
+                    # Pre-flight: check the capture binary exists
+                    if not shutil.which(iq_cmd[0]):
+                        app_module.release_sdr_device(device_index)
+                        claimed_device = None
+                        ws.send(json.dumps({
+                            'status': 'error',
+                            'message': f'Required tool "{iq_cmd[0]}" not found. Install SoapySDR tools (rx_sdr).',
+                        }))
+                        continue
+
                     # Spawn I/Q capture process (retry to handle USB release lag)
                     max_attempts = 3 if was_restarting else 1
                     try:
@@ -558,7 +569,7 @@ def init_waterfall_websocket(app: Flask):
                             iq_process = subprocess.Popen(
                                 iq_cmd,
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL,
+                                stderr=subprocess.PIPE,
                                 bufsize=0,
                             )
                             register_process(iq_process)
@@ -566,17 +577,23 @@ def init_waterfall_websocket(app: Flask):
                             # Brief check that process started
                             time.sleep(0.3)
                             if iq_process.poll() is not None:
+                                stderr_out = ''
+                                if iq_process.stderr:
+                                    with suppress(Exception):
+                                        stderr_out = iq_process.stderr.read().decode('utf-8', errors='replace').strip()
                                 unregister_process(iq_process)
                                 iq_process = None
                                 if attempt < max_attempts - 1:
                                     logger.info(
                                         f"I/Q process exited immediately, "
                                         f"retrying ({attempt + 1}/{max_attempts})..."
+                                        + (f" stderr: {stderr_out}" if stderr_out else "")
                                     )
                                     time.sleep(0.5)
                                     continue
+                                detail = f": {stderr_out}" if stderr_out else ""
                                 raise RuntimeError(
-                                    "I/Q capture process exited immediately"
+                                    f"I/Q capture process exited immediately{detail}"
                                 )
                             break  # Process started successfully
                     except Exception as e:
