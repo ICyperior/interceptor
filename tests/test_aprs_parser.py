@@ -41,3 +41,11 @@ def test_parse_aprs_packet_handles_ambiguous_uncompressed_position() -> None:
     assert packet["packet_type"] == "position"
     assert packet["lat"] == pytest.approx(49.05, rel=0, abs=1e-6)
     assert packet["lon"] == pytest.approx(-72.016667, rel=0, abs=1e-6)
+
+
+def test_parse_aprs_packet_handles_no_decimal_position_variant() -> None:
+    packet = parse_aprs_packet("KJ7ABC-7>APRS,WIDE1-1:!4903N/07201W-Test")
+    assert packet is not None
+    assert packet["packet_type"] == "position"
+    assert packet["lat"] == pytest.approx(49.05, rel=0, abs=1e-6)
+    assert packet["lon"] == pytest.approx(-72.016667, rel=0, abs=1e-6)

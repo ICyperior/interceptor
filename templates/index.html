@@ -9488,8 +9488,13 @@
             if (Array.isArray(payload)) return payload;
             if (Array.isArray(payload.stations)) return payload.stations;
             if (Array.isArray(payload.data)) return payload.data;
+            if (payload.data && Array.isArray(payload.data.stations)) return payload.data.stations;
             if (payload.data && Array.isArray(payload.data.data)) return payload.data.data;
+            if (payload.result && Array.isArray(payload.result.stations)) return payload.result.stations;
             if (payload.result && Array.isArray(payload.result.data)) return payload.result.data;
+            if (payload.data && payload.data.result && Array.isArray(payload.data.result.stations)) {
+                return payload.data.result.stations;
+            }
             return [];
         }
 
@@ -9508,6 +9513,8 @@
             stations.forEach((station) => {
                 const callsign = String(station && station.callsign ? station.callsign : '').trim();
                 if (!callsign) return;
+                const lat = station.lat ?? station.latitude ?? null;
+                const lon = station.lon ?? station.longitude ?? null;
 
                 const signature = getAprsStationSignature(station);
                 if (aprsAgentStationSignatures.get(callsign) === signature) return;
@@ -9525,10 +9532,48 @@
                 processAprsPacket({
                     type: 'aprs',
                     ...station,
+                    lat,
+                    lon,
                     callsign,
                     agent_name: station.agent_name || agentName || 'Remote Agent'
                 });
             });
+        }
+
+        async function loadAprsStationSnapshot(isAgentMode = false) {
+            try {
+                const endpoint = (isAgentMode && aprsCurrentAgent)
+                    ? `/controller/agents/${aprsCurrentAgent}/aprs/data`
+                    : '/aprs/stations';
+                const response = await fetch(endpoint);
+                if (!response.ok) return;
+                const payload = await response.json();
+                const stations = extractAprsStationsFromPayload(payload);
+                if (!Array.isArray(stations) || stations.length === 0) return;
+                if (isAgentMode) {
+                    processAprsAgentStations(stations, payload.agent_name);
+                    return;
+                }
+
+                stations.forEach((station) => {
+                    const callsign = String(station && station.callsign ? station.callsign : '').trim();
+                    if (!callsign) return;
+                    const packet = {
+                        type: 'aprs',
+                        ...station,
+                        callsign,
+                        lat: station.lat ?? station.latitude ?? null,
+                        lon: station.lon ?? station.longitude ?? null,
+                        packet_type: station.packet_type || 'position',
+                    };
+                    if (aprsHasValidCoordinates(packet.lat, packet.lon) && aprsMap) {
+                        updateAprsMarker(packet);
+                    }
+                    updateAprsStationList(packet);
+                });
+            } catch (err) {
+                console.debug('APRS snapshot load failed:', err);
+            }
         }
 
         function startAprs() {
@@ -9627,6 +9672,9 @@
                     if (customFreqInput) customFreqInput.disabled = true;
                     startAprsMeterCheck();
                     startAprsStream(isAgentMode);
+                    // Backfill current stations in case position packets arrived before
+                    // map initialization or SSE attachment.
+                    loadAprsStationSnapshot(isAgentMode);
                 } else {
                     alert('APRS Error: ' + (scanResult.message || scanResult.error || 'Failed to start'));
                     updateAprsStatus('error');

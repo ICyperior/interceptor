@@ -469,6 +469,49 @@ def parse_position(data: str) -> Optional[dict]:
 
             return result
 
+        # Legacy/no-decimal variant occasionally seen in degraded decodes:
+        # DDMMN/DDDMMW (symbol chars still present between/after coords).
+        nodot_match = re.match(
+            r'^(\d{2})(\d{2})([NS])(.)(\d{3})(\d{2})([EW])(.)?',
+            data
+        )
+        if nodot_match:
+            lat_deg = int(nodot_match.group(1))
+            lat_min = float(nodot_match.group(2))
+            lat_dir = nodot_match.group(3)
+            symbol_table = nodot_match.group(4)
+            lon_deg = int(nodot_match.group(5))
+            lon_min = float(nodot_match.group(6))
+            lon_dir = nodot_match.group(7)
+            symbol_code = nodot_match.group(8) or ''
+
+            lat = lat_deg + lat_min / 60.0
+            if lat_dir == 'S':
+                lat = -lat
+
+            lon = lon_deg + lon_min / 60.0
+            if lon_dir == 'W':
+                lon = -lon
+
+            result = {
+                'lat': round(lat, 6),
+                'lon': round(lon, 6),
+                'symbol': symbol_table + symbol_code,
+            }
+
+            remaining = data[13:] if len(data) > 13 else ''
+
+            cs_match = re.search(r'(\d{3})/(\d{3})', remaining)
+            if cs_match:
+                result['course'] = int(cs_match.group(1))
+                result['speed'] = int(cs_match.group(2))
+
+            alt_match = re.search(r'/A=(-?\d+)', remaining)
+            if alt_match:
+                result['altitude'] = int(alt_match.group(1))
+
+            return result
+
         # Fallback: tolerate APRS ambiguity spaces in minute fields.
         # Example: 4903.  N/07201.  W
         if len(data) >= 18:
