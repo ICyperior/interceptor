@@ -347,8 +347,8 @@ var MorseMode = (function () {
         var indicator = document.getElementById('morseStatusIndicator');
         var statusText = document.getElementById('morseStatusText');
 
-        if (startBtn) startBtn.style.display = running ? 'none' : 'block';
-        if (stopBtn) stopBtn.style.display = running ? 'block' : 'none';
+        if (startBtn) startBtn.style.display = running ? 'none' : '';
+        if (stopBtn) stopBtn.style.display = running ? '' : 'none';
 
         if (indicator) {
             indicator.style.background = running ? '#00ff88' : 'var(--text-dim)';

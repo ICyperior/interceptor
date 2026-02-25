@@ -17,14 +17,14 @@
         <div class="form-group">
             <label>Band Presets</label>
             <div class="morse-presets" style="display: flex; flex-wrap: wrap; gap: 4px;">
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(3.560)">80m</button>
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(7.030)">40m</button>
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(10.116)">30m</button>
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(14.060)">20m</button>
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(18.080)">17m</button>
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(21.060)">15m</button>
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(24.910)">12m</button>
-                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(28.060)">10m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(3.560)">80m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(7.030)">40m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(10.116)">30m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(14.060)">20m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(18.080)">17m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(21.060)">15m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(24.910)">12m</button>
+                <button class="preset-btn" onclick="MorseMode.setFreq(28.060)">10m</button>
             </div>
         </div>
     </div>
@@ -103,18 +103,6 @@
         </div>
     </div>
 
-    <!-- Controls -->
-    <div class="section">
-        <div style="display: flex; gap: 8px;">
-            <button class="btn btn-primary" id="morseStartBtn" onclick="MorseMode.start()" style="flex: 1;">
-                Start Decoder
-            </button>
-            <button class="btn btn-danger" id="morseStopBtn" onclick="MorseMode.stop()" style="flex: 1; display: none;">
-                Stop
-            </button>
-        </div>
-    </div>
-
     <!-- HF Antenna Note -->
     <div class="section">
         <p class="info-text" style="font-size: 11px; color: #ffaa00; line-height: 1.5;">
@@ -122,4 +110,7 @@
             or an upconverter, plus an appropriate HF antenna (dipole, end-fed, or random wire).
         </p>
     </div>
+
+    <button class="run-btn" id="morseStartBtn" onclick="MorseMode.start()">Start Decoder</button>
+    <button class="stop-btn" id="morseStopBtn" onclick="MorseMode.stop()" style="display: none;">Stop Decoder</button>
 </div>
