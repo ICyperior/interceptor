@@ -26,29 +26,31 @@ _fanout_channels_lock = threading.Lock()
 
 def _run_fanout(channel: _QueueFanoutChannel) -> None:
     """Drain source queue and fan out each message to all subscribers."""
+    idle_drain_batch = 512
+
     while True:
         with channel.lock:
-            has_subscribers = bool(channel.subscribers)
+            subscribers = tuple(channel.subscribers)
 
-        if not has_subscribers:
-            # Do not drain source_queue when no clients are connected.
-            time.sleep(channel.source_timeout)
+        if not subscribers:
+            # Keep ingest pipelines responsive even if UI clients disconnect:
+            # drain and drop stale backlog while idle so producer threads do
+            # not block on full source queues.
+            drained = 0
+            for _ in range(idle_drain_batch):
+                try:
+                    channel.source_queue.get_nowait()
+                    drained += 1
+                except queue.Empty:
+                    break
+
+            if drained == 0:
+                time.sleep(channel.source_timeout)
             continue
 
         try:
             msg = channel.source_queue.get(timeout=channel.source_timeout)
         except queue.Empty:
-            continue
-
-        with channel.lock:
-            subscribers = tuple(channel.subscribers)
-
-        if not subscribers:
-            # Subscriber set changed after we dequeued; requeue best-effort.
-            try:
-                channel.source_queue.put_nowait(msg)
-            except queue.Full:
-                pass
             continue
 
         for subscriber in subscribers:
