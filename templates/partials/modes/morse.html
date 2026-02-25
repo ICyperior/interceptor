@@ -1,0 +1,125 @@
+<!-- MORSE CODE MODE -->
+<div id="morseMode" class="mode-content">
+    <div class="section">
+        <h3>CW/Morse Decoder</h3>
+        <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">
+            Decode CW (continuous wave) Morse code from amateur radio HF bands using USB demodulation
+            and Goertzel tone detection.
+        </p>
+    </div>
+
+    <div class="section">
+        <h3>Frequency</h3>
+        <div class="form-group">
+            <label>Frequency (MHz)</label>
+            <input type="number" id="morseFrequency" value="14.060" step="0.001" min="1" max="30">
+        </div>
+        <div class="form-group">
+            <label>Band Presets</label>
+            <div class="morse-presets" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(3.560)">80m</button>
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(7.030)">40m</button>
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(10.116)">30m</button>
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(14.060)">20m</button>
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(18.080)">17m</button>
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(21.060)">15m</button>
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(24.910)">12m</button>
+                <button class="btn btn-sm btn-outline" onclick="MorseMode.setFreq(28.060)">10m</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Settings</h3>
+        <div class="form-group">
+            <label>Gain (dB)</label>
+            <input type="number" id="morseGain" value="40" step="1" min="0" max="50">
+        </div>
+        <div class="form-group">
+            <label>PPM Correction</label>
+            <input type="number" id="morsePPM" value="0" step="1" min="-100" max="100">
+        </div>
+        <div class="form-group">
+            <label>SDR Type</label>
+            <select id="morseSdrType">
+                <option value="rtlsdr" selected>RTL-SDR</option>
+                <option value="hackrf">HackRF</option>
+                <option value="limesdr">LimeSDR</option>
+                <option value="airspy">Airspy</option>
+                <option value="sdrplay">SDRPlay</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Device Index</label>
+            <input type="number" id="morseDevice" value="0" step="1" min="0" max="9">
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="morseBiasT">
+            <label for="morseBiasT" style="margin: 0; cursor: pointer;">Bias-T Power</label>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>CW Settings</h3>
+        <div class="form-group">
+            <label>Tone Frequency: <span id="morseToneFreqLabel">700</span> Hz</label>
+            <input type="range" id="morseToneFreq" value="700" min="300" max="1200" step="10"
+                   oninput="document.getElementById('morseToneFreqLabel').textContent = this.value">
+        </div>
+        <div class="form-group">
+            <label>Speed: <span id="morseWpmLabel">15</span> WPM</label>
+            <input type="range" id="morseWpm" value="15" min="5" max="50" step="1"
+                   oninput="document.getElementById('morseWpmLabel').textContent = this.value">
+        </div>
+    </div>
+
+    <!-- Morse Reference -->
+    <div class="section">
+        <h3 style="cursor: pointer;" onclick="this.parentElement.querySelector('.morse-ref-grid').classList.toggle('collapsed')">
+            Morse Reference <span style="font-size: 10px; color: var(--text-dim);">(click to toggle)</span>
+        </h3>
+        <div class="morse-ref-grid collapsed" style="font-family: var(--font-mono); font-size: 10px; line-height: 1.8; columns: 2; column-gap: 12px; color: var(--text-dim);">
+            <div>A .-</div><div>B -...</div><div>C -.-.</div><div>D -..</div>
+            <div>E .</div><div>F ..-.</div><div>G --.</div><div>H ....</div>
+            <div>I ..</div><div>J .---</div><div>K -.-</div><div>L .-..</div>
+            <div>M --</div><div>N -.</div><div>O ---</div><div>P .--.</div>
+            <div>Q --.-</div><div>R .-.</div><div>S ...</div><div>T -</div>
+            <div>U ..-</div><div>V ...-</div><div>W .--</div><div>X -..-</div>
+            <div>Y -.--</div><div>Z --..</div>
+            <div style="margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 4px;">0 -----</div>
+            <div style="margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 4px;">1 .----</div>
+            <div>2 ..---</div><div>3 ...--</div><div>4 ....-</div>
+            <div>5 .....</div><div>6 -....</div><div>7 --...</div>
+            <div>8 ---..</div><div>9 ----.</div>
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div class="section">
+        <div class="morse-status" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim);">
+            <span id="morseStatusIndicator" class="status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim);"></span>
+            <span id="morseStatusText">Standby</span>
+            <span style="margin-left: auto;" id="morseCharCount">0 chars</span>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="section">
+        <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary" id="morseStartBtn" onclick="MorseMode.start()" style="flex: 1;">
+                Start Decoder
+            </button>
+            <button class="btn btn-danger" id="morseStopBtn" onclick="MorseMode.stop()" style="flex: 1; display: none;">
+                Stop
+            </button>
+        </div>
+    </div>
+
+    <!-- HF Antenna Note -->
+    <div class="section">
+        <p class="info-text" style="font-size: 11px; color: #ffaa00; line-height: 1.5;">
+            CW operates on HF bands (1-30 MHz). Requires an HF-capable SDR with direct sampling
+            or an upconverter, plus an appropriate HF antenna (dipole, end-fed, or random wire).
+        </p>
+    </div>
+</div>
