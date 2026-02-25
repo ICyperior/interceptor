@@ -3,6 +3,11 @@
    Amber/gold theme (#ffaa00) for HF
    ============================================ */
 
+/* Place WeFax sidebar panel above the shared SDR Device section */
+#wefaxMode.active {
+    order: -1;
+}
+
 /* --- Stats Strip --- */
 .wefax-stats-strip {
     display: flex;
