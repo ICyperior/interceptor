@@ -214,13 +214,13 @@ def _detect_tone(samples: np.ndarray, target_freq: float,
 class WeFaxDecoder:
     """WeFax decoder singleton.
 
-    Manages rtl_fm subprocess and decodes WeFax images using a state
-    machine that detects start/stop tones, phasing signals, and
+    Manages SDR FM demod subprocess and decodes WeFax images using a
+    state machine that detects start/stop tones, phasing signals, and
     demodulates image lines.
     """
 
     def __init__(self) -> None:
-        self._rtl_process: subprocess.Popen | None = None
+        self._sdr_process: subprocess.Popen | None = None
         self._running = False
         self._lock = threading.Lock()
         self._callback: Callable[[dict], None] | None = None
@@ -240,6 +240,7 @@ class WeFaxDecoder:
         self._direct_sampling = True
 
         self._output_dir.mkdir(parents=True, exist_ok=True)
+        self._sdr_tool_name: str = 'rtl_fm'
         self._last_error: str = ''
 
     @property
@@ -351,9 +352,10 @@ class WeFaxDecoder:
             else:
                 rtl_cmd.extend(['-E', 'direct2', '-'])
 
-        logger.info(f"Starting rtl_fm: {' '.join(rtl_cmd)}")
+        self._sdr_tool_name = rtl_cmd[0] if rtl_cmd else 'sdr'
+        logger.info(f"Starting {self._sdr_tool_name}: {' '.join(rtl_cmd)}")
 
-        self._rtl_process = subprocess.Popen(
+        self._sdr_process = subprocess.Popen(
             rtl_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -361,22 +363,22 @@ class WeFaxDecoder:
 
         # Post-spawn health check — catch immediate failures
         time.sleep(0.3)
-        if self._rtl_process.poll() is not None:
+        if self._sdr_process.poll() is not None:
             stderr_detail = ''
-            if self._rtl_process.stderr:
-                stderr_detail = self._rtl_process.stderr.read().decode(
+            if self._sdr_process.stderr:
+                stderr_detail = self._sdr_process.stderr.read().decode(
                     errors='replace').strip()
-            rc = self._rtl_process.returncode
-            self._rtl_process = None
+            rc = self._sdr_process.returncode
+            self._sdr_process = None
             detail = stderr_detail.split('\n')[-1] if stderr_detail else f'exit code {rc}'
-            raise RuntimeError(f'rtl_fm failed: {detail}')
+            raise RuntimeError(f'{self._sdr_tool_name} failed: {detail}')
 
         self._decode_thread = threading.Thread(
             target=self._decode_audio_stream, daemon=True)
         self._decode_thread.start()
 
     def _decode_audio_stream(self) -> None:
-        """Read audio from rtl_fm and decode WeFax images.
+        """Read audio from SDR FM demod and decode WeFax images.
 
         Runs in a background thread.  Processes 100ms chunks through
         the start-tone / phasing / image state machine.
@@ -400,7 +402,7 @@ class WeFaxDecoder:
         line_buffer = np.zeros(0, dtype=np.float64)
         max_lines = 2000  # Safety limit
 
-        rtl_fm_error = ''
+        sdr_error = ''
         last_partial_line = -1
 
         logger.info(
@@ -418,9 +420,9 @@ class WeFaxDecoder:
             message=f'Scanning {self._frequency_khz} kHz for WeFax start tone...',
         ))
 
-        while self._running and self._rtl_process:
+        while self._running and self._sdr_process:
             try:
-                proc = self._rtl_process
+                proc = self._sdr_process
                 if not proc or not proc.stdout:
                     break
                 # Non-blocking read via select() — allows checking _running
@@ -435,15 +437,15 @@ class WeFaxDecoder:
                 if not raw_data:
                     if self._running:
                         stderr_msg = ''
-                        if self._rtl_process and self._rtl_process.stderr:
+                        if self._sdr_process and self._sdr_process.stderr:
                             with contextlib.suppress(Exception):
-                                stderr_msg = self._rtl_process.stderr.read().decode(
+                                stderr_msg = self._sdr_process.stderr.read().decode(
                                     errors='replace').strip()
-                        rc = self._rtl_process.poll() if self._rtl_process else None
-                        logger.warning(f"rtl_fm stream ended (exit code: {rc})")
+                        rc = self._sdr_process.poll() if self._sdr_process else None
+                        logger.warning(f"{self._sdr_tool_name} stream ended (exit code: {rc})")
                         if stderr_msg:
-                            logger.warning(f"rtl_fm stderr: {stderr_msg}")
-                            rtl_fm_error = stderr_msg
+                            logger.warning(f"{self._sdr_tool_name} stderr: {stderr_msg}")
+                            sdr_error = stderr_msg
                     break
 
                 n_samples = len(raw_data) // 2
@@ -564,16 +566,16 @@ class WeFaxDecoder:
         with self._lock:
             was_running = self._running
             self._running = False
-            if self._rtl_process:
+            if self._sdr_process:
                 with contextlib.suppress(Exception):
-                    self._rtl_process.terminate()
-                    self._rtl_process.wait(timeout=2)
-                self._rtl_process = None
+                    self._sdr_process.terminate()
+                    self._sdr_process.wait(timeout=2)
+                self._sdr_process = None
 
         if was_running:
-            err_detail = rtl_fm_error.split('\n')[-1] if rtl_fm_error else ''
+            err_detail = sdr_error.split('\n')[-1] if sdr_error else ''
             if state != DecoderState.COMPLETE:
-                msg = f'rtl_fm failed: {err_detail}' if err_detail else 'Decode stopped unexpectedly'
+                msg = f'{self._sdr_tool_name} failed: {err_detail}' if err_detail else 'Decode stopped unexpectedly'
                 self._emit_progress(WeFaxProgress(
                     status='error', message=msg))
         else:
@@ -709,8 +711,8 @@ class WeFaxDecoder:
         """
         with self._lock:
             self._running = False
-            proc = self._rtl_process
-            self._rtl_process = None
+            proc = self._sdr_process
+            self._sdr_process = None
             thread = self._decode_thread
 
         if proc:

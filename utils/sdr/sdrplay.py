@@ -54,8 +54,9 @@ class SDRPlayCommandBuilder(CommandBuilder):
         """
         device_str = self._build_device_string(device)
 
+        rx_fm_path = get_tool_path('rx_fm') or 'rx_fm'
         cmd = [
-            'rx_fm',
+            rx_fm_path,
             '-d', device_str,
             '-f', f'{frequency_mhz}M',
             '-M', modulation,
