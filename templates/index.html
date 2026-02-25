@@ -9687,7 +9687,7 @@
             });
         }
 
-        function stopAprs() {
+        async function stopAprs() {
             const isAgentMode = aprsCurrentAgent !== null;
             const endpoint = isAgentMode
                 ? `/controller/agents/${aprsCurrentAgent}/aprs/stop`
@@ -9697,9 +9697,8 @@
             isAprsRunning = false;
             aprsCurrentAgent = null;
             resetAprsAgentStationTracking();
-            document.getElementById('aprsStripStartBtn').style.display = 'inline-block';
             document.getElementById('aprsStripStopBtn').style.display = 'none';
-            document.getElementById('aprsMapStatus').textContent = 'STANDBY';
+            document.getElementById('aprsMapStatus').textContent = 'STOPPING';
             document.getElementById('aprsMapStatus').style.color = '';
             updateAprsStatus('standby');
             document.getElementById('aprsStripFreq').textContent = '--';
@@ -9722,7 +9721,9 @@
                 aprsPollTimer = null;
             }
 
-            return postStopRequest(endpoint, timeoutMs);
+            await postStopRequest(endpoint, timeoutMs);
+            document.getElementById('aprsStripStartBtn').style.display = 'inline-block';
+            document.getElementById('aprsMapStatus').textContent = 'STANDBY';
         }
 
         function startAprsStream(isAgentMode = false) {
@@ -9730,7 +9731,7 @@
 
             // Use different stream endpoint for agent mode
             const streamUrl = isAgentMode ? '/controller/stream/all' : '/aprs/stream';
-            aprsEventSource = new EventSource(streamUrl);
+            aprsEventSource = new EventSource(streamUrl + (streamUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
 
             aprsEventSource.onmessage = function (e) {
                 const data = JSON.parse(e.data);

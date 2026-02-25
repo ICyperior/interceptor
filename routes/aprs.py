@@ -1449,7 +1449,11 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
     - type='meter': Audio level meter readings (rate-limited)
     """
     global aprs_packet_count, aprs_station_count, aprs_last_packet_time, aprs_stations
-    global _last_meter_time, _last_meter_level
+    global _last_meter_time, _last_meter_level, aprs_active_device
+
+    # Capture the device claimed by THIS session so the finally block only
+    # releases our own device, not one claimed by a subsequent start.
+    my_device = aprs_active_device
 
     # Reset meter state
     _last_meter_time = 0.0
@@ -1543,7 +1547,6 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
         logger.error(f"APRS stream error: {e}")
         app_module.aprs_queue.put({'type': 'error', 'message': str(e)})
     finally:
-        global aprs_active_device
         app_module.aprs_queue.put({'type': 'status', 'status': 'stopped'})
         # Cleanup processes
         for proc in [rtl_process, decoder_process]:
@@ -1555,9 +1558,9 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                     proc.kill()
                 except Exception:
                     pass
-        # Release SDR device
-        if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device)
+        # Release SDR device — only if it's still ours (not reclaimed by a new start)
+        if my_device is not None and aprs_active_device == my_device:
+            app_module.release_sdr_device(my_device)
             aprs_active_device = None
 
 
