@@ -138,7 +138,8 @@ class TestWeatherSatDecoder:
     @patch('pty.openpty')
     def test_start_already_running(self, mock_pty, mock_popen):
         """start() should return True when already running."""
-        with patch('shutil.which', return_value='/usr/bin/satdump'):
+        with patch('shutil.which', return_value='/usr/bin/satdump'), \
+             patch('utils.weather_sat.WeatherSatDecoder._resolve_device_id', return_value='0'):
             decoder = WeatherSatDecoder()
             decoder._running = True
 

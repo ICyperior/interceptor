@@ -363,6 +363,20 @@ class WeatherSatDecoder:
         Returns:
             True if started successfully
         """
+        # Validate satellite BEFORE acquiring the lock
+        sat_info = WEATHER_SATELLITES.get(satellite)
+        if not sat_info:
+            logger.error(f"Unknown satellite: {satellite}")
+            self._emit_progress(CaptureProgress(
+                status='error',
+                message=f'Unknown satellite: {satellite}'
+            ))
+            return False
+
+        # Resolve device ID BEFORE lock — this runs rtl_test which can
+        # take up to 5s and has no side effects on instance state.
+        source_id = self._resolve_device_id(device_index)
+
         with self._lock:
             if self._running:
                 return True
@@ -372,15 +386,6 @@ class WeatherSatDecoder:
                 self._emit_progress(CaptureProgress(
                     status='error',
                     message='SatDump not installed. Build from source or install via package manager.'
-                ))
-                return False
-
-            sat_info = WEATHER_SATELLITES.get(satellite)
-            if not sat_info:
-                logger.error(f"Unknown satellite: {satellite}")
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    message=f'Unknown satellite: {satellite}'
                 ))
                 return False
 
@@ -394,7 +399,7 @@ class WeatherSatDecoder:
 
             try:
                 self._running = True
-                self._start_satdump(sat_info, device_index, gain, sample_rate, bias_t)
+                self._start_satdump(sat_info, device_index, gain, sample_rate, bias_t, source_id)
 
                 logger.info(
                     f"Weather satellite capture started: {satellite} "
@@ -429,6 +434,7 @@ class WeatherSatDecoder:
         gain: float,
         sample_rate: int,
         bias_t: bool,
+        source_id: str | None = None,
     ) -> None:
         """Start SatDump live capture and decode."""
         # Create timestamped output directory for this capture
@@ -439,9 +445,9 @@ class WeatherSatDecoder:
 
         freq_hz = int(sat_info['frequency'] * 1_000_000)
 
-        # SatDump v1.2+ uses string source_id (device serial) not numeric index.
-        # Auto-detect serial by querying rtl_eeprom, fall back to string index.
-        source_id = self._resolve_device_id(device_index)
+        # Use pre-resolved source_id, or fall back to resolving now
+        if source_id is None:
+            source_id = self._resolve_device_id(device_index)
 
         cmd = [
             'satdump', 'live',
@@ -812,20 +818,23 @@ class WeatherSatDecoder:
             # Signal watcher thread to do final scan and exit
             self._stop_event.set()
 
-            # Process ended — release resources
-            was_running = self._running
-            self._running = False
+            # Acquire lock when modifying shared state to avoid racing
+            # with stop() which may have already cleaned up.
+            with self._lock:
+                was_running = self._running
+                self._running = False
+                process = self._process
             elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
 
             if was_running:
                 # Collect exit status (returncode is only set after poll/wait)
-                if self._process and self._process.returncode is None:
+                if process and process.returncode is None:
                     try:
-                        self._process.wait(timeout=5)
+                        process.wait(timeout=5)
                     except subprocess.TimeoutExpired:
-                        self._process.kill()
-                        self._process.wait()
-                retcode = self._process.returncode if self._process else None
+                        process.kill()
+                        process.wait()
+                retcode = process.returncode if process else None
                 if retcode and retcode != 0:
                     self._capture_phase = 'error'
                     self._emit_progress(CaptureProgress(
@@ -986,14 +995,16 @@ class WeatherSatDecoder:
             self._running = False
             self._stop_event.set()
             self._close_pty()
-
-            if self._process:
-                safe_terminate(self._process)
-                self._process = None
-
+            process = self._process
+            self._process = None
             elapsed = int(time.time() - self._capture_start_time) if self._capture_start_time else 0
             logger.info(f"Weather satellite capture stopped after {elapsed}s")
             self._device_index = -1
+
+        # Terminate outside the lock so stop() returns quickly
+        # and doesn't block start() or other lock acquisitions
+        if process:
+            safe_terminate(process)
 
     def get_images(self) -> list[WeatherSatImage]:
         """Get list of decoded images."""
