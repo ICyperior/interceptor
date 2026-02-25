@@ -9299,7 +9299,8 @@
         }
 
         function aprsHasValidCoordinates(lat, lon) {
-            return Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
+            return lat != null && lon != null &&
+                Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
         }
 
         // Update APRS user location from GPS
