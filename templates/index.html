@@ -3008,24 +3008,6 @@
                     </div>
                 </div>
 
-                <!-- Morse Code Decoder Visuals -->
-                <div id="morseVisuals" style="display: none; flex-direction: column; gap: 12px; padding: 16px; height: 100%;">
-                    <div class="morse-toolbar">
-                        <button class="btn btn-sm btn-outline" onclick="MorseMode.exportTxt()">Export TXT</button>
-                        <button class="btn btn-sm btn-outline" onclick="MorseMode.exportCsv()">Export CSV</button>
-                        <button class="btn btn-sm btn-outline" id="morseCopyBtn" onclick="MorseMode.copyToClipboard()">Copy</button>
-                        <button class="btn btn-sm btn-outline" onclick="MorseMode.clearText()">Clear</button>
-                    </div>
-                    <div class="morse-scope-container">
-                        <canvas id="morseScopeCanvas"></canvas>
-                    </div>
-                    <div id="morseDecodedText" class="morse-decoded-panel"></div>
-                    <div class="morse-status-bar">
-                        <span class="status-item" id="morseStatusBarWpm">15 WPM</span>
-                        <span class="status-item" id="morseStatusBarTone">700 Hz</span>
-                        <span class="status-item" id="morseStatusBarChars">0 chars decoded</span>
-                    </div>
-                </div>
 
                 <!-- Device Intelligence Dashboard (above waterfall for prominence) -->
                 <div class="recon-panel collapsed" id="reconPanel">
@@ -3081,6 +3063,42 @@
                 </div>
 
                 <div id="sensorTimelineContainer" style="display: none; margin-bottom: 12px;"></div>
+
+                <!-- Morse Signal Scope -->
+                <div id="morseScopePanel" style="display: none; margin-bottom: 12px;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px; font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                            <span>CW Tone Detection</span>
+                            <div style="display: flex; gap: 14px;">
+                                <span>TONE: <span id="morseScopeToneLabel" style="color: #0f0; font-variant-numeric: tabular-nums;">--</span></span>
+                                <span>THRESH: <span id="morseScopeThreshLabel" style="color: #fa0; font-variant-numeric: tabular-nums;">--</span></span>
+                                <span id="morseScopeStatusLabel" style="color: #444;">IDLE</span>
+                            </div>
+                        </div>
+                        <canvas id="morseScopeCanvas" style="width: 100%; height: 80px; display: block; border-radius: 3px; background: #050510;"></canvas>
+                    </div>
+                </div>
+
+                <!-- Morse Decoded Output -->
+                <div id="morseOutputPanel" style="display: none; margin-bottom: 12px;">
+                    <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                            <span>Decoded Text</span>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn btn-sm btn-ghost" onclick="MorseMode.exportTxt()">TXT</button>
+                                <button class="btn btn-sm btn-ghost" onclick="MorseMode.exportCsv()">CSV</button>
+                                <button class="btn btn-sm btn-ghost" id="morseCopyBtn" onclick="MorseMode.copyToClipboard()">Copy</button>
+                                <button class="btn btn-sm btn-ghost" onclick="MorseMode.clearText()">Clear</button>
+                            </div>
+                        </div>
+                        <div id="morseDecodedText" class="morse-decoded-panel"></div>
+                        <div class="morse-status-bar">
+                            <span class="status-item" id="morseStatusBarWpm">15 WPM</span>
+                            <span class="status-item" id="morseStatusBarTone">700 Hz</span>
+                            <span class="status-item" id="morseStatusBarChars">0 chars decoded</span>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="output-content signal-feed" id="output">
                     <div class="placeholder signal-empty-state">
@@ -4064,6 +4082,7 @@
             document.getElementById('subghzMode')?.classList.toggle('active', mode === 'subghz');
             document.getElementById('spaceWeatherMode')?.classList.toggle('active', mode === 'spaceweather');
             document.getElementById('waterfallMode')?.classList.toggle('active', mode === 'waterfall');
+            document.getElementById('morseMode')?.classList.toggle('active', mode === 'morse');
 
 
             const pagerStats = document.getElementById('pagerStats');
@@ -4105,7 +4124,6 @@
             const wefaxVisuals = document.getElementById('wefaxVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
             const waterfallVisuals = document.getElementById('waterfallVisuals');
-            const morseVisuals = document.getElementById('morseVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -4123,7 +4141,6 @@
             if (wefaxVisuals) wefaxVisuals.style.display = mode === 'wefax' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
             if (waterfallVisuals) waterfallVisuals.style.display = mode === 'waterfall' ? 'flex' : 'none';
-            if (morseVisuals) morseVisuals.style.display = mode === 'morse' ? 'flex' : 'none';
 
             // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
             if (typeof BtLocate !== 'undefined' && BtLocate.setActiveMode) {
@@ -4145,6 +4162,10 @@
             const sensorTimelineContainer = document.getElementById('sensorTimelineContainer');
             if (pagerTimelineContainer) pagerTimelineContainer.style.display = mode === 'pager' ? 'block' : 'none';
             if (sensorTimelineContainer) sensorTimelineContainer.style.display = mode === 'sensor' ? 'block' : 'none';
+            const morseScopePanel = document.getElementById('morseScopePanel');
+            const morseOutputPanel = document.getElementById('morseOutputPanel');
+            if (morseScopePanel && mode !== 'morse') morseScopePanel.style.display = 'none';
+            if (morseOutputPanel && mode !== 'morse') morseOutputPanel.style.display = 'none';
 
             // Update output panel title based on mode
             const outputTitle = document.getElementById('outputTitle');
@@ -4198,7 +4219,27 @@
 
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
-            if (rtlDeviceSection) rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax') ? 'block' : 'none';
+            if (rtlDeviceSection) {
+                rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'morse') ? 'block' : 'none';
+                // Save original sidebar position of SDR device section (once)
+                if (!rtlDeviceSection._origParent) {
+                    rtlDeviceSection._origParent = rtlDeviceSection.parentNode;
+                    rtlDeviceSection._origNext = rtlDeviceSection.nextElementSibling;
+                }
+                // For morse mode, move SDR device section inside the morse panel after the title
+                const morsePanel = document.getElementById('morseMode');
+                if (mode === 'morse' && morsePanel) {
+                    const firstSection = morsePanel.querySelector('.section');
+                    if (firstSection) firstSection.after(rtlDeviceSection);
+                } else if (rtlDeviceSection._origParent && rtlDeviceSection.parentNode !== rtlDeviceSection._origParent) {
+                    // Restore to original sidebar position when leaving morse mode
+                    if (rtlDeviceSection._origNext) {
+                        rtlDeviceSection._origNext.before(rtlDeviceSection);
+                    } else {
+                        rtlDeviceSection._origParent.appendChild(rtlDeviceSection);
+                    }
+                }
+            }
 
             // Toggle mode-specific tool status displays
             const toolStatusPager = document.getElementById('toolStatusPager');

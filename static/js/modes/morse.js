@@ -67,11 +67,11 @@ var MorseMode = (function () {
             frequency: document.getElementById('morseFrequency').value || '14.060',
             gain: document.getElementById('morseGain').value || '0',
             ppm: document.getElementById('morsePPM').value || '0',
-            device: document.getElementById('morseDevice').value || '0',
-            sdr_type: document.getElementById('morseSdrType').value || 'rtlsdr',
+            device: document.getElementById('deviceSelect')?.value || '0',
+            sdr_type: document.getElementById('sdrTypeSelect')?.value || 'rtlsdr',
             tone_freq: document.getElementById('morseToneFreq').value || '700',
             wpm: document.getElementById('morseWpm').value || '15',
-            bias_t: document.getElementById('morseBiasT').checked,
+            bias_t: typeof getBiasTEnabled === 'function' ? getBiasTEnabled() : false,
         };
 
         fetch('/morse/start', {
@@ -191,6 +191,8 @@ var MorseMode = (function () {
         // Update count
         var countEl = document.getElementById('morseCharCount');
         if (countEl) countEl.textContent = state.charCount + ' chars';
+        var barChars = document.getElementById('morseStatusBarChars');
+        if (barChars) barChars.textContent = state.charCount + ' chars decoded';
     }
 
     function appendSpace() {
@@ -210,6 +212,8 @@ var MorseMode = (function () {
         state.decodedLog = [];
         var countEl = document.getElementById('morseCharCount');
         if (countEl) countEl.textContent = '0 chars';
+        var barChars = document.getElementById('morseStatusBarChars');
+        if (barChars) barChars.textContent = '0 chars decoded';
     }
 
     // ---- Scope canvas ----
@@ -221,20 +225,27 @@ var MorseMode = (function () {
         var dpr = window.devicePixelRatio || 1;
         var rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * dpr;
-        canvas.height = 120 * dpr;
-        canvas.style.height = '120px';
+        canvas.height = 80 * dpr;
+        canvas.style.height = '80px';
 
         scopeCtx = canvas.getContext('2d');
         scopeCtx.scale(dpr, dpr);
         scopeHistory = [];
 
+        var toneLabel = document.getElementById('morseScopeToneLabel');
+        var threshLabel = document.getElementById('morseScopeThreshLabel');
+
         function draw() {
             if (!scopeCtx) return;
             var w = rect.width;
-            var h = 120;
+            var h = 80;
 
-            scopeCtx.fillStyle = '#0a0e14';
+            scopeCtx.fillStyle = '#050510';
             scopeCtx.fillRect(0, 0, w, h);
+
+            // Update header labels
+            if (toneLabel) toneLabel.textContent = scopeToneOn ? 'ON' : '--';
+            if (threshLabel) threshLabel.textContent = scopeThreshold > 0 ? Math.round(scopeThreshold) : '--';
 
             if (scopeHistory.length === 0) {
                 scopeAnim = requestAnimationFrame(draw);
@@ -356,6 +367,16 @@ var MorseMode = (function () {
         if (statusText) {
             statusText.textContent = running ? 'Listening' : 'Standby';
         }
+
+        // Toggle scope and output panels (pager/sensor pattern)
+        var scopePanel = document.getElementById('morseScopePanel');
+        var outputPanel = document.getElementById('morseOutputPanel');
+        if (scopePanel) scopePanel.style.display = running ? 'block' : 'none';
+        if (outputPanel) outputPanel.style.display = running ? 'block' : 'none';
+
+        var scopeStatus = document.getElementById('morseScopeStatusLabel');
+        if (scopeStatus) scopeStatus.textContent = running ? 'ACTIVE' : 'IDLE';
+        if (scopeStatus) scopeStatus.style.color = running ? '#0f0' : '#444';
     }
 
     function setFreq(mhz) {
