@@ -415,6 +415,7 @@ var MorseMode = (function () {
 
     function checkStatus() {
         if (!state.initialized) return;
+        if (state.stopPromise) return;  // Don't poll during in-flight stop
 
         fetch('/morse/status')
             .then(function (r) { return parseJsonSafe(r); })
@@ -640,10 +641,23 @@ var MorseMode = (function () {
             state.lastMetrics.noise_floor = Number(metrics.noise_floor) || 0;
         }
 
+        if (metrics.snr !== undefined) {
+            state.lastMetrics.snr = Number(metrics.snr) || 0;
+        }
+        if (metrics.noise_ref !== undefined) {
+            state.lastMetrics.noise_ref = Number(metrics.noise_ref) || 0;
+        }
+        if (metrics.snr_on !== undefined) {
+            state.lastMetrics.snr_on = Number(metrics.snr_on) || 0;
+        }
+        if (metrics.snr_off !== undefined) {
+            state.lastMetrics.snr_off = Number(metrics.snr_off) || 0;
+        }
+
         updateMetricLabel('morseMetricTone', 'TONE ' + Math.round(state.lastMetrics.tone_freq || 700) + ' Hz');
-        updateMetricLabel('morseMetricLevel', 'LEVEL ' + (state.lastMetrics.level || 0).toFixed(2));
+        updateMetricLabel('morseMetricLevel', 'SNR ' + (state.lastMetrics.snr || 0).toFixed(2) + ' (on>' + (state.lastMetrics.snr_on || 0).toFixed(2) + ' off>' + (state.lastMetrics.snr_off || 0).toFixed(2) + ')');
         updateMetricLabel('morseMetricThreshold', 'THRESH ' + (state.lastMetrics.threshold || 0).toFixed(2));
-        updateMetricLabel('morseMetricNoise', 'NOISE ' + (state.lastMetrics.noise_floor || 0).toFixed(2));
+        updateMetricLabel('morseMetricNoise', 'NOISE_REF ' + (state.lastMetrics.noise_ref || 0).toFixed(4));
 
         var toneScope = el('morseScopeToneLabel');
         if (toneScope) {

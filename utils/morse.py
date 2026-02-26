@@ -236,6 +236,9 @@ class MorseDecoder:
 
     def get_metrics(self) -> dict[str, float | bool]:
         """Return latest decoder metrics for UI/status messages."""
+        snr_mult = max(1.15, self.threshold_multiplier * 0.5)
+        snr_on = snr_mult * (1.0 + self._hysteresis)
+        snr_off = snr_mult * (1.0 - self._hysteresis)
         return {
             'wpm': float(self._estimated_wpm),
             'tone_freq': float(self._active_tone_freq),
@@ -244,6 +247,10 @@ class MorseDecoder:
             'threshold': float(self._threshold),
             'tone_on': bool(self._tone_on),
             'dit_ms': float((self._effective_dit_blocks() * self._block_duration) * 1000.0),
+            'snr': float(self._last_level / max(self._noise_floor, 1e-6)),
+            'noise_ref': float(self._noise_floor),
+            'snr_on': float(snr_on),
+            'snr_off': float(snr_off),
         }
 
     def _rebuild_detectors(self) -> None:
@@ -457,7 +464,7 @@ class MorseDecoder:
                 # gain-invariant — fixes stuck-ON tone when AGC amplifies
                 # inter-element silence above the raw magnitude threshold.
                 snr = level / max(noise_ref, 1e-6)
-                snr_mult = max(1.3, self.threshold_multiplier * 0.55)
+                snr_mult = max(1.15, self.threshold_multiplier * 0.5)
                 snr_on = snr_mult * (1.0 + self._hysteresis)
                 snr_off = snr_mult * (1.0 - self._hysteresis)
 
@@ -541,6 +548,9 @@ class MorseDecoder:
                 self._silence_blocks += 1.0
 
         if amplitudes:
+            snr_mult = max(1.15, self.threshold_multiplier * 0.5)
+            snr_on = snr_mult * (1.0 + self._hysteresis)
+            snr_off = snr_mult * (1.0 - self._hysteresis)
             events.append({
                 'type': 'scope',
                 'amplitudes': amplitudes,
@@ -551,6 +561,10 @@ class MorseDecoder:
                 'noise_floor': self._noise_floor,
                 'wpm': round(self._estimated_wpm, 1),
                 'dit_ms': round(self._effective_dit_blocks() * self._block_duration * 1000.0, 1),
+                'snr': round(self._last_level / max(self._noise_floor, 1e-6), 2),
+                'noise_ref': round(self._noise_floor, 4),
+                'snr_on': round(snr_on, 2),
+                'snr_off': round(snr_off, 2),
             })
 
         return events
