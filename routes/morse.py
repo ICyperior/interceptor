@@ -436,7 +436,7 @@ def start_morse() -> Response:
             )
             decoder_thread.start()
 
-            startup_deadline = time.monotonic() + 2.5
+            startup_deadline = time.monotonic() + 2.0
             startup_ok = False
             startup_error = ''
 
