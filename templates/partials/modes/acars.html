@@ -189,25 +189,25 @@
     }
 
     function renderAcarsMainCard(data) {
-        const flight = data.flight || 'UNKNOWN';
+        const flight = escapeHtml(data.flight || 'UNKNOWN');
         const type = data.message_type || 'other';
         const badge = acarsMainTypeBadge(type);
-        const desc = data.label_description || (data.label ? 'Label: ' + data.label : '');
+        const desc = escapeHtml(data.label_description || (data.label ? 'Label: ' + data.label : ''));
         const text = data.text || data.msg || '';
-        const truncText = text.length > 150 ? text.substring(0, 150) + '...' : text;
+        const truncText = escapeHtml(text.length > 150 ? text.substring(0, 150) + '...' : text);
         const time = new Date().toLocaleTimeString();
 
         let parsedHtml = '';
         if (data.parsed) {
             const p = data.parsed;
             if (type === 'position' && p.lat !== undefined) {
-                parsedHtml = `<div style="color:var(--accent-green);margin-top:2px;font-size:10px;">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}${p.flight_level ? ' &bull; ' + p.flight_level : ''}${p.destination ? ' &rarr; ' + p.destination : ''}</div>`;
+                parsedHtml = `<div style="color:var(--accent-green);margin-top:2px;font-size:10px;">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}${p.flight_level ? ' &bull; ' + escapeHtml(String(p.flight_level)) : ''}${p.destination ? ' &rarr; ' + escapeHtml(String(p.destination)) : ''}</div>`;
             } else if (type === 'engine_data') {
                 const parts = [];
-                Object.keys(p).forEach(k => parts.push(k + ': ' + p[k].value));
+                Object.keys(p).forEach(k => parts.push(escapeHtml(k) + ': ' + escapeHtml(String(p[k].value))));
                 if (parts.length) parsedHtml = `<div style="color:#ff9500;margin-top:2px;font-size:10px;">${parts.slice(0, 4).join(' | ')}</div>`;
             } else if (type === 'oooi' && p.origin) {
-                parsedHtml = `<div style="color:var(--accent-cyan);margin-top:2px;font-size:10px;">${p.origin} &rarr; ${p.destination}${p.out ? ' | OUT ' + p.out : ''}${p.off ? ' OFF ' + p.off : ''}${p.on ? ' ON ' + p.on : ''}${p['in'] ? ' IN ' + p['in'] : ''}</div>`;
+                parsedHtml = `<div style="color:var(--accent-cyan);margin-top:2px;font-size:10px;">${escapeHtml(String(p.origin))} &rarr; ${escapeHtml(String(p.destination))}${p.out ? ' | OUT ' + escapeHtml(String(p.out)) : ''}${p.off ? ' OFF ' + escapeHtml(String(p.off)) : ''}${p.on ? ' ON ' + escapeHtml(String(p.on)) : ''}${p['in'] ? ' IN ' + escapeHtml(String(p['in'])) : ''}</div>`;
             }
         }
 

@@ -63,8 +63,8 @@ class TestClassifyMessageType:
     def test_sq_is_squawk(self):
         assert classify_message_type('SQ') == 'squawk'
 
-    def test_underscore_d_is_link_test(self):
-        assert classify_message_type('_d') == 'link_test'
+    def test_underscore_d_is_handshake(self):
+        assert classify_message_type('_d') == 'handshake'
 
     def test_q0_is_link_test(self):
         assert classify_message_type('Q0') == 'link_test'
@@ -228,7 +228,7 @@ class TestTranslateMessage:
         msg = {'label': '_d', 'text': ''}
         result = translate_message(msg)
         assert result['label_description'] == 'Demand mode (link test)'
-        assert result['message_type'] in ('link_test', 'handshake')
+        assert result['message_type'] == 'handshake'
 
     def test_unknown_label(self):
         msg = {'label': 'ZZ', 'text': 'SOME DATA'}

@@ -3234,11 +3234,11 @@ sudo make install</code>
         function renderAcarsCard(msg) {
             const type = msg.message_type || 'other';
             const badge = getAcarsTypeBadge(type);
-            const desc = msg.label_description || ('Label ' + (msg.label || '?'));
+            const desc = escapeHtml(msg.label_description || ('Label ' + (msg.label || '?')));
             const text = msg.text || msg.msg || '';
-            const truncText = text.length > 120 ? text.substring(0, 120) + '...' : text;
+            const truncText = escapeHtml(text.length > 120 ? text.substring(0, 120) + '...' : text);
             const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
-            const flight = msg.flight || '';
+            const flight = escapeHtml(msg.flight || '');
 
             let parsedHtml = '';
             if (msg.parsed) {
@@ -3246,23 +3246,23 @@ sudo make install</code>
                 if (type === 'position' && p.lat !== undefined) {
                     parsedHtml = '<div style="color:var(--accent-green);margin-top:2px;">' +
                         p.lat.toFixed(4) + ', ' + p.lon.toFixed(4) +
-                        (p.flight_level ? ' • ' + p.flight_level : '') +
-                        (p.destination ? ' → ' + p.destination : '') + '</div>';
+                        (p.flight_level ? ' • ' + escapeHtml(String(p.flight_level)) : '') +
+                        (p.destination ? ' → ' + escapeHtml(String(p.destination)) : '') + '</div>';
                 } else if (type === 'engine_data') {
                     const parts = [];
                     Object.keys(p).forEach(k => {
-                        parts.push(k + ': ' + p[k].value);
+                        parts.push(escapeHtml(k) + ': ' + escapeHtml(String(p[k].value)));
                     });
                     if (parts.length) {
                         parsedHtml = '<div style="color:var(--accent-orange,#ff9500);margin-top:2px;">' + parts.slice(0, 4).join(' | ') + '</div>';
                     }
                 } else if (type === 'oooi' && p.origin) {
                     parsedHtml = '<div style="color:var(--accent-cyan);margin-top:2px;">' +
-                        p.origin + ' → ' + p.destination +
-                        (p.out ? ' | OUT ' + p.out : '') +
-                        (p.off ? ' OFF ' + p.off : '') +
-                        (p.on ? ' ON ' + p.on : '') +
-                        (p['in'] ? ' IN ' + p['in'] : '') + '</div>';
+                        escapeHtml(String(p.origin)) + ' → ' + escapeHtml(String(p.destination)) +
+                        (p.out ? ' | OUT ' + escapeHtml(String(p.out)) : '') +
+                        (p.off ? ' OFF ' + escapeHtml(String(p.off)) : '') +
+                        (p.on ? ' ON ' + escapeHtml(String(p.on)) : '') +
+                        (p['in'] ? ' IN ' + escapeHtml(String(p['in'])) : '') + '</div>';
                 }
             }
 
@@ -3341,6 +3341,8 @@ sudo make install</code>
                         selectedIcao = null;
                         showAircraftDetails(null);
                         updateFlightLookupBtn();
+                        highlightSidebarMessages(null);
+                        clearAircraftMessages();
                     }
                 }
             });
@@ -4096,6 +4098,12 @@ sudo make install</code>
             const text = data.text || data.msg || '';
             const time = new Date().toLocaleTimeString();
 
+            // Escape user-controlled strings for safe innerHTML insertion
+            const eFlight = escapeHtml(flight);
+            const eReg = escapeHtml(reg);
+            const eLabelDesc = escapeHtml(labelDesc || (label ? 'Label: ' + label : ''));
+            const eText = escapeHtml(text.length > 80 ? text.substring(0, 80) + '...' : text);
+
             // Try to find matching tracked aircraft
             const matchedIcao = findAircraftIcaoByFlight(flight) ||
                                 findAircraftIcaoByFlight(data.tail) ||
@@ -4120,12 +4128,12 @@ sudo make install</code>
 
             msg.innerHTML = `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                    <span style="color: var(--accent-cyan); font-weight: bold;">${flight}${linkIcon}</span>
+                    <span style="color: var(--accent-cyan); font-weight: bold;">${eFlight}${linkIcon}</span>
                     <span style="color: var(--text-muted);">${time}</span>
                 </div>
-                ${reg ? `<div style="color: var(--text-muted); font-size: 9px;">Reg: ${reg}</div>` : ''}
-                <div style="margin-top: 2px;">${typeBadge} <span style="color: var(--text-primary);">${labelDesc || (label ? 'Label: ' + label : '')}</span></div>
-                ${text && msgType !== 'link_test' && msgType !== 'handshake' ? `<div style="color: var(--text-dim); margin-top: 3px; word-break: break-word; font-size: 9px;">${text.length > 80 ? text.substring(0, 80) + '...' : text}</div>` : ''}
+                ${reg ? `<div style="color: var(--text-muted); font-size: 9px;">Reg: ${eReg}</div>` : ''}
+                <div style="margin-top: 2px;">${typeBadge} <span style="color: var(--text-primary);">${eLabelDesc}</span></div>
+                ${text && msgType !== 'link_test' && msgType !== 'handshake' ? `<div style="color: var(--text-dim); margin-top: 3px; word-break: break-word; font-size: 9px;">${eText}</div>` : ''}
             `;
 
             container.insertBefore(msg, container.firstChild);

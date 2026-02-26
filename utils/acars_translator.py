@@ -127,7 +127,7 @@ def classify_message_type(label: str | None, text: str | None = None) -> str:
     # Position reports
     if label in ('H1', '20', '15', '16', '30', 'S1'):
         return 'position'
-    if label == 'H1' or (text and '#M1BPOS' in text):
+    if text and '#M1BPOS' in text:
         return 'position'
 
     # Engine / DFDR data
@@ -155,7 +155,7 @@ def classify_message_type(label: str | None, text: str | None = None) -> str:
         return 'squawk'
 
     # Link test / handshake
-    if label in ('_d', 'Q0', 'QA', 'QB', 'QC', 'QD', 'QE', 'QF', 'QG',
+    if label in ('Q0', 'QA', 'QB', 'QC', 'QD', 'QE', 'QF', 'QG',
                  'QH', 'QK', 'QM', 'QN', 'QP', 'QQ', 'QR', 'QS', 'QT', 'QX',
                  '4X'):
         return 'link_test'
