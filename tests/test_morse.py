@@ -381,7 +381,9 @@ class TestMorseLifecycleRoutes:
         assert '-E' in popen_cmds[0] and 'direct2' in popen_cmds[0]
         assert '-l' not in popen_cmds[0]
         assert '-E' in popen_cmds[1] and 'direct2' in popen_cmds[1]
-        assert '-l' in popen_cmds[1]
+        assert '-r' in popen_cmds[1]
+        assert '-A' in popen_cmds[1]
+        assert 'dc' in popen_cmds[1]
 
         stop_resp = client.post('/morse/stop')
         assert stop_resp.status_code == 200

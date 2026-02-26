@@ -278,7 +278,13 @@ def start_morse() -> Response:
     sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
     builder = SDRFactory.get_builder(sdr_device.sdr_type)
 
-    def _build_rtl_cmd(*, use_direct_sampling: bool, force_squelch_off: bool) -> list[str]:
+    def _build_rtl_cmd(
+        *,
+        use_direct_sampling: bool,
+        force_squelch_off: bool,
+        add_resample_rate: bool,
+        add_dc_fast: bool,
+    ) -> list[str]:
         fm_kwargs: dict[str, Any] = {
             'device': sdr_device,
             'frequency_mhz': freq,
@@ -302,6 +308,19 @@ def start_morse() -> Response:
                 cmd[-1:-1] = ['-l', '0']
             else:
                 cmd.extend(['-l', '0'])
+
+        if sdr_device.sdr_type == SDRType.RTL_SDR:
+            insert_at = len(cmd) - 1 if cmd and cmd[-1] == '-' else len(cmd)
+            if add_resample_rate and '-r' not in cmd:
+                cmd[insert_at:insert_at] = ['-r', str(sample_rate)]
+                insert_at += 2
+            if add_dc_fast:
+                # Used in other stable modes to improve rtl_fm stream behavior.
+                if '-A' not in cmd:
+                    cmd[insert_at:insert_at] = ['-A', 'fast']
+                    insert_at += 2
+                if '-E' not in cmd or 'dc' not in cmd:
+                    cmd[insert_at:insert_at] = ['-E', 'dc']
         return cmd
 
     can_try_direct_sampling = bool(sdr_device.sdr_type == SDRType.RTL_SDR and freq < 24.0)
@@ -309,15 +328,63 @@ def start_morse() -> Response:
         # Cross-platform note: some rtl_fm builds treat "-l 0" as hard squelch and
         # emit no PCM. Try the no-"-l" form first, then legacy variants.
         command_attempts = [
-            {'use_direct_sampling': True, 'force_squelch_off': False},
-            {'use_direct_sampling': True, 'force_squelch_off': True},
-            {'use_direct_sampling': False, 'force_squelch_off': False},
-            {'use_direct_sampling': False, 'force_squelch_off': True},
+            {
+                'use_direct_sampling': True,
+                'force_squelch_off': False,
+                'add_resample_rate': False,
+                'add_dc_fast': False,
+            },
+            {
+                'use_direct_sampling': True,
+                'force_squelch_off': False,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+            },
+            {
+                'use_direct_sampling': True,
+                'force_squelch_off': True,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+            },
+            {
+                'use_direct_sampling': False,
+                'force_squelch_off': False,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+            },
+            {
+                'use_direct_sampling': False,
+                'force_squelch_off': False,
+                'add_resample_rate': False,
+                'add_dc_fast': False,
+            },
+            {
+                'use_direct_sampling': False,
+                'force_squelch_off': True,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+            },
         ]
     else:
         command_attempts = [
-            {'use_direct_sampling': False, 'force_squelch_off': False},
-            {'use_direct_sampling': False, 'force_squelch_off': True},
+            {
+                'use_direct_sampling': False,
+                'force_squelch_off': False,
+                'add_resample_rate': False,
+                'add_dc_fast': False,
+            },
+            {
+                'use_direct_sampling': False,
+                'force_squelch_off': False,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+            },
+            {
+                'use_direct_sampling': False,
+                'force_squelch_off': True,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+            },
         ]
 
     rtl_process: subprocess.Popen | None = None
@@ -369,10 +436,14 @@ def start_morse() -> Response:
         for attempt_index, attempt in enumerate(command_attempts, start=1):
             use_direct_sampling = bool(attempt.get('use_direct_sampling', False))
             force_squelch_off = bool(attempt.get('force_squelch_off', True))
+            add_resample_rate = bool(attempt.get('add_resample_rate', False))
+            add_dc_fast = bool(attempt.get('add_dc_fast', False))
 
             rtl_cmd = _build_rtl_cmd(
                 use_direct_sampling=use_direct_sampling,
                 force_squelch_off=force_squelch_off,
+                add_resample_rate=add_resample_rate,
+                add_dc_fast=add_dc_fast,
             )
             full_cmd = ' '.join(rtl_cmd)
             logger.info(f'Morse decoder attempt {attempt_index}/{len(command_attempts)}: {full_cmd}')
@@ -452,6 +523,8 @@ def start_morse() -> Response:
             if startup_ok:
                 runtime_config['direct_sampling'] = 2 if use_direct_sampling else 0
                 runtime_config['force_squelch_off'] = force_squelch_off
+                runtime_config['resample_rate'] = sample_rate if add_resample_rate else None
+                runtime_config['dc_fast'] = add_dc_fast
                 break
 
             if not startup_error:
@@ -459,7 +532,8 @@ def start_morse() -> Response:
 
             attempt_errors.append(
                 f'attempt {attempt_index}/{len(command_attempts)} '
-                f'(direct={int(use_direct_sampling)} squelch_forced={int(force_squelch_off)}): {startup_error}'
+                f'(direct={int(use_direct_sampling)} squelch_forced={int(force_squelch_off)} '
+                f'resample={int(add_resample_rate)} dc_fast={int(add_dc_fast)}): {startup_error}'
             )
             logger.warning(f'Morse startup attempt failed: {attempt_errors[-1]}')
 
