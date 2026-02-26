@@ -421,6 +421,8 @@ var MorseMode = (function () {
             .then(function (r) { return parseJsonSafe(r); })
             .then(function (data) {
                 if (!data || typeof data !== 'object') return;
+                // Guard against in-flight polls that were dispatched before stop
+                if (state.stopPromise || state.lifecycle === 'stopping') return;
 
                 if (data.running) {
                     if (data.state === 'starting') {
