@@ -744,7 +744,6 @@ def morse_decoder_thread(
     CHUNK = 4096
     SCOPE_INTERVAL = 0.10
     WAITING_INTERVAL = 0.25
-    IDLE_SLEEP = 0.04
     STALLED_AFTER_DATA_SECONDS = 1.5
 
     cfg = dict(decoder_config or {})
@@ -773,14 +772,8 @@ def morse_decoder_thread(
 
     try:
         fd: int | None
-        non_blocking = False
         try:
             fd = rtl_stdout.fileno()
-            try:
-                os.set_blocking(fd, False)
-                non_blocking = True
-            except Exception:
-                non_blocking = False
         except Exception:
             fd = None
 
@@ -790,53 +783,35 @@ def morse_decoder_thread(
 
             data = b''
             if fd is not None:
-                if non_blocking:
+                try:
+                    ready, _, _ = select.select([fd], [], [], 0.20)
+                except Exception:
+                    break
+
+                if ready:
                     try:
-                        data = os.read(fd, CHUNK)
-                    except BlockingIOError:
-                        data = None
+                        # Use buffered stream read first for cross-platform stability.
+                        if hasattr(rtl_stdout, 'read1'):
+                            data = rtl_stdout.read1(CHUNK)
+                        else:
+                            data = os.read(fd, CHUNK)
                     except Exception:
                         break
-
-                    if data is None:
-                        now = time.monotonic()
-                        should_emit_waiting = False
-                        if last_pcm_at is None:
-                            should_emit_waiting = True
-                        elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
-                            should_emit_waiting = True
-
-                        if should_emit_waiting and waiting_since is None:
-                            waiting_since = now
-                        now = time.monotonic()
-                        if should_emit_waiting and now - last_waiting_emit >= WAITING_INTERVAL:
-                            last_waiting_emit = now
-                            _emit_waiting_scope(output_queue, waiting_since)
-                        time.sleep(IDLE_SLEEP)
-                        continue
                 else:
-                    try:
-                        ready, _, _ = select.select([fd], [], [], 0.20)
-                    except Exception:
-                        break
+                    now = time.monotonic()
+                    should_emit_waiting = False
+                    if last_pcm_at is None:
+                        should_emit_waiting = True
+                    elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
+                        should_emit_waiting = True
 
-                    if ready:
-                        data = os.read(fd, CHUNK)
-                    else:
-                        now = time.monotonic()
-                        should_emit_waiting = False
-                        if last_pcm_at is None:
-                            should_emit_waiting = True
-                        elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
-                            should_emit_waiting = True
-
-                        if should_emit_waiting and waiting_since is None:
-                            waiting_since = now
-                        now = time.monotonic()
-                        if should_emit_waiting and now - last_waiting_emit >= WAITING_INTERVAL:
-                            last_waiting_emit = now
-                            _emit_waiting_scope(output_queue, waiting_since)
-                        continue
+                    if should_emit_waiting and waiting_since is None:
+                        waiting_since = now
+                    now = time.monotonic()
+                    if should_emit_waiting and now - last_waiting_emit >= WAITING_INTERVAL:
+                        last_waiting_emit = now
+                        _emit_waiting_scope(output_queue, waiting_since)
+                    continue
             else:
                 # Fallback for test streams without fileno().
                 data = rtl_stdout.read(CHUNK)
