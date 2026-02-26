@@ -8,7 +8,6 @@ import os
 import pty
 import queue
 import re
-import select
 import struct
 import subprocess
 import tempfile
@@ -177,43 +176,6 @@ def _compress_amplitudes(samples: tuple[int, ...], bins: int = 96) -> list[int]:
     return out
 
 
-def _read_pcm_chunk(
-    stream: Any,
-    chunk_bytes: int,
-    stop_event: threading.Event,
-    timeout_s: float = 0.2,
-) -> bytes | None:
-    if stream is None:
-        return b''
-
-    try:
-        fileno = stream.fileno()
-    except Exception:
-        if stop_event.is_set():
-            return b''
-        with contextlib.suppress(Exception):
-            return stream.read(chunk_bytes)
-        return b''
-
-    while not stop_event.is_set():
-        try:
-            ready, _, _ = select.select([fileno], [], [], timeout_s)
-        except Exception:
-            return b''
-
-        if not ready:
-            return None
-
-        try:
-            return os.read(fileno, chunk_bytes)
-        except BlockingIOError:
-            continue
-        except OSError:
-            return b''
-
-    return b''
-
-
 def _morse_audio_relay_thread(
     rtl_stdout: Any,
     multimon_stdin: Any,
@@ -241,6 +203,16 @@ def _morse_audio_relay_thread(
     threshold = manual_threshold if threshold_mode == 'manual' else 0.0
     pcm_announced = False
 
+    fd: int | None = None
+    non_blocking = False
+    if rtl_stdout is not None:
+        with contextlib.suppress(Exception):
+            fd = rtl_stdout.fileno()
+        if fd is not None:
+            with contextlib.suppress(Exception):
+                os.set_blocking(fd, False)
+                non_blocking = True
+
     try:
         while not stop_event.is_set():
             if control_queue is not None:
@@ -264,7 +236,20 @@ def _morse_audio_relay_thread(
                 if stop_event.is_set():
                     break
 
-            payload = _read_pcm_chunk(rtl_stdout, chunk_bytes, stop_event)
+            payload: bytes | None = None
+            if non_blocking and fd is not None:
+                try:
+                    payload = os.read(fd, chunk_bytes)
+                except BlockingIOError:
+                    payload = None
+                except OSError:
+                    payload = b''
+            else:
+                try:
+                    payload = rtl_stdout.read(chunk_bytes)
+                except Exception:
+                    payload = b''
+
             now = time.monotonic()
 
             if payload is None:
@@ -283,6 +268,7 @@ def _morse_audio_relay_thread(
                             'tone_freq': tone_freq,
                             'wpm': wpm,
                         })
+                time.sleep(0.02)
                 continue
 
             if not payload:
@@ -341,7 +327,8 @@ def _morse_audio_relay_thread(
                         'wpm': wpm,
                     })
     except Exception as exc:
-        logger.debug('Morse audio relay error: %s', exc)
+        logger.warning('Morse audio relay error: %s', exc)
+        _queue_morse_event({'type': 'error', 'text': f'morse relay error: {exc}'})
     finally:
         _close_pipe(multimon_stdin)
 
@@ -352,38 +339,42 @@ def _morse_multimon_output_thread(
     stop_event: threading.Event,
 ) -> None:
     buffer = ''
+    with contextlib.suppress(Exception):
+        os.set_blocking(master_fd, False)
     try:
         while not stop_event.is_set():
+            raw: bytes | None = None
             try:
-                ready, _, _ = select.select([master_fd], [], [], 0.2)
-            except Exception:
+                raw = os.read(master_fd, 2048)
+            except BlockingIOError:
+                raw = None
+            except OSError:
                 break
 
-            if ready:
-                try:
-                    raw = os.read(master_fd, 2048)
-                except OSError:
+            if raw is None:
+                if process.poll() is not None:
                     break
-                if not raw:
-                    if process.poll() is not None:
-                        break
+                time.sleep(0.02)
+                continue
+
+            if not raw:
+                if process.poll() is not None:
+                    break
+                time.sleep(0.02)
+                continue
+
+            buffer += raw.decode('utf-8', errors='replace')
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                line = line.strip()
+                if not line:
                     continue
-
-                buffer += raw.decode('utf-8', errors='replace')
-                while '\n' in buffer:
-                    line, buffer = buffer.split('\n', 1)
-                    line = line.strip()
-                    if not line:
-                        continue
-                    text = _parse_multimon_morse_text(line)
-                    if text is None:
-                        _queue_morse_event({'type': 'info', 'text': f'[multimon] {line}'})
-                        continue
-                    if text:
-                        _emit_decoded_text(text)
-
-            if process.poll() is not None:
-                break
+                text = _parse_multimon_morse_text(line)
+                if text is None:
+                    _queue_morse_event({'type': 'info', 'text': f'[multimon] {line}'})
+                    continue
+                if text:
+                    _emit_decoded_text(text)
 
         tail = buffer.strip()
         if tail:
