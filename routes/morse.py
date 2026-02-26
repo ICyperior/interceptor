@@ -16,7 +16,11 @@ from flask import Blueprint, Response, jsonify, request
 import app as app_module
 from utils.event_pipeline import process_event
 from utils.logging import sensor_logger as logger
-from utils.morse import decode_morse_wav_file, morse_decoder_thread
+from utils.morse import (
+    decode_morse_wav_file,
+    morse_decoder_thread,
+    morse_iq_decoder_thread,
+)
 from utils.process import register_process, safe_terminate, unregister_process
 from utils.sdr import SDRFactory, SDRType
 from utils.sse import sse_stream_fanout
@@ -323,87 +327,70 @@ def start_morse() -> Response:
                     cmd[insert_at:insert_at] = ['-E', 'dc']
         return cmd
 
+    iq_sample_rate = 250000
+
+    def _build_iq_cmd(*, direct_sampling_mode: int | None) -> tuple[list[str], float]:
+        # CW USB-style offset tuning: keep the configured RF frequency sounding
+        # near the selected tone frequency in the software demod chain.
+        tune_mhz = max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0))
+        iq_cmd = builder.build_iq_capture_command(
+            device=sdr_device,
+            frequency_mhz=tune_mhz,
+            sample_rate=iq_sample_rate,
+            gain=float(gain) if gain and gain != '0' else None,
+            ppm=int(ppm) if ppm and ppm != '0' else None,
+            bias_t=bias_t,
+        )
+        if (
+            sdr_device.sdr_type == SDRType.RTL_SDR
+            and direct_sampling_mode is not None
+            and '-D' not in iq_cmd
+        ):
+            if iq_cmd and iq_cmd[-1] == '-':
+                iq_cmd[-1:-1] = ['-D', str(direct_sampling_mode)]
+            else:
+                iq_cmd.extend(['-D', str(direct_sampling_mode)])
+        return iq_cmd, tune_mhz
+
     can_try_direct_sampling = bool(sdr_device.sdr_type == SDRType.RTL_SDR and freq < 24.0)
     if can_try_direct_sampling:
-        # Cross-platform note: some rtl_fm builds treat "-l 0" as hard squelch and
-        # emit no PCM. Try the no-"-l" form first, then legacy variants.
-        command_attempts = [
+        # Keep rtl_fm attempts first (cheap), then switch to IQ capture fallback.
+        command_attempts: list[dict[str, Any]] = [
             {
-                'use_direct_sampling': True,
-                'force_squelch_off': False,
-                'add_resample_rate': False,
-                'add_dc_fast': False,
-            },
-            {
+                'source': 'rtl_fm',
                 'use_direct_sampling': True,
                 'force_squelch_off': False,
                 'add_resample_rate': True,
                 'add_dc_fast': True,
             },
             {
-                'use_direct_sampling': True,
-                'force_squelch_off': True,
-                'add_resample_rate': True,
-                'add_dc_fast': True,
-            },
-            {
+                'source': 'rtl_fm',
                 'use_direct_sampling': False,
                 'force_squelch_off': False,
                 'add_resample_rate': True,
                 'add_dc_fast': True,
             },
             {
-                'use_direct_sampling': False,
-                'force_squelch_off': False,
-                'add_resample_rate': False,
-                'add_dc_fast': False,
+                'source': 'iq',
+                'direct_sampling_mode': 2,
             },
             {
-                'use_direct_sampling': False,
-                'force_squelch_off': True,
-                'add_resample_rate': True,
-                'add_dc_fast': True,
-                'merge_stderr': False,
-            },
-            {
-                # Last-resort compatibility mode: some rtl_fm variants may route
-                # payload unexpectedly; merge stderr->stdout and strip text logs.
-                'use_direct_sampling': False,
-                'force_squelch_off': False,
-                'add_resample_rate': True,
-                'add_dc_fast': True,
-                'merge_stderr': True,
+                'source': 'iq',
+                'direct_sampling_mode': None,
             },
         ]
     else:
         command_attempts = [
             {
-                'use_direct_sampling': False,
-                'force_squelch_off': False,
-                'add_resample_rate': False,
-                'add_dc_fast': False,
-                'merge_stderr': False,
-            },
-            {
+                'source': 'rtl_fm',
                 'use_direct_sampling': False,
                 'force_squelch_off': False,
                 'add_resample_rate': True,
                 'add_dc_fast': True,
-                'merge_stderr': False,
             },
             {
-                'use_direct_sampling': False,
-                'force_squelch_off': True,
-                'add_resample_rate': True,
-                'add_dc_fast': True,
-                'merge_stderr': False,
-            },
-            {
-                'use_direct_sampling': False,
-                'force_squelch_off': False,
-                'add_resample_rate': True,
-                'add_dc_fast': True,
-                'merge_stderr': True,
+                'source': 'iq',
+                'direct_sampling_mode': None,
             },
         ]
 
@@ -454,20 +441,43 @@ def start_morse() -> Response:
         full_cmd = ''
 
         for attempt_index, attempt in enumerate(command_attempts, start=1):
+            source = str(attempt.get('source', 'rtl_fm')).strip().lower()
             use_direct_sampling = bool(attempt.get('use_direct_sampling', False))
             force_squelch_off = bool(attempt.get('force_squelch_off', True))
             add_resample_rate = bool(attempt.get('add_resample_rate', False))
             add_dc_fast = bool(attempt.get('add_dc_fast', False))
-            merge_stderr = bool(attempt.get('merge_stderr', False))
+            direct_sampling_mode = attempt.get('direct_sampling_mode')
 
-            rtl_cmd = _build_rtl_cmd(
-                use_direct_sampling=use_direct_sampling,
-                force_squelch_off=force_squelch_off,
-                add_resample_rate=add_resample_rate,
-                add_dc_fast=add_dc_fast,
-            )
+            if source == 'iq':
+                rtl_cmd, tuned_freq_mhz = _build_iq_cmd(
+                    direct_sampling_mode=int(direct_sampling_mode)
+                    if direct_sampling_mode is not None else None,
+                )
+                thread_target = morse_iq_decoder_thread
+                attempt_desc = (
+                    f'source=iq direct_mode={direct_sampling_mode if direct_sampling_mode is not None else "none"} '
+                    f'iq_sr={iq_sample_rate}'
+                )
+            else:
+                rtl_cmd = _build_rtl_cmd(
+                    use_direct_sampling=use_direct_sampling,
+                    force_squelch_off=force_squelch_off,
+                    add_resample_rate=add_resample_rate,
+                    add_dc_fast=add_dc_fast,
+                )
+                tuned_freq_mhz = float(freq)
+                thread_target = morse_decoder_thread
+                attempt_desc = (
+                    f'source=rtl_fm direct={int(use_direct_sampling)} '
+                    f'squelch_forced={int(force_squelch_off)} '
+                    f'resample={int(add_resample_rate)} dc_fast={int(add_dc_fast)}'
+                )
+
             full_cmd = ' '.join(rtl_cmd)
-            logger.info(f'Morse decoder attempt {attempt_index}/{len(command_attempts)}: {full_cmd}')
+            logger.info(
+                f'Morse decoder attempt {attempt_index}/{len(command_attempts)} '
+                f'({attempt_desc}): {full_cmd}'
+            )
 
             with contextlib.suppress(queue.Full):
                 app_module.morse_queue.put_nowait({
@@ -478,7 +488,7 @@ def start_morse() -> Response:
             rtl_process = subprocess.Popen(
                 rtl_cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 bufsize=0,
             )
             register_process(rtl_process)
@@ -487,49 +497,67 @@ def start_morse() -> Response:
             control_queue = queue.Queue(maxsize=16)
             pcm_ready_event = threading.Event()
 
-            if not merge_stderr:
-                def monitor_stderr(
-                    proc: subprocess.Popen = rtl_process,
-                    proc_stop_event: threading.Event = stop_event,
-                ) -> None:
-                    if proc.stderr is None:
-                        return
-                    for line in proc.stderr:
-                        if proc_stop_event.is_set():
-                            break
-                        err_text = line.decode('utf-8', errors='replace').strip()
-                        if err_text:
-                            logger.debug(f'[rtl_fm/morse] {err_text}')
-                            with contextlib.suppress(queue.Full):
-                                app_module.morse_queue.put_nowait({
-                                    'type': 'info',
-                                    'text': f'[rtl_fm] {err_text}',
-                                })
+            def monitor_stderr(
+                proc: subprocess.Popen = rtl_process,
+                proc_stop_event: threading.Event = stop_event,
+                tool_label: str = rtl_cmd[0],
+            ) -> None:
+                if proc.stderr is None:
+                    return
+                for line in proc.stderr:
+                    if proc_stop_event.is_set():
+                        break
+                    err_text = line.decode('utf-8', errors='replace').strip()
+                    if err_text:
+                        with contextlib.suppress(queue.Full):
+                            app_module.morse_queue.put_nowait({
+                                'type': 'info',
+                                'text': f'[{tool_label}] {err_text}',
+                            })
 
-                stderr_thread = threading.Thread(target=monitor_stderr, daemon=True, name='morse-stderr')
-                stderr_thread.start()
+            stderr_thread = threading.Thread(target=monitor_stderr, daemon=True, name='morse-stderr')
+            stderr_thread.start()
+
+            if source == 'iq':
+                decoder_thread = threading.Thread(
+                    target=thread_target,
+                    args=(
+                        rtl_process.stdout,
+                        app_module.morse_queue,
+                        stop_event,
+                        iq_sample_rate,
+                    ),
+                    kwargs={
+                        'sample_rate': sample_rate,
+                        'tone_freq': tone_freq,
+                        'wpm': wpm,
+                        'decoder_config': runtime_config,
+                        'control_queue': control_queue,
+                        'pcm_ready_event': pcm_ready_event,
+                    },
+                    daemon=True,
+                    name='morse-decoder',
+                )
             else:
-                stderr_thread = None
-
-            decoder_thread = threading.Thread(
-                target=morse_decoder_thread,
-                args=(
-                    rtl_process.stdout,
-                    app_module.morse_queue,
-                    stop_event,
-                    sample_rate,
-                    tone_freq,
-                    wpm,
-                ),
-                kwargs={
-                    'decoder_config': runtime_config,
-                    'control_queue': control_queue,
-                    'pcm_ready_event': pcm_ready_event,
-                    'strip_text_chunks': merge_stderr,
-                },
-                daemon=True,
-                name='morse-decoder',
-            )
+                decoder_thread = threading.Thread(
+                    target=thread_target,
+                    args=(
+                        rtl_process.stdout,
+                        app_module.morse_queue,
+                        stop_event,
+                        sample_rate,
+                        tone_freq,
+                        wpm,
+                    ),
+                    kwargs={
+                        'decoder_config': runtime_config,
+                        'control_queue': control_queue,
+                        'pcm_ready_event': pcm_ready_event,
+                        'strip_text_chunks': False,
+                    },
+                    daemon=True,
+                    name='morse-decoder',
+                )
             decoder_thread.start()
 
             startup_deadline = time.monotonic() + 2.0
@@ -541,25 +569,28 @@ def start_morse() -> Response:
                     startup_ok = True
                     break
                 if rtl_process.poll() is not None:
-                    startup_error = f'rtl_fm exited during startup (code {rtl_process.returncode})'
+                    startup_error = f'{rtl_cmd[0]} exited during startup (code {rtl_process.returncode})'
                     break
                 time.sleep(0.05)
 
             if startup_ok:
-                runtime_config['direct_sampling'] = 2 if use_direct_sampling else 0
-                runtime_config['force_squelch_off'] = force_squelch_off
-                runtime_config['resample_rate'] = sample_rate if add_resample_rate else None
-                runtime_config['dc_fast'] = add_dc_fast
-                runtime_config['merge_stderr'] = merge_stderr
+                runtime_config['source'] = source
+                runtime_config['command'] = full_cmd
+                runtime_config['tuned_frequency_mhz'] = tuned_freq_mhz
+                runtime_config['direct_sampling'] = (
+                    int(direct_sampling_mode)
+                    if source == 'iq' and direct_sampling_mode is not None
+                    else (2 if use_direct_sampling else 0)
+                )
+                runtime_config['iq_sample_rate'] = iq_sample_rate if source == 'iq' else None
+                runtime_config['direct_sampling_mode'] = direct_sampling_mode if source == 'iq' else None
                 break
 
             if not startup_error:
                 startup_error = 'No PCM samples received within startup timeout'
 
             attempt_errors.append(
-                f'attempt {attempt_index}/{len(command_attempts)} '
-                f'(direct={int(use_direct_sampling)} squelch_forced={int(force_squelch_off)} '
-                f'resample={int(add_resample_rate)} dc_fast={int(add_dc_fast)} merged={int(merge_stderr)}): {startup_error}'
+                f'attempt {attempt_index}/{len(command_attempts)} ({attempt_desc}): {startup_error}'
             )
             logger.warning(f'Morse startup attempt failed: {attempt_errors[-1]}')
 
@@ -582,11 +613,11 @@ def start_morse() -> Response:
             decoder_thread = None
             stderr_thread = None
 
-        if rtl_process is None or stop_event is None or control_queue is None or decoder_thread is None or stderr_thread is None:
-            msg = 'rtl_fm started but no PCM stream was received.'
+        if rtl_process is None or stop_event is None or control_queue is None or decoder_thread is None:
+            msg = 'SDR capture started but no PCM stream was received.'
             if attempt_errors:
                 msg = msg + ' ' + ' | '.join(attempt_errors[-2:])
-            logger.error(f'Morse rtl_fm startup failed: {msg}')
+            logger.error(f'Morse startup failed: {msg}')
             with app_module.morse_lock:
                 if morse_active_device is not None:
                     app_module.release_sdr_device(morse_active_device)

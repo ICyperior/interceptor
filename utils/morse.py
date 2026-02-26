@@ -956,3 +956,254 @@ def morse_decoder_thread(
                 'status': 'stopped',
                 'metrics': decoder.get_metrics(),
             })
+
+
+def _cu8_to_complex(raw: bytes) -> np.ndarray:
+    """Convert interleaved unsigned 8-bit IQ to complex64 samples."""
+    if len(raw) < 2:
+        return np.empty(0, dtype=np.complex64)
+    usable = len(raw) - (len(raw) % 2)
+    if usable <= 0:
+        return np.empty(0, dtype=np.complex64)
+    u8 = np.frombuffer(raw[:usable], dtype=np.uint8).astype(np.float32)
+    i = (u8[0::2] - 127.5) / 128.0
+    q = (u8[1::2] - 127.5) / 128.0
+    return (i + 1j * q).astype(np.complex64)
+
+
+def _iq_usb_to_pcm16(
+    iq_samples: np.ndarray,
+    iq_sample_rate: int,
+    audio_sample_rate: int,
+) -> bytes:
+    """Minimal USB demod from complex IQ to 16-bit PCM."""
+    if iq_samples.size < 16 or iq_sample_rate <= 0 or audio_sample_rate <= 0:
+        return b''
+
+    audio = np.real(iq_samples).astype(np.float64)
+    audio -= float(np.mean(audio))
+
+    # Cheap decimation first, then linear resample for exact output rate.
+    decim = max(1, int(iq_sample_rate // max(audio_sample_rate, 1)))
+    if decim > 1:
+        usable = (audio.size // decim) * decim
+        if usable < decim:
+            return b''
+        audio = audio[:usable].reshape(-1, decim).mean(axis=1)
+    fs1 = float(iq_sample_rate) / float(decim)
+    if audio.size < 8:
+        return b''
+
+    taps = int(max(1, min(31, fs1 / 12000.0)))
+    if taps > 1:
+        kernel = np.ones(taps, dtype=np.float64) / float(taps)
+        audio = np.convolve(audio, kernel, mode='same')
+
+    if abs(fs1 - float(audio_sample_rate)) > 1.0:
+        out_len = int(audio.size * float(audio_sample_rate) / fs1)
+        if out_len < 8:
+            return b''
+        x_old = np.linspace(0.0, 1.0, audio.size, endpoint=False, dtype=np.float64)
+        x_new = np.linspace(0.0, 1.0, out_len, endpoint=False, dtype=np.float64)
+        audio = np.interp(x_new, x_old, audio)
+
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    if peak > 0.0:
+        audio = audio * min(8.0, 0.85 / peak)
+
+    pcm = np.clip(audio, -1.0, 1.0)
+    return (pcm * 32767.0).astype(np.int16).tobytes()
+
+
+def morse_iq_decoder_thread(
+    iq_stdout,
+    output_queue: queue.Queue,
+    stop_event: threading.Event,
+    iq_sample_rate: int,
+    sample_rate: int = 22050,
+    tone_freq: float = 700.0,
+    wpm: int = 15,
+    decoder_config: dict[str, Any] | None = None,
+    control_queue: queue.Queue | None = None,
+    pcm_ready_event: threading.Event | None = None,
+) -> None:
+    """Decode Morse from raw IQ (cu8) by in-process USB demodulation."""
+    import logging
+    logger = logging.getLogger('intercept.morse')
+
+    CHUNK = 65536
+    SCOPE_INTERVAL = 0.10
+    WAITING_INTERVAL = 0.25
+    STALLED_AFTER_DATA_SECONDS = 1.5
+
+    cfg = dict(decoder_config or {})
+    decoder = MorseDecoder(
+        sample_rate=int(cfg.get('sample_rate', sample_rate)),
+        tone_freq=float(cfg.get('tone_freq', tone_freq)),
+        wpm=int(cfg.get('wpm', wpm)),
+        bandwidth_hz=int(cfg.get('bandwidth_hz', 200)),
+        auto_tone_track=_coerce_bool(cfg.get('auto_tone_track', True), True),
+        tone_lock=_coerce_bool(cfg.get('tone_lock', False), False),
+        threshold_mode=_normalize_threshold_mode(cfg.get('threshold_mode', 'auto')),
+        manual_threshold=float(cfg.get('manual_threshold', 0.0) or 0.0),
+        threshold_multiplier=float(cfg.get('threshold_multiplier', 2.8) or 2.8),
+        threshold_offset=float(cfg.get('threshold_offset', 0.0) or 0.0),
+        wpm_mode=_normalize_wpm_mode(cfg.get('wpm_mode', 'auto')),
+        wpm_lock=_coerce_bool(cfg.get('wpm_lock', False), False),
+        min_signal_gate=float(cfg.get('min_signal_gate', 0.0) or 0.0),
+    )
+
+    last_scope = time.monotonic()
+    last_waiting_emit = 0.0
+    waiting_since: float | None = None
+    last_pcm_at: float | None = None
+    pcm_bytes = 0
+    pcm_report_at = time.monotonic()
+    first_pcm_logged = False
+    reader_done = threading.Event()
+    reader_thread: threading.Thread | None = None
+
+    raw_queue: queue.Queue[bytes] = queue.Queue(maxsize=96)
+
+    try:
+        def _reader_loop() -> None:
+            try:
+                while not stop_event.is_set():
+                    try:
+                        if hasattr(iq_stdout, 'read1'):
+                            data = iq_stdout.read1(CHUNK)
+                        else:
+                            data = iq_stdout.read(CHUNK)
+                    except Exception as e:
+                        with contextlib.suppress(queue.Full):
+                            output_queue.put_nowait({
+                                'type': 'info',
+                                'text': f'[iq] reader error: {e}',
+                            })
+                        break
+
+                    if data is None:
+                        continue
+                    if not data:
+                        break
+
+                    try:
+                        raw_queue.put(data, timeout=0.2)
+                    except queue.Full:
+                        with contextlib.suppress(queue.Empty):
+                            raw_queue.get_nowait()
+                        with contextlib.suppress(queue.Full):
+                            raw_queue.put_nowait(data)
+            finally:
+                reader_done.set()
+                with contextlib.suppress(queue.Full):
+                    raw_queue.put_nowait(b'')
+
+        reader_thread = threading.Thread(
+            target=_reader_loop,
+            daemon=True,
+            name='morse-iq-reader',
+        )
+        reader_thread.start()
+
+        while not stop_event.is_set():
+            if not _drain_control_queue(control_queue, decoder):
+                break
+
+            try:
+                raw = raw_queue.get(timeout=0.20)
+            except queue.Empty:
+                now = time.monotonic()
+                should_emit_waiting = False
+                if last_pcm_at is None:
+                    should_emit_waiting = True
+                elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
+                    should_emit_waiting = True
+
+                if should_emit_waiting and waiting_since is None:
+                    waiting_since = now
+                if should_emit_waiting and now - last_waiting_emit >= WAITING_INTERVAL:
+                    last_waiting_emit = now
+                    _emit_waiting_scope(output_queue, waiting_since)
+
+                if reader_done.is_set():
+                    break
+                continue
+
+            if not raw:
+                if reader_done.is_set() and last_pcm_at is None:
+                    with contextlib.suppress(queue.Full):
+                        output_queue.put_nowait({
+                            'type': 'info',
+                            'text': '[iq] stream ended before samples were received',
+                        })
+                break
+
+            iq = _cu8_to_complex(raw)
+            pcm = _iq_usb_to_pcm16(
+                iq_samples=iq,
+                iq_sample_rate=int(iq_sample_rate),
+                audio_sample_rate=int(decoder.sample_rate),
+            )
+            if not pcm:
+                continue
+
+            waiting_since = None
+            last_pcm_at = time.monotonic()
+            pcm_bytes += len(pcm)
+
+            if not first_pcm_logged:
+                first_pcm_logged = True
+                if pcm_ready_event is not None:
+                    pcm_ready_event.set()
+                with contextlib.suppress(queue.Full):
+                    output_queue.put_nowait({
+                        'type': 'info',
+                        'text': f'[pcm] first IQ demod chunk: {len(pcm)} bytes',
+                    })
+
+            events = decoder.process_block(pcm)
+            for event in events:
+                if event.get('type') == 'scope':
+                    now = time.monotonic()
+                    if now - last_scope >= SCOPE_INTERVAL:
+                        last_scope = now
+                        with contextlib.suppress(queue.Full):
+                            output_queue.put_nowait(event)
+                else:
+                    with contextlib.suppress(queue.Full):
+                        output_queue.put_nowait(event)
+
+            now = time.monotonic()
+            if (now - pcm_report_at) >= 1.0:
+                kbps = (pcm_bytes * 8.0) / max(1e-6, (now - pcm_report_at)) / 1000.0
+                with contextlib.suppress(queue.Full):
+                    output_queue.put_nowait({
+                        'type': 'info',
+                        'text': f'[pcm] {pcm_bytes} B in {now - pcm_report_at:.1f}s ({kbps:.1f} kbps)',
+                    })
+                pcm_bytes = 0
+                pcm_report_at = now
+
+    except Exception as e:  # pragma: no cover - runtime safety
+        logger.debug(f'Morse IQ decoder thread error: {e}')
+        with contextlib.suppress(queue.Full):
+            output_queue.put_nowait({
+                'type': 'info',
+                'text': f'[iq] decoder thread error: {e}',
+            })
+    finally:
+        stop_event.set()
+        if reader_thread is not None:
+            reader_thread.join(timeout=0.35)
+
+        for event in decoder.flush():
+            with contextlib.suppress(queue.Full):
+                output_queue.put_nowait(event)
+
+        with contextlib.suppress(queue.Full):
+            output_queue.put_nowait({
+                'type': 'status',
+                'status': 'stopped',
+                'metrics': decoder.get_metrics(),
+            })

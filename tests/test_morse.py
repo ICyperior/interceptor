@@ -379,8 +379,9 @@ class TestMorseLifecycleRoutes:
         assert start_resp.get_json()['status'] == 'started'
         assert len(popen_cmds) >= 2
         assert '-E' in popen_cmds[0] and 'direct2' in popen_cmds[0]
-        assert '-l' not in popen_cmds[0]
-        assert '-E' in popen_cmds[1] and 'direct2' in popen_cmds[1]
+        assert '-r' in popen_cmds[0]
+        assert '-A' in popen_cmds[0]
+        assert '-E' in popen_cmds[1] and 'direct2' not in popen_cmds[1]
         assert '-r' in popen_cmds[1]
         assert '-A' in popen_cmds[1]
         assert 'dc' in popen_cmds[1]
