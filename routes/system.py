@@ -436,17 +436,21 @@ def _ensure_collector() -> None:
 def _get_observer_location() -> dict[str, Any]:
     """Get observer location from GPS state or config defaults."""
     lat, lon, source = None, None, 'none'
+    gps_meta: dict[str, Any] = {}
 
-    # Try GPS state from app module
+    # Try GPS via utils.gps
     with contextlib.suppress(Exception):
-        import app as app_module
+        from utils.gps import get_current_position
 
-        gps_state = getattr(app_module, 'gps_state', None)
-        if gps_state and isinstance(gps_state, dict):
-            g_lat = gps_state.get('lat') or gps_state.get('latitude')
-            g_lon = gps_state.get('lon') or gps_state.get('longitude')
-            if g_lat is not None and g_lon is not None:
-                lat, lon, source = float(g_lat), float(g_lon), 'gps'
+        pos = get_current_position()
+        if pos and pos.fix_quality >= 2:
+            lat, lon, source = pos.latitude, pos.longitude, 'gps'
+            gps_meta['fix_quality'] = pos.fix_quality
+            gps_meta['satellites'] = pos.satellites
+            if pos.epx is not None and pos.epy is not None:
+                gps_meta['accuracy'] = round(max(pos.epx, pos.epy), 1)
+            if pos.altitude is not None:
+                gps_meta['altitude'] = round(pos.altitude, 1)
 
     # Fall back to config defaults
     if lat is None:
@@ -456,7 +460,10 @@ def _get_observer_location() -> dict[str, Any]:
             if DEFAULT_LATITUDE != 0.0 or DEFAULT_LONGITUDE != 0.0:
                 lat, lon, source = DEFAULT_LATITUDE, DEFAULT_LONGITUDE, 'config'
 
-    return {'lat': lat, 'lon': lon, 'source': source}
+    result: dict[str, Any] = {'lat': lat, 'lon': lon, 'source': source}
+    if gps_meta:
+        result['gps'] = gps_meta
+    return result
 
 
 # ---------------------------------------------------------------------------

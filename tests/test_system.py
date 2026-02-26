@@ -123,8 +123,7 @@ def test_stream_returns_sse_content_type(client):
 def test_location_returns_shape(client):
     """GET /system/location returns lat/lon/source shape."""
     _login(client)
-    with patch('routes.system.contextlib.suppress'):
-        resp = client.get('/system/location')
+    resp = client.get('/system/location')
     assert resp.status_code == 200
     data = resp.get_json()
     assert 'lat' in data
@@ -132,12 +131,48 @@ def test_location_returns_shape(client):
     assert 'source' in data
 
 
+def test_location_from_gps(client):
+    """Location endpoint returns GPS data when fix available."""
+    _login(client)
+    mock_pos = MagicMock()
+    mock_pos.fix_quality = 3
+    mock_pos.latitude = 51.5074
+    mock_pos.longitude = -0.1278
+    mock_pos.satellites = 12
+    mock_pos.epx = 2.5
+    mock_pos.epy = 3.1
+    mock_pos.altitude = 45.0
+
+    with patch('routes.system.get_current_position', return_value=mock_pos, create=True):
+        # Patch the import inside the function
+        import routes.system as mod
+        original = mod._get_observer_location
+
+        def _patched():
+            with patch('utils.gps.get_current_position', return_value=mock_pos):
+                return original()
+
+        mod._get_observer_location = _patched
+        try:
+            resp = client.get('/system/location')
+        finally:
+            mod._get_observer_location = original
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['source'] == 'gps'
+    assert data['lat'] == 51.5074
+    assert data['lon'] == -0.1278
+    assert data['gps']['fix_quality'] == 3
+    assert data['gps']['satellites'] == 12
+    assert data['gps']['accuracy'] == 3.1
+    assert data['gps']['altitude'] == 45.0
+
+
 def test_location_falls_back_to_config(client):
     """Location endpoint returns config defaults when GPS unavailable."""
     _login(client)
-    with patch('routes.system.DEFAULT_LATITUDE', 40.7128, create=True), \
-         patch('routes.system.DEFAULT_LONGITUDE', -74.006, create=True):
-        # Mock the import inside _get_observer_location
+    with patch('utils.gps.get_current_position', return_value=None):
         resp = client.get('/system/location')
     assert resp.status_code == 200
     data = resp.get_json()

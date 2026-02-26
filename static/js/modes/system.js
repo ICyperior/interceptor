@@ -390,14 +390,27 @@ const SystemHealth = (function () {
         // Globe container
         html += '<div class="sys-globe-wrap" id="sysGlobeContainer"></div>';
 
-        // Details column
+        // Details below globe
         html += '<div class="sys-location-details">';
 
         if (locationData && locationData.lat != null) {
             html += '<div class="sys-location-coords">' +
-                locationData.lat.toFixed(4) + '&deg;' + (locationData.lat >= 0 ? 'N' : 'S') + '<br>' +
+                locationData.lat.toFixed(4) + '&deg;' + (locationData.lat >= 0 ? 'N' : 'S') + ', ' +
                 locationData.lon.toFixed(4) + '&deg;' + (locationData.lon >= 0 ? 'E' : 'W') + '</div>';
-            html += '<div class="sys-location-source">Source: ' + escHtml(locationData.source || 'unknown') + '</div>';
+
+            // GPS status indicator
+            if (locationData.source === 'gps' && locationData.gps) {
+                var gps = locationData.gps;
+                var fixLabel = gps.fix_quality === 3 ? '3D Fix' : '2D Fix';
+                var dotCls = gps.fix_quality === 3 ? 'fix-3d' : 'fix-2d';
+                html += '<div class="sys-gps-status">' +
+                    '<span class="sys-gps-dot ' + dotCls + '"></span> ' + fixLabel;
+                if (gps.satellites != null) html += ' &middot; ' + gps.satellites + ' sats';
+                if (gps.accuracy != null) html += ' &middot; &plusmn;' + gps.accuracy + 'm';
+                html += '</div>';
+            } else {
+                html += '<div class="sys-location-source">Source: ' + escHtml(locationData.source || 'unknown') + '</div>';
+            }
         } else {
             html += '<div class="sys-location-coords" style="color:var(--text-dim)">No location</div>';
         }
