@@ -379,9 +379,9 @@ class TestMorseLifecycleRoutes:
         assert start_resp.get_json()['status'] == 'started'
         assert len(popen_cmds) >= 2
         assert '-E' in popen_cmds[0] and 'direct2' in popen_cmds[0]
-        assert '-l' in popen_cmds[0]
+        assert '-l' not in popen_cmds[0]
         assert '-E' in popen_cmds[1] and 'direct2' in popen_cmds[1]
-        assert '-l' not in popen_cmds[1]
+        assert '-l' in popen_cmds[1]
 
         stop_resp = client.post('/morse/stop')
         assert stop_resp.status_code == 200

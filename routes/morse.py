@@ -306,17 +306,18 @@ def start_morse() -> Response:
 
     can_try_direct_sampling = bool(sdr_device.sdr_type == SDRType.RTL_SDR and freq < 24.0)
     if can_try_direct_sampling:
-        # Prefer direct2 with explicit squelch-off, then retry with safer variants
-        # if the command starts but never emits PCM.
+        # Cross-platform note: some rtl_fm builds treat "-l 0" as hard squelch and
+        # emit no PCM. Try the no-"-l" form first, then legacy variants.
         command_attempts = [
-            {'use_direct_sampling': True, 'force_squelch_off': True},
             {'use_direct_sampling': True, 'force_squelch_off': False},
+            {'use_direct_sampling': True, 'force_squelch_off': True},
+            {'use_direct_sampling': False, 'force_squelch_off': False},
             {'use_direct_sampling': False, 'force_squelch_off': True},
         ]
     else:
         command_attempts = [
-            {'use_direct_sampling': False, 'force_squelch_off': True},
             {'use_direct_sampling': False, 'force_squelch_off': False},
+            {'use_direct_sampling': False, 'force_squelch_off': True},
         ]
 
     rtl_process: subprocess.Popen | None = None
