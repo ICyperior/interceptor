@@ -22,6 +22,7 @@ var MorseMode = (function () {
     var SCOPE_HISTORY_LEN = 300;
     var scopeThreshold = 0;
     var scopeToneOn = false;
+    var scopeWaiting = false;
 
     // ---- Initialization ----
 
@@ -150,6 +151,11 @@ var MorseMode = (function () {
         if (type === 'scope') {
             // Update scope data
             var amps = msg.amplitudes || [];
+            if (msg.waiting && amps.length === 0 && scopeHistory.length === 0) {
+                scopeWaiting = true;
+            } else if (amps.length > 0) {
+                scopeWaiting = false;
+            }
             for (var i = 0; i < amps.length; i++) {
                 scopeHistory.push(amps[i]);
                 if (scopeHistory.length > SCOPE_HISTORY_LEN) {
@@ -238,6 +244,7 @@ var MorseMode = (function () {
         scopeCtx = canvas.getContext('2d');
         scopeCtx.scale(dpr, dpr);
         scopeHistory = [];
+        scopeWaiting = false;
 
         var toneLabel = document.getElementById('morseScopeToneLabel');
         var threshLabel = document.getElementById('morseScopeThreshLabel');
@@ -255,6 +262,13 @@ var MorseMode = (function () {
             if (threshLabel) threshLabel.textContent = scopeThreshold > 0 ? Math.round(scopeThreshold) : '--';
 
             if (scopeHistory.length === 0) {
+                if (scopeWaiting) {
+                    scopeCtx.fillStyle = '#556677';
+                    scopeCtx.font = '12px monospace';
+                    scopeCtx.textAlign = 'center';
+                    scopeCtx.fillText('Awaiting SDR data\u2026', w / 2, h / 2);
+                    scopeCtx.textAlign = 'start';
+                }
                 scopeAnim = requestAnimationFrame(draw);
                 return;
             }

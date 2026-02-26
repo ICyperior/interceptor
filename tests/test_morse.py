@@ -327,6 +327,48 @@ class TestMorseDecoderThread:
         t.join(timeout=5)
         assert not t.is_alive(), "Thread should finish after reading all data"
 
+    def test_thread_heartbeat_on_no_data(self):
+        """When rtl_fm produces no data, thread should emit waiting scope events."""
+        import os as _os
+        stop = threading.Event()
+        q = queue.Queue(maxsize=100)
+
+        # Create a pipe that never gets written to (simulates rtl_fm with no output)
+        read_fd, write_fd = _os.pipe()
+        read_file = _os.fdopen(read_fd, 'rb', 0)
+
+        t = threading.Thread(
+            target=morse_decoder_thread,
+            args=(read_file, q, stop),
+        )
+        t.daemon = True
+        t.start()
+
+        # Wait up to 5 seconds for at least one heartbeat event
+        events = []
+        import time as _time
+        deadline = _time.monotonic() + 5.0
+        while _time.monotonic() < deadline:
+            try:
+                ev = q.get(timeout=0.5)
+                events.append(ev)
+                if ev.get('waiting'):
+                    break
+            except queue.Empty:
+                continue
+
+        stop.set()
+        _os.close(write_fd)
+        read_file.close()
+        t.join(timeout=3)
+
+        waiting_events = [e for e in events if e.get('type') == 'scope' and e.get('waiting')]
+        assert len(waiting_events) >= 1, f"Expected waiting heartbeat events, got {events}"
+        ev = waiting_events[0]
+        assert ev['amplitudes'] == []
+        assert ev['threshold'] == 0
+        assert ev['tone_on'] is False
+
     def test_thread_produces_events(self):
         """Thread should push character events to the queue."""
         import io

@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import contextlib
 import math
+import os
 import queue
+import select
 import struct
 import threading
 import time
@@ -284,8 +286,26 @@ def morse_decoder_thread(
     )
 
     try:
+        fd = rtl_stdout.fileno()
+
         while not stop_event.is_set():
-            data = rtl_stdout.read(CHUNK)
+            ready, _, _ = select.select([fd], [], [], 2.0)
+            if not ready:
+                # No data from SDR — emit diagnostic heartbeat
+                now = time.monotonic()
+                if now - last_scope >= SCOPE_INTERVAL:
+                    last_scope = now
+                    with contextlib.suppress(queue.Full):
+                        output_queue.put_nowait({
+                            'type': 'scope',
+                            'amplitudes': [],
+                            'threshold': 0,
+                            'tone_on': False,
+                            'waiting': True,
+                        })
+                continue
+
+            data = os.read(fd, CHUNK)
             if not data:
                 break
 
