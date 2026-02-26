@@ -596,13 +596,6 @@ def start_morse() -> Response:
             fm_kwargs['direct_sampling'] = int(direct_sampling_mode)
 
         cmd = list(builder.build_fm_demod_command(**fm_kwargs))
-        insert_at = len(cmd) - 1 if cmd else 0
-        if insert_at < 0:
-            insert_at = 0
-
-        # Mirror pager's stable behavior: explicit open squelch, stdout as "-".
-        if sdr_device.sdr_type == SDRType.RTL_SDR and '-l' not in cmd:
-            cmd[insert_at:insert_at] = ['-l', '0']
 
         if cmd and cmd[-1] != '-':
             cmd.append('-')
