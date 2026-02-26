@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import math
-import os
 import queue
-import select
 import struct
 import threading
 import time
@@ -259,6 +257,20 @@ class MorseDecoder:
         return events
 
 
+def _stdout_reader(stdout, data_queue: queue.Queue, stop_event: threading.Event) -> None:
+    """Blocking reader — pushes raw PCM chunks to queue, None on EOF."""
+    try:
+        while not stop_event.is_set():
+            data = stdout.read(4096)
+            if not data:
+                break
+            data_queue.put(data)
+    except Exception:
+        pass
+    finally:
+        data_queue.put(None)  # sentinel: pipe closed / EOF
+
+
 def morse_decoder_thread(
     rtl_stdout,
     output_queue: queue.Queue,
@@ -287,11 +299,18 @@ def morse_decoder_thread(
     )
 
     try:
-        fd = rtl_stdout.fileno()
+        pcm_queue: queue.Queue = queue.Queue(maxsize=50)
+        reader = threading.Thread(
+            target=_stdout_reader,
+            args=(rtl_stdout, pcm_queue, stop_event),
+        )
+        reader.daemon = True
+        reader.start()
 
         while not stop_event.is_set():
-            ready, _, _ = select.select([fd], [], [], 2.0)
-            if not ready:
+            try:
+                data = pcm_queue.get(timeout=2.0)
+            except queue.Empty:
                 # No data from SDR — emit diagnostic heartbeat
                 now = time.monotonic()
                 if waiting_since is None:
@@ -309,8 +328,7 @@ def morse_decoder_thread(
                         })
                 continue
 
-            data = os.read(fd, CHUNK)
-            if not data:
+            if data is None:  # EOF sentinel
                 break
             waiting_since = None
 
