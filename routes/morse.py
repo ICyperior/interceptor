@@ -158,12 +158,17 @@ def start_morse() -> Response:
                     morse_active_device = None
                 return jsonify({'status': 'error', 'message': msg}), 500
 
-            # Monitor rtl_fm stderr
+            # Forward rtl_fm stderr to queue so frontend can display diagnostics
             def monitor_stderr():
                 for line in rtl_process.stderr:
                     err_text = line.decode('utf-8', errors='replace').strip()
                     if err_text:
                         logger.debug(f"[rtl_fm/morse] {err_text}")
+                        with contextlib.suppress(queue.Full):
+                            app_module.morse_queue.put_nowait({
+                                'type': 'info',
+                                'text': f'[rtl_fm] {err_text}',
+                            })
 
             stderr_thread = threading.Thread(target=monitor_stderr)
             stderr_thread.daemon = True
@@ -190,6 +195,11 @@ def start_morse() -> Response:
             app_module.morse_process._decoder_thread = decoder_thread
 
             app_module.morse_queue.put({'type': 'status', 'status': 'started'})
+            with contextlib.suppress(queue.Full):
+                app_module.morse_queue.put_nowait({
+                    'type': 'info',
+                    'text': f'[cmd] {full_cmd}',
+                })
 
             return jsonify({
                 'status': 'started',

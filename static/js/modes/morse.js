@@ -23,6 +23,7 @@ var MorseMode = (function () {
     var scopeThreshold = 0;
     var scopeToneOn = false;
     var scopeWaiting = false;
+    var waitingStart = 0;  // timestamp when waiting began
 
     // ---- Initialization ----
 
@@ -152,9 +153,13 @@ var MorseMode = (function () {
             // Update scope data
             var amps = msg.amplitudes || [];
             if (msg.waiting && amps.length === 0 && scopeHistory.length === 0) {
-                scopeWaiting = true;
+                if (!scopeWaiting) {
+                    scopeWaiting = true;
+                    waitingStart = Date.now();
+                }
             } else if (amps.length > 0) {
                 scopeWaiting = false;
+                waitingStart = 0;
             }
             for (var i = 0; i < amps.length; i++) {
                 scopeHistory.push(amps[i]);
@@ -178,6 +183,9 @@ var MorseMode = (function () {
                 disconnectSSE();
                 stopScope();
             }
+        } else if (type === 'info') {
+            appendDiagLine(msg.text);
+
         } else if (type === 'error') {
             console.error('Morse error:', msg.text);
         }
@@ -263,10 +271,14 @@ var MorseMode = (function () {
 
             if (scopeHistory.length === 0) {
                 if (scopeWaiting) {
-                    scopeCtx.fillStyle = '#556677';
+                    var elapsed = waitingStart ? (Date.now() - waitingStart) / 1000 : 0;
+                    var waitText = elapsed > 10
+                        ? 'No audio data \u2014 check SDR log below'
+                        : 'Awaiting SDR data\u2026';
+                    scopeCtx.fillStyle = elapsed > 10 ? '#887744' : '#556677';
                     scopeCtx.font = '12px monospace';
                     scopeCtx.textAlign = 'center';
-                    scopeCtx.fillText('Awaiting SDR data\u2026', w / 2, h / 2);
+                    scopeCtx.fillText(waitText, w / 2, h / 2);
                     scopeCtx.textAlign = 'start';
                 }
                 scopeAnim = requestAnimationFrame(draw);
@@ -371,6 +383,30 @@ var MorseMode = (function () {
         URL.revokeObjectURL(url);
     }
 
+    // ---- Diagnostic log ----
+
+    function appendDiagLine(text) {
+        var log = document.getElementById('morseDiagLog');
+        if (!log) return;
+        log.style.display = 'block';
+        var line = document.createElement('div');
+        line.textContent = text;
+        log.appendChild(line);
+        // Limit to 20 entries
+        while (log.children.length > 20) {
+            log.removeChild(log.firstChild);
+        }
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function clearDiagLog() {
+        var log = document.getElementById('morseDiagLog');
+        if (log) {
+            log.innerHTML = '';
+            log.style.display = 'none';
+        }
+    }
+
     // ---- UI ----
 
     function updateUI(running) {
@@ -398,6 +434,14 @@ var MorseMode = (function () {
         var scopeStatus = document.getElementById('morseScopeStatusLabel');
         if (scopeStatus) scopeStatus.textContent = running ? 'ACTIVE' : 'IDLE';
         if (scopeStatus) scopeStatus.style.color = running ? '#0f0' : '#444';
+
+        // Diagnostic log: clear on start, hide on stop
+        if (running) {
+            clearDiagLog();
+        } else {
+            var diagLog = document.getElementById('morseDiagLog');
+            if (diagLog) diagLog.style.display = 'none';
+        }
     }
 
     function setFreq(mhz) {

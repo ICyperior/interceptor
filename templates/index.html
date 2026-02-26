@@ -3085,6 +3085,11 @@
                     </div>
                 </div>
 
+                <div id="morseDiagLog" style="display: none; margin-bottom: 8px; max-height: 60px; overflow-y: auto;
+                    background: #080812; border: 1px solid #1a1a2e; border-radius: 4px; padding: 4px 8px;
+                    font-family: var(--font-mono); font-size: 10px; color: #556677; line-height: 1.6;">
+                </div>
+
                 <!-- Morse Decoded Output -->
                 <div id="morseOutputPanel" style="display: none; margin-bottom: 12px;">
                     <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px;">
@@ -4172,6 +4177,8 @@
             const morseOutputPanel = document.getElementById('morseOutputPanel');
             if (morseScopePanel && mode !== 'morse') morseScopePanel.style.display = 'none';
             if (morseOutputPanel && mode !== 'morse') morseOutputPanel.style.display = 'none';
+            const morseDiagLog = document.getElementById('morseDiagLog');
+            if (morseDiagLog && mode !== 'morse') morseDiagLog.style.display = 'none';
 
             // Update output panel title based on mode
             const outputTitle = document.getElementById('outputTitle');

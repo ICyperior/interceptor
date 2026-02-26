@@ -278,6 +278,7 @@ def morse_decoder_thread(
     CHUNK = 4096  # bytes per read (2048 samples at 16-bit mono)
     SCOPE_INTERVAL = 0.1  # scope updates at ~10 Hz
     last_scope = time.monotonic()
+    waiting_since: float | None = None
 
     decoder = MorseDecoder(
         sample_rate=sample_rate,
@@ -293,6 +294,8 @@ def morse_decoder_thread(
             if not ready:
                 # No data from SDR — emit diagnostic heartbeat
                 now = time.monotonic()
+                if waiting_since is None:
+                    waiting_since = now
                 if now - last_scope >= SCOPE_INTERVAL:
                     last_scope = now
                     with contextlib.suppress(queue.Full):
@@ -302,12 +305,14 @@ def morse_decoder_thread(
                             'threshold': 0,
                             'tone_on': False,
                             'waiting': True,
+                            'waiting_seconds': round(now - waiting_since, 1),
                         })
                 continue
 
             data = os.read(fd, CHUNK)
             if not data:
                 break
+            waiting_since = None
 
             events = decoder.process_block(data)
 
