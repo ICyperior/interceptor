@@ -270,7 +270,6 @@ class TestMorseLifecycleRoutes:
         monkeypatch.setattr(morse_routes.SDRFactory, 'create_default_device', staticmethod(lambda sdr_type, index: DummyDevice()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'detect_devices', staticmethod(lambda: []))
-        monkeypatch.setattr(morse_routes, 'get_tool_path', lambda _name: '/usr/bin/multimon-ng')
 
         pcm = generate_morse_audio('E', wpm=15, sample_rate=22050)
 
@@ -293,27 +292,7 @@ class TestMorseLifecycleRoutes:
             def kill(self):
                 self.returncode = -9
 
-        class FakeMultimonProc:
-            def __init__(self):
-                self.stdin = io.BytesIO()
-                self.returncode = None
-
-            def poll(self):
-                return self.returncode
-
-            def terminate(self):
-                self.returncode = 0
-
-            def wait(self, timeout=None):
-                self.returncode = 0
-                return 0
-
-            def kill(self):
-                self.returncode = -9
-
         def fake_popen(cmd, *args, **kwargs):
-            if 'multimon' in str(cmd[0]):
-                return FakeMultimonProc()
             return FakeRtlProc(pcm)
 
         monkeypatch.setattr(morse_routes.subprocess, 'Popen', fake_popen)
@@ -375,7 +354,6 @@ class TestMorseLifecycleRoutes:
         monkeypatch.setattr(morse_routes.SDRFactory, 'create_default_device', staticmethod(lambda sdr_type, index: DummyDevice()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'detect_devices', staticmethod(lambda: []))
-        monkeypatch.setattr(morse_routes, 'get_tool_path', lambda _name: '/usr/bin/multimon-ng')
 
         pcm = generate_morse_audio('E', wpm=15, sample_rate=22050)
         rtl_cmds = []
@@ -399,27 +377,7 @@ class TestMorseLifecycleRoutes:
             def kill(self):
                 self.returncode = -9
 
-        class FakeMultimonProc:
-            def __init__(self):
-                self.stdin = io.BytesIO()
-                self.returncode = None
-
-            def poll(self):
-                return self.returncode
-
-            def terminate(self):
-                self.returncode = 0
-
-            def wait(self, timeout=None):
-                self.returncode = 0
-                return 0
-
-            def kill(self):
-                self.returncode = -9
-
         def fake_popen(cmd, *args, **kwargs):
-            if 'multimon' in str(cmd[0]):
-                return FakeMultimonProc()
             rtl_cmds.append(cmd)
             if len(rtl_cmds) == 1:
                 return FakeRtlProc(b'', 1)
@@ -465,7 +423,6 @@ class TestMorseLifecycleRoutes:
 
         monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode: None)
         monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx: released_devices.append(idx))
-        monkeypatch.setattr(morse_routes, 'get_tool_path', lambda _name: '/usr/bin/multimon-ng')
 
         class DummyDevice:
             def __init__(self, index: int):
@@ -520,27 +477,7 @@ class TestMorseLifecycleRoutes:
             def kill(self):
                 self.returncode = -9
 
-        class FakeMultimonProc:
-            def __init__(self):
-                self.stdin = io.BytesIO()
-                self.returncode = None
-
-            def poll(self):
-                return self.returncode
-
-            def terminate(self):
-                self.returncode = 0
-
-            def wait(self, timeout=None):
-                self.returncode = 0
-                return 0
-
-            def kill(self):
-                self.returncode = -9
-
         def fake_popen(cmd, *args, **kwargs):
-            if 'multimon' in str(cmd[0]):
-                return FakeMultimonProc()
             try:
                 dev = int(cmd[cmd.index('-d') + 1])
             except Exception:
