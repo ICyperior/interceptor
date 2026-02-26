@@ -7,7 +7,7 @@ var MorseMode = (function () {
 
     var SETTINGS_KEY = 'intercept.morse.settings.v3';
     var STATUS_POLL_MS = 5000;
-    var LOCAL_STOP_TIMEOUT_MS = 5000;
+    var LOCAL_STOP_TIMEOUT_MS = 12000;
     var START_TIMEOUT_MS = 60000;
 
     var state = {
@@ -403,6 +403,9 @@ var MorseMode = (function () {
                 appendDiagLine('[stop] still alive: ' + data.alive.join(', '));
             }
 
+            if (!data || data.status === 'error') {
+                return data;  // Stay in 'stopping' — let checkStatus resolve
+            }
             setLifecycle('idle');
             setStatusText('Standby');
             return data;
@@ -422,9 +425,10 @@ var MorseMode = (function () {
             .then(function (data) {
                 if (!data || typeof data !== 'object') return;
                 // Guard against in-flight polls that were dispatched before stop
-                if (state.stopPromise || state.lifecycle === 'stopping') return;
+                if (state.stopPromise) return;
 
                 if (data.running) {
+                    if (state.lifecycle === 'stopping') return;  // Don't override post-timeout stopping
                     if (data.state === 'starting') {
                         setLifecycle('starting');
                     } else if (data.state === 'stopping') {
