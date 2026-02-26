@@ -393,7 +393,8 @@ class TestMorseLifecycleRoutes:
         assert '-D' in popen_cmds[0]
         assert '2' in popen_cmds[0]
         assert popen_cmds[1][0] == 'rtl_sdr'
-        assert '-D' not in popen_cmds[1]
+        assert '-D' in popen_cmds[1]
+        assert '1' in popen_cmds[1]
 
         stop_resp = client.post('/morse/stop')
         assert stop_resp.status_code == 200
