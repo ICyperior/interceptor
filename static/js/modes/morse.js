@@ -173,11 +173,18 @@ var MorseMode = (function () {
     function loadSettings() {
         try {
             var raw = localStorage.getItem(SETTINGS_KEY);
-            if (!raw) return;
+            if (!raw) {
+                if (el('morseShowDiag')) el('morseShowDiag').checked = true;
+                toggleDiagPanel();
+                persistSettings();
+                return;
+            }
             var parsed = JSON.parse(raw);
             applySettings(parsed);
         } catch (_) {
             // Ignore malformed settings.
+            if (el('morseShowDiag')) el('morseShowDiag').checked = true;
+            toggleDiagPanel();
         }
     }
 
@@ -555,6 +562,11 @@ var MorseMode = (function () {
             if (!scopeWaiting) {
                 scopeWaiting = true;
                 waitingStart = Date.now();
+                appendDiagLine('[morse] waiting for PCM stream...');
+            }
+            var waitElapsedMs = waitingStart ? (Date.now() - waitingStart) : 0;
+            if (waitElapsedMs > 10000 && el('morseDiagLog') && el('morseDiagLog').children.length < 6) {
+                appendDiagLine('[hint] No samples after 10s. Check SDR device, frequency, and HF direct sampling path.');
             }
         } else if (amps.length > 0) {
             scopeWaiting = false;
@@ -812,6 +824,9 @@ var MorseMode = (function () {
         if (!log) return;
 
         var showDiag = !!(el('morseShowDiag') && el('morseShowDiag').checked);
+        if (!showDiag && scopeWaiting) {
+            showDiag = true;
+        }
         if (!showDiag) return;
 
         log.style.display = 'block';

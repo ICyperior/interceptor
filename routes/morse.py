@@ -265,11 +265,9 @@ def start_morse() -> Response:
 
         _set_state(MORSE_STARTING, 'Starting decoder...')
 
-    sample_rate = 8000
+    # Use pager-proven audio rate for rtl_fm compatibility across builds.
+    sample_rate = 22050
     bias_t = _bool_value(data.get('bias_t', False), False)
-
-    # RTL-SDR needs direct sampling mode for HF frequencies below 24 MHz
-    direct_sampling = 2 if freq < 24.0 else None
 
     sdr_type_str = data.get('sdr_type', 'rtlsdr')
     try:
@@ -280,15 +278,22 @@ def start_morse() -> Response:
     sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
     builder = SDRFactory.get_builder(sdr_device.sdr_type)
 
+    fm_kwargs: dict[str, Any] = {
+        'device': sdr_device,
+        'frequency_mhz': freq,
+        'sample_rate': sample_rate,
+        'gain': float(gain) if gain and gain != '0' else None,
+        'ppm': int(ppm) if ppm and ppm != '0' else None,
+        'modulation': 'usb',
+        'bias_t': bias_t,
+    }
+
+    # Only rtl_fm supports direct sampling flags.
+    if sdr_device.sdr_type == SDRType.RTL_SDR and freq < 24.0:
+        fm_kwargs['direct_sampling'] = 2
+
     rtl_cmd = builder.build_fm_demod_command(
-        device=sdr_device,
-        frequency_mhz=freq,
-        sample_rate=sample_rate,
-        gain=float(gain) if gain and gain != '0' else None,
-        ppm=int(ppm) if ppm and ppm != '0' else None,
-        modulation='usb',
-        bias_t=bias_t,
-        direct_sampling=direct_sampling,
+        **fm_kwargs,
     )
 
     full_cmd = ' '.join(rtl_cmd)
