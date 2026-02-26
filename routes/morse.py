@@ -64,7 +64,7 @@ def start_morse() -> Response:
 
         # Validate standard SDR inputs
         try:
-            freq = validate_frequency(data.get('frequency', '14.060'))
+            freq = validate_frequency(data.get('frequency', '14.060'), min_mhz=0.5, max_mhz=30.0)
             gain = validate_gain(data.get('gain', '0'))
             ppm = validate_ppm(data.get('ppm', '0'))
             device = validate_device_index(data.get('device', '0'))
