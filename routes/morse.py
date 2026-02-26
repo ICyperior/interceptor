@@ -627,10 +627,11 @@ def start_morse() -> Response:
     multimon_decoder_modes = _resolve_multimon_morse_modes(multimon_path)
 
     def _build_rtl_cmd(device_index: int, direct_sampling_mode: int | None) -> list[str]:
+        tuned_frequency_mhz = max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0))
         sdr_device = SDRFactory.create_default_device(sdr_type, index=device_index)
         fm_kwargs: dict[str, Any] = {
             'device': sdr_device,
-            'frequency_mhz': freq,
+            'frequency_mhz': tuned_frequency_mhz,
             'sample_rate': sample_rate,
             'gain': float(gain) if gain and gain != '0' else None,
             'ppm': int(ppm) if ppm and ppm != '0' else None,
@@ -651,6 +652,8 @@ def start_morse() -> Response:
 
     runtime_config: dict[str, Any] = {
         'sample_rate': sample_rate,
+        'rf_frequency_mhz': float(freq),
+        'tuned_frequency_mhz': max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0)),
         'tone_freq': tone_freq,
         'wpm': wpm,
         'bandwidth_hz': bandwidth_hz,
@@ -785,11 +788,13 @@ def start_morse() -> Response:
                     direct_mode_label = direct_sampling_mode if direct_sampling_mode is not None else 'none'
                     full_cmd = ' '.join(rtl_cmd) + ' | ' + ' '.join(multimon_cmd)
                     logger.info(
-                        'Morse decoder attempt decoder=%s device=%s (%s/%s) direct_mode=%s (%s/%s): %s',
+                        'Morse decoder attempt decoder=%s device=%s (%s/%s) rf=%.6f tuned=%.6f direct_mode=%s (%s/%s): %s',
                         decoder_mode,
                         active_device_index,
                         device_pos,
                         len(candidate_device_indices),
+                        float(freq),
+                        float(runtime_config.get('tuned_frequency_mhz', freq)),
                         direct_mode_label,
                         attempt_index,
                         len(direct_sampling_attempts),
