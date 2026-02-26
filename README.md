@@ -57,6 +57,9 @@ Support the developer of this open-source project
 
 ## CW / Morse Decoder Notes
 
+Live backend:
+- Uses `rtl_fm` piped into `multimon-ng` (`MORSE_CW`) for real-time decode.
+
 Recommended baseline settings:
 - **Tone**: `700 Hz`
 - **Bandwidth**: `200 Hz` (use `100 Hz` for crowded bands, `400 Hz` for drifting signals)
