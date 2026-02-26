@@ -32,7 +32,6 @@
     border: 1px solid var(--border-color, #2a2a4a);
     border-radius: 6px;
     padding: 16px;
-    min-height: 120px;
 }
 
 .sys-card-wide {
@@ -464,17 +463,24 @@
     background: var(--bg-primary, #0d0d1a);
 }
 
-/* System info — horizontal layout */
+/* System info — vertical layout to fill card */
 .sys-info-grid {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px 20px;
-    font-size: 11px;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
     color: var(--text-dim, #8888aa);
 }
 
 .sys-info-item {
-    white-space: nowrap;
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sys-info-item:last-child {
+    border-bottom: none;
 }
 
 .sys-info-item strong {

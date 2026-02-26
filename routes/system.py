@@ -452,13 +452,21 @@ def _get_observer_location() -> dict[str, Any]:
             if pos.altitude is not None:
                 gps_meta['altitude'] = round(pos.altitude, 1)
 
-    # Fall back to config defaults
+    # Fall back to config env vars
     if lat is None:
         with contextlib.suppress(Exception):
             from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
             if DEFAULT_LATITUDE != 0.0 or DEFAULT_LONGITUDE != 0.0:
                 lat, lon, source = DEFAULT_LATITUDE, DEFAULT_LONGITUDE, 'config'
+
+    # Fall back to hardcoded constants (London)
+    if lat is None:
+        with contextlib.suppress(Exception):
+            from utils.constants import DEFAULT_LATITUDE as CONST_LAT
+            from utils.constants import DEFAULT_LONGITUDE as CONST_LON
+
+            lat, lon, source = CONST_LAT, CONST_LON, 'default'
 
     result: dict[str, Any] = {'lat': lat, 'lon': lon, 'source': source}
     if gps_meta:

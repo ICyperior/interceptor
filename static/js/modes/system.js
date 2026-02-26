@@ -612,19 +612,19 @@ const SystemHealth = (function () {
         var sys = m.system || {};
         var html = '<div class="sys-card-header">System Info</div><div class="sys-card-body"><div class="sys-info-grid">';
 
-        html += '<div class="sys-info-item"><strong>Host:</strong> ' + escHtml(sys.hostname || '--') + '</div>';
-        html += '<div class="sys-info-item"><strong>OS:</strong> ' + escHtml(sys.platform || '--') + '</div>';
-        html += '<div class="sys-info-item"><strong>Python:</strong> ' + escHtml(sys.python || '--') + '</div>';
-        html += '<div class="sys-info-item"><strong>App:</strong> v' + escHtml(sys.version || '--') + '</div>';
-        html += '<div class="sys-info-item"><strong>Uptime:</strong> ' + escHtml(sys.uptime_human || '--') + '</div>';
+        html += '<div class="sys-info-item"><strong>Host</strong><span>' + escHtml(sys.hostname || '--') + '</span></div>';
+        html += '<div class="sys-info-item"><strong>OS</strong><span>' + escHtml((sys.platform || '--').replace(/-with-glibc[\d.]+/, '')) + '</span></div>';
+        html += '<div class="sys-info-item"><strong>Python</strong><span>' + escHtml(sys.python || '--') + '</span></div>';
+        html += '<div class="sys-info-item"><strong>App</strong><span>v' + escHtml(sys.version || '--') + '</span></div>';
+        html += '<div class="sys-info-item"><strong>Uptime</strong><span>' + escHtml(sys.uptime_human || '--') + '</span></div>';
 
         if (m.boot_time) {
             var bootDate = new Date(m.boot_time * 1000);
-            html += '<div class="sys-info-item"><strong>Boot:</strong> ' + escHtml(bootDate.toUTCString()) + '</div>';
+            html += '<div class="sys-info-item"><strong>Boot</strong><span>' + escHtml(bootDate.toLocaleString()) + '</span></div>';
         }
 
         if (m.network && m.network.connections != null) {
-            html += '<div class="sys-info-item"><strong>Connections:</strong> ' + m.network.connections + '</div>';
+            html += '<div class="sys-info-item"><strong>Connections</strong><span>' + m.network.connections + '</span></div>';
         }
 
         html += '</div></div>';

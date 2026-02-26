@@ -169,14 +169,17 @@ def test_location_from_gps(client):
     assert data['gps']['altitude'] == 45.0
 
 
-def test_location_falls_back_to_config(client):
-    """Location endpoint returns config defaults when GPS unavailable."""
+def test_location_falls_back_to_defaults(client):
+    """Location endpoint returns constants defaults when GPS and config unavailable."""
     _login(client)
-    with patch('utils.gps.get_current_position', return_value=None):
-        resp = client.get('/system/location')
+    resp = client.get('/system/location')
     assert resp.status_code == 200
     data = resp.get_json()
     assert 'source' in data
+    # Should get location from config or default constants
+    assert data['lat'] is not None
+    assert data['lon'] is not None
+    assert data['source'] in ('config', 'default')
 
 
 def test_weather_requires_location(client):
