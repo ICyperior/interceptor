@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import queue
 import subprocess
 import tempfile
@@ -100,6 +101,15 @@ def _close_pipe(pipe_obj: Any) -> None:
         return
     with contextlib.suppress(Exception):
         pipe_obj.close()
+
+
+def _stdout_target_path() -> str:
+    """Return the most reliable stdout path for rtl_* tools on this host."""
+    if os.name == 'posix':
+        for candidate in ('/proc/self/fd/1', '/dev/fd/1', '/dev/stdout'):
+            if Path(candidate).exists():
+                return candidate
+    return '-'
 
 
 def _bool_value(value: Any, default: bool = False) -> bool:
@@ -325,6 +335,13 @@ def start_morse() -> Response:
                     insert_at += 2
                 if '-E' not in cmd or 'dc' not in cmd:
                     cmd[insert_at:insert_at] = ['-E', 'dc']
+            # Some rtl_fm builds treat "-" as a literal filename. Use an
+            # explicit fd-backed stdout path for deterministic piping.
+            out_target = _stdout_target_path()
+            if cmd and cmd[-1] == '-':
+                cmd[-1] = out_target
+            elif out_target not in cmd:
+                cmd.append(out_target)
         return cmd
 
     # Use a hardware-friendly IQ rate (matches common RTL-SDR stable rates
@@ -353,12 +370,13 @@ def start_morse() -> Response:
             else:
                 iq_cmd.extend(['-D', str(direct_sampling_mode)])
         # Some rtl_sdr builds treat "-" as a literal filename instead of stdout.
-        # Use /dev/stdout explicitly on Unix-like systems for deterministic piping.
+        # Use an explicit fd-backed stdout path for deterministic piping.
+        out_target = _stdout_target_path()
         if iq_cmd:
             if iq_cmd[-1] == '-':
-                iq_cmd[-1] = '/dev/stdout'
-            elif '/dev/stdout' not in iq_cmd:
-                iq_cmd.append('/dev/stdout')
+                iq_cmd[-1] = out_target
+            elif out_target not in iq_cmd:
+                iq_cmd.append(out_target)
         return iq_cmd, tune_mhz
 
     can_try_direct_sampling = bool(sdr_device.sdr_type == SDRType.RTL_SDR and freq < 24.0)
