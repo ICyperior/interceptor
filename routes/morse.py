@@ -350,6 +350,13 @@ def start_morse() -> Response:
                 iq_cmd[-1:-1] = ['-D', str(direct_sampling_mode)]
             else:
                 iq_cmd.extend(['-D', str(direct_sampling_mode)])
+        # Some rtl_sdr builds treat "-" as a literal filename instead of stdout.
+        # Use /dev/stdout explicitly on Unix-like systems for deterministic piping.
+        if iq_cmd:
+            if iq_cmd[-1] == '-':
+                iq_cmd[-1] = '/dev/stdout'
+            elif '/dev/stdout' not in iq_cmd:
+                iq_cmd.append('/dev/stdout')
         return iq_cmd, tune_mhz
 
     can_try_direct_sampling = bool(sdr_device.sdr_type == SDRType.RTL_SDR and freq < 24.0)
@@ -628,7 +635,7 @@ def start_morse() -> Response:
         if rtl_process is None or stop_event is None or control_queue is None or decoder_thread is None:
             msg = 'SDR capture started but no PCM stream was received.'
             if attempt_errors:
-                msg = msg + ' ' + ' | '.join(attempt_errors[-2:])
+                msg = msg + ' ' + ' | '.join(attempt_errors)
             logger.error(f'Morse startup failed: {msg}')
             with app_module.morse_lock:
                 if morse_active_device is not None:
