@@ -544,6 +544,7 @@ def start_morse() -> Response:
             stop_event = threading.Event()
             control_queue = queue.Queue(maxsize=16)
             pcm_ready_event = threading.Event()
+            stream_ready_event = threading.Event()
             attempt_stderr_lines: list[str] = []
 
             def monitor_stderr(
@@ -598,6 +599,7 @@ def start_morse() -> Response:
                         'decoder_config': runtime_config,
                         'control_queue': control_queue,
                         'pcm_ready_event': pcm_ready_event,
+                        'stream_ready_event': stream_ready_event,
                     },
                     daemon=True,
                     name='morse-decoder',
@@ -617,6 +619,7 @@ def start_morse() -> Response:
                         'decoder_config': runtime_config,
                         'control_queue': control_queue,
                         'pcm_ready_event': pcm_ready_event,
+                        'stream_ready_event': stream_ready_event,
                         'strip_text_chunks': False,
                     },
                     daemon=True,
@@ -642,6 +645,8 @@ def start_morse() -> Response:
                     startup_error = 'No PCM samples received within startup timeout'
                 if attempt_stderr_lines:
                     startup_error = f'{startup_error}; stderr: {attempt_stderr_lines[-1]}'
+                if stream_ready_event.is_set():
+                    startup_error = f'{startup_error}; stream=alive'
 
                 is_last_attempt = attempt_index == len(command_attempts)
                 if (
