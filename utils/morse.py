@@ -433,10 +433,11 @@ class MorseDecoder:
 
                 self._signal_peak = max(self._signal_peak, self._noise_floor * 1.05)
 
-                # Prevent noise floor from staying stuck below actual ambient noise
-                # (occurs when warmup calibration runs before AGC converges)
-                if noise_ref > self._noise_floor * 1.5:
-                    self._noise_floor += settle_alpha * 0.5 * (noise_ref - self._noise_floor)
+                # Always blend adjacent-band noise reference into noise floor.
+                # Adjacent bands track the same AGC gain but exclude the tone,
+                # so this prevents noise floor from staying stuck at warmup-era
+                # low values after AGC converges.
+                self._noise_floor += (settle_alpha * 0.25) * (noise_ref - self._noise_floor)
 
                 if self.threshold_mode == 'manual':
                     self._threshold = max(0.0, self.manual_threshold)
@@ -451,13 +452,18 @@ class MorseDecoder:
                 gate_level = self._noise_floor + (self.min_signal_gate * dynamic_span)
                 gate_ok = self.min_signal_gate <= 0.0 or detector_level >= gate_level
 
-                on_threshold = self._threshold * (1.0 + self._hysteresis)
-                off_threshold = self._threshold * (1.0 - self._hysteresis)
+                # Use SNR (tone mag / adjacent-band noise) for tone detection.
+                # Both bands are equally amplified by AGC, so the ratio is
+                # gain-invariant — fixes stuck-ON tone when AGC amplifies
+                # inter-element silence above the raw magnitude threshold.
+                snr = level / max(noise_ref, 1e-6)
+                snr_on = self.threshold_multiplier * (1.0 + self._hysteresis)
+                snr_off = self.threshold_multiplier * (1.0 - self._hysteresis)
 
                 if self._tone_on:
-                    tone_detected = gate_ok and detector_level >= off_threshold
+                    tone_detected = gate_ok and snr >= snr_off
                 else:
-                    tone_detected = gate_ok and detector_level >= on_threshold
+                    tone_detected = gate_ok and snr >= snr_on
 
             dit_blocks = self._effective_dit_blocks()
             self._dah_threshold = 2.2 * dit_blocks

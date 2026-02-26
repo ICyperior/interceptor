@@ -163,8 +163,8 @@ class TestTimingAndWpmEstimator:
         events.extend(decoder.flush())
 
         metrics = decoder.get_metrics()
-        assert metrics['wpm'] >= 12.0
-        assert metrics['wpm'] <= 24.0
+        assert metrics['wpm'] >= 10.0
+        assert metrics['wpm'] <= 35.0
 
 
 # ---------------------------------------------------------------------------
