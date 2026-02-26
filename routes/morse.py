@@ -32,6 +32,23 @@ from utils.validation import (
 
 morse_bp = Blueprint('morse', __name__)
 
+
+class _FilteredQueue:
+    """Suppress decoder-thread 'stopped' events that race with route lifecycle."""
+
+    def __init__(self, inner: queue.Queue) -> None:
+        self._inner = inner
+
+    def put_nowait(self, item: Any) -> None:
+        if isinstance(item, dict) and item.get('type') == 'status' and item.get('status') == 'stopped':
+            return
+        self._inner.put_nowait(item)
+
+    def put(self, item: Any, **kwargs: Any) -> None:
+        if isinstance(item, dict) and item.get('type') == 'status' and item.get('status') == 'stopped':
+            return
+        self._inner.put(item, **kwargs)
+
 # Track which device is being used
 morse_active_device: int | None = None
 
@@ -495,7 +512,7 @@ def start_morse() -> Response:
                     target=morse_decoder_thread,
                     kwargs={
                         'rtl_stdout': rtl_process.stdout,
-                        'output_queue': app_module.morse_queue,
+                        'output_queue': _FilteredQueue(app_module.morse_queue),
                         'stop_event': stop_event,
                         'sample_rate': sample_rate,
                         'tone_freq': tone_freq,

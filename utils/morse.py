@@ -433,6 +433,11 @@ class MorseDecoder:
 
                 self._signal_peak = max(self._signal_peak, self._noise_floor * 1.05)
 
+                # Prevent noise floor from staying stuck below actual ambient noise
+                # (occurs when warmup calibration runs before AGC converges)
+                if noise_ref > self._noise_floor * 1.5:
+                    self._noise_floor += settle_alpha * 0.5 * (noise_ref - self._noise_floor)
+
                 if self.threshold_mode == 'manual':
                     self._threshold = max(0.0, self.manual_threshold)
                 else:
