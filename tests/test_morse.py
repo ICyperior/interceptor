@@ -266,6 +266,13 @@ class TestMorseLifecycleRoutes:
             def build_fm_demod_command(self, **kwargs):
                 return ['rtl_fm', '-f', '14060000']
 
+            def build_iq_capture_command(self, **kwargs):
+                cmd = ['rtl_sdr', '-f', '14060000', '-s', '250000']
+                if kwargs.get('gain') is not None:
+                    cmd.extend(['-g', str(kwargs['gain'])])
+                cmd.append('-')
+                return cmd
+
         monkeypatch.setattr(morse_routes.SDRFactory, 'create_default_device', staticmethod(lambda sdr_type, index: DummyDevice()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
         monkeypatch.setattr(morse_routes.time, 'sleep', lambda _secs: None)
@@ -337,6 +344,10 @@ class TestMorseLifecycleRoutes:
                 cmd.append('-')
                 return cmd
 
+            def build_iq_capture_command(self, **kwargs):
+                cmd = ['rtl_sdr', '-f', '14.0593M', '-s', '250000', '-']
+                return cmd
+
         monkeypatch.setattr(morse_routes.SDRFactory, 'create_default_device', staticmethod(lambda sdr_type, index: DummyDevice()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
 
@@ -378,13 +389,11 @@ class TestMorseLifecycleRoutes:
         assert start_resp.status_code == 200
         assert start_resp.get_json()['status'] == 'started'
         assert len(popen_cmds) >= 2
-        assert '-E' in popen_cmds[0] and 'direct2' in popen_cmds[0]
-        assert '-r' in popen_cmds[0]
-        assert '-A' in popen_cmds[0]
-        assert '-E' in popen_cmds[1] and 'direct2' not in popen_cmds[1]
-        assert '-r' in popen_cmds[1]
-        assert '-A' in popen_cmds[1]
-        assert 'dc' in popen_cmds[1]
+        assert popen_cmds[0][0] == 'rtl_sdr'
+        assert '-D' in popen_cmds[0]
+        assert '2' in popen_cmds[0]
+        assert popen_cmds[1][0] == 'rtl_sdr'
+        assert '-D' not in popen_cmds[1]
 
         stop_resp = client.post('/morse/stop')
         assert stop_resp.status_code == 200

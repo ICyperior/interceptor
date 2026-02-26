@@ -8,7 +8,7 @@ var MorseMode = (function () {
     var SETTINGS_KEY = 'intercept.morse.settings.v3';
     var STATUS_POLL_MS = 5000;
     var LOCAL_STOP_TIMEOUT_MS = 2200;
-    var START_TIMEOUT_MS = 20000;
+    var START_TIMEOUT_MS = 60000;
 
     var state = {
         initialized: false,
@@ -324,12 +324,32 @@ var MorseMode = (function () {
                 if (seq !== state.startSeq) {
                     return { status: 'stale' };
                 }
+                var initialErrorMsg = String(err && err.message ? err.message : err);
+                if (initialErrorMsg === 'Request timed out while waiting for decoder startup') {
+                    return fetch('/morse/status')
+                        .then(function (r) { return parseJsonSafe(r); })
+                        .then(function (statusData) {
+                            var statusError = statusData && (statusData.error || statusData.message);
+                            var resolvedError = statusError ? String(statusError) : initialErrorMsg;
+                            setLifecycle('error');
+                            setStatusText('Start failed');
+                            appendDiagLine('[start] failed: ' + resolvedError);
+                            notifyError('Failed to start Morse decoder: ' + resolvedError);
+                            return { status: 'error', message: resolvedError };
+                        })
+                        .catch(function () {
+                            setLifecycle('error');
+                            setStatusText('Start failed');
+                            appendDiagLine('[start] failed: ' + initialErrorMsg);
+                            notifyError('Failed to start Morse decoder: ' + initialErrorMsg);
+                            return { status: 'error', message: initialErrorMsg };
+                        });
+                }
                 setLifecycle('error');
-                var errorMsg = String(err && err.message ? err.message : err);
                 setStatusText('Start failed');
-                appendDiagLine('[start] failed: ' + errorMsg);
-                notifyError('Failed to start Morse decoder: ' + errorMsg);
-                return { status: 'error', message: errorMsg };
+                appendDiagLine('[start] failed: ' + initialErrorMsg);
+                notifyError('Failed to start Morse decoder: ' + initialErrorMsg);
+                return { status: 'error', message: initialErrorMsg };
             });
     }
 

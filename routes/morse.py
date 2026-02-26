@@ -354,8 +354,17 @@ def start_morse() -> Response:
 
     can_try_direct_sampling = bool(sdr_device.sdr_type == SDRType.RTL_SDR and freq < 24.0)
     if can_try_direct_sampling:
-        # Keep rtl_fm attempts first (cheap), then switch to IQ capture fallback.
+        # IQ-first strategy: avoid repeated rtl_fm/rtl_sdr handoffs that can
+        # leave the tuner in a bad state on some Linux builds.
         command_attempts: list[dict[str, Any]] = [
+            {
+                'source': 'iq',
+                'direct_sampling_mode': 2,
+            },
+            {
+                'source': 'iq',
+                'direct_sampling_mode': None,
+            },
             {
                 'source': 'rtl_fm',
                 'use_direct_sampling': True,
@@ -370,27 +379,19 @@ def start_morse() -> Response:
                 'add_resample_rate': True,
                 'add_dc_fast': True,
             },
-            {
-                'source': 'iq',
-                'direct_sampling_mode': 2,
-            },
+        ]
+    else:
+        command_attempts = [
             {
                 'source': 'iq',
                 'direct_sampling_mode': None,
             },
-        ]
-    else:
-        command_attempts = [
             {
                 'source': 'rtl_fm',
                 'use_direct_sampling': False,
                 'force_squelch_off': False,
                 'add_resample_rate': True,
                 'add_dc_fast': True,
-            },
-            {
-                'source': 'iq',
-                'direct_sampling_mode': None,
             },
         ]
 
@@ -571,7 +572,7 @@ def start_morse() -> Response:
                 )
             decoder_thread.start()
 
-            startup_deadline = time.monotonic() + 1.2
+            startup_deadline = time.monotonic() + (2.5 if source == 'iq' else 1.2)
             startup_ok = False
             startup_error = ''
 
