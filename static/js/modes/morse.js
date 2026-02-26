@@ -8,7 +8,7 @@ var MorseMode = (function () {
     var SETTINGS_KEY = 'intercept.morse.settings.v3';
     var STATUS_POLL_MS = 5000;
     var LOCAL_STOP_TIMEOUT_MS = 2200;
-    var START_TIMEOUT_MS = 4000;
+    var START_TIMEOUT_MS = 10000;
 
     var state = {
         initialized: false,
@@ -281,6 +281,7 @@ var MorseMode = (function () {
         clearDiagLog();
         clearDecodedText();
         clearRawText();
+        appendDiagLine('[start] requesting decoder startup...');
 
         var payload = collectConfig();
         persistSettings();
@@ -310,6 +311,7 @@ var MorseMode = (function () {
                 startScope();
                 setStatusText('Listening');
                 applyMetrics(data.config || {}, true);
+                appendDiagLine('[start] decoder started');
                 notifyInfo('Morse decoder started');
                 return data;
             })
@@ -318,14 +320,11 @@ var MorseMode = (function () {
                     return { status: 'stale' };
                 }
                 setLifecycle('error');
-                setStatusText('Error');
-                notifyError('Failed to start Morse decoder: ' + (err && err.message ? err.message : err));
-                setTimeout(function () {
-                    if (state.lifecycle === 'error') {
-                        setLifecycle('idle');
-                    }
-                }, 800);
-                return { status: 'error', message: String(err && err.message ? err.message : err) };
+                var errorMsg = String(err && err.message ? err.message : err);
+                setStatusText('Start failed');
+                appendDiagLine('[start] failed: ' + errorMsg);
+                notifyError('Failed to start Morse decoder: ' + errorMsg);
+                return { status: 'error', message: errorMsg };
             });
     }
 
@@ -917,10 +916,10 @@ var MorseMode = (function () {
         if (state.lifecycle === 'error') setStatusText('Error');
 
         var scopePanel = el('morseScopePanel');
-        if (scopePanel) scopePanel.style.display = (running || starting) ? 'block' : 'none';
+        if (scopePanel) scopePanel.style.display = 'block';
 
         var outputPanel = el('morseOutputPanel');
-        if (outputPanel) outputPanel.style.display = (running || starting) ? 'block' : 'none';
+        if (outputPanel) outputPanel.style.display = 'block';
 
         var scopeStatus = el('morseScopeStatusLabel');
         if (scopeStatus) {
