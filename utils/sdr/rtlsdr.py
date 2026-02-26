@@ -118,7 +118,12 @@ class RTLSDRCommandBuilder(CommandBuilder):
             cmd.extend(['-l', str(squelch)])
 
         if direct_sampling is not None:
-            cmd.extend(['-D', str(direct_sampling)])
+            # Older rtl_fm builds (common in Docker/distro packages) don't
+            # support -D; they use -E direct / -E direct2 instead.
+            if direct_sampling == 1:
+                cmd.extend(['-E', 'direct'])
+            elif direct_sampling == 2:
+                cmd.extend(['-E', 'direct2'])
 
         if bias_t:
             cmd.extend(['-T'])
