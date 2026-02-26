@@ -3103,8 +3103,21 @@
                             </div>
                         </div>
                         <div id="morseDecodedText" class="morse-decoded-panel"></div>
+                        <div id="morseRawPanel" class="morse-raw-panel" style="display: none;">
+                            <div class="morse-raw-label">Raw Elements</div>
+                            <div id="morseRawText" class="morse-raw-text"></div>
+                        </div>
+                        <div id="morseMetricsPanel" class="morse-metrics-panel">
+                            <span id="morseMetricState">STATE idle</span>
+                            <span id="morseMetricTone">TONE -- Hz</span>
+                            <span id="morseMetricLevel">LEVEL --</span>
+                            <span id="morseMetricThreshold">THRESH --</span>
+                            <span id="morseMetricNoise">NOISE --</span>
+                            <span id="morseMetricStopMs">STOP -- ms</span>
+                        </div>
                         <div class="morse-status-bar">
-                            <span class="status-item" id="morseStatusBarWpm">15 WPM</span>
+                            <span class="status-item" id="morseStatusBarState">IDLE</span>
+                            <span class="status-item" id="morseStatusBarWpm">-- WPM</span>
                             <span class="status-item" id="morseStatusBarTone">700 Hz</span>
                             <span class="status-item" id="morseStatusBarChars">0 chars decoded</span>
                         </div>
@@ -3863,6 +3876,11 @@
             return {
                 pager: Boolean(isRunning),
                 sensor: Boolean(isSensorRunning),
+                morse: Boolean(
+                    typeof MorseMode !== 'undefined'
+                    && typeof MorseMode.isActive === 'function'
+                    && MorseMode.isActive()
+                ),
                 wifi: Boolean(
                     ((typeof WiFiMode !== 'undefined' && typeof WiFiMode.isScanning === 'function' && WiFiMode.isScanning()) || isWifiRunning)
                 ),
@@ -3883,6 +3901,12 @@
             }
             if (isSensorRunning && typeof stopSensorDecoding === 'function') {
                 Promise.resolve(stopSensorDecoding()).catch(() => { });
+            }
+            const morseActive = typeof MorseMode !== 'undefined'
+                && typeof MorseMode.isActive === 'function'
+                && MorseMode.isActive();
+            if (morseActive && typeof MorseMode.stop === 'function') {
+                Promise.resolve(MorseMode.stop()).catch(() => { });
             }
 
             const wifiScanActive = (
@@ -4009,6 +4033,12 @@
                 if (isSensorRunning) {
                     stopTasks.push(awaitStopAction('sensor', () => stopSensorDecoding(), LOCAL_STOP_TIMEOUT_MS));
                 }
+                const morseActive = typeof MorseMode !== 'undefined'
+                    && typeof MorseMode.isActive === 'function'
+                    && MorseMode.isActive();
+                if (morseActive && typeof MorseMode.stop === 'function') {
+                    stopTasks.push(awaitStopAction('morse', () => MorseMode.stop(), LOCAL_STOP_TIMEOUT_MS));
+                }
                 const wifiScanActive = (
                     typeof WiFiMode !== 'undefined'
                     && typeof WiFiMode.isScanning === 'function'
@@ -4044,6 +4074,9 @@
             // Clean up SubGHz SSE connection when leaving the mode
             if (typeof SubGhz !== 'undefined' && currentMode === 'subghz' && mode !== 'subghz') {
                 SubGhz.destroy();
+            }
+            if (typeof MorseMode !== 'undefined' && currentMode === 'morse' && mode !== 'morse' && typeof MorseMode.destroy === 'function') {
+                MorseMode.destroy();
             }
 
             currentMode = mode;

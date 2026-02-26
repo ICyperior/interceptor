@@ -55,6 +55,28 @@ Support the developer of this open-source project
 
 ---
 
+## CW / Morse Decoder Notes
+
+Recommended baseline settings:
+- **Tone**: `700 Hz`
+- **Bandwidth**: `200 Hz` (use `100 Hz` for crowded bands, `400 Hz` for drifting signals)
+- **Threshold Mode**: `Auto`
+- **WPM Mode**: `Auto`
+
+Auto Tone Track behavior:
+- Continuously measures nearby tone energy around the configured CW pitch.
+- Steers the detector toward the strongest valid CW tone when signal-to-noise is sufficient.
+- Use **Hold Tone Lock** to freeze tracking once the desired signal is centered.
+
+Troubleshooting (no decode / noisy decode):
+- Confirm demod path is **USB/CW-compatible** and frequency is tuned correctly.
+- Match **tone** and **bandwidth** to the actual sidetone/pitch.
+- Try **Threshold Auto** first; if needed, switch to manual threshold and recalibrate.
+- Use **Reset/Calibrate** after major frequency or band condition changes.
+- Raise **Minimum Signal Gate** to suppress random noise keying.
+
+---
+
 ## Installation / Debian / Ubuntu / MacOS
 
 **1. Clone and run:**

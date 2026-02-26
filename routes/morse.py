@@ -5,8 +5,10 @@ from __future__ import annotations
 import contextlib
 import queue
 import subprocess
+import tempfile
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
@@ -14,7 +16,7 @@ from flask import Blueprint, Response, jsonify, request
 import app as app_module
 from utils.event_pipeline import process_event
 from utils.logging import sensor_logger as logger
-from utils.morse import morse_decoder_thread
+from utils.morse import decode_morse_wav_file, morse_decoder_thread
 from utils.process import register_process, safe_terminate, unregister_process
 from utils.sdr import SDRFactory, SDRType
 from utils.sse import sse_stream_fanout
@@ -30,16 +32,101 @@ morse_bp = Blueprint('morse', __name__)
 # Track which device is being used
 morse_active_device: int | None = None
 
+# Runtime lifecycle state.
+MORSE_IDLE = 'idle'
+MORSE_STARTING = 'starting'
+MORSE_RUNNING = 'running'
+MORSE_STOPPING = 'stopping'
+MORSE_ERROR = 'error'
+
+morse_state = MORSE_IDLE
+morse_state_message = 'Idle'
+morse_state_since = time.monotonic()
+morse_last_error = ''
+morse_runtime_config: dict[str, Any] = {}
+morse_session_id = 0
+
+morse_decoder_worker: threading.Thread | None = None
+morse_stderr_worker: threading.Thread | None = None
+morse_stop_event: threading.Event | None = None
+morse_control_queue: queue.Queue | None = None
+
+
+def _set_state(state: str, message: str = '', *, enqueue: bool = True, extra: dict[str, Any] | None = None) -> None:
+    """Update lifecycle state and optionally emit a status queue event."""
+    global morse_state, morse_state_message, morse_state_since
+    morse_state = state
+    morse_state_message = message or state
+    morse_state_since = time.monotonic()
+
+    if not enqueue:
+        return
+
+    payload: dict[str, Any] = {
+        'type': 'status',
+        'status': state,
+        'state': state,
+        'message': morse_state_message,
+        'session_id': morse_session_id,
+        'timestamp': time.strftime('%H:%M:%S'),
+    }
+    if extra:
+        payload.update(extra)
+    with contextlib.suppress(queue.Full):
+        app_module.morse_queue.put_nowait(payload)
+
+
+def _drain_queue(q: queue.Queue) -> None:
+    while not q.empty():
+        try:
+            q.get_nowait()
+        except queue.Empty:
+            break
+
+
+def _join_thread(worker: threading.Thread | None, timeout_s: float) -> bool:
+    if worker is None:
+        return True
+    worker.join(timeout=timeout_s)
+    return not worker.is_alive()
+
+
+def _close_pipe(pipe_obj: Any) -> None:
+    if pipe_obj is None:
+        return
+    with contextlib.suppress(Exception):
+        pipe_obj.close()
+
+
+def _bool_value(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {'1', 'true', 'yes', 'on'}:
+        return True
+    if text in {'0', 'false', 'no', 'off'}:
+        return False
+    return default
+
+
+def _float_value(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
 
 def _validate_tone_freq(value: Any) -> float:
     """Validate CW tone frequency (300-1200 Hz)."""
     try:
         freq = float(value)
         if not 300 <= freq <= 1200:
-            raise ValueError("Tone frequency must be between 300 and 1200 Hz")
+            raise ValueError('Tone frequency must be between 300 and 1200 Hz')
         return freq
     except (ValueError, TypeError) as e:
-        raise ValueError(f"Invalid tone frequency: {value}") from e
+        raise ValueError(f'Invalid tone frequency: {value}') from e
 
 
 def _validate_wpm(value: Any) -> int:
@@ -47,41 +134,118 @@ def _validate_wpm(value: Any) -> int:
     try:
         wpm = int(value)
         if not 5 <= wpm <= 50:
-            raise ValueError("WPM must be between 5 and 50")
+            raise ValueError('WPM must be between 5 and 50')
         return wpm
     except (ValueError, TypeError) as e:
-        raise ValueError(f"Invalid WPM: {value}") from e
+        raise ValueError(f'Invalid WPM: {value}') from e
+
+
+def _validate_bandwidth(value: Any) -> int:
+    try:
+        bw = int(value)
+        if bw not in (50, 100, 200, 400):
+            raise ValueError('Bandwidth must be one of 50, 100, 200, 400 Hz')
+        return bw
+    except (TypeError, ValueError) as e:
+        raise ValueError(f'Invalid bandwidth: {value}') from e
+
+
+def _validate_threshold_mode(value: Any) -> str:
+    mode = str(value or 'auto').strip().lower()
+    if mode not in {'auto', 'manual'}:
+        raise ValueError('threshold_mode must be auto or manual')
+    return mode
+
+
+def _validate_wpm_mode(value: Any) -> str:
+    mode = str(value or 'auto').strip().lower()
+    if mode not in {'auto', 'manual'}:
+        raise ValueError('wpm_mode must be auto or manual')
+    return mode
+
+
+def _validate_threshold_multiplier(value: Any) -> float:
+    try:
+        multiplier = float(value)
+        if not 1.1 <= multiplier <= 8.0:
+            raise ValueError('threshold_multiplier must be between 1.1 and 8.0')
+        return multiplier
+    except (TypeError, ValueError) as e:
+        raise ValueError(f'Invalid threshold multiplier: {value}') from e
+
+
+def _validate_non_negative_float(value: Any, field_name: str) -> float:
+    try:
+        parsed = float(value)
+        if parsed < 0:
+            raise ValueError(f'{field_name} must be non-negative')
+        return parsed
+    except (TypeError, ValueError) as e:
+        raise ValueError(f'Invalid {field_name}: {value}') from e
+
+
+def _validate_signal_gate(value: Any) -> float:
+    try:
+        gate = float(value)
+        if not 0.0 <= gate <= 1.0:
+            raise ValueError('signal_gate must be between 0.0 and 1.0')
+        return gate
+    except (TypeError, ValueError) as e:
+        raise ValueError(f'Invalid signal gate: {value}') from e
+
+
+def _snapshot_live_resources() -> list[str]:
+    alive: list[str] = []
+    if morse_decoder_worker and morse_decoder_worker.is_alive():
+        alive.append('decoder_thread')
+    if morse_stderr_worker and morse_stderr_worker.is_alive():
+        alive.append('stderr_thread')
+    if app_module.morse_process and app_module.morse_process.poll() is None:
+        alive.append('rtl_process')
+    return alive
 
 
 @morse_bp.route('/morse/start', methods=['POST'])
 def start_morse() -> Response:
-    global morse_active_device
+    global morse_active_device, morse_decoder_worker, morse_stderr_worker
+    global morse_stop_event, morse_control_queue, morse_runtime_config
+    global morse_last_error, morse_session_id
+
+    data = request.json or {}
+
+    # Validate standard SDR inputs
+    try:
+        freq = validate_frequency(data.get('frequency', '14.060'), min_mhz=0.5, max_mhz=30.0)
+        gain = validate_gain(data.get('gain', '0'))
+        ppm = validate_ppm(data.get('ppm', '0'))
+        device = validate_device_index(data.get('device', '0'))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+    # Validate Morse-specific inputs
+    try:
+        tone_freq = _validate_tone_freq(data.get('tone_freq', '700'))
+        wpm = _validate_wpm(data.get('wpm', '15'))
+        bandwidth_hz = _validate_bandwidth(data.get('bandwidth_hz', '200'))
+        threshold_mode = _validate_threshold_mode(data.get('threshold_mode', 'auto'))
+        wpm_mode = _validate_wpm_mode(data.get('wpm_mode', 'auto'))
+        threshold_multiplier = _validate_threshold_multiplier(data.get('threshold_multiplier', '2.8'))
+        manual_threshold = _validate_non_negative_float(data.get('manual_threshold', '0'), 'manual threshold')
+        threshold_offset = _validate_non_negative_float(data.get('threshold_offset', '0'), 'threshold offset')
+        min_signal_gate = _validate_signal_gate(data.get('signal_gate', '0'))
+        auto_tone_track = _bool_value(data.get('auto_tone_track', True), True)
+        tone_lock = _bool_value(data.get('tone_lock', False), False)
+        wpm_lock = _bool_value(data.get('wpm_lock', False), False)
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
     with app_module.morse_lock:
-        if app_module.morse_process:
-            return jsonify({'status': 'error', 'message': 'Morse decoder already running'}), 409
-
-        data = request.json or {}
-
-        # Validate standard SDR inputs
-        try:
-            freq = validate_frequency(data.get('frequency', '14.060'), min_mhz=0.5, max_mhz=30.0)
-            gain = validate_gain(data.get('gain', '0'))
-            ppm = validate_ppm(data.get('ppm', '0'))
-            device = validate_device_index(data.get('device', '0'))
-        except ValueError as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 400
-
-        # Validate Morse-specific inputs
-        try:
-            tone_freq = _validate_tone_freq(data.get('tone_freq', '700'))
-        except ValueError as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 400
-
-        try:
-            wpm = _validate_wpm(data.get('wpm', '15'))
-        except ValueError as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 400
+        if morse_state in {MORSE_STARTING, MORSE_RUNNING, MORSE_STOPPING}:
+            return jsonify({
+                'status': 'error',
+                'message': f'Morse decoder is {morse_state}',
+                'state': morse_state,
+            }), 409
 
         # Claim SDR device
         device_int = int(device)
@@ -92,169 +256,402 @@ def start_morse() -> Response:
                 'error_type': 'DEVICE_BUSY',
                 'message': error,
             }), 409
+
         morse_active_device = device_int
+        morse_last_error = ''
+        morse_session_id += 1
 
-        # Clear queue
-        while not app_module.morse_queue.empty():
-            try:
-                app_module.morse_queue.get_nowait()
-            except queue.Empty:
-                break
+        _drain_queue(app_module.morse_queue)
 
-        # Build rtl_fm USB demodulation command
-        sdr_type_str = data.get('sdr_type', 'rtlsdr')
-        try:
-            sdr_type = SDRType(sdr_type_str)
-        except ValueError:
-            sdr_type = SDRType.RTL_SDR
+        _set_state(MORSE_STARTING, 'Starting decoder...')
 
-        sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
-        builder = SDRFactory.get_builder(sdr_device.sdr_type)
+    sample_rate = 8000
+    bias_t = _bool_value(data.get('bias_t', False), False)
 
-        sample_rate = 8000
-        bias_t = data.get('bias_t', False)
+    # RTL-SDR needs direct sampling mode for HF frequencies below 24 MHz
+    direct_sampling = 2 if freq < 24.0 else None
 
-        # RTL-SDR needs direct sampling mode for HF frequencies below 24 MHz
-        direct_sampling = 2 if freq < 24.0 else None
+    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
 
-        rtl_cmd = builder.build_fm_demod_command(
-            device=sdr_device,
-            frequency_mhz=freq,
-            sample_rate=sample_rate,
-            gain=float(gain) if gain and gain != '0' else None,
-            ppm=int(ppm) if ppm and ppm != '0' else None,
-            modulation='usb',
-            bias_t=bias_t,
-            direct_sampling=direct_sampling,
+    sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+    builder = SDRFactory.get_builder(sdr_device.sdr_type)
+
+    rtl_cmd = builder.build_fm_demod_command(
+        device=sdr_device,
+        frequency_mhz=freq,
+        sample_rate=sample_rate,
+        gain=float(gain) if gain and gain != '0' else None,
+        ppm=int(ppm) if ppm and ppm != '0' else None,
+        modulation='usb',
+        bias_t=bias_t,
+        direct_sampling=direct_sampling,
+    )
+
+    full_cmd = ' '.join(rtl_cmd)
+    logger.info(f'Morse decoder running: {full_cmd}')
+
+    rtl_process: subprocess.Popen | None = None
+    stop_event: threading.Event | None = None
+    decoder_thread: threading.Thread | None = None
+    stderr_thread: threading.Thread | None = None
+
+    runtime_config: dict[str, Any] = {
+        'sample_rate': sample_rate,
+        'tone_freq': tone_freq,
+        'wpm': wpm,
+        'bandwidth_hz': bandwidth_hz,
+        'auto_tone_track': auto_tone_track,
+        'tone_lock': tone_lock,
+        'threshold_mode': threshold_mode,
+        'manual_threshold': manual_threshold,
+        'threshold_multiplier': threshold_multiplier,
+        'threshold_offset': threshold_offset,
+        'wpm_mode': wpm_mode,
+        'wpm_lock': wpm_lock,
+        'min_signal_gate': min_signal_gate,
+    }
+
+    try:
+        rtl_process = subprocess.Popen(
+            rtl_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=0,
         )
+        register_process(rtl_process)
 
-        full_cmd = ' '.join(rtl_cmd)
-        logger.info(f"Morse decoder running: {full_cmd}")
+        stop_event = threading.Event()
+        control_queue: queue.Queue = queue.Queue(maxsize=16)
 
-        try:
-            rtl_process = subprocess.Popen(
-                rtl_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=0,
-            )
-            register_process(rtl_process)
+        def monitor_stderr() -> None:
+            if not rtl_process or rtl_process.stderr is None:
+                return
+            for line in rtl_process.stderr:
+                if stop_event.is_set():
+                    break
+                err_text = line.decode('utf-8', errors='replace').strip()
+                if err_text:
+                    logger.debug(f'[rtl_fm/morse] {err_text}')
+                    with contextlib.suppress(queue.Full):
+                        app_module.morse_queue.put_nowait({
+                            'type': 'info',
+                            'text': f'[rtl_fm] {err_text}',
+                        })
 
-            # Start threads IMMEDIATELY so stdout is read before pipe fills.
-            # Forward rtl_fm stderr to queue so frontend can display diagnostics
-            def monitor_stderr():
-                for line in rtl_process.stderr:
-                    err_text = line.decode('utf-8', errors='replace').strip()
-                    if err_text:
-                        logger.debug(f"[rtl_fm/morse] {err_text}")
-                        with contextlib.suppress(queue.Full):
-                            app_module.morse_queue.put_nowait({
-                                'type': 'info',
-                                'text': f'[rtl_fm] {err_text}',
-                            })
+        stderr_thread = threading.Thread(target=monitor_stderr, daemon=True, name='morse-stderr')
+        stderr_thread.start()
 
-            stderr_thread = threading.Thread(target=monitor_stderr)
-            stderr_thread.daemon = True
-            stderr_thread.start()
+        decoder_thread = threading.Thread(
+            target=morse_decoder_thread,
+            args=(
+                rtl_process.stdout,
+                app_module.morse_queue,
+                stop_event,
+                sample_rate,
+                tone_freq,
+                wpm,
+            ),
+            kwargs={
+                'decoder_config': runtime_config,
+                'control_queue': control_queue,
+            },
+            daemon=True,
+            name='morse-decoder',
+        )
+        decoder_thread.start()
 
-            # Start Morse decoder thread before sleep so it reads stdout immediately
-            stop_event = threading.Event()
-            decoder_thread = threading.Thread(
-                target=morse_decoder_thread,
-                args=(
-                    rtl_process.stdout,
-                    app_module.morse_queue,
-                    stop_event,
-                    sample_rate,
-                    tone_freq,
-                    wpm,
-                ),
-            )
-            decoder_thread.daemon = True
-            decoder_thread.start()
-
-            # Detect immediate startup failure (e.g. device busy, no device)
-            time.sleep(0.35)
-            if rtl_process.poll() is not None:
-                stop_event.set()
+        # Detect immediate startup failure (e.g. device busy, no device)
+        time.sleep(0.30)
+        if rtl_process.poll() is not None:
+            stop_event.set()
+            stderr_text = ''
+            try:
+                if rtl_process.stderr:
+                    stderr_text = rtl_process.stderr.read().decode('utf-8', errors='replace').strip()
+            except Exception:
                 stderr_text = ''
-                try:
-                    if rtl_process.stderr:
-                        stderr_text = rtl_process.stderr.read().decode(
-                            'utf-8', errors='replace'
-                        ).strip()
-                except Exception:
-                    stderr_text = ''
-                msg = stderr_text or f'rtl_fm exited immediately (code {rtl_process.returncode})'
-                logger.error(f"Morse rtl_fm startup failed: {msg}")
-                unregister_process(rtl_process)
+            msg = stderr_text or f'rtl_fm exited immediately (code {rtl_process.returncode})'
+            logger.error(f'Morse rtl_fm startup failed: {msg}')
+            safe_terminate(rtl_process, timeout=0.4)
+            unregister_process(rtl_process)
+            _join_thread(decoder_thread, timeout_s=0.25)
+            _join_thread(stderr_thread, timeout_s=0.25)
+            with app_module.morse_lock:
                 if morse_active_device is not None:
                     app_module.release_sdr_device(morse_active_device)
                     morse_active_device = None
-                return jsonify({'status': 'error', 'message': msg}), 500
+                morse_last_error = msg
+                _set_state(MORSE_ERROR, msg)
+                _set_state(MORSE_IDLE, 'Idle')
+            return jsonify({'status': 'error', 'message': msg}), 500
 
+        with app_module.morse_lock:
             app_module.morse_process = rtl_process
             app_module.morse_process._stop_decoder = stop_event
             app_module.morse_process._decoder_thread = decoder_thread
+            app_module.morse_process._stderr_thread = stderr_thread
+            app_module.morse_process._control_queue = control_queue
 
-            app_module.morse_queue.put({'type': 'status', 'status': 'started'})
-            with contextlib.suppress(queue.Full):
-                app_module.morse_queue.put_nowait({
-                    'type': 'info',
-                    'text': f'[cmd] {full_cmd}',
-                })
+            morse_stop_event = stop_event
+            morse_control_queue = control_queue
+            morse_decoder_worker = decoder_thread
+            morse_stderr_worker = stderr_thread
+            morse_runtime_config = dict(runtime_config)
+            _set_state(MORSE_RUNNING, 'Listening')
 
-            return jsonify({
-                'status': 'started',
-                'command': full_cmd,
-                'tone_freq': tone_freq,
-                'wpm': wpm,
+        with contextlib.suppress(queue.Full):
+            app_module.morse_queue.put_nowait({
+                'type': 'info',
+                'text': f'[cmd] {full_cmd}',
             })
 
-        except FileNotFoundError as e:
-            if morse_active_device is not None:
-                app_module.release_sdr_device(morse_active_device)
-                morse_active_device = None
-            return jsonify({'status': 'error', 'message': f'Tool not found: {e.filename}'}), 400
+        return jsonify({
+            'status': 'started',
+            'state': MORSE_RUNNING,
+            'command': full_cmd,
+            'tone_freq': tone_freq,
+            'wpm': wpm,
+            'config': runtime_config,
+            'session_id': morse_session_id,
+        })
 
-        except Exception as e:
-            # Clean up rtl_fm if it was started
-            try:
-                rtl_process.terminate()
-                rtl_process.wait(timeout=2)
-            except Exception:
-                with contextlib.suppress(Exception):
-                    rtl_process.kill()
+    except FileNotFoundError as e:
+        if rtl_process is not None:
             unregister_process(rtl_process)
+        with app_module.morse_lock:
             if morse_active_device is not None:
                 app_module.release_sdr_device(morse_active_device)
                 morse_active_device = None
-            return jsonify({'status': 'error', 'message': str(e)}), 500
+            morse_last_error = f'Tool not found: {e.filename}'
+            _set_state(MORSE_ERROR, morse_last_error)
+            _set_state(MORSE_IDLE, 'Idle')
+        return jsonify({'status': 'error', 'message': morse_last_error}), 400
+
+    except Exception as e:
+        if rtl_process is not None:
+            safe_terminate(rtl_process, timeout=0.5)
+            unregister_process(rtl_process)
+        if stop_event is not None:
+            stop_event.set()
+        _join_thread(decoder_thread, timeout_s=0.25)
+        _join_thread(stderr_thread, timeout_s=0.25)
+        with app_module.morse_lock:
+            if morse_active_device is not None:
+                app_module.release_sdr_device(morse_active_device)
+                morse_active_device = None
+            morse_last_error = str(e)
+            _set_state(MORSE_ERROR, morse_last_error)
+            _set_state(MORSE_IDLE, 'Idle')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @morse_bp.route('/morse/stop', methods=['POST'])
 def stop_morse() -> Response:
-    global morse_active_device
+    global morse_active_device, morse_decoder_worker, morse_stderr_worker
+    global morse_stop_event, morse_control_queue
+
+    stop_started = time.perf_counter()
 
     with app_module.morse_lock:
-        if app_module.morse_process:
-            # Signal decoder thread to stop
-            stop_event = getattr(app_module.morse_process, '_stop_decoder', None)
-            if stop_event:
-                stop_event.set()
+        if morse_state == MORSE_STOPPING:
+            return jsonify({'status': 'stopping', 'state': MORSE_STOPPING}), 202
 
-            safe_terminate(app_module.morse_process)
-            unregister_process(app_module.morse_process)
-            app_module.morse_process = None
+        proc = app_module.morse_process
+        stop_event = morse_stop_event or getattr(proc, '_stop_decoder', None)
+        decoder_thread = morse_decoder_worker or getattr(proc, '_decoder_thread', None)
+        stderr_thread = morse_stderr_worker or getattr(proc, '_stderr_thread', None)
+        control_queue = morse_control_queue or getattr(proc, '_control_queue', None)
+        active_device = morse_active_device
 
-            if morse_active_device is not None:
-                app_module.release_sdr_device(morse_active_device)
-                morse_active_device = None
+        if not proc and not stop_event and not decoder_thread and not stderr_thread:
+            _set_state(MORSE_IDLE, 'Idle', enqueue=False)
+            return jsonify({'status': 'not_running', 'state': MORSE_IDLE})
 
-            app_module.morse_queue.put({'type': 'status', 'status': 'stopped'})
-            return jsonify({'status': 'stopped'})
+        # Prevent new starts while cleanup is in progress.
+        _set_state(MORSE_STOPPING, 'Stopping decoder...')
 
-        return jsonify({'status': 'not_running'})
+        # Detach global runtime pointers immediately to avoid double-stop races.
+        app_module.morse_process = None
+        morse_stop_event = None
+        morse_control_queue = None
+        morse_decoder_worker = None
+        morse_stderr_worker = None
+
+    cleanup_steps: list[str] = []
+
+    def _mark(step: str) -> None:
+        cleanup_steps.append(step)
+        logger.debug(f'[morse.stop] {step}')
+
+    _mark('enter stop')
+
+    if stop_event is not None:
+        stop_event.set()
+        _mark('stop_event set')
+
+    if control_queue is not None:
+        with contextlib.suppress(queue.Full):
+            control_queue.put_nowait({'cmd': 'shutdown'})
+        _mark('control_queue shutdown signal sent')
+
+    if proc is not None:
+        _close_pipe(getattr(proc, 'stdout', None))
+        _close_pipe(getattr(proc, 'stderr', None))
+        _mark('stdout/stderr pipes closed')
+
+        safe_terminate(proc, timeout=0.6)
+        unregister_process(proc)
+        _mark('rtl_fm process terminated')
+
+    decoder_joined = _join_thread(decoder_thread, timeout_s=0.45)
+    stderr_joined = _join_thread(stderr_thread, timeout_s=0.45)
+    _mark(f'decoder thread joined={decoder_joined}')
+    _mark(f'stderr thread joined={stderr_joined}')
+
+    if active_device is not None:
+        app_module.release_sdr_device(active_device)
+        _mark(f'SDR device {active_device} released')
+
+    stop_ms = round((time.perf_counter() - stop_started) * 1000.0, 1)
+    alive_after = []
+    if not decoder_joined:
+        alive_after.append('decoder_thread')
+    if not stderr_joined:
+        alive_after.append('stderr_thread')
+
+    with app_module.morse_lock:
+        morse_active_device = None
+        _set_state(MORSE_IDLE, 'Stopped', extra={
+            'stop_ms': stop_ms,
+            'cleanup_steps': cleanup_steps,
+            'alive': alive_after,
+        })
+
+    with contextlib.suppress(queue.Full):
+        app_module.morse_queue.put_nowait({
+            'type': 'status',
+            'status': 'stopped',
+            'state': MORSE_IDLE,
+            'stop_ms': stop_ms,
+            'cleanup_steps': cleanup_steps,
+            'alive': alive_after,
+            'timestamp': time.strftime('%H:%M:%S'),
+        })
+
+    if stop_ms > 500.0 or alive_after:
+        logger.warning(
+            '[morse.stop] slow/partial cleanup: stop_ms=%s alive=%s steps=%s',
+            stop_ms,
+            ','.join(alive_after) if alive_after else 'none',
+            '; '.join(cleanup_steps),
+        )
+    else:
+        logger.info('[morse.stop] cleanup complete in %sms', stop_ms)
+
+    return jsonify({
+        'status': 'stopped',
+        'state': MORSE_IDLE,
+        'stop_ms': stop_ms,
+        'alive': alive_after,
+        'cleanup_steps': cleanup_steps,
+    })
+
+
+@morse_bp.route('/morse/calibrate', methods=['POST'])
+def calibrate_morse() -> Response:
+    """Reset decoder threshold/timing estimators without restarting the process."""
+    with app_module.morse_lock:
+        if morse_state != MORSE_RUNNING or morse_control_queue is None:
+            return jsonify({
+                'status': 'not_running',
+                'state': morse_state,
+                'message': 'Morse decoder is not running',
+            }), 409
+
+        with contextlib.suppress(queue.Full):
+            morse_control_queue.put_nowait({'cmd': 'reset'})
+
+    with contextlib.suppress(queue.Full):
+        app_module.morse_queue.put_nowait({
+            'type': 'info',
+            'text': '[morse] Calibration reset requested',
+        })
+
+    return jsonify({'status': 'ok', 'state': morse_state})
+
+
+@morse_bp.route('/morse/decode-file', methods=['POST'])
+def decode_morse_file() -> Response:
+    """Decode Morse from an uploaded WAV file."""
+    if 'audio' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No audio file provided'}), 400
+
+    audio_file = request.files['audio']
+    if not audio_file.filename:
+        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+
+    # Parse optional tuning/decoder parameters from form fields.
+    form = request.form or {}
+    try:
+        tone_freq = _validate_tone_freq(form.get('tone_freq', '700'))
+        wpm = _validate_wpm(form.get('wpm', '15'))
+        bandwidth_hz = _validate_bandwidth(form.get('bandwidth_hz', '200'))
+        threshold_mode = _validate_threshold_mode(form.get('threshold_mode', 'auto'))
+        wpm_mode = _validate_wpm_mode(form.get('wpm_mode', 'auto'))
+        threshold_multiplier = _validate_threshold_multiplier(form.get('threshold_multiplier', '2.8'))
+        manual_threshold = _validate_non_negative_float(form.get('manual_threshold', '0'), 'manual threshold')
+        threshold_offset = _validate_non_negative_float(form.get('threshold_offset', '0'), 'threshold offset')
+        signal_gate = _validate_signal_gate(form.get('signal_gate', '0'))
+        auto_tone_track = _bool_value(form.get('auto_tone_track', 'true'), True)
+        tone_lock = _bool_value(form.get('tone_lock', 'false'), False)
+        wpm_lock = _bool_value(form.get('wpm_lock', 'false'), False)
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+        audio_file.save(tmp.name)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = decode_morse_wav_file(
+            tmp_path,
+            sample_rate=8000,
+            tone_freq=tone_freq,
+            wpm=wpm,
+            bandwidth_hz=bandwidth_hz,
+            auto_tone_track=auto_tone_track,
+            tone_lock=tone_lock,
+            threshold_mode=threshold_mode,
+            manual_threshold=manual_threshold,
+            threshold_multiplier=threshold_multiplier,
+            threshold_offset=threshold_offset,
+            wpm_mode=wpm_mode,
+            wpm_lock=wpm_lock,
+            min_signal_gate=signal_gate,
+        )
+
+        text = str(result.get('text', ''))
+        raw = str(result.get('raw', ''))
+        metrics = result.get('metrics', {})
+
+        return jsonify({
+            'status': 'ok',
+            'text': text,
+            'raw': raw,
+            'char_count': len(text.replace(' ', '')),
+            'word_count': len([w for w in text.split(' ') if w]),
+            'metrics': metrics,
+        })
+    except Exception as e:
+        logger.error(f'Morse decode-file error: {e}')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        with contextlib.suppress(Exception):
+            tmp_path.unlink(missing_ok=True)
 
 
 @morse_bp.route('/morse/status')
@@ -263,8 +660,19 @@ def morse_status() -> Response:
         running = (
             app_module.morse_process is not None
             and app_module.morse_process.poll() is None
+            and morse_state in {MORSE_RUNNING, MORSE_STARTING, MORSE_STOPPING}
         )
-        return jsonify({'running': running})
+        since_ms = round((time.monotonic() - morse_state_since) * 1000.0, 1)
+        return jsonify({
+            'running': running,
+            'state': morse_state,
+            'message': morse_state_message,
+            'since_ms': since_ms,
+            'session_id': morse_session_id,
+            'config': morse_runtime_config,
+            'alive': _snapshot_live_resources(),
+            'error': morse_last_error,
+        })
 
 
 @morse_bp.route('/morse/stream')
