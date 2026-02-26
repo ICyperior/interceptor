@@ -1,7 +1,8 @@
 """System Health monitoring blueprint.
 
-Provides real-time system metrics (CPU, memory, disk, temperatures),
-active process status, and SDR device enumeration via SSE streaming.
+Provides real-time system metrics (CPU, memory, disk, temperatures,
+network, battery, fans), active process status, SDR device enumeration,
+location, and weather data via SSE streaming and REST endpoints.
 """
 
 from __future__ import annotations
@@ -11,11 +12,13 @@ import os
 import platform
 import queue
 import socket
+import subprocess
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, Response, jsonify
+from flask import Blueprint, Response, jsonify, request
 
 from utils.constants import SSE_KEEPALIVE_INTERVAL, SSE_QUEUE_TIMEOUT
 from utils.logging import sensor_logger as logger
@@ -29,6 +32,11 @@ except ImportError:
     psutil = None  # type: ignore[assignment]
     _HAS_PSUTIL = False
 
+try:
+    import requests as _requests
+except ImportError:
+    _requests = None  # type: ignore[assignment]
+
 system_bp = Blueprint('system', __name__, url_prefix='/system')
 
 # ---------------------------------------------------------------------------
@@ -39,6 +47,11 @@ _metrics_queue: queue.Queue = queue.Queue(maxsize=500)
 _collector_started = False
 _collector_lock = threading.Lock()
 _app_start_time: float | None = None
+
+# Weather cache
+_weather_cache: dict[str, Any] = {}
+_weather_cache_time: float = 0.0
+_WEATHER_CACHE_TTL = 600  # 10 minutes
 
 
 def _get_app_start_time() -> float:
@@ -138,6 +151,38 @@ def _collect_process_status() -> dict[str, bool]:
         return {}
 
 
+def _collect_throttle_flags() -> str | None:
+    """Read Raspberry Pi throttle flags via vcgencmd (Linux/Pi only)."""
+    try:
+        result = subprocess.run(
+            ['vcgencmd', 'get_throttled'],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode == 0 and 'throttled=' in result.stdout:
+            return result.stdout.strip().split('=', 1)[1]
+    except Exception:
+        pass
+    return None
+
+
+def _collect_power_draw() -> float | None:
+    """Read power draw in watts from sysfs (Linux only)."""
+    try:
+        power_supply = Path('/sys/class/power_supply')
+        if not power_supply.exists():
+            return None
+        for supply_dir in power_supply.iterdir():
+            power_file = supply_dir / 'power_now'
+            if power_file.exists():
+                val = int(power_file.read_text().strip())
+                return round(val / 1_000_000, 2)  # microwatts to watts
+    except Exception:
+        pass
+    return None
+
+
 def _collect_metrics() -> dict[str, Any]:
     """Gather a snapshot of system metrics."""
     now = time.time()
@@ -159,7 +204,7 @@ def _collect_metrics() -> dict[str, Any]:
     }
 
     if _HAS_PSUTIL:
-        # CPU
+        # CPU — overall + per-core + frequency
         cpu_percent = psutil.cpu_percent(interval=None)
         cpu_count = psutil.cpu_count() or 1
         try:
@@ -167,12 +212,28 @@ def _collect_metrics() -> dict[str, Any]:
         except (OSError, AttributeError):
             load_1 = load_5 = load_15 = 0.0
 
+        per_core = []
+        with contextlib.suppress(Exception):
+            per_core = psutil.cpu_percent(interval=None, percpu=True)
+
+        freq_data = None
+        with contextlib.suppress(Exception):
+            freq = psutil.cpu_freq()
+            if freq:
+                freq_data = {
+                    'current': round(freq.current, 0),
+                    'min': round(freq.min, 0),
+                    'max': round(freq.max, 0),
+                }
+
         metrics['cpu'] = {
             'percent': cpu_percent,
             'count': cpu_count,
             'load_1': round(load_1, 2),
             'load_5': round(load_5, 2),
             'load_15': round(load_15, 2),
+            'per_core': per_core,
+            'freq': freq_data,
         }
 
         # Memory
@@ -191,7 +252,7 @@ def _collect_metrics() -> dict[str, Any]:
             'percent': swap.percent,
         }
 
-        # Disk
+        # Disk — usage + I/O counters
         try:
             disk = psutil.disk_usage('/')
             metrics['disk'] = {
@@ -203,6 +264,18 @@ def _collect_metrics() -> dict[str, Any]:
             }
         except Exception:
             metrics['disk'] = None
+
+        disk_io = None
+        with contextlib.suppress(Exception):
+            dio = psutil.disk_io_counters()
+            if dio:
+                disk_io = {
+                    'read_bytes': dio.read_bytes,
+                    'write_bytes': dio.write_bytes,
+                    'read_count': dio.read_count,
+                    'write_count': dio.write_count,
+                }
+        metrics['disk_io'] = disk_io
 
         # Temperatures
         try:
@@ -224,12 +297,102 @@ def _collect_metrics() -> dict[str, Any]:
                 metrics['temperatures'] = None
         except (AttributeError, Exception):
             metrics['temperatures'] = None
+
+        # Fans
+        fans_data = None
+        with contextlib.suppress(Exception):
+            fans = psutil.sensors_fans()
+            if fans:
+                fans_data = {}
+                for chip, entries in fans.items():
+                    fans_data[chip] = [
+                        {'label': e.label or chip, 'current': e.current}
+                        for e in entries
+                    ]
+        metrics['fans'] = fans_data
+
+        # Battery
+        battery_data = None
+        with contextlib.suppress(Exception):
+            bat = psutil.sensors_battery()
+            if bat:
+                battery_data = {
+                    'percent': bat.percent,
+                    'plugged': bat.power_plugged,
+                    'secs_left': bat.secsleft if bat.secsleft != psutil.POWER_TIME_UNLIMITED else None,
+                }
+        metrics['battery'] = battery_data
+
+        # Network interfaces
+        net_ifaces: list[dict[str, Any]] = []
+        with contextlib.suppress(Exception):
+            addrs = psutil.net_if_addrs()
+            stats = psutil.net_if_stats()
+            for iface_name in sorted(addrs.keys()):
+                if iface_name == 'lo':
+                    continue
+                iface_info: dict[str, Any] = {'name': iface_name}
+                # Get addresses
+                for addr in addrs[iface_name]:
+                    if addr.family == socket.AF_INET:
+                        iface_info['ipv4'] = addr.address
+                    elif addr.family == socket.AF_INET6:
+                        iface_info.setdefault('ipv6', addr.address)
+                    elif addr.family == psutil.AF_LINK:
+                        iface_info['mac'] = addr.address
+                # Get stats
+                if iface_name in stats:
+                    st = stats[iface_name]
+                    iface_info['is_up'] = st.isup
+                    iface_info['speed'] = st.speed  # Mbps
+                    iface_info['mtu'] = st.mtu
+                net_ifaces.append(iface_info)
+        metrics['network'] = {'interfaces': net_ifaces}
+
+        # Network I/O counters (raw — JS computes deltas)
+        net_io = None
+        with contextlib.suppress(Exception):
+            counters = psutil.net_io_counters(pernic=True)
+            if counters:
+                net_io = {}
+                for nic, c in counters.items():
+                    if nic == 'lo':
+                        continue
+                    net_io[nic] = {
+                        'bytes_sent': c.bytes_sent,
+                        'bytes_recv': c.bytes_recv,
+                    }
+        metrics['network']['io'] = net_io
+
+        # Connection count
+        conn_count = 0
+        with contextlib.suppress(Exception):
+            conn_count = len(psutil.net_connections())
+        metrics['network']['connections'] = conn_count
+
+        # Boot time
+        boot_ts = None
+        with contextlib.suppress(Exception):
+            boot_ts = psutil.boot_time()
+        metrics['boot_time'] = boot_ts
+
+        # Power / throttle (Pi-specific)
+        metrics['power'] = {
+            'throttled': _collect_throttle_flags(),
+            'draw_watts': _collect_power_draw(),
+        }
     else:
         metrics['cpu'] = None
         metrics['memory'] = None
         metrics['swap'] = None
         metrics['disk'] = None
+        metrics['disk_io'] = None
         metrics['temperatures'] = None
+        metrics['fans'] = None
+        metrics['battery'] = None
+        metrics['network'] = None
+        metrics['boot_time'] = None
+        metrics['power'] = None
 
     return metrics
 
@@ -268,6 +431,32 @@ def _ensure_collector() -> None:
         t.start()
         _collector_started = True
         logger.info('System metrics collector started')
+
+
+def _get_observer_location() -> dict[str, Any]:
+    """Get observer location from GPS state or config defaults."""
+    lat, lon, source = None, None, 'none'
+
+    # Try GPS state from app module
+    with contextlib.suppress(Exception):
+        import app as app_module
+
+        gps_state = getattr(app_module, 'gps_state', None)
+        if gps_state and isinstance(gps_state, dict):
+            g_lat = gps_state.get('lat') or gps_state.get('latitude')
+            g_lon = gps_state.get('lon') or gps_state.get('longitude')
+            if g_lat is not None and g_lon is not None:
+                lat, lon, source = float(g_lat), float(g_lon), 'gps'
+
+    # Fall back to config defaults
+    if lat is None:
+        with contextlib.suppress(Exception):
+            from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
+
+            if DEFAULT_LATITUDE != 0.0 or DEFAULT_LONGITUDE != 0.0:
+                lat, lon, source = DEFAULT_LATITUDE, DEFAULT_LONGITUDE, 'config'
+
+    return {'lat': lat, 'lon': lon, 'source': source}
 
 
 # ---------------------------------------------------------------------------
@@ -321,3 +510,59 @@ def get_sdr_devices() -> Response:
     except Exception as exc:
         logger.warning('SDR device detection failed: %s', exc)
         return jsonify({'devices': [], 'error': str(exc)})
+
+
+@system_bp.route('/location')
+def get_location() -> Response:
+    """Return observer location from GPS or config."""
+    return jsonify(_get_observer_location())
+
+
+@system_bp.route('/weather')
+def get_weather() -> Response:
+    """Proxy weather from wttr.in, cached for 10 minutes."""
+    global _weather_cache, _weather_cache_time
+
+    now = time.time()
+    if _weather_cache and (now - _weather_cache_time) < _WEATHER_CACHE_TTL:
+        return jsonify(_weather_cache)
+
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    if lat is None or lon is None:
+        loc = _get_observer_location()
+        lat, lon = loc.get('lat'), loc.get('lon')
+
+    if lat is None or lon is None:
+        return jsonify({'error': 'No location available'})
+
+    if _requests is None:
+        return jsonify({'error': 'requests library not available'})
+
+    try:
+        resp = _requests.get(
+            f'https://wttr.in/{lat},{lon}?format=j1',
+            timeout=5,
+            headers={'User-Agent': 'INTERCEPT-SystemHealth/1.0'},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        current = data.get('current_condition', [{}])[0]
+        weather = {
+            'temp_c': current.get('temp_C'),
+            'temp_f': current.get('temp_F'),
+            'condition': current.get('weatherDesc', [{}])[0].get('value', ''),
+            'humidity': current.get('humidity'),
+            'wind_mph': current.get('windspeedMiles'),
+            'wind_dir': current.get('winddir16Point'),
+            'feels_like_c': current.get('FeelsLikeC'),
+            'visibility': current.get('visibility'),
+            'pressure': current.get('pressure'),
+        }
+        _weather_cache = weather
+        _weather_cache_time = now
+        return jsonify(weather)
+    except Exception as exc:
+        logger.debug('Weather fetch failed: %s', exc)
+        return jsonify({'error': str(exc)})

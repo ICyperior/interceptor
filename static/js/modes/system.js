@@ -1,8 +1,9 @@
 /**
- * System Health – IIFE module
+ * System Health – Enhanced Dashboard IIFE module
  *
- * Always-on monitoring that auto-connects when the mode is entered.
- * Streams real-time system metrics via SSE and provides SDR device enumeration.
+ * Streams real-time system metrics via SSE with rich visualizations:
+ * SVG arc gauge, per-core bars, temperature sparkline, network bandwidth,
+ * disk I/O, 3D globe, weather, and process grid.
  */
 const SystemHealth = (function () {
     'use strict';
@@ -11,17 +12,44 @@ const SystemHealth = (function () {
     let connected = false;
     let lastMetrics = null;
 
+    // Temperature sparkline ring buffer (last 20 readings)
+    const SPARKLINE_SIZE = 20;
+    let tempHistory = [];
+
+    // Network I/O delta tracking
+    let prevNetIo = null;
+    let prevNetTimestamp = null;
+
+    // Disk I/O delta tracking
+    let prevDiskIo = null;
+    let prevDiskTimestamp = null;
+
+    // Location & weather state
+    let locationData = null;
+    let weatherData = null;
+    let weatherTimer = null;
+    let globeInstance = null;
+    let globeDestroyed = false;
+
+    const GLOBE_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/globe.gl@2.33.1/dist/globe.gl.min.js';
+    const GLOBE_TEXTURE_URL = '/static/images/globe/earth-dark.jpg';
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
     function formatBytes(bytes) {
         if (bytes == null) return '--';
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        let i = 0;
-        let val = bytes;
+        var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        var i = 0;
+        var val = bytes;
         while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
         return val.toFixed(1) + ' ' + units[i];
+    }
+
+    function formatRate(bytesPerSec) {
+        if (bytesPerSec == null) return '--';
+        return formatBytes(bytesPerSec) + '/s';
     }
 
     function barClass(pct) {
@@ -32,8 +60,8 @@ const SystemHealth = (function () {
 
     function barHtml(pct, label) {
         if (pct == null) return '<span class="sys-metric-na">N/A</span>';
-        const cls = barClass(pct);
-        const rounded = Math.round(pct);
+        var cls = barClass(pct);
+        var rounded = Math.round(pct);
         return '<div class="sys-metric-bar-wrap">' +
             (label ? '<span class="sys-metric-bar-label">' + label + '</span>' : '') +
             '<div class="sys-metric-bar"><div class="sys-metric-bar-fill ' + cls + '" style="width:' + rounded + '%"></div></div>' +
@@ -41,71 +69,477 @@ const SystemHealth = (function () {
             '</div>';
     }
 
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
     // -----------------------------------------------------------------------
-    // Rendering
+    // SVG Arc Gauge
+    // -----------------------------------------------------------------------
+
+    function arcGaugeSvg(pct) {
+        var radius = 36;
+        var cx = 45, cy = 45;
+        var startAngle = -225;
+        var endAngle = 45;
+        var totalAngle = endAngle - startAngle; // 270 degrees
+        var fillAngle = startAngle + (totalAngle * Math.min(pct, 100) / 100);
+
+        function polarToCart(angle) {
+            var r = angle * Math.PI / 180;
+            return { x: cx + radius * Math.cos(r), y: cy + radius * Math.sin(r) };
+        }
+
+        var bgStart = polarToCart(startAngle);
+        var bgEnd = polarToCart(endAngle);
+        var fillEnd = polarToCart(fillAngle);
+        var largeArcBg = totalAngle > 180 ? 1 : 0;
+        var fillArc = (fillAngle - startAngle) > 180 ? 1 : 0;
+        var cls = barClass(pct);
+
+        return '<svg viewBox="0 0 90 90">' +
+            '<path class="arc-bg" d="M ' + bgStart.x + ' ' + bgStart.y +
+            ' A ' + radius + ' ' + radius + ' 0 ' + largeArcBg + ' 1 ' + bgEnd.x + ' ' + bgEnd.y + '"/>' +
+            '<path class="arc-fill ' + cls + '" d="M ' + bgStart.x + ' ' + bgStart.y +
+            ' A ' + radius + ' ' + radius + ' 0 ' + fillArc + ' 1 ' + fillEnd.x + ' ' + fillEnd.y + '"/>' +
+            '</svg>';
+    }
+
+    // -----------------------------------------------------------------------
+    // Temperature Sparkline
+    // -----------------------------------------------------------------------
+
+    function sparklineSvg(values) {
+        if (!values || values.length < 2) return '';
+        var w = 200, h = 40;
+        var min = Math.min.apply(null, values);
+        var max = Math.max.apply(null, values);
+        var range = max - min || 1;
+        var step = w / (values.length - 1);
+
+        var points = values.map(function (v, i) {
+            var x = Math.round(i * step);
+            var y = Math.round(h - ((v - min) / range) * (h - 4) - 2);
+            return x + ',' + y;
+        });
+
+        var areaPoints = points.join(' ') + ' ' + w + ',' + h + ' 0,' + h;
+
+        return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+            '<defs><linearGradient id="sparkGradient" x1="0" y1="0" x2="0" y2="1">' +
+            '<stop offset="0%" stop-color="var(--accent-cyan, #00d4ff)" stop-opacity="0.3"/>' +
+            '<stop offset="100%" stop-color="var(--accent-cyan, #00d4ff)" stop-opacity="0.0"/>' +
+            '</linearGradient></defs>' +
+            '<polygon class="sys-sparkline-area" points="' + areaPoints + '"/>' +
+            '<polyline class="sys-sparkline-line" points="' + points.join(' ') + '"/>' +
+            '</svg>';
+    }
+
+    // -----------------------------------------------------------------------
+    // Rendering — CPU Card
     // -----------------------------------------------------------------------
 
     function renderCpuCard(m) {
-        const el = document.getElementById('sysCardCpu');
+        var el = document.getElementById('sysCardCpu');
         if (!el) return;
-        const cpu = m.cpu;
+        var cpu = m.cpu;
         if (!cpu) { el.innerHTML = '<div class="sys-card-body"><span class="sys-metric-na">psutil not available</span></div>'; return; }
+
+        var pct = Math.round(cpu.percent);
+        var coreHtml = '';
+        if (cpu.per_core && cpu.per_core.length) {
+            coreHtml = '<div class="sys-core-bars">';
+            cpu.per_core.forEach(function (c) {
+                var cls = barClass(c);
+                var h = Math.max(2, Math.round(c / 100 * 24));
+                coreHtml += '<div class="sys-core-bar"><div class="sys-core-bar-fill ' + cls +
+                    '" style="height:' + h + 'px;background:var(--accent-' +
+                    (cls === 'ok' ? 'green' : cls === 'warn' ? 'yellow' : 'red') +
+                    ', #00ff88)"></div></div>';
+            });
+            coreHtml += '</div>';
+        }
+
+        var freqHtml = '';
+        if (cpu.freq) {
+            var freqGhz = (cpu.freq.current / 1000).toFixed(2);
+            freqHtml = '<div class="sys-card-detail">Freq: ' + freqGhz + ' GHz</div>';
+        }
+
         el.innerHTML =
             '<div class="sys-card-header">CPU</div>' +
             '<div class="sys-card-body">' +
-            barHtml(cpu.percent, '') +
+            '<div class="sys-gauge-wrap">' +
+            '<div class="sys-gauge-arc">' + arcGaugeSvg(pct) +
+            '<div class="sys-gauge-label">' + pct + '%</div></div>' +
+            '<div class="sys-gauge-details">' +
             '<div class="sys-card-detail">Load: ' + cpu.load_1 + ' / ' + cpu.load_5 + ' / ' + cpu.load_15 + '</div>' +
             '<div class="sys-card-detail">Cores: ' + cpu.count + '</div>' +
+            freqHtml +
+            '</div></div>' +
+            coreHtml +
             '</div>';
     }
 
+    // -----------------------------------------------------------------------
+    // Memory Card
+    // -----------------------------------------------------------------------
+
     function renderMemoryCard(m) {
-        const el = document.getElementById('sysCardMemory');
+        var el = document.getElementById('sysCardMemory');
         if (!el) return;
-        const mem = m.memory;
+        var mem = m.memory;
         if (!mem) { el.innerHTML = '<div class="sys-card-body"><span class="sys-metric-na">N/A</span></div>'; return; }
-        const swap = m.swap || {};
+        var swap = m.swap || {};
         el.innerHTML =
             '<div class="sys-card-header">Memory</div>' +
             '<div class="sys-card-body">' +
-            barHtml(mem.percent, '') +
+            barHtml(mem.percent, 'RAM') +
             '<div class="sys-card-detail">' + formatBytes(mem.used) + ' / ' + formatBytes(mem.total) + '</div>' +
-            '<div class="sys-card-detail">Swap: ' + formatBytes(swap.used) + ' / ' + formatBytes(swap.total) + '</div>' +
+            (swap.total > 0 ? barHtml(swap.percent, 'Swap') +
+                '<div class="sys-card-detail">' + formatBytes(swap.used) + ' / ' + formatBytes(swap.total) + '</div>' : '') +
             '</div>';
     }
 
-    function renderDiskCard(m) {
-        const el = document.getElementById('sysCardDisk');
-        if (!el) return;
-        const disk = m.disk;
-        if (!disk) { el.innerHTML = '<div class="sys-card-body"><span class="sys-metric-na">N/A</span></div>'; return; }
-        el.innerHTML =
-            '<div class="sys-card-header">Disk</div>' +
-            '<div class="sys-card-body">' +
-            barHtml(disk.percent, '') +
-            '<div class="sys-card-detail">' + formatBytes(disk.used) + ' / ' + formatBytes(disk.total) + '</div>' +
-            '<div class="sys-card-detail">Path: ' + (disk.path || '/') + '</div>' +
-            '</div>';
-    }
+    // -----------------------------------------------------------------------
+    // Temperature & Power Card
+    // -----------------------------------------------------------------------
 
     function _extractPrimaryTemp(temps) {
         if (!temps) return null;
-        // Prefer common chip names
-        const preferred = ['cpu_thermal', 'coretemp', 'k10temp', 'acpitz', 'soc_thermal'];
-        for (const name of preferred) {
-            if (temps[name] && temps[name].length) return temps[name][0];
+        var preferred = ['cpu_thermal', 'coretemp', 'k10temp', 'acpitz', 'soc_thermal'];
+        for (var i = 0; i < preferred.length; i++) {
+            if (temps[preferred[i]] && temps[preferred[i]].length) return temps[preferred[i]][0];
         }
-        // Fall back to first available
-        for (const key of Object.keys(temps)) {
+        for (var key in temps) {
             if (temps[key] && temps[key].length) return temps[key][0];
         }
         return null;
     }
 
-    function renderSdrCard(devices) {
-        const el = document.getElementById('sysCardSdr');
+    function renderTempCard(m) {
+        var el = document.getElementById('sysCardTemp');
         if (!el) return;
-        let html = '<div class="sys-card-header">SDR Devices <button class="sys-rescan-btn" onclick="SystemHealth.refreshSdr()">Rescan</button></div>';
+
+        var temp = _extractPrimaryTemp(m.temperatures);
+        var html = '<div class="sys-card-header">Temperature &amp; Power</div><div class="sys-card-body">';
+
+        if (temp) {
+            // Update sparkline history
+            tempHistory.push(temp.current);
+            if (tempHistory.length > SPARKLINE_SIZE) tempHistory.shift();
+
+            html += '<div class="sys-temp-big">' + Math.round(temp.current) + '&deg;C</div>';
+            html += '<div class="sys-sparkline-wrap">' + sparklineSvg(tempHistory) + '</div>';
+
+            // Additional sensors
+            if (m.temperatures) {
+                for (var chip in m.temperatures) {
+                    m.temperatures[chip].forEach(function (s) {
+                        html += '<div class="sys-card-detail">' + escHtml(s.label) + ': ' + Math.round(s.current) + '&deg;C</div>';
+                    });
+                }
+            }
+        } else {
+            html += '<span class="sys-metric-na">No temperature sensors</span>';
+        }
+
+        // Fans
+        if (m.fans) {
+            for (var fChip in m.fans) {
+                m.fans[fChip].forEach(function (f) {
+                    html += '<div class="sys-card-detail">Fan ' + escHtml(f.label) + ': ' + f.current + ' RPM</div>';
+                });
+            }
+        }
+
+        // Battery
+        if (m.battery) {
+            html += '<div class="sys-card-detail" style="margin-top:8px">' +
+                'Battery: ' + Math.round(m.battery.percent) + '%' +
+                (m.battery.plugged ? ' (plugged)' : '') + '</div>';
+        }
+
+        // Throttle flags (Pi)
+        if (m.power && m.power.throttled) {
+            html += '<div class="sys-card-detail" style="color:var(--accent-yellow,#ffcc00)">Throttle: 0x' + m.power.throttled + '</div>';
+        }
+
+        // Power draw
+        if (m.power && m.power.draw_watts != null) {
+            html += '<div class="sys-card-detail">Power: ' + m.power.draw_watts + ' W</div>';
+        }
+
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    // -----------------------------------------------------------------------
+    // Disk Card
+    // -----------------------------------------------------------------------
+
+    function renderDiskCard(m) {
+        var el = document.getElementById('sysCardDisk');
+        if (!el) return;
+        var disk = m.disk;
+        if (!disk) { el.innerHTML = '<div class="sys-card-header">Disk &amp; Storage</div><div class="sys-card-body"><span class="sys-metric-na">N/A</span></div>'; return; }
+
+        var html = '<div class="sys-card-header">Disk &amp; Storage</div><div class="sys-card-body">';
+        html += barHtml(disk.percent, '');
+        html += '<div class="sys-card-detail">' + formatBytes(disk.used) + ' / ' + formatBytes(disk.total) + '</div>';
+
+        // Disk I/O rates
+        if (m.disk_io && prevDiskIo && prevDiskTimestamp) {
+            var dt = (m.timestamp - prevDiskTimestamp);
+            if (dt > 0) {
+                var readRate = (m.disk_io.read_bytes - prevDiskIo.read_bytes) / dt;
+                var writeRate = (m.disk_io.write_bytes - prevDiskIo.write_bytes) / dt;
+                var readIops = Math.round((m.disk_io.read_count - prevDiskIo.read_count) / dt);
+                var writeIops = Math.round((m.disk_io.write_count - prevDiskIo.write_count) / dt);
+                html += '<div class="sys-disk-io">' +
+                    '<span class="sys-disk-io-read">R: ' + formatRate(Math.max(0, readRate)) + '</span>' +
+                    '<span class="sys-disk-io-write">W: ' + formatRate(Math.max(0, writeRate)) + '</span>' +
+                    '</div>';
+                html += '<div class="sys-card-detail">IOPS: ' + Math.max(0, readIops) + 'r / ' + Math.max(0, writeIops) + 'w</div>';
+            }
+        }
+
+        if (m.disk_io) {
+            prevDiskIo = m.disk_io;
+            prevDiskTimestamp = m.timestamp;
+        }
+
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    // -----------------------------------------------------------------------
+    // Network Card
+    // -----------------------------------------------------------------------
+
+    function renderNetworkCard(m) {
+        var el = document.getElementById('sysCardNetwork');
+        if (!el) return;
+        var net = m.network;
+        if (!net) { el.innerHTML = '<div class="sys-card-header">Network</div><div class="sys-card-body"><span class="sys-metric-na">N/A</span></div>'; return; }
+
+        var html = '<div class="sys-card-header">Network</div><div class="sys-card-body">';
+
+        // Interfaces
+        var ifaces = net.interfaces || [];
+        if (ifaces.length === 0) {
+            html += '<span class="sys-metric-na">No interfaces</span>';
+        } else {
+            ifaces.forEach(function (iface) {
+                html += '<div class="sys-net-iface">';
+                html += '<div class="sys-net-iface-name">' + escHtml(iface.name) +
+                    (iface.is_up ? '' : ' <span style="color:var(--text-dim)">(down)</span>') + '</div>';
+                if (iface.ipv4) html += '<div class="sys-net-iface-ip">' + escHtml(iface.ipv4) + '</div>';
+                var details = [];
+                if (iface.mac) details.push('MAC: ' + iface.mac);
+                if (iface.speed) details.push(iface.speed + ' Mbps');
+                if (details.length) html += '<div class="sys-net-iface-detail">' + escHtml(details.join(' | ')) + '</div>';
+
+                // Bandwidth for this interface
+                if (net.io && net.io[iface.name] && prevNetIo && prevNetIo[iface.name] && prevNetTimestamp) {
+                    var dt = (m.timestamp - prevNetTimestamp);
+                    if (dt > 0) {
+                        var prev = prevNetIo[iface.name];
+                        var cur = net.io[iface.name];
+                        var upRate = (cur.bytes_sent - prev.bytes_sent) / dt;
+                        var downRate = (cur.bytes_recv - prev.bytes_recv) / dt;
+                        html += '<div class="sys-bandwidth">' +
+                            '<span class="sys-bw-up">&uarr; ' + formatRate(Math.max(0, upRate)) + '</span>' +
+                            '<span class="sys-bw-down">&darr; ' + formatRate(Math.max(0, downRate)) + '</span>' +
+                            '</div>';
+                    }
+                }
+
+                html += '</div>';
+            });
+        }
+
+        // Connection count
+        if (net.connections != null) {
+            html += '<div class="sys-card-detail" style="margin-top:8px">Connections: ' + net.connections + '</div>';
+        }
+
+        // Save for next delta
+        if (net.io) {
+            prevNetIo = net.io;
+            prevNetTimestamp = m.timestamp;
+        }
+
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    // -----------------------------------------------------------------------
+    // Location & Weather Card
+    // -----------------------------------------------------------------------
+
+    function renderLocationCard() {
+        var el = document.getElementById('sysCardLocation');
+        if (!el) return;
+
+        var html = '<div class="sys-card-header">Location &amp; Weather</div><div class="sys-card-body">';
+        html += '<div class="sys-location-inner">';
+
+        // Globe container
+        html += '<div class="sys-globe-wrap" id="sysGlobeContainer"></div>';
+
+        // Details column
+        html += '<div class="sys-location-details">';
+
+        if (locationData && locationData.lat != null) {
+            html += '<div class="sys-location-coords">' +
+                locationData.lat.toFixed(4) + '&deg;' + (locationData.lat >= 0 ? 'N' : 'S') + '<br>' +
+                locationData.lon.toFixed(4) + '&deg;' + (locationData.lon >= 0 ? 'E' : 'W') + '</div>';
+            html += '<div class="sys-location-source">Source: ' + escHtml(locationData.source || 'unknown') + '</div>';
+        } else {
+            html += '<div class="sys-location-coords" style="color:var(--text-dim)">No location</div>';
+        }
+
+        // Weather
+        if (weatherData && !weatherData.error) {
+            html += '<div class="sys-weather">';
+            html += '<div class="sys-weather-temp">' + (weatherData.temp_c || '--') + '&deg;C</div>';
+            html += '<div class="sys-weather-condition">' + escHtml(weatherData.condition || '') + '</div>';
+            var details = [];
+            if (weatherData.humidity) details.push('Humidity: ' + weatherData.humidity + '%');
+            if (weatherData.wind_mph) details.push('Wind: ' + weatherData.wind_mph + ' mph ' + (weatherData.wind_dir || ''));
+            if (weatherData.feels_like_c) details.push('Feels like: ' + weatherData.feels_like_c + '°C');
+            details.forEach(function (d) {
+                html += '<div class="sys-weather-detail">' + escHtml(d) + '</div>';
+            });
+            html += '</div>';
+        } else if (weatherData && weatherData.error) {
+            html += '<div class="sys-weather"><div class="sys-weather-condition" style="color:var(--text-dim)">Weather unavailable</div></div>';
+        }
+
+        html += '</div>'; // .sys-location-details
+        html += '</div>'; // .sys-location-inner
+        html += '</div>';
+        el.innerHTML = html;
+
+        // Initialize globe after DOM is ready
+        setTimeout(function () { initGlobe(); }, 50);
+    }
+
+    // -----------------------------------------------------------------------
+    // Globe (reuses globe.gl from GPS mode)
+    // -----------------------------------------------------------------------
+
+    function ensureGlobeLibrary() {
+        return new Promise(function (resolve, reject) {
+            if (typeof window.Globe === 'function') { resolve(true); return; }
+
+            // Check if script already exists
+            var existing = document.querySelector(
+                'script[data-intercept-globe-src="' + GLOBE_SCRIPT_URL + '"], ' +
+                'script[src="' + GLOBE_SCRIPT_URL + '"]'
+            );
+            if (existing) {
+                if (existing.dataset.loaded === 'true') { resolve(true); return; }
+                if (existing.dataset.failed === 'true') { resolve(false); return; }
+                existing.addEventListener('load', function () { resolve(true); }, { once: true });
+                existing.addEventListener('error', function () { resolve(false); }, { once: true });
+                return;
+            }
+
+            var script = document.createElement('script');
+            script.src = GLOBE_SCRIPT_URL;
+            script.async = true;
+            script.crossOrigin = 'anonymous';
+            script.dataset.interceptGlobeSrc = GLOBE_SCRIPT_URL;
+            script.onload = function () { script.dataset.loaded = 'true'; resolve(true); };
+            script.onerror = function () { script.dataset.failed = 'true'; resolve(false); };
+            document.head.appendChild(script);
+        });
+    }
+
+    function initGlobe() {
+        var container = document.getElementById('sysGlobeContainer');
+        if (!container || globeDestroyed) return;
+
+        // Don't reinitialize if globe is already in this container
+        if (globeInstance && container.querySelector('canvas')) return;
+
+        ensureGlobeLibrary().then(function (ready) {
+            if (!ready || typeof window.Globe !== 'function' || globeDestroyed) return;
+
+            container = document.getElementById('sysGlobeContainer');
+            if (!container || !container.clientWidth) return;
+
+            container.innerHTML = '';
+            container.style.background = 'radial-gradient(circle, rgba(10,20,40,0.9), rgba(2,4,8,0.98) 70%)';
+
+            globeInstance = window.Globe()(container)
+                .backgroundColor('rgba(0,0,0,0)')
+                .globeImageUrl(GLOBE_TEXTURE_URL)
+                .showAtmosphere(true)
+                .atmosphereColor('#3bb9ff')
+                .atmosphereAltitude(0.12)
+                .pointsData([])
+                .pointRadius(0.8)
+                .pointAltitude(0.01)
+                .pointColor(function () { return '#00d4ff'; });
+
+            var controls = globeInstance.controls();
+            if (controls) {
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = 0.5;
+                controls.enablePan = false;
+                controls.minDistance = 180;
+                controls.maxDistance = 400;
+            }
+
+            // Size the globe
+            globeInstance.width(container.clientWidth);
+            globeInstance.height(container.clientHeight);
+
+            updateGlobePosition();
+        });
+    }
+
+    function updateGlobePosition() {
+        if (!globeInstance || !locationData || locationData.lat == null) return;
+
+        // Observer point
+        globeInstance.pointsData([{
+            lat: locationData.lat,
+            lng: locationData.lon,
+            size: 0.8,
+            color: '#00d4ff',
+        }]);
+
+        // Snap view
+        globeInstance.pointOfView({ lat: locationData.lat, lng: locationData.lon, altitude: 2.0 }, 1000);
+
+        // Stop auto-rotate when we have a fix
+        var controls = globeInstance.controls();
+        if (controls) controls.autoRotate = false;
+    }
+
+    function destroyGlobe() {
+        globeDestroyed = true;
+        if (globeInstance) {
+            var container = document.getElementById('sysGlobeContainer');
+            if (container) container.innerHTML = '';
+            globeInstance = null;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // SDR Card
+    // -----------------------------------------------------------------------
+
+    function renderSdrCard(devices) {
+        var el = document.getElementById('sysCardSdr');
+        if (!el) return;
+        var html = '<div class="sys-card-header">SDR Devices <button class="sys-rescan-btn" onclick="SystemHealth.refreshSdr()">Rescan</button></div>';
         html += '<div class="sys-card-body">';
         if (!devices || !devices.length) {
             html += '<span class="sys-metric-na">No devices found</span>';
@@ -113,9 +547,9 @@ const SystemHealth = (function () {
             devices.forEach(function (d) {
                 html += '<div class="sys-sdr-device">' +
                     '<span class="sys-process-dot running"></span> ' +
-                    '<strong>' + d.type + ' #' + d.index + '</strong>' +
-                    '<div class="sys-card-detail">' + (d.name || 'Unknown') + '</div>' +
-                    (d.serial ? '<div class="sys-card-detail">S/N: ' + d.serial + '</div>' : '') +
+                    '<strong>' + escHtml(d.type) + ' #' + d.index + '</strong>' +
+                    '<div class="sys-card-detail">' + escHtml(d.name || 'Unknown') + '</div>' +
+                    (d.serial ? '<div class="sys-card-detail">S/N: ' + escHtml(d.serial) + '</div>' : '') +
                     '</div>';
             });
         }
@@ -123,93 +557,187 @@ const SystemHealth = (function () {
         el.innerHTML = html;
     }
 
+    // -----------------------------------------------------------------------
+    // Process Card
+    // -----------------------------------------------------------------------
+
     function renderProcessCard(m) {
-        const el = document.getElementById('sysCardProcesses');
+        var el = document.getElementById('sysCardProcesses');
         if (!el) return;
-        const procs = m.processes || {};
-        const keys = Object.keys(procs).sort();
-        let html = '<div class="sys-card-header">Processes</div><div class="sys-card-body">';
+        var procs = m.processes || {};
+        var keys = Object.keys(procs).sort();
+        var html = '<div class="sys-card-header">Active Processes</div><div class="sys-card-body">';
         if (!keys.length) {
             html += '<span class="sys-metric-na">No data</span>';
         } else {
+            var running = 0, stopped = 0;
+            html += '<div class="sys-process-grid">';
             keys.forEach(function (k) {
-                const running = procs[k];
-                const dotCls = running ? 'running' : 'stopped';
-                const label = k.charAt(0).toUpperCase() + k.slice(1);
+                var isRunning = procs[k];
+                if (isRunning) running++; else stopped++;
+                var dotCls = isRunning ? 'running' : 'stopped';
+                var label = k.charAt(0).toUpperCase() + k.slice(1);
                 html += '<div class="sys-process-item">' +
                     '<span class="sys-process-dot ' + dotCls + '"></span> ' +
-                    '<span class="sys-process-name">' + label + '</span>' +
+                    '<span class="sys-process-name">' + escHtml(label) + '</span>' +
                     '</div>';
             });
+            html += '</div>';
+            html += '<div class="sys-process-summary">' + running + ' running / ' + stopped + ' idle</div>';
         }
         html += '</div>';
         el.innerHTML = html;
     }
+
+    // -----------------------------------------------------------------------
+    // System Info Card
+    // -----------------------------------------------------------------------
 
     function renderSystemInfoCard(m) {
-        const el = document.getElementById('sysCardInfo');
+        var el = document.getElementById('sysCardInfo');
         if (!el) return;
-        const sys = m.system || {};
-        const temp = _extractPrimaryTemp(m.temperatures);
-        let html = '<div class="sys-card-header">System Info</div><div class="sys-card-body">';
-        html += '<div class="sys-card-detail">Host: ' + (sys.hostname || '--') + '</div>';
-        html += '<div class="sys-card-detail">OS: ' + (sys.platform || '--') + '</div>';
-        html += '<div class="sys-card-detail">Python: ' + (sys.python || '--') + '</div>';
-        html += '<div class="sys-card-detail">App: v' + (sys.version || '--') + '</div>';
-        html += '<div class="sys-card-detail">Uptime: ' + (sys.uptime_human || '--') + '</div>';
-        if (temp) {
-            html += '<div class="sys-card-detail">Temp: ' + Math.round(temp.current) + '&deg;C';
-            if (temp.high) html += ' / ' + Math.round(temp.high) + '&deg;C max';
-            html += '</div>';
+        var sys = m.system || {};
+        var html = '<div class="sys-card-header">System Info</div><div class="sys-card-body"><div class="sys-info-grid">';
+
+        html += '<div class="sys-info-item"><strong>Host:</strong> ' + escHtml(sys.hostname || '--') + '</div>';
+        html += '<div class="sys-info-item"><strong>OS:</strong> ' + escHtml(sys.platform || '--') + '</div>';
+        html += '<div class="sys-info-item"><strong>Python:</strong> ' + escHtml(sys.python || '--') + '</div>';
+        html += '<div class="sys-info-item"><strong>App:</strong> v' + escHtml(sys.version || '--') + '</div>';
+        html += '<div class="sys-info-item"><strong>Uptime:</strong> ' + escHtml(sys.uptime_human || '--') + '</div>';
+
+        if (m.boot_time) {
+            var bootDate = new Date(m.boot_time * 1000);
+            html += '<div class="sys-info-item"><strong>Boot:</strong> ' + escHtml(bootDate.toUTCString()) + '</div>';
         }
-        html += '</div>';
+
+        if (m.network && m.network.connections != null) {
+            html += '<div class="sys-info-item"><strong>Connections:</strong> ' + m.network.connections + '</div>';
+        }
+
+        html += '</div></div>';
         el.innerHTML = html;
     }
 
+    // -----------------------------------------------------------------------
+    // Sidebar Updates
+    // -----------------------------------------------------------------------
+
     function updateSidebarQuickStats(m) {
-        const cpuEl = document.getElementById('sysQuickCpu');
-        const tempEl = document.getElementById('sysQuickTemp');
-        const ramEl = document.getElementById('sysQuickRam');
-        const diskEl = document.getElementById('sysQuickDisk');
+        var cpuEl = document.getElementById('sysQuickCpu');
+        var tempEl = document.getElementById('sysQuickTemp');
+        var ramEl = document.getElementById('sysQuickRam');
+        var diskEl = document.getElementById('sysQuickDisk');
 
         if (cpuEl) cpuEl.textContent = m.cpu ? Math.round(m.cpu.percent) + '%' : '--';
         if (ramEl) ramEl.textContent = m.memory ? Math.round(m.memory.percent) + '%' : '--';
         if (diskEl) diskEl.textContent = m.disk ? Math.round(m.disk.percent) + '%' : '--';
 
-        const temp = _extractPrimaryTemp(m.temperatures);
+        var temp = _extractPrimaryTemp(m.temperatures);
         if (tempEl) tempEl.innerHTML = temp ? Math.round(temp.current) + '&deg;C' : '--';
 
         // Color-code values
         [cpuEl, ramEl, diskEl].forEach(function (el) {
             if (!el) return;
-            const val = parseInt(el.textContent);
+            var val = parseInt(el.textContent);
             el.classList.remove('sys-val-ok', 'sys-val-warn', 'sys-val-crit');
             if (!isNaN(val)) el.classList.add('sys-val-' + barClass(val));
         });
     }
 
     function updateSidebarProcesses(m) {
-        const el = document.getElementById('sysProcessList');
+        var el = document.getElementById('sysProcessList');
         if (!el) return;
-        const procs = m.processes || {};
-        const keys = Object.keys(procs).sort();
+        var procs = m.processes || {};
+        var keys = Object.keys(procs).sort();
         if (!keys.length) { el.textContent = 'No data'; return; }
-        const running = keys.filter(function (k) { return procs[k]; });
-        const stopped = keys.filter(function (k) { return !procs[k]; });
+        var running = keys.filter(function (k) { return procs[k]; });
+        var stopped = keys.filter(function (k) { return !procs[k]; });
         el.innerHTML =
             (running.length ? '<span style="color: var(--accent-green, #00ff88);">' + running.length + ' running</span>' : '') +
             (running.length && stopped.length ? ' &middot; ' : '') +
             (stopped.length ? '<span style="color: var(--text-dim);">' + stopped.length + ' stopped</span>' : '');
     }
 
+    function updateSidebarNetwork(m) {
+        var el = document.getElementById('sysQuickNet');
+        if (!el || !m.network) return;
+        var ifaces = m.network.interfaces || [];
+        var ips = [];
+        ifaces.forEach(function (iface) {
+            if (iface.ipv4 && iface.is_up) {
+                ips.push(iface.name + ': ' + iface.ipv4);
+            }
+        });
+        el.textContent = ips.length ? ips.join(', ') : '--';
+    }
+
+    function updateSidebarBattery(m) {
+        var section = document.getElementById('sysQuickBatterySection');
+        var el = document.getElementById('sysQuickBattery');
+        if (!section || !el) return;
+        if (m.battery) {
+            section.style.display = '';
+            el.textContent = Math.round(m.battery.percent) + '%' + (m.battery.plugged ? ' (plugged)' : '');
+        } else {
+            section.style.display = 'none';
+        }
+    }
+
+    function updateSidebarLocation() {
+        var el = document.getElementById('sysQuickLocation');
+        if (!el) return;
+        if (locationData && locationData.lat != null) {
+            el.textContent = locationData.lat.toFixed(4) + ', ' + locationData.lon.toFixed(4) + ' (' + locationData.source + ')';
+        } else {
+            el.textContent = 'No location';
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Render all
+    // -----------------------------------------------------------------------
+
     function renderAll(m) {
         renderCpuCard(m);
         renderMemoryCard(m);
+        renderTempCard(m);
         renderDiskCard(m);
+        renderNetworkCard(m);
         renderProcessCard(m);
         renderSystemInfoCard(m);
         updateSidebarQuickStats(m);
         updateSidebarProcesses(m);
+        updateSidebarNetwork(m);
+        updateSidebarBattery(m);
+    }
+
+    // -----------------------------------------------------------------------
+    // Location & Weather Fetching
+    // -----------------------------------------------------------------------
+
+    function fetchLocation() {
+        fetch('/system/location')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                locationData = data;
+                updateSidebarLocation();
+                renderLocationCard();
+                if (data.lat != null) fetchWeather();
+            })
+            .catch(function () {
+                renderLocationCard();
+            });
+    }
+
+    function fetchWeather() {
+        if (!locationData || locationData.lat == null) return;
+        fetch('/system/weather?lat=' + locationData.lat + '&lon=' + locationData.lon)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                weatherData = data;
+                renderLocationCard();
+            })
+            .catch(function () {});
     }
 
     // -----------------------------------------------------------------------
@@ -267,7 +795,7 @@ const SystemHealth = (function () {
                         var html = '';
                         devices.forEach(function (d) {
                             html += '<div style="margin-bottom: 4px;"><span class="sys-process-dot running"></span> ' +
-                                d.type + ' #' + d.index + ' &mdash; ' + (d.name || 'Unknown') + '</div>';
+                                escHtml(d.type) + ' #' + d.index + ' &mdash; ' + escHtml(d.name || 'Unknown') + '</div>';
                         });
                         sidebarEl.innerHTML = html;
                     }
@@ -284,12 +812,24 @@ const SystemHealth = (function () {
     // -----------------------------------------------------------------------
 
     function init() {
+        globeDestroyed = false;
         connect();
         refreshSdr();
+        fetchLocation();
+
+        // Refresh weather every 10 minutes
+        weatherTimer = setInterval(function () {
+            fetchWeather();
+        }, 600000);
     }
 
     function destroy() {
         disconnect();
+        destroyGlobe();
+        if (weatherTimer) {
+            clearInterval(weatherTimer);
+            weatherTimer = null;
+        }
     }
 
     return {
