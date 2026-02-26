@@ -30,6 +30,7 @@ def register_blueprints(app):
     from .sstv import sstv_bp
     from .sstv_general import sstv_general_bp
     from .subghz import subghz_bp
+    from .system import system_bp
     from .tscm import init_tscm_state, tscm_bp
     from .updater import updater_bp
     from .vdl2 import vdl2_bp
@@ -75,6 +76,7 @@ def register_blueprints(app):
     app.register_blueprint(signalid_bp)  # External signal ID enrichment
     app.register_blueprint(wefax_bp)  # WeFax HF weather fax decoder
     app.register_blueprint(morse_bp)  # CW/Morse code decoder
+    app.register_blueprint(system_bp)  # System health monitoring
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module

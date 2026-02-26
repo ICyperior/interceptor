@@ -44,3 +44,6 @@ cryptography>=41.0.0
 # WebSocket support for in-app audio streaming (KiwiSDR, Listening Post)
 flask-sock
 websocket-client>=1.6.0
+
+# System health monitoring (optional - graceful fallback if unavailable)
+psutil>=5.9.0

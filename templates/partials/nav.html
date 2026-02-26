@@ -140,6 +140,19 @@
         </div>
     </div>
 
+    {# System Group #}
+    <div class="mode-nav-dropdown" data-group="system">
+        <button type="button" class="mode-nav-dropdown-btn"{% if is_index_page %} onclick="toggleNavDropdown('system')"{% endif %}>
+            <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
+            <span class="nav-label">System</span>
+            <span class="dropdown-arrow icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+
+        <div class="mode-nav-dropdown-menu">
+            {{ mode_item('system', 'Health', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>') }}
+        </div>
+    </div>
+
     {# Dynamic dashboard button (shown when in satellite mode) #}
     <div class="mode-nav-actions">
         <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn" style="display: none;">
@@ -230,6 +243,8 @@
     {{ mobile_item('websdr', 'WebSDR', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>') }}
     {# New modes #}
     {{ mobile_item('waterfall', 'Waterfall', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l3-8 3 16 3-8h4"/></svg>') }}
+    {# System #}
+    {{ mobile_item('system', 'System', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>') }}
 </nav>
 
 {# JavaScript stub for pages that don't have switchMode defined #}
