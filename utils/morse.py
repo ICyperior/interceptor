@@ -744,6 +744,8 @@ def morse_decoder_thread(
     CHUNK = 4096
     SCOPE_INTERVAL = 0.10
     WAITING_INTERVAL = 0.25
+    IDLE_SLEEP = 0.04
+    STALLED_AFTER_DATA_SECONDS = 1.5
 
     cfg = dict(decoder_config or {})
     decoder = MorseDecoder(
@@ -765,11 +767,20 @@ def morse_decoder_thread(
     last_scope = time.monotonic()
     last_waiting_emit = 0.0
     waiting_since: float | None = None
+    last_pcm_at: float | None = None
+    pcm_bytes = 0
+    pcm_report_at = time.monotonic()
 
     try:
         fd: int | None
+        non_blocking = False
         try:
             fd = rtl_stdout.fileno()
+            try:
+                os.set_blocking(fd, False)
+                non_blocking = True
+            except Exception:
+                non_blocking = False
         except Exception:
             fd = None
 
@@ -779,21 +790,53 @@ def morse_decoder_thread(
 
             data = b''
             if fd is not None:
-                try:
-                    ready, _, _ = select.select([fd], [], [], 0.20)
-                except Exception:
-                    break
+                if non_blocking:
+                    try:
+                        data = os.read(fd, CHUNK)
+                    except BlockingIOError:
+                        data = None
+                    except Exception:
+                        break
 
-                if ready:
-                    data = os.read(fd, CHUNK)
+                    if data is None:
+                        now = time.monotonic()
+                        should_emit_waiting = False
+                        if last_pcm_at is None:
+                            should_emit_waiting = True
+                        elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
+                            should_emit_waiting = True
+
+                        if should_emit_waiting and waiting_since is None:
+                            waiting_since = now
+                        now = time.monotonic()
+                        if should_emit_waiting and now - last_waiting_emit >= WAITING_INTERVAL:
+                            last_waiting_emit = now
+                            _emit_waiting_scope(output_queue, waiting_since)
+                        time.sleep(IDLE_SLEEP)
+                        continue
                 else:
-                    if waiting_since is None:
-                        waiting_since = time.monotonic()
-                    now = time.monotonic()
-                    if now - last_waiting_emit >= WAITING_INTERVAL:
-                        last_waiting_emit = now
-                        _emit_waiting_scope(output_queue, waiting_since)
-                    continue
+                    try:
+                        ready, _, _ = select.select([fd], [], [], 0.20)
+                    except Exception:
+                        break
+
+                    if ready:
+                        data = os.read(fd, CHUNK)
+                    else:
+                        now = time.monotonic()
+                        should_emit_waiting = False
+                        if last_pcm_at is None:
+                            should_emit_waiting = True
+                        elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
+                            should_emit_waiting = True
+
+                        if should_emit_waiting and waiting_since is None:
+                            waiting_since = now
+                        now = time.monotonic()
+                        if should_emit_waiting and now - last_waiting_emit >= WAITING_INTERVAL:
+                            last_waiting_emit = now
+                            _emit_waiting_scope(output_queue, waiting_since)
+                        continue
             else:
                 # Fallback for test streams without fileno().
                 data = rtl_stdout.read(CHUNK)
@@ -802,6 +845,8 @@ def morse_decoder_thread(
                 break
 
             waiting_since = None
+            last_pcm_at = time.monotonic()
+            pcm_bytes += len(data)
 
             events = decoder.process_block(data)
             for event in events:
@@ -814,6 +859,17 @@ def morse_decoder_thread(
                 else:
                     with contextlib.suppress(queue.Full):
                         output_queue.put_nowait(event)
+
+            now = time.monotonic()
+            if (now - pcm_report_at) >= 1.0:
+                kbps = (pcm_bytes * 8.0) / max(1e-6, (now - pcm_report_at)) / 1000.0
+                with contextlib.suppress(queue.Full):
+                    output_queue.put_nowait({
+                        'type': 'info',
+                        'text': f'[pcm] {pcm_bytes} B in {now - pcm_report_at:.1f}s ({kbps:.1f} kbps)',
+                    })
+                pcm_bytes = 0
+                pcm_report_at = now
 
     except Exception as e:  # pragma: no cover - defensive runtime guard
         logger.debug(f'Morse decoder thread error: {e}')
