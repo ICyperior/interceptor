@@ -269,6 +269,7 @@ class TestMorseLifecycleRoutes:
 
         monkeypatch.setattr(morse_routes.SDRFactory, 'create_default_device', staticmethod(lambda sdr_type, index: DummyDevice()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
+        monkeypatch.setattr(morse_routes.SDRFactory, 'detect_devices', staticmethod(lambda: []))
         monkeypatch.setattr(morse_routes, 'get_tool_path', lambda _name: '/usr/bin/multimon-ng')
 
         pcm = generate_morse_audio('E', wpm=15, sample_rate=22050)
@@ -373,6 +374,7 @@ class TestMorseLifecycleRoutes:
 
         monkeypatch.setattr(morse_routes.SDRFactory, 'create_default_device', staticmethod(lambda sdr_type, index: DummyDevice()))
         monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
+        monkeypatch.setattr(morse_routes.SDRFactory, 'detect_devices', staticmethod(lambda: []))
         monkeypatch.setattr(morse_routes, 'get_tool_path', lambda _name: '/usr/bin/multimon-ng')
 
         pcm = generate_morse_audio('E', wpm=15, sample_rate=22050)
@@ -454,6 +456,127 @@ class TestMorseLifecycleRoutes:
         assert stop_resp.status_code == 200
         assert stop_resp.get_json()['status'] == 'stopped'
         assert 0 in released_devices
+
+    def test_start_falls_back_to_next_device_when_selected_device_has_no_pcm(self, client, monkeypatch):
+        _login_session(client)
+        self._reset_route_state()
+
+        released_devices = []
+
+        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode: None)
+        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx: released_devices.append(idx))
+        monkeypatch.setattr(morse_routes, 'get_tool_path', lambda _name: '/usr/bin/multimon-ng')
+
+        class DummyDevice:
+            def __init__(self, index: int):
+                self.sdr_type = morse_routes.SDRType.RTL_SDR
+                self.index = index
+
+        class DummyDetected:
+            def __init__(self, index: int, serial: str):
+                self.sdr_type = morse_routes.SDRType.RTL_SDR
+                self.index = index
+                self.name = f'RTL {index}'
+                self.serial = serial
+
+        class DummyBuilder:
+            def build_fm_demod_command(self, **kwargs):
+                cmd = ['rtl_fm', '-d', str(kwargs['device'].index), '-f', '14.060M', '-M', 'usb', '-s', '22050']
+                if kwargs.get('direct_sampling') is not None:
+                    cmd.extend(['--direct', str(kwargs['direct_sampling'])])
+                cmd.append('-')
+                return cmd
+
+        monkeypatch.setattr(
+            morse_routes.SDRFactory,
+            'create_default_device',
+            staticmethod(lambda sdr_type, index: DummyDevice(int(index))),
+        )
+        monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
+        monkeypatch.setattr(
+            morse_routes.SDRFactory,
+            'detect_devices',
+            staticmethod(lambda: [DummyDetected(0, 'AAA00000'), DummyDetected(1, 'BBB11111')]),
+        )
+
+        pcm = generate_morse_audio('E', wpm=15, sample_rate=22050)
+
+        class FakeRtlProc:
+            def __init__(self, stdout_bytes: bytes, returncode: int | None):
+                self.stdout = io.BytesIO(stdout_bytes)
+                self.stderr = io.BytesIO(b'')
+                self.returncode = returncode
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self):
+                self.returncode = 0
+
+            def wait(self, timeout=None):
+                self.returncode = 0
+                return 0
+
+            def kill(self):
+                self.returncode = -9
+
+        class FakeMultimonProc:
+            def __init__(self):
+                self.stdin = io.BytesIO()
+                self.returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self):
+                self.returncode = 0
+
+            def wait(self, timeout=None):
+                self.returncode = 0
+                return 0
+
+            def kill(self):
+                self.returncode = -9
+
+        def fake_popen(cmd, *args, **kwargs):
+            if 'multimon' in str(cmd[0]):
+                return FakeMultimonProc()
+            try:
+                dev = int(cmd[cmd.index('-d') + 1])
+            except Exception:
+                dev = 0
+            if dev == 0:
+                return FakeRtlProc(b'', 1)
+            return FakeRtlProc(pcm, None)
+
+        monkeypatch.setattr(morse_routes.subprocess, 'Popen', fake_popen)
+        monkeypatch.setattr(morse_routes, 'register_process', lambda _proc: None)
+        monkeypatch.setattr(morse_routes, 'unregister_process', lambda _proc: None)
+        monkeypatch.setattr(
+            morse_routes,
+            'safe_terminate',
+            lambda proc, timeout=0.0: setattr(proc, 'returncode', 0),
+        )
+
+        start_resp = client.post('/morse/start', json={
+            'frequency': '14.060',
+            'gain': '20',
+            'ppm': '0',
+            'device': '0',
+            'tone_freq': '700',
+            'wpm': '15',
+        })
+        assert start_resp.status_code == 200
+        start_data = start_resp.get_json()
+        assert start_data['status'] == 'started'
+        assert start_data['config']['active_device'] == 1
+        assert start_data['config']['device_serial'] == 'BBB11111'
+        assert 0 in released_devices
+
+        stop_resp = client.post('/morse/stop')
+        assert stop_resp.status_code == 200
+        assert stop_resp.get_json()['status'] == 'stopped'
+        assert 1 in released_devices
 
 
 # ---------------------------------------------------------------------------

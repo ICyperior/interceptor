@@ -73,6 +73,7 @@ Auto Tone Track behavior:
 
 Troubleshooting (no decode / noisy decode):
 - Confirm demod path is **USB/CW-compatible** and frequency is tuned correctly.
+- If multiple SDRs are connected and the selected one has no PCM output, Morse startup now auto-tries other detected SDR devices and reports the active device/serial in status logs.
 - Match **tone** and **bandwidth** to the actual sidetone/pitch.
 - Try **Threshold Auto** first; if needed, switch to manual threshold and recalibrate.
 - Use **Reset/Calibrate** after major frequency or band condition changes.
