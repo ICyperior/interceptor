@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 import shutil
 import subprocess
 from typing import Any
@@ -19,6 +20,26 @@ def check_tool(name: str) -> bool:
 
 def get_tool_path(name: str) -> str | None:
     """Get the full path to a tool, checking standard PATH and extra locations."""
+    # Optional explicit override, e.g. INTERCEPT_RTL_FM_PATH=/opt/homebrew/bin/rtl_fm
+    env_key = f"INTERCEPT_{name.upper().replace('-', '_')}_PATH"
+    env_path = os.environ.get(env_key)
+    if env_path and os.path.isfile(env_path) and os.access(env_path, os.X_OK):
+        return env_path
+
+    # Prefer native Homebrew binaries on Apple Silicon to avoid mixing Rosetta
+    # /usr/local tools with arm64 Python/runtime.
+    if platform.system() == 'Darwin':
+        machine = platform.machine().lower()
+        preferred_paths: list[str] = []
+        if machine in {'arm64', 'aarch64'}:
+            preferred_paths.append('/opt/homebrew/bin')
+        preferred_paths.append('/usr/local/bin')
+
+        for base in preferred_paths:
+            full_path = os.path.join(base, name)
+            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                return full_path
+
     # First check standard PATH
     path = shutil.which(name)
     if path:

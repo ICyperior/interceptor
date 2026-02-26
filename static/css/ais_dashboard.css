@@ -779,7 +779,7 @@ body {
 
 .control-group select {
     padding: 4px 8px;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-dark);
     border: 1px solid rgba(74, 158, 255, 0.3);
     border-radius: 4px;
     color: var(--accent-cyan);

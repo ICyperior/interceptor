@@ -1,0 +1,215 @@
+/* System Health Mode Styles */
+
+.sys-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.sys-card {
+    background: var(--bg-card, #1a1a2e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 6px;
+    padding: 16px;
+    min-height: 120px;
+}
+
+.sys-card-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim, #8888aa);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sys-card-body {
+    font-size: 12px;
+    color: var(--text-primary, #e0e0ff);
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.sys-card-detail {
+    font-size: 11px;
+    color: var(--text-dim, #8888aa);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Metric Bars */
+.sys-metric-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.sys-metric-bar-label {
+    font-size: 10px;
+    color: var(--text-dim, #8888aa);
+    min-width: 40px;
+    text-transform: uppercase;
+}
+
+.sys-metric-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-primary, #0d0d1a);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.sys-metric-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+.sys-metric-bar-fill.ok {
+    background: var(--accent-green, #00ff88);
+}
+
+.sys-metric-bar-fill.warn {
+    background: var(--accent-yellow, #ffcc00);
+}
+
+.sys-metric-bar-fill.crit {
+    background: var(--accent-red, #ff3366);
+}
+
+.sys-metric-bar-value {
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: right;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.sys-metric-na {
+    color: var(--text-dim, #8888aa);
+    font-style: italic;
+    font-size: 11px;
+}
+
+/* Process items */
+.sys-process-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+}
+
+.sys-process-name {
+    font-size: 12px;
+}
+
+.sys-process-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sys-process-dot.running {
+    background: var(--accent-green, #00ff88);
+    box-shadow: 0 0 4px rgba(0, 255, 136, 0.4);
+}
+
+.sys-process-dot.stopped {
+    background: var(--text-dim, #555);
+}
+
+/* SDR Devices */
+.sys-sdr-device {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+}
+
+.sys-sdr-device:last-child {
+    border-bottom: none;
+}
+
+.sys-rescan-btn {
+    font-size: 9px;
+    padding: 2px 8px;
+    background: transparent;
+    border: 1px solid var(--border-color, #2a2a4a);
+    color: var(--accent-cyan, #00d4ff);
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.sys-rescan-btn:hover {
+    background: var(--bg-primary, #0d0d1a);
+}
+
+/* Sidebar Quick Grid */
+.sys-quick-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.sys-quick-item {
+    padding: 6px 8px;
+    background: var(--bg-primary, #0d0d1a);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 4px;
+    text-align: center;
+}
+
+.sys-quick-label {
+    display: block;
+    font-size: 9px;
+    color: var(--text-dim, #8888aa);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.sys-quick-value {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    color: var(--text-primary, #e0e0ff);
+}
+
+/* Color-coded quick values */
+.sys-val-ok {
+    color: var(--accent-green, #00ff88) !important;
+}
+
+.sys-val-warn {
+    color: var(--accent-yellow, #ffcc00) !important;
+}
+
+.sys-val-crit {
+    color: var(--accent-red, #ff3366) !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sys-dashboard {
+        grid-template-columns: 1fr;
+        padding: 8px;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    .sys-dashboard {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

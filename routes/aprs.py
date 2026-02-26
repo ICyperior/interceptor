@@ -1462,9 +1462,11 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
     try:
         app_module.aprs_queue.put({'type': 'status', 'status': 'started'})
 
-        # Read line-by-line in text mode. Empty string '' signals EOF.
-        for line in iter(decoder_process.stdout.readline, ''):
-            line = line.strip()
+        # Read line-by-line in binary mode. Empty bytes b'' signals EOF.
+        # Decode with errors='replace' so corrupted radio bytes (e.g. 0xf7)
+        # never crash the stream.
+        for raw in iter(decoder_process.stdout.readline, b''):
+            line = raw.decode('utf-8', errors='replace').strip()
             if not line:
                 continue
 
@@ -1784,15 +1786,15 @@ def start_aprs() -> Response:
         rtl_stderr_thread.start()
 
         # Start decoder with stdin wired to rtl_fm's stdout.
-        # Use text mode with line buffering for reliable line-by-line reading.
+        # Use binary mode to avoid UnicodeDecodeError on raw/corrupted bytes
+        # from the radio decoder (e.g. 0xf7).  Lines are decoded manually
+        # in stream_aprs_output with errors='replace'.
         # Merge stderr into stdout to avoid blocking on unbuffered stderr.
         decoder_process = subprocess.Popen(
             decoder_cmd,
             stdin=rtl_process.stdout,
             stdout=PIPE,
             stderr=STDOUT,
-            text=True,
-            bufsize=1,
             start_new_session=True
         )
 
@@ -1827,7 +1829,8 @@ def start_aprs() -> Response:
 
         if decoder_process.poll() is not None:
             # Decoder exited early - capture any output
-            error_output = decoder_process.stdout.read()[:500] if decoder_process.stdout else ''
+            raw_output = decoder_process.stdout.read()[:500] if decoder_process.stdout else b''
+            error_output = raw_output.decode('utf-8', errors='replace') if raw_output else ''
             error_msg = f'{decoder_name} failed to start'
             if error_output:
                 error_msg += f': {error_output}'

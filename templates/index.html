@@ -66,6 +66,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/function-strip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/ux-platform.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/components.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/waterfall.css') }}?v={{ version }}&r=wfdeck19">
     <script>
         window.INTERCEPT_MODE_STYLE_MAP = {
@@ -81,7 +82,8 @@
             bt_locate: "{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4",
             spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}",
             wefax: "{{ url_for('static', filename='css/modes/wefax.css') }}",
-            morse: "{{ url_for('static', filename='css/modes/morse.css') }}"
+            morse: "{{ url_for('static', filename='css/modes/morse.css') }}",
+            system: "{{ url_for('static', filename='css/modes/system.css') }}"
         };
         window.INTERCEPT_MODE_STYLE_LOADED = {};
         window.INTERCEPT_MODE_STYLE_PROMISES = {};
@@ -704,6 +706,7 @@
 
                 {% include 'partials/modes/bt_locate.html' %}
                 {% include 'partials/modes/waterfall.html' %}
+                {% include 'partials/modes/system.html' %}
 
 
 
@@ -3085,6 +3088,11 @@
                     </div>
                 </div>
 
+                <div id="morseDiagLog" style="display: none; margin-bottom: 8px; max-height: 60px; overflow-y: auto;
+                    background: #080812; border: 1px solid #1a1a2e; border-radius: 4px; padding: 4px 8px;
+                    font-family: var(--font-mono); font-size: 10px; color: #556677; line-height: 1.6;">
+                </div>
+
                 <!-- Morse Decoded Output -->
                 <div id="morseOutputPanel" style="display: none; margin-bottom: 12px;">
                     <div style="background: #0a0a0a; border: 1px solid #1a2e1a; border-radius: 6px; padding: 8px 10px;">
@@ -3098,10 +3106,53 @@
                             </div>
                         </div>
                         <div id="morseDecodedText" class="morse-decoded-panel"></div>
+                        <div id="morseRawPanel" class="morse-raw-panel" style="display: none;">
+                            <div class="morse-raw-label">Raw Elements</div>
+                            <div id="morseRawText" class="morse-raw-text"></div>
+                        </div>
+                        <div id="morseMetricsPanel" class="morse-metrics-panel">
+                            <span id="morseMetricState">STATE idle</span>
+                            <span id="morseMetricTone">TONE -- Hz</span>
+                            <span id="morseMetricLevel">LEVEL --</span>
+                            <span id="morseMetricThreshold">THRESH --</span>
+                            <span id="morseMetricNoise">NOISE --</span>
+                            <span id="morseMetricStopMs">STOP -- ms</span>
+                        </div>
                         <div class="morse-status-bar">
-                            <span class="status-item" id="morseStatusBarWpm">15 WPM</span>
+                            <span class="status-item" id="morseStatusBarState">IDLE</span>
+                            <span class="status-item" id="morseStatusBarWpm">-- WPM</span>
                             <span class="status-item" id="morseStatusBarTone">700 Hz</span>
                             <span class="status-item" id="morseStatusBarChars">0 chars decoded</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Health Visuals -->
+                <div id="systemVisuals" class="sys-visuals-container" style="display: none;">
+                    <div class="sys-dashboard">
+                        <div class="sys-card" id="sysCardCpu">
+                            <div class="sys-card-header">CPU</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
+                        </div>
+                        <div class="sys-card" id="sysCardMemory">
+                            <div class="sys-card-header">Memory</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
+                        </div>
+                        <div class="sys-card" id="sysCardDisk">
+                            <div class="sys-card-header">Disk</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
+                        </div>
+                        <div class="sys-card" id="sysCardSdr">
+                            <div class="sys-card-header">SDR Devices</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Scanning&hellip;</span></div>
+                        </div>
+                        <div class="sys-card" id="sysCardProcesses">
+                            <div class="sys-card-header">Processes</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
+                        </div>
+                        <div class="sys-card" id="sysCardInfo">
+                            <div class="sys-card-header">System Info</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
                         </div>
                     </div>
                 </div>
@@ -3175,8 +3226,9 @@
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
     <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate4"></script>
     <script src="{{ url_for('static', filename='js/modes/wefax.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modes/morse.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/morse.js') }}?v={{ version }}&r=morse_iq12"></script>
     <script src="{{ url_for('static', filename='js/modes/space-weather.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/system.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/voice-alerts.js') }}?v={{ version }}&r=voicefix2"></script>
     <script src="{{ url_for('static', filename='js/core/keyboard-shortcuts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/cheat-sheets.js') }}"></script>
@@ -3330,6 +3382,7 @@
             websdr: { label: 'WebSDR', indicator: 'WEBSDR', outputTitle: 'HF/Shortwave WebSDR', group: 'intel' },
             waterfall: { label: 'Waterfall', indicator: 'WATERFALL', outputTitle: 'Spectrum Waterfall', group: 'signals' },
             morse: { label: 'Morse', indicator: 'MORSE', outputTitle: 'CW/Morse Decoder', group: 'signals' },
+            system: { label: 'System', indicator: 'SYSTEM', outputTitle: 'System Health Monitor', group: 'system' },
         };
         const validModes = new Set(Object.keys(modeCatalog));
         window.interceptModeCatalog = Object.assign({}, modeCatalog);
@@ -3858,6 +3911,11 @@
             return {
                 pager: Boolean(isRunning),
                 sensor: Boolean(isSensorRunning),
+                morse: Boolean(
+                    typeof MorseMode !== 'undefined'
+                    && typeof MorseMode.isActive === 'function'
+                    && MorseMode.isActive()
+                ),
                 wifi: Boolean(
                     ((typeof WiFiMode !== 'undefined' && typeof WiFiMode.isScanning === 'function' && WiFiMode.isScanning()) || isWifiRunning)
                 ),
@@ -3878,6 +3936,12 @@
             }
             if (isSensorRunning && typeof stopSensorDecoding === 'function') {
                 Promise.resolve(stopSensorDecoding()).catch(() => { });
+            }
+            const morseActive = typeof MorseMode !== 'undefined'
+                && typeof MorseMode.isActive === 'function'
+                && MorseMode.isActive();
+            if (morseActive && typeof MorseMode.stop === 'function') {
+                Promise.resolve(MorseMode.stop()).catch(() => { });
             }
 
             const wifiScanActive = (
@@ -4004,6 +4068,12 @@
                 if (isSensorRunning) {
                     stopTasks.push(awaitStopAction('sensor', () => stopSensorDecoding(), LOCAL_STOP_TIMEOUT_MS));
                 }
+                const morseActive = typeof MorseMode !== 'undefined'
+                    && typeof MorseMode.isActive === 'function'
+                    && MorseMode.isActive();
+                if (morseActive && typeof MorseMode.stop === 'function') {
+                    stopTasks.push(awaitStopAction('morse', () => MorseMode.stop(), LOCAL_STOP_TIMEOUT_MS));
+                }
                 const wifiScanActive = (
                     typeof WiFiMode !== 'undefined'
                     && typeof WiFiMode.isScanning === 'function'
@@ -4039,6 +4109,9 @@
             // Clean up SubGHz SSE connection when leaving the mode
             if (typeof SubGhz !== 'undefined' && currentMode === 'subghz' && mode !== 'subghz') {
                 SubGhz.destroy();
+            }
+            if (typeof MorseMode !== 'undefined' && currentMode === 'morse' && mode !== 'morse' && typeof MorseMode.destroy === 'function') {
+                MorseMode.destroy();
             }
 
             currentMode = mode;
@@ -4089,6 +4162,7 @@
             document.getElementById('spaceWeatherMode')?.classList.toggle('active', mode === 'spaceweather');
             document.getElementById('waterfallMode')?.classList.toggle('active', mode === 'waterfall');
             document.getElementById('morseMode')?.classList.toggle('active', mode === 'morse');
+            document.getElementById('systemMode')?.classList.toggle('active', mode === 'system');
 
 
             const pagerStats = document.getElementById('pagerStats');
@@ -4130,6 +4204,7 @@
             const wefaxVisuals = document.getElementById('wefaxVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
             const waterfallVisuals = document.getElementById('waterfallVisuals');
+            const systemVisuals = document.getElementById('systemVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
@@ -4147,6 +4222,7 @@
             if (wefaxVisuals) wefaxVisuals.style.display = mode === 'wefax' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
             if (waterfallVisuals) waterfallVisuals.style.display = mode === 'waterfall' ? 'flex' : 'none';
+            if (systemVisuals) systemVisuals.style.display = mode === 'system' ? 'flex' : 'none';
 
             // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
             if (typeof BtLocate !== 'undefined' && BtLocate.setActiveMode) {
@@ -4172,6 +4248,8 @@
             const morseOutputPanel = document.getElementById('morseOutputPanel');
             if (morseScopePanel && mode !== 'morse') morseScopePanel.style.display = 'none';
             if (morseOutputPanel && mode !== 'morse') morseOutputPanel.style.display = 'none';
+            const morseDiagLog = document.getElementById('morseDiagLog');
+            if (morseDiagLog && mode !== 'morse') morseDiagLog.style.display = 'none';
 
             // Update output panel title based on mode
             const outputTitle = document.getElementById('outputTitle');
@@ -4201,11 +4279,16 @@
                 if (typeof WeFax !== 'undefined' && WeFax.destroy) WeFax.destroy();
             }
 
+            // Disconnect System Health SSE when leaving the mode
+            if (mode !== 'system') {
+                if (typeof SystemHealth !== 'undefined' && SystemHealth.destroy) SystemHealth.destroy();
+            }
+
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'gps' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall') {
+            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'gps' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall' || mode === 'system') {
                 if (reconPanel) reconPanel.style.display = 'none';
                 if (reconBtn) reconBtn.style.display = 'none';
                 if (intelBtn) intelBtn.style.display = 'none';
@@ -4256,8 +4339,8 @@
             // Hide output console for modes with their own visualizations
             const outputEl = document.getElementById('output');
             const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'bt_locate' || mode === 'waterfall') ? 'none' : 'block';
-            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall') ? 'none' : 'flex';
+            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'bt_locate' || mode === 'waterfall' || mode === 'morse' || mode === 'system') ? 'none' : 'block';
+            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall' || mode === 'morse' || mode === 'system') ? 'none' : 'flex';
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
             if (mode !== 'meshtastic') {
@@ -4331,6 +4414,8 @@
                 if (typeof Waterfall !== 'undefined') Waterfall.init();
             } else if (mode === 'morse') {
                 MorseMode.init();
+            } else if (mode === 'system') {
+                SystemHealth.init();
             }
 
             // Destroy Waterfall WebSocket when leaving SDR receiver modes
