@@ -296,6 +296,14 @@ def start_morse() -> Response:
         **fm_kwargs,
     )
 
+    # Some rtl_fm builds behave as if squelch is enabled unless -l is explicit.
+    # Force continuous audio for CW analysis.
+    if sdr_device.sdr_type == SDRType.RTL_SDR and '-l' not in rtl_cmd:
+        if rtl_cmd and rtl_cmd[-1] == '-':
+            rtl_cmd[-1:-1] = ['-l', '0']
+        else:
+            rtl_cmd.extend(['-l', '0'])
+
     full_cmd = ' '.join(rtl_cmd)
     logger.info(f'Morse decoder running: {full_cmd}')
 

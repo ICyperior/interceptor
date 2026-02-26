@@ -767,6 +767,7 @@ def morse_decoder_thread(
     last_pcm_at: float | None = None
     pcm_bytes = 0
     pcm_report_at = time.monotonic()
+    first_pcm_logged = False
     reader_done = threading.Event()
     reader_thread: threading.Thread | None = None
 
@@ -852,6 +853,14 @@ def morse_decoder_thread(
             waiting_since = None
             last_pcm_at = time.monotonic()
             pcm_bytes += len(data)
+
+            if not first_pcm_logged:
+                first_pcm_logged = True
+                with contextlib.suppress(queue.Full):
+                    output_queue.put_nowait({
+                        'type': 'info',
+                        'text': f'[pcm] first chunk: {len(data)} bytes',
+                    })
 
             events = decoder.process_block(data)
             for event in events:
