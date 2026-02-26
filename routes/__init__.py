@@ -16,6 +16,7 @@ def register_blueprints(app):
     from .gps import gps_bp
     from .listening_post import receiver_bp
     from .meshtastic import meshtastic_bp
+    from .morse import morse_bp
     from .offline import offline_bp
     from .pager import pager_bp
     from .recordings import recordings_bp
@@ -33,6 +34,7 @@ def register_blueprints(app):
     from .updater import updater_bp
     from .vdl2 import vdl2_bp
     from .weather_sat import weather_sat_bp
+    from .wefax import wefax_bp
     from .websdr import websdr_bp
     from .wifi import wifi_bp
     from .wifi_v2 import wifi_v2_bp
@@ -71,6 +73,8 @@ def register_blueprints(app):
     app.register_blueprint(bt_locate_bp)  # BT Locate SAR device tracking
     app.register_blueprint(space_weather_bp)  # Space weather monitoring
     app.register_blueprint(signalid_bp)  # External signal ID enrichment
+    app.register_blueprint(wefax_bp)  # WeFax HF weather fax decoder
+    app.register_blueprint(morse_bp)  # CW/Morse code decoder
 
     # Initialize TSCM state with queue and lock from app
     import app as app_module

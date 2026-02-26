@@ -92,8 +92,9 @@ const RunState = (function() {
             renderHealth(data);
         } catch (err) {
             renderHealth(null, err);
+            const transient = isTransientFailure(err);
             const now = Date.now();
-            if (typeof reportActionableError === 'function' && (now - lastErrorToastAt) > 30000) {
+            if (!transient && typeof reportActionableError === 'function' && (now - lastErrorToastAt) > 30000) {
                 lastErrorToastAt = now;
                 reportActionableError('Run State', err, { persistent: false });
             }
@@ -212,6 +213,17 @@ const RunState = (function() {
         if (typeof err === 'string') return err;
         if (err.message) return err.message;
         return String(err);
+    }
+
+    function isTransientFailure(err) {
+        if (typeof window.isTransientOrOffline === 'function' && window.isTransientOrOffline(err)) {
+            return true;
+        }
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            return true;
+        }
+        const text = extractMessage(err).toLowerCase();
+        return text.includes('failed to fetch') || text.includes('network') || text.includes('timeout');
     }
 
     function getLastHealth() {

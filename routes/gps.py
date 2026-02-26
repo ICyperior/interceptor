@@ -68,6 +68,9 @@ def auto_connect_gps():
     # Check if already running
     reader = get_gps_reader()
     if reader and reader.is_running:
+        # Ensure stream callbacks are attached for this process.
+        reader.add_callback(_position_callback)
+        reader.add_sky_callback(_sky_callback)
         position = reader.position
         sky = reader.sky
         return jsonify({
@@ -211,9 +214,10 @@ def get_satellites():
 
     if not reader or not reader.is_running:
         return jsonify({
-            'status': 'error',
+            'status': 'waiting',
+            'running': False,
             'message': 'GPS client not running'
-        }), 400
+        })
 
     sky = reader.sky
     if sky:

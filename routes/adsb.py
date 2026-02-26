@@ -685,7 +685,7 @@ def start_adsb():
                 'session': session
             }), 409
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     start_source = data.get('source')
     started_by = request.remote_addr
 
@@ -899,7 +899,7 @@ def start_adsb():
 def stop_adsb():
     """Stop ADS-B tracking."""
     global adsb_using_service, adsb_active_device
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     stop_source = data.get('source')
     stopped_by = request.remote_addr
 

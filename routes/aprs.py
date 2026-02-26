@@ -14,7 +14,7 @@ import threading
 import time
 from datetime import datetime
 from subprocess import PIPE, STDOUT
-from typing import Generator, Optional
+from typing import Any, Generator, Optional
 
 from flask import Blueprint, jsonify, request, Response
 
@@ -109,6 +109,26 @@ MODEM 1200
     return DIREWOLF_CONFIG_PATH
 
 
+def normalize_aprs_output_line(line: str) -> str:
+    """Normalize a decoder output line to raw APRS packet format.
+
+    Handles common decoder prefixes:
+    - multimon-ng: ``AFSK1200: ...``
+    - direwolf tags: ``[0.4] ...``, ``[0L] ...``, etc.
+    """
+    if not line:
+        return ''
+
+    normalized = line.strip()
+    if normalized.startswith('AFSK1200:'):
+        normalized = normalized[9:].strip()
+
+    # Strip one or more leading bracket tags emitted by decoders.
+    # Examples: [0.4], [0L], [NONE]
+    normalized = re.sub(r'^(?:\[[^\]]+\]\s*)+', '', normalized)
+    return normalized
+
+
 def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
     """Parse APRS packet into structured data.
 
@@ -125,10 +145,15 @@ def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
     - User-defined formats
     """
     try:
+        raw_packet = normalize_aprs_output_line(raw_packet)
+        if not raw_packet:
+            return None
+
         # Basic APRS packet format: CALLSIGN>PATH:DATA
         # Example: N0CALL-9>APRS,TCPIP*:@092345z4903.50N/07201.75W_090/000g005t077
 
-        match = re.match(r'^([A-Z0-9-]+)>([^:]+):(.+)$', raw_packet, re.IGNORECASE)
+        # Source callsigns can include tactical suffixes like "/1" on some stations.
+        match = re.match(r'^([A-Z0-9/\-]+)>([^:]+):(.+)$', raw_packet, re.IGNORECASE)
         if not match:
             return None
 
@@ -443,6 +468,109 @@ def parse_position(data: str) -> Optional[dict]:
                 result['altitude'] = int(alt_match.group(1))  # feet
 
             return result
+
+        # Legacy/no-decimal variant occasionally seen in degraded decodes:
+        # DDMMN/DDDMMW (symbol chars still present between/after coords).
+        nodot_match = re.match(
+            r'^(\d{2})(\d{2})([NS])(.)(\d{3})(\d{2})([EW])(.)?',
+            data
+        )
+        if nodot_match:
+            lat_deg = int(nodot_match.group(1))
+            lat_min = float(nodot_match.group(2))
+            lat_dir = nodot_match.group(3)
+            symbol_table = nodot_match.group(4)
+            lon_deg = int(nodot_match.group(5))
+            lon_min = float(nodot_match.group(6))
+            lon_dir = nodot_match.group(7)
+            symbol_code = nodot_match.group(8) or ''
+
+            lat = lat_deg + lat_min / 60.0
+            if lat_dir == 'S':
+                lat = -lat
+
+            lon = lon_deg + lon_min / 60.0
+            if lon_dir == 'W':
+                lon = -lon
+
+            result = {
+                'lat': round(lat, 6),
+                'lon': round(lon, 6),
+                'symbol': symbol_table + symbol_code,
+            }
+
+            remaining = data[13:] if len(data) > 13 else ''
+
+            cs_match = re.search(r'(\d{3})/(\d{3})', remaining)
+            if cs_match:
+                result['course'] = int(cs_match.group(1))
+                result['speed'] = int(cs_match.group(2))
+
+            alt_match = re.search(r'/A=(-?\d+)', remaining)
+            if alt_match:
+                result['altitude'] = int(alt_match.group(1))
+
+            return result
+
+        # Fallback: tolerate APRS ambiguity spaces in minute fields.
+        # Example: 4903.  N/07201.  W
+        if len(data) >= 18:
+            lat_field = data[0:7]
+            lat_dir = data[7]
+            symbol_table = data[8] if len(data) > 8 else ''
+            lon_field = data[9:17] if len(data) >= 17 else ''
+            lon_dir = data[17] if len(data) > 17 else ''
+            symbol_code = data[18] if len(data) > 18 else ''
+
+            if (
+                len(lat_field) == 7
+                and len(lon_field) == 8
+                and lat_dir in ('N', 'S')
+                and lon_dir in ('E', 'W')
+            ):
+                lat_deg_txt = lat_field[:2]
+                lat_min_txt = lat_field[2:].replace(' ', '0')
+                lon_deg_txt = lon_field[:3]
+                lon_min_txt = lon_field[3:].replace(' ', '0')
+
+                if (
+                    lat_deg_txt.isdigit()
+                    and lon_deg_txt.isdigit()
+                    and re.match(r'^\d{2}\.\d+$', lat_min_txt)
+                    and re.match(r'^\d{2}\.\d+$', lon_min_txt)
+                ):
+                    lat_deg = int(lat_deg_txt)
+                    lon_deg = int(lon_deg_txt)
+                    lat_min = float(lat_min_txt)
+                    lon_min = float(lon_min_txt)
+
+                    lat = lat_deg + lat_min / 60.0
+                    if lat_dir == 'S':
+                        lat = -lat
+
+                    lon = lon_deg + lon_min / 60.0
+                    if lon_dir == 'W':
+                        lon = -lon
+
+                    result = {
+                        'lat': round(lat, 6),
+                        'lon': round(lon, 6),
+                        'symbol': symbol_table + symbol_code,
+                    }
+
+                    # Keep same extension parsing behavior as primary branch.
+                    remaining = data[19:] if len(data) > 19 else ''
+
+                    cs_match = re.search(r'(\d{3})/(\d{3})', remaining)
+                    if cs_match:
+                        result['course'] = int(cs_match.group(1))
+                        result['speed'] = int(cs_match.group(2))
+
+                    alt_match = re.search(r'/A=(-?\d+)', remaining)
+                    if alt_match:
+                        result['altitude'] = int(alt_match.group(1))
+
+                    return result
 
     except Exception as e:
         logger.debug(f"Failed to parse position: {e}")
@@ -1321,7 +1449,11 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
     - type='meter': Audio level meter readings (rate-limited)
     """
     global aprs_packet_count, aprs_station_count, aprs_last_packet_time, aprs_stations
-    global _last_meter_time, _last_meter_level
+    global _last_meter_time, _last_meter_level, aprs_active_device
+
+    # Capture the device claimed by THIS session so the finally block only
+    # releases our own device, not one claimed by a subsequent start.
+    my_device = aprs_active_device
 
     # Reset meter state
     _last_meter_time = 0.0
@@ -1348,13 +1480,8 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                     app_module.aprs_queue.put(meter_msg)
                 continue  # Audio level lines are not packets
 
-            # multimon-ng prefixes decoded packets with "AFSK1200: "
-            if line.startswith('AFSK1200:'):
-                line = line[9:].strip()
-
-            # direwolf often prefixes packets with "[0.4] " or similar audio level indicator
-            # Strip any leading bracket prefix like "[0.4] " before parsing
-            line = re.sub(r'^\[\d+\.\d+\]\s*', '', line)
+            # Normalize decoder prefixes (multimon/direwolf) before parsing.
+            line = normalize_aprs_output_line(line)
 
             # Skip non-packet lines (APRS format: CALL>PATH:DATA)
             if '>' not in line or ':' not in line:
@@ -1370,20 +1497,24 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                 if callsign and callsign not in aprs_stations:
                     aprs_station_count += 1
 
-                # Update station data
+                # Update station data, preserving last known coordinates when
+                # packets do not contain position fields.
                 if callsign:
+                    existing = aprs_stations.get(callsign, {})
+                    packet_lat = packet.get('lat')
+                    packet_lon = packet.get('lon')
                     aprs_stations[callsign] = {
                         'callsign': callsign,
-                        'lat': packet.get('lat'),
-                        'lon': packet.get('lon'),
-                        'symbol': packet.get('symbol'),
+                        'lat': packet_lat if packet_lat is not None else existing.get('lat'),
+                        'lon': packet_lon if packet_lon is not None else existing.get('lon'),
+                        'symbol': packet.get('symbol') or existing.get('symbol'),
                         'last_seen': packet.get('timestamp'),
                         'packet_type': packet.get('packet_type'),
                     }
                     # Geofence check
-                    _aprs_lat = packet.get('lat')
-                    _aprs_lon = packet.get('lon')
-                    if _aprs_lat and _aprs_lon:
+                    _aprs_lat = packet_lat
+                    _aprs_lon = packet_lon
+                    if _aprs_lat is not None and _aprs_lon is not None:
                         try:
                             from utils.geofence import get_geofence_manager
                             for _gf_evt in get_geofence_manager().check_position(
@@ -1416,7 +1547,6 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
         logger.error(f"APRS stream error: {e}")
         app_module.aprs_queue.put({'type': 'error', 'message': str(e)})
     finally:
-        global aprs_active_device
         app_module.aprs_queue.put({'type': 'status', 'status': 'stopped'})
         # Cleanup processes
         for proc in [rtl_process, decoder_process]:
@@ -1428,9 +1558,9 @@ def stream_aprs_output(rtl_process: subprocess.Popen, decoder_process: subproces
                     proc.kill()
                 except Exception:
                     pass
-        # Release SDR device
-        if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device)
+        # Release SDR device — only if it's still ours (not reclaimed by a new start)
+        if my_device is not None and aprs_active_device == my_device:
+            app_module.release_sdr_device(my_device)
             aprs_active_device = None
 
 
@@ -1475,6 +1605,24 @@ def get_stations() -> Response:
     return jsonify({
         'stations': list(aprs_stations.values()),
         'count': len(aprs_stations)
+    })
+
+
+@aprs_bp.route('/data')
+def aprs_data() -> Response:
+    """Get APRS data snapshot for remote controller polling compatibility."""
+    running = False
+    if app_module.aprs_process:
+        running = app_module.aprs_process.poll() is None
+
+    return jsonify({
+        'status': 'success',
+        'running': running,
+        'stations': list(aprs_stations.values()),
+        'count': len(aprs_stations),
+        'packet_count': aprs_packet_count,
+        'station_count': aprs_station_count,
+        'last_packet_time': aprs_last_packet_time,
     })
 
 

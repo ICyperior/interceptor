@@ -196,7 +196,8 @@ class GPSDClient:
 
     def add_callback(self, callback: Callable[[GPSPosition], None]) -> None:
         """Add a callback to be called on position updates."""
-        self._callbacks.append(callback)
+        if callback not in self._callbacks:
+            self._callbacks.append(callback)
 
     def remove_callback(self, callback: Callable[[GPSPosition], None]) -> None:
         """Remove a position update callback."""
@@ -205,7 +206,8 @@ class GPSDClient:
 
     def add_sky_callback(self, callback: Callable[[GPSSkyData], None]) -> None:
         """Add a callback to be called on sky data updates."""
-        self._sky_callbacks.append(callback)
+        if callback not in self._sky_callbacks:
+            self._sky_callbacks.append(callback)
 
     def remove_sky_callback(self, callback: Callable[[GPSSkyData], None]) -> None:
         """Remove a sky data update callback."""

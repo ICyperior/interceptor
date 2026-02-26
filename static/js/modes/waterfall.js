@@ -36,6 +36,7 @@ const Waterfall = (function () {
 
     let _startMhz = 98.8;
     let _endMhz = 101.2;
+    let _lastEffectiveSpan = 2.4;
     let _monitorFreqMhz = 100.0;
 
     let _monitoring = false;
@@ -2515,6 +2516,11 @@ const Waterfall = (function () {
                         _endMhz = msg.end_freq;
                         _drawFreqAxis();
                     }
+                    if (Number.isFinite(msg.effective_span_mhz)) {
+                        _lastEffectiveSpan = msg.effective_span_mhz;
+                        const spanEl = document.getElementById('wfSpanMhz');
+                        if (spanEl) spanEl.value = msg.effective_span_mhz;
+                    }
                     _setStatus(`Streaming ${_startMhz.toFixed(4)} - ${_endMhz.toFixed(4)} MHz`);
                     _setVisualStatus('RUNNING');
                     if (_monitoring) {
@@ -2535,6 +2541,12 @@ const Waterfall = (function () {
                     }
                     _updateFreqDisplay();
                     _setStatus(`Tuned ${_monitorFreqMhz.toFixed(4)} MHz`);
+                    if (_monitoring && _monitorSource === 'waterfall') {
+                        const mode = _getMonitorMode().toUpperCase();
+                        _setMonitorState(`Monitoring ${_monitorFreqMhz.toFixed(4)} MHz ${mode} via shared IQ`);
+                        _setStatus(`Audio monitor active on ${_monitorFreqMhz.toFixed(4)} MHz (${mode})`);
+                        _setVisualStatus('MONITOR');
+                    }
                     if (!_monitoring) _setVisualStatus('RUNNING');
                 } else if (_onRetuneRequired(msg)) {
                     return;
@@ -2557,6 +2569,10 @@ const Waterfall = (function () {
                     _pendingMonitorTuneMhz = null;
                     _scanStartPending = false;
                     _pendingSharedMonitorRearm = false;
+                    // Reset span input to last known good value so an
+                    // invalid span doesn't persist across restart (#150).
+                    const spanEl = document.getElementById('wfSpanMhz');
+                    if (spanEl) spanEl.value = _lastEffectiveSpan;
                     // If the monitor was using the shared IQ stream that
                     // just failed, tear down the stale monitor state so
                     // the button becomes clickable again after restart.
@@ -2603,7 +2619,7 @@ const Waterfall = (function () {
         player.load();
     }
 
-    async function _attachMonitorAudio(nonce) {
+    async function _attachMonitorAudio(nonce, streamToken = null) {
         const player = document.getElementById('wfAudioPlayer');
         if (!player) {
             return { ok: false, reason: 'player_missing', message: 'Audio player is unavailable.' };
@@ -2622,7 +2638,10 @@ const Waterfall = (function () {
             }
 
             await _pauseMonitorAudioElement();
-            player.src = `/receiver/audio/stream?fresh=1&t=${Date.now()}-${attempt}`;
+            const tokenQuery = (streamToken !== null && streamToken !== undefined && String(streamToken).length > 0)
+                ? `&request_token=${encodeURIComponent(String(streamToken))}`
+                : '';
+            player.src = `/receiver/audio/stream?fresh=1&t=${Date.now()}-${attempt}${tokenQuery}`;
             player.load();
 
             try {
@@ -2676,25 +2695,6 @@ const Waterfall = (function () {
             reason: 'stream_timeout',
             message: 'No audio data reached the browser stream.',
         };
-    }
-
-    function _deviceKey(device) {
-        if (!device) return '';
-        return `${device.sdrType || ''}:${device.deviceIndex || 0}`;
-    }
-
-    function _findAlternateDevice(currentDevice) {
-        const currentKey = _deviceKey(currentDevice);
-        for (const d of _devices) {
-            const candidate = {
-                sdrType: String(d.sdr_type || 'rtlsdr'),
-                deviceIndex: parseInt(d.index, 10) || 0,
-            };
-            if (_deviceKey(candidate) !== currentKey) {
-                return candidate;
-            }
-        }
-        return null;
     }
 
     async function _requestAudioStart({
@@ -2760,6 +2760,7 @@ const Waterfall = (function () {
                 _resumeWaterfallAfterMonitor = !!wasRunningWaterfall;
             }
 
+            const liveCenterMhz = _currentCenter();
             // Keep an explicit pending tune target so retunes cannot fall
             // back to a stale frequency during capture restart churn.
             const requestedTuneMhz = Number.isFinite(_pendingMonitorTuneMhz)
@@ -2767,11 +2768,11 @@ const Waterfall = (function () {
                 : (
                     Number.isFinite(_pendingCaptureVfoMhz)
                         ? _pendingCaptureVfoMhz
-                        : (Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : _currentCenter())
+                        : (Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : liveCenterMhz)
                 );
             const centerMhz = retuneOnly
-                ? (Number.isFinite(requestedTuneMhz) ? requestedTuneMhz : _currentCenter())
-                : _currentCenter();
+                ? (Number.isFinite(liveCenterMhz) ? liveCenterMhz : requestedTuneMhz)
+                : liveCenterMhz;
             const mode = document.getElementById('wfMonitorMode')?.value || 'wfm';
             const squelch = parseInt(document.getElementById('wfMonitorSquelch')?.value, 10) || 0;
             const sliderGain = parseInt(document.getElementById('wfMonitorGain')?.value, 10);
@@ -2780,69 +2781,98 @@ const Waterfall = (function () {
                 ? sliderGain
                 : (Number.isFinite(fallbackGain) ? Math.round(fallbackGain) : 40);
             const selectedDevice = _selectedDevice();
-            const altDevice = _running ? _findAlternateDevice(selectedDevice) : null;
-            let monitorDevice = altDevice || selectedDevice;
+            // Always target the currently selected SDR for monitor start/retune.
+            // This keeps waterfall-shared monitor tuning deterministic and avoids
+            // retuning a different receiver than the one driving the display.
+            let monitorDevice = selectedDevice;
             const biasT = !!document.getElementById('wfBiasT')?.checked;
-            const usingSecondaryDevice = !!altDevice;
+            // Use a high monotonic token so backend start ordering remains
+            // valid across page reloads (local nonces reset to small values).
+            const requestToken = Math.trunc((Date.now() * 4096) + (nonce & 0x0fff));
 
             if (!retuneOnly) {
                 _monitorFreqMhz = centerMhz;
             } else if (Number.isFinite(centerMhz)) {
                 _monitorFreqMhz = centerMhz;
+                _pendingMonitorTuneMhz = centerMhz;
+                _pendingCaptureVfoMhz = centerMhz;
             }
             _drawFreqAxis();
             _stopSmeter();
             _setUnlockVisible(false);
             _audioUnlockRequired = false;
 
-            if (usingSecondaryDevice) {
+            if (retuneOnly && _monitoring) {
+                _setMonitorState(`Retuning ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()}...`);
+            } else {
                 _setMonitorState(
                     `Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} on `
                     + `${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}...`
                 );
-            } else {
-                _setMonitorState(`Starting ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()}...`);
             }
 
             // Use live _monitorFreqMhz for retunes so that any user
             // clicks that changed the VFO during the async setup are
             // picked up rather than overridden.
-            let { response, payload } = await _requestAudioStart({
-                frequency: centerMhz,
-                modulation: mode,
-                squelch,
-                gain,
-                device: monitorDevice,
-                biasT,
-                requestToken: nonce,
-            });
+            const requestAudioStartResynced = async (deviceForRequest) => {
+                let startResult = await _requestAudioStart({
+                    frequency: centerMhz,
+                    modulation: mode,
+                    squelch,
+                    gain,
+                    device: deviceForRequest,
+                    biasT,
+                    requestToken,
+                });
+                const startPayload = startResult?.payload || {};
+                const isStale = startPayload.superseded === true || startPayload.status === 'stale';
+                if (isStale) {
+                    const currentToken = Number(startPayload.current_token);
+                    if (Number.isFinite(currentToken) && currentToken >= 0) {
+                        startResult = await _requestAudioStart({
+                            frequency: centerMhz,
+                            modulation: mode,
+                            squelch,
+                            gain,
+                            device: deviceForRequest,
+                            biasT,
+                            requestToken: currentToken + 1,
+                        });
+                    }
+                }
+                return startResult;
+            };
+
+            let { response, payload } = await requestAudioStartResynced(monitorDevice);
             if (nonce !== _audioConnectNonce) return;
 
             const staleStart = payload?.superseded === true || payload?.status === 'stale';
-            if (staleStart) return;
+            if (staleStart) {
+                // If the backend still reports stale after token resync,
+                // schedule a fresh retune so monitor audio does not stay on
+                // an older station indefinitely.
+                if (_monitoring) {
+                    const liveMode = _getMonitorMode().toUpperCase();
+                    _setMonitorState(`Monitoring ${_monitorFreqMhz.toFixed(4)} MHz ${liveMode}`);
+                    _setStatus(`Audio monitor active on ${_monitorFreqMhz.toFixed(4)} MHz (${liveMode})`);
+                    _setVisualStatus('MONITOR');
+                    _queueMonitorRetune(90);
+                }
+                return;
+            }
             const busy = payload?.error_type === 'DEVICE_BUSY' || (response.status === 409 && !staleStart);
-            if (
-                busy
-                && _running
-                && !usingSecondaryDevice
-                && !retuneOnly
-            ) {
+            if (busy && _running && !retuneOnly) {
                 _setMonitorState('Audio device busy, pausing waterfall and retrying monitor...');
                 await stop({ keepStatus: true });
                 _resumeWaterfallAfterMonitor = true;
                 await _wait(220);
                 monitorDevice = selectedDevice;
-                ({ response, payload } = await _requestAudioStart({
-                    frequency: centerMhz,
-                    modulation: mode,
-                    squelch,
-                    gain,
-                    device: monitorDevice,
-                    biasT,
-                    requestToken: nonce,
-                }));
+                ({ response, payload } = await requestAudioStartResynced(monitorDevice));
                 if (nonce !== _audioConnectNonce) return;
-                if (payload?.superseded === true || payload?.status === 'stale') return;
+                if (payload?.superseded === true || payload?.status === 'stale') {
+                    if (_monitoring) _queueMonitorRetune(90);
+                    return;
+                }
             }
 
             if (!response.ok || payload.status !== 'started') {
@@ -2861,13 +2891,14 @@ const Waterfall = (function () {
                 return;
             }
 
-            const attach = await _attachMonitorAudio(nonce);
+            const attach = await _attachMonitorAudio(nonce, payload?.request_token);
             if (nonce !== _audioConnectNonce) return;
             _monitorSource = payload?.source === 'waterfall' ? 'waterfall' : 'process';
-            if (
+            const pendingTuneMismatch = (
                 Number.isFinite(_pendingMonitorTuneMhz)
-                && Math.abs(_pendingMonitorTuneMhz - centerMhz) < 1e-6
-            ) {
+                && Math.abs(_pendingMonitorTuneMhz - centerMhz) >= 1e-6
+            );
+            if (!pendingTuneMismatch) {
                 _pendingMonitorTuneMhz = null;
             }
 
@@ -2878,6 +2909,7 @@ const Waterfall = (function () {
                     _setMonitorState(`Monitoring ${centerMhz.toFixed(4)} MHz ${mode.toUpperCase()} (audio locked)`);
                     _setStatus('Monitor started but browser blocked playback. Click Unlock Audio.');
                     _setVisualStatus('MONITOR');
+                    if (pendingTuneMismatch) _queueMonitorRetune(45);
                     return;
                 }
 
@@ -2911,20 +2943,27 @@ const Waterfall = (function () {
                 _setMonitorState(
                     `Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()} via shared IQ`
                 );
-            } else if (usingSecondaryDevice) {
+            } else {
                 _setMonitorState(
                     `Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()} `
                     + `via ${monitorDevice.sdrType.toUpperCase()} #${monitorDevice.deviceIndex}`
                 );
-            } else {
-                _setMonitorState(`Monitoring ${displayMhz.toFixed(4)} MHz ${mode.toUpperCase()}`);
             }
             _setStatus(`Audio monitor active on ${displayMhz.toFixed(4)} MHz (${mode.toUpperCase()})`);
             _setVisualStatus('MONITOR');
+            if (pendingTuneMismatch) {
+                _queueMonitorRetune(45);
+            }
             // After a retune reconnect, sync the backend to the latest
             // VFO in case the user clicked a new frequency while the
             // audio stream was reconnecting.
-            if (retuneOnly && _monitorSource === 'waterfall' && _ws && _ws.readyState === WebSocket.OPEN) {
+            if (
+                !pendingTuneMismatch
+                && retuneOnly
+                && _monitorSource === 'waterfall'
+                && _ws
+                && _ws.readyState === WebSocket.OPEN
+            ) {
                 _sendWsTuneCmd();
             }
         } catch (err) {
@@ -3233,7 +3272,8 @@ const Waterfall = (function () {
 
     function stepFreq(multiplier) {
         const step = _getNumber('wfStepSize', 0.1);
-        _setAndTune(_currentCenter() + multiplier * step, true);
+        // Coalesce rapid step-button presses into one final retune.
+        _setAndTune(_currentCenter() + multiplier * step, false);
     }
 
     function zoomBy(factor) {

@@ -2862,6 +2862,17 @@ class ModeManager:
 
     def _parse_aprs_packet(self, line: str) -> dict | None:
         """Parse APRS packet from direwolf or multimon-ng."""
+        if not line:
+            return None
+
+        # Normalize common decoder prefixes before parsing.
+        # multimon-ng: "AFSK1200: ..."
+        # direwolf: "[0.4] ...", "[0L] ..."
+        line = line.strip()
+        if line.startswith('AFSK1200:'):
+            line = line[9:].strip()
+        line = re.sub(r'^(?:\[[^\]]+\]\s*)+', '', line)
+
         match = re.match(r'([A-Z0-9-]+)>([^:]+):(.+)', line)
         if not match:
             return None

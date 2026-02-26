@@ -9,9 +9,11 @@ const GPS = (function() {
     let lastPosition = null;
     let lastSky = null;
     let skyPollTimer = null;
+    let statusPollTimer = null;
     let themeObserver = null;
     let skyRenderer = null;
     let skyRendererInitAttempted = false;
+    let skyRendererInitPromise = null;
 
     // Constellation color map
     const CONST_COLORS = {
@@ -23,8 +25,29 @@ const GPS = (function() {
         'QZSS':    '#cc66ff',
     };
 
+    const CONST_ALTITUDES = {
+        'GPS': 0.28,
+        'GLONASS': 0.27,
+        'Galileo': 0.29,
+        'BeiDou': 0.30,
+        'SBAS': 0.34,
+        'QZSS': 0.31,
+    };
+
+    const GPS_GLOBE_SCRIPT_URLS = [
+        'https://cdn.jsdelivr.net/npm/globe.gl@2.33.1/dist/globe.gl.min.js',
+    ];
+    const GPS_GLOBE_TEXTURE_URL = '/static/images/globe/earth-dark.jpg';
+    const GPS_SATELLITE_ICON_URL = '/static/images/globe/satellite-icon.svg';
+
     function init() {
-        initSkyRenderer();
+        const initPromise = initSkyRenderer();
+        if (initPromise && typeof initPromise.then === 'function') {
+            initPromise.then(() => {
+                if (lastSky) drawSkyView(lastSky.satellites || []);
+                else drawEmptySkyView();
+            }).catch(() => {});
+        }
         drawEmptySkyView();
         if (!connected) connect();
 
@@ -48,19 +71,390 @@ const GPS = (function() {
     }
 
     function initSkyRenderer() {
-        if (skyRendererInitAttempted) return;
+        if (skyRendererInitPromise) return skyRendererInitPromise;
         skyRendererInitAttempted = true;
 
-        const canvas = document.getElementById('gpsSkyCanvas');
-        if (!canvas) return;
+        let fallbackRenderer = null;
+        const fallbackCanvas = document.getElementById('gpsSkyCanvas');
+        const fallbackOverlay = document.getElementById('gpsSkyOverlay');
 
-        const overlay = document.getElementById('gpsSkyOverlay');
-        try {
-            skyRenderer = createWebGlSkyRenderer(canvas, overlay);
-        } catch (err) {
-            skyRenderer = null;
-            console.warn('GPS sky WebGL renderer failed, falling back to 2D', err);
+        // Show an immediate fallback while the globe library loads.
+        setSkyCanvasFallbackMode(true);
+        if (fallbackCanvas) {
+            try {
+                fallbackRenderer = createWebGlSkyRenderer(fallbackCanvas, fallbackOverlay);
+                skyRenderer = fallbackRenderer;
+            } catch (err) {
+                fallbackRenderer = null;
+                skyRenderer = null;
+                console.warn('GPS sky WebGL renderer failed, falling back to 2D', err);
+            }
         }
+
+        skyRendererInitPromise = (async function() {
+            const globeContainer = document.getElementById('gpsSkyGlobe');
+            if (globeContainer) {
+                try {
+                    const globeRenderer = await createGlobeSkyRenderer(globeContainer);
+                    if (globeRenderer) {
+                        if (fallbackRenderer && fallbackRenderer !== globeRenderer && typeof fallbackRenderer.destroy === 'function') {
+                            fallbackRenderer.destroy();
+                        }
+                        setSkyCanvasFallbackMode(false);
+                        skyRenderer = globeRenderer;
+                        return skyRenderer;
+                    }
+                } catch (err) {
+                    console.warn('GPS globe renderer failed, falling back to canvas renderer', err);
+                }
+            }
+
+            setSkyCanvasFallbackMode(true);
+            if (!fallbackRenderer && fallbackCanvas) {
+                try {
+                    fallbackRenderer = createWebGlSkyRenderer(fallbackCanvas, fallbackOverlay);
+                } catch (err) {
+                    fallbackRenderer = null;
+                    console.warn('GPS sky WebGL renderer failed, falling back to 2D', err);
+                }
+            }
+
+            skyRenderer = fallbackRenderer;
+            return skyRenderer;
+        })();
+
+        return skyRendererInitPromise;
+    }
+
+    function setSkyCanvasFallbackMode(enabled) {
+        const wrap = document.getElementById('gpsSkyViewWrap');
+        if (wrap) {
+            wrap.classList.toggle('gps-sky-fallback', !!enabled);
+        }
+    }
+
+    function isSkyCanvasFallbackEnabled() {
+        const wrap = document.getElementById('gpsSkyViewWrap');
+        return !wrap || wrap.classList.contains('gps-sky-fallback');
+    }
+
+    function getObserverCoords() {
+        const posLat = Number(lastPosition && lastPosition.latitude);
+        const posLon = Number(lastPosition && lastPosition.longitude);
+        if (Number.isFinite(posLat) && Number.isFinite(posLon)) {
+            return { lat: posLat, lon: normalizeLon(posLon) };
+        }
+
+        if (typeof observerLocation === 'object' && observerLocation) {
+            const obsLat = Number(observerLocation.lat);
+            const obsLon = Number(observerLocation.lon);
+            if (Number.isFinite(obsLat) && Number.isFinite(obsLon)) {
+                return { lat: obsLat, lon: normalizeLon(obsLon) };
+            }
+        }
+
+        return null;
+    }
+
+    async function ensureGpsGlobeLibrary() {
+        if (typeof window.Globe === 'function') return true;
+
+        const webglSupportFn = (typeof isWebglSupported === 'function') ? isWebglSupported : localWebglSupportCheck;
+        if (!webglSupportFn()) return false;
+
+        if (typeof ensureWebsdrGlobeLibrary === 'function') {
+            try {
+                const ready = await ensureWebsdrGlobeLibrary();
+                if (ready && typeof window.Globe === 'function') return true;
+            } catch (_) {}
+        }
+
+        for (const src of GPS_GLOBE_SCRIPT_URLS) {
+            await loadGpsGlobeScript(src);
+        }
+        return typeof window.Globe === 'function';
+    }
+
+    function loadGpsGlobeScript(src) {
+        const state = getSharedGlobeScriptState();
+        if (!state.promises[src]) {
+            state.promises[src] = loadSharedGlobeScript(src);
+        }
+        return state.promises[src].catch((error) => {
+            delete state.promises[src];
+            throw error;
+        });
+    }
+
+    function getSharedGlobeScriptState() {
+        const key = '__interceptGlobeScriptState';
+        if (!window[key]) {
+            window[key] = {
+                promises: Object.create(null),
+            };
+        }
+        return window[key];
+    }
+
+    function loadSharedGlobeScript(src) {
+        return new Promise((resolve, reject) => {
+            const selector = [
+                `script[data-intercept-globe-src="${src}"]`,
+                `script[data-websdr-src="${src}"]`,
+                `script[data-gps-globe-src="${src}"]`,
+                `script[src="${src}"]`,
+            ].join(', ');
+            const existing = document.querySelector(selector);
+
+            if (existing) {
+                if (existing.dataset.loaded === 'true') {
+                    resolve();
+                    return;
+                }
+                if (existing.dataset.failed === 'true') {
+                    existing.remove();
+                } else {
+                    existing.addEventListener('load', () => resolve(), { once: true });
+                    existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+                    return;
+                }
+            }
+
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.crossOrigin = 'anonymous';
+            script.dataset.interceptGlobeSrc = src;
+            script.dataset.gpsGlobeSrc = src;
+            script.onload = () => {
+                script.dataset.loaded = 'true';
+                resolve();
+            };
+            script.onerror = () => {
+                script.dataset.failed = 'true';
+                reject(new Error(`Failed to load ${src}`));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    function localWebglSupportCheck() {
+        try {
+            const canvas = document.createElement('canvas');
+            return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function createGlobeSkyRenderer(container) {
+        const ready = await ensureGpsGlobeLibrary();
+        if (!ready || typeof window.Globe !== 'function') return null;
+
+        let layoutAttempts = 0;
+        while ((!container.clientWidth || !container.clientHeight) && layoutAttempts < 4) {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            layoutAttempts += 1;
+        }
+        if (!container.clientWidth || !container.clientHeight) return null;
+
+        container.innerHTML = '';
+        container.style.background = 'radial-gradient(circle at 32% 18%, rgba(16, 45, 70, 0.92), rgba(4, 9, 16, 0.96) 58%, rgba(2, 4, 9, 0.99) 100%)';
+        container.style.cursor = 'grab';
+
+        const globe = window.Globe()(container)
+            .backgroundColor('rgba(0,0,0,0)')
+            .globeImageUrl(GPS_GLOBE_TEXTURE_URL)
+            .showAtmosphere(true)
+            .atmosphereColor('#3bb9ff')
+            .atmosphereAltitude(0.17)
+            .pointRadius('radius')
+            .pointAltitude('altitude')
+            .pointColor('color')
+            .pointLabel(point => point.label || '')
+            .pointsTransitionDuration(0)
+            .htmlAltitude('altitude')
+            .htmlElementsData([])
+            .htmlElement((sat) => createSatelliteIconElement(sat));
+
+        const controls = globe.controls();
+        if (controls) {
+            controls.autoRotate = false;
+            controls.enablePan = false;
+            controls.minDistance = 130;
+            controls.maxDistance = 420;
+            controls.rotateSpeed = 0.8;
+            controls.zoomSpeed = 0.8;
+        }
+
+        let destroyed = false;
+        let lastSatellites = [];
+        let hasInitialView = false;
+        const resizeObserver = (typeof ResizeObserver !== 'undefined')
+            ? new ResizeObserver(() => resizeGlobe())
+            : null;
+
+        if (resizeObserver) resizeObserver.observe(container);
+
+        function resizeGlobe() {
+            if (destroyed) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            if (!width || !height) return;
+            globe.width(width);
+            globe.height(height);
+        }
+
+        function renderGlobe() {
+            if (destroyed) return;
+            resizeGlobe();
+
+            const observer = getObserverCoords();
+            const points = [];
+            const satelliteIcons = [];
+
+            if (observer) {
+                points.push({
+                    lat: observer.lat,
+                    lng: observer.lon,
+                    altitude: 0.012,
+                    radius: 0.34,
+                    color: '#ffffff',
+                    label: '<div style="padding:4px 6px; font-size:11px; background:rgba(5,13,20,0.92); border:1px solid rgba(255,255,255,0.28); border-radius:4px;">Observer</div>',
+                });
+            }
+
+            lastSatellites.forEach((sat) => {
+                const azimuth = Number(sat.azimuth);
+                const elevation = Number(sat.elevation);
+                if (!observer || !Number.isFinite(azimuth) || !Number.isFinite(elevation)) return;
+
+                const color = CONST_COLORS[sat.constellation] || CONST_COLORS.GPS;
+                const shellAltitude = getSatelliteShellAltitude(sat.constellation, elevation);
+                const footprint = projectSkyTrackToEarth(observer.lat, observer.lon, azimuth, elevation);
+                satelliteIcons.push({
+                    lat: footprint.lat,
+                    lng: footprint.lon,
+                    altitude: shellAltitude,
+                    color: color,
+                    used: !!sat.used,
+                    sizePx: sat.used ? 20 : 17,
+                    title: buildSatelliteTitle(sat),
+                    iconUrl: GPS_SATELLITE_ICON_URL,
+                });
+            });
+
+            globe.pointsData(points);
+            globe.htmlElementsData(satelliteIcons);
+
+            if (observer && !hasInitialView) {
+                globe.pointOfView({ lat: observer.lat, lng: observer.lon, altitude: 1.6 }, 950);
+                hasInitialView = true;
+            }
+        }
+
+        function createSatelliteIconElement(sat) {
+            const marker = document.createElement('div');
+            marker.className = `gps-globe-sat-icon ${sat.used ? 'used' : 'unused'}`;
+            marker.style.setProperty('--sat-color', sat.color || '#9fb2c5');
+            marker.style.setProperty('--sat-size', `${Math.max(12, Number(sat.sizePx) || 18)}px`);
+            marker.title = sat.title || 'Satellite';
+
+            const img = document.createElement('img');
+            img.src = sat.iconUrl || GPS_SATELLITE_ICON_URL;
+            img.alt = 'Satellite';
+            img.decoding = 'async';
+            img.draggable = false;
+
+            marker.appendChild(img);
+            return marker;
+        }
+
+        function setSatellites(satellites) {
+            lastSatellites = Array.isArray(satellites) ? satellites : [];
+            renderGlobe();
+        }
+
+        function requestRender() {
+            renderGlobe();
+        }
+
+        function destroy() {
+            destroyed = true;
+            if (resizeObserver) {
+                try {
+                    resizeObserver.disconnect();
+                } catch (_) {}
+            }
+            container.innerHTML = '';
+        }
+
+        setSatellites([]);
+
+        return {
+            setSatellites: setSatellites,
+            requestRender: requestRender,
+            destroy: destroy,
+        };
+    }
+
+    function buildSatelliteTitle(sat) {
+        const constellation = String(sat.constellation || 'GPS');
+        const prn = String(sat.prn || '--');
+        const elevation = Number.isFinite(Number(sat.elevation)) ? `${Number(sat.elevation).toFixed(1)}\u00b0` : '--';
+        const azimuth = Number.isFinite(Number(sat.azimuth)) ? `${Number(sat.azimuth).toFixed(1)}\u00b0` : '--';
+        const snr = Number.isFinite(Number(sat.snr)) ? `${Math.round(Number(sat.snr))} dB-Hz` : 'n/a';
+        const used = sat.used ? 'USED IN FIX' : 'TRACKED';
+
+        return `${constellation} PRN ${prn} | El ${elevation} | Az ${azimuth} | SNR ${snr} | ${used}`;
+    }
+
+    function getSatelliteShellAltitude(constellation, elevation) {
+        const base = CONST_ALTITUDES[constellation] || CONST_ALTITUDES.GPS;
+        const el = Math.max(0, Math.min(90, Number(elevation) || 0));
+        const horizonFactor = 1 - (el / 90);
+        return base + (horizonFactor * 0.04);
+    }
+
+    function projectSkyTrackToEarth(observerLat, observerLon, azimuth, elevation) {
+        const el = Math.max(0, Math.min(90, Number(elevation) || 0));
+        const horizonFactor = 1 - (el / 90);
+        const angularDistance = 76 * Math.pow(horizonFactor, 1.08);
+        return destinationPoint(observerLat, observerLon, azimuth, angularDistance);
+    }
+
+    function destinationPoint(latDeg, lonDeg, bearingDeg, distanceDeg) {
+        const lat1 = degToRad(latDeg);
+        const lon1 = degToRad(lonDeg);
+        const bearing = degToRad(bearingDeg);
+        const distance = degToRad(distanceDeg);
+
+        const sinLat1 = Math.sin(lat1);
+        const cosLat1 = Math.cos(lat1);
+        const sinDist = Math.sin(distance);
+        const cosDist = Math.cos(distance);
+
+        const sinLat2 = (sinLat1 * cosDist) + (cosLat1 * sinDist * Math.cos(bearing));
+        const lat2 = Math.asin(Math.max(-1, Math.min(1, sinLat2)));
+
+        const y = Math.sin(bearing) * sinDist * cosLat1;
+        const x = cosDist - (sinLat1 * Math.sin(lat2));
+        const lon2 = lon1 + Math.atan2(y, x);
+
+        return {
+            lat: radToDeg(lat2),
+            lon: normalizeLon(radToDeg(lon2)),
+        };
+    }
+
+    function normalizeLon(lon) {
+        let normalized = (lon + 540) % 360;
+        normalized = normalized < 0 ? normalized + 360 : normalized;
+        return normalized - 180;
+    }
+
+    function radToDeg(rad) {
+        return rad * 180 / Math.PI;
     }
 
     function connect() {
@@ -81,8 +475,10 @@ const GPS = (function() {
                     }
                     subscribeToStream();
                     startSkyPolling();
+                    startStatusPolling();
                     // Ensure the global GPS stream is running
-                    if (typeof startGpsStream === 'function' && !gpsEventSource) {
+                    const hasGlobalGpsStream = typeof gpsEventSource !== 'undefined' && !!gpsEventSource;
+                    if (typeof startGpsStream === 'function' && !hasGlobalGpsStream) {
                         startGpsStream();
                     }
                 } else {
@@ -99,6 +495,7 @@ const GPS = (function() {
     function disconnect() {
         unsubscribeFromStream();
         stopSkyPolling();
+        stopStatusPolling();
         fetch('/gps/stop', { method: 'POST' })
             .then(() => {
                 connected = false;
@@ -112,6 +509,9 @@ const GPS = (function() {
             lastPosition = data;
             updatePositionUI(data);
             updateConnectionUI(true, true);
+            if (lastSky && skyRenderer) {
+                drawSkyView(lastSky.satellites || []);
+            }
         } else if (data.type === 'sky') {
             lastSky = data;
             updateSkyUI(data);
@@ -139,6 +539,50 @@ const GPS = (function() {
             .then(r => r.json())
             .then(data => {
                 if (data.status === 'ok' && data.sky) {
+                    lastSky = data.sky;
+                    updateSkyUI(data.sky);
+                }
+            })
+            .catch(() => {});
+    }
+
+    function startStatusPolling() {
+        stopStatusPolling();
+        // Poll full status as a fallback when SSE is unavailable or blocked.
+        pollStatus();
+        statusPollTimer = setInterval(pollStatus, 2000);
+    }
+
+    function stopStatusPolling() {
+        if (statusPollTimer) {
+            clearInterval(statusPollTimer);
+            statusPollTimer = null;
+        }
+    }
+
+    function pollStatus() {
+        if (!connected) return;
+        fetch('/gps/status')
+            .then(r => r.json())
+            .then(data => {
+                if (!connected || !data) return;
+                if (data.running !== true) {
+                    connected = false;
+                    stopSkyPolling();
+                    stopStatusPolling();
+                    updateConnectionUI(false, false, 'error', data.message || 'GPS disconnected');
+                    return;
+                }
+
+                if (data.position) {
+                    lastPosition = data.position;
+                    updatePositionUI(data.position);
+                    updateConnectionUI(true, true);
+                } else {
+                    updateConnectionUI(true, false);
+                }
+
+                if (data.sky) {
                     lastSky = data.sky;
                     updateSkyUI(data.sky);
                 }
@@ -294,8 +738,11 @@ const GPS = (function() {
             return;
         }
 
+        if (!isSkyCanvasFallbackEnabled()) return;
+
         const canvas = document.getElementById('gpsSkyCanvas');
         if (!canvas) return;
+        resize2DFallbackCanvas(canvas);
         drawSkyViewBase2D(canvas);
     }
 
@@ -311,9 +758,12 @@ const GPS = (function() {
             return;
         }
 
+        if (!isSkyCanvasFallbackEnabled()) return;
+
         const canvas = document.getElementById('gpsSkyCanvas');
         if (!canvas) return;
 
+        resize2DFallbackCanvas(canvas);
         drawSkyViewBase2D(canvas);
 
         const ctx = canvas.getContext('2d');
@@ -426,6 +876,15 @@ const GPS = (function() {
         ctx.beginPath();
         ctx.arc(cx, cy, 2, 0, Math.PI * 2);
         ctx.fill();
+    }
+
+    function resize2DFallbackCanvas(canvas) {
+        const cssWidth = Math.max(1, Math.floor(canvas.clientWidth || 400));
+        const cssHeight = Math.max(1, Math.floor(canvas.clientHeight || 400));
+        if (canvas.width !== cssWidth || canvas.height !== cssHeight) {
+            canvas.width = cssWidth;
+            canvas.height = cssHeight;
+        }
     }
 
     function createWebGlSkyRenderer(canvas, overlay) {
@@ -1076,6 +1535,7 @@ const GPS = (function() {
     function destroy() {
         unsubscribeFromStream();
         stopSkyPolling();
+        stopStatusPolling();
         if (themeObserver) {
             themeObserver.disconnect();
             themeObserver = null;
@@ -1085,6 +1545,8 @@ const GPS = (function() {
             skyRenderer = null;
         }
         skyRendererInitAttempted = false;
+        skyRendererInitPromise = null;
+        setSkyCanvasFallbackMode(false);
     }
 
     return {

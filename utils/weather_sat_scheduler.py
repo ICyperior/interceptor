@@ -21,10 +21,12 @@ try:
     from config import (
         WEATHER_SAT_SCHEDULE_REFRESH_MINUTES,
         WEATHER_SAT_CAPTURE_BUFFER_SECONDS,
+        WEATHER_SAT_SAMPLE_RATE,
     )
 except ImportError:
     WEATHER_SAT_SCHEDULE_REFRESH_MINUTES = 30
     WEATHER_SAT_CAPTURE_BUFFER_SECONDS = 30
+    WEATHER_SAT_SAMPLE_RATE = 2400000
 
 
 class ScheduledPass:
@@ -320,16 +322,31 @@ class WeatherSatScheduler:
         def _release_device():
             try:
                 import app as app_module
+                owner = None
+                get_status = getattr(app_module, 'get_sdr_device_status', None)
+                if callable(get_status):
+                    try:
+                        owner = get_status().get(self._device)
+                    except Exception:
+                        owner = None
+                if owner and owner != 'weather_sat':
+                    logger.debug(
+                        "Skipping SDR release for device %s owned by %s",
+                        self._device,
+                        owner,
+                    )
+                    return
                 app_module.release_sdr_device(self._device)
             except ImportError:
                 pass
 
         decoder.set_on_complete(lambda: self._on_capture_complete(sp, _release_device))
 
-        success = decoder.start(
+        success, _error_msg = decoder.start(
             satellite=sp.satellite,
             device_index=self._device,
             gain=self._gain,
+            sample_rate=WEATHER_SAT_SAMPLE_RATE,
             bias_t=self._bias_t,
         )
 

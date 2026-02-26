@@ -971,7 +971,12 @@
                     }
                 }
             } catch (err) {
-                console.error('Position update error:', err);
+                const transient = (typeof window.isTransientOrOffline === 'function' && window.isTransientOrOffline(err)) ||
+                    (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+                    /failed to fetch|network io suspended|networkerror|timeout/i.test(String((err && err.message) || err || ''));
+                if (!transient) {
+                    console.error('Position update error:', err);
+                }
             }
         }
 

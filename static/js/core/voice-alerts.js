@@ -20,7 +20,13 @@ const VoiceAlerts = (function () {
         rate: 1.1,
         pitch: 0.9,
         voiceName: '',
-        streams: { pager: true, tscm: true, bluetooth: true },
+        streams: {
+            pager: true,
+            tscm: true,
+            bluetooth: true,
+            adsb_military: true,
+            squawks: true,
+        },
     };
 
     function _toNumberInRange(value, fallback, min, max) {

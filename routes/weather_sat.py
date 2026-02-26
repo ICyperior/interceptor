@@ -18,6 +18,7 @@ from utils.weather_sat import (
     is_weather_sat_available,
     CaptureProgress,
     WEATHER_SATELLITES,
+    DEFAULT_SAMPLE_RATE,
 )
 
 logger = get_logger('intercept.weather_sat')
@@ -38,6 +39,35 @@ def _progress_callback(progress: CaptureProgress) -> None:
             _weather_sat_queue.put_nowait(progress.to_dict())
         except queue.Empty:
             pass
+
+
+def _release_weather_sat_device(device_index: int) -> None:
+    """Release an SDR device only if weather-sat currently owns it."""
+    if device_index < 0:
+        return
+
+    try:
+        import app as app_module
+    except ImportError:
+        return
+
+    owner = None
+    get_status = getattr(app_module, 'get_sdr_device_status', None)
+    if callable(get_status):
+        try:
+            owner = get_status().get(device_index)
+        except Exception:
+            owner = None
+
+    if owner and owner != 'weather_sat':
+        logger.debug(
+            'Skipping SDR release for device %s owned by %s',
+            device_index,
+            owner,
+        )
+        return
+
+    app_module.release_sdr_device(device_index)
 
 
 @weather_sat_bp.route('/status')
@@ -152,18 +182,15 @@ def start_capture():
     decoder.set_callback(_progress_callback)
 
     def _release_device():
-        try:
-            import app as app_module
-            app_module.release_sdr_device(device_index)
-        except ImportError:
-            pass
+        _release_weather_sat_device(device_index)
 
     decoder.set_on_complete(_release_device)
 
-    success = decoder.start(
+    success, error_msg = decoder.start(
         satellite=satellite,
         device_index=device_index,
         gain=gain,
+        sample_rate=DEFAULT_SAMPLE_RATE,
         bias_t=bias_t,
     )
 
@@ -181,7 +208,7 @@ def start_capture():
         _release_device()
         return jsonify({
             'status': 'error',
-            'message': 'Failed to start capture'
+            'message': error_msg or 'Failed to start capture'
         }), 500
 
 
@@ -283,7 +310,7 @@ def test_decode():
     decoder.set_callback(_progress_callback)
     decoder.set_on_complete(None)
 
-    success = decoder.start_from_file(
+    success, error_msg = decoder.start_from_file(
         satellite=satellite,
         input_file=input_file,
         sample_rate=sample_rate,
@@ -302,7 +329,7 @@ def test_decode():
     else:
         return jsonify({
             'status': 'error',
-            'message': 'Failed to start file decode'
+            'message': error_msg or 'Failed to start file decode'
         }), 500
 
 
@@ -318,12 +345,7 @@ def stop_capture():
 
     decoder.stop()
 
-    # Release SDR device
-    try:
-        import app as app_module
-        app_module.release_sdr_device(device_index)
-    except ImportError:
-        pass
+    _release_weather_sat_device(device_index)
 
     return jsonify({'status': 'stopped'})
 
