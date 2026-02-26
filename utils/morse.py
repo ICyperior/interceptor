@@ -725,6 +725,34 @@ def _emit_waiting_scope(output_queue: queue.Queue, waiting_since: float) -> None
         })
 
 
+def _is_probably_rtl_log_text(data: bytes) -> bool:
+    """Heuristic: identify rtl_fm stderr log chunks when streams are merged."""
+    if not data:
+        return False
+    # PCM usually contains NULLs/non-printables; plain log lines do not.
+    if b'\x00' in data:
+        return False
+    printable = sum(1 for b in data if (32 <= b <= 126) or b in (9, 10, 13))
+    ratio = printable / max(1, len(data))
+    if ratio < 0.92:
+        return False
+    lower = data.lower()
+    keywords = (
+        b'rtl_fm',
+        b'found ',
+        b'using device',
+        b'tuned to',
+        b'sampling at',
+        b'output at',
+        b'buffer size',
+        b'gain',
+        b'direct sampling',
+        b'oversampling',
+        b'exact sample rate',
+    )
+    return any(token in lower for token in keywords)
+
+
 def morse_decoder_thread(
     rtl_stdout,
     output_queue: queue.Queue,
@@ -735,6 +763,7 @@ def morse_decoder_thread(
     decoder_config: dict[str, Any] | None = None,
     control_queue: queue.Queue | None = None,
     pcm_ready_event: threading.Event | None = None,
+    strip_text_chunks: bool = False,
 ) -> None:
     """Decode Morse from live PCM stream and push events to *output_queue*."""
     import logging
@@ -797,6 +826,23 @@ def morse_decoder_thread(
 
                     if not data:
                         break
+
+                    if strip_text_chunks and _is_probably_rtl_log_text(data):
+                        try:
+                            text = data.decode('utf-8', errors='replace')
+                        except Exception:
+                            text = ''
+                        if text:
+                            for line in text.splitlines():
+                                clean = line.strip()
+                                if not clean:
+                                    continue
+                                with contextlib.suppress(queue.Full):
+                                    output_queue.put_nowait({
+                                        'type': 'info',
+                                        'text': f'[rtl_fm] {clean}',
+                                    })
+                        continue
 
                     try:
                         raw_queue.put(data, timeout=0.2)

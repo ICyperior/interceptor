@@ -363,6 +363,16 @@ def start_morse() -> Response:
                 'force_squelch_off': True,
                 'add_resample_rate': True,
                 'add_dc_fast': True,
+                'merge_stderr': False,
+            },
+            {
+                # Last-resort compatibility mode: some rtl_fm variants may route
+                # payload unexpectedly; merge stderr->stdout and strip text logs.
+                'use_direct_sampling': False,
+                'force_squelch_off': False,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+                'merge_stderr': True,
             },
         ]
     else:
@@ -372,18 +382,28 @@ def start_morse() -> Response:
                 'force_squelch_off': False,
                 'add_resample_rate': False,
                 'add_dc_fast': False,
+                'merge_stderr': False,
             },
             {
                 'use_direct_sampling': False,
                 'force_squelch_off': False,
                 'add_resample_rate': True,
                 'add_dc_fast': True,
+                'merge_stderr': False,
             },
             {
                 'use_direct_sampling': False,
                 'force_squelch_off': True,
                 'add_resample_rate': True,
                 'add_dc_fast': True,
+                'merge_stderr': False,
+            },
+            {
+                'use_direct_sampling': False,
+                'force_squelch_off': False,
+                'add_resample_rate': True,
+                'add_dc_fast': True,
+                'merge_stderr': True,
             },
         ]
 
@@ -438,6 +458,7 @@ def start_morse() -> Response:
             force_squelch_off = bool(attempt.get('force_squelch_off', True))
             add_resample_rate = bool(attempt.get('add_resample_rate', False))
             add_dc_fast = bool(attempt.get('add_dc_fast', False))
+            merge_stderr = bool(attempt.get('merge_stderr', False))
 
             rtl_cmd = _build_rtl_cmd(
                 use_direct_sampling=use_direct_sampling,
@@ -457,7 +478,7 @@ def start_morse() -> Response:
             rtl_process = subprocess.Popen(
                 rtl_cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE,
                 bufsize=0,
             )
             register_process(rtl_process)
@@ -466,26 +487,29 @@ def start_morse() -> Response:
             control_queue = queue.Queue(maxsize=16)
             pcm_ready_event = threading.Event()
 
-            def monitor_stderr(
-                proc: subprocess.Popen = rtl_process,
-                proc_stop_event: threading.Event = stop_event,
-            ) -> None:
-                if proc.stderr is None:
-                    return
-                for line in proc.stderr:
-                    if proc_stop_event.is_set():
-                        break
-                    err_text = line.decode('utf-8', errors='replace').strip()
-                    if err_text:
-                        logger.debug(f'[rtl_fm/morse] {err_text}')
-                        with contextlib.suppress(queue.Full):
-                            app_module.morse_queue.put_nowait({
-                                'type': 'info',
-                                'text': f'[rtl_fm] {err_text}',
-                            })
+            if not merge_stderr:
+                def monitor_stderr(
+                    proc: subprocess.Popen = rtl_process,
+                    proc_stop_event: threading.Event = stop_event,
+                ) -> None:
+                    if proc.stderr is None:
+                        return
+                    for line in proc.stderr:
+                        if proc_stop_event.is_set():
+                            break
+                        err_text = line.decode('utf-8', errors='replace').strip()
+                        if err_text:
+                            logger.debug(f'[rtl_fm/morse] {err_text}')
+                            with contextlib.suppress(queue.Full):
+                                app_module.morse_queue.put_nowait({
+                                    'type': 'info',
+                                    'text': f'[rtl_fm] {err_text}',
+                                })
 
-            stderr_thread = threading.Thread(target=monitor_stderr, daemon=True, name='morse-stderr')
-            stderr_thread.start()
+                stderr_thread = threading.Thread(target=monitor_stderr, daemon=True, name='morse-stderr')
+                stderr_thread.start()
+            else:
+                stderr_thread = None
 
             decoder_thread = threading.Thread(
                 target=morse_decoder_thread,
@@ -501,6 +525,7 @@ def start_morse() -> Response:
                     'decoder_config': runtime_config,
                     'control_queue': control_queue,
                     'pcm_ready_event': pcm_ready_event,
+                    'strip_text_chunks': merge_stderr,
                 },
                 daemon=True,
                 name='morse-decoder',
@@ -525,6 +550,7 @@ def start_morse() -> Response:
                 runtime_config['force_squelch_off'] = force_squelch_off
                 runtime_config['resample_rate'] = sample_rate if add_resample_rate else None
                 runtime_config['dc_fast'] = add_dc_fast
+                runtime_config['merge_stderr'] = merge_stderr
                 break
 
             if not startup_error:
@@ -533,7 +559,7 @@ def start_morse() -> Response:
             attempt_errors.append(
                 f'attempt {attempt_index}/{len(command_attempts)} '
                 f'(direct={int(use_direct_sampling)} squelch_forced={int(force_squelch_off)} '
-                f'resample={int(add_resample_rate)} dc_fast={int(add_dc_fast)}): {startup_error}'
+                f'resample={int(add_resample_rate)} dc_fast={int(add_dc_fast)} merged={int(merge_stderr)}): {startup_error}'
             )
             logger.warning(f'Morse startup attempt failed: {attempt_errors[-1]}')
 
