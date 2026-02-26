@@ -95,11 +95,21 @@ class MorseDecoder:
         self._char_gap = 3.0 * dit_sec / self._block_duration  # blocks
         self._word_gap = 7.0 * dit_sec / self._block_duration  # blocks
 
+        # AGC (automatic gain control) for direct sampling / weak signals
+        self._agc_target = 0.3  # target RMS amplitude (0-1 range)
+        self._agc_gain = 1.0  # current AGC multiplier
+        self._agc_alpha = 0.05  # EMA smoothing for gain changes
+
+        # Warm-up phase constants
+        self._WARMUP_BLOCKS = 50  # ~1 second at 50 blocks/sec
+        self._SETTLE_BLOCKS = 200  # blocks for fast→slow EMA transition
+        self._mag_min = float('inf')
+        self._mag_max = 0.0
+
         # Adaptive threshold via EMA
         self._noise_floor = 0.0
         self._signal_peak = 0.0
         self._threshold = 0.0
-        self._ema_alpha = 0.1  # smoothing factor
 
         # State machine (counts in blocks, not wall-clock time)
         self._tone_on = False
@@ -136,20 +146,47 @@ class MorseDecoder:
 
             # Normalize to [-1, 1]
             normalized = [s / 32768.0 for s in block]
+
+            # AGC: boost quiet signals (e.g. direct sampling mode)
+            rms = math.sqrt(sum(s * s for s in normalized) / len(normalized))
+            if rms > 1e-6:
+                desired_gain = self._agc_target / rms
+                self._agc_gain += self._agc_alpha * (desired_gain - self._agc_gain)
+                self._agc_gain = min(self._agc_gain, 500.0)  # cap to prevent runaway
+            normalized = [s * self._agc_gain for s in normalized]
+
             mag = self._filter.magnitude(normalized)
             amplitudes.append(mag)
 
             self._blocks_processed += 1
 
-            # Update adaptive threshold
-            if mag < self._threshold or self._threshold == 0:
-                self._noise_floor += self._ema_alpha * (mag - self._noise_floor)
+            # Warm-up phase: collect statistics, suppress detection
+            if self._blocks_processed <= self._WARMUP_BLOCKS:
+                self._mag_min = min(self._mag_min, mag)
+                self._mag_max = max(self._mag_max, mag)
+                if self._blocks_processed == self._WARMUP_BLOCKS:
+                    # Seed thresholds from observed range
+                    self._noise_floor = self._mag_min
+                    self._signal_peak = max(self._mag_max, self._mag_min * 2)
+                    self._threshold = self._noise_floor + 0.3 * (
+                        self._signal_peak - self._noise_floor
+                    )
+                tone_detected = False
             else:
-                self._signal_peak += self._ema_alpha * (mag - self._signal_peak)
+                # Adaptive EMA: fast initially, slow in steady state
+                alpha = 0.3 if self._blocks_processed < self._WARMUP_BLOCKS + self._SETTLE_BLOCKS else 0.05
 
-            self._threshold = (self._noise_floor + self._signal_peak) / 2.0
+                if mag < self._threshold:
+                    self._noise_floor += alpha * (mag - self._noise_floor)
+                else:
+                    self._signal_peak += alpha * (mag - self._signal_peak)
 
-            tone_detected = mag > self._threshold and self._threshold > 0
+                # Threshold at 30% between noise and signal (sensitive to weak CW)
+                self._threshold = self._noise_floor + 0.3 * (
+                    self._signal_peak - self._noise_floor
+                )
+
+                tone_detected = mag > self._threshold and self._threshold > 0
 
             if tone_detected and not self._tone_on:
                 # Tone just started - check silence duration for gaps

@@ -147,18 +147,17 @@ class TestGoertzelFilter:
 
 class TestMorseDecoder:
     def _make_decoder(self, wpm=15):
-        """Create decoder with pre-warmed threshold for testing."""
+        """Create decoder with warm-up phase completed for testing.
+
+        Feeds silence then tone then silence to get past the warm-up
+        blocks and establish a valid noise floor / signal peak.
+        """
         decoder = MorseDecoder(sample_rate=8000, tone_freq=700.0, wpm=wpm)
-        # Warm up noise floor with silence
-        silence = generate_silence(0.5)
-        decoder.process_block(silence)
-        # Warm up signal peak with tone
-        tone = generate_tone(700.0, 0.3)
-        decoder.process_block(tone)
-        # More silence to settle
-        silence2 = generate_silence(0.5)
-        decoder.process_block(silence2)
-        # Reset state after warm-up
+        # Feed enough audio to get past warm-up (50 blocks = 1 sec)
+        # Mix silence and tone so warm-up sees both noise and signal
+        warmup_audio = generate_silence(0.6) + generate_tone(700.0, 0.4) + generate_silence(0.5)
+        decoder.process_block(warmup_audio)
+        # Reset state machine after warm-up so tests start clean
         decoder._tone_on = False
         decoder._current_symbol = ''
         decoder._tone_blocks = 0
@@ -246,14 +245,14 @@ class TestMorseDecoder:
         assert 'tone_on' in se
 
     def test_adaptive_threshold_adjusts(self):
-        """After processing audio, threshold should be non-zero."""
+        """After processing enough audio to complete warm-up, threshold should be non-zero."""
         decoder = MorseDecoder(sample_rate=8000, tone_freq=700.0, wpm=15)
 
-        # Process some tone + silence
-        audio = generate_tone(700.0, 0.3) + generate_silence(0.3)
+        # Feed enough audio to complete the 50-block warm-up (~1 second)
+        audio = generate_silence(0.6) + generate_tone(700.0, 0.4) + generate_silence(0.3)
         decoder.process_block(audio)
 
-        assert decoder._threshold > 0, "Threshold should adapt above zero"
+        assert decoder._threshold > 0, "Threshold should adapt above zero after warm-up"
 
     def test_flush_emits_pending_char(self):
         """flush() should emit any accumulated but not-yet-decoded symbol."""
@@ -268,6 +267,39 @@ class TestMorseDecoder:
         decoder = MorseDecoder(sample_rate=8000, tone_freq=700.0, wpm=15)
         events = decoder.flush()
         assert events == []
+
+    def test_weak_signal_detection(self):
+        """CW tone at only 3x noise magnitude should still decode characters."""
+        decoder = self._make_decoder(wpm=10)
+        # Generate weak CW audio (low amplitude simulating weak HF signal)
+        audio = generate_morse_audio('SOS', wpm=10, sample_rate=8000)
+        # Scale to low amplitude (simulating weak signal)
+        n_samples = len(audio) // 2
+        samples = struct.unpack(f'<{n_samples}h', audio)
+        # Reduce to ~10% amplitude
+        weak_samples = [max(-32768, min(32767, int(s * 0.1))) for s in samples]
+        weak_audio = struct.pack(f'<{len(weak_samples)}h', *weak_samples)
+
+        events = decoder.process_block(weak_audio)
+        events.extend(decoder.flush())
+
+        chars = [e for e in events if e['type'] == 'morse_char']
+        decoded = ''.join(e['char'] for e in chars)
+        # Should decode at least some characters from the weak signal
+        assert len(chars) >= 1, f"Expected decoded chars from weak signal, got '{decoded}'"
+
+    def test_agc_boosts_quiet_signal(self):
+        """Very quiet PCM (amplitude 0.01) should still produce usable Goertzel magnitudes."""
+        decoder = MorseDecoder(sample_rate=8000, tone_freq=700.0, wpm=15)
+        # Generate very quiet tone
+        quiet_tone = generate_tone(700.0, 1.5, amplitude=0.01)  # 1.5s of very quiet CW
+        events = decoder.process_block(quiet_tone)
+
+        scope_events = [e for e in events if e['type'] == 'scope']
+        assert len(scope_events) > 0, "Expected scope events from quiet signal"
+        # AGC should have boosted the signal — amplitudes should be visible
+        max_amp = max(max(se['amplitudes']) for se in scope_events)
+        assert max_amp > 1.0, f"AGC should boost quiet signal to usable magnitude, got {max_amp}"
 
 
 # ---------------------------------------------------------------------------
