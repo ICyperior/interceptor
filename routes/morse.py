@@ -327,7 +327,9 @@ def start_morse() -> Response:
                     cmd[insert_at:insert_at] = ['-E', 'dc']
         return cmd
 
-    iq_sample_rate = 250000
+    # Use a hardware-friendly IQ rate (matches common RTL-SDR stable rates
+    # and waterfall defaults) before decimating to audio.
+    iq_sample_rate = 1024000
 
     def _build_iq_cmd(*, direct_sampling_mode: int | None) -> tuple[list[str], float]:
         # CW USB-style offset tuning: keep the configured RF frequency sounding
