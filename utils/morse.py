@@ -274,3 +274,6 @@ def morse_decoder_thread(
         for event in decoder.flush():
             with contextlib.suppress(queue.Full):
                 output_queue.put_nowait(event)
+        # Notify frontend that the decoder has stopped (e.g. rtl_fm died)
+        with contextlib.suppress(queue.Full):
+            output_queue.put_nowait({'type': 'status', 'status': 'stopped'})

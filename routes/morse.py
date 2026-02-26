@@ -6,6 +6,7 @@ import contextlib
 import queue
 import subprocess
 import threading
+import time
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
@@ -64,7 +65,7 @@ def start_morse() -> Response:
 
         # Validate standard SDR inputs
         try:
-            freq = validate_frequency(data.get('frequency', '14.060'))
+            freq = validate_frequency(data.get('frequency', '14.060'), min_mhz=0.5, max_mhz=30.0)
             gain = validate_gain(data.get('gain', '0'))
             ppm = validate_ppm(data.get('ppm', '0'))
             device = validate_device_index(data.get('device', '0'))
@@ -113,6 +114,9 @@ def start_morse() -> Response:
         sample_rate = 8000
         bias_t = data.get('bias_t', False)
 
+        # RTL-SDR needs direct sampling mode for HF frequencies below 24 MHz
+        direct_sampling = 2 if freq < 24.0 else None
+
         rtl_cmd = builder.build_fm_demod_command(
             device=sdr_device,
             frequency_mhz=freq,
@@ -121,6 +125,7 @@ def start_morse() -> Response:
             ppm=int(ppm) if ppm and ppm != '0' else None,
             modulation='usb',
             bias_t=bias_t,
+            direct_sampling=direct_sampling,
         )
 
         full_cmd = ' '.join(rtl_cmd)
@@ -133,6 +138,25 @@ def start_morse() -> Response:
                 stderr=subprocess.PIPE,
             )
             register_process(rtl_process)
+
+            # Detect immediate startup failure (e.g. device busy, no device)
+            time.sleep(0.35)
+            if rtl_process.poll() is not None:
+                stderr_text = ''
+                try:
+                    if rtl_process.stderr:
+                        stderr_text = rtl_process.stderr.read().decode(
+                            'utf-8', errors='replace'
+                        ).strip()
+                except Exception:
+                    stderr_text = ''
+                msg = stderr_text or f'rtl_fm exited immediately (code {rtl_process.returncode})'
+                logger.error(f"Morse rtl_fm startup failed: {msg}")
+                unregister_process(rtl_process)
+                if morse_active_device is not None:
+                    app_module.release_sdr_device(morse_active_device)
+                    morse_active_device = None
+                return jsonify({'status': 'error', 'message': msg}), 500
 
             # Monitor rtl_fm stderr
             def monitor_stderr():

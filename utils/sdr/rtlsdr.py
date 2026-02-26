@@ -86,12 +86,17 @@ class RTLSDRCommandBuilder(CommandBuilder):
         ppm: Optional[int] = None,
         modulation: str = "fm",
         squelch: Optional[int] = None,
-        bias_t: bool = False
+        bias_t: bool = False,
+        direct_sampling: Optional[int] = None,
     ) -> list[str]:
         """
         Build rtl_fm command for FM demodulation.
 
         Used for pager decoding. Supports local devices and rtl_tcp connections.
+
+        Args:
+            direct_sampling: Enable direct sampling mode (0=off, 1=I-branch,
+                2=Q-branch). Use 2 for HF reception below 24 MHz.
         """
         rtl_fm_path = get_tool_path('rtl_fm') or 'rtl_fm'
         demod_mode = _rtl_fm_demod_mode(modulation)
@@ -111,6 +116,9 @@ class RTLSDRCommandBuilder(CommandBuilder):
 
         if squelch is not None and squelch > 0:
             cmd.extend(['-l', str(squelch)])
+
+        if direct_sampling is not None:
+            cmd.extend(['-D', str(direct_sampling)])
 
         if bias_t:
             cmd.extend(['-T'])

@@ -107,7 +107,14 @@ var MorseMode = (function () {
                 disconnectSSE();
                 stopScope();
             })
-            .catch(function () {});
+            .catch(function (err) {
+                console.error('Morse stop request failed:', err);
+                // Reset UI regardless so the user isn't stuck
+                state.running = false;
+                updateUI(false);
+                disconnectSSE();
+                stopScope();
+            });
     }
 
     // ---- SSE ----
