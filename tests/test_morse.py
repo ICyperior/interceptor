@@ -317,6 +317,77 @@ class TestMorseLifecycleRoutes:
         assert final_status['state'] == 'idle'
         assert 0 in released_devices
 
+    def test_start_retries_after_early_process_exit(self, client, monkeypatch):
+        _login_session(client)
+        self._reset_route_state()
+
+        released_devices = []
+
+        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode: None)
+        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx: released_devices.append(idx))
+
+        class DummyDevice:
+            sdr_type = morse_routes.SDRType.RTL_SDR
+
+        class DummyBuilder:
+            def build_fm_demod_command(self, **kwargs):
+                cmd = ['rtl_fm', '-f', '14.060M', '-M', 'usb', '-s', '22050']
+                if kwargs.get('direct_sampling') == 2:
+                    cmd.extend(['-E', 'direct2'])
+                cmd.append('-')
+                return cmd
+
+        monkeypatch.setattr(morse_routes.SDRFactory, 'create_default_device', staticmethod(lambda sdr_type, index: DummyDevice()))
+        monkeypatch.setattr(morse_routes.SDRFactory, 'get_builder', staticmethod(lambda sdr_type: DummyBuilder()))
+
+        pcm = generate_morse_audio('E', wpm=15, sample_rate=22050)
+        popen_cmds = []
+
+        class FakeProc:
+            def __init__(self, stdout_bytes: bytes, returncode: int | None):
+                self.stdout = io.BytesIO(stdout_bytes)
+                self.stderr = io.BytesIO(b'')
+                self.returncode = returncode
+
+            def poll(self):
+                return self.returncode
+
+        def fake_popen(cmd, *args, **kwargs):
+            popen_cmds.append(cmd)
+            if len(popen_cmds) == 1:
+                return FakeProc(b'', 1)
+            return FakeProc(pcm, None)
+
+        monkeypatch.setattr(morse_routes.subprocess, 'Popen', fake_popen)
+        monkeypatch.setattr(morse_routes, 'register_process', lambda _proc: None)
+        monkeypatch.setattr(morse_routes, 'unregister_process', lambda _proc: None)
+        monkeypatch.setattr(
+            morse_routes,
+            'safe_terminate',
+            lambda proc, timeout=0.0: setattr(proc, 'returncode', 0),
+        )
+
+        start_resp = client.post('/morse/start', json={
+            'frequency': '14.060',
+            'gain': '20',
+            'ppm': '0',
+            'device': '0',
+            'tone_freq': '700',
+            'wpm': '15',
+        })
+        assert start_resp.status_code == 200
+        assert start_resp.get_json()['status'] == 'started'
+        assert len(popen_cmds) >= 2
+        assert '-E' in popen_cmds[0] and 'direct2' in popen_cmds[0]
+        assert '-l' in popen_cmds[0]
+        assert '-E' in popen_cmds[1] and 'direct2' in popen_cmds[1]
+        assert '-l' not in popen_cmds[1]
+
+        stop_resp = client.post('/morse/stop')
+        assert stop_resp.status_code == 200
+        assert stop_resp.get_json()['status'] == 'stopped'
+        assert 0 in released_devices
+
 
 # ---------------------------------------------------------------------------
 # Integration: synthetic CW -> WAV decode

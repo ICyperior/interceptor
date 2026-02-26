@@ -734,6 +734,7 @@ def morse_decoder_thread(
     wpm: int = 15,
     decoder_config: dict[str, Any] | None = None,
     control_queue: queue.Queue | None = None,
+    pcm_ready_event: threading.Event | None = None,
 ) -> None:
     """Decode Morse from live PCM stream and push events to *output_queue*."""
     import logging
@@ -856,6 +857,8 @@ def morse_decoder_thread(
 
             if not first_pcm_logged:
                 first_pcm_logged = True
+                if pcm_ready_event is not None:
+                    pcm_ready_event.set()
                 with contextlib.suppress(queue.Full):
                     output_queue.put_nowait({
                         'type': 'info',
