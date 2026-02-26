@@ -165,12 +165,12 @@ class MorseDecoder:
 
         self._detector = GoertzelFilter(self._active_tone_freq, self.sample_rate, self._block_size)
         self._noise_detector_low = GoertzelFilter(
-            _clamp(self._active_tone_freq - max(60.0, self.bandwidth_hz * 0.5), 150.0, 2000.0),
+            _clamp(self._active_tone_freq - max(150.0, self.bandwidth_hz), 150.0, 2000.0),
             self.sample_rate,
             self._block_size,
         )
         self._noise_detector_high = GoertzelFilter(
-            _clamp(self._active_tone_freq + max(60.0, self.bandwidth_hz * 0.5), 150.0, 2000.0),
+            _clamp(self._active_tone_freq + max(150.0, self.bandwidth_hz), 150.0, 2000.0),
             self.sample_rate,
             self._block_size,
         )
@@ -249,7 +249,7 @@ class MorseDecoder:
     def _rebuild_detectors(self) -> None:
         """Rebuild target/noise Goertzel filters after tone updates."""
         self._detector = GoertzelFilter(self._active_tone_freq, self.sample_rate, self._block_size)
-        ref_offset = max(60.0, self.bandwidth_hz * 0.5)
+        ref_offset = max(150.0, self.bandwidth_hz)
         self._noise_detector_low = GoertzelFilter(
             _clamp(self._active_tone_freq - ref_offset, 150.0, 2000.0),
             self.sample_rate,
@@ -457,8 +457,9 @@ class MorseDecoder:
                 # gain-invariant — fixes stuck-ON tone when AGC amplifies
                 # inter-element silence above the raw magnitude threshold.
                 snr = level / max(noise_ref, 1e-6)
-                snr_on = self.threshold_multiplier * (1.0 + self._hysteresis)
-                snr_off = self.threshold_multiplier * (1.0 - self._hysteresis)
+                snr_mult = max(1.3, self.threshold_multiplier * 0.55)
+                snr_on = snr_mult * (1.0 + self._hysteresis)
+                snr_off = snr_mult * (1.0 - self._hysteresis)
 
                 if self._tone_on:
                     tone_detected = gate_ok and snr >= snr_off

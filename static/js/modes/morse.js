@@ -7,7 +7,7 @@ var MorseMode = (function () {
 
     var SETTINGS_KEY = 'intercept.morse.settings.v3';
     var STATUS_POLL_MS = 5000;
-    var LOCAL_STOP_TIMEOUT_MS = 2200;
+    var LOCAL_STOP_TIMEOUT_MS = 5000;
     var START_TIMEOUT_MS = 60000;
 
     var state = {
@@ -87,7 +87,7 @@ var MorseMode = (function () {
             });
         }).catch(function (err) {
             if (err && err.name === 'AbortError') {
-                throw new Error('Request timed out while waiting for decoder startup');
+                throw new Error('Request timed out');
             }
             throw err;
         }).finally(function () {
