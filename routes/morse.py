@@ -110,15 +110,6 @@ def _close_pipe(pipe_obj: Any) -> None:
         pipe_obj.close()
 
 
-def _stdout_target_path() -> str:
-    """Return the most reliable stdout path for rtl_* tools on this host."""
-    if os.name == 'posix':
-        for candidate in ('/proc/self/fd/1', '/dev/fd/1', '/dev/stdout'):
-            if Path(candidate).exists():
-                return candidate
-    return '-'
-
-
 def _queue_morse_event(payload: dict[str, Any]) -> None:
     with contextlib.suppress(queue.Full):
         app_module.morse_queue.put_nowait(payload)
@@ -248,6 +239,7 @@ def _morse_audio_relay_thread(
     last_pcm_at = 0.0
     noise_floor = 0.0
     threshold = manual_threshold if threshold_mode == 'manual' else 0.0
+    pcm_announced = False
 
     try:
         while not stop_event.is_set():
@@ -298,6 +290,9 @@ def _morse_audio_relay_thread(
 
             last_pcm_at = now
             pcm_ready_event.set()
+            if not pcm_announced:
+                pcm_announced = True
+                _queue_morse_event({'type': 'info', 'text': '[morse] PCM stream active'})
 
             try:
                 multimon_stdin.write(payload)
@@ -614,26 +609,12 @@ def start_morse() -> Response:
         if insert_at < 0:
             insert_at = 0
 
-        if sdr_device.sdr_type == SDRType.RTL_SDR:
-            if '-l' not in cmd:
-                cmd[insert_at:insert_at] = ['-l', '0']
-                insert_at += 2
-            if '-r' not in cmd:
-                cmd[insert_at:insert_at] = ['-r', str(sample_rate)]
-                insert_at += 2
-            if '-A' not in cmd:
-                cmd[insert_at:insert_at] = ['-A', 'fast']
-                insert_at += 2
-            if '-E' not in cmd:
-                cmd[insert_at:insert_at] = ['-E', 'dc']
+        # Mirror pager's stable behavior: explicit open squelch, stdout as "-".
+        if sdr_device.sdr_type == SDRType.RTL_SDR and '-l' not in cmd:
+            cmd[insert_at:insert_at] = ['-l', '0']
 
-        out_target = _stdout_target_path()
-        if cmd:
-            if cmd[-1] == '-':
-                cmd[-1] = out_target
-            elif cmd[-1] not in {out_target, '/dev/stdout', '/proc/self/fd/1', '/dev/fd/1'}:
-                cmd.append(out_target)
-
+        if cmd and cmd[-1] != '-':
+            cmd.append('-')
         return cmd
 
     can_try_direct_sampling = bool(sdr_device.sdr_type == SDRType.RTL_SDR and float(freq) < 24.0)
@@ -825,7 +806,7 @@ def start_morse() -> Response:
             )
             decoder_thread.start()
 
-            startup_deadline = time.monotonic() + 2.5
+            startup_deadline = time.monotonic() + 4.0
             startup_ok = False
             startup_error = ''
 
