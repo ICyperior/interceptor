@@ -832,6 +832,17 @@ var MorseMode = (function () {
     }
 
     function stopScope() {
+        var canvas = el('morseScopeCanvas');
+        if (canvas) {
+            var ctx = canvas.getContext('2d');
+            if (ctx) {
+                var w = canvas.clientWidth || canvas.width || 1;
+                var h = canvas.clientHeight || 80;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = '#050510';
+                ctx.fillRect(0, 0, w, h);
+            }
+        }
         if (scopeAnim) {
             cancelAnimationFrame(scopeAnim);
             scopeAnim = null;
