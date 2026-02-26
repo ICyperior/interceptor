@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import math
+import os
 import queue
 import struct
 import threading
@@ -258,10 +259,22 @@ class MorseDecoder:
 
 
 def _stdout_reader(stdout, data_queue: queue.Queue, stop_event: threading.Event) -> None:
-    """Blocking reader — pushes raw PCM chunks to queue, None on EOF."""
+    """Blocking reader — pushes raw PCM chunks to queue, None on EOF.
+
+    Uses os.read() on the raw fd when available to bypass BufferedReader,
+    which on Python 3.14 may block trying to fill its entire buffer before
+    returning.  Falls back to .read() for objects without fileno() (tests).
+    """
+    try:
+        fd = stdout.fileno()
+    except Exception:
+        fd = None
     try:
         while not stop_event.is_set():
-            data = stdout.read(4096)
+            if fd is not None:
+                data = os.read(fd, 4096)
+            else:
+                data = stdout.read(4096)
             if not data:
                 break
             data_queue.put(data)
