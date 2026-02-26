@@ -432,10 +432,21 @@ def start_morse() -> Response:
             if proc is not None:
                 _close_pipe(getattr(proc, 'stdout', None))
                 _close_pipe(getattr(proc, 'stderr', None))
-                safe_terminate(proc, timeout=0.5)
+                # Keep startup retries responsive; avoid long waits inside
+                # generic safe_terminate() during a failed attempt.
+                if proc.poll() is None:
+                    with contextlib.suppress(Exception):
+                        proc.terminate()
+                    with contextlib.suppress(subprocess.TimeoutExpired, Exception):
+                        proc.wait(timeout=0.15)
+                if proc.poll() is None:
+                    with contextlib.suppress(Exception):
+                        proc.kill()
+                    with contextlib.suppress(subprocess.TimeoutExpired, Exception):
+                        proc.wait(timeout=0.25)
                 unregister_process(proc)
-            _join_thread(attempt_decoder_thread, timeout_s=0.35)
-            _join_thread(attempt_stderr_thread, timeout_s=0.35)
+            _join_thread(attempt_decoder_thread, timeout_s=0.20)
+            _join_thread(attempt_stderr_thread, timeout_s=0.20)
 
         attempt_errors: list[str] = []
         full_cmd = ''
@@ -560,7 +571,7 @@ def start_morse() -> Response:
                 )
             decoder_thread.start()
 
-            startup_deadline = time.monotonic() + 2.0
+            startup_deadline = time.monotonic() + 1.2
             startup_ok = False
             startup_error = ''
 
