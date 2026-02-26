@@ -136,28 +136,11 @@ def start_morse() -> Response:
                 rtl_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                bufsize=0,
             )
             register_process(rtl_process)
 
-            # Detect immediate startup failure (e.g. device busy, no device)
-            time.sleep(0.35)
-            if rtl_process.poll() is not None:
-                stderr_text = ''
-                try:
-                    if rtl_process.stderr:
-                        stderr_text = rtl_process.stderr.read().decode(
-                            'utf-8', errors='replace'
-                        ).strip()
-                except Exception:
-                    stderr_text = ''
-                msg = stderr_text or f'rtl_fm exited immediately (code {rtl_process.returncode})'
-                logger.error(f"Morse rtl_fm startup failed: {msg}")
-                unregister_process(rtl_process)
-                if morse_active_device is not None:
-                    app_module.release_sdr_device(morse_active_device)
-                    morse_active_device = None
-                return jsonify({'status': 'error', 'message': msg}), 500
-
+            # Start threads IMMEDIATELY so stdout is read before pipe fills.
             # Forward rtl_fm stderr to queue so frontend can display diagnostics
             def monitor_stderr():
                 for line in rtl_process.stderr:
@@ -174,7 +157,7 @@ def start_morse() -> Response:
             stderr_thread.daemon = True
             stderr_thread.start()
 
-            # Start Morse decoder thread
+            # Start Morse decoder thread before sleep so it reads stdout immediately
             stop_event = threading.Event()
             decoder_thread = threading.Thread(
                 target=morse_decoder_thread,
@@ -189,6 +172,26 @@ def start_morse() -> Response:
             )
             decoder_thread.daemon = True
             decoder_thread.start()
+
+            # Detect immediate startup failure (e.g. device busy, no device)
+            time.sleep(0.35)
+            if rtl_process.poll() is not None:
+                stop_event.set()
+                stderr_text = ''
+                try:
+                    if rtl_process.stderr:
+                        stderr_text = rtl_process.stderr.read().decode(
+                            'utf-8', errors='replace'
+                        ).strip()
+                except Exception:
+                    stderr_text = ''
+                msg = stderr_text or f'rtl_fm exited immediately (code {rtl_process.returncode})'
+                logger.error(f"Morse rtl_fm startup failed: {msg}")
+                unregister_process(rtl_process)
+                if morse_active_device is not None:
+                    app_module.release_sdr_device(morse_active_device)
+                    morse_active_device = None
+                return jsonify({'status': 'error', 'message': msg}), 500
 
             app_module.morse_process = rtl_process
             app_module.morse_process._stop_decoder = stop_event
