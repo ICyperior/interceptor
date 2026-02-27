@@ -166,19 +166,23 @@
     }
 
     function stopRadiosondeTracking() {
+        // Update UI immediately so the user sees feedback
+        document.getElementById('startRadiosondeBtn').style.display = 'block';
+        document.getElementById('stopRadiosondeBtn').style.display = 'none';
+        document.getElementById('radiosondeStatusText').textContent = 'Stopping...';
+        document.getElementById('radiosondeStatusText').style.color = 'var(--accent-yellow)';
+
+        if (radiosondeEventSource) {
+            radiosondeEventSource.close();
+            radiosondeEventSource = null;
+        }
+
         fetch('/radiosonde/stop', { method: 'POST' })
         .then(r => r.json())
         .then(() => {
-            document.getElementById('startRadiosondeBtn').style.display = 'block';
-            document.getElementById('stopRadiosondeBtn').style.display = 'none';
             document.getElementById('radiosondeStatusText').textContent = 'Standby';
-            document.getElementById('radiosondeStatusText').style.color = 'var(--accent-yellow)';
             document.getElementById('radiosondeBalloonCount').textContent = '0';
             document.getElementById('radiosondeLastUpdate').textContent = '\u2014';
-            if (radiosondeEventSource) {
-                radiosondeEventSource.close();
-                radiosondeEventSource = null;
-            }
             radiosondeBalloons = {};
             // Clear map markers
             if (typeof radiosondeMap !== 'undefined' && radiosondeMap) {
@@ -187,6 +191,9 @@
                 radiosondeTracks.forEach(t => radiosondeMap.removeLayer(t));
                 radiosondeTracks.clear();
             }
+        })
+        .catch(() => {
+            document.getElementById('radiosondeStatusText').textContent = 'Standby';
         });
     }
 
