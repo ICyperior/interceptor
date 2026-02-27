@@ -219,6 +219,14 @@ def _validate_signal_gate(value: Any) -> float:
         raise ValueError(f'Invalid signal gate: {value}') from e
 
 
+def _validate_detect_mode(value: Any) -> str:
+    """Validate detection mode ('goertzel' or 'envelope')."""
+    mode = str(value or 'goertzel').lower().strip()
+    if mode not in ('goertzel', 'envelope'):
+        raise ValueError("detect_mode must be 'goertzel' or 'envelope'")
+    return mode
+
+
 def _snapshot_live_resources() -> list[str]:
     alive: list[str] = []
     if morse_decoder_worker and morse_decoder_worker.is_alive():
@@ -238,8 +246,15 @@ def start_morse() -> Response:
 
     data = request.json or {}
 
+    # Validate detect_mode first — it determines frequency limits.
     try:
-        freq = validate_frequency(data.get('frequency', '14.060'), min_mhz=0.5, max_mhz=30.0)
+        detect_mode = _validate_detect_mode(data.get('detect_mode', 'goertzel'))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+    freq_max = 1766.0 if detect_mode == 'envelope' else 30.0
+    try:
+        freq = validate_frequency(data.get('frequency', '14.060'), min_mhz=0.5, max_mhz=freq_max)
         gain = validate_gain(data.get('gain', '0'))
         ppm = validate_ppm(data.get('ppm', '0'))
         device = validate_device_index(data.get('device', '0'))
@@ -289,7 +304,15 @@ def start_morse() -> Response:
         _drain_queue(app_module.morse_queue)
         _set_state(MORSE_STARTING, 'Starting decoder...')
 
-    sample_rate = 22050
+    # Envelope mode (OOK/AM): use AM demod, higher sample rate for better
+    # envelope resolution.  Goertzel mode (HF CW): use USB demod.
+    if detect_mode == 'envelope':
+        sample_rate = 48000
+        modulation = 'am'
+    else:
+        sample_rate = 22050
+        modulation = 'usb'
+
     bias_t = _bool_value(data.get('bias_t', False), False)
 
     try:
@@ -322,7 +345,11 @@ def start_morse() -> Response:
         return f'device {device_index} ({name}, SN: {serial})'
 
     def _build_rtl_cmd(device_index: int, direct_sampling_mode: int | None) -> list[str]:
-        tuned_frequency_mhz = max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0))
+        # Envelope mode tunes directly to center freq (no tone offset).
+        if detect_mode == 'envelope':
+            tuned_frequency_mhz = max(0.5, float(freq))
+        else:
+            tuned_frequency_mhz = max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0))
         sdr_device = SDRFactory.create_default_device(sdr_type, index=device_index)
         fm_kwargs: dict[str, Any] = {
             'device': sdr_device,
@@ -330,7 +357,7 @@ def start_morse() -> Response:
             'sample_rate': sample_rate,
             'gain': float(gain) if gain and gain != '0' else None,
             'ppm': int(ppm) if ppm and ppm != '0' else None,
-            'modulation': 'usb',
+            'modulation': modulation,
             'bias_t': bias_t,
         }
         if direct_sampling_mode in (1, 2):
@@ -342,13 +369,19 @@ def start_morse() -> Response:
             cmd.append('-')
         return cmd
 
-    can_try_direct_sampling = bool(sdr_type == SDRType.RTL_SDR and float(freq) < 24.0)
+    can_try_direct_sampling = bool(
+        sdr_type == SDRType.RTL_SDR
+        and detect_mode != 'envelope'  # direct sampling is HF-only
+        and float(freq) < 24.0
+    )
     direct_sampling_attempts: list[int | None] = [2, 1, None] if can_try_direct_sampling else [None]
 
     runtime_config: dict[str, Any] = {
         'sample_rate': sample_rate,
+        'detect_mode': detect_mode,
+        'modulation': modulation,
         'rf_frequency_mhz': float(freq),
-        'tuned_frequency_mhz': max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0)),
+        'tuned_frequency_mhz': max(0.5, float(freq)) if detect_mode == 'envelope' else max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0)),
         'tone_freq': tone_freq,
         'wpm': wpm,
         'bandwidth_hz': bandwidth_hz,
@@ -663,6 +696,8 @@ def start_morse() -> Response:
             'status': 'started',
             'state': MORSE_RUNNING,
             'command': full_cmd,
+            'detect_mode': detect_mode,
+            'modulation': modulation,
             'tone_freq': tone_freq,
             'wpm': wpm,
             'config': runtime_config,
