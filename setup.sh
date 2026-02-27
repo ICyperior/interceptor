@@ -961,7 +961,8 @@ install_macos_packages() {
   fi
 
   progress "Installing radiosonde_auto_rx (optional)"
-  if ! cmd_exists auto_rx.py && [ ! -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ]; then
+  if ! cmd_exists auto_rx.py && [ ! -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ] \
+     || { [ -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ] && [ ! -f /opt/radiosonde_auto_rx/auto_rx/dft_detect ]; }; then
     echo
     info "radiosonde_auto_rx is used for weather balloon (radiosonde) tracking."
     if ask_yes_no "Do you want to install radiosonde_auto_rx?"; then
@@ -1547,7 +1548,8 @@ install_debian_packages() {
   fi
 
   progress "Installing radiosonde_auto_rx (optional)"
-  if ! cmd_exists auto_rx.py && [ ! -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ]; then
+  if ! cmd_exists auto_rx.py && [ ! -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ] \
+     || { [ -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ] && [ ! -f /opt/radiosonde_auto_rx/auto_rx/dft_detect ]; }; then
     echo
     info "radiosonde_auto_rx is used for weather balloon (radiosonde) tracking."
     if ask_yes_no "Do you want to install radiosonde_auto_rx?"; then
