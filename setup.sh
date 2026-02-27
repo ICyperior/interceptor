@@ -848,6 +848,12 @@ install_radiosonde_auto_rx() {
       }
     fi
 
+    info "Building radiosonde_auto_rx C decoders..."
+    if ! bash build.sh; then
+      warn "Failed to build radiosonde_auto_rx decoders"
+      exit 1
+    fi
+
     info "Installing to ${install_dir}..."
     refresh_sudo
     $SUDO mkdir -p "$install_dir/auto_rx"
