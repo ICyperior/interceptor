@@ -454,7 +454,7 @@ const SystemHealth = (function () {
             var placeholder = document.getElementById('sysGlobePlaceholder');
             if (placeholder) placeholder.parentNode.replaceChild(savedGlobe, placeholder);
         } else {
-            setTimeout(function () { initGlobe(); }, 100);
+            requestAnimationFrame(function () { initGlobe(); });
         }
     }
 
@@ -505,37 +505,56 @@ const SystemHealth = (function () {
         ensureGlobeLibrary().then(function (ready) {
             if (!ready || typeof window.Globe !== 'function' || globeDestroyed) return;
 
-            container = document.getElementById('sysGlobeContainer');
-            if (!container || !container.clientWidth) return;
+            // Wait for layout — container may have 0 dimensions right after
+            // display:none is removed by switchMode(). Use RAF retry like GPS mode.
+            var attempts = 0;
+            function tryInit() {
+                if (globeDestroyed) return;
+                container = document.getElementById('sysGlobeContainer');
+                if (!container) return;
 
-            container.innerHTML = '';
-            container.style.background = 'radial-gradient(circle, rgba(10,20,40,0.9), rgba(2,4,8,0.98) 70%)';
+                if ((!container.clientWidth || !container.clientHeight) && attempts < 8) {
+                    attempts++;
+                    requestAnimationFrame(tryInit);
+                    return;
+                }
+                if (!container.clientWidth || !container.clientHeight) return;
 
-            globeInstance = window.Globe()(container)
-                .backgroundColor('rgba(0,0,0,0)')
-                .globeImageUrl(GLOBE_TEXTURE_URL)
-                .showAtmosphere(true)
-                .atmosphereColor('#3bb9ff')
-                .atmosphereAltitude(0.12)
-                .pointsData([])
-                .pointRadius(0.8)
-                .pointAltitude(0.01)
-                .pointColor(function () { return '#00d4ff'; });
+                container.innerHTML = '';
+                container.style.background = 'radial-gradient(circle, rgba(10,20,40,0.9), rgba(2,4,8,0.98) 70%)';
 
-            var controls = globeInstance.controls();
-            if (controls) {
-                controls.autoRotate = true;
-                controls.autoRotateSpeed = 0.5;
-                controls.enablePan = false;
-                controls.minDistance = 120;
-                controls.maxDistance = 300;
+                try {
+                    globeInstance = window.Globe()(container)
+                        .backgroundColor('rgba(0,0,0,0)')
+                        .globeImageUrl(GLOBE_TEXTURE_URL)
+                        .showAtmosphere(true)
+                        .atmosphereColor('#3bb9ff')
+                        .atmosphereAltitude(0.12)
+                        .pointsData([])
+                        .pointRadius(0.8)
+                        .pointAltitude(0.01)
+                        .pointColor(function () { return '#00d4ff'; });
+
+                    var controls = globeInstance.controls();
+                    if (controls) {
+                        controls.autoRotate = true;
+                        controls.autoRotateSpeed = 0.5;
+                        controls.enablePan = false;
+                        controls.minDistance = 120;
+                        controls.maxDistance = 300;
+                    }
+
+                    // Size the globe
+                    globeInstance.width(container.clientWidth);
+                    globeInstance.height(container.clientHeight);
+
+                    updateGlobePosition();
+                } catch (e) {
+                    // Globe.gl / WebGL init failed — show static fallback
+                    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:var(--text-dim);font-size:11px;">Globe unavailable</div>';
+                }
             }
-
-            // Size the globe
-            globeInstance.width(container.clientWidth);
-            globeInstance.height(container.clientHeight);
-
-            updateGlobePosition();
+            requestAnimationFrame(tryInit);
         });
     }
 
