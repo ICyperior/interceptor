@@ -420,6 +420,9 @@ def start_radiosonde():
     else:
         cmd = [auto_rx_path, '-c', cfg_dir]
 
+    # Set cwd to the auto_rx directory so 'from autorx.scan import ...' works
+    auto_rx_dir = os.path.dirname(os.path.abspath(auto_rx_path))
+
     try:
         logger.info(f"Starting radiosonde_auto_rx: {' '.join(cmd)}")
         app_module.radiosonde_process = subprocess.Popen(
@@ -427,6 +430,7 @@ def start_radiosonde():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             start_new_session=True,
+            cwd=auto_rx_dir,
         )
 
         # Wait briefly for process to start
