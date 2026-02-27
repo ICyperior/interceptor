@@ -4140,12 +4140,27 @@
             const stopPhaseMs = Math.round(performance.now() - stopPhaseStartMs);
             await styleReadyPromise;
 
-            // Clean up SubGHz SSE connection when leaving the mode
-            if (typeof SubGhz !== 'undefined' && currentMode === 'subghz' && mode !== 'subghz') {
-                SubGhz.destroy();
-            }
-            if (typeof MorseMode !== 'undefined' && currentMode === 'morse' && mode !== 'morse' && typeof MorseMode.destroy === 'function') {
-                MorseMode.destroy();
+            // Generic module cleanup — destroy previous mode's timers, SSE, etc.
+            const moduleDestroyMap = {
+                subghz: () => typeof SubGhz !== 'undefined' && SubGhz.destroy(),
+                morse: () => typeof MorseMode !== 'undefined' && MorseMode.destroy?.(),
+                spaceweather: () => typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy?.(),
+                weathersat: () => typeof WeatherSat !== 'undefined' && WeatherSat.suspend?.(),
+                wefax: () => typeof WeFax !== 'undefined' && WeFax.destroy?.(),
+                system: () => typeof SystemHealth !== 'undefined' && SystemHealth.destroy?.(),
+                waterfall: () => typeof Waterfall !== 'undefined' && Waterfall.destroy?.(),
+                gps: () => typeof GPS !== 'undefined' && GPS.destroy?.(),
+                meshtastic: () => typeof Meshtastic !== 'undefined' && Meshtastic.destroy?.(),
+                bluetooth: () => typeof BluetoothMode !== 'undefined' && BluetoothMode.destroy?.(),
+                wifi: () => typeof WiFiMode !== 'undefined' && WiFiMode.destroy?.(),
+                bt_locate: () => typeof BtLocate !== 'undefined' && BtLocate.destroy?.(),
+                sstv: () => typeof SSTV !== 'undefined' && SSTV.destroy?.(),
+                sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
+                websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
+                spystations: () => typeof SpyStations !== 'undefined' && SpyStations.destroy?.(),
+            };
+            if (previousMode && previousMode !== mode && moduleDestroyMap[previousMode]) {
+                try { moduleDestroyMap[previousMode](); } catch(e) { console.warn(`[switchMode] destroy ${previousMode} failed:`, e); }
             }
 
             currentMode = mode;
@@ -4301,25 +4316,7 @@
                 refreshTscmDevices();
             }
 
-            // Initialize/destroy Space Weather mode
-            if (mode !== 'spaceweather') {
-                if (typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy) SpaceWeather.destroy();
-            }
-
-            // Suspend Weather Satellite background timers/streams when leaving the mode
-            if (mode !== 'weathersat') {
-                if (typeof WeatherSat !== 'undefined' && WeatherSat.suspend) WeatherSat.suspend();
-            }
-
-            // Suspend WeFax background streams when leaving the mode
-            if (mode !== 'wefax') {
-                if (typeof WeFax !== 'undefined' && WeFax.destroy) WeFax.destroy();
-            }
-
-            // Disconnect System Health SSE when leaving the mode
-            if (mode !== 'system') {
-                if (typeof SystemHealth !== 'undefined' && SystemHealth.destroy) SystemHealth.destroy();
-            }
+            // Module destroy is now handled by moduleDestroyMap above.
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
@@ -4460,10 +4457,7 @@
                 SystemHealth.init();
             }
 
-            // Destroy Waterfall WebSocket when leaving SDR receiver modes
-            if (mode !== 'waterfall' && typeof Waterfall !== 'undefined' && Waterfall.destroy) {
-                Promise.resolve(Waterfall.destroy()).catch(() => {});
-            }
+            // Waterfall destroy is now handled by moduleDestroyMap above.
 
             const totalMs = Math.round(performance.now() - switchStartMs);
             console.info(

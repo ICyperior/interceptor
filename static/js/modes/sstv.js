@@ -1373,8 +1373,21 @@ const SSTV = (function() {
         updateTLE,
         stopIssTracking,
         stopCountdown,
-        invalidateMap
+        invalidateMap,
+        destroy
     };
+
+    /**
+     * Destroy — close SSE stream and clear ISS tracking/countdown timers for clean mode switching.
+     */
+    function destroy() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        stopIssTracking();
+        stopCountdown();
+    }
 })();
 
 // Initialize when DOM is ready (will be called by selectMode)
