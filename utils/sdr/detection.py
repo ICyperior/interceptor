@@ -426,6 +426,7 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
 
         import select
         error_found = False
+        device_found = False
         deadline = time.monotonic() + 3.0
 
         try:
@@ -451,11 +452,12 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                         break
                     if 'Found' in line and 'device' in line.lower():
                         # Device opened successfully — no need to wait longer
+                        device_found = True
                         break
                 if proc.poll() is not None:
                     break  # Process exited
-            if proc.poll() is not None and proc.returncode != 0 and not error_found:
-                # rtl_test exited with error but we didn't match a specific keyword
+            if not device_found and not error_found and proc.poll() is not None and proc.returncode != 0:
+                # rtl_test exited with error and we never saw a success message
                 error_found = True
         finally:
             try:
