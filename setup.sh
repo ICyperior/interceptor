@@ -820,6 +820,7 @@ WRAPPER
 install_radiosonde_auto_rx() {
   info "Installing radiosonde_auto_rx (weather balloon decoder)..."
   local install_dir="/opt/radiosonde_auto_rx"
+  local project_dir="$(pwd)"
 
   (
     tmp_dir="$(mktemp -d)"
@@ -833,10 +834,19 @@ install_radiosonde_auto_rx() {
 
     info "Installing Python dependencies..."
     cd "$tmp_dir/radiosonde_auto_rx/auto_rx"
-    pip3 install --quiet -r requirements.txt || {
-      warn "Failed to install radiosonde_auto_rx Python dependencies"
-      exit 1
-    }
+    # Use project venv pip to avoid PEP 668 externally-managed-environment errors
+    if [ -x "$project_dir/venv/bin/pip" ]; then
+      "$project_dir/venv/bin/pip" install --quiet -r requirements.txt || {
+        warn "Failed to install radiosonde_auto_rx Python dependencies"
+        exit 1
+      }
+    else
+      pip3 install --quiet --break-system-packages -r requirements.txt 2>/dev/null \
+        || pip3 install --quiet -r requirements.txt || {
+        warn "Failed to install radiosonde_auto_rx Python dependencies"
+        exit 1
+      }
+    fi
 
     info "Installing to ${install_dir}..."
     refresh_sudo
