@@ -758,6 +758,7 @@ def start_adsb():
         sdr_type = SDRType(sdr_type_str)
     except ValueError:
         sdr_type = SDRType.RTL_SDR
+        sdr_type_str = sdr_type.value
 
     # For RTL-SDR, use dump1090. For other hardware, need readsb with SoapySDR
     if sdr_type == SDRType.RTL_SDR:
@@ -796,6 +797,10 @@ def start_adsb():
             'message': error
         }), 409
 
+    # Track claimed device immediately so stop_adsb() can always release it
+    adsb_active_device = device
+    adsb_active_sdr_type = sdr_type_str
+
     # Create device object and build command via abstraction layer
     sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
     builder = SDRFactory.get_builder(sdr_type)
@@ -822,11 +827,24 @@ def start_adsb():
         )
         write_dump1090_pid(app_module.adsb_process.pid)
 
-        time.sleep(DUMP1090_START_WAIT)
+        # Poll for dump1090 readiness instead of blind sleep
+        dump1090_ready = False
+        poll_interval = 0.1
+        elapsed = 0.0
+        while elapsed < DUMP1090_START_WAIT:
+            if app_module.adsb_process.poll() is not None:
+                break  # Process exited early — handle below
+            if check_dump1090_service():
+                dump1090_ready = True
+                break
+            time.sleep(poll_interval)
+            elapsed += poll_interval
 
         if app_module.adsb_process.poll() is not None:
             # Process exited - release device and get error message
             app_module.release_sdr_device(device_int, sdr_type_str)
+            adsb_active_device = None
+            adsb_active_sdr_type = None
             stderr_output = ''
             if app_module.adsb_process.stderr:
                 try:
@@ -872,8 +890,6 @@ def start_adsb():
             })
 
         adsb_using_service = True
-        adsb_active_device = device  # Track which device is being used
-        adsb_active_sdr_type = sdr_type_str
         thread = threading.Thread(target=parse_sbs_stream, args=(f'localhost:{ADSB_SBS_PORT}',), daemon=True)
         thread.start()
 
@@ -894,6 +910,8 @@ def start_adsb():
     except Exception as e:
         # Release device on failure
         app_module.release_sdr_device(device_int, sdr_type_str)
+        adsb_active_device = None
+        adsb_active_sdr_type = None
         return jsonify({'status': 'error', 'message': str(e)})
 
 

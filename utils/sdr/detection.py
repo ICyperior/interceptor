@@ -413,16 +413,50 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                 lib_paths + [current_ld] if current_ld else lib_paths
             )
 
-        result = subprocess.run(
+        # Use Popen with early termination instead of run() with full timeout.
+        # rtl_test prints device info to stderr quickly, then keeps running
+        # its test loop. We kill it as soon as we see success or failure.
+        proc = subprocess.Popen(
             ['rtl_test', '-d', str(device_index), '-t'],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=3,
             env=env,
         )
-        output = result.stderr + result.stdout
 
-        if 'usb_claim_interface' in output or 'Failed to open' in output:
+        import select
+        error_found = False
+        deadline = time.monotonic() + 3.0
+
+        try:
+            while time.monotonic() < deadline:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                # Wait for stderr output with timeout
+                ready, _, _ = select.select(
+                    [proc.stderr], [], [], min(remaining, 0.1)
+                )
+                if ready:
+                    line = proc.stderr.readline()
+                    if not line:
+                        break  # EOF — process closed stderr
+                    if 'usb_claim_interface' in line or 'Failed to open' in line:
+                        error_found = True
+                        break
+                    if 'Found' in line and 'device' in line.lower():
+                        # Device opened successfully — no need to wait longer
+                        break
+                if proc.poll() is not None:
+                    break  # Process exited
+        finally:
+            try:
+                proc.kill()
+            except OSError:
+                pass
+            proc.wait()
+
+        if error_found:
             logger.warning(
                 f"RTL-SDR device {device_index} USB probe failed: "
                 f"device busy or unavailable"
@@ -434,10 +468,6 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                 f'or try a different device.'
             )
 
-    except subprocess.TimeoutExpired:
-        # rtl_test opened the device successfully and is running the
-        # test — that means the device *is* available.
-        pass
     except Exception as e:
         logger.debug(f"RTL-SDR probe error for device {device_index}: {e}")
 
