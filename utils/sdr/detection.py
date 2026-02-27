@@ -413,31 +413,73 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                 lib_paths + [current_ld] if current_ld else lib_paths
             )
 
-        result = subprocess.run(
+        # Use Popen with early termination instead of run() with full timeout.
+        # rtl_test prints device info to stderr quickly, then keeps running
+        # its test loop. We kill it as soon as we see success or failure.
+        proc = subprocess.Popen(
             ['rtl_test', '-d', str(device_index), '-t'],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=3,
             env=env,
         )
-        output = result.stderr + result.stdout
 
-        if 'usb_claim_interface' in output or 'Failed to open' in output:
+        import select
+        error_found = False
+        device_found = False
+        deadline = time.monotonic() + 3.0
+
+        try:
+            while time.monotonic() < deadline:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                # Wait for stderr output with timeout
+                ready, _, _ = select.select(
+                    [proc.stderr], [], [], min(remaining, 0.1)
+                )
+                if ready:
+                    line = proc.stderr.readline()
+                    if not line:
+                        break  # EOF — process closed stderr
+                    # Check for no-device messages first (before success check,
+                    # since "No supported devices found" also contains "Found" + "device")
+                    if 'no supported devices' in line.lower() or 'no matching devices' in line.lower():
+                        error_found = True
+                        break
+                    if 'usb_claim_interface' in line or 'Failed to open' in line:
+                        error_found = True
+                        break
+                    if 'Found' in line and 'device' in line.lower():
+                        # Device opened successfully — no need to wait longer
+                        device_found = True
+                        break
+                if proc.poll() is not None:
+                    break  # Process exited
+            if not device_found and not error_found and proc.poll() is not None and proc.returncode != 0:
+                # rtl_test exited with error and we never saw a success message
+                error_found = True
+        finally:
+            try:
+                proc.kill()
+            except OSError:
+                pass
+            proc.wait()
+            if device_found:
+                # Allow the kernel to fully release the USB interface
+                # before the caller opens the device with dump1090/rtl_fm/etc.
+                time.sleep(0.5)
+
+        if error_found:
             logger.warning(
                 f"RTL-SDR device {device_index} USB probe failed: "
                 f"device busy or unavailable"
             )
             return (
-                f'SDR device {device_index} is busy at the USB level — '
-                f'another process outside INTERCEPT may be using it. '
-                f'Check for stale rtl_fm/rtl_433/dump1090 processes, '
-                f'or try a different device.'
+                f'SDR device {device_index} is not available — '
+                f'check that the RTL-SDR is connected and not in use by another process.'
             )
 
-    except subprocess.TimeoutExpired:
-        # rtl_test opened the device successfully and is running the
-        # test — that means the device *is* available.
-        pass
     except Exception as e:
         logger.debug(f"RTL-SDR probe error for device {device_index}: {e}")
 

@@ -83,6 +83,7 @@
             spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}",
             wefax: "{{ url_for('static', filename='css/modes/wefax.css') }}",
             morse: "{{ url_for('static', filename='css/modes/morse.css') }}",
+            radiosonde: "{{ url_for('static', filename='css/modes/radiosonde.css') }}",
             system: "{{ url_for('static', filename='css/modes/system.css') }}"
         };
         window.INTERCEPT_MODE_STYLE_LOADED = {};
@@ -306,6 +307,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('gps')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg></span>
                                 <span class="mode-name">GPS</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('radiosonde')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6"/><circle cx="12" cy="12" r="4"/><path d="M12 16v6"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/></svg></span>
+                                <span class="mode-name">Radiosonde</span>
                             </button>
                         </div>
                     </div>
@@ -695,6 +700,8 @@
                 {% include 'partials/modes/tscm.html' %}
 
                 {% include 'partials/modes/ais.html' %}
+
+                {% include 'partials/modes/radiosonde.html' %}
 
                 {% include 'partials/modes/spy-stations.html' %}
 
@@ -3127,9 +3134,17 @@
                     </div>
                 </div>
 
+                <!-- Radiosonde Visuals -->
+                <div id="radiosondeVisuals" class="radiosonde-visuals-container" style="display: none;">
+                    <div id="radiosondeMapContainer" style="flex: 1; min-height: 300px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary);"></div>
+                    <div id="radiosondeCardContainer" class="radiosonde-card-container"></div>
+                </div>
+
                 <!-- System Health Visuals -->
                 <div id="systemVisuals" class="sys-visuals-container" style="display: none;">
                     <div class="sys-dashboard">
+                        <!-- Row 1: COMPUTE -->
+                        <div class="sys-group-header">Compute</div>
                         <div class="sys-card" id="sysCardCpu">
                             <div class="sys-card-header">CPU</div>
                             <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
@@ -3138,8 +3153,30 @@
                             <div class="sys-card-header">Memory</div>
                             <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
                         </div>
+                        <div class="sys-card" id="sysCardTemp">
+                            <div class="sys-card-header">Temperature &amp; Power</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
+                        </div>
+
+                        <!-- Row 2: NETWORK & LOCATION -->
+                        <div class="sys-group-header">Network &amp; Location</div>
+                        <div class="sys-card" id="sysCardNetwork">
+                            <div class="sys-card-header">Network</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
+                        </div>
+                        <div class="sys-card" id="sysCardLocation">
+                            <div class="sys-card-header">Location &amp; Weather</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Loading&hellip;</span></div>
+                        </div>
+                        <div class="sys-card" id="sysCardInfo">
+                            <div class="sys-card-header">System Info</div>
+                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
+                        </div>
+
+                        <!-- Row 3: EQUIPMENT & OPERATIONS -->
+                        <div class="sys-group-header">Equipment &amp; Operations</div>
                         <div class="sys-card" id="sysCardDisk">
-                            <div class="sys-card-header">Disk</div>
+                            <div class="sys-card-header">Disk &amp; Storage</div>
                             <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
                         </div>
                         <div class="sys-card" id="sysCardSdr">
@@ -3147,11 +3184,7 @@
                             <div class="sys-card-body"><span class="sys-metric-na">Scanning&hellip;</span></div>
                         </div>
                         <div class="sys-card" id="sysCardProcesses">
-                            <div class="sys-card-header">Processes</div>
-                            <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
-                        </div>
-                        <div class="sys-card" id="sysCardInfo">
-                            <div class="sys-card-header">System Info</div>
+                            <div class="sys-card-header">Active Processes</div>
                             <div class="sys-card-body"><span class="sys-metric-na">Connecting&hellip;</span></div>
                         </div>
                     </div>
@@ -3367,6 +3400,7 @@
             subghz: { label: 'SubGHz', indicator: 'SUBGHZ', outputTitle: 'SubGHz Transceiver', group: 'signals' },
             aprs: { label: 'APRS', indicator: 'APRS', outputTitle: 'APRS Tracker', group: 'tracking' },
             gps: { label: 'GPS', indicator: 'GPS', outputTitle: 'GPS Receiver', group: 'tracking' },
+            radiosonde: { label: 'Radiosonde', indicator: 'SONDE', outputTitle: 'Radiosonde Decoder', group: 'tracking' },
             satellite: { label: 'Satellite', indicator: 'SATELLITE', outputTitle: 'Satellite Monitor', group: 'space' },
             sstv: { label: 'ISS SSTV', indicator: 'ISS SSTV', outputTitle: 'ISS SSTV Decoder', group: 'space' },
             weathersat: { label: 'Weather Sat', indicator: 'WEATHER SAT', outputTitle: 'Weather Satellite Decoder', group: 'space' },
@@ -4106,12 +4140,27 @@
             const stopPhaseMs = Math.round(performance.now() - stopPhaseStartMs);
             await styleReadyPromise;
 
-            // Clean up SubGHz SSE connection when leaving the mode
-            if (typeof SubGhz !== 'undefined' && currentMode === 'subghz' && mode !== 'subghz') {
-                SubGhz.destroy();
-            }
-            if (typeof MorseMode !== 'undefined' && currentMode === 'morse' && mode !== 'morse' && typeof MorseMode.destroy === 'function') {
-                MorseMode.destroy();
+            // Generic module cleanup — destroy previous mode's timers, SSE, etc.
+            const moduleDestroyMap = {
+                subghz: () => typeof SubGhz !== 'undefined' && SubGhz.destroy(),
+                morse: () => typeof MorseMode !== 'undefined' && MorseMode.destroy?.(),
+                spaceweather: () => typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy?.(),
+                weathersat: () => typeof WeatherSat !== 'undefined' && WeatherSat.suspend?.(),
+                wefax: () => typeof WeFax !== 'undefined' && WeFax.destroy?.(),
+                system: () => typeof SystemHealth !== 'undefined' && SystemHealth.destroy?.(),
+                waterfall: () => typeof Waterfall !== 'undefined' && Waterfall.destroy?.(),
+                gps: () => typeof GPS !== 'undefined' && GPS.destroy?.(),
+                meshtastic: () => typeof Meshtastic !== 'undefined' && Meshtastic.destroy?.(),
+                bluetooth: () => typeof BluetoothMode !== 'undefined' && BluetoothMode.destroy?.(),
+                wifi: () => typeof WiFiMode !== 'undefined' && WiFiMode.destroy?.(),
+                bt_locate: () => typeof BtLocate !== 'undefined' && BtLocate.destroy?.(),
+                sstv: () => typeof SSTV !== 'undefined' && SSTV.destroy?.(),
+                sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
+                websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
+                spystations: () => typeof SpyStations !== 'undefined' && SpyStations.destroy?.(),
+            };
+            if (previousMode && previousMode !== mode && moduleDestroyMap[previousMode]) {
+                try { moduleDestroyMap[previousMode](); } catch(e) { console.warn(`[switchMode] destroy ${previousMode} failed:`, e); }
             }
 
             currentMode = mode;
@@ -4155,6 +4204,7 @@
             document.getElementById('aprsMode')?.classList.toggle('active', mode === 'aprs');
             document.getElementById('tscmMode')?.classList.toggle('active', mode === 'tscm');
             document.getElementById('aisMode')?.classList.toggle('active', mode === 'ais');
+            document.getElementById('radiosondeMode')?.classList.toggle('active', mode === 'radiosonde');
             document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
             document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
             document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
@@ -4204,6 +4254,7 @@
             const wefaxVisuals = document.getElementById('wefaxVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
             const waterfallVisuals = document.getElementById('waterfallVisuals');
+            const radiosondeVisuals = document.getElementById('radiosondeVisuals');
             const systemVisuals = document.getElementById('systemVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
@@ -4222,6 +4273,7 @@
             if (wefaxVisuals) wefaxVisuals.style.display = mode === 'wefax' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
             if (waterfallVisuals) waterfallVisuals.style.display = mode === 'waterfall' ? 'flex' : 'none';
+            if (radiosondeVisuals) radiosondeVisuals.style.display = mode === 'radiosonde' ? 'flex' : 'none';
             if (systemVisuals) systemVisuals.style.display = mode === 'system' ? 'flex' : 'none';
 
             // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
@@ -4264,25 +4316,7 @@
                 refreshTscmDevices();
             }
 
-            // Initialize/destroy Space Weather mode
-            if (mode !== 'spaceweather') {
-                if (typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy) SpaceWeather.destroy();
-            }
-
-            // Suspend Weather Satellite background timers/streams when leaving the mode
-            if (mode !== 'weathersat') {
-                if (typeof WeatherSat !== 'undefined' && WeatherSat.suspend) WeatherSat.suspend();
-            }
-
-            // Suspend WeFax background streams when leaving the mode
-            if (mode !== 'wefax') {
-                if (typeof WeFax !== 'undefined' && WeFax.destroy) WeFax.destroy();
-            }
-
-            // Disconnect System Health SSE when leaving the mode
-            if (mode !== 'system') {
-                if (typeof SystemHealth !== 'undefined' && SystemHealth.destroy) SystemHealth.destroy();
-            }
+            // Module destroy is now handled by moduleDestroyMap above.
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
@@ -4309,7 +4343,7 @@
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
             if (rtlDeviceSection) {
-                rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'morse') ? 'block' : 'none';
+                rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'morse' || mode === 'radiosonde') ? 'block' : 'none';
                 // Save original sidebar position of SDR device section (once)
                 if (!rtlDeviceSection._origParent) {
                     rtlDeviceSection._origParent = rtlDeviceSection.parentNode;
@@ -4414,14 +4448,16 @@
                 if (typeof Waterfall !== 'undefined') Waterfall.init();
             } else if (mode === 'morse') {
                 MorseMode.init();
+            } else if (mode === 'radiosonde') {
+                initRadiosondeMap();
+                setTimeout(() => {
+                    if (radiosondeMap) radiosondeMap.invalidateSize();
+                }, 100);
             } else if (mode === 'system') {
                 SystemHealth.init();
             }
 
-            // Destroy Waterfall WebSocket when leaving SDR receiver modes
-            if (mode !== 'waterfall' && typeof Waterfall !== 'undefined' && Waterfall.destroy) {
-                Promise.resolve(Waterfall.destroy()).catch(() => {});
-            }
+            // Waterfall destroy is now handled by moduleDestroyMap above.
 
             const totalMs = Math.round(performance.now() - switchStartMs);
             console.info(
@@ -5626,37 +5662,41 @@
         let currentDeviceList = [];
 
         // SDR Device Usage Tracking
-        // Tracks which mode is using which device index
+        // Tracks which mode is using which device (keyed by "sdr_type:index")
         const sdrDeviceUsage = {
-            // deviceIndex: 'modeName' (e.g., 0: 'pager', 1: 'scanner')
+            // "sdr_type:index": 'modeName' (e.g., "rtlsdr:0": 'pager', "hackrf:0": 'scanner')
         };
 
-        function getDeviceInUseBy(deviceIndex) {
-            return sdrDeviceUsage[deviceIndex] || null;
+        function getDeviceInUseBy(deviceIndex, sdrType) {
+            const key = `${sdrType || getSelectedSDRType()}:${deviceIndex}`;
+            return sdrDeviceUsage[key] || null;
         }
 
-        function isDeviceInUse(deviceIndex) {
-            return sdrDeviceUsage[deviceIndex] !== undefined;
+        function isDeviceInUse(deviceIndex, sdrType) {
+            const key = `${sdrType || getSelectedSDRType()}:${deviceIndex}`;
+            return sdrDeviceUsage[key] !== undefined;
         }
 
-        function reserveDevice(deviceIndex, modeName) {
-            sdrDeviceUsage[deviceIndex] = modeName;
+        function reserveDevice(deviceIndex, modeName, sdrType) {
+            const key = `${sdrType || getSelectedSDRType()}:${deviceIndex}`;
+            sdrDeviceUsage[key] = modeName;
             updateDeviceSelectStatus();
         }
 
         function releaseDevice(modeName) {
-            for (const [idx, mode] of Object.entries(sdrDeviceUsage)) {
+            for (const [key, mode] of Object.entries(sdrDeviceUsage)) {
                 if (mode === modeName) {
-                    delete sdrDeviceUsage[idx];
+                    delete sdrDeviceUsage[key];
                 }
             }
             updateDeviceSelectStatus();
         }
 
         function getAvailableDevice() {
-            // Find first device not in use
+            // Find first device not in use (within selected SDR type)
+            const sdrType = getSelectedSDRType();
             for (const device of currentDeviceList) {
-                if (!isDeviceInUse(device.index)) {
+                if ((device.sdr_type || 'rtlsdr') === sdrType && !isDeviceInUse(device.index, sdrType)) {
                     return device.index;
                 }
             }
@@ -5668,10 +5708,11 @@
             const select = document.getElementById('deviceSelect');
             if (!select) return;
 
+            const sdrType = getSelectedSDRType();
             const options = select.querySelectorAll('option');
             options.forEach(opt => {
                 const idx = parseInt(opt.value);
-                const usedBy = getDeviceInUseBy(idx);
+                const usedBy = getDeviceInUseBy(idx, sdrType);
                 const baseName = opt.textContent.replace(/ \[.*\]$/, ''); // Remove existing status
                 if (usedBy) {
                     opt.textContent = `${baseName} [${usedBy.toUpperCase()}]`;

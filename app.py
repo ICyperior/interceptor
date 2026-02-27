@@ -198,6 +198,11 @@ tscm_lock = threading.Lock()
 subghz_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 subghz_lock = threading.Lock()
 
+# Radiosonde weather balloon tracking
+radiosonde_process = None
+radiosonde_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+radiosonde_lock = threading.Lock()
+
 # CW/Morse code decoder
 morse_process = None
 morse_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
@@ -257,12 +262,12 @@ cleanup_manager.register(deauth_alerts)
 # SDR DEVICE REGISTRY
 # ============================================
 # Tracks which mode is using which SDR device to prevent conflicts
-# Key: device_index (int), Value: mode_name (str)
-sdr_device_registry: dict[int, str] = {}
+# Key: "sdr_type:device_index" (str), Value: mode_name (str)
+sdr_device_registry: dict[str, str] = {}
 sdr_device_registry_lock = threading.Lock()
 
 
-def claim_sdr_device(device_index: int, mode_name: str) -> str | None:
+def claim_sdr_device(device_index: int, mode_name: str, sdr_type: str = 'rtlsdr') -> str | None:
     """Claim an SDR device for a mode.
 
     Checks the in-app registry first, then probes the USB device to
@@ -272,43 +277,48 @@ def claim_sdr_device(device_index: int, mode_name: str) -> str | None:
     Args:
         device_index: The SDR device index to claim
         mode_name: Name of the mode claiming the device (e.g., 'sensor', 'rtlamr')
+        sdr_type: SDR type string (e.g., 'rtlsdr', 'hackrf', 'limesdr')
 
     Returns:
         Error message if device is in use, None if successfully claimed
     """
+    key = f"{sdr_type}:{device_index}"
     with sdr_device_registry_lock:
-        if device_index in sdr_device_registry:
-            in_use_by = sdr_device_registry[device_index]
-            return f'SDR device {device_index} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.'
+        if key in sdr_device_registry:
+            in_use_by = sdr_device_registry[key]
+            return f'SDR device {sdr_type}:{device_index} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.'
 
         # Probe the USB device to catch external processes holding the handle
-        try:
-            from utils.sdr.detection import probe_rtlsdr_device
-            usb_error = probe_rtlsdr_device(device_index)
-            if usb_error:
-                return usb_error
-        except Exception:
-            pass  # If probe fails, let the caller proceed normally
+        if sdr_type == 'rtlsdr':
+            try:
+                from utils.sdr.detection import probe_rtlsdr_device
+                usb_error = probe_rtlsdr_device(device_index)
+                if usb_error:
+                    return usb_error
+            except Exception:
+                pass  # If probe fails, let the caller proceed normally
 
-        sdr_device_registry[device_index] = mode_name
+        sdr_device_registry[key] = mode_name
         return None
 
 
-def release_sdr_device(device_index: int) -> None:
+def release_sdr_device(device_index: int, sdr_type: str = 'rtlsdr') -> None:
     """Release an SDR device from the registry.
 
     Args:
         device_index: The SDR device index to release
+        sdr_type: SDR type string (e.g., 'rtlsdr', 'hackrf', 'limesdr')
     """
+    key = f"{sdr_type}:{device_index}"
     with sdr_device_registry_lock:
-        sdr_device_registry.pop(device_index, None)
+        sdr_device_registry.pop(key, None)
 
 
-def get_sdr_device_status() -> dict[int, str]:
+def get_sdr_device_status() -> dict[str, str]:
     """Get current SDR device allocations.
 
     Returns:
-        Dictionary mapping device indices to mode names
+        Dictionary mapping 'sdr_type:device_index' keys to mode names
     """
     with sdr_device_registry_lock:
         return dict(sdr_device_registry)
@@ -429,8 +439,9 @@ def get_devices_status() -> Response:
     result = []
     for device in devices:
         d = device.to_dict()
-        d['in_use'] = device.index in registry
-        d['used_by'] = registry.get(device.index)
+        key = f"{device.sdr_type.value}:{device.index}"
+        d['in_use'] = key in registry
+        d['used_by'] = registry.get(key)
         result.append(d)
 
     return jsonify(result)
@@ -760,6 +771,7 @@ def health_check() -> Response:
             'wifi': wifi_active,
             'bluetooth': bt_active,
             'dsc': dsc_process is not None and (dsc_process.poll() is None if dsc_process else False),
+            'radiosonde': radiosonde_process is not None and (radiosonde_process.poll() is None if radiosonde_process else False),
             'morse': morse_process is not None and (morse_process.poll() is None if morse_process else False),
             'subghz': _get_subghz_active(),
         },
@@ -778,12 +790,13 @@ def health_check() -> Response:
 def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
-    global vdl2_process, morse_process
+    global vdl2_process, morse_process, radiosonde_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
 
-    # Import adsb and ais modules to reset their state
+    # Import modules to reset their state
     from routes import adsb as adsb_module
     from routes import ais as ais_module
+    from routes import radiosonde as radiosonde_module
     from utils.bluetooth import reset_bluetooth_scanner
 
     killed = []
@@ -793,7 +806,8 @@ def kill_all() -> Response:
         'dump1090', 'acarsdec', 'dumpvdl2', 'direwolf', 'AIS-catcher',
         'hcitool', 'bluetoothctl', 'satdump',
         'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg',
-        'hackrf_transfer', 'hackrf_sweep'
+        'hackrf_transfer', 'hackrf_sweep',
+        'auto_rx'
     ]
 
     for proc in processes_to_kill:
@@ -822,6 +836,11 @@ def kill_all() -> Response:
     with ais_lock:
         ais_process = None
         ais_module.ais_running = False
+
+    # Reset Radiosonde state
+    with radiosonde_lock:
+        radiosonde_process = None
+        radiosonde_module.radiosonde_running = False
 
     # Reset ACARS state
     with acars_lock:

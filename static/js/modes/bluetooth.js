@@ -1773,8 +1773,18 @@ const BluetoothMode = (function() {
         // Getters
         getDevices: () => Array.from(devices.values()),
         isScanning: () => isScanning,
-        isShowAllAgents: () => showAllAgentsMode
+        isShowAllAgents: () => showAllAgentsMode,
+
+        // Lifecycle
+        destroy
     };
+
+    /**
+     * Destroy — close SSE stream and clear polling timers for clean mode switching.
+     */
+    function destroy() {
+        stopEventStream();
+    }
 })();
 
 // Global functions for onclick handlers
