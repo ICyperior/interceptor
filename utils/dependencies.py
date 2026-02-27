@@ -12,6 +12,14 @@ logger = logging.getLogger('intercept.dependencies')
 # Additional paths to search for tools (e.g., /usr/sbin on Debian)
 EXTRA_TOOL_PATHS = ['/usr/sbin', '/sbin']
 
+# Tools installed to non-standard locations (not on PATH)
+KNOWN_TOOL_PATHS: dict[str, list[str]] = {
+    'auto_rx.py': [
+        '/opt/radiosonde_auto_rx/auto_rx/auto_rx.py',
+        '/opt/auto_rx/auto_rx.py',
+    ],
+}
+
 
 def check_tool(name: str) -> bool:
     """Check if a tool is installed."""
@@ -50,6 +58,11 @@ def get_tool_path(name: str) -> str | None:
         full_path = os.path.join(extra_path, name)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             return full_path
+
+    # Check known non-standard install locations
+    for known_path in KNOWN_TOOL_PATHS.get(name, []):
+        if os.path.isfile(known_path):
+            return known_path
 
     return None
 
