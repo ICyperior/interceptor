@@ -465,6 +465,10 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
             except OSError:
                 pass
             proc.wait()
+            if device_found:
+                # Allow the kernel to fully release the USB interface
+                # before the caller opens the device with dump1090/rtl_fm/etc.
+                time.sleep(0.5)
 
         if error_found:
             logger.warning(
