@@ -153,7 +153,7 @@ const SystemHealth = (function () {
             coreHtml = '<div class="sys-core-bars">';
             cpu.per_core.forEach(function (c) {
                 var cls = barClass(c);
-                var h = Math.max(2, Math.round(c / 100 * 24));
+                var h = Math.max(3, Math.round(c / 100 * 48));
                 coreHtml += '<div class="sys-core-bar"><div class="sys-core-bar-fill ' + cls +
                     '" style="height:' + h + 'px;background:var(--accent-' +
                     (cls === 'ok' ? 'green' : cls === 'warn' ? 'yellow' : 'red') +
@@ -384,11 +384,23 @@ const SystemHealth = (function () {
         var el = document.getElementById('sysCardLocation');
         if (!el) return;
 
+        // Preserve the globe DOM node if it already has a canvas
+        var existingGlobe = document.getElementById('sysGlobeContainer');
+        var savedGlobe = null;
+        if (existingGlobe && existingGlobe.querySelector('canvas')) {
+            savedGlobe = existingGlobe;
+            existingGlobe.parentNode.removeChild(existingGlobe);
+        }
+
         var html = '<div class="sys-card-header">Location &amp; Weather</div><div class="sys-card-body">';
         html += '<div class="sys-location-inner">';
 
-        // Globe container
-        html += '<div class="sys-globe-wrap" id="sysGlobeContainer"></div>';
+        // Globe placeholder (will be replaced with saved node or initialized fresh)
+        if (!savedGlobe) {
+            html += '<div class="sys-globe-wrap" id="sysGlobeContainer"></div>';
+        } else {
+            html += '<div id="sysGlobePlaceholder"></div>';
+        }
 
         // Details below globe
         html += '<div class="sys-location-details">';
@@ -437,8 +449,13 @@ const SystemHealth = (function () {
         html += '</div>';
         el.innerHTML = html;
 
-        // Initialize globe after DOM is ready
-        setTimeout(function () { initGlobe(); }, 50);
+        // Re-insert saved globe or initialize fresh
+        if (savedGlobe) {
+            var placeholder = document.getElementById('sysGlobePlaceholder');
+            if (placeholder) placeholder.parentNode.replaceChild(savedGlobe, placeholder);
+        } else {
+            setTimeout(function () { initGlobe(); }, 100);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -477,8 +494,13 @@ const SystemHealth = (function () {
         var container = document.getElementById('sysGlobeContainer');
         if (!container || globeDestroyed) return;
 
-        // Don't reinitialize if globe is already in this container
+        // Don't reinitialize if globe canvas is still alive in this container
         if (globeInstance && container.querySelector('canvas')) return;
+
+        // Clear stale reference if canvas was destroyed by innerHTML replacement
+        if (globeInstance && !container.querySelector('canvas')) {
+            globeInstance = null;
+        }
 
         ensureGlobeLibrary().then(function (ready) {
             if (!ready || typeof window.Globe !== 'function' || globeDestroyed) return;
@@ -505,8 +527,8 @@ const SystemHealth = (function () {
                 controls.autoRotate = true;
                 controls.autoRotateSpeed = 0.5;
                 controls.enablePan = false;
-                controls.minDistance = 180;
-                controls.maxDistance = 400;
+                controls.minDistance = 120;
+                controls.maxDistance = 300;
             }
 
             // Size the globe
@@ -732,6 +754,16 @@ const SystemHealth = (function () {
         fetch('/system/location')
             .then(function (r) { return r.json(); })
             .then(function (data) {
+                // If server only has default/none, check client-side saved location
+                if ((data.source === 'default' || data.source === 'none') &&
+                    window.ObserverLocation && ObserverLocation.getShared) {
+                    var shared = ObserverLocation.getShared();
+                    if (shared && shared.lat && shared.lon) {
+                        data.lat = shared.lat;
+                        data.lon = shared.lon;
+                        data.source = 'manual';
+                    }
+                }
                 locationData = data;
                 updateSidebarLocation();
                 renderLocationCard();
