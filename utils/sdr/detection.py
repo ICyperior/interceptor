@@ -441,6 +441,11 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                     line = proc.stderr.readline()
                     if not line:
                         break  # EOF — process closed stderr
+                    # Check for no-device messages first (before success check,
+                    # since "No supported devices found" also contains "Found" + "device")
+                    if 'no supported devices' in line.lower() or 'no matching devices' in line.lower():
+                        error_found = True
+                        break
                     if 'usb_claim_interface' in line or 'Failed to open' in line:
                         error_found = True
                         break
@@ -449,6 +454,9 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                         break
                 if proc.poll() is not None:
                     break  # Process exited
+            if proc.poll() is not None and proc.returncode != 0 and not error_found:
+                # rtl_test exited with error but we didn't match a specific keyword
+                error_found = True
         finally:
             try:
                 proc.kill()
@@ -462,10 +470,8 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                 f"device busy or unavailable"
             )
             return (
-                f'SDR device {device_index} is busy at the USB level — '
-                f'another process outside INTERCEPT may be using it. '
-                f'Check for stale rtl_fm/rtl_433/dump1090 processes, '
-                f'or try a different device.'
+                f'SDR device {device_index} is not available — '
+                f'check that the RTL-SDR is connected and not in use by another process.'
             )
 
     except Exception as e:
