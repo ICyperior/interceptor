@@ -5646,37 +5646,41 @@
         let currentDeviceList = [];
 
         // SDR Device Usage Tracking
-        // Tracks which mode is using which device index
+        // Tracks which mode is using which device (keyed by "sdr_type:index")
         const sdrDeviceUsage = {
-            // deviceIndex: 'modeName' (e.g., 0: 'pager', 1: 'scanner')
+            // "sdr_type:index": 'modeName' (e.g., "rtlsdr:0": 'pager', "hackrf:0": 'scanner')
         };
 
-        function getDeviceInUseBy(deviceIndex) {
-            return sdrDeviceUsage[deviceIndex] || null;
+        function getDeviceInUseBy(deviceIndex, sdrType) {
+            const key = `${sdrType || getSelectedSDRType()}:${deviceIndex}`;
+            return sdrDeviceUsage[key] || null;
         }
 
-        function isDeviceInUse(deviceIndex) {
-            return sdrDeviceUsage[deviceIndex] !== undefined;
+        function isDeviceInUse(deviceIndex, sdrType) {
+            const key = `${sdrType || getSelectedSDRType()}:${deviceIndex}`;
+            return sdrDeviceUsage[key] !== undefined;
         }
 
-        function reserveDevice(deviceIndex, modeName) {
-            sdrDeviceUsage[deviceIndex] = modeName;
+        function reserveDevice(deviceIndex, modeName, sdrType) {
+            const key = `${sdrType || getSelectedSDRType()}:${deviceIndex}`;
+            sdrDeviceUsage[key] = modeName;
             updateDeviceSelectStatus();
         }
 
         function releaseDevice(modeName) {
-            for (const [idx, mode] of Object.entries(sdrDeviceUsage)) {
+            for (const [key, mode] of Object.entries(sdrDeviceUsage)) {
                 if (mode === modeName) {
-                    delete sdrDeviceUsage[idx];
+                    delete sdrDeviceUsage[key];
                 }
             }
             updateDeviceSelectStatus();
         }
 
         function getAvailableDevice() {
-            // Find first device not in use
+            // Find first device not in use (within selected SDR type)
+            const sdrType = getSelectedSDRType();
             for (const device of currentDeviceList) {
-                if (!isDeviceInUse(device.index)) {
+                if ((device.sdr_type || 'rtlsdr') === sdrType && !isDeviceInUse(device.index, sdrType)) {
                     return device.index;
                 }
             }
@@ -5688,10 +5692,11 @@
             const select = document.getElementById('deviceSelect');
             if (!select) return;
 
+            const sdrType = getSelectedSDRType();
             const options = select.querySelectorAll('option');
             options.forEach(opt => {
                 const idx = parseInt(opt.value);
-                const usedBy = getDeviceInUseBy(idx);
+                const usedBy = getDeviceInUseBy(idx, sdrType);
                 const baseName = opt.textContent.replace(/ \[.*\]$/, ''); // Remove existing status
                 if (usedBy) {
                     opt.textContent = `${baseName} [${usedBy.toUpperCase()}]`;

@@ -51,6 +51,7 @@ class _FilteredQueue:
 
 # Track which device is being used
 morse_active_device: int | None = None
+morse_active_sdr_type: str | None = None
 
 # Runtime lifecycle state.
 MORSE_IDLE = 'idle'
@@ -231,7 +232,7 @@ def _snapshot_live_resources() -> list[str]:
 
 @morse_bp.route('/morse/start', methods=['POST'])
 def start_morse() -> Response:
-    global morse_active_device, morse_decoder_worker, morse_stderr_worker
+    global morse_active_device, morse_active_sdr_type, morse_decoder_worker, morse_stderr_worker
     global morse_stop_event, morse_control_queue, morse_runtime_config
     global morse_last_error, morse_session_id
 
@@ -261,6 +262,8 @@ def start_morse() -> Response:
     except ValueError as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
+    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+
     with app_module.morse_lock:
         if morse_state in {MORSE_STARTING, MORSE_RUNNING, MORSE_STOPPING}:
             return jsonify({
@@ -270,7 +273,7 @@ def start_morse() -> Response:
             }), 409
 
         device_int = int(device)
-        error = app_module.claim_sdr_device(device_int, 'morse')
+        error = app_module.claim_sdr_device(device_int, 'morse', sdr_type_str)
         if error:
             return jsonify({
                 'status': 'error',
@@ -279,6 +282,7 @@ def start_morse() -> Response:
             }), 409
 
         morse_active_device = device_int
+        morse_active_sdr_type = sdr_type_str
         morse_last_error = ''
         morse_session_id += 1
 
@@ -288,7 +292,6 @@ def start_morse() -> Response:
     sample_rate = 22050
     bias_t = _bool_value(data.get('bias_t', False), False)
 
-    sdr_type_str = data.get('sdr_type', 'rtlsdr')
     try:
         sdr_type = SDRType(sdr_type_str)
     except ValueError:
@@ -408,7 +411,7 @@ def start_morse() -> Response:
         for device_pos, candidate_device_index in enumerate(candidate_device_indices, start=1):
             if candidate_device_index != active_device_index:
                 prev_device = active_device_index
-                claim_error = app_module.claim_sdr_device(candidate_device_index, 'morse')
+                claim_error = app_module.claim_sdr_device(candidate_device_index, 'morse', sdr_type_str)
                 if claim_error:
                     msg = f'{_device_label(candidate_device_index)} unavailable: {claim_error}'
                     attempt_errors.append(msg)
@@ -417,7 +420,7 @@ def start_morse() -> Response:
                     continue
 
                 if prev_device is not None:
-                    app_module.release_sdr_device(prev_device)
+                    app_module.release_sdr_device(prev_device, morse_active_sdr_type or 'rtlsdr')
                 active_device_index = candidate_device_index
                 with app_module.morse_lock:
                     morse_active_device = active_device_index
@@ -634,8 +637,9 @@ def start_morse() -> Response:
             logger.error('Morse startup failed: %s', msg)
             with app_module.morse_lock:
                 if morse_active_device is not None:
-                    app_module.release_sdr_device(morse_active_device)
+                    app_module.release_sdr_device(morse_active_device, morse_active_sdr_type or 'rtlsdr')
                     morse_active_device = None
+                    morse_active_sdr_type = None
                 morse_last_error = msg
                 _set_state(MORSE_ERROR, msg)
                 _set_state(MORSE_IDLE, 'Idle')
@@ -675,8 +679,9 @@ def start_morse() -> Response:
         )
         with app_module.morse_lock:
             if morse_active_device is not None:
-                app_module.release_sdr_device(morse_active_device)
+                app_module.release_sdr_device(morse_active_device, morse_active_sdr_type or 'rtlsdr')
                 morse_active_device = None
+                morse_active_sdr_type = None
             morse_last_error = f'Tool not found: {e.filename}'
             _set_state(MORSE_ERROR, morse_last_error)
             _set_state(MORSE_IDLE, 'Idle')
@@ -692,8 +697,9 @@ def start_morse() -> Response:
         )
         with app_module.morse_lock:
             if morse_active_device is not None:
-                app_module.release_sdr_device(morse_active_device)
+                app_module.release_sdr_device(morse_active_device, morse_active_sdr_type or 'rtlsdr')
                 morse_active_device = None
+                morse_active_sdr_type = None
             morse_last_error = str(e)
             _set_state(MORSE_ERROR, morse_last_error)
             _set_state(MORSE_IDLE, 'Idle')
@@ -702,7 +708,7 @@ def start_morse() -> Response:
 
 @morse_bp.route('/morse/stop', methods=['POST'])
 def stop_morse() -> Response:
-    global morse_active_device, morse_decoder_worker, morse_stderr_worker
+    global morse_active_device, morse_active_sdr_type, morse_decoder_worker, morse_stderr_worker
     global morse_stop_event, morse_control_queue
 
     stop_started = time.perf_counter()
@@ -717,6 +723,7 @@ def stop_morse() -> Response:
         stderr_thread = morse_stderr_worker or getattr(rtl_proc, '_stderr_thread', None)
         control_queue = morse_control_queue or getattr(rtl_proc, '_control_queue', None)
         active_device = morse_active_device
+        active_sdr_type = morse_active_sdr_type
 
         if (
             not rtl_proc
@@ -768,7 +775,7 @@ def stop_morse() -> Response:
     _mark(f'stderr thread joined={stderr_joined}')
 
     if active_device is not None:
-        app_module.release_sdr_device(active_device)
+        app_module.release_sdr_device(active_device, active_sdr_type or 'rtlsdr')
         _mark(f'SDR device {active_device} released')
 
     stop_ms = round((time.perf_counter() - stop_started) * 1000.0, 1)
@@ -782,6 +789,7 @@ def stop_morse() -> Response:
 
     with app_module.morse_lock:
         morse_active_device = None
+        morse_active_sdr_type = None
         _set_state(MORSE_IDLE, 'Stopped', extra={
             'stop_ms': stop_ms,
             'cleanup_steps': cleanup_steps,

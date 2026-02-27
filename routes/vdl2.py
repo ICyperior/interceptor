@@ -48,6 +48,7 @@ vdl2_last_message_time = None
 
 # Track which device is being used
 vdl2_active_device: int | None = None
+vdl2_active_sdr_type: str | None = None
 
 
 def find_dumpvdl2():
@@ -110,7 +111,7 @@ def stream_vdl2_output(process: subprocess.Popen, is_text_mode: bool = False) ->
         logger.error(f"VDL2 stream error: {e}")
         app_module.vdl2_queue.put({'type': 'error', 'message': str(e)})
     finally:
-        global vdl2_active_device
+        global vdl2_active_device, vdl2_active_sdr_type
         # Ensure process is terminated
         try:
             process.terminate()
@@ -126,8 +127,9 @@ def stream_vdl2_output(process: subprocess.Popen, is_text_mode: bool = False) ->
             app_module.vdl2_process = None
         # Release SDR device
         if vdl2_active_device is not None:
-            app_module.release_sdr_device(vdl2_active_device)
+            app_module.release_sdr_device(vdl2_active_device, vdl2_active_sdr_type or 'rtlsdr')
             vdl2_active_device = None
+            vdl2_active_sdr_type = None
 
 
 @vdl2_bp.route('/tools')
@@ -159,7 +161,7 @@ def vdl2_status() -> Response:
 @vdl2_bp.route('/start', methods=['POST'])
 def start_vdl2() -> Response:
     """Start VDL2 decoder."""
-    global vdl2_message_count, vdl2_last_message_time, vdl2_active_device
+    global vdl2_message_count, vdl2_last_message_time, vdl2_active_device, vdl2_active_sdr_type
 
     with app_module.vdl2_lock:
         if app_module.vdl2_process and app_module.vdl2_process.poll() is None:
@@ -186,9 +188,16 @@ def start_vdl2() -> Response:
     except ValueError as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
+    # Resolve SDR type for device selection
+    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
+
     # Check if device is available
     device_int = int(device)
-    error = app_module.claim_sdr_device(device_int, 'vdl2')
+    error = app_module.claim_sdr_device(device_int, 'vdl2', sdr_type_str)
     if error:
         return jsonify({
             'status': 'error',
@@ -197,6 +206,7 @@ def start_vdl2() -> Response:
         }), 409
 
     vdl2_active_device = device_int
+    vdl2_active_sdr_type = sdr_type_str
 
     # Get frequencies - use provided or defaults
     # dumpvdl2 expects frequencies in Hz (integers)
@@ -214,13 +224,6 @@ def start_vdl2() -> Response:
     # Reset stats
     vdl2_message_count = 0
     vdl2_last_message_time = None
-
-    # Resolve SDR type for device selection
-    sdr_type_str = data.get('sdr_type', 'rtlsdr')
-    try:
-        sdr_type = SDRType(sdr_type_str)
-    except ValueError:
-        sdr_type = SDRType.RTL_SDR
 
     is_soapy = sdr_type not in (SDRType.RTL_SDR,)
 
@@ -281,8 +284,9 @@ def start_vdl2() -> Response:
         if process.poll() is not None:
             # Process died - release device
             if vdl2_active_device is not None:
-                app_module.release_sdr_device(vdl2_active_device)
+                app_module.release_sdr_device(vdl2_active_device, vdl2_active_sdr_type or 'rtlsdr')
                 vdl2_active_device = None
+                vdl2_active_sdr_type = None
             stderr = ''
             if process.stderr:
                 stderr = process.stderr.read().decode('utf-8', errors='replace')
@@ -313,8 +317,9 @@ def start_vdl2() -> Response:
     except Exception as e:
         # Release device on failure
         if vdl2_active_device is not None:
-            app_module.release_sdr_device(vdl2_active_device)
+            app_module.release_sdr_device(vdl2_active_device, vdl2_active_sdr_type or 'rtlsdr')
             vdl2_active_device = None
+            vdl2_active_sdr_type = None
         logger.error(f"Failed to start VDL2 decoder: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -322,7 +327,7 @@ def start_vdl2() -> Response:
 @vdl2_bp.route('/stop', methods=['POST'])
 def stop_vdl2() -> Response:
     """Stop VDL2 decoder."""
-    global vdl2_active_device
+    global vdl2_active_device, vdl2_active_sdr_type
 
     with app_module.vdl2_lock:
         if not app_module.vdl2_process:
@@ -343,8 +348,9 @@ def stop_vdl2() -> Response:
 
     # Release device from registry
     if vdl2_active_device is not None:
-        app_module.release_sdr_device(vdl2_active_device)
+        app_module.release_sdr_device(vdl2_active_device, vdl2_active_sdr_type or 'rtlsdr')
         vdl2_active_device = None
+        vdl2_active_sdr_type = None
 
     return jsonify({'status': 'stopped'})
 

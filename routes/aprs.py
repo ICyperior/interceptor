@@ -37,6 +37,7 @@ aprs_bp = Blueprint('aprs', __name__, url_prefix='/aprs')
 
 # Track which SDR device is being used
 aprs_active_device: int | None = None
+aprs_active_sdr_type: str | None = None
 
 # APRS frequencies by region (MHz)
 APRS_FREQUENCIES = {
@@ -1454,7 +1455,7 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
     - type='meter': Audio level meter readings (rate-limited)
     """
     global aprs_packet_count, aprs_station_count, aprs_last_packet_time, aprs_stations
-    global _last_meter_time, _last_meter_level, aprs_active_device
+    global _last_meter_time, _last_meter_level, aprs_active_device, aprs_active_sdr_type
 
     # Capture the device claimed by THIS session so the finally block only
     # releases our own device, not one claimed by a subsequent start.
@@ -1588,8 +1589,9 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                     pass
         # Release SDR device — only if it's still ours (not reclaimed by a new start)
         if my_device is not None and aprs_active_device == my_device:
-            app_module.release_sdr_device(my_device)
+            app_module.release_sdr_device(my_device, aprs_active_sdr_type or 'rtlsdr')
             aprs_active_device = None
+            aprs_active_sdr_type = None
 
 
 @aprs_bp.route('/tools')
@@ -1658,7 +1660,7 @@ def aprs_data() -> Response:
 def start_aprs() -> Response:
     """Start APRS decoder."""
     global aprs_packet_count, aprs_station_count, aprs_last_packet_time, aprs_stations
-    global aprs_active_device
+    global aprs_active_device, aprs_active_sdr_type
 
     with app_module.aprs_lock:
         if app_module.aprs_process and app_module.aprs_process.poll() is None:
@@ -1707,7 +1709,7 @@ def start_aprs() -> Response:
             }), 400
 
     # Reserve SDR device to prevent conflicts with other modes
-    error = app_module.claim_sdr_device(device, 'aprs')
+    error = app_module.claim_sdr_device(device, 'aprs', sdr_type_str)
     if error:
         return jsonify({
             'status': 'error',
@@ -1715,6 +1717,7 @@ def start_aprs() -> Response:
             'message': error
         }), 409
     aprs_active_device = device
+    aprs_active_sdr_type = sdr_type_str
 
     # Get frequency for region
     region = data.get('region', 'north_america')
@@ -1756,8 +1759,9 @@ def start_aprs() -> Response:
             rtl_cmd = rtl_cmd[:-1] + ['-E', 'dc', '-A', 'fast', '-']
     except Exception as e:
         if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device)
+            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
             aprs_active_device = None
+            aprs_active_sdr_type = None
         return jsonify({'status': 'error', 'message': f'Failed to build SDR command: {e}'}), 500
 
     # Build decoder command
@@ -1859,8 +1863,9 @@ def start_aprs() -> Response:
             except Exception:
                 pass
             if aprs_active_device is not None:
-                app_module.release_sdr_device(aprs_active_device)
+                app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
                 aprs_active_device = None
+                aprs_active_sdr_type = None
             return jsonify({'status': 'error', 'message': error_msg}), 500
 
         if decoder_process.poll() is not None:
@@ -1886,8 +1891,9 @@ def start_aprs() -> Response:
             except Exception:
                 pass
             if aprs_active_device is not None:
-                app_module.release_sdr_device(aprs_active_device)
+                app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
                 aprs_active_device = None
+                aprs_active_sdr_type = None
             return jsonify({'status': 'error', 'message': error_msg}), 500
 
         # Store references for status checks and cleanup
@@ -1915,15 +1921,16 @@ def start_aprs() -> Response:
     except Exception as e:
         logger.error(f"Failed to start APRS decoder: {e}")
         if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device)
+            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
             aprs_active_device = None
+            aprs_active_sdr_type = None
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @aprs_bp.route('/stop', methods=['POST'])
 def stop_aprs() -> Response:
     """Stop APRS decoder."""
-    global aprs_active_device
+    global aprs_active_device, aprs_active_sdr_type
 
     with app_module.aprs_lock:
         processes_to_stop = []
@@ -1963,8 +1970,9 @@ def stop_aprs() -> Response:
 
         # Release SDR device
         if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device)
+            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
             aprs_active_device = None
+            aprs_active_sdr_type = None
 
     return jsonify({'status': 'stopped'})
 

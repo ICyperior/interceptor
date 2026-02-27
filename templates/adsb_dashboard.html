@@ -1752,31 +1752,37 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     airbandSelect.innerHTML = '';
 
                     if (devices.length === 0) {
-                        adsbSelect.innerHTML = '<option value="0">No SDR found</option>';
-                        airbandSelect.innerHTML = '<option value="0">No SDR found</option>';
+                        adsbSelect.innerHTML = '<option value="rtlsdr:0">No SDR found</option>';
+                        airbandSelect.innerHTML = '<option value="rtlsdr:0">No SDR found</option>';
                         airbandSelect.disabled = true;
                     } else {
                         devices.forEach((dev, i) => {
                             const idx = dev.index !== undefined ? dev.index : i;
+                            const sdrType = dev.sdr_type || 'rtlsdr';
+                            const compositeVal = `${sdrType}:${idx}`;
                             const displayName = `SDR ${idx}: ${dev.name}`;
 
                             // Add to ADS-B selector
                             const adsbOpt = document.createElement('option');
-                            adsbOpt.value = idx;
+                            adsbOpt.value = compositeVal;
+                            adsbOpt.dataset.sdrType = sdrType;
+                            adsbOpt.dataset.index = idx;
                             adsbOpt.textContent = displayName;
                             adsbSelect.appendChild(adsbOpt);
 
                             // Add to Airband selector
                             const airbandOpt = document.createElement('option');
-                            airbandOpt.value = idx;
+                            airbandOpt.value = compositeVal;
+                            airbandOpt.dataset.sdrType = sdrType;
+                            airbandOpt.dataset.index = idx;
                             airbandOpt.textContent = displayName;
                             airbandSelect.appendChild(airbandOpt);
                         });
 
                         // Default: ADS-B uses first device, Airband uses second (if available)
-                        adsbSelect.value = devices[0].index !== undefined ? devices[0].index : 0;
+                        adsbSelect.value = adsbSelect.options[0]?.value || 'rtlsdr:0';
                         if (devices.length > 1) {
-                            airbandSelect.value = devices[1].index !== undefined ? devices[1].index : 1;
+                            airbandSelect.value = airbandSelect.options[1]?.value || airbandSelect.options[0]?.value || 'rtlsdr:0';
                         }
 
                         // Show warning if only one device
@@ -1787,8 +1793,8 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     }
                 })
                 .catch(() => {
-                    document.getElementById('adsbDeviceSelect').innerHTML = '<option value="0">Error</option>';
-                    document.getElementById('airbandDeviceSelect').innerHTML = '<option value="0">Error</option>';
+                    document.getElementById('adsbDeviceSelect').innerHTML = '<option value="rtlsdr:0">Error</option>';
+                    document.getElementById('airbandDeviceSelect').innerHTML = '<option value="rtlsdr:0">Error</option>';
                 });
         }
 
@@ -2151,11 +2157,14 @@ sudo make install</code>
                     }
                 }
 
-                // Get selected ADS-B device
-                const adsbDevice = parseInt(document.getElementById('adsbDeviceSelect').value) || 0;
+                // Get selected ADS-B device (composite value "sdr_type:index")
+                const adsbSelectVal = document.getElementById('adsbDeviceSelect').value || 'rtlsdr:0';
+                const [adsbSdrType, adsbDeviceIdx] = adsbSelectVal.includes(':') ? adsbSelectVal.split(':') : ['rtlsdr', adsbSelectVal];
+                const adsbDevice = parseInt(adsbDeviceIdx) || 0;
 
                 const requestBody = {
                     device: adsbDevice,
+                    sdr_type: adsbSdrType,
                     bias_t: getBiasTEnabled()
                 };
                 if (remoteConfig) {
@@ -2306,11 +2315,13 @@ sudo make install</code>
                     }
 
                     const sessionDevice = session.device_index;
+                    const sessionSdrType = session.sdr_type || 'rtlsdr';
                     if (sessionDevice !== null && sessionDevice !== undefined) {
                         adsbActiveDevice = sessionDevice;
                         const adsbSelect = document.getElementById('adsbDeviceSelect');
                         if (adsbSelect) {
-                            adsbSelect.value = sessionDevice;
+                            // Use composite value to select the correct device+type
+                            adsbSelect.value = `${sessionSdrType}:${sessionDevice}`;
                         }
                     }
 
@@ -3663,8 +3674,9 @@ sudo make install</code>
 
         function startAcars() {
             const acarsSelect = document.getElementById('acarsDeviceSelect');
-            const device = acarsSelect.value;
-            const sdr_type = acarsSelect.selectedOptions[0]?.dataset.sdrType || 'rtlsdr';
+            const compositeVal = acarsSelect.value || 'rtlsdr:0';
+            const [sdr_type, deviceIdx] = compositeVal.includes(':') ? compositeVal.split(':') : ['rtlsdr', compositeVal];
+            const device = deviceIdx;
             const frequencies = getAcarsRegionFreqs();
 
             // Check if using agent mode
@@ -3896,18 +3908,21 @@ sudo make install</code>
                     const select = document.getElementById('acarsDeviceSelect');
                     select.innerHTML = '';
                     if (devices.length === 0) {
-                        select.innerHTML = '<option value="0">No SDR detected</option>';
+                        select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
                     } else {
                         devices.forEach((d, i) => {
                             const opt = document.createElement('option');
-                            opt.value = d.index || i;
-                            opt.dataset.sdrType = d.sdr_type || 'rtlsdr';
-                            opt.textContent = `SDR ${d.index || i}: ${d.name || d.type || 'SDR'}`;
+                            const sdrType = d.sdr_type || 'rtlsdr';
+                            const idx = d.index !== undefined ? d.index : i;
+                            opt.value = `${sdrType}:${idx}`;
+                            opt.dataset.sdrType = sdrType;
+                            opt.dataset.index = idx;
+                            opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
                             select.appendChild(opt);
                         });
                         // Default to device 1 if available (device 0 likely used for ADS-B)
                         if (devices.length > 1) {
-                            select.value = '1';
+                            select.value = select.options[1]?.value || select.options[0]?.value;
                         }
                     }
                 });
@@ -3998,8 +4013,9 @@ sudo make install</code>
 
         function startVdl2() {
             const vdl2Select = document.getElementById('vdl2DeviceSelect');
-            const device = vdl2Select.value;
-            const sdr_type = vdl2Select.selectedOptions[0]?.dataset.sdrType || 'rtlsdr';
+            const compositeVal = vdl2Select.value || 'rtlsdr:0';
+            const [sdr_type, deviceIdx] = compositeVal.includes(':') ? compositeVal.split(':') : ['rtlsdr', compositeVal];
+            const device = deviceIdx;
             const frequencies = getVdl2RegionFreqs();
 
             // Check if using agent mode
@@ -4419,17 +4435,20 @@ sudo make install</code>
                     const select = document.getElementById('vdl2DeviceSelect');
                     select.innerHTML = '';
                     if (devices.length === 0) {
-                        select.innerHTML = '<option value="0">No SDR detected</option>';
+                        select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
                     } else {
                         devices.forEach((d, i) => {
                             const opt = document.createElement('option');
-                            opt.value = d.index || i;
-                            opt.dataset.sdrType = d.sdr_type || 'rtlsdr';
-                            opt.textContent = `SDR ${d.index || i}: ${d.name || d.type || 'SDR'}`;
+                            const sdrType = d.sdr_type || 'rtlsdr';
+                            const idx = d.index !== undefined ? d.index : i;
+                            opt.value = `${sdrType}:${idx}`;
+                            opt.dataset.sdrType = sdrType;
+                            opt.dataset.index = idx;
+                            opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
                             select.appendChild(opt);
                         });
                         if (devices.length > 1) {
-                            select.value = '1';
+                            select.value = select.options[1]?.value || select.options[0]?.value;
                         }
                     }
                 });
@@ -5403,13 +5422,16 @@ sudo make install</code>
                 select.innerHTML = '';
 
                 if (devices.length === 0) {
-                    select.innerHTML = '<option value="0">No SDR found</option>';
+                    select.innerHTML = '<option value="rtlsdr:0">No SDR found</option>';
                 } else {
                     devices.forEach(device => {
                         const opt = document.createElement('option');
-                        opt.value = device.index;
-                        opt.dataset.sdrType = device.sdr_type || 'rtlsdr';
-                        opt.textContent = `SDR ${device.index}: ${device.name || device.type || 'SDR'}`;
+                        const sdrType = device.sdr_type || 'rtlsdr';
+                        const idx = device.index !== undefined ? device.index : 0;
+                        opt.value = `${sdrType}:${idx}`;
+                        opt.dataset.sdrType = sdrType;
+                        opt.dataset.index = idx;
+                        opt.textContent = `SDR ${idx}: ${device.name || device.type || 'SDR'}`;
                         select.appendChild(opt);
                     });
                 }

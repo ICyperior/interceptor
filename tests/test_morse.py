@@ -257,8 +257,8 @@ class TestMorseLifecycleRoutes:
 
         released_devices = []
 
-        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode: None)
-        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx: released_devices.append(idx))
+        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode, sdr_type='rtlsdr': None)
+        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx, sdr_type='rtlsdr': released_devices.append(idx))
 
         class DummyDevice:
             sdr_type = morse_routes.SDRType.RTL_SDR
@@ -337,8 +337,8 @@ class TestMorseLifecycleRoutes:
 
         released_devices = []
 
-        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode: None)
-        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx: released_devices.append(idx))
+        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode, sdr_type='rtlsdr': None)
+        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx, sdr_type='rtlsdr': released_devices.append(idx))
 
         class DummyDevice:
             sdr_type = morse_routes.SDRType.RTL_SDR
@@ -421,8 +421,8 @@ class TestMorseLifecycleRoutes:
 
         released_devices = []
 
-        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode: None)
-        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx: released_devices.append(idx))
+        monkeypatch.setattr(app_module, 'claim_sdr_device', lambda idx, mode, sdr_type='rtlsdr': None)
+        monkeypatch.setattr(app_module, 'release_sdr_device', lambda idx, sdr_type='rtlsdr': released_devices.append(idx))
 
         class DummyDevice:
             def __init__(self, index: int):

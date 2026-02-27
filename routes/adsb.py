@@ -72,6 +72,7 @@ adsb_last_message_time = None
 adsb_bytes_received = 0
 adsb_lines_received = 0
 adsb_active_device = None  # Track which device index is being used
+adsb_active_sdr_type: str | None = None
 _sbs_error_logged = False  # Suppress repeated connection error logs
 
 # Track ICAOs already looked up in aircraft database (avoid repeated lookups)
@@ -674,7 +675,7 @@ def adsb_session():
 @adsb_bp.route('/start', methods=['POST'])
 def start_adsb():
     """Start ADS-B tracking."""
-    global adsb_using_service, adsb_active_device
+    global adsb_using_service, adsb_active_device, adsb_active_sdr_type
 
     with app_module.adsb_lock:
         if adsb_using_service:
@@ -787,7 +788,7 @@ def start_adsb():
 
     # Check if device is available before starting local dump1090
     device_int = int(device)
-    error = app_module.claim_sdr_device(device_int, 'adsb')
+    error = app_module.claim_sdr_device(device_int, 'adsb', sdr_type_str)
     if error:
         return jsonify({
             'status': 'error',
@@ -825,7 +826,7 @@ def start_adsb():
 
         if app_module.adsb_process.poll() is not None:
             # Process exited - release device and get error message
-            app_module.release_sdr_device(device_int)
+            app_module.release_sdr_device(device_int, sdr_type_str)
             stderr_output = ''
             if app_module.adsb_process.stderr:
                 try:
@@ -872,6 +873,7 @@ def start_adsb():
 
         adsb_using_service = True
         adsb_active_device = device  # Track which device is being used
+        adsb_active_sdr_type = sdr_type_str
         thread = threading.Thread(target=parse_sbs_stream, args=(f'localhost:{ADSB_SBS_PORT}',), daemon=True)
         thread.start()
 
@@ -891,14 +893,14 @@ def start_adsb():
         })
     except Exception as e:
         # Release device on failure
-        app_module.release_sdr_device(device_int)
+        app_module.release_sdr_device(device_int, sdr_type_str)
         return jsonify({'status': 'error', 'message': str(e)})
 
 
 @adsb_bp.route('/stop', methods=['POST'])
 def stop_adsb():
     """Stop ADS-B tracking."""
-    global adsb_using_service, adsb_active_device
+    global adsb_using_service, adsb_active_device, adsb_active_sdr_type
     data = request.get_json(silent=True) or {}
     stop_source = data.get('source')
     stopped_by = request.remote_addr
@@ -923,10 +925,11 @@ def stop_adsb():
 
         # Release device from registry
         if adsb_active_device is not None:
-            app_module.release_sdr_device(adsb_active_device)
+            app_module.release_sdr_device(adsb_active_device, adsb_active_sdr_type or 'rtlsdr')
 
         adsb_using_service = False
         adsb_active_device = None
+        adsb_active_sdr_type = None
 
     app_module.adsb_aircraft.clear()
     _looked_up_icaos.clear()

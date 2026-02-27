@@ -51,6 +51,7 @@ dsc_running = False
 
 # Track which device is being used
 dsc_active_device: int | None = None
+dsc_active_sdr_type: str | None = None
 
 
 def _get_dsc_decoder_path() -> str | None:
@@ -171,7 +172,7 @@ def stream_dsc_decoder(master_fd: int, decoder_process: subprocess.Popen) -> Non
             'error': str(e)
         })
     finally:
-        global dsc_active_device
+        global dsc_active_device, dsc_active_sdr_type
         try:
             os.close(master_fd)
         except OSError:
@@ -197,8 +198,9 @@ def stream_dsc_decoder(master_fd: int, decoder_process: subprocess.Popen) -> Non
             app_module.dsc_rtl_process = None
         # Release SDR device
         if dsc_active_device is not None:
-            app_module.release_sdr_device(dsc_active_device)
+            app_module.release_sdr_device(dsc_active_device, dsc_active_sdr_type or 'rtlsdr')
             dsc_active_device = None
+            dsc_active_sdr_type = None
 
 
 def _store_critical_alert(msg: dict) -> None:
@@ -331,10 +333,13 @@ def start_decoding() -> Response:
                 'message': str(e)
             }), 400
 
+        # Get SDR type from request
+        sdr_type_str = data.get('sdr_type', 'rtlsdr')
+
         # Check if device is available using centralized registry
-        global dsc_active_device
+        global dsc_active_device, dsc_active_sdr_type
         device_int = int(device)
-        error = app_module.claim_sdr_device(device_int, 'dsc')
+        error = app_module.claim_sdr_device(device_int, 'dsc', sdr_type_str)
         if error:
             return jsonify({
                 'status': 'error',
@@ -343,6 +348,7 @@ def start_decoding() -> Response:
             }), 409
 
         dsc_active_device = device_int
+        dsc_active_sdr_type = sdr_type_str
 
         # Clear queue
         while not app_module.dsc_queue.empty():
@@ -440,8 +446,9 @@ def start_decoding() -> Response:
                     pass
             # Release device on failure
             if dsc_active_device is not None:
-                app_module.release_sdr_device(dsc_active_device)
+                app_module.release_sdr_device(dsc_active_device, dsc_active_sdr_type or 'rtlsdr')
                 dsc_active_device = None
+                dsc_active_sdr_type = None
             return jsonify({
                 'status': 'error',
                 'message': f'Tool not found: {e.filename}'
@@ -458,8 +465,9 @@ def start_decoding() -> Response:
                     pass
             # Release device on failure
             if dsc_active_device is not None:
-                app_module.release_sdr_device(dsc_active_device)
+                app_module.release_sdr_device(dsc_active_device, dsc_active_sdr_type or 'rtlsdr')
                 dsc_active_device = None
+                dsc_active_sdr_type = None
             logger.error(f"Failed to start DSC decoder: {e}")
             return jsonify({
                 'status': 'error',
@@ -470,7 +478,7 @@ def start_decoding() -> Response:
 @dsc_bp.route('/stop', methods=['POST'])
 def stop_decoding() -> Response:
     """Stop DSC decoder."""
-    global dsc_running, dsc_active_device
+    global dsc_running, dsc_active_device, dsc_active_sdr_type
 
     with app_module.dsc_lock:
         if not app_module.dsc_process:
@@ -509,8 +517,9 @@ def stop_decoding() -> Response:
 
         # Release device from registry
         if dsc_active_device is not None:
-            app_module.release_sdr_device(dsc_active_device)
+            app_module.release_sdr_device(dsc_active_device, dsc_active_sdr_type or 'rtlsdr')
             dsc_active_device = None
+            dsc_active_sdr_type = None
 
         return jsonify({'status': 'stopped'})
 
