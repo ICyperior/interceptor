@@ -12,6 +12,7 @@ import os
 import queue
 import shutil
 import socket
+import sys
 import subprocess
 import threading
 import time
@@ -416,7 +417,7 @@ def start_radiosonde():
     # Build command
     cfg_dir = os.path.dirname(os.path.abspath(cfg_path))
     if auto_rx_path.endswith('.py'):
-        cmd = ['python', auto_rx_path, '-c', cfg_dir]
+        cmd = [sys.executable, auto_rx_path, '-c', cfg_dir]
     else:
         cmd = [auto_rx_path, '-c', cfg_dir]
 
