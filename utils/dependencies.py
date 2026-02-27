@@ -447,6 +447,20 @@ TOOL_DEPENDENCIES = {
             }
         }
     },
+    'radiosonde': {
+        'name': 'Radiosonde Tracking',
+        'tools': {
+            'auto_rx.py': {
+                'required': True,
+                'description': 'Radiosonde weather balloon decoder',
+                'install': {
+                    'apt': 'Run ./setup.sh (clones from GitHub)',
+                    'brew': 'Run ./setup.sh (clones from GitHub)',
+                    'manual': 'https://github.com/projecthorus/radiosonde_auto_rx'
+                }
+            }
+        }
+    },
     'tscm': {
         'name': 'TSCM Counter-Surveillance',
         'tools': {

@@ -83,6 +83,7 @@
             spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}",
             wefax: "{{ url_for('static', filename='css/modes/wefax.css') }}",
             morse: "{{ url_for('static', filename='css/modes/morse.css') }}",
+            radiosonde: "{{ url_for('static', filename='css/modes/radiosonde.css') }}",
             system: "{{ url_for('static', filename='css/modes/system.css') }}"
         };
         window.INTERCEPT_MODE_STYLE_LOADED = {};
@@ -306,6 +307,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('gps')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg></span>
                                 <span class="mode-name">GPS</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('radiosonde')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6"/><circle cx="12" cy="12" r="4"/><path d="M12 16v6"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/></svg></span>
+                                <span class="mode-name">Radiosonde</span>
                             </button>
                         </div>
                     </div>
@@ -695,6 +700,8 @@
                 {% include 'partials/modes/tscm.html' %}
 
                 {% include 'partials/modes/ais.html' %}
+
+                {% include 'partials/modes/radiosonde.html' %}
 
                 {% include 'partials/modes/spy-stations.html' %}
 
@@ -3127,6 +3134,12 @@
                     </div>
                 </div>
 
+                <!-- Radiosonde Visuals -->
+                <div id="radiosondeVisuals" class="radiosonde-visuals-container" style="display: none;">
+                    <div id="radiosondeMapContainer" style="flex: 1; min-height: 300px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary);"></div>
+                    <div id="radiosondeCardContainer" class="radiosonde-card-container"></div>
+                </div>
+
                 <!-- System Health Visuals -->
                 <div id="systemVisuals" class="sys-visuals-container" style="display: none;">
                     <div class="sys-dashboard">
@@ -3387,6 +3400,7 @@
             subghz: { label: 'SubGHz', indicator: 'SUBGHZ', outputTitle: 'SubGHz Transceiver', group: 'signals' },
             aprs: { label: 'APRS', indicator: 'APRS', outputTitle: 'APRS Tracker', group: 'tracking' },
             gps: { label: 'GPS', indicator: 'GPS', outputTitle: 'GPS Receiver', group: 'tracking' },
+            radiosonde: { label: 'Radiosonde', indicator: 'SONDE', outputTitle: 'Radiosonde Decoder', group: 'tracking' },
             satellite: { label: 'Satellite', indicator: 'SATELLITE', outputTitle: 'Satellite Monitor', group: 'space' },
             sstv: { label: 'ISS SSTV', indicator: 'ISS SSTV', outputTitle: 'ISS SSTV Decoder', group: 'space' },
             weathersat: { label: 'Weather Sat', indicator: 'WEATHER SAT', outputTitle: 'Weather Satellite Decoder', group: 'space' },
@@ -4175,6 +4189,7 @@
             document.getElementById('aprsMode')?.classList.toggle('active', mode === 'aprs');
             document.getElementById('tscmMode')?.classList.toggle('active', mode === 'tscm');
             document.getElementById('aisMode')?.classList.toggle('active', mode === 'ais');
+            document.getElementById('radiosondeMode')?.classList.toggle('active', mode === 'radiosonde');
             document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
             document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
             document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
@@ -4224,6 +4239,7 @@
             const wefaxVisuals = document.getElementById('wefaxVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
             const waterfallVisuals = document.getElementById('waterfallVisuals');
+            const radiosondeVisuals = document.getElementById('radiosondeVisuals');
             const systemVisuals = document.getElementById('systemVisuals');
             if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
             if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
@@ -4242,6 +4258,7 @@
             if (wefaxVisuals) wefaxVisuals.style.display = mode === 'wefax' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
             if (waterfallVisuals) waterfallVisuals.style.display = mode === 'waterfall' ? 'flex' : 'none';
+            if (radiosondeVisuals) radiosondeVisuals.style.display = mode === 'radiosonde' ? 'flex' : 'none';
             if (systemVisuals) systemVisuals.style.display = mode === 'system' ? 'flex' : 'none';
 
             // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
@@ -4329,7 +4346,7 @@
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
             if (rtlDeviceSection) {
-                rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'morse') ? 'block' : 'none';
+                rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'morse' || mode === 'radiosonde') ? 'block' : 'none';
                 // Save original sidebar position of SDR device section (once)
                 if (!rtlDeviceSection._origParent) {
                     rtlDeviceSection._origParent = rtlDeviceSection.parentNode;
@@ -4434,6 +4451,11 @@
                 if (typeof Waterfall !== 'undefined') Waterfall.init();
             } else if (mode === 'morse') {
                 MorseMode.init();
+            } else if (mode === 'radiosonde') {
+                initRadiosondeMap();
+                setTimeout(() => {
+                    if (radiosondeMap) radiosondeMap.invalidateSize();
+                }, 100);
             } else if (mode === 'system') {
                 SystemHealth.init();
             }

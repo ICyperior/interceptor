@@ -200,6 +200,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && make install \
     && ldconfig \
     && rm -rf /tmp/hackrf \
+    # Install radiosonde_auto_rx (weather balloon decoder)
+    && cd /tmp \
+    && git clone --depth 1 https://github.com/projecthorus/radiosonde_auto_rx.git \
+    && cd radiosonde_auto_rx/auto_rx \
+    && pip install --no-cache-dir -r requirements.txt \
+    && mkdir -p /opt/radiosonde_auto_rx/auto_rx \
+    && cp -r . /opt/radiosonde_auto_rx/auto_rx/ \
+    && chmod +x /opt/radiosonde_auto_rx/auto_rx/auto_rx.py \
+    && cd /tmp \
+    && rm -rf /tmp/radiosonde_auto_rx \
     # Build rtlamr (utility meter decoder - requires Go)
     && cd /tmp \
     && curl -fsSL "https://go.dev/dl/go1.22.5.linux-$(dpkg --print-architecture).tar.gz" | tar -C /usr/local -xz \
@@ -246,7 +256,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create data directory for persistence
-RUN mkdir -p /app/data /app/data/weather_sat
+RUN mkdir -p /app/data /app/data/weather_sat /app/data/radiosonde/logs
 
 # Expose web interface port
 EXPOSE 5050

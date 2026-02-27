@@ -198,6 +198,11 @@ tscm_lock = threading.Lock()
 subghz_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 subghz_lock = threading.Lock()
 
+# Radiosonde weather balloon tracking
+radiosonde_process = None
+radiosonde_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+radiosonde_lock = threading.Lock()
+
 # CW/Morse code decoder
 morse_process = None
 morse_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
@@ -766,6 +771,7 @@ def health_check() -> Response:
             'wifi': wifi_active,
             'bluetooth': bt_active,
             'dsc': dsc_process is not None and (dsc_process.poll() is None if dsc_process else False),
+            'radiosonde': radiosonde_process is not None and (radiosonde_process.poll() is None if radiosonde_process else False),
             'morse': morse_process is not None and (morse_process.poll() is None if morse_process else False),
             'subghz': _get_subghz_active(),
         },
@@ -784,12 +790,13 @@ def health_check() -> Response:
 def kill_all() -> Response:
     """Kill all decoder, WiFi, and Bluetooth processes."""
     global current_process, sensor_process, wifi_process, adsb_process, ais_process, acars_process
-    global vdl2_process, morse_process
+    global vdl2_process, morse_process, radiosonde_process
     global aprs_process, aprs_rtl_process, dsc_process, dsc_rtl_process, bt_process
 
-    # Import adsb and ais modules to reset their state
+    # Import modules to reset their state
     from routes import adsb as adsb_module
     from routes import ais as ais_module
+    from routes import radiosonde as radiosonde_module
     from utils.bluetooth import reset_bluetooth_scanner
 
     killed = []
@@ -799,7 +806,8 @@ def kill_all() -> Response:
         'dump1090', 'acarsdec', 'dumpvdl2', 'direwolf', 'AIS-catcher',
         'hcitool', 'bluetoothctl', 'satdump',
         'rtl_tcp', 'rtl_power', 'rtlamr', 'ffmpeg',
-        'hackrf_transfer', 'hackrf_sweep'
+        'hackrf_transfer', 'hackrf_sweep',
+        'auto_rx'
     ]
 
     for proc in processes_to_kill:
@@ -828,6 +836,11 @@ def kill_all() -> Response:
     with ais_lock:
         ais_process = None
         ais_module.ais_running = False
+
+    # Reset Radiosonde state
+    with radiosonde_lock:
+        radiosonde_process = None
+        radiosonde_module.radiosonde_running = False
 
     # Reset ACARS state
     with acars_lock:

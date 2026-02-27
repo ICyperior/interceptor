@@ -229,6 +229,7 @@ check_tools() {
   check_optional "dumpvdl2"    "VDL2 decoder" dumpvdl2
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
   check_optional "satdump" "Weather satellite decoder (NOAA/Meteor)" satdump
+  check_optional "auto_rx.py" "Radiosonde weather balloon decoder" auto_rx.py
   echo
   info "GPS:"
   check_required "gpsd" "GPS daemon" gpsd
@@ -816,6 +817,37 @@ WRAPPER
   )
 }
 
+install_radiosonde_auto_rx() {
+  info "Installing radiosonde_auto_rx (weather balloon decoder)..."
+  local install_dir="/opt/radiosonde_auto_rx"
+
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning radiosonde_auto_rx..."
+    if ! git clone --depth 1 https://github.com/projecthorus/radiosonde_auto_rx.git "$tmp_dir/radiosonde_auto_rx"; then
+      warn "Failed to clone radiosonde_auto_rx"
+      exit 1
+    fi
+
+    info "Installing Python dependencies..."
+    cd "$tmp_dir/radiosonde_auto_rx/auto_rx"
+    pip3 install --quiet -r requirements.txt || {
+      warn "Failed to install radiosonde_auto_rx Python dependencies"
+      exit 1
+    }
+
+    info "Installing to ${install_dir}..."
+    refresh_sudo
+    $SUDO mkdir -p "$install_dir/auto_rx"
+    $SUDO cp -r . "$install_dir/auto_rx/"
+    $SUDO chmod +x "$install_dir/auto_rx/auto_rx.py"
+
+    ok "radiosonde_auto_rx installed to ${install_dir}"
+  )
+}
+
 install_macos_packages() {
   need_sudo
 
@@ -825,7 +857,7 @@ install_macos_packages() {
     sudo -v || { fail "sudo authentication failed"; exit 1; }
   fi
 
-  TOTAL_STEPS=21
+  TOTAL_STEPS=22
   CURRENT_STEP=0
 
   progress "Checking Homebrew"
@@ -910,6 +942,19 @@ install_macos_packages() {
     fi
   else
     ok "SatDump already installed"
+  fi
+
+  progress "Installing radiosonde_auto_rx (optional)"
+  if ! cmd_exists auto_rx.py && [ ! -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ]; then
+    echo
+    info "radiosonde_auto_rx is used for weather balloon (radiosonde) tracking."
+    if ask_yes_no "Do you want to install radiosonde_auto_rx?"; then
+      install_radiosonde_auto_rx || warn "radiosonde_auto_rx installation failed. Radiosonde tracking will not be available."
+    else
+      warn "Skipping radiosonde_auto_rx. You can install it later if needed."
+    fi
+  else
+    ok "radiosonde_auto_rx already installed"
   fi
 
   progress "Installing aircrack-ng"
@@ -1303,7 +1348,7 @@ install_debian_packages() {
     export NEEDRESTART_MODE=a
   fi
 
-  TOTAL_STEPS=27
+  TOTAL_STEPS=28
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -1483,6 +1528,19 @@ install_debian_packages() {
     fi
   else
     ok "SatDump already installed"
+  fi
+
+  progress "Installing radiosonde_auto_rx (optional)"
+  if ! cmd_exists auto_rx.py && [ ! -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ]; then
+    echo
+    info "radiosonde_auto_rx is used for weather balloon (radiosonde) tracking."
+    if ask_yes_no "Do you want to install radiosonde_auto_rx?"; then
+      install_radiosonde_auto_rx || warn "radiosonde_auto_rx installation failed. Radiosonde tracking will not be available."
+    else
+      warn "Skipping radiosonde_auto_rx. You can install it later if needed."
+    fi
+  else
+    ok "radiosonde_auto_rx already installed"
   fi
 
   progress "Configuring udev rules"
