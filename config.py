@@ -20,6 +20,7 @@ CHANGELOG = [
             "WeFax (Weather Fax) decoder with auto-scheduler and broadcast timeline",
             "System Health monitoring mode with telemetry dashboard",
             "HTTPS support, HackRF TSCM RF scan, ADS-B voice alerts",
+            "Production server (start.sh) with gunicorn + gevent for concurrent multi-client support",
             "Multi-SDR support for WeFax, tool path overrides, native Homebrew detection",
             "GPS mode upgraded to textured 3D globe",
             "Destroy lifecycle added to all mode modules to prevent resource leaks",

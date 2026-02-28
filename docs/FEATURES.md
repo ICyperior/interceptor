@@ -466,6 +466,7 @@ The settings modal shows availability status for each bundled asset:
 ## General
 
 - **Web-based interface** - no desktop app needed
+- **Production server** - gunicorn + gevent via `start.sh` for concurrent SSE/WebSocket handling (falls back to Flask dev server)
 - **Live message streaming** via Server-Sent Events (SSE)
 - **Audio alerts** with mute toggle
 - **Message export** to CSV/JSON

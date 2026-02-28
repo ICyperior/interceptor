@@ -15,11 +15,13 @@ All notable changes to iNTERCEPT will be documented in this file.
 - **Multi-SDR WeFax** - Multiple SDR hardware support for WeFax decoder
 - **Tool Path Overrides** - `INTERCEPT_*_PATH` environment variables for custom tool locations
 - **Homebrew Tool Detection** - Native path detection for Apple Silicon Homebrew installations
+- **Production Server** - `start.sh` with gunicorn + gevent for concurrent SSE/WebSocket handling — eliminates multi-client page load delays
 
 ### Changed
 - Morse decoder rebuilt with custom Goertzel decoder, replacing multimon-ng dependency
 - GPS mode upgraded to textured 3D globe visualization
 - Destroy lifecycle added to all mode modules to prevent resource leaks
+- Docker container now uses gunicorn + gevent by default via `start.sh`
 
 ### Fixed
 - ADS-B device release leak and startup performance regression

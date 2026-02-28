@@ -6,6 +6,15 @@ Flask application and shared state.
 
 from __future__ import annotations
 
+import os as _os
+if _os.environ.get('INTERCEPT_USE_GEVENT') == '1':
+    try:
+        from gevent import monkey as _monkey
+        _monkey.patch_all(subprocess=False)
+    except ImportError:
+        pass
+del _os
+
 import sys
 import site
 
