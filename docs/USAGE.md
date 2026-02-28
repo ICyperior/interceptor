@@ -525,7 +525,7 @@ Example: `INTERCEPT_PORT=8080 sudo ./start.sh`
 ### Production server (recommended)
 
 ```
-./start.sh --help
+sudo ./start.sh --help
 
   -p, --port PORT    Port to listen on (default: 5050)
   -H, --host HOST    Host to bind to (default: 0.0.0.0)
@@ -533,6 +533,8 @@ Example: `INTERCEPT_PORT=8080 sudo ./start.sh`
   --https            Enable HTTPS with self-signed certificate
   --check-deps       Check dependencies and exit
 ```
+
+> **Note:** `sudo` is required for SDR hardware access, WiFi monitor mode, and Bluetooth low-level operations.
 
 `start.sh` auto-detects gunicorn + gevent and runs a production WSGI server with cooperative greenlets — this handles multiple SSE streams and WebSocket connections concurrently without blocking. Falls back to the Flask dev server if gunicorn is not installed.
 

@@ -4,12 +4,14 @@
 # Starts INTERCEPT with gunicorn + gevent for production use.
 # Falls back to Flask dev server if gunicorn is not installed.
 #
+# Requires sudo for SDR, WiFi monitor mode, and Bluetooth access.
+#
 # Usage:
-#   ./start.sh                  # Default: 0.0.0.0:5050
-#   ./start.sh -p 8080          # Custom port
-#   ./start.sh --https          # HTTPS with self-signed cert
-#   ./start.sh --debug          # Debug mode (Flask dev server)
-#   ./start.sh --check-deps     # Check dependencies and exit
+#   sudo ./start.sh                  # Default: 0.0.0.0:5050
+#   sudo ./start.sh -p 8080          # Custom port
+#   sudo ./start.sh --https          # HTTPS with self-signed cert
+#   sudo ./start.sh --debug          # Debug mode (Flask dev server)
+#   sudo ./start.sh --check-deps     # Check dependencies and exit
 
 set -euo pipefail
 
