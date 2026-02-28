@@ -126,6 +126,7 @@ if [[ "$HAS_GUNICORN" -eq 1 && "$HAS_GEVENT" -eq 1 ]]; then
     echo "[INTERCEPT] Listening on ${HOST}:${PORT}"
 
     GUNICORN_ARGS=(
+        -c "$SCRIPT_DIR/gunicorn.conf.py"
         -k gevent
         -w 1
         --timeout 300
