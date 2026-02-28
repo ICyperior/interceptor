@@ -3611,7 +3611,7 @@
 
         // Pager message filter settings
         let pagerFilters = {
-            hideToneOnly: true,
+            hideToneOnly: false,
             keywords: []
         };
 
@@ -6911,20 +6911,21 @@
                 return null; // Can't determine
             }
 
-            // Check for high entropy (random-looking data)
-            const printableRatio = (message.match(/[a-zA-Z0-9\s.,!?-]/g) || []).length / message.length;
-
-            // Check for common encrypted patterns (hex strings, base64-like)
-            const hexPattern = /^[0-9A-Fa-f\s]+$/;
+            // Check for non-printable characters (outside printable ASCII range)
             const hasNonPrintable = /[^\x20-\x7E]/.test(message);
 
-            if (printableRatio > 0.8 && !hasNonPrintable) {
-                return false; // Likely plaintext
-            } else if (hexPattern.test(message.replace(/\s/g, '')) || hasNonPrintable) {
-                return true; // Likely encrypted or encoded
+            // Check for common encrypted patterns (hex strings)
+            const hexPattern = /^[0-9A-Fa-f\s]+$/;
+
+            if (hasNonPrintable) {
+                return true; // Contains non-printable chars — likely encrypted or encoded
+            }
+            if (hexPattern.test(message.replace(/\s/g, ''))) {
+                return true; // Pure hex data — likely encoded
             }
 
-            return null; // Unknown
+            // All printable ASCII (covers base64, structured data, punctuation, etc.)
+            return false; // Likely plaintext
         }
 
         // Generate device fingerprint
