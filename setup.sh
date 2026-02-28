@@ -326,9 +326,9 @@ install_python_deps() {
     "Werkzeug>=3.1.5" "pyserial>=3.5" "flask-sock" "websocket-client>=1.6.0" 2>/dev/null || true
 
   # Verify critical packages
-  $PY -c "import flask; import requests; from flask_limiter import Limiter" 2>/dev/null || {
-    fail "Critical Python packages (flask, requests, flask-limiter) not installed"
-    echo "Try: venv/bin/pip install flask requests flask-limiter"
+  $PY -c "import flask; import requests" 2>/dev/null || {
+    fail "Critical Python packages (flask, requests) not installed"
+    echo "Try: venv/bin/pip install flask requests"
     exit 1
   }
   ok "Core Python packages installed"
@@ -338,7 +338,7 @@ install_python_deps() {
   for pkg in "numpy>=1.24.0" "scipy>=1.10.0" "Pillow>=9.0.0" "skyfield>=1.45" \
              "bleak>=0.21.0" "psycopg2-binary>=2.9.9" "meshtastic>=2.0.0" \
              "scapy>=2.4.5" "qrcode[pil]>=7.4" "cryptography>=41.0.0" \
-             "gunicorn>=21.2.0" "gevent>=23.9.0"; do
+             "gunicorn>=21.2.0" "gevent>=23.9.0" "psutil>=5.9.0"; do
     pkg_name="${pkg%%>=*}"
     if ! $PIP install "$pkg" 2>/dev/null; then
       warn "${pkg_name} failed to install (optional - related features may be unavailable)"
