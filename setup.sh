@@ -326,9 +326,9 @@ install_python_deps() {
     "Werkzeug>=3.1.5" "pyserial>=3.5" "flask-sock" "websocket-client>=1.6.0" 2>/dev/null || true
 
   # Verify critical packages
-  $PY -c "import flask; import requests" 2>/dev/null || {
-    fail "Critical Python packages (flask, requests) not installed"
-    echo "Try: venv/bin/pip install flask requests"
+  $PY -c "import flask; import requests; from flask_limiter import Limiter" 2>/dev/null || {
+    fail "Critical Python packages (flask, requests, flask-limiter) not installed"
+    echo "Try: venv/bin/pip install flask requests flask-limiter"
     exit 1
   }
   ok "Core Python packages installed"
