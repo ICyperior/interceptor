@@ -123,8 +123,6 @@ if [[ "$HAS_GUNICORN" -eq 1 && "$HAS_GEVENT" -eq 1 ]]; then
     echo "[INTERCEPT] Starting production server (gunicorn + gevent)..."
     echo "[INTERCEPT] Listening on ${HOST}:${PORT}"
 
-    export INTERCEPT_USE_GEVENT=1
-
     GUNICORN_ARGS=(
         -k gevent
         -w 1
