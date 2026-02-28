@@ -13,6 +13,16 @@
 
 set -euo pipefail
 
+# ── Resolve Python from venv or system ───────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -x "$SCRIPT_DIR/venv/bin/python" ]]; then
+    PYTHON="$SCRIPT_DIR/venv/bin/python"
+elif [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python" ]]; then
+    PYTHON="$VIRTUAL_ENV/bin/python"
+else
+    PYTHON="$(command -v python3 || command -v python)"
+fi
+
 # ── Defaults (can be overridden by env vars or CLI flags) ────────────────────
 HOST="${INTERCEPT_HOST:-0.0.0.0}"
 PORT="${INTERCEPT_PORT:-5050}"
@@ -68,14 +78,14 @@ export INTERCEPT_PORT="$PORT"
 
 # ── Dependency check (delegate to intercept.py) ─────────────────────────────
 if [[ "$CHECK_DEPS" -eq 1 ]]; then
-    exec python intercept.py --check-deps
+    exec "$PYTHON" intercept.py --check-deps
 fi
 
 # ── Debug mode always uses Flask dev server ──────────────────────────────────
 if [[ "$DEBUG" -eq 1 ]]; then
     echo "[INTERCEPT] Starting in debug mode (Flask dev server)..."
     export INTERCEPT_DEBUG=1
-    exec python intercept.py --host "$HOST" --port "$PORT" --debug
+    exec "$PYTHON" intercept.py --host "$HOST" --port "$PORT" --debug
 fi
 
 # ── HTTPS certificate generation ────────────────────────────────────────────
@@ -101,10 +111,10 @@ fi
 HAS_GUNICORN=0
 HAS_GEVENT=0
 
-if python -c "import gunicorn" 2>/dev/null; then
+if "$PYTHON" -c "import gunicorn" 2>/dev/null; then
     HAS_GUNICORN=1
 fi
-if python -c "import gevent" 2>/dev/null; then
+if "$PYTHON" -c "import gevent" 2>/dev/null; then
     HAS_GEVENT=1
 fi
 
@@ -130,7 +140,7 @@ if [[ "$HAS_GUNICORN" -eq 1 && "$HAS_GEVENT" -eq 1 ]]; then
         echo "[INTERCEPT] HTTPS enabled"
     fi
 
-    exec gunicorn "${GUNICORN_ARGS[@]}" app:app
+    exec "$PYTHON" -m gunicorn "${GUNICORN_ARGS[@]}" app:app
 else
     if [[ "$HAS_GUNICORN" -eq 0 ]]; then
         echo "[INTERCEPT] gunicorn not found — falling back to Flask dev server"
@@ -146,5 +156,5 @@ else
         FLASK_ARGS+=(--https)
     fi
 
-    exec python intercept.py "${FLASK_ARGS[@]}"
+    exec "$PYTHON" intercept.py "${FLASK_ARGS[@]}"
 fi
