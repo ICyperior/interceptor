@@ -9797,6 +9797,10 @@
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
             aprsCurrentAgent = isAgentMode ? currentAgent : null;
 
+            // Check for remote SDR (only for local mode)
+            const remoteConfig = isAgentMode ? null : getRemoteSDRConfig();
+            if (remoteConfig === false) return; // Validation failed
+
             // Build request body
             const requestBody = {
                 region,
@@ -9804,6 +9808,12 @@
                 gain: parseInt(gain),
                 sdr_type: sdrType
             };
+
+            // Add rtl_tcp params if using remote SDR
+            if (remoteConfig) {
+                requestBody.rtl_tcp_host = remoteConfig.host;
+                requestBody.rtl_tcp_port = remoteConfig.port;
+            }
 
             // Add custom frequency if selected
             if (region === 'custom') {

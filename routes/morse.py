@@ -28,6 +28,8 @@ from utils.validation import (
     validate_frequency,
     validate_gain,
     validate_ppm,
+    validate_rtl_tcp_host,
+    validate_rtl_tcp_port,
 )
 
 morse_bp = Blueprint('morse', __name__)
@@ -279,6 +281,10 @@ def start_morse() -> Response:
 
     sdr_type_str = data.get('sdr_type', 'rtlsdr')
 
+    # Check for rtl_tcp (remote SDR) connection
+    rtl_tcp_host = data.get('rtl_tcp_host')
+    rtl_tcp_port = data.get('rtl_tcp_port', 1234)
+
     with app_module.morse_lock:
         if morse_state in {MORSE_STARTING, MORSE_RUNNING, MORSE_STOPPING}:
             return jsonify({
@@ -287,17 +293,19 @@ def start_morse() -> Response:
                 'state': morse_state,
             }), 409
 
-        device_int = int(device)
-        error = app_module.claim_sdr_device(device_int, 'morse', sdr_type_str)
-        if error:
-            return jsonify({
-                'status': 'error',
-                'error_type': 'DEVICE_BUSY',
-                'message': error,
-            }), 409
+        # Reserve SDR device (skip for remote rtl_tcp)
+        if not rtl_tcp_host:
+            device_int = int(device)
+            error = app_module.claim_sdr_device(device_int, 'morse', sdr_type_str)
+            if error:
+                return jsonify({
+                    'status': 'error',
+                    'error_type': 'DEVICE_BUSY',
+                    'message': error,
+                }), 409
 
-        morse_active_device = device_int
-        morse_active_sdr_type = sdr_type_str
+            morse_active_device = device_int
+            morse_active_sdr_type = sdr_type_str
         morse_last_error = ''
         morse_session_id += 1
 
@@ -320,23 +328,35 @@ def start_morse() -> Response:
     except ValueError:
         sdr_type = SDRType.RTL_SDR
 
+    # Create network or local SDR device
+    network_sdr_device = None
+    if rtl_tcp_host:
+        try:
+            rtl_tcp_host = validate_rtl_tcp_host(rtl_tcp_host)
+            rtl_tcp_port = validate_rtl_tcp_port(rtl_tcp_port)
+        except ValueError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+        network_sdr_device = SDRFactory.create_network_device(rtl_tcp_host, rtl_tcp_port)
+        logger.info(f"Using remote SDR: rtl_tcp://{rtl_tcp_host}:{rtl_tcp_port}")
+
     requested_device_index = int(device)
     active_device_index = requested_device_index
-    builder = SDRFactory.get_builder(sdr_type)
+    builder = SDRFactory.get_builder(network_sdr_device.sdr_type if network_sdr_device else sdr_type)
 
     device_catalog: dict[int, dict[str, str]] = {}
     candidate_device_indices: list[int] = [requested_device_index]
-    with contextlib.suppress(Exception):
-        detected_devices = SDRFactory.detect_devices()
-        same_type_devices = [d for d in detected_devices if d.sdr_type == sdr_type]
-        for d in same_type_devices:
-            device_catalog[d.index] = {
-                'name': str(d.name or f'SDR {d.index}'),
-                'serial': str(d.serial or 'Unknown'),
-            }
-        for d in sorted(same_type_devices, key=lambda dev: dev.index):
-            if d.index not in candidate_device_indices:
-                candidate_device_indices.append(d.index)
+    if not network_sdr_device:
+        with contextlib.suppress(Exception):
+            detected_devices = SDRFactory.detect_devices()
+            same_type_devices = [d for d in detected_devices if d.sdr_type == sdr_type]
+            for d in same_type_devices:
+                device_catalog[d.index] = {
+                    'name': str(d.name or f'SDR {d.index}'),
+                    'serial': str(d.serial or 'Unknown'),
+                }
+            for d in sorted(same_type_devices, key=lambda dev: dev.index):
+                if d.index not in candidate_device_indices:
+                    candidate_device_indices.append(d.index)
 
     def _device_label(device_index: int) -> str:
         meta = device_catalog.get(device_index, {})
@@ -350,7 +370,7 @@ def start_morse() -> Response:
             tuned_frequency_mhz = max(0.5, float(freq))
         else:
             tuned_frequency_mhz = max(0.5, float(freq) - (float(tone_freq) / 1_000_000.0))
-        sdr_device = SDRFactory.create_default_device(sdr_type, index=device_index)
+        sdr_device = network_sdr_device or SDRFactory.create_default_device(sdr_type, index=device_index)
         fm_kwargs: dict[str, Any] = {
             'device': sdr_device,
             'frequency_mhz': tuned_frequency_mhz,

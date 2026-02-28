@@ -96,7 +96,7 @@ var MorseMode = (function () {
     }
 
     function collectConfig() {
-        return {
+        var config = {
             frequency: (el('morseFrequency') && el('morseFrequency').value) || '14.060',
             gain: (el('morseGain') && el('morseGain').value) || '40',
             ppm: (el('morsePPM') && el('morsePPM').value) || '0',
@@ -117,6 +117,17 @@ var MorseMode = (function () {
             wpm: (el('morseWpm') && el('morseWpm').value) || '15',
             wpm_lock: !!(el('morseWpmLock') && el('morseWpmLock').checked),
         };
+
+        // Add rtl_tcp params if using remote SDR
+        if (typeof getRemoteSDRConfig === 'function') {
+            var remoteConfig = getRemoteSDRConfig();
+            if (remoteConfig) {
+                config.rtl_tcp_host = remoteConfig.host;
+                config.rtl_tcp_port = remoteConfig.port;
+            }
+        }
+
+        return config;
     }
 
     function persistSettings() {
