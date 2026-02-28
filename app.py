@@ -42,8 +42,12 @@ from utils.constants import (
     QUEUE_MAX_SIZE,
 )
 import logging
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _has_limiter = True
+except ImportError:
+    _has_limiter = False
 # Track application start time for uptime calculation
 import time as _time
 _app_start_time = _time.time()
@@ -53,12 +57,21 @@ logger = logging.getLogger('intercept.database')
 app = Flask(__name__)
 app.secret_key = "signals_intelligence_secret" # Required for flash messages
 
-# Set up rate limiting
-limiter = Limiter(
-    key_func=get_remote_address, # Identifies the user by their IP
-    app=app,
-    storage_uri="memory://", # Use RAM memory (change to redis:// etc. for distributed setups)
-)
+# Set up rate limiting (optional — flask-limiter may not be installed)
+if _has_limiter:
+    limiter = Limiter(
+        key_func=get_remote_address,
+        app=app,
+        storage_uri="memory://",
+    )
+else:
+    class _NoopLimiter:
+        """Fallback when flask-limiter is not installed."""
+        def limit(self, *args, **kwargs):
+            def decorator(f):
+                return f
+            return decorator
+    limiter = _NoopLimiter()
 
 # Disable Werkzeug debugger PIN (not needed for local development tool)
 os.environ['WERKZEUG_DEBUG_PIN'] = 'off'
