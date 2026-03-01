@@ -250,15 +250,26 @@ const WeatherSat = (function() {
         updateStatusUI('connecting', 'Starting...');
 
         try {
+            const config = {
+                satellite,
+                device,
+                gain,
+                bias_t: biasT,
+            };
+
+            // Add rtl_tcp params if using remote SDR
+            if (typeof getRemoteSDRConfig === 'function') {
+                var remoteConfig = getRemoteSDRConfig();
+                if (remoteConfig) {
+                    config.rtl_tcp_host = remoteConfig.host;
+                    config.rtl_tcp_port = remoteConfig.port;
+                }
+            }
+
             const response = await fetch('/weather-sat/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    satellite,
-                    device,
-                    gain,
-                    bias_t: biasT,
-                })
+                body: JSON.stringify(config)
             });
 
             const data = await response.json();
