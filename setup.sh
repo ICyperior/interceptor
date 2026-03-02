@@ -1370,7 +1370,10 @@ install_debian_packages() {
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
-  $SUDO apt-get update -y >/dev/null
+  if ! $SUDO apt-get update -y >/dev/null 2>&1; then
+    warn "apt-get update reported errors (possibly from third-party repos on your system)."
+    warn "Continuing anyway — if package installs fail, check your APT sources."
+  fi
 
   progress "Installing RTL-SDR"
   if ! $IS_DRAGONOS; then

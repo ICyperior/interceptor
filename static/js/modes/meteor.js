@@ -88,7 +88,7 @@ const MeteorScatter = (function () {
     }
 
     function start() {
-        if (_running) stop();
+        if (_running || _ws) stop();
 
         const freq = parseFloat(document.getElementById('meteorFrequency')?.value) || 143.05;
         const gain = parseFloat(document.getElementById('meteorGain')?.value) || 0;
@@ -126,9 +126,13 @@ const MeteorScatter = (function () {
         }
 
         _ws.onopen = function () {
+            // Guard against race: if start() was called again before this
+            // connection opened, _ws now points to a different socket.
+            if (_ws !== this) { try { this.close(); } catch (e) { /* */ } return; }
+
             _running = true;
             _updateUI();
-            _ws.send(JSON.stringify({
+            this.send(JSON.stringify({
                 cmd: 'start',
                 frequency_mhz: freq,
                 gain: gain === 0 ? 'auto' : gain,
