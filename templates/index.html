@@ -3137,6 +3137,25 @@
 
                 <!-- Radiosonde Visuals -->
                 <div id="radiosondeVisuals" class="radiosonde-visuals-container" style="display: none;">
+                    <div class="radiosonde-strip">
+                        <div class="radiosonde-strip-inner">
+                            <div class="strip-status">
+                                <div class="status-dot" id="radiosondeStripDot"></div>
+                                <span id="radiosondeStripStatus">STANDBY</span>
+                            </div>
+                            <div class="strip-divider"></div>
+                            <div class="strip-stat">
+                                <span class="strip-value" id="radiosondeStripBalloons">0</span>
+                                <span class="strip-label">BALLOONS</span>
+                            </div>
+                            <div class="strip-stat">
+                                <span class="strip-value" id="radiosondeStripUpdate">--:--:--</span>
+                                <span class="strip-label">LAST UPDATE</span>
+                            </div>
+                            <div class="strip-divider"></div>
+                            <div class="strip-waveform" id="radiosondeStripWaveform"></div>
+                        </div>
+                    </div>
                     <div id="radiosondeMapContainer" style="flex: 1; min-height: 300px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary);"></div>
                     <div id="radiosondeCardContainer" class="radiosonde-card-container"></div>
                 </div>
