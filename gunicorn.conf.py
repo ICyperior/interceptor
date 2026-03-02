@@ -10,9 +10,12 @@ def post_worker_init(worker):
     silences this harmless noise.
     """
     try:
+        import ssl
         from gevent import get_hub
         hub = get_hub()
-        if SystemExit not in hub.NOT_ERROR:
-            hub.NOT_ERROR = hub.NOT_ERROR + (SystemExit,)
+        suppress = (SystemExit, ssl.SSLZeroReturnError, ssl.SSLError)
+        for exc in suppress:
+            if exc not in hub.NOT_ERROR:
+                hub.NOT_ERROR = hub.NOT_ERROR + (exc,)
     except Exception:
         pass
