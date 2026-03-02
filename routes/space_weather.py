@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import time
 import urllib.error
@@ -259,22 +260,27 @@ IMAGE_WHITELIST: dict[str, dict[str, str]] = {
 @space_weather_bp.route('/data')
 def get_data():
     """Return aggregated space weather data from all sources."""
-    data = {
-        'kp_index': _fetch_kp_index(),
-        'kp_forecast': _fetch_kp_forecast(),
-        'scales': _fetch_scales(),
-        'flux': _fetch_flux(),
-        'alerts': _fetch_alerts(),
-        'solar_wind_plasma': _fetch_solar_wind_plasma(),
-        'solar_wind_mag': _fetch_solar_wind_mag(),
-        'xrays': _fetch_xrays(),
-        'xray_flares': _fetch_xray_flares(),
-        'flare_probability': _fetch_flare_probability(),
-        'solar_regions': _fetch_solar_regions(),
-        'sunspot_report': _fetch_sunspot_report(),
-        'band_conditions': _fetch_band_conditions(),
-        'timestamp': time.time(),
+    fetchers = {
+        'kp_index': _fetch_kp_index,
+        'kp_forecast': _fetch_kp_forecast,
+        'scales': _fetch_scales,
+        'flux': _fetch_flux,
+        'alerts': _fetch_alerts,
+        'solar_wind_plasma': _fetch_solar_wind_plasma,
+        'solar_wind_mag': _fetch_solar_wind_mag,
+        'xrays': _fetch_xrays,
+        'xray_flares': _fetch_xray_flares,
+        'flare_probability': _fetch_flare_probability,
+        'solar_regions': _fetch_solar_regions,
+        'sunspot_report': _fetch_sunspot_report,
+        'band_conditions': _fetch_band_conditions,
     }
+    data = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=13) as executor:
+        futures = {executor.submit(fn): key for key, fn in fetchers.items()}
+        for future in concurrent.futures.as_completed(futures):
+            data[futures[future]] = future.result()
+    data['timestamp'] = time.time()
     return jsonify(data)
 
 
