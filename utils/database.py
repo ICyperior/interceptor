@@ -62,10 +62,48 @@ def get_db():
         raise
 
 
+def _check_db_writable(db_path: Path) -> None:
+    """Verify the database file and directory are writable, raising a clear
+    error with fix instructions if they are not."""
+    import os
+
+    # Check directory writability (needed for SQLite journal/WAL files)
+    db_dir = db_path.parent
+    if db_dir.exists() and not os.access(db_dir, os.W_OK):
+        owner = _file_owner(db_dir)
+        msg = (
+            f"Database directory {db_dir} is not writable (owned by {owner}). "
+            f"Fix with: sudo chown -R $(whoami) {db_dir}"
+        )
+        logger.error(msg)
+        raise sqlite3.OperationalError(msg)
+
+    # Check file writability if it already exists
+    if db_path.exists() and not os.access(db_path, os.W_OK):
+        owner = _file_owner(db_path)
+        msg = (
+            f"Database {db_path} is not writable (owned by {owner}). "
+            f"Fix with: sudo chown -R $(whoami) {db_dir}"
+        )
+        logger.error(msg)
+        raise sqlite3.OperationalError(msg)
+
+
+def _file_owner(path: Path) -> str:
+    """Return the owner username of a file, or UID if lookup fails."""
+    try:
+        import pwd
+        return pwd.getpwuid(path.stat().st_uid).pw_name
+    except (ImportError, KeyError):
+        return str(path.stat().st_uid)
+
+
 def init_db() -> None:
     """Initialize the database schema."""
     db_path = get_db_path()
     logger.info(f"Initializing database at {db_path}")
+
+    _check_db_writable(db_path)
 
     with get_db() as conn:
         # Settings table for key-value storage
