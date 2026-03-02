@@ -220,7 +220,9 @@
 
         radiosondeEventSource.onerror = function() {
             setTimeout(() => {
-                if (document.getElementById('stopRadiosondeBtn').style.display === 'block') {
+                const panel = document.getElementById('radiosondeMode');
+                if (panel && panel.classList.contains('active') &&
+                    document.getElementById('stopRadiosondeBtn').style.display === 'block') {
                     startRadiosondeSSE();
                 }
             }, 2000);

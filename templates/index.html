@@ -4158,6 +4158,10 @@
                 sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
                 websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
                 spystations: () => typeof SpyStations !== 'undefined' && SpyStations.destroy?.(),
+                ais: () => { if (aisEventSource) { aisEventSource.close(); aisEventSource = null; } },
+                acars: () => { if (acarsMainEventSource) { acarsMainEventSource.close(); acarsMainEventSource = null; } },
+                vdl2: () => { if (vdl2MainEventSource) { vdl2MainEventSource.close(); vdl2MainEventSource = null; } },
+                radiosonde: () => { if (radiosondeEventSource) { radiosondeEventSource.close(); radiosondeEventSource = null; } },
             };
             if (previousMode && previousMode !== mode && moduleDestroyMap[previousMode]) {
                 try { moduleDestroyMap[previousMode](); } catch(e) { console.warn(`[switchMode] destroy ${previousMode} failed:`, e); }

@@ -80,6 +80,7 @@ def parse_ais_stream(port: int):
     _ais_error_logged = True
 
     while ais_running:
+        sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(AIS_SOCKET_TIMEOUT)
@@ -152,7 +153,6 @@ def parse_ais_stream(port: int):
                 except socket.timeout:
                     continue
 
-            sock.close()
             ais_connected = False
         except OSError as e:
             ais_connected = False
@@ -160,6 +160,12 @@ def parse_ais_stream(port: int):
                 logger.warning(f"AIS connection error: {e}, reconnecting...")
                 _ais_error_logged = True
             time.sleep(AIS_RECONNECT_DELAY)
+        finally:
+            if sock:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
 
     ais_connected = False
     logger.info("AIS stream parser stopped")

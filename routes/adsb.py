@@ -364,6 +364,7 @@ def parse_sbs_stream(service_addr):
     _sbs_error_logged = False
 
     while adsb_using_service:
+        sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(SBS_SOCKET_TIMEOUT)
@@ -586,7 +587,6 @@ def parse_sbs_stream(service_addr):
                     continue
 
             flush_pending_updates(force=True)
-            sock.close()
             adsb_connected = False
         except OSError as e:
             adsb_connected = False
@@ -594,6 +594,12 @@ def parse_sbs_stream(service_addr):
                 logger.warning(f"SBS connection error: {e}, reconnecting...")
                 _sbs_error_logged = True
             time.sleep(SBS_RECONNECT_DELAY)
+        finally:
+            if sock:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
 
     adsb_connected = False
     logger.info("SBS stream parser stopped")
