@@ -7300,7 +7300,6 @@ body[data-mode="tscm"] {
 .section:hover {
     border-color: var(--visual-edge-cyan);
     box-shadow: var(--visual-glow-cyan), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    transform: translateY(-1px);
 }
 
 .section h3 {
