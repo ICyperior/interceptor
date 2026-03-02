@@ -35,10 +35,18 @@ def get_connection() -> sqlite3.Connection:
     """Get a thread-local database connection."""
     if not hasattr(_local, 'connection') or _local.connection is None:
         db_path = get_db_path()
-        _local.connection = sqlite3.connect(str(db_path), check_same_thread=False)
-        _local.connection.row_factory = sqlite3.Row
-        # Enable foreign keys
-        _local.connection.execute('PRAGMA foreign_keys = ON')
+        try:
+            _local.connection = sqlite3.connect(str(db_path), check_same_thread=False)
+            _local.connection.row_factory = sqlite3.Row
+            # Enable foreign keys
+            _local.connection.execute('PRAGMA foreign_keys = ON')
+        except sqlite3.OperationalError as e:
+            logger.error(
+                f"Cannot open database at {db_path}: {e}. "
+                f"If the file is owned by root, fix with: "
+                f"sudo chown -R $(whoami) {DB_DIR}"
+            )
+            raise
     return _local.connection
 
 

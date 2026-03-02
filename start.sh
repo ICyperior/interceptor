@@ -78,6 +78,15 @@ done
 export INTERCEPT_HOST="$HOST"
 export INTERCEPT_PORT="$PORT"
 
+# ── Fix ownership of user data dirs when run via sudo ────────────────────────
+if [[ "$(id -u)" -eq 0 && -n "${SUDO_USER:-}" ]]; then
+    for dir in instance data; do
+        if [[ -d "$SCRIPT_DIR/$dir" ]]; then
+            chown -R "$SUDO_USER" "$SCRIPT_DIR/$dir"
+        fi
+    done
+fi
+
 # ── Dependency check (delegate to intercept.py) ─────────────────────────────
 if [[ "$CHECK_DEPS" -eq 1 ]]; then
     exec "$PYTHON" intercept.py --check-deps
