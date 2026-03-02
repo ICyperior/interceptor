@@ -893,6 +893,36 @@ def start_adsb():
                 'message': full_msg
             })
 
+        # dump1090 is still running but SBS port never came up — device may be
+        # held by a stale process from a previous mode.  Kill it so the USB
+        # device is released and report a clear error to the frontend.
+        if not dump1090_ready:
+            logger.warning("dump1090 running but SBS port not available after %.1fs — killing", DUMP1090_START_WAIT)
+            try:
+                pgid = os.getpgid(app_module.adsb_process.pid)
+                os.killpg(pgid, 15)
+                app_module.adsb_process.wait(timeout=ADSB_TERMINATE_TIMEOUT)
+            except (subprocess.TimeoutExpired, ProcessLookupError, OSError):
+                try:
+                    pgid = os.getpgid(app_module.adsb_process.pid)
+                    os.killpg(pgid, 9)
+                except (ProcessLookupError, OSError):
+                    pass
+            app_module.adsb_process = None
+            clear_dump1090_pid()
+            app_module.release_sdr_device(device_int, sdr_type_str)
+            adsb_active_device = None
+            adsb_active_sdr_type = None
+            return jsonify({
+                'status': 'error',
+                'error_type': 'DEVICE_BUSY',
+                'message': (
+                    'SDR device did not become ready in time. '
+                    'Another mode may still be releasing the device. '
+                    'Please wait a moment and try again.'
+                ),
+            })
+
         adsb_using_service = True
         thread = threading.Thread(target=parse_sbs_stream, args=(f'localhost:{ADSB_SBS_PORT}',), daemon=True)
         thread.start()
