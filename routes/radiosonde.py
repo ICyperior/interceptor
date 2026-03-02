@@ -313,11 +313,11 @@ def _process_telemetry(msg: dict) -> dict | None:
 
     balloon: dict[str, Any] = {'id': str(serial)}
 
-    # Sonde type (RS41, RS92, DFM, M10, etc.)
-    if 'type' in msg:
-        balloon['sonde_type'] = msg['type']
+    # Sonde type (RS41, RS92, DFM, M10, etc.) — prefer subtype if available
     if 'subtype' in msg:
         balloon['sonde_type'] = msg['subtype']
+    elif 'type' in msg:
+        balloon['sonde_type'] = msg['type']
 
     # Timestamp
     if 'datetime' in msg:
@@ -544,12 +544,12 @@ def start_radiosonde():
         gpsd_enabled=gpsd_enabled,
     )
 
-    # Build command - auto_rx -c expects a file path, not a directory
-    cfg_abs = os.path.abspath(cfg_path)
+    # Build command - auto_rx -c expects a config DIRECTORY containing station.cfg
+    cfg_dir = os.path.dirname(os.path.abspath(cfg_path))
     if auto_rx_path.endswith('.py'):
-        cmd = [sys.executable, auto_rx_path, '-c', cfg_abs]
+        cmd = [sys.executable, auto_rx_path, '-c', cfg_dir]
     else:
-        cmd = [auto_rx_path, '-c', cfg_abs]
+        cmd = [auto_rx_path, '-c', cfg_dir]
 
     # Set cwd to the auto_rx directory so 'from autorx.scan import ...' works
     auto_rx_dir = os.path.dirname(os.path.abspath(auto_rx_path))
