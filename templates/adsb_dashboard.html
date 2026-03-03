@@ -3652,8 +3652,8 @@ sudo make install</code>
 
         async function startAirband() {
             const frequency = getAirbandFrequency();
-            const device = parseInt(document.getElementById('airbandDeviceSelect').value);
-            const squelch = parseInt(document.getElementById('airbandSquelch').value);
+            const device = parseInt(document.getElementById('airbandDeviceSelect').value) || 0;
+            const squelch = parseInt(document.getElementById('airbandSquelch').value) || 0;
 
             console.log('[AIRBAND] Starting with device:', device, 'freq:', frequency, 'squelch:', squelch);
 
