@@ -393,12 +393,14 @@
 
 [data-theme="light"] .mode-nav-btn.active {
     background: rgba(220, 230, 244, 0.9);
+    color: var(--text-primary);
 }
 
 [data-theme="light"] .mode-nav-dropdown-btn:hover,
 [data-theme="light"] .mode-nav-dropdown.open .mode-nav-dropdown-btn,
 [data-theme="light"] .mode-nav-dropdown.has-active .mode-nav-dropdown-btn {
     background: rgba(220, 230, 244, 0.9);
+    color: var(--text-primary);
 }
 
 [data-theme="light"] .mode-nav-dropdown-menu {
@@ -412,6 +414,7 @@
 
 [data-theme="light"] .mode-nav-dropdown-menu .mode-nav-btn.active {
     background: rgba(220, 230, 244, 0.95);
+    color: var(--text-primary);
 }
 
 [data-theme="light"] .nav-tool-btn {
