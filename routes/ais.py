@@ -450,9 +450,11 @@ def start_ais():
                     stderr_output = app_module.ais_process.stderr.read().decode('utf-8', errors='ignore').strip()
                 except Exception:
                     pass
+            if stderr_output:
+                logger.error(f"AIS-catcher stderr:\n{stderr_output}")
             error_msg = 'AIS-catcher failed to start. Check SDR device connection.'
             if stderr_output:
-                error_msg += f' Error: {stderr_output[:200]}'
+                error_msg += f' Error: {stderr_output[:500]}'
             return jsonify({'status': 'error', 'message': error_msg}), 500
 
         ais_running = True

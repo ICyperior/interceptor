@@ -586,6 +586,26 @@ def start_radiosonde():
     # Set cwd to the auto_rx directory so 'from autorx.scan import ...' works
     auto_rx_dir = os.path.dirname(os.path.abspath(auto_rx_path))
 
+    # Quick dependency check before launching the full process
+    if auto_rx_path.endswith('.py'):
+        dep_check = subprocess.run(
+            [sys.executable, '-c', 'import autorx.scan'],
+            cwd=auto_rx_dir,
+            capture_output=True,
+            timeout=10,
+        )
+        if dep_check.returncode != 0:
+            dep_error = dep_check.stderr.decode('utf-8', errors='ignore').strip()
+            logger.error(f"radiosonde_auto_rx dependency check failed:\n{dep_error}")
+            app_module.release_sdr_device(device_int, sdr_type_str)
+            return jsonify({
+                'status': 'error',
+                'message': (
+                    'radiosonde_auto_rx dependencies not satisfied. '
+                    f'Re-run setup.sh to install. Error: {dep_error[:500]}'
+                ),
+            }), 500
+
     try:
         logger.info(f"Starting radiosonde_auto_rx: {' '.join(cmd)}")
         app_module.radiosonde_process = subprocess.Popen(
@@ -609,9 +629,23 @@ def start_radiosonde():
                     ).strip()
                 except Exception:
                     pass
-            error_msg = 'radiosonde_auto_rx failed to start. Check SDR device connection.'
             if stderr_output:
-                error_msg += f' Error: {stderr_output[:200]}'
+                logger.error(f"radiosonde_auto_rx stderr:\n{stderr_output}")
+            if stderr_output and (
+                'ImportError' in stderr_output
+                or 'ModuleNotFoundError' in stderr_output
+            ):
+                error_msg = (
+                    'radiosonde_auto_rx failed to start due to missing Python '
+                    'dependencies. Re-run setup.sh or reinstall radiosonde_auto_rx.'
+                )
+            else:
+                error_msg = (
+                    'radiosonde_auto_rx failed to start. '
+                    'Check SDR device connection.'
+                )
+            if stderr_output:
+                error_msg += f' Error: {stderr_output[:500]}'
             return jsonify({'status': 'error', 'message': error_msg}), 500
 
         radiosonde_running = True
