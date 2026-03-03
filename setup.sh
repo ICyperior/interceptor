@@ -313,8 +313,11 @@ install_python_deps() {
   local PIP="venv/bin/python -m pip"
   local PY="venv/bin/python"
 
-  $PIP install --upgrade pip setuptools wheel >/dev/null 2>&1 || true
-  ok "Upgraded pip tooling"
+  if ! $PIP install --upgrade pip setuptools wheel; then
+    warn "pip/setuptools/wheel upgrade failed - continuing with existing versions"
+  else
+    ok "Upgraded pip tooling"
+  fi
 
   progress "Installing Python dependencies"
 
@@ -340,7 +343,7 @@ install_python_deps() {
              "meshtastic>=2.0.0" "scapy>=2.4.5" "qrcode[pil]>=7.4" "cryptography>=41.0.0" \
              "gunicorn>=21.2.0" "gevent>=23.9.0" "psutil>=5.9.0"; do
     pkg_name="${pkg%%>=*}"
-    if ! $PIP install "$pkg" 2>/dev/null; then
+    if ! $PIP install "$pkg"; then
       warn "${pkg_name} failed to install (optional - related features may be unavailable)"
     fi
   done
@@ -1491,7 +1494,8 @@ install_debian_packages() {
   apt_install gpsd gpsd-clients || true
 
   progress "Installing Python packages"
-  apt_install python3-venv python3-pip || true
+  # python3-dev provides Python.h for C-extension pip packages (gevent, cryptography, etc.)
+  apt_install python3-venv python3-pip python3-dev || true
   # Install Python packages via apt (more reliable than pip on modern Debian/Ubuntu)
   $SUDO apt-get install -y python3-flask python3-requests python3-serial >/dev/null 2>&1 || true
   $SUDO apt-get install -y python3-skyfield >/dev/null 2>&1 || true
