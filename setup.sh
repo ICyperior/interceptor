@@ -546,6 +546,7 @@ install_python_deps() {
              "meshtastic>=2.0.0" "scapy>=2.4.5" "qrcode[pil]>=7.4" "cryptography>=41.0.0" \
              "gunicorn>=21.2.0" "gevent>=23.9.0" "psutil>=5.9.0"; do
     pkg_name="${pkg%%>=*}"
+    info "  Installing ${pkg_name}..."
     if ! $PIP install "$pkg"; then
       warn "${pkg_name} failed to install (optional - related features may be unavailable)"
     fi
@@ -1687,6 +1688,7 @@ install_profiles() {
 
     # Install Python build tools (needed for venv)
     apt_install python3-venv python3-pip python3-dev || true
+    info "Installing Python apt packages..."
     $SUDO apt-get install -y python3-flask python3-requests python3-serial >/dev/null 2>&1 || true
     $SUDO apt-get install -y python3-skyfield >/dev/null 2>&1 || true
     $SUDO apt-get install -y python3-bleak >/dev/null 2>&1 || true
@@ -1833,6 +1835,7 @@ install_custom() {
       export DEBIAN_FRONTEND=noninteractive
       export NEEDRESTART_MODE=a
     fi
+    info "Updating APT package lists..."
     $SUDO apt-get update -y >/dev/null 2>&1 || true
     apt_install python3-venv python3-pip python3-dev || true
   fi
@@ -2035,6 +2038,7 @@ do_postgres_setup() {
     info "PostgreSQL client (psql) not found."
     if [[ "$OS" == "debian" ]]; then
       if ask_yes_no "Install PostgreSQL via apt?" "y"; then
+        info "Installing PostgreSQL (this may take a moment)..."
         $SUDO apt-get install -y postgresql postgresql-client >/dev/null 2>&1 || {
           fail "Failed to install PostgreSQL"
           return 1
