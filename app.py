@@ -213,6 +213,11 @@ meteor_process = None
 meteor_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 meteor_lock = threading.Lock()
 
+# Generic OOK signal decoder
+ook_process = None
+ook_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+ook_lock = threading.Lock()
+
 # Deauth Attack Detection
 deauth_detector = None
 deauth_detector_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
