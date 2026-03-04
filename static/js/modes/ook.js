@@ -10,6 +10,7 @@ var OokMode = (function () {
     'use strict';
 
     var DEFAULT_FREQ_PRESETS = ['433.920', '315.000', '868.000', '915.000'];
+    var MAX_FRAMES = 5000;
 
     var state = {
         running: false,
@@ -162,6 +163,13 @@ var OokMode = (function () {
         state.frames.push(msg);
         state.frameCount++;
 
+        // Trim oldest frames when buffer exceeds cap
+        if (state.frames.length > MAX_FRAMES) {
+            state.frames.splice(0, state.frames.length - MAX_FRAMES);
+            var panel = document.getElementById('ookOutput');
+            if (panel && panel.firstChild) panel.removeChild(panel.firstChild);
+        }
+
         var countEl = document.getElementById('ookFrameCount');
         if (countEl) countEl.textContent = state.frameCount + ' frames';
         var barEl = document.getElementById('ookStatusBarFrames');
@@ -237,7 +245,7 @@ var OokMode = (function () {
             '</span>' +
             '<br>' +
             '<span style="padding-left:8em; color:' + (hasPrintable ? '#aaffcc' : '#555') + '; font-family:var(--font-mono); font-size:10px">' +
-            'ascii: ' + interp.ascii +
+            'ascii: ' + (typeof escapeHtml === 'function' ? escapeHtml(interp.ascii) : interp.ascii) +
             '</span>';
 
         div.style.cssText = 'font-size:11px; padding: 4px 0; border-bottom: 1px solid #1a1a1a; line-height:1.6;';
@@ -328,7 +336,7 @@ var OokMode = (function () {
             return {
                 timestamp: msg.timestamp,
                 bit_count: msg.bit_count,
-                rssi: msg.rssi || null,
+                rssi: (msg.rssi !== undefined && msg.rssi !== null) ? msg.rssi : null,
                 hex: interp.hex,
                 ascii: interp.ascii,
                 inverted: msg.inverted,
@@ -382,7 +390,7 @@ var OokMode = (function () {
 
         // Update timing hint
         var hints = {
-            pwm: 'Short pulse = 1, long pulse = 0. Most common for ISM OOK.',
+            pwm: 'Short pulse = 0, long pulse = 1. Most common for ISM OOK.',
             ppm: 'Short gap = 0, long gap = 1. Pulse position encoding.',
             manchester: 'Rising edge = 1, falling edge = 0. Self-clocking.',
         };

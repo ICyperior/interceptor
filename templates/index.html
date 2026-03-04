@@ -4107,6 +4107,7 @@
                 vdl2: () => { if (vdl2MainEventSource) { vdl2MainEventSource.close(); vdl2MainEventSource = null; } },
                 radiosonde: () => { if (radiosondeEventSource) { radiosondeEventSource.close(); radiosondeEventSource = null; } },
                 meteor: () => typeof MeteorScatter !== 'undefined' && MeteorScatter.destroy?.(),
+                ook: () => typeof OokMode !== 'undefined' && OokMode.destroy?.(),
             };
             return moduleDestroyMap[mode] || null;
         }

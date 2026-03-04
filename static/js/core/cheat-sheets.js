@@ -34,7 +34,7 @@ const CheatSheets = (function () {
             description: 'Decodes raw On-Off Keying (OOK) signals via rtl_433 flex decoder. Captures frames with configurable pulse timing and displays raw bits, hex, and ASCII — useful for reverse-engineering unknown ISM-band protocols.',
             whatToExpect: 'Decoded bit sequences, hex payloads, and ASCII interpretation. Each frame shows bit count, timestamp, and optional RSSI.',
             tips: [
-                '<strong>Identifying modulation</strong> — <em>PWM</em>: pulse widths vary (short=1, long=0), gaps constant — most common for ISM remotes/sensors. <em>PPM</em>: pulses constant, gap widths encode data. <em>Manchester</em>: self-clocking, equal-width pulses, data in transitions.',
+                '<strong>Identifying modulation</strong> — <em>PWM</em>: pulse widths vary (short=0, long=1), gaps constant — most common for ISM remotes/sensors. <em>PPM</em>: pulses constant, gap widths encode data. <em>Manchester</em>: self-clocking, equal-width pulses, data in transitions.',
                 '<strong>Finding pulse timing</strong> — Run <code>rtl_433 -f 433.92M -A</code> in a terminal to auto-analyze signals. It prints detected pulse widths (short/long) and gap timings. Use those values in the Short/Long Pulse fields.',
                 '<strong>Common ISM timings</strong> — 300/600µs (weather stations, door sensors), 400/800µs (car keyfobs), 500/1500µs (garage doors, doorbells), 500µs Manchester (tire pressure monitors).',
                 '<strong>Frequencies to try</strong> — 315 MHz (North America keyfobs), 433.920 MHz (global ISM), 868 MHz (Europe ISM), 915 MHz (US ISM/meters).',

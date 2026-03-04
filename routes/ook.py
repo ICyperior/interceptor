@@ -75,12 +75,15 @@ def start_ook() -> Response:
             return jsonify({'status': 'error', 'message': str(e)}), 400
 
         # OOK flex decoder timing parameters
-        short_pulse = int(data.get('short_pulse', 300))
-        long_pulse = int(data.get('long_pulse', 600))
-        reset_limit = int(data.get('reset_limit', 8000))
-        gap_limit = int(data.get('gap_limit', 5000))
-        tolerance = int(data.get('tolerance', 150))
-        min_bits = int(data.get('min_bits', 8))
+        try:
+            short_pulse = int(data.get('short_pulse', 300))
+            long_pulse = int(data.get('long_pulse', 600))
+            reset_limit = int(data.get('reset_limit', 8000))
+            gap_limit = int(data.get('gap_limit', 5000))
+            tolerance = int(data.get('tolerance', 150))
+            min_bits = int(data.get('min_bits', 8))
+        except (ValueError, TypeError) as e:
+            return jsonify({'status': 'error', 'message': f'Invalid timing parameter: {e}'}), 400
         deduplicate = bool(data.get('deduplicate', False))
 
         rtl_tcp_host = data.get('rtl_tcp_host') or None
@@ -195,7 +198,10 @@ def start_ook() -> Response:
             app_module.ook_process._stop_parser = stop_event
             app_module.ook_process._parser_thread = parser_thread
 
-            app_module.ook_queue.put({'type': 'status', 'status': 'started'})
+            try:
+                app_module.ook_queue.put_nowait({'type': 'status', 'status': 'started'})
+            except queue.Full:
+                logger.warning("OOK 'started' status dropped — queue full")
 
             return jsonify({
                 'status': 'started',
@@ -244,7 +250,10 @@ def stop_ook() -> Response:
                 app_module.release_sdr_device(ook_active_device)
                 ook_active_device = None
 
-            app_module.ook_queue.put({'type': 'status', 'status': 'stopped'})
+            try:
+                app_module.ook_queue.put_nowait({'type': 'status', 'status': 'stopped'})
+            except queue.Full:
+                logger.warning("OOK 'stopped' status dropped — queue full")
             return jsonify({'status': 'stopped'})
 
         return jsonify({'status': 'not_running'})

@@ -77,9 +77,11 @@ def ook_parser_thread(
     """Thread function: reads rtl_433 JSON output and emits OOK frame events.
 
     Handles the three rtl_433 hex-output field names (``codes``, ``code``,
-    ``data``) and falls back to bit-inverted parsing when the primary hex
-    parse produces no result — needed for transmitters that swap the
-    short/long pulse mapping.
+    ``data``) and, if the initial hex decoding fails, retries with an
+    inverted bit interpretation.  This inversion fallback is only applied
+    when the primary parse yields no usable hex; it does not attempt to
+    reinterpret successfully decoded frames that merely swap the short/long
+    pulse mapping.
 
     Args:
         rtl_stdout: rtl_433 stdout pipe.
