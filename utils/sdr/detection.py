@@ -356,6 +356,11 @@ def detect_hackrf_devices() -> list[SDRDevice]:
             timeout=5
         )
 
+        # Combine stdout + stderr: newer firmware may print to stderr,
+        # and hackrf_info may exit non-zero when device is briefly busy
+        # but still output valid info.
+        output = result.stdout + result.stderr
+
         # Parse hackrf_info output
         # Extract board name from "Board ID Number: X (Name)" and serial
         from .hackrf import HackRFCommandBuilder
@@ -363,8 +368,8 @@ def detect_hackrf_devices() -> list[SDRDevice]:
         serial_pattern = r'Serial number:\s*(\S+)'
         board_pattern = r'Board ID Number:\s*\d+\s*\(([^)]+)\)'
 
-        serials_found = re.findall(serial_pattern, result.stdout)
-        boards_found = re.findall(board_pattern, result.stdout)
+        serials_found = re.findall(serial_pattern, output)
+        boards_found = re.findall(board_pattern, output)
 
         for i, serial in enumerate(serials_found):
             board_name = boards_found[i] if i < len(boards_found) else 'HackRF'
@@ -378,8 +383,8 @@ def detect_hackrf_devices() -> list[SDRDevice]:
             ))
 
         # Fallback: check if any HackRF found without serial
-        if not devices and 'Found HackRF' in result.stdout:
-            board_match = re.search(board_pattern, result.stdout)
+        if not devices and 'Found HackRF' in output:
+            board_match = re.search(board_pattern, output)
             board_name = board_match.group(1) if board_match else 'HackRF'
             devices.append(SDRDevice(
                 sdr_type=SDRType.HACKRF,
