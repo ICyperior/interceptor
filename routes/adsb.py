@@ -817,9 +817,8 @@ def start_adsb():
         bias_t=bias_t
     )
 
-    # For RTL-SDR, ensure we use the found dump1090 path
-    if sdr_type == SDRType.RTL_SDR:
-        cmd[0] = dump1090_path
+    # Ensure we use the resolved binary path for all SDR types
+    cmd[0] = dump1090_path
 
     try:
         logger.info(f"Starting dump1090 with device index {device}: {' '.join(cmd)}")
@@ -860,12 +859,22 @@ def start_adsb():
             error_type = 'START_FAILED'
             stderr_lower = stderr_output.lower()
 
+            sdr_label = sdr_type.value
+
             if 'usb_claim_interface' in stderr_lower or 'libusb_error_busy' in stderr_lower or 'device or resource busy' in stderr_lower:
                 error_msg = 'SDR device is busy. Another process may be using it.'
                 suggestion = 'Try: 1) Stop other SDR applications, 2) Run "pkill -f rtl_" to kill stale processes, or 3) Remove and reinsert the SDR device.'
                 error_type = 'DEVICE_BUSY'
+            elif 'no hackrf boards found' in stderr_lower or 'hackrf_open' in stderr_lower:
+                error_msg = f'{sdr_label} device not found.'
+                suggestion = 'Ensure the HackRF is connected. Try removing and reinserting the device.'
+                error_type = 'DEVICE_NOT_FOUND'
+            elif 'soapysdr not found' in stderr_lower or 'soapy' in stderr_lower and 'not found' in stderr_lower:
+                error_msg = f'SoapySDR driver not found for {sdr_label}.'
+                suggestion = f'Install SoapySDR and the {sdr_label} module (e.g., soapysdr-module-hackrf).'
+                error_type = 'DRIVER_NOT_FOUND'
             elif 'no supported devices' in stderr_lower or 'no rtl-sdr' in stderr_lower or 'failed to open' in stderr_lower:
-                error_msg = 'RTL-SDR device not found.'
+                error_msg = f'{sdr_label} device not found.'
                 suggestion = 'Ensure the device is connected. Try removing and reinserting the SDR.'
                 error_type = 'DEVICE_NOT_FOUND'
             elif 'kernel driver is active' in stderr_lower or 'dvb' in stderr_lower:
@@ -873,14 +882,14 @@ def start_adsb():
                 suggestion = 'Blacklist the DVB drivers: Go to Settings > Hardware > "Blacklist DVB Drivers" or run "sudo rmmod dvb_usb_rtl28xxu".'
                 error_type = 'KERNEL_DRIVER'
             elif 'permission' in stderr_lower or 'access' in stderr_lower:
-                error_msg = 'Permission denied accessing RTL-SDR device.'
-                suggestion = 'Run Intercept with sudo, or add udev rules for RTL-SDR devices.'
+                error_msg = f'Permission denied accessing {sdr_label} device.'
+                suggestion = f'Run Intercept with sudo, or add udev rules for {sdr_label} devices.'
                 error_type = 'PERMISSION_DENIED'
             elif sdr_type == SDRType.RTL_SDR:
                 error_msg = 'dump1090 failed to start.'
                 suggestion = 'Try removing and reinserting the SDR device, or check if another application is using it.'
             else:
-                error_msg = f'ADS-B decoder failed to start for {sdr_type.value}.'
+                error_msg = f'ADS-B decoder failed to start for {sdr_label}.'
                 suggestion = 'Ensure readsb is installed with SoapySDR support and the device is connected.'
 
             full_msg = f'{error_msg} {suggestion}'

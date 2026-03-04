@@ -1,9 +1,20 @@
-"""Tests for RTL-SDR detection parsing."""
+"""Tests for SDR detection parsing (RTL-SDR and HackRF)."""
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+import utils.sdr.detection as detection_mod
 from utils.sdr.base import SDRType
-from utils.sdr.detection import detect_rtlsdr_devices
+from utils.sdr.detection import detect_hackrf_devices, detect_rtlsdr_devices
+
+
+@pytest.fixture(autouse=True)
+def _clear_detection_caches():
+    """Reset detection caches before each test."""
+    detection_mod._hackrf_cache = []
+    detection_mod._hackrf_cache_ts = 0.0
+    yield
 
 
 @patch('utils.sdr.detection._check_tool', return_value=True)
@@ -44,3 +55,87 @@ def test_detect_rtlsdr_devices_uses_replace_decode_mode(mock_run, _mock_check_to
     assert kwargs["text"] is True
     assert kwargs["encoding"] == "utf-8"
     assert kwargs["errors"] == "replace"
+
+
+# ---- HackRF detection tests ----
+
+HACKRF_INFO_OUTPUT = (
+    "hackrf_info version: 2024.02.1\n"
+    "libhackrf version: 2024.02.1 (0.9)\n"
+    "Found HackRF\n"
+    "Index: 0\n"
+    "Serial number: 0000000000000000a06063c8234e925f\n"
+    "Board ID Number: 2 (HackRF One)\n"
+    "Firmware Version: 2024.02.1 (API:1.08)\n"
+    "Part ID Number: 0xa000cb3c 0x00614764\n"
+    "Hardware Revision: r9\n"
+    "Hardware supported by installed firmware:\n"
+    "    HackRF One\n"
+)
+
+
+@patch('utils.sdr.detection._check_tool', return_value=True)
+@patch('utils.sdr.detection.subprocess.run')
+def test_detect_hackrf_from_stdout(mock_run, _mock_check_tool):
+    """Parse HackRF device info from stdout."""
+    mock_result = MagicMock()
+    mock_result.stdout = HACKRF_INFO_OUTPUT
+    mock_result.stderr = ""
+    mock_run.return_value = mock_result
+
+    devices = detect_hackrf_devices()
+
+    assert len(devices) == 1
+    assert devices[0].sdr_type == SDRType.HACKRF
+    assert devices[0].name == "HackRF One"
+    assert devices[0].serial == "0000000000000000a06063c8234e925f"
+    assert devices[0].index == 0
+
+
+@patch('utils.sdr.detection._check_tool', return_value=True)
+@patch('utils.sdr.detection.subprocess.run')
+def test_detect_hackrf_from_stderr(mock_run, _mock_check_tool):
+    """Parse HackRF device info when output goes to stderr (newer firmware)."""
+    mock_result = MagicMock()
+    mock_result.stdout = ""
+    mock_result.stderr = HACKRF_INFO_OUTPUT
+    mock_run.return_value = mock_result
+
+    devices = detect_hackrf_devices()
+
+    assert len(devices) == 1
+    assert devices[0].sdr_type == SDRType.HACKRF
+    assert devices[0].name == "HackRF One"
+    assert devices[0].serial == "0000000000000000a06063c8234e925f"
+
+
+@patch('utils.sdr.detection._check_tool', return_value=True)
+@patch('utils.sdr.detection.subprocess.run')
+def test_detect_hackrf_nonzero_exit_with_valid_output(mock_run, _mock_check_tool):
+    """Parse HackRF info even when hackrf_info exits non-zero (device busy)."""
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stdout = ""
+    mock_result.stderr = HACKRF_INFO_OUTPUT
+    mock_run.return_value = mock_result
+
+    devices = detect_hackrf_devices()
+
+    assert len(devices) == 1
+    assert devices[0].name == "HackRF One"
+
+
+@patch('utils.sdr.detection._check_tool', return_value=True)
+@patch('utils.sdr.detection.subprocess.run')
+def test_detect_hackrf_fallback_no_serial(mock_run, _mock_check_tool):
+    """Fallback detection when serial is missing but 'Found HackRF' present."""
+    mock_result = MagicMock()
+    mock_result.stdout = "Found HackRF\nBoard ID Number: 2 (HackRF One)\n"
+    mock_result.stderr = ""
+    mock_run.return_value = mock_result
+
+    devices = detect_hackrf_devices()
+
+    assert len(devices) == 1
+    assert devices[0].name == "HackRF One"
+    assert devices[0].serial == "Unknown"
