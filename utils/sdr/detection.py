@@ -493,7 +493,7 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
             )
             return (
                 f'SDR device {device_index} is not available — '
-                f'check that the RTL-SDR is connected and not in use by another process.'
+                f'check that the SDR device is connected and not in use by another process.'
             )
 
     except Exception as e:
