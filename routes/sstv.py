@@ -57,6 +57,7 @@ _timescale_lock = threading.Lock()
 
 # Track which device is being used
 sstv_active_device: int | None = None
+sstv_active_sdr_type: str = 'rtlsdr'
 
 
 def _progress_callback(data: dict) -> None:
@@ -154,6 +155,14 @@ def start_decoder():
 
     # Get parameters
     data = request.get_json(silent=True) or {}
+    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+
+    if sdr_type_str != 'rtlsdr':
+        return jsonify({
+            'status': 'error',
+            'message': f'{sdr_type_str.replace("_", " ").title()} is not yet supported for this mode. Please use an RTL-SDR device.'
+        }), 400
+
     frequency = data.get('frequency', ISS_SSTV_FREQ)
     modulation = str(data.get('modulation', ISS_SSTV_MODULATION)).strip().lower()
     device_index = data.get('device', 0)
@@ -209,9 +218,9 @@ def start_decoder():
         longitude = None
 
     # Claim SDR device
-    global sstv_active_device
+    global sstv_active_device, sstv_active_sdr_type
     device_int = int(device_index)
-    error = app_module.claim_sdr_device(device_int, 'sstv')
+    error = app_module.claim_sdr_device(device_int, 'sstv', sdr_type_str)
     if error:
         return jsonify({
             'status': 'error',
@@ -231,6 +240,7 @@ def start_decoder():
 
     if success:
         sstv_active_device = device_int
+        sstv_active_sdr_type = sdr_type_str
 
         result = {
             'status': 'started',
@@ -247,7 +257,7 @@ def start_decoder():
         return jsonify(result)
     else:
         # Release device on failure
-        app_module.release_sdr_device(device_int)
+        app_module.release_sdr_device(device_int, sdr_type_str)
         return jsonify({
             'status': 'error',
             'message': 'Failed to start decoder'
@@ -262,13 +272,13 @@ def stop_decoder():
     Returns:
         JSON confirmation.
     """
-    global sstv_active_device
+    global sstv_active_device, sstv_active_sdr_type
     decoder = get_sstv_decoder()
     decoder.stop()
 
     # Release device from registry
     if sstv_active_device is not None:
-        app_module.release_sdr_device(sstv_active_device)
+        app_module.release_sdr_device(sstv_active_device, sstv_active_sdr_type)
         sstv_active_device = None
 
     return jsonify({'status': 'stopped'})
