@@ -4039,6 +4039,43 @@
             '/satellite/dashboard',
         ]);
 
+        // Shared module destroy map — closes SSE EventSources, timers, etc.
+        // Used by both switchMode() and dashboard navigation cleanup.
+        function getModuleDestroyFn(mode) {
+            const moduleDestroyMap = {
+                subghz: () => typeof SubGhz !== 'undefined' && SubGhz.destroy(),
+                morse: () => typeof MorseMode !== 'undefined' && MorseMode.destroy?.(),
+                spaceweather: () => typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy?.(),
+                weathersat: () => typeof WeatherSat !== 'undefined' && WeatherSat.suspend?.(),
+                wefax: () => typeof WeFax !== 'undefined' && WeFax.destroy?.(),
+                system: () => typeof SystemHealth !== 'undefined' && SystemHealth.destroy?.(),
+                waterfall: () => typeof Waterfall !== 'undefined' && Waterfall.destroy?.(),
+                gps: () => typeof GPS !== 'undefined' && GPS.destroy?.(),
+                meshtastic: () => typeof Meshtastic !== 'undefined' && Meshtastic.destroy?.(),
+                bluetooth: () => typeof BluetoothMode !== 'undefined' && BluetoothMode.destroy?.(),
+                wifi: () => typeof WiFiMode !== 'undefined' && WiFiMode.destroy?.(),
+                bt_locate: () => typeof BtLocate !== 'undefined' && BtLocate.destroy?.(),
+                sstv: () => typeof SSTV !== 'undefined' && SSTV.destroy?.(),
+                sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
+                websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
+                spystations: () => typeof SpyStations !== 'undefined' && SpyStations.destroy?.(),
+                ais: () => { if (aisEventSource) { aisEventSource.close(); aisEventSource = null; } },
+                acars: () => { if (acarsMainEventSource) { acarsMainEventSource.close(); acarsMainEventSource = null; } },
+                vdl2: () => { if (vdl2MainEventSource) { vdl2MainEventSource.close(); vdl2MainEventSource = null; } },
+                radiosonde: () => { if (radiosondeEventSource) { radiosondeEventSource.close(); radiosondeEventSource = null; } },
+                meteor: () => typeof MeteorScatter !== 'undefined' && MeteorScatter.destroy?.(),
+            };
+            return moduleDestroyMap[mode] || null;
+        }
+
+        function destroyCurrentMode() {
+            if (!currentMode) return;
+            const destroyFn = getModuleDestroyFn(currentMode);
+            if (destroyFn) {
+                try { destroyFn(); } catch(e) { console.warn(`[destroyCurrentMode] destroy ${currentMode} failed:`, e); }
+            }
+        }
+
         function getActiveScanSummary() {
             return {
                 pager: Boolean(isRunning),
@@ -4100,6 +4137,29 @@
             if (typeof isTscmRunning !== 'undefined' && isTscmRunning && typeof stopTscmSweep === 'function') {
                 Promise.resolve(stopTscmSweep()).catch(() => { });
             }
+
+            // Additional modes with server-side processes that need stopping
+            if (typeof WeFax !== 'undefined' && typeof WeFax.stop === 'function') {
+                Promise.resolve(WeFax.stop()).catch(() => { });
+            }
+            if (typeof WeatherSat !== 'undefined' && typeof WeatherSat.stop === 'function') {
+                Promise.resolve(WeatherSat.stop()).catch(() => { });
+            }
+            if (typeof SSTV !== 'undefined' && typeof SSTV.stop === 'function') {
+                Promise.resolve(SSTV.stop()).catch(() => { });
+            }
+            if (typeof SSTVGeneral !== 'undefined' && typeof SSTVGeneral.stop === 'function') {
+                Promise.resolve(SSTVGeneral.stop()).catch(() => { });
+            }
+            if (typeof SubGhz !== 'undefined' && typeof SubGhz.stop === 'function') {
+                Promise.resolve(SubGhz.stop()).catch(() => { });
+            }
+            if (typeof Meshtastic !== 'undefined' && typeof Meshtastic.stop === 'function') {
+                Promise.resolve(Meshtastic.stop()).catch(() => { });
+            }
+            if (typeof GPS !== 'undefined' && typeof GPS.stop === 'function') {
+                Promise.resolve(GPS.stop()).catch(() => { });
+            }
         }
 
         if (!window._dashboardNavigationStopHookBound) {
@@ -4125,6 +4185,7 @@
                             activeScans: getActiveScanSummary(),
                         });
                     }
+                    destroyCurrentMode();
                     stopActiveLocalScansForNavigation();
                 } catch (_) {
                     // Ignore malformed hrefs.
@@ -4239,31 +4300,11 @@
             await styleReadyPromise;
 
             // Generic module cleanup — destroy previous mode's timers, SSE, etc.
-            const moduleDestroyMap = {
-                subghz: () => typeof SubGhz !== 'undefined' && SubGhz.destroy(),
-                morse: () => typeof MorseMode !== 'undefined' && MorseMode.destroy?.(),
-                spaceweather: () => typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy?.(),
-                weathersat: () => typeof WeatherSat !== 'undefined' && WeatherSat.suspend?.(),
-                wefax: () => typeof WeFax !== 'undefined' && WeFax.destroy?.(),
-                system: () => typeof SystemHealth !== 'undefined' && SystemHealth.destroy?.(),
-                waterfall: () => typeof Waterfall !== 'undefined' && Waterfall.destroy?.(),
-                gps: () => typeof GPS !== 'undefined' && GPS.destroy?.(),
-                meshtastic: () => typeof Meshtastic !== 'undefined' && Meshtastic.destroy?.(),
-                bluetooth: () => typeof BluetoothMode !== 'undefined' && BluetoothMode.destroy?.(),
-                wifi: () => typeof WiFiMode !== 'undefined' && WiFiMode.destroy?.(),
-                bt_locate: () => typeof BtLocate !== 'undefined' && BtLocate.destroy?.(),
-                sstv: () => typeof SSTV !== 'undefined' && SSTV.destroy?.(),
-                sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
-                websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
-                spystations: () => typeof SpyStations !== 'undefined' && SpyStations.destroy?.(),
-                ais: () => { if (aisEventSource) { aisEventSource.close(); aisEventSource = null; } },
-                acars: () => { if (acarsMainEventSource) { acarsMainEventSource.close(); acarsMainEventSource = null; } },
-                vdl2: () => { if (vdl2MainEventSource) { vdl2MainEventSource.close(); vdl2MainEventSource = null; } },
-                radiosonde: () => { if (radiosondeEventSource) { radiosondeEventSource.close(); radiosondeEventSource = null; } },
-                meteor: () => typeof MeteorScatter !== 'undefined' && MeteorScatter.destroy?.(),
-            };
-            if (previousMode && previousMode !== mode && moduleDestroyMap[previousMode]) {
-                try { moduleDestroyMap[previousMode](); } catch(e) { console.warn(`[switchMode] destroy ${previousMode} failed:`, e); }
+            if (previousMode && previousMode !== mode) {
+                const destroyFn = getModuleDestroyFn(previousMode);
+                if (destroyFn) {
+                    try { destroyFn(); } catch(e) { console.warn(`[switchMode] destroy ${previousMode} failed:`, e); }
+                }
             }
 
             currentMode = mode;
@@ -11687,6 +11728,7 @@
                     tscmBaselineComparison = null;
                     tscmIdentityClusters = [];
                     tscmIdentitySummary = null;
+                    tscmHighInterestDevices = [];
                     updateTscmDisplays();
                     updateTscmThreatCounts();
 
@@ -12522,7 +12564,7 @@
             const exists = tscmWifiDevices.some(d => d.bssid === device.bssid);
             if (!exists) {
                 tscmWifiDevices.push(device);
-                updateTscmDisplays();
+                debouncedUpdateTscmDisplays();
                 updateTscmThreatCounts();
                 // Add to findings panel if score >= 3 (review level or higher)
                 if (device.score >= 3) {
@@ -12551,7 +12593,7 @@
                 if (!client.mac) client.mac = mac;
                 client.is_client = true;
                 tscmWifiClients.push(client);
-                updateTscmDisplays();
+                debouncedUpdateTscmDisplays();
                 updateTscmThreatCounts();
                 if (client.score >= 3) {
                     addHighInterestDevice(client, 'wifi');
@@ -12573,7 +12615,7 @@
             if (!exists) {
                 if (!device.mac && mac) device.mac = mac;
                 tscmBtDevices.push(device);
-                updateTscmDisplays();
+                debouncedUpdateTscmDisplays();
                 updateTscmThreatCounts();
                 // Add to threats panel if score >= 3 (review level or higher)
                 if (device.score >= 3) {
@@ -12607,7 +12649,7 @@
                 : 3;
             if (!exists) {
                 tscmRfSignals.push(signal);
-                updateTscmDisplays();
+                debouncedUpdateTscmDisplays();
                 updateTscmThreatCounts();
                 // Add to findings panel if score >= 3 (review level or higher)
                 if (signal.score >= 3) {
@@ -12649,6 +12691,18 @@
             // If there are signals, updateTscmDisplays() will handle the display
         }
 
+        // Debounced versions of expensive display updates to batch rapid-fire device additions
+        let _tscmDisplayTimer = null;
+        function debouncedUpdateTscmDisplays() {
+            if (_tscmDisplayTimer) clearTimeout(_tscmDisplayTimer);
+            _tscmDisplayTimer = setTimeout(() => { _tscmDisplayTimer = null; updateTscmDisplays(); }, 250);
+        }
+        let _tscmHighInterestTimer = null;
+        function debouncedUpdateHighInterestPanel() {
+            if (_tscmHighInterestTimer) clearTimeout(_tscmHighInterestTimer);
+            _tscmHighInterestTimer = setTimeout(() => { _tscmHighInterestTimer = null; updateHighInterestPanel(); }, 250);
+        }
+
         // Track high-interest devices for the threats panel
         let tscmHighInterestDevices = [];
         function addHighInterestDevice(device, protocol) {
@@ -12662,10 +12716,9 @@
                     score: device.score,
                     classification: device.classification,
                     indicators: device.indicators || [],
-                    recommended_action: device.recommended_action,
-                    device: device
+                    recommended_action: device.recommended_action
                 });
-                updateHighInterestPanel();
+                debouncedUpdateHighInterestPanel();
             }
         }
 
@@ -12730,7 +12783,7 @@
 
             // Update dashboard counts
             updateTscmThreatCounts();
-            updateTscmDisplays();
+            debouncedUpdateTscmDisplays();
         }
 
         function readTscmFilters() {
