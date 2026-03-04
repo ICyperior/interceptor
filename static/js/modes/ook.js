@@ -9,6 +9,8 @@
 var OokMode = (function () {
     'use strict';
 
+    var DEFAULT_FREQ_PRESETS = ['433.920', '315.000', '868.000', '915.000'];
+
     var state = {
         running: false,
         initialized: false,
@@ -28,6 +30,7 @@ var OokMode = (function () {
             return;
         }
         state.initialized = true;
+        renderPresets();
         checkStatus();
     }
 
@@ -392,6 +395,58 @@ var OokMode = (function () {
         if (el) el.value = mhz;
     }
 
+    // ---- Frequency presets (localStorage) ----
+
+    function loadPresets() {
+        var saved = localStorage.getItem('ookFreqPresets');
+        return saved ? JSON.parse(saved) : DEFAULT_FREQ_PRESETS.slice();
+    }
+
+    function savePresets(presets) {
+        localStorage.setItem('ookFreqPresets', JSON.stringify(presets));
+    }
+
+    function renderPresets() {
+        var container = document.getElementById('ookPresetButtons');
+        if (!container) return;
+        var presets = loadPresets();
+        container.innerHTML = presets.map(function (freq) {
+            return '<button class="preset-btn" onclick="OokMode.setFreq(\'' + freq + '\')" ' +
+                   'oncontextmenu="OokMode.removePreset(\'' + freq + '\'); return false;" ' +
+                   'title="Right-click to remove">' + freq + '</button>';
+        }).join('');
+    }
+
+    function addPreset() {
+        var input = document.getElementById('ookNewPresetFreq');
+        if (!input) return;
+        var freq = input.value.trim();
+        if (!freq || isNaN(parseFloat(freq))) {
+            alert('Enter a valid frequency (MHz)');
+            return;
+        }
+        var presets = loadPresets();
+        if (presets.indexOf(freq) === -1) {
+            presets.push(freq);
+            savePresets(presets);
+            renderPresets();
+        }
+        input.value = '';
+    }
+
+    function removePreset(freq) {
+        if (!confirm('Remove preset ' + freq + ' MHz?')) return;
+        var presets = loadPresets().filter(function (p) { return p !== freq; });
+        savePresets(presets);
+        renderPresets();
+    }
+
+    function resetPresets() {
+        if (!confirm('Reset to default presets?')) return;
+        savePresets(DEFAULT_FREQ_PRESETS.slice());
+        renderPresets();
+    }
+
     /**
      * Apply a timing preset — fills all six pulse timing fields at once.
      * @param {number} s  Short pulse (µs)
@@ -495,6 +550,10 @@ var OokMode = (function () {
         start: start,
         stop: stop,
         setFreq: setFreq,
+        addPreset: addPreset,
+        removePreset: removePreset,
+        resetPresets: resetPresets,
+        renderPresets: renderPresets,
         setEncoding: setEncoding,
         setTiming: setTiming,
         setBitOrder: setBitOrder,

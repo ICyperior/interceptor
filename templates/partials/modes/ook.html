@@ -16,17 +16,15 @@
             <input type="number" id="ookFrequency" value="433.920" step="0.001" min="1" max="1766">
         </div>
         <div class="form-group">
-            <label>Presets</label>
-            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                <button class="preset-btn" onclick="OokMode.setFreq(433.200)">433.2</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(433.500)">433.5</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(433.600)">433.6</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(433.700)">433.7</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(433.800)">433.8</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(433.920)">433.9</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(315.000)">315</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(868.000)">868</button>
-                <button class="preset-btn" onclick="OokMode.setFreq(915.000)">915</button>
+            <label>Presets <span style="font-size:9px; color:#555;">(right-click to remove)</span></label>
+            <div id="ookPresetButtons" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <!-- Populated by OokMode.renderPresets() -->
+            </div>
+            <div style="margin-top: 6px; display: flex; gap: 4px;">
+                <input type="text" id="ookNewPresetFreq" placeholder="MHz"
+                       style="width: 80px; background: #111; border: 1px solid #222; border-radius: 3px; color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; padding: 3px 6px;">
+                <button class="preset-btn" onclick="OokMode.addPreset()" style="background: #2ecc71; color: #000;">Add</button>
+                <button class="preset-btn" onclick="OokMode.resetPresets()" style="font-size: 10px;">Reset</button>
             </div>
         </div>
     </div>
