@@ -957,7 +957,8 @@ install_satdump_from_source_debian() {
     ) &
     progress_pid=$!
 
-    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. >"$build_log" 2>&1 \
+    if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_CXX_FLAGS="-Wno-template-body" .. >"$build_log" 2>&1 \
         && make -j "$(nproc)" >>"$build_log" 2>&1; then
       kill $progress_pid 2>/dev/null; wait $progress_pid 2>/dev/null
       $SUDO make install >/dev/null 2>&1
