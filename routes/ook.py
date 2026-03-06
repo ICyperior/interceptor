@@ -63,7 +63,11 @@ def start_ook() -> Response:
 
     with app_module.ook_lock:
         if app_module.ook_process:
-            return jsonify({'status': 'error', 'message': 'OOK decoder already running'}), 409
+            # If the process exited/crashed, clean up stale state and allow restart
+            if app_module.ook_process.poll() is not None:
+                cleanup_ook(emit_status=False)
+            else:
+                return jsonify({'status': 'error', 'message': 'OOK decoder already running'}), 409
 
         data = request.json or {}
 

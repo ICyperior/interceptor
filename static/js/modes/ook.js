@@ -414,7 +414,16 @@ var OokMode = (function () {
 
     function loadPresets() {
         var saved = localStorage.getItem('ookFreqPresets');
-        return saved ? JSON.parse(saved) : DEFAULT_FREQ_PRESETS.slice();
+        if (!saved) return DEFAULT_FREQ_PRESETS.slice();
+        try {
+            var parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.every(function (v) {
+                return typeof v === 'string' && Number.isFinite(Number.parseFloat(v));
+            })) {
+                return parsed;
+            }
+        } catch (_) {}
+        return DEFAULT_FREQ_PRESETS.slice();
     }
 
     function savePresets(presets) {
@@ -425,24 +434,37 @@ var OokMode = (function () {
         var container = document.getElementById('ookPresetButtons');
         if (!container) return;
         var presets = loadPresets();
-        container.innerHTML = presets.map(function (freq) {
-            return '<button class="preset-btn" onclick="OokMode.setFreq(\'' + freq + '\')" ' +
-                   'oncontextmenu="OokMode.removePreset(\'' + freq + '\'); return false;" ' +
-                   'title="Right-click to remove">' + freq + '</button>';
-        }).join('');
+        container.textContent = '';
+        presets.forEach(function (freq) {
+            var num = Number.parseFloat(freq);
+            if (!Number.isFinite(num)) return;
+            var normalized = num.toFixed(3);
+            var btn = document.createElement('button');
+            btn.className = 'preset-btn';
+            btn.title = 'Right-click to remove';
+            btn.textContent = normalized;
+            btn.addEventListener('click', function () { OokMode.setFreq(normalized); });
+            btn.addEventListener('contextmenu', function (e) {
+                e.preventDefault();
+                OokMode.removePreset(normalized);
+            });
+            container.appendChild(btn);
+        });
     }
 
     function addPreset() {
         var input = document.getElementById('ookNewPresetFreq');
         if (!input) return;
         var freq = input.value.trim();
-        if (!freq || isNaN(parseFloat(freq))) {
+        var num = Number.parseFloat(freq);
+        if (!freq || !Number.isFinite(num)) {
             alert('Enter a valid frequency (MHz)');
             return;
         }
+        var normalized = num.toFixed(3);
         var presets = loadPresets();
-        if (presets.indexOf(freq) === -1) {
-            presets.push(freq);
+        if (presets.indexOf(normalized) === -1) {
+            presets.push(normalized);
             savePresets(presets);
             renderPresets();
         }
