@@ -26,6 +26,7 @@ from utils.validation import (
     validate_device_index,
     validate_frequency,
     validate_gain,
+    validate_positive_int,
     validate_ppm,
     validate_rtl_tcp_host,
     validate_rtl_tcp_port,
@@ -33,8 +34,13 @@ from utils.validation import (
 
 ook_bp = Blueprint('ook', __name__)
 
-# Track which device is being used
+# Track which device / SDR type is being used
 ook_active_device: int | None = None
+ook_active_sdr_type: str | None = None
+
+# Parser thread state (avoids monkey-patching subprocess.Popen)
+_ook_stop_event: threading.Event | None = None
+_ook_parser_thread: threading.Thread | None = None
 
 # Supported modulation schemes → rtl_433 flex decoder modulation string
 _MODULATION_MAP = {
@@ -53,7 +59,7 @@ def _validate_encoding(value: Any) -> str:
 
 @ook_bp.route('/ook/start', methods=['POST'])
 def start_ook() -> Response:
-    global ook_active_device
+    global ook_active_device, ook_active_sdr_type, _ook_stop_event, _ook_parser_thread
 
     with app_module.ook_lock:
         if app_module.ook_process:
@@ -74,24 +80,36 @@ def start_ook() -> Response:
         except ValueError as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
 
-        # OOK flex decoder timing parameters
+        # OOK flex decoder timing parameters (server-side range validation)
         try:
-            short_pulse = int(data.get('short_pulse', 300))
-            long_pulse = int(data.get('long_pulse', 600))
-            reset_limit = int(data.get('reset_limit', 8000))
-            gap_limit = int(data.get('gap_limit', 5000))
-            tolerance = int(data.get('tolerance', 150))
-            min_bits = int(data.get('min_bits', 8))
-        except (ValueError, TypeError) as e:
+            short_pulse = validate_positive_int(data.get('short_pulse', 300), 'short_pulse', max_val=100000)
+            long_pulse = validate_positive_int(data.get('long_pulse', 600), 'long_pulse', max_val=100000)
+            reset_limit = validate_positive_int(data.get('reset_limit', 8000), 'reset_limit', max_val=1000000)
+            gap_limit = validate_positive_int(data.get('gap_limit', 5000), 'gap_limit', max_val=1000000)
+            tolerance = validate_positive_int(data.get('tolerance', 150), 'tolerance', max_val=50000)
+            min_bits = validate_positive_int(data.get('min_bits', 8), 'min_bits', max_val=4096)
+        except ValueError as e:
             return jsonify({'status': 'error', 'message': f'Invalid timing parameter: {e}'}), 400
+        if min_bits < 1:
+            return jsonify({'status': 'error', 'message': 'min_bits must be >= 1'}), 400
+        if short_pulse < 1 or long_pulse < 1:
+            return jsonify({'status': 'error', 'message': 'Pulse widths must be >= 1'}), 400
         deduplicate = bool(data.get('deduplicate', False))
+
+        # Parse SDR type early — needed for device claim
+        sdr_type_str = data.get('sdr_type', 'rtlsdr')
+        try:
+            sdr_type = SDRType(sdr_type_str)
+        except ValueError:
+            sdr_type = SDRType.RTL_SDR
+            sdr_type_str = 'rtlsdr'
 
         rtl_tcp_host = data.get('rtl_tcp_host') or None
         rtl_tcp_port = data.get('rtl_tcp_port', 1234)
 
         if not rtl_tcp_host:
             device_int = int(device)
-            error = app_module.claim_sdr_device(device_int, 'ook')
+            error = app_module.claim_sdr_device(device_int, 'ook', sdr_type_str)
             if error:
                 return jsonify({
                     'status': 'error',
@@ -99,18 +117,13 @@ def start_ook() -> Response:
                     'message': error,
                 }), 409
             ook_active_device = device_int
+            ook_active_sdr_type = sdr_type_str
 
         while not app_module.ook_queue.empty():
             try:
                 app_module.ook_queue.get_nowait()
             except queue.Empty:
                 break
-
-        sdr_type_str = data.get('sdr_type', 'rtlsdr')
-        try:
-            sdr_type = SDRType(sdr_type_str)
-        except ValueError:
-            sdr_type = SDRType.RTL_SDR
 
         if rtl_tcp_host:
             try:
@@ -130,8 +143,8 @@ def start_ook() -> Response:
         cmd = builder.build_ism_command(
             device=sdr_device,
             frequency_mhz=freq,
-            gain=float(gain) if gain and gain != '0' else None,
-            ppm=int(ppm) if ppm and ppm != '0' else None,
+            gain=float(gain) if gain and gain != 0 else None,
+            ppm=int(ppm) if ppm and ppm != 0 else None,
             bias_t=bias_t,
         )
 
@@ -195,11 +208,11 @@ def start_ook() -> Response:
             parser_thread.start()
 
             app_module.ook_process = rtl_process
-            app_module.ook_process._stop_parser = stop_event
-            app_module.ook_process._parser_thread = parser_thread
+            _ook_stop_event = stop_event
+            _ook_parser_thread = parser_thread
 
             try:
-                app_module.ook_queue.put_nowait({'type': 'status', 'status': 'started'})
+                app_module.ook_queue.put_nowait({'type': 'status', 'text': 'started'})
             except queue.Full:
                 logger.warning("OOK 'started' status dropped — queue full")
 
@@ -214,8 +227,9 @@ def start_ook() -> Response:
 
         except FileNotFoundError as e:
             if ook_active_device is not None:
-                app_module.release_sdr_device(ook_active_device)
+                app_module.release_sdr_device(ook_active_device, ook_active_sdr_type or 'rtlsdr')
                 ook_active_device = None
+                ook_active_sdr_type = None
             return jsonify({'status': 'error', 'message': f'Tool not found: {e.filename}'}), 400
 
         except Exception as e:
@@ -227,8 +241,9 @@ def start_ook() -> Response:
                     rtl_process.kill()
             unregister_process(rtl_process)
             if ook_active_device is not None:
-                app_module.release_sdr_device(ook_active_device)
+                app_module.release_sdr_device(ook_active_device, ook_active_sdr_type or 'rtlsdr')
                 ook_active_device = None
+                ook_active_sdr_type = None
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
@@ -239,40 +254,54 @@ def _close_pipe(pipe_obj) -> None:
             pipe_obj.close()
 
 
+def cleanup_ook(*, emit_status: bool = True) -> None:
+    """Full OOK cleanup: stop parser, terminate process, release SDR device.
+
+    Safe to call from ``stop_ook()`` and ``kill_all()``.  Caller must hold
+    ``app_module.ook_lock``.
+    """
+    global ook_active_device, ook_active_sdr_type, _ook_stop_event, _ook_parser_thread
+
+    proc = app_module.ook_process
+    if not proc:
+        return
+
+    # Signal parser thread to stop
+    if _ook_stop_event:
+        _ook_stop_event.set()
+
+    # Close pipes so parser thread unblocks from readline()
+    _close_pipe(getattr(proc, 'stdout', None))
+    _close_pipe(getattr(proc, 'stderr', None))
+
+    safe_terminate(proc)
+    unregister_process(proc)
+    app_module.ook_process = None
+
+    # Join parser thread with timeout
+    if _ook_parser_thread:
+        _ook_parser_thread.join(timeout=0.5)
+
+    _ook_stop_event = None
+    _ook_parser_thread = None
+
+    if ook_active_device is not None:
+        app_module.release_sdr_device(ook_active_device, ook_active_sdr_type or 'rtlsdr')
+        ook_active_device = None
+        ook_active_sdr_type = None
+
+    if emit_status:
+        try:
+            app_module.ook_queue.put_nowait({'type': 'status', 'text': 'stopped'})
+        except queue.Full:
+            logger.warning("OOK 'stopped' status dropped — queue full")
+
+
 @ook_bp.route('/ook/stop', methods=['POST'])
 def stop_ook() -> Response:
-    global ook_active_device
-
     with app_module.ook_lock:
         if app_module.ook_process:
-            proc = app_module.ook_process
-            stop_event = getattr(proc, '_stop_parser', None)
-            parser_thread = getattr(proc, '_parser_thread', None)
-
-            # Signal parser thread to stop
-            if stop_event:
-                stop_event.set()
-
-            # Close pipes so parser thread unblocks from readline()
-            _close_pipe(getattr(proc, 'stdout', None))
-            _close_pipe(getattr(proc, 'stderr', None))
-
-            safe_terminate(proc)
-            unregister_process(proc)
-            app_module.ook_process = None
-
-            # Join parser thread with timeout
-            if parser_thread:
-                parser_thread.join(timeout=0.5)
-
-            if ook_active_device is not None:
-                app_module.release_sdr_device(ook_active_device)
-                ook_active_device = None
-
-            try:
-                app_module.ook_queue.put_nowait({'type': 'status', 'status': 'stopped'})
-            except queue.Full:
-                logger.warning("OOK 'stopped' status dropped — queue full")
+            cleanup_ook()
             return jsonify({'status': 'stopped'})
 
         return jsonify({'status': 'not_running'})

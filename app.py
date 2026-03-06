@@ -896,12 +896,16 @@ def kill_all() -> Response:
     with morse_lock:
         morse_process = None
 
-    # Reset OOK state
+    # Reset OOK state (full cleanup: parser thread, pipes, SDR release)
     with ook_lock:
-        if ook_process:
-            safe_terminate(ook_process)
-            unregister_process(ook_process)
-        ook_process = None
+        try:
+            from routes.ook import cleanup_ook
+            cleanup_ook(emit_status=False)
+        except Exception:
+            if ook_process:
+                safe_terminate(ook_process)
+                unregister_process(ook_process)
+            ook_process = None
 
     # Reset APRS state
     with aprs_lock:

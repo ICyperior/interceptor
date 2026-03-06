@@ -77,11 +77,8 @@ def ook_parser_thread(
     """Thread function: reads rtl_433 JSON output and emits OOK frame events.
 
     Handles the three rtl_433 hex-output field names (``codes``, ``code``,
-    ``data``) and, if the initial hex decoding fails, retries with an
-    inverted bit interpretation.  This inversion fallback is only applied
-    when the primary parse yields no usable hex; it does not attempt to
-    reinterpret successfully decoded frames that merely swap the short/long
-    pulse mapping.
+    ``data``).  Emits a ``status: stopped`` event when the parser exits
+    (normal EOF or unexpected crash) so the frontend can update its UI.
 
     Args:
         rtl_stdout: rtl_433 stdout pipe.
@@ -144,7 +141,7 @@ def ook_parser_thread(
                     break
 
             if not codes:
-                logger.debug(
+                logger.warning(
                     f'[rtl_433/ook] no code field — keys: {list(data.keys())}'
                 )
                 try:
@@ -165,21 +162,7 @@ def ook_parser_thread(
                     if brace_end >= 0:
                         hex_str = hex_str[brace_end + 1:]
 
-                inverted = False
                 frame = decode_ook_frame(hex_str)
-                if frame is None:
-                    # Some transmitters use long=0, short=1 (inverted ratio).
-                    try:
-                        inv_bytes = bytes(
-                            b ^ 0xFF
-                            for b in bytes.fromhex(hex_str.replace(' ', ''))
-                        )
-                        frame = decode_ook_frame(inv_bytes.hex())
-                        if frame is not None:
-                            inverted = True
-                    except ValueError:
-                        pass
-
                 if frame is None:
                     continue
 
@@ -199,7 +182,7 @@ def ook_parser_thread(
                         'bits': frame['bits'],
                         'byte_count': frame['byte_count'],
                         'bit_count': frame['bit_count'],
-                        'inverted': inverted,
+                        'inverted': False,
                         'encoding': encoding,
                         'timestamp': timestamp,
                     }
@@ -210,8 +193,15 @@ def ook_parser_thread(
                     pass
 
     except Exception as e:
-        logger.debug(f'OOK parser thread error: {e}')
+        logger.warning(f'OOK parser thread error: {e}')
         try:
             output_queue.put_nowait({'type': 'error', 'text': str(e)})
         except queue.Full:
             pass
+
+    # Notify frontend that the parser has stopped (covers both normal exit
+    # and unexpected rtl_433 crashes so the UI doesn't stay in "Listening").
+    try:
+        output_queue.put_nowait({'type': 'status', 'text': 'stopped'})
+    except queue.Full:
+        pass

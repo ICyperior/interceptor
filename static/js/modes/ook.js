@@ -12,6 +12,13 @@ var OokMode = (function () {
     var DEFAULT_FREQ_PRESETS = ['433.920', '315.000', '868.000', '915.000'];
     var MAX_FRAMES = 5000;
 
+    // Local XSS-safe escape — never fall back to raw innerHTML
+    var _esc = typeof escapeHtml === 'function' ? escapeHtml : function (s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    };
+
     var state = {
         running: false,
         initialized: false,
@@ -147,7 +154,7 @@ var OokMode = (function () {
         if (msg.type === 'ook_frame') {
             handleFrame(msg);
         } else if (msg.type === 'status') {
-            if (msg.status === 'stopped') {
+            if (msg.text === 'stopped') {
                 state.running = false;
                 updateUI(false);
                 disconnectSSE();
@@ -245,7 +252,7 @@ var OokMode = (function () {
             '</span>' +
             '<br>' +
             '<span style="padding-left:8em; color:' + (hasPrintable ? '#aaffcc' : '#555') + '; font-family:var(--font-mono); font-size:10px">' +
-            'ascii: ' + (typeof escapeHtml === 'function' ? escapeHtml(interp.ascii) : interp.ascii) +
+            'ascii: ' + _esc(interp.ascii) +
             '</span>';
 
         div.style.cssText = 'font-size:11px; padding: 4px 0; border-bottom: 1px solid #1a1a1a; line-height:1.6;';
