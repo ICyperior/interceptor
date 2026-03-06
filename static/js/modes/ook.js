@@ -235,25 +235,46 @@ var OokMode = (function () {
         div.dataset.inverted = msg.inverted ? '1' : '0';
 
         var color = hasPrintable ? '#00ff88' : 'var(--text-dim)';
-        var suffix = '';
-        if (msg.inverted) suffix += ' <span style="opacity:.5">(inv)</span>';
 
-        var rssiStr = (msg.rssi !== undefined && msg.rssi !== null)
-            ? '  <span style="color:#666; font-size:10px">' + msg.rssi.toFixed(1) + ' dB SNR</span>'
-            : '';
+        // Build header line: timestamp [bitcount] rssi (inv)
+        var tsSpan = document.createElement('span');
+        tsSpan.style.color = 'var(--text-dim)';
+        tsSpan.textContent = msg.timestamp;
 
-        div.innerHTML =
-            '<span style="color:var(--text-dim)">' + msg.timestamp + '</span>' +
-            '  <span style="color:#888">[' + msg.bit_count + 'b]</span>' +
-            rssiStr + suffix +
-            '<br>' +
-            '<span style="padding-left:8em; color:' + color + '; font-family:var(--font-mono); font-size:10px">' +
-            'hex: ' + interp.hex +
-            '</span>' +
-            '<br>' +
-            '<span style="padding-left:8em; color:' + (hasPrintable ? '#aaffcc' : '#555') + '; font-family:var(--font-mono); font-size:10px">' +
-            'ascii: ' + _esc(interp.ascii) +
-            '</span>';
+        var bcSpan = document.createElement('span');
+        bcSpan.style.color = '#888';
+        bcSpan.textContent = '  [' + msg.bit_count + 'b]';
+
+        div.appendChild(tsSpan);
+        div.appendChild(bcSpan);
+
+        if (msg.rssi !== undefined && msg.rssi !== null) {
+            var rssiSpan = document.createElement('span');
+            rssiSpan.style.cssText = 'color:#666; font-size:10px';
+            rssiSpan.textContent = '  ' + msg.rssi.toFixed(1) + ' dB SNR';
+            div.appendChild(rssiSpan);
+        }
+
+        if (msg.inverted) {
+            var invSpan = document.createElement('span');
+            invSpan.style.opacity = '.5';
+            invSpan.textContent = ' (inv)';
+            div.appendChild(invSpan);
+        }
+
+        // Hex line
+        div.appendChild(document.createElement('br'));
+        var hexSpan = document.createElement('span');
+        hexSpan.style.cssText = 'padding-left:8em; color:' + color + '; font-family:var(--font-mono); font-size:10px';
+        hexSpan.textContent = 'hex: ' + interp.hex;
+        div.appendChild(hexSpan);
+
+        // ASCII line
+        div.appendChild(document.createElement('br'));
+        var ascSpan = document.createElement('span');
+        ascSpan.style.cssText = 'padding-left:8em; color:' + (hasPrintable ? '#aaffcc' : '#555') + '; font-family:var(--font-mono); font-size:10px';
+        ascSpan.textContent = 'ascii: ' + interp.ascii;
+        div.appendChild(ascSpan);
 
         div.style.cssText = 'font-size:11px; padding: 4px 0; border-bottom: 1px solid #1a1a1a; line-height:1.6;';
 
