@@ -1060,13 +1060,13 @@ install_radiosonde_auto_rx() {
     info "Installing Python dependencies..."
     cd "$tmp_dir/radiosonde_auto_rx/auto_rx"
     if [ -x "$project_dir/venv/bin/pip" ]; then
-      "$project_dir/venv/bin/pip" install --quiet -r requirements.txt || {
+      "$project_dir/venv/bin/pip" install --quiet -r requirements.txt semver || {
         warn "Failed to install radiosonde_auto_rx Python dependencies"
         exit 1
       }
     else
-      pip3 install --quiet --break-system-packages -r requirements.txt 2>/dev/null \
-        || pip3 install --quiet -r requirements.txt || {
+      pip3 install --quiet --break-system-packages -r requirements.txt semver 2>/dev/null \
+        || pip3 install --quiet -r requirements.txt semver || {
         warn "Failed to install radiosonde_auto_rx Python dependencies"
         exit 1
       }

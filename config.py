@@ -7,10 +7,20 @@ import os
 import sys
 
 # Application version
-VERSION = "2.23.0"
+VERSION = "2.24.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.24.0",
+        "date": "March 2026",
+        "highlights": [
+            "WiFi Locate mode — locate access points by BSSID with real-time signal meter, distance estimation, RSSI chart, and audio proximity tones",
+            "Mobile navigation reorganized into labeled groups for better usability",
+            "flask-limiter made optional for graceful degradation",
+            "Radiosonde setup fix — missing semver dependency",
+        ]
+    },
     {
         "version": "2.23.0",
         "date": "February 2026",

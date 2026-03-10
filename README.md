@@ -45,6 +45,7 @@ Support the developer of this open-source project
 - **WiFi Scanning** - Monitor mode reconnaissance via aircrack-ng
 - **Bluetooth Scanning** - Device discovery and tracker detection (with Ubertooth support)
 - **BT Locate** - SAR Bluetooth device location with GPS-tagged signal trail mapping and proximity alerts
+- **WiFi Locate** - Locate WiFi access points by BSSID with real-time signal meter, distance estimation, and proximity audio
 - **GPS** - Real-time GPS position tracking with live map, speed, altitude, and satellite info
 - **TSCM** - Counter-surveillance with RF baseline comparison and threat detection
 - **Meshtastic** - LoRa mesh network integration

@@ -51,6 +51,7 @@
                 <div class="icon-item"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg></span><span class="desc">WiFi - Network scanner</span></div>
                 <div class="icon-item"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 22 12 2 17.5 6.5 6.5 17.5"/></svg></span><span class="desc">Bluetooth - BT/BLE scanner</span></div>
                 <div class="icon-item"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/><path d="M9.5 8.5l3 3 2-4-2 4-3 3"/></svg></span><span class="desc">BT Locate - Bluetooth device locator</span></div>
+                <div class="icon-item"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="2"/><path d="M12 14v-2"/></svg></span><span class="desc">WiFi Locate - WiFi AP locator</span></div>
                 <div class="icon-item"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><span class="desc">TSCM - Counter-surveillance</span></div>
                 <div class="icon-item"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></span><span class="desc">Satellite - Pass prediction</span></div>
                 <div class="icon-item"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M3 9h2"/><path d="M19 9h2"/><path d="M3 15h2"/><path d="M19 15h2"/></svg></span><span class="desc">ISS SSTV - Space station image decoder</span></div>
@@ -249,6 +250,16 @@
                 <li>Useful for finding lost devices or detecting unwanted trackers</li>
             </ul>
 
+            <h3>WiFi Locate Mode</h3>
+            <ul class="tip-list">
+                <li>Locate a WiFi access point by BSSID using real-time signal strength</li>
+                <li>Big dBm meter, 20-segment signal bar, and RSSI history chart</li>
+                <li>Distance estimation using log-distance path loss model with environment presets</li>
+                <li>Audio proximity tones that speed up as signal strengthens</li>
+                <li>Hand off from WiFi mode &mdash; click "Locate" on any network in the detail drawer</li>
+                <li>Deep scan auto-starts if not already running</li>
+            </ul>
+
             <h3>TSCM Mode</h3>
             <ul class="tip-list">
                 <li>Technical Surveillance Countermeasures sweep</li>
@@ -362,6 +373,7 @@
                 <li><strong>WiFi:</strong> Monitor-mode adapter, aircrack-ng suite</li>
                 <li><strong>Bluetooth:</strong> Bluetooth adapter, bluez (hcitool/bluetoothctl)</li>
                 <li><strong>BT Locate:</strong> Bluetooth adapter, bluez</li>
+                <li><strong>WiFi Locate:</strong> WiFi adapter (monitor mode), aircrack-ng suite</li>
                 <li><strong>TSCM:</strong> WiFi adapter, Bluetooth adapter, RTL-SDR (all optional)</li>
                 <li>Run as root/sudo for full hardware access</li>
             </ul>

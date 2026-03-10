@@ -212,6 +212,7 @@ Extended base for full-screen dashboards (maps, visualizations).
 | `websdr` | WebSDR |
 | `subghz` | Sub-GHz analyzer |
 | `bt_locate` | BT Locate |
+| `wifi_locate` | WiFi Locate |
 | `analytics` | Analytics dashboard |
 | `spaceweather` | Space weather |
 ### Navigation Groups
@@ -220,7 +221,7 @@ The navigation is organized into groups:
 - **Signals**: Pager, 433MHz, Meters, Listening Post, SubGHz
 - **Tracking**: Aircraft, Vessels, APRS, GPS
 - **Space**: Satellite, ISS SSTV, Weather Sat, HF SSTV, Space Weather
-- **Wireless**: WiFi, Bluetooth, BT Locate, Meshtastic
+- **Wireless**: WiFi, Bluetooth, BT Locate, WiFi Locate, Meshtastic
 - **Intel**: TSCM, Analytics, Spy Stations, WebSDR
 
 ---

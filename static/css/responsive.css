@@ -322,6 +322,57 @@
     flex-shrink: 0;
 }
 
+/* ============== MOBILE NAV GROUPS ============== */
+.mobile-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.mobile-nav-group-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary, #6b7280);
+    padding: 4px 6px 4px 8px;
+    white-space: nowrap;
+    border-left: 2px solid var(--border-color, #1f2937);
+    flex-shrink: 0;
+}
+
+.mobile-nav-group:first-child .mobile-nav-group-label {
+    border-left: none;
+    padding-left: 0;
+}
+
+/* ============== MOBILE NAV UTILITIES ============== */
+.mobile-nav-utils {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-left: 8px;
+    border-left: 2px solid var(--accent-cyan, #4a9eff);
+}
+
+/* Hide mobile nav utilities on desktop (desktop has .nav-utilities) */
+@media (min-width: 1024px) {
+    .mobile-nav-utils {
+        display: none;
+    }
+}
+
+/* ============== TABLET: WRAP MOBILE NAV ============== */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .mobile-nav-bar {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        justify-content: center;
+    }
+}
+
 /* Hide mobile nav bar on desktop */
 @media (min-width: 1024px) {
     .mobile-nav-bar {

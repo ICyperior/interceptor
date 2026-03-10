@@ -276,6 +276,34 @@ Search and rescue Bluetooth device location with GPS-tagged signal trail mapping
 - Bluetooth adapter (built-in or USB)
 - GPS receiver (optional, falls back to manual coordinates)
 
+## WiFi Locate
+
+Locate a WiFi access point by BSSID using real-time signal strength tracking.
+
+### Core Features
+- **Target by BSSID** - Enter any MAC address or hand off from the WiFi scanner
+- **Real-time signal meter** - Large dBm display with color-coded strength (good/medium/weak)
+- **20-segment signal bar** - Visual proximity indicator with red/yellow/green segments
+- **RSSI history chart** - Canvas sparkline showing signal trend over time
+- **Distance estimation** - Log-distance path loss model with configurable environment presets
+- **Audio proximity alerts** - Web Audio API tones that increase in pitch and frequency as signal strengthens
+- **Signal lost detection** - 30-second timeout with visual overlay when target disappears
+- **Hand-off from WiFi mode** - One-click transfer from WiFi detail drawer to WiFi Locate
+- **Stats tracking** - Current, min, max, and average RSSI across session
+
+### Environment Presets
+- **Open Field** (n=2.0) - Free space path loss
+- **Outdoor** (n=2.8) - Typical outdoor environment (default)
+- **Indoor** (n=3.5) - Indoor with walls and obstacles
+
+### Mode Transition
+- WiFi scan is preserved when switching between WiFi and WiFi Locate modes
+- Deep scan auto-starts if not already running
+
+### Requirements
+- WiFi adapter capable of monitor mode
+- aircrack-ng suite for deep scanning
+
 ## GPS Mode
 
 Real-time GPS position tracking with live map visualization.

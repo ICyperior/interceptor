@@ -42,8 +42,12 @@ from utils.constants import (
     QUEUE_MAX_SIZE,
 )
 import logging
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _has_limiter = True
+except ImportError:
+    _has_limiter = False
 # Track application start time for uptime calculation
 import time as _time
 _app_start_time = _time.time()
@@ -54,11 +58,24 @@ app = Flask(__name__)
 app.secret_key = "signals_intelligence_secret" # Required for flash messages
 
 # Set up rate limiting
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    storage_uri="memory://",
-)
+if _has_limiter:
+    limiter = Limiter(
+        key_func=get_remote_address,
+        app=app,
+        storage_uri="memory://",
+    )
+else:
+    logging.getLogger('intercept').warning(
+        "flask-limiter not installed – rate limiting disabled. "
+        "Install with: pip install flask-limiter"
+    )
+    class _NoopLimiter:
+        """Stub so @limiter.limit() decorators are silently ignored."""
+        def limit(self, *a, **kw):
+            def decorator(f):
+                return f
+            return decorator
+    limiter = _NoopLimiter()
 
 # Disable Werkzeug debugger PIN (not needed for local development tool)
 os.environ['WERKZEUG_DEBUG_PIN'] = 'off'

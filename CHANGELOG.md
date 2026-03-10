@@ -2,6 +2,18 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.24.0] - 2026-03-10
+
+### Added
+- **WiFi Locate Mode** - Locate WiFi access points by BSSID with real-time signal meter, distance estimation, RSSI chart, and audio proximity tones. Hand-off from WiFi detail drawer, environment presets (Free Space/Outdoor/Indoor), and signal-lost detection.
+
+### Changed
+- Mobile navigation bar reorganized into labeled groups (SIG, TRK, SPC, WIFI, INTEL, SYS) for better usability
+- flask-limiter made optional — rate limiting degrades gracefully if package is missing
+
+### Fixed
+- Radiosonde setup missing `semver` Python dependency — `setup.sh` now explicitly installs it alongside `requirements.txt`
+
 ## [2.23.0] - 2026-02-27
 
 ### Added

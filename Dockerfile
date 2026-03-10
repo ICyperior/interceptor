@@ -204,7 +204,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && cd /tmp \
     && git clone --depth 1 https://github.com/projecthorus/radiosonde_auto_rx.git \
     && cd radiosonde_auto_rx/auto_rx \
-    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt semver \
     && bash build.sh \
     && mkdir -p /opt/radiosonde_auto_rx/auto_rx \
     && cp -r . /opt/radiosonde_auto_rx/auto_rx/ \

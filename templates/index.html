@@ -81,6 +81,7 @@
             gps: "{{ url_for('static', filename='css/modes/gps.css') }}",
             subghz: "{{ url_for('static', filename='css/modes/subghz.css') }}?v={{ version }}&r=subghz_layout9",
             bt_locate: "{{ url_for('static', filename='css/modes/bt_locate.css') }}?v={{ version }}&r=btlocate4",
+            wifi_locate: "{{ url_for('static', filename='css/modes/wifi_locate.css') }}?v={{ version }}&r=wflocate1",
             spaceweather: "{{ url_for('static', filename='css/modes/space-weather.css') }}",
             wefax: "{{ url_for('static', filename='css/modes/wefax.css') }}",
             morse: "{{ url_for('static', filename='css/modes/morse.css') }}",
@@ -368,6 +369,10 @@
                             <button class="mode-card mode-card-sm" onclick="selectMode('bt_locate')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/><path d="M9.5 8.5l3 3 2-4-2 4-3 3"/></svg></span>
                                 <span class="mode-name">BT Locate</span>
+                            </button>
+                            <button class="mode-card mode-card-sm" onclick="selectMode('wifi_locate')">
+                                <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="2"/><path d="M12 14v-2"/></svg></span>
+                                <span class="mode-name">WF Locate</span>
                             </button>
                             <button class="mode-card mode-card-sm" onclick="selectMode('meshtastic')">
                                 <span class="mode-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span>
@@ -721,6 +726,7 @@
                 {% include 'partials/modes/subghz.html' %}
 
                 {% include 'partials/modes/bt_locate.html' %}
+                {% include 'partials/modes/wifi_locate.html' %}
                 {% include 'partials/modes/waterfall.html' %}
                 {% include 'partials/modes/meteor.html' %}
                 {% include 'partials/modes/system.html' %}
@@ -889,6 +895,10 @@
                                 <span class="wifi-detail-essid" id="wifiDetailEssid">Network Name</span>
                                 <span class="wifi-detail-bssid" id="wifiDetailBssid">00:00:00:00:00:00</span>
                             </div>
+                            <button class="wfl-locate-btn" onclick="WiFiLocate.handoff({bssid: document.getElementById('wifiDetailBssid')?.textContent, ssid: document.getElementById('wifiDetailEssid')?.textContent})" title="Locate this AP">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>
+                                Locate
+                            </button>
                             <button class="wifi-detail-close" onclick="WiFiMode.closeDetail()">&times;</button>
                         </div>
                         <div class="wifi-detail-content" id="wifiDetailContent">
@@ -1960,6 +1970,39 @@
                     <div class="btl-rssi-chart-container">
                         <span class="btl-chart-label">RSSI History</span>
                         <canvas id="btLocateRssiChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- WiFi Locate Dashboard -->
+                <div id="wflVisuals" class="wfl-visuals-container" style="display: none;">
+                    <div class="wfl-hud" id="wflHud" style="display: none;">
+                        <div class="wfl-hud-header">
+                            <div class="wfl-hud-target">
+                                <span class="wfl-target-ssid" id="wflTargetSsid">--</span>
+                                <span class="wfl-target-bssid" id="wflTargetBssid">--</span>
+                            </div>
+                            <label class="wfl-hud-audio-toggle">
+                                <input type="checkbox" id="wflAudioEnable" onchange="WiFiLocate.toggleAudio()"> Audio
+                            </label>
+                            <button class="wfl-hud-stop-btn" onclick="WiFiLocate.stop()">Stop Tracking</button>
+                        </div>
+                        <div class="wfl-rssi-display" id="wflRssiValue">--</div>
+                        <div class="wfl-distance" id="wflDistance">--</div>
+                        <div class="wfl-bar-container" id="wflBarContainer"></div>
+                        <div class="wfl-rssi-chart-container">
+                            <span class="wfl-chart-label">RSSI History</span>
+                            <canvas id="wflRssiChart"></canvas>
+                        </div>
+                        <div class="wfl-stats">
+                            <div class="wfl-stat"><span class="wfl-stat-value" id="wflStatCurrent">--</span><span class="wfl-stat-label">Current</span></div>
+                            <div class="wfl-stat"><span class="wfl-stat-value" id="wflStatMin">--</span><span class="wfl-stat-label">Min</span></div>
+                            <div class="wfl-stat"><span class="wfl-stat-value" id="wflStatMax">--</span><span class="wfl-stat-label">Max</span></div>
+                            <div class="wfl-stat"><span class="wfl-stat-value" id="wflStatAvg">--</span><span class="wfl-stat-label">Avg</span></div>
+                        </div>
+                        <div class="wfl-signal-lost" id="wflSignalLost" style="display: none;">SIGNAL LOST</div>
+                    </div>
+                    <div class="wfl-waiting" id="wflWaiting">
+                        <p>Enter a target BSSID and click Start Locate</p>
                     </div>
                 </div>
 
@@ -3391,6 +3434,7 @@
     <script src="{{ url_for('static', filename='js/modes/websdr.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/subghz.js') }}?v={{ version }}&r=subghz_layout9"></script>
     <script src="{{ url_for('static', filename='js/modes/bt_locate.js') }}?v={{ version }}&r=btlocate4"></script>
+    <script src="{{ url_for('static', filename='js/modes/wifi_locate.js') }}?v={{ version }}&r=wflocate1"></script>
     <script src="{{ url_for('static', filename='js/modes/wefax.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modes/morse.js') }}?v={{ version }}&r=morse_iq12"></script>
     <script src="{{ url_for('static', filename='js/modes/ook.js') }}?v={{ version }}&r=ook2"></script>
@@ -3546,6 +3590,7 @@
             wifi: { label: 'WiFi', indicator: 'WIFI', outputTitle: 'WiFi Scanner', group: 'wireless' },
             bluetooth: { label: 'Bluetooth', indicator: 'BLUETOOTH', outputTitle: 'Bluetooth Scanner', group: 'wireless' },
             bt_locate: { label: 'BT Locate', indicator: 'BT LOCATE', outputTitle: 'BT Locate — SAR Tracker', group: 'wireless' },
+            wifi_locate: { label: 'WiFi Locate', indicator: 'WF LOCATE', outputTitle: 'WiFi Locate', group: 'wireless' },
             meshtastic: { label: 'Meshtastic', indicator: 'MESHTASTIC', outputTitle: 'Meshtastic Mesh Monitor', group: 'wireless' },
             tscm: { label: 'TSCM', indicator: 'TSCM', outputTitle: 'TSCM Counter-Surveillance', group: 'intel' },
             spystations: { label: 'Spy Stations', indicator: 'SPY STATIONS', outputTitle: 'Spy Stations', group: 'intel' },
@@ -4099,6 +4144,7 @@
                 bluetooth: () => typeof BluetoothMode !== 'undefined' && BluetoothMode.destroy?.(),
                 wifi: () => typeof WiFiMode !== 'undefined' && WiFiMode.destroy?.(),
                 bt_locate: () => typeof BtLocate !== 'undefined' && BtLocate.destroy?.(),
+                wifi_locate: () => typeof WiFiLocate !== 'undefined' && WiFiLocate.destroy?.(),
                 sstv: () => typeof SSTV !== 'undefined' && SSTV.destroy?.(),
                 sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
                 websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
@@ -4317,7 +4363,10 @@
                     && typeof WiFiMode.isScanning === 'function'
                     && WiFiMode.isScanning()
                 ) || isWifiRunning;
-                if (wifiScanActive) {
+                const isWifiModeTransition =
+                    (currentMode === 'wifi' && mode === 'wifi_locate') ||
+                    (currentMode === 'wifi_locate' && mode === 'wifi');
+                if (wifiScanActive && !isWifiModeTransition) {
                     stopTasks.push(awaitStopAction('wifi', () => stopWifiScan(), LOCAL_STOP_TIMEOUT_MS));
                 }
                 const btScanActive = (typeof BluetoothMode !== 'undefined' &&
@@ -4378,6 +4427,10 @@
             document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.mode === mode);
             });
+            const activeMobileBtn = document.querySelector('.mobile-nav-btn.active');
+            if (activeMobileBtn) {
+                activeMobileBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
             document.getElementById('pagerMode')?.classList.toggle('active', mode === 'pager');
             document.getElementById('sensorMode')?.classList.toggle('active', mode === 'sensor');
             document.getElementById('rtlamrMode')?.classList.toggle('active', mode === 'rtlamr');
@@ -4390,6 +4443,7 @@
             document.getElementById('wifiMode')?.classList.toggle('active', mode === 'wifi');
             document.getElementById('bluetoothMode')?.classList.toggle('active', mode === 'bluetooth');
             document.getElementById('btLocateMode')?.classList.toggle('active', mode === 'bt_locate');
+            document.getElementById('wflMode')?.classList.toggle('active', mode === 'wifi_locate');
             document.getElementById('aprsMode')?.classList.toggle('active', mode === 'aprs');
             document.getElementById('tscmMode')?.classList.toggle('active', mode === 'tscm');
             document.getElementById('aisMode')?.classList.toggle('active', mode === 'ais');
@@ -4442,6 +4496,7 @@
             const websdrVisuals = document.getElementById('websdrVisuals');
             const subghzVisuals = document.getElementById('subghzVisuals');
             const btLocateVisuals = document.getElementById('btLocateVisuals');
+            const wflVisuals = document.getElementById('wflVisuals');
             const wefaxVisuals = document.getElementById('wefaxVisuals');
             const spaceWeatherVisuals = document.getElementById('spaceWeatherVisuals');
             const waterfallVisuals = document.getElementById('waterfallVisuals');
@@ -4466,6 +4521,7 @@
             if (websdrVisuals) websdrVisuals.style.display = mode === 'websdr' ? 'flex' : 'none';
             if (subghzVisuals) subghzVisuals.style.display = mode === 'subghz' ? 'flex' : 'none';
             if (btLocateVisuals) btLocateVisuals.style.display = mode === 'bt_locate' ? 'flex' : 'none';
+            if (wflVisuals) wflVisuals.style.display = mode === 'wifi_locate' ? 'flex' : 'none';
             if (wefaxVisuals) wefaxVisuals.style.display = mode === 'wefax' ? 'flex' : 'none';
             if (spaceWeatherVisuals) spaceWeatherVisuals.style.display = mode === 'spaceweather' ? 'flex' : 'none';
             if (waterfallVisuals) waterfallVisuals.style.display = mode === 'waterfall' ? 'flex' : 'none';
@@ -4476,6 +4532,9 @@
             // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
             if (typeof BtLocate !== 'undefined' && BtLocate.setActiveMode) {
                 BtLocate.setActiveMode(mode === 'bt_locate');
+            }
+            if (typeof WiFiLocate !== 'undefined' && WiFiLocate.setActiveMode) {
+                WiFiLocate.setActiveMode(mode === 'wifi_locate');
             }
 
             // Hide sidebar by default for Meshtastic mode, show for others
@@ -4655,6 +4714,8 @@
                 setTimeout(() => {
                     if (typeof BtLocate !== 'undefined' && BtLocate.invalidateMap) BtLocate.invalidateMap();
                 }, 320);
+            } else if (mode === 'wifi_locate') {
+                WiFiLocate.init();
             } else if (mode === 'wefax') {
                 WeFax.init();
             } else if (mode === 'spaceweather') {

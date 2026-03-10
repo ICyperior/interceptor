@@ -377,6 +377,39 @@ Digital Selective Calling monitoring runs alongside AIS:
 - The RSSI chart shows signal trend over time — use it to determine if you're getting closer
 - Clear the trail when starting a new search area
 
+## WiFi Locate Mode
+
+1. **Set Target** - Enter a BSSID (MAC address) in AA:BB:CC:DD:EE:FF format, or hand off from WiFi mode
+2. **Choose Environment** - Select the RF environment preset:
+   - **Open Field** (n=2.0) - Best for open areas with line-of-sight
+   - **Outdoor** (n=2.8) - Default, works well in most outdoor settings
+   - **Indoor** (n=3.5) - For buildings with walls and obstacles
+3. **Start Locate** - Click "Start Locate" to begin tracking
+4. **Monitor Signal** - The HUD shows:
+   - Large dBm reading with color coding (green/yellow/red)
+   - 20-segment signal bar for quick visual reference
+   - Estimated distance based on path loss model
+   - RSSI history chart for trend analysis
+   - Current/min/max/average statistics
+5. **Follow the Signal** - Move towards stronger signal (higher RSSI / closer distance)
+6. **Audio Alerts** - Enable audio for proximity tones that speed up as signal strengthens
+
+### Hand-off from WiFi Mode
+
+1. Open WiFi scanning mode and start a deep scan
+2. Click any network to open the detail drawer
+3. Click the "Locate" button in the drawer header
+4. WiFi Locate opens with the BSSID and SSID pre-filled
+5. Click "Start Locate" to begin tracking
+
+### Tips
+
+- Deep scan is required for continuous RSSI updates — WiFi Locate auto-starts it if needed
+- The WiFi scan is preserved when switching between WiFi and WiFi Locate modes
+- Signal lost overlay appears after 30 seconds without an update from the target
+- The distance estimate is approximate — environment preset significantly affects accuracy
+- Indoor environments with walls attenuate signal more than open field
+
 ## GPS Mode
 
 1. **Start GPS** - Click "Start" to connect to gpsd and begin position tracking
