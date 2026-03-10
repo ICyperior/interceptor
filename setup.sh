@@ -1916,7 +1916,9 @@ do_health_check() {
   echo
   info "SDR device detection..."
   if cmd_exists rtl_test; then
-    if rtl_test -t 2>&1 | grep -q "Found\|Using device"; then
+    local rtl_output
+    rtl_output=$(timeout 3 rtl_test -d 0 2>&1 || true)
+    if echo "$rtl_output" | grep -q "Found\|Using device"; then
       ok "RTL-SDR device detected"
       ((pass++)) || true
     else
