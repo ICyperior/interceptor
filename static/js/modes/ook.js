@@ -125,7 +125,13 @@ var OokMode = (function () {
                 updateUI(false);
                 disconnectSSE();
             })
-            .catch(function () {});
+            .catch(function (err) {
+                console.error('Failed to stop OOK decoder:', err);
+                // Force UI reset even if backend call failed
+                state.running = false;
+                updateUI(false);
+                disconnectSSE();
+            });
     }
 
     // ---- SSE ----

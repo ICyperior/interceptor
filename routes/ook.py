@@ -8,7 +8,9 @@ PWM, PPM, and Manchester modulation with fully configurable pulse timing.
 from __future__ import annotations
 
 import contextlib
+import os
 import queue
+import signal
 import subprocess
 import threading
 from typing import Any
@@ -182,6 +184,7 @@ def start_ook() -> Response:
                 filtered_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                start_new_session=True,
             )
             register_process(rtl_process)
 
@@ -278,7 +281,18 @@ def cleanup_ook(*, emit_status: bool = True) -> None:
     _close_pipe(getattr(proc, 'stdout', None))
     _close_pipe(getattr(proc, 'stderr', None))
 
-    safe_terminate(proc)
+    # Kill the entire process group so child processes are cleaned up
+    try:
+        pgid = os.getpgid(proc.pid)
+        os.killpg(pgid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            os.killpg(pgid, signal.SIGKILL)
+            proc.wait(timeout=3)
+    except (ProcessLookupError, OSError):
+        # Process already dead — fall back to normal terminate
+        safe_terminate(proc)
     unregister_process(proc)
     app_module.ook_process = None
 
