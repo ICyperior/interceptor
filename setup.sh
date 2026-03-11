@@ -1485,9 +1485,10 @@ install_tool_acarsdec() {
     fi
   else
     if ! cmd_exists acarsdec; then
-      apt_install acarsdec || true
+      install_acarsdec_from_source_debian
+    else
+      ok "acarsdec already installed"
     fi
-    cmd_exists acarsdec || install_acarsdec_from_source_debian
   fi
 }
 
