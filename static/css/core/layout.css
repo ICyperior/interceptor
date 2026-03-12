@@ -87,6 +87,25 @@
     color: var(--text-primary);
 }
 
+/* Branded "i" — cyan stem with green dot, matching the logo icon */
+.brand-i {
+    color: var(--accent-cyan);
+    position: relative;
+    display: inline-block;
+}
+.brand-i::after {
+    content: '';
+    position: absolute;
+    top: 0.05em;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0.22em;
+    height: 0.22em;
+    background: var(--accent-green);
+    border-radius: 50%;
+    box-shadow: 0 0 0.4em var(--accent-green);
+}
+
 .app-logo-tagline {
     font-size: var(--text-xs);
     color: var(--text-dim);
