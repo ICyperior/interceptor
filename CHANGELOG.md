@@ -2,6 +2,28 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.25.0] - 2026-03-12
+
+### Added
+- **SSEManager** - Centralized SSE connection management with exponential backoff reconnection and visual connection status indicator
+- **Loading button states** - `withLoadingButton()` utility for async action buttons across all modes
+- **Actionable error reporting** - `reportActionableError()` added to 5 mode JS files for user-friendly error messages
+- **Destructive action confirmation modals** - Custom modal system replacing 25 native `confirm()` calls
+
+### Changed
+- **Accessibility improvements** - aria-labels on interactive elements, form label associations, keyboard-navigable lists
+- **CSS variable adoption** - Replaced hardcoded hex colors with CSS custom properties across 16+ files
+- **Inline style extraction** - `classList.toggle()` replaces inline `display` manipulation throughout codebase
+- **Merged `global-nav.css` into `layout.css`** - Consolidated navigation styles
+- **Reduced `!important` usage** - Responsive.css `!important` count reduced from 71 to 8
+- **Standardized breakpoints** - Unified to 480/768/1024/1280px across all responsive styles
+- **Mobile UX polish** - Improved touch targets, code overflow handling, and responsive layouts
+
+### Fixed
+- Deep-linked mode scripts now wait for body parse before executing, preventing initialization failures
+
+---
+
 ## [2.24.0] - 2026-03-10
 
 ### Added

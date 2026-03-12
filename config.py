@@ -7,10 +7,21 @@ import os
 import sys
 
 # Application version
-VERSION = "2.24.0"
+VERSION = "2.25.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.25.0",
+        "date": "March 2026",
+        "highlights": [
+            "UI/UX overhaul — SSEManager with exponential backoff and connection status indicator",
+            "Accessibility improvements — aria-labels, form label associations, keyboard list navigation",
+            "Destructive action confirmation modals replace native confirm() dialogs",
+            "CSS variable adoption, inline style extraction, and reduced !important usage",
+            "Loading button states, actionable error reporting, and mobile UX polish",
+        ]
+    },
     {
         "version": "2.24.0",
         "date": "March 2026",

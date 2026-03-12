@@ -438,6 +438,8 @@ Deploy lightweight sensor nodes across multiple locations and aggregate data to 
 
 - **Mode-specific header stats** - real-time badges showing key metrics per mode
 - **UTC clock** - always visible in header for time-critical operations
+- **SSE connection status indicator** - real-time connection state with SSEManager and exponential backoff reconnection
+- **Accessibility** - aria-labels, form label associations, keyboard list navigation, and destructive action confirmation modals
 - **Active mode indicator** - shows current mode with pulse animation
 - **Collapsible sections** - click any header to collapse/expand
 - **Panel styling** - gradient backgrounds with indicator dots
