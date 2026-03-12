@@ -1,4 +1,6 @@
-# INTERCEPT
+<p align="center">
+  <img src="static/images/readme-banner.svg" alt="iNTERCEPT — Signal Intelligence Platform" width="100%">
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+">
@@ -7,7 +9,7 @@
 </p>
 
 <p align="center">
-Support the developer of this open-source project 
+Support the developer of this open-source project
 </p>
 
 <p align="center">
