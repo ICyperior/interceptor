@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iNTERCEPT Wallpaper Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --cyan: #00d4ff;
+    --green: #00ff88;
+    --text: #e0e0e8;
+    --text-dim: rgba(255,255,255,0.4);
+    --border: rgba(0,212,255,0.1);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .header svg { width: 32px; height: 32px; }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .header h1 span { color: var(--cyan); }
+
+  /* ── Controls ── */
+  .controls {
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: flex-start;
+  }
+
+  .control-group { display: flex; flex-direction: column; gap: 6px; }
+  .control-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--cyan);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .control-options { display: flex; gap: 3px; flex-wrap: wrap; }
+
+  .opt {
+    padding: 6px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: rgba(0,212,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .opt:hover { color: var(--text); border-color: rgba(0,212,255,0.25); }
+  .opt.active { color: var(--cyan); border-color: var(--cyan); background: rgba(0,212,255,0.08); }
+
+  /* ── Preview ── */
+  .preview-bar {
+    padding: 10px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(0,212,255,0.05);
+  }
+  .preview-bar .dims {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .preview-bar .hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: rgba(0,212,255,0.25);
+  }
+
+  .preview-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: hidden;
+    background: #060609;
+  }
+
+  #wallpaper-output {
+    transform-origin: center center;
+    line-height: 0;
+  }
+
+  /* ── Wallpaper internals ── */
+  .wp {
+    position: relative;
+    overflow: hidden;
+    font-family: 'Outfit', sans-serif;
+    line-height: normal;
+  }
+
+  .wp-noise {
+    position: absolute; inset: 0;
+    pointer-events: none; opacity: 0.3; z-index: 9;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+  }
+
+  .wp-blob {
+    position: absolute; border-radius: 50%;
+    filter: blur(120px); pointer-events: none;
+  }
+
+  /* ── Export button ── */
+  .export-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: #0a0a0f;
+    background: var(--cyan);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .export-btn:hover { background: #33dfff; }
+  .export-btn:active { transform: scale(0.97); }
+  .export-btn.exporting {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .export-btn svg { flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.5"/>
+    <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+    <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.5"/>
+    <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+    <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <circle cx="50" cy="22" r="7" fill="#00ff88"/>
+    <rect x="43" y="35" width="14" height="45" rx="2" fill="#00d4ff"/>
+    <rect x="36" y="35" width="28" height="5" rx="1" fill="#00d4ff"/>
+    <rect x="36" y="75" width="28" height="5" rx="1" fill="#00d4ff"/>
+  </svg>
+  <h1><span>iNTERCEPT</span> Wallpaper Generator</h1>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <div class="control-label">Theme</div>
+    <div class="control-options" id="design-opts">
+      <button class="opt active" data-design="centered">Classic</button>
+      <button class="opt" data-design="minimal">Minimal</button>
+      <button class="opt" data-design="satellite">Satellite</button>
+      <button class="opt" data-design="comms">Comms</button>
+      <button class="opt" data-design="hacker">Hacker</button>
+      <button class="opt" data-design="spectrum">Spectrum</button>
+      <button class="opt" data-design="signal-wave">Signal Wave</button>
+      <button class="opt" data-design="radar">Radar</button>
+      <button class="opt" data-design="circuit">Circuit</button>
+      <button class="opt" data-design="globe">Globe</button>
+      <button class="opt" data-design="corner">Corner</button>
+      <button class="opt" data-design="glitch">Glitch</button>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <div class="control-label">Resolution</div>
+    <div class="control-options" id="res-opts">
+      <button class="opt" data-w="1920" data-h="1080">1080p</button>
+      <button class="opt active" data-w="2560" data-h="1440">1440p</button>
+      <button class="opt" data-w="3840" data-h="2160">4K</button>
+      <button class="opt" data-w="5120" data-h="2880">5K</button>
+      <button class="opt" data-w="3440" data-h="1440">Ultrawide</button>
+      <button class="opt" data-w="1080" data-h="1920">Mobile</button>
+      <button class="opt" data-w="1284" data-h="2778">iPhone Pro Max</button>
+      <button class="opt" data-w="2048" data-h="2732">iPad Pro</button>
+    </div>
+  </div>
+</div>
+
+<div class="preview-bar">
+  <div class="dims" id="dims-display">2560 x 1440</div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="hint" id="export-hint">Select a design and resolution, then export</div>
+    <button class="export-btn" id="export-btn" onclick="exportPNG()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export PNG
+    </button>
+  </div>
+</div>
+
+<div class="preview-area" id="preview-area">
+  <div id="wallpaper-output"></div>
+</div>
+
+<!-- Hidden full-resolution render target for export -->
+<div id="export-container" style="position:fixed;top:0;left:-99999px;z-index:-1;"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+/* ── Helpers ── */
+const LOGO = (size) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" style="filter:drop-shadow(0 0 ${size*0.2}px rgba(0,212,255,0.15));">
+  <path d="M15 30 Q5 50, 15 70" stroke="#00d4ff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <path d="M22 35 Q14 50, 22 65" stroke="#00d4ff" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M29 40 Q23 50, 29 60" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M85 30 Q95 50, 85 70" stroke="#00d4ff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <path d="M78 35 Q86 50, 78 65" stroke="#00d4ff" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M71 40 Q77 50, 71 60" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="22" r="7" fill="#00ff88"/>
+  <rect x="43" y="35" width="14" height="45" rx="2" fill="#00d4ff"/>
+  <rect x="36" y="35" width="28" height="5" rx="1" fill="#00d4ff"/>
+  <rect x="36" y="75" width="28" height="5" rx="1" fill="#00d4ff"/>
+</svg>`;
+
+function brandText(fs) {
+  const iW = fs * 0.55, iH = fs * 0.9;
+  return `<span style="display:inline-block;width:${iW}px;height:${iH}px;vertical-align:baseline;position:relative;top:${fs*0.05}px;"><svg viewBox="36 14 28 68" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:100%;"><circle cx="50" cy="20" r="6" fill="#00ff88"/><rect x="44" y="33" width="12" height="45" rx="2" fill="#00d4ff"/><rect x="38" y="33" width="24" height="4" rx="1" fill="#00d4ff"/><rect x="38" y="74" width="24" height="4" rx="1" fill="#00d4ff"/></svg></span>NTERCEPT`;
+}
+
+function seededRandom(seed) {
+  let s = seed;
+  return function() { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+function grid(s, opacity = 0.02, size = 60) {
+  return `<div style="position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(0,212,255,${opacity}) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,${opacity}) 1px,transparent 1px);background-size:${size*s}px ${size*s}px;"></div>`;
+}
+
+function scanlines() {
+  return `<div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,0.006) 2px,rgba(0,212,255,0.006) 4px);pointer-events:none;z-index:10;"></div>`;
+}
+
+function corners(w, h, s, size = 24, margin = 20) {
+  const sz = size * s, m = margin * s, t = 1.5 * s;
+  const c = (top, right, bottom, left) => `<div style="position:absolute;${top !== null ? `top:${m}px;` : ''}${bottom !== null ? `bottom:${m}px;` : ''}${left !== null ? `left:${m}px;` : ''}${right !== null ? `right:${m}px;` : ''}width:${sz}px;height:${sz}px;z-index:5;pointer-events:none;border-${top !== null ? 'top' : 'bottom'}-${left !== null ? 'left' : 'right'}-radius:0;"><div style="position:absolute;${top !== null ? 'top' : 'bottom'}:0;${left !== null ? 'left' : 'right'}:0;width:${sz}px;height:${t}px;background:rgba(0,212,255,0.2);"></div><div style="position:absolute;${top !== null ? 'top' : 'bottom'}:0;${left !== null ? 'left' : 'right'}:0;width:${t}px;height:${sz}px;background:rgba(0,212,255,0.2);"></div></div>`;
+  return c(1,null,null,1) + c(1,1,null,null) + c(null,null,1,1) + c(null,1,1,null);
+}
+
+function bottomBar(w, h, s, left, right) {
+  return `<div style="position:absolute;bottom:${40*s}px;left:${60*s}px;right:${60*s}px;display:flex;justify-content:space-between;z-index:3;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:${10*s}px;color:rgba(0,212,255,0.15);letter-spacing:${2*s}px;">${left}</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:${10*s}px;color:rgba(0,212,255,0.15);letter-spacing:${2*s}px;">${right}</div>
+  </div>`;
+}
+
+/* ── Design Functions ── */
+const designs = {
+
+  centered(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ls = Math.round((p ? 160 : 200) * s);
+    const ts = Math.round((p ? 64 : 96) * s);
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:radial-gradient(ellipse at 30% 40%,#0e1420 0%,#0a0a0f 60%);display:flex;align-items:center;justify-content:center;">
+      ${grid(s)}${scanlines()}<div class="wp-noise"></div>
+      <div class="wp-blob" style="width:${800*s}px;height:${800*s}px;background:#00d4ff;top:${-300*s}px;right:${-100*s}px;opacity:0.04;"></div>
+      <div class="wp-blob" style="width:${600*s}px;height:${600*s}px;background:#00ff88;bottom:${-200*s}px;left:${100*s}px;opacity:0.03;"></div>
+      <div style="position:relative;z-index:3;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <div style="margin-bottom:${32*s}px;">${LOGO(ls)}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-3*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${14*s}px;color:rgba(0,212,255,0.3);letter-spacing:${6*s}px;margin-top:${16*s}px;">SIGNAL INTELLIGENCE PLATFORM</div>
+      </div>
+      ${bottomBar(w,h,s,'SDR // RF ANALYSIS // SIGINT','github.com/smittix/intercept')}
+    </div>`;
+  },
+
+  minimal(w, h) {
+    const s = Math.min(w, h) / 1080;
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:#0a0a0f;display:flex;align-items:center;justify-content:center;">
+      <div class="wp-noise"></div>
+      <div class="wp-blob" style="width:${500*s}px;height:${500*s}px;background:#00d4ff;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.025;"></div>
+      <div style="position:relative;z-index:3;opacity:0.6;">${LOGO(Math.round(120*s))}</div>
+    </div>`;
+  },
+
+  satellite(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 56 : 72) * s);
+    const rnd = seededRandom(77);
+    // Orbit rings
+    let orbits = '';
+    const cx = w * 0.5, cy = h * 0.45;
+    for (let i = 0; i < 4; i++) {
+      const rx = (160 + i * 90) * s;
+      const ry = (60 + i * 35) * s;
+      const rot = -20 + i * 15;
+      orbits += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="#00d4ff" stroke-width="${0.8*s}" opacity="${0.06 - i*0.01}" transform="rotate(${rot} ${cx} ${cy})" stroke-dasharray="${4*s},${8*s}"/>`;
+      // Satellite dot on orbit
+      const angle = (i * 1.2 + 0.5);
+      const sx = cx + Math.cos(angle) * rx;
+      const sy = cy + Math.sin(angle) * ry * Math.cos(rot * Math.PI / 180);
+      orbits += `<circle cx="${sx}" cy="${sy}" r="${3*s}" fill="#00ff88" opacity="0.5"/>`;
+      orbits += `<circle cx="${sx}" cy="${sy}" r="${8*s}" fill="none" stroke="#00ff88" stroke-width="${0.5*s}" opacity="0.15"/>`;
+    }
+    // Stars
+    let stars = '';
+    for (let i = 0; i < 120; i++) {
+      const x = rnd() * w, y = rnd() * h;
+      const r = (0.3 + rnd() * 1.2) * s;
+      stars += `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity="${0.03 + rnd() * 0.08}"/>`;
+    }
+    // Earth glow at bottom
+    const earthR = Math.max(w, h) * 0.6;
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:radial-gradient(ellipse at 50% 120%,#0a1628 0%,#060810 30%,#030308 60%);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div class="wp-noise"></div>
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">
+        ${stars}${orbits}
+        <ellipse cx="${w/2}" cy="${h + earthR*0.65}" rx="${earthR}" ry="${earthR}" fill="none" stroke="#00d4ff" stroke-width="${1.5*s}" opacity="0.08"/>
+        <ellipse cx="${w/2}" cy="${h + earthR*0.65}" rx="${earthR - 20*s}" ry="${earthR - 20*s}" fill="none" stroke="#00d4ff" stroke-width="${0.8*s}" opacity="0.04"/>
+      </svg>
+      <div class="wp-blob" style="width:${w*0.6}px;height:${300*s}px;background:#00d4ff;bottom:0;left:50%;transform:translateX(-50%);opacity:0.04;"></div>
+      <div style="position:relative;z-index:3;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <div style="margin-bottom:${24*s}px;">${LOGO(Math.round(140*s))}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${11*s}px;color:rgba(0,212,255,0.25);letter-spacing:${4*s}px;margin-top:${12*s}px;">SATELLITE TRACKING // SIGINT</div>
+      </div>
+      ${bottomBar(w,h,s,'ORBIT ANALYSIS','github.com/smittix/intercept')}
+    </div>`;
+  },
+
+  comms(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 52 : 68) * s);
+    const rnd = seededRandom(99);
+    // Radio tower with transmission rings
+    const tx = w * 0.15, ty = h * 0.5;
+    let tower = '';
+    // Tower structure
+    tower += `<line x1="${tx}" y1="${ty - 80*s}" x2="${tx}" y2="${ty + 120*s}" stroke="#00d4ff" stroke-width="${2*s}" opacity="0.3"/>`;
+    tower += `<line x1="${tx - 20*s}" y1="${ty + 120*s}" x2="${tx}" y2="${ty + 40*s}" stroke="#00d4ff" stroke-width="${1.5*s}" opacity="0.2"/>`;
+    tower += `<line x1="${tx + 20*s}" y1="${ty + 120*s}" x2="${tx}" y2="${ty + 40*s}" stroke="#00d4ff" stroke-width="${1.5*s}" opacity="0.2"/>`;
+    tower += `<circle cx="${tx}" cy="${ty - 85*s}" r="${4*s}" fill="#00ff88" opacity="0.6"/>`;
+    // Transmission arcs
+    for (let i = 1; i <= 6; i++) {
+      const r = i * 60 * s;
+      tower += `<path d="M ${tx + r * 0.3} ${ty - 85*s - r*0.15} A ${r} ${r} 0 0 1 ${tx + r * 0.3} ${ty - 85*s + r*0.15}" fill="none" stroke="#00d4ff" stroke-width="${1*s}" opacity="${0.12 - i*0.015}"/>`;
+    }
+    // Second tower
+    const tx2 = w * 0.85, ty2 = h * 0.55;
+    tower += `<line x1="${tx2}" y1="${ty2 - 60*s}" x2="${tx2}" y2="${ty2 + 100*s}" stroke="#00d4ff" stroke-width="${2*s}" opacity="0.2"/>`;
+    tower += `<circle cx="${tx2}" cy="${ty2 - 65*s}" r="${3*s}" fill="#00ff88" opacity="0.4"/>`;
+    for (let i = 1; i <= 4; i++) {
+      const r = i * 50 * s;
+      tower += `<path d="M ${tx2 - r * 0.3} ${ty2 - 65*s - r*0.15} A ${r} ${r} 0 0 0 ${tx2 - r * 0.3} ${ty2 - 65*s + r*0.15}" fill="none" stroke="#00d4ff" stroke-width="${0.8*s}" opacity="${0.08 - i*0.015}"/>`;
+    }
+    // Connection line between towers
+    tower += `<line x1="${tx}" y1="${ty - 85*s}" x2="${tx2}" y2="${ty2 - 65*s}" stroke="#00d4ff" stroke-width="${0.5*s}" opacity="0.04" stroke-dasharray="${8*s},${12*s}"/>`;
+    // Frequency labels
+    const freqs = ['145.800','156.800','162.550','137.100','1090','433.92'];
+    let freqLabels = '';
+    for (let i = 0; i < freqs.length; i++) {
+      const x = w * 0.06 + rnd() * w * 0.88;
+      const y = h * 0.1 + rnd() * h * 0.75;
+      freqLabels += `<text x="${x}" y="${y}" font-family="'Courier New',monospace" font-size="${9*s}" fill="rgba(0,212,255,0.07)" letter-spacing="${1*s}">${freqs[i]} MHz</text>`;
+    }
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:radial-gradient(ellipse at 50% 50%,#0c1020 0%,#0a0a0f 65%);display:flex;align-items:center;justify-content:center;">
+      ${grid(s, 0.015, 80)}${scanlines()}<div class="wp-noise"></div>
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${tower}${freqLabels}</svg>
+      <div class="wp-blob" style="width:${600*s}px;height:${600*s}px;background:#00d4ff;top:${h*0.2}px;left:${w*0.3}px;opacity:0.03;"></div>
+      <div style="position:relative;z-index:3;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <div style="margin-bottom:${24*s}px;">${LOGO(Math.round(130*s))}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${11*s}px;color:rgba(0,212,255,0.25);letter-spacing:${4*s}px;margin-top:${12*s}px;">COMMUNICATIONS INTELLIGENCE</div>
+      </div>
+      ${bottomBar(w,h,s,'COMINT // SIGINT // ELINT','github.com/smittix/intercept')}
+    </div>`;
+  },
+
+  hacker(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 52 : 72) * s);
+    const rnd = seededRandom(31337);
+    // Falling hex/binary columns
+    const colW = 24 * s;
+    const cols = Math.floor(w / colW);
+    let hexCols = '';
+    const chars = '0123456789ABCDEF';
+    for (let c = 0; c < cols; c++) {
+      if (rnd() > 0.35) continue;
+      const x = c * colW;
+      const startY = rnd() * h * 0.3;
+      const len = 8 + Math.floor(rnd() * 20);
+      const opacity = 0.03 + rnd() * 0.06;
+      for (let r = 0; r < len; r++) {
+        const ch = chars[Math.floor(rnd() * 16)] + chars[Math.floor(rnd() * 16)];
+        const y = startY + r * 16 * s;
+        if (y > h) break;
+        const charOp = r === len - 1 ? opacity * 2.5 : opacity * (0.3 + (r / len) * 0.7);
+        hexCols += `<text x="${x}" y="${y}" font-family="'Courier New',monospace" font-size="${10*s}" fill="#00ff88" opacity="${charOp}">${ch}</text>`;
+      }
+    }
+    // Terminal prompt lines
+    const prompts = [
+      '$ intercept --mode sigint --sdr rtl',
+      '$ rtl_433 -f 433920000 -R all',
+      '$ dump1090 --net --aggressive',
+      '$ airmon-ng start wlan0',
+      '[*] Scanning 2.4GHz spectrum...',
+      '[+] 47 devices detected',
+      '[!] Tracker signature matched: AirTag',
+    ];
+    let termLines = '';
+    const termX = w * (p ? 0.08 : 0.55);
+    const termY = h * (p ? 0.65 : 0.3);
+    for (let i = 0; i < prompts.length; i++) {
+      const y = termY + i * 18 * s;
+      const op = 0.06 + (i === prompts.length - 1 ? 0.06 : 0);
+      const color = prompts[i].startsWith('[!]') ? '#00ff88' : prompts[i].startsWith('[+]') ? '#00d4ff' : '#00d4ff';
+      termLines += `<text x="${termX}" y="${y}" font-family="'Courier New',monospace" font-size="${10*s}" fill="${color}" opacity="${op}">${prompts[i]}</text>`;
+    }
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:#050508;display:flex;align-items:center;justify-content:center;">
+      <div class="wp-noise"></div>${scanlines()}
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${hexCols}${termLines}</svg>
+      <div class="wp-blob" style="width:${500*s}px;height:${500*s}px;background:#00ff88;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.02;"></div>
+      <div style="position:relative;z-index:3;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <div style="margin-bottom:${28*s}px;">${LOGO(Math.round(160*s))}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${11*s}px;color:rgba(0,255,136,0.25);letter-spacing:${4*s}px;margin-top:${12*s}px;">ELECTRONIC WARFARE</div>
+      </div>
+      ${bottomBar(w,h,s,'0x1337 // ROOT','github.com/smittix/intercept')}
+    </div>`;
+  },
+
+  spectrum(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 52 : 64) * s);
+    const barW = 4 * s;
+    const gap = 2 * s;
+    const barCount = Math.floor(w / (barW + gap));
+    let bars = '';
+    const baseY = h * 0.65;
+    for (let i = 0; i < barCount; i++) {
+      const x = i * (barW + gap);
+      const n = Math.sin(i * 0.12) * 0.5 + Math.sin(i * 0.04) * 0.3 + Math.sin(i * 0.35) * 0.2;
+      const cd = Math.abs(i - barCount / 2) / (barCount / 2);
+      const boost = (1 - cd * cd) * 80 * s;
+      const barH = (15 + Math.abs(n) * 60) * s + boost;
+      const op = 0.06 + Math.abs(n) * 0.14;
+      bars += `<rect x="${x}" y="${baseY - barH}" width="${barW}" height="${barH}" fill="#00d4ff" opacity="${op}" rx="${1*s}"/>`;
+    }
+    bars += `<line x1="0" y1="${baseY}" x2="${w}" y2="${baseY}" stroke="#00d4ff" stroke-width="${1*s}" opacity="0.06"/>`;
+    for (let i = 0; i < 12; i++) {
+      const x = (w / 12) * i + w / 24;
+      bars += `<text x="${x}" y="${baseY + 18*s}" text-anchor="middle" font-family="'Courier New',monospace" font-size="${8*s}" fill="rgba(0,212,255,0.1)">${(88 + i * 50)}MHz</text>`;
+    }
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:radial-gradient(ellipse at 50% 35%,#0e1420 0%,#0a0a0f 65%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:${h*(p?0.2:0.12)}px;">
+      <div class="wp-noise"></div>
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${bars}</svg>
+      <div class="wp-blob" style="width:${600*s}px;height:${400*s}px;background:#00d4ff;top:${h*0.4}px;left:50%;transform:translateX(-50%);opacity:0.03;"></div>
+      <div style="position:relative;z-index:3;display:flex;${p?'flex-direction:column;':''}align-items:center;gap:${28*s}px;">
+        <div>${LOGO(Math.round(140*s))}</div>
+        <div style="text-align:${p?'center':'left'};">
+          <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:${12*s}px;color:rgba(0,212,255,0.25);letter-spacing:${4*s}px;margin-top:${10*s}px;">RF SPECTRUM ANALYSIS</div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  'signal-wave'(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 56 : 72) * s);
+    let waves = '';
+    for (let i = 0; i < 8; i++) {
+      const amp = (20 + i * 12) * s;
+      const freq = 0.004 - i * 0.0003;
+      const cy = h / 2;
+      let d = `M 0 ${cy}`;
+      for (let x = 0; x <= w; x += 3) {
+        d += ` L ${x} ${cy + Math.sin(x * freq + i * 0.9) * amp}`;
+      }
+      waves += `<path d="${d}" stroke="#00d4ff" stroke-width="${1.2*s}" fill="none" opacity="${0.06 - i*0.006}"/>`;
+    }
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:radial-gradient(ellipse at 50% 50%,#0e1420 0%,#0a0a0f 70%);display:flex;align-items:center;justify-content:center;">
+      <div class="wp-noise"></div>
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${waves}</svg>
+      <div class="wp-blob" style="width:${600*s}px;height:${600*s}px;background:#00d4ff;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.03;"></div>
+      <div style="position:relative;z-index:3;display:flex;${p?'flex-direction:column;':''}align-items:center;gap:${32*s}px;">
+        <div>${LOGO(Math.round(140*s))}</div>
+        <div style="text-align:${p?'center':'left'};">
+          <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:${12*s}px;color:rgba(0,212,255,0.25);letter-spacing:${4*s}px;margin-top:${12*s}px;">WAVEFORM INTELLIGENCE</div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  radar(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 48 : 56) * s);
+    const cx = w * (p ? 0.5 : 0.35), cy = h * 0.5;
+    const maxR = Math.min(w, h) * 0.35;
+    const rnd = seededRandom(42);
+    let radar = '';
+    // Range rings
+    for (let i = 1; i <= 5; i++) {
+      const r = maxR * i / 5;
+      radar += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#00d4ff" stroke-width="${0.8*s}" opacity="${0.06}"/>`;
+    }
+    // Cross lines
+    radar += `<line x1="${cx - maxR}" y1="${cy}" x2="${cx + maxR}" y2="${cy}" stroke="#00d4ff" stroke-width="${0.5*s}" opacity="0.04"/>`;
+    radar += `<line x1="${cx}" y1="${cy - maxR}" x2="${cx}" y2="${cy + maxR}" stroke="#00d4ff" stroke-width="${0.5*s}" opacity="0.04"/>`;
+    // Sweep line
+    const sweepAngle = 0.8;
+    const sx = cx + Math.cos(sweepAngle) * maxR;
+    const sy = cy + Math.sin(sweepAngle) * maxR;
+    radar += `<line x1="${cx}" y1="${cy}" x2="${sx}" y2="${sy}" stroke="#00ff88" stroke-width="${1.5*s}" opacity="0.2"/>`;
+    // Sweep glow arc
+    radar += `<path d="M ${cx + Math.cos(sweepAngle-0.3)*maxR} ${cy + Math.sin(sweepAngle-0.3)*maxR} A ${maxR} ${maxR} 0 0 1 ${sx} ${sy}" fill="none" stroke="#00ff88" stroke-width="${30*s}" opacity="0.02"/>`;
+    // Blips
+    for (let i = 0; i < 12; i++) {
+      const angle = rnd() * Math.PI * 2;
+      const dist = (0.15 + rnd() * 0.8) * maxR;
+      const bx = cx + Math.cos(angle) * dist;
+      const by = cy + Math.sin(angle) * dist;
+      const br = (1.5 + rnd() * 2) * s;
+      radar += `<circle cx="${bx}" cy="${by}" r="${br}" fill="#00ff88" opacity="${0.15 + rnd() * 0.25}"/>`;
+      radar += `<circle cx="${bx}" cy="${by}" r="${br * 3}" fill="none" stroke="#00ff88" stroke-width="${0.5*s}" opacity="${0.05 + rnd() * 0.05}"/>`;
+    }
+    // Cardinal labels
+    radar += `<text x="${cx}" y="${cy - maxR - 10*s}" text-anchor="middle" font-family="'Courier New',monospace" font-size="${9*s}" fill="rgba(0,212,255,0.15)">N</text>`;
+    radar += `<text x="${cx + maxR + 12*s}" y="${cy + 4*s}" text-anchor="start" font-family="'Courier New',monospace" font-size="${9*s}" fill="rgba(0,212,255,0.15)">E</text>`;
+    radar += `<text x="${cx}" y="${cy + maxR + 18*s}" text-anchor="middle" font-family="'Courier New',monospace" font-size="${9*s}" fill="rgba(0,212,255,0.15)">S</text>`;
+    radar += `<text x="${cx - maxR - 12*s}" y="${cy + 4*s}" text-anchor="end" font-family="'Courier New',monospace" font-size="${9*s}" fill="rgba(0,212,255,0.15)">W</text>`;
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:radial-gradient(ellipse at ${p?'50% 50%':'35% 50%'},#0a1220 0%,#060810 60%);display:flex;align-items:center;justify-content:${p?'center':'flex-end'};padding-right:${p?0:w*0.08}px;">
+      <div class="wp-noise"></div>${scanlines()}
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${radar}</svg>
+      <div style="position:relative;z-index:3;text-align:${p?'center':'right'};display:flex;flex-direction:column;align-items:${p?'center':'flex-end'};${p?`margin-top:${maxR + 60*s}px;`:''}">
+        <div style="margin-bottom:${20*s}px;">${LOGO(Math.round(100*s))}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-1*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${10*s}px;color:rgba(0,212,255,0.25);letter-spacing:${3*s}px;margin-top:${10*s}px;">RADAR INTELLIGENCE</div>
+      </div>
+    </div>`;
+  },
+
+  circuit(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 52 : 64) * s);
+    const rnd = seededRandom(1024);
+    let paths = '';
+    const gridSz = 40 * s;
+    // Generate circuit-like paths
+    for (let i = 0; i < 40; i++) {
+      let x = Math.floor(rnd() * (w / gridSz)) * gridSz;
+      let y = Math.floor(rnd() * (h / gridSz)) * gridSz;
+      let d = `M ${x} ${y}`;
+      const steps = 3 + Math.floor(rnd() * 6);
+      for (let j = 0; j < steps; j++) {
+        const dir = Math.floor(rnd() * 4);
+        const len = (1 + Math.floor(rnd() * 4)) * gridSz;
+        if (dir === 0) x += len;
+        else if (dir === 1) x -= len;
+        else if (dir === 2) y += len;
+        else y -= len;
+        x = Math.max(0, Math.min(w, x));
+        y = Math.max(0, Math.min(h, y));
+        d += ` L ${x} ${y}`;
+      }
+      const op = 0.03 + rnd() * 0.04;
+      paths += `<path d="${d}" fill="none" stroke="#00d4ff" stroke-width="${1*s}" opacity="${op}"/>`;
+      // Node at end
+      paths += `<circle cx="${x}" cy="${y}" r="${2.5*s}" fill="#00d4ff" opacity="${op * 2}"/>`;
+    }
+    // IC chips
+    for (let i = 0; i < 6; i++) {
+      const cx = Math.floor(rnd() * (w / gridSz)) * gridSz;
+      const cy = Math.floor(rnd() * (h / gridSz)) * gridSz;
+      const cw = gridSz * 2, ch = gridSz;
+      paths += `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" fill="none" stroke="#00d4ff" stroke-width="${1*s}" opacity="0.06" rx="${2*s}"/>`;
+      // Pins
+      for (let p = 0; p < 4; p++) {
+        const px = cx + (cw / 5) * (p + 1);
+        paths += `<line x1="${px}" y1="${cy}" x2="${px}" y2="${cy - 8*s}" stroke="#00d4ff" stroke-width="${0.8*s}" opacity="0.05"/>`;
+        paths += `<line x1="${px}" y1="${cy + ch}" x2="${px}" y2="${cy + ch + 8*s}" stroke="#00d4ff" stroke-width="${0.8*s}" opacity="0.05"/>`;
+      }
+    }
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:#080810;display:flex;align-items:center;justify-content:center;">
+      <div class="wp-noise"></div>
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${paths}</svg>
+      <div class="wp-blob" style="width:${500*s}px;height:${500*s}px;background:#00d4ff;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.03;"></div>
+      <div style="position:relative;z-index:3;text-align:center;display:flex;flex-direction:column;align-items:center;background:rgba(8,8,16,0.85);padding:${40*s}px ${60*s}px;border-radius:${12*s}px;border:1px solid rgba(0,212,255,0.08);">
+        <div style="margin-bottom:${20*s}px;">${LOGO(Math.round(120*s))}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.95;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${10*s}px;color:rgba(0,212,255,0.3);letter-spacing:${3*s}px;margin-top:${10*s}px;">HARDWARE INTELLIGENCE</div>
+      </div>
+    </div>`;
+  },
+
+  globe(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 52 : 64) * s);
+    const cx = w * 0.5, cy = h * (p ? 0.4 : 0.48);
+    const r = Math.min(w, h) * 0.28;
+    const rnd = seededRandom(2024);
+    let globe = '';
+    // Main circle
+    globe += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#00d4ff" stroke-width="${1.5*s}" opacity="0.1"/>`;
+    // Latitude lines
+    for (let i = -3; i <= 3; i++) {
+      const ly = cy + (r * i / 4);
+      const lrx = Math.sqrt(r * r - (r * i / 4) ** 2);
+      if (lrx > 0) {
+        globe += `<ellipse cx="${cx}" cy="${ly}" rx="${lrx}" ry="${lrx * 0.15}" fill="none" stroke="#00d4ff" stroke-width="${0.6*s}" opacity="0.05"/>`;
+      }
+    }
+    // Longitude curves
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI;
+      const lrx = r * Math.sin(angle);
+      globe += `<ellipse cx="${cx}" cy="${cy}" rx="${Math.max(1, lrx)}" ry="${r}" fill="none" stroke="#00d4ff" stroke-width="${0.6*s}" opacity="0.05"/>`;
+    }
+    // Connection arcs + city dots
+    const cities = [];
+    for (let i = 0; i < 20; i++) {
+      const lat = (rnd() - 0.5) * Math.PI * 0.85;
+      const lon = (rnd() - 0.5) * Math.PI * 0.9;
+      const px = cx + r * Math.sin(lon) * Math.cos(lat);
+      const py = cy - r * Math.sin(lat);
+      cities.push({ x: px, y: py });
+      globe += `<circle cx="${px}" cy="${py}" r="${2*s}" fill="#00ff88" opacity="${0.2 + rnd() * 0.3}"/>`;
+      globe += `<circle cx="${px}" cy="${py}" r="${5*s}" fill="none" stroke="#00ff88" stroke-width="${0.4*s}" opacity="0.1"/>`;
+    }
+    // Connect some cities
+    for (let i = 0; i < 15; i++) {
+      const a = cities[Math.floor(rnd() * cities.length)];
+      const b = cities[Math.floor(rnd() * cities.length)];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 - 20 * s;
+      globe += `<path d="M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}" fill="none" stroke="#00d4ff" stroke-width="${0.5*s}" opacity="0.04"/>`;
+    }
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:radial-gradient(ellipse at 50% 45%,#0c1425 0%,#060810 55%);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:${h*(p?0.12:0.1)}px;">
+      <div class="wp-noise"></div>
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${globe}</svg>
+      <div class="wp-blob" style="width:${r*2}px;height:${r*2}px;background:#00d4ff;top:${cy - r}px;left:${cx - r}px;opacity:0.03;"></div>
+      <div style="position:relative;z-index:3;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <div style="margin-bottom:${16*s}px;">${LOGO(Math.round(80*s))}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.9;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${10*s}px;color:rgba(0,212,255,0.25);letter-spacing:${3*s}px;margin-top:${8*s}px;">GLOBAL SIGNAL INTELLIGENCE</div>
+      </div>
+    </div>`;
+  },
+
+  corner(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const ts = Math.round(28 * s);
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:#0a0a0f;display:flex;align-items:flex-end;justify-content:flex-start;padding:${60*s}px;">
+      ${grid(s, 0.012, 80)}<div class="wp-noise"></div>
+      <div class="wp-blob" style="width:${800*s}px;height:${800*s}px;background:#00d4ff;top:${-200*s}px;right:${-200*s}px;opacity:0.025;"></div>
+      <div class="wp-blob" style="width:${500*s}px;height:${500*s}px;background:#00ff88;bottom:${-100*s}px;left:${-100*s}px;opacity:0.02;"></div>
+      <div style="position:relative;z-index:3;display:flex;align-items:center;gap:${20*s}px;">
+        <div>${LOGO(Math.round(80*s))}</div>
+        <div>
+          <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-0.5*s}px;color:rgba(255,255,255,0.7);line-height:1;">${brandText(ts)}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:${10*s}px;color:rgba(0,212,255,0.2);letter-spacing:${2*s}px;margin-top:${4*s}px;">SIGINT PLATFORM</div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  glitch(w, h) {
+    const s = Math.min(w, h) / 1080;
+    const p = h > w;
+    const ts = Math.round((p ? 56 : 80) * s);
+    const rnd = seededRandom(666);
+    // Glitch bars
+    let glitchBars = '';
+    for (let i = 0; i < 25; i++) {
+      const y = rnd() * h;
+      const bh = (1 + rnd() * 4) * s;
+      const x = rnd() * w * 0.3;
+      const bw = w * 0.2 + rnd() * w * 0.6;
+      const color = rnd() > 0.5 ? '#00d4ff' : '#00ff88';
+      glitchBars += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${color}" opacity="${0.02 + rnd() * 0.04}"/>`;
+    }
+    // Displaced text copies
+    let displaced = '';
+    const textY = h * 0.5;
+    displaced += `<text x="${w*0.5 - 3*s}" y="${textY}" text-anchor="middle" font-family="Outfit,sans-serif" font-size="${ts}" font-weight="800" fill="#ff0040" opacity="0.04" letter-spacing="${-2*s}">iNTERCEPT</text>`;
+    displaced += `<text x="${w*0.5 + 3*s}" y="${textY}" text-anchor="middle" font-family="Outfit,sans-serif" font-size="${ts}" font-weight="800" fill="#00d4ff" opacity="0.04" letter-spacing="${-2*s}">iNTERCEPT</text>`;
+    // Scan line highlight
+    const scanY = h * 0.35 + rnd() * h * 0.3;
+    glitchBars += `<rect x="0" y="${scanY}" width="${w}" height="${2*s}" fill="#00d4ff" opacity="0.06"/>`;
+    return `<div class="wp" style="width:${w}px;height:${h}px;background:#0a0a0f;display:flex;align-items:center;justify-content:center;">
+      ${scanlines()}<div class="wp-noise"></div>
+      <svg style="position:absolute;inset:0;z-index:1;" width="${w}" height="${h}">${glitchBars}${displaced}</svg>
+      <div class="wp-blob" style="width:${400*s}px;height:${400*s}px;background:#ff0040;top:${h*0.3}px;left:${w*0.2}px;opacity:0.015;"></div>
+      <div class="wp-blob" style="width:${400*s}px;height:${400*s}px;background:#00d4ff;top:${h*0.4}px;right:${w*0.2}px;opacity:0.02;"></div>
+      <div style="position:relative;z-index:3;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <div style="margin-bottom:${24*s}px;">${LOGO(Math.round(140*s))}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:${ts}px;font-weight:800;letter-spacing:${-2*s}px;color:#fff;line-height:1;opacity:0.95;">${brandText(ts)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:${11*s}px;color:rgba(0,212,255,0.3);letter-spacing:${4*s}px;margin-top:${12*s}px;">SIGNAL INTERCEPT</div>
+      </div>
+      ${corners(w, h, s)}
+    </div>`;
+  }
+
+};
+
+/* ── State & Render ── */
+let currentDesign = 'centered';
+let currentW = 2560;
+let currentH = 1440;
+
+function render() {
+  const output = document.getElementById('wallpaper-output');
+  const area = document.getElementById('preview-area');
+  const dimsEl = document.getElementById('dims-display');
+
+  output.innerHTML = designs[currentDesign](currentW, currentH);
+  dimsEl.textContent = `${currentW} x ${currentH} — ${currentDesign.charAt(0).toUpperCase() + currentDesign.slice(1).replace('-', ' ')}`;
+
+  // Fit to preview area with padding
+  const areaW = area.clientWidth - 40;
+  const areaH = area.clientHeight - 40;
+  const scaleX = areaW / currentW;
+  const scaleY = areaH / currentH;
+  const scale = Math.min(scaleX, scaleY, 1);
+  output.style.transform = `scale(${scale})`;
+  output.style.width = `${currentW}px`;
+  output.style.height = `${currentH}px`;
+}
+
+document.querySelectorAll('#design-opts .opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#design-opts .opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDesign = btn.dataset.design;
+    render();
+  });
+});
+
+document.querySelectorAll('#res-opts .opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#res-opts .opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentW = parseInt(btn.dataset.w);
+    currentH = parseInt(btn.dataset.h);
+    render();
+  });
+});
+
+window.addEventListener('resize', render);
+render();
+
+/* ── PNG Export ── */
+async function exportPNG() {
+  const btn = document.getElementById('export-btn');
+  const hint = document.getElementById('export-hint');
+  const container = document.getElementById('export-container');
+
+  btn.classList.add('exporting');
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Rendering...`;
+  hint.textContent = `Rendering ${currentW} x ${currentH} — this may take a moment...`;
+
+  try {
+    // Render at full native resolution into the hidden container
+    container.innerHTML = designs[currentDesign](currentW, currentH);
+    container.style.width = currentW + 'px';
+    container.style.height = currentH + 'px';
+
+    // Wait for fonts to load and DOM to settle
+    await document.fonts.ready;
+    await new Promise(r => setTimeout(r, 200));
+
+    const source = container.querySelector('.wp');
+    const canvas = await html2canvas(source, {
+      width: currentW,
+      height: currentH,
+      scale: 1,
+      useCORS: true,
+      backgroundColor: '#0a0a0f',
+      logging: false,
+    });
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.download = `intercept-${currentDesign}-${currentW}x${currentH}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    hint.textContent = `Exported ${currentW} x ${currentH} PNG`;
+  } catch (err) {
+    console.error('Export failed:', err);
+    hint.textContent = 'Export failed — try a smaller resolution or check console';
+  } finally {
+    container.innerHTML = '';
+    btn.classList.remove('exporting');
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export PNG`;
+  }
+}
+</script>
+
+</body>
+</html>

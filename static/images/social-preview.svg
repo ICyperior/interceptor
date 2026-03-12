@@ -42,13 +42,13 @@
   </g>
 
   <!-- Title: branded "i" glyph + NTERCEPT text -->
-  <g transform="translate(370, 310) scale(0.72)">
-    <circle cx="50" cy="20" r="7" fill="#00ff88"/>
-    <rect x="43" y="33" width="14" height="48" rx="2" fill="#00d4ff"/>
-    <rect x="36" y="33" width="28" height="5" rx="1" fill="#00d4ff"/>
-    <rect x="36" y="76" width="28" height="5" rx="1" fill="#00d4ff"/>
+  <g transform="translate(320, 283) scale(1.24)">
+    <circle cx="50" cy="18" r="6" fill="#00ff88"/>
+    <rect x="44" y="30" width="12" height="45" rx="2" fill="#00d4ff"/>
+    <rect x="38" y="30" width="24" height="4" rx="1" fill="#00d4ff"/>
+    <rect x="38" y="71" width="24" height="4" rx="1" fill="#00d4ff"/>
   </g>
-  <text x="415" y="380" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="84" font-weight="800" letter-spacing="-2" fill="white">NTERCEPT</text>
+  <text x="400" y="380" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="84" font-weight="800" letter-spacing="-2" fill="white">NTERCEPT</text>
 
   <!-- Subtitle -->
   <text x="640" y="425" text-anchor="middle" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="24" font-weight="300" fill="rgba(255,255,255,0.4)" letter-spacing="0.5">
