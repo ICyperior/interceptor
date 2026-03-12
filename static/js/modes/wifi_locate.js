@@ -189,7 +189,7 @@ const WiFiLocate = (function() {
                     const net = data.network;
                     const bssid = (net.bssid || '').toUpperCase();
                     if (bssid === targetBssid) {
-                        const rssi = parseInt(net.signal || net.rssi, 10);
+                        const rssi = parseInt(net.rssi_current ?? net.signal ?? net.rssi, 10);
                         if (!isNaN(rssi)) {
                             // Pick up SSID if we don't have it yet
                             if (!targetSsid && net.essid) {
