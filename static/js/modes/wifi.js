@@ -59,12 +59,12 @@ const WiFiMode = (function() {
     /**
      * Check for agent mode conflicts before starting WiFi scan.
      */
-    function checkAgentConflicts() {
+    async function checkAgentConflicts() {
         if (typeof currentAgent === 'undefined' || currentAgent === 'local') {
             return true;
         }
         if (typeof checkAgentModeConflict === 'function') {
-            return checkAgentModeConflict('wifi');
+            return await checkAgentModeConflict('wifi');
         }
         return true;
     }
@@ -411,7 +411,7 @@ const WiFiMode = (function() {
         if (isScanning) return;
 
         // Check for agent mode conflicts
-        if (!checkAgentConflicts()) {
+        if (!await checkAgentConflicts()) {
             return;
         }
 
@@ -503,7 +503,7 @@ const WiFiMode = (function() {
         if (isScanning) return;
 
         // Check for agent mode conflicts
-        if (!checkAgentConflicts()) {
+        if (!await checkAgentConflicts()) {
             return;
         }
 

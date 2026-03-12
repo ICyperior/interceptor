@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ais_dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/layout.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v={{ version }}&r=maptheme17">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
     <script>
@@ -539,7 +539,7 @@
             });
         }
 
-        function toggleTracking() {
+        async function toggleTracking() {
             if (isTracking) {
                 stopTracking();
             } else {
@@ -556,7 +556,7 @@
 
             // For agent mode, check conflicts and route through proxy
             if (useAgent) {
-                if (typeof checkAgentModeConflict === 'function' && !checkAgentModeConflict('ais')) {
+                if (typeof checkAgentModeConflict === 'function' && !await checkAgentModeConflict('ais')) {
                     return;
                 }
 
@@ -1651,12 +1651,12 @@
 
         // Override startTracking for agent support
         const originalStartTracking = startTracking;
-        startTracking = function() {
+        startTracking = async function() {
             const useAgent = aisCurrentAgent !== 'local';
 
             if (useAgent) {
                 // Check for conflicts
-                if (typeof checkAgentModeConflict === 'function' && !checkAgentModeConflict('ais')) {
+                if (typeof checkAgentModeConflict === 'function' && !await checkAgentModeConflict('ais')) {
                     return;
                 }
 

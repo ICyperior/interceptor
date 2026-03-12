@@ -802,7 +802,13 @@ const SSTVGeneral = (function() {
      * Delete a single image
      */
     async function deleteImage(filename) {
-        if (!confirm('Delete this image?')) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete Image',
+            message: 'Delete this image? This cannot be undone.',
+            confirmLabel: 'Delete',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         try {
             const response = await fetch(`/sstv-general/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
             const data = await response.json();
@@ -822,7 +828,13 @@ const SSTVGeneral = (function() {
      * Delete all images
      */
     async function deleteAllImages() {
-        if (!confirm('Delete all decoded images?')) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete All Images',
+            message: 'Delete all decoded images? This cannot be undone.',
+            confirmLabel: 'Delete All',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         try {
             const response = await fetch('/sstv-general/images', { method: 'DELETE' });
             const data = await response.json();

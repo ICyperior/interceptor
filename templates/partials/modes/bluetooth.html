@@ -14,13 +14,13 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Adapter</label>
+                            <label for="btAdapterSelect">Adapter</label>
                             <select id="btAdapterSelect">
                                 <option value="">Detecting adapters...</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Scan Mode</label>
+                            <label for="btScanMode">Scan Mode</label>
                             <select id="btScanMode">
                                 <option value="auto">Auto (Recommended)</option>
                                 <option value="bleak">Bleak Library</option>
@@ -30,7 +30,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Transport</label>
+                            <label for="btTransport">Transport</label>
                             <select id="btTransport">
                                 <option value="auto">Auto (BLE + Classic)</option>
                                 <option value="le">BLE Only</option>
@@ -38,11 +38,11 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Duration (seconds, 0 = continuous)</label>
+                            <label for="btScanDuration">Duration (seconds, 0 = continuous)</label>
                             <input type="number" id="btScanDuration" value="0" min="0" max="300" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label>Min RSSI Filter (dBm)</label>
+                            <label for="btMinRssi">Min RSSI Filter (dBm)</label>
                             <input type="number" id="btMinRssi" value="-100" min="-100" max="-20" placeholder="-100">
                         </div>
                         <button class="preset-btn" onclick="btCheckCapabilities()" style="width: 100%;">

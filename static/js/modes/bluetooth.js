@@ -75,12 +75,12 @@ const BluetoothMode = (function() {
     /**
      * Check for agent mode conflicts before starting scan.
      */
-    function checkAgentConflicts() {
+    async function checkAgentConflicts() {
         if (typeof currentAgent === 'undefined' || currentAgent === 'local') {
             return true;
         }
         if (typeof checkAgentModeConflict === 'function') {
-            return checkAgentModeConflict('bluetooth');
+            return await checkAgentModeConflict('bluetooth');
         }
         return true;
     }
@@ -883,7 +883,7 @@ const BluetoothMode = (function() {
 
     async function startScan() {
         // Check for agent mode conflicts
-        if (!checkAgentConflicts()) {
+        if (!await checkAgentConflicts()) {
             return;
         }
 
@@ -940,7 +940,9 @@ const BluetoothMode = (function() {
 
         } catch (err) {
             console.error('Failed to start scan:', err);
-            showErrorMessage('Failed to start scan: ' + err.message);
+            reportActionableError('Start Bluetooth Scan', err, {
+                onRetry: () => startScan()
+            });
         }
     }
 
@@ -968,6 +970,7 @@ const BluetoothMode = (function() {
             }
         } catch (err) {
             console.error('Failed to stop scan:', err);
+            reportActionableError('Stop Bluetooth Scan', err);
         } finally {
             if (timeoutId) {
                 clearTimeout(timeoutId);
@@ -1537,6 +1540,9 @@ const BluetoothMode = (function() {
             }
         } catch (err) {
             console.error('Failed to set baseline:', err);
+            reportActionableError('Set Baseline', err, {
+                onRetry: () => setBaseline()
+            });
         }
     }
 
@@ -1552,6 +1558,9 @@ const BluetoothMode = (function() {
             }
         } catch (err) {
             console.error('Failed to clear baseline:', err);
+            reportActionableError('Clear Baseline', err, {
+                onRetry: () => clearBaseline()
+            });
         }
     }
 

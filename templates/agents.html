@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/layout.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/agents.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v={{ version }}&r=maptheme17">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
@@ -514,7 +514,13 @@
         }
 
         async function deleteAgent(agentId, agentName) {
-            if (!confirm(`Are you sure you want to remove agent "${agentName}"?`)) {
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Remove Agent',
+                message: `Are you sure you want to remove agent "${agentName}"?`,
+                confirmLabel: 'Remove',
+                confirmClass: 'btn-danger'
+            });
+            if (!confirmed) {
                 return;
             }
 

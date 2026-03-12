@@ -1378,7 +1378,7 @@
 }
 
 /* Responsive traceroute path */
-@media (max-width: 600px) {
+@media (max-width: 480px) {
     .mesh-traceroute-path {
         flex-direction: column;
     }

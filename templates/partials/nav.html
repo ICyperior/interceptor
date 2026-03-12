@@ -159,14 +159,15 @@
 
     {# Dynamic dashboard button (shown when in satellite mode) #}
     <div class="mode-nav-actions">
-        <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn" style="display: none;">
+        <a href="/satellite/dashboard" target="_blank" class="nav-action-btn" id="satelliteDashboardBtn">
             <span class="nav-icon icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
             <span class="nav-label">Full Dashboard</span>
         </a>
     </div>
 
-    {# Nav Utilities (clock, theme, tools) #}
+    {# Nav Utilities (clock, SSE status, theme, tools) #}
     <div class="nav-utilities">
+        <span class="status-dot inactive" id="sseStatusDot" data-tooltip="No active streams" aria-label="Stream connection status"></span>
         <div class="nav-clock">
             <span class="utc-label">UTC</span>
             <span class="utc-time" id="headerUtcTime">--:--:--</span>
@@ -426,9 +427,15 @@
     // showHelp is defined by the help-modal.html partial
 
     if (typeof logout === 'undefined') {
-        window.logout = function(e) {
+        window.logout = async function(e) {
             if (e) e.preventDefault();
-            if (confirm('Are you sure you want to logout?')) {
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Logout',
+                message: 'Are you sure you want to logout?',
+                confirmLabel: 'Logout',
+                confirmClass: 'btn-danger'
+            });
+            if (confirmed) {
                 window.location.href = '/logout';
             }
         };

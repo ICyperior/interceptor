@@ -291,8 +291,10 @@ const WeatherSat = (function() {
             }
         } catch (err) {
             console.error('Failed to start weather sat:', err);
+            reportActionableError('Start Weather Satellite', err, {
+                onRetry: () => start()
+            });
             updateStatusUI('idle', 'Error');
-            showNotification('Weather Sat', 'Connection error');
         }
     }
 
@@ -322,6 +324,7 @@ const WeatherSat = (function() {
             showNotification('Weather Sat', 'Capture stopped');
         } catch (err) {
             console.error('Failed to stop weather sat:', err);
+            reportActionableError('Stop Weather Satellite', err);
         }
     }
 
@@ -375,8 +378,10 @@ const WeatherSat = (function() {
             }
         } catch (err) {
             console.error('Failed to start test decode:', err);
+            reportActionableError('Start Test Decode', err, {
+                onRetry: () => testDecode()
+            });
             updateStatusUI('idle', 'Error');
-            showNotification('Weather Sat', 'Connection error');
         }
     }
 
@@ -1439,9 +1444,11 @@ const WeatherSat = (function() {
             showNotification('Weather Sat', `Auto-scheduler enabled (${data.scheduled_count || 0} passes)`);
         } catch (err) {
             console.error('Failed to enable scheduler:', err);
+            reportActionableError('Enable Scheduler', err, {
+                onRetry: () => enableScheduler()
+            });
             schedulerEnabled = false;
             updateSchedulerUI({ enabled: false, scheduled_count: 0 });
-            showNotification('Weather Sat', 'Failed to enable auto-scheduler');
         }
     }
 
@@ -1461,6 +1468,7 @@ const WeatherSat = (function() {
             showNotification('Weather Sat', 'Auto-scheduler disabled');
         } catch (err) {
             console.error('Failed to disable scheduler:', err);
+            reportActionableError('Disable Scheduler', err);
         }
     }
 
@@ -1649,7 +1657,13 @@ const WeatherSat = (function() {
      */
     async function deleteImage(filename) {
         if (!filename) return;
-        if (!confirm(`Delete this image?`)) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete Image',
+            message: 'Delete this image? This cannot be undone.',
+            confirmLabel: 'Delete',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
 
         try {
             const response = await fetch(`/weather-sat/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
@@ -1668,7 +1682,7 @@ const WeatherSat = (function() {
             }
         } catch (err) {
             console.error('Failed to delete image:', err);
-            showNotification('Weather Sat', 'Failed to delete image');
+            reportActionableError('Delete Image', err);
         }
     }
 
@@ -1677,7 +1691,13 @@ const WeatherSat = (function() {
      */
     async function deleteAllImages() {
         if (images.length === 0) return;
-        if (!confirm(`Delete all ${images.length} decoded images?`)) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete All Images',
+            message: `Delete all ${images.length} decoded images? This cannot be undone.`,
+            confirmLabel: 'Delete All',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
 
         try {
             const response = await fetch('/weather-sat/images', { method: 'DELETE' });
@@ -1693,7 +1713,7 @@ const WeatherSat = (function() {
             }
         } catch (err) {
             console.error('Failed to delete all images:', err);
-            showNotification('Weather Sat', 'Failed to delete images');
+            reportActionableError('Delete All Images', err);
         }
     }
 

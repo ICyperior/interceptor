@@ -96,6 +96,8 @@ code {
     border: 1px solid var(--border-color);
     padding: 2px 6px;
     border-radius: var(--radius-sm);
+    overflow-x: auto;
+    max-width: 100%;
 }
 
 pre {
@@ -104,6 +106,7 @@ pre {
     padding: var(--space-4);
     border-radius: var(--radius-md);
     overflow-x: auto;
+    max-width: 100%;
 }
 
 pre code {

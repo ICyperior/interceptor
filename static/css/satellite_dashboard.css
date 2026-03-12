@@ -134,7 +134,7 @@ body {
 }
 
 /* Mobile header adjustments */
-@media (max-width: 800px) {
+@media (max-width: 768px) {
     .header {
         padding: 10px 12px;
         flex-wrap: wrap;
@@ -709,7 +709,7 @@ body {
 }
 
 /* Responsive */
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
     .dashboard {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr auto auto;
@@ -745,7 +745,7 @@ body {
     }
 }
 
-@media (max-width: 800px) {
+@media (max-width: 768px) {
     .dashboard {
         display: flex;
         flex-direction: column;

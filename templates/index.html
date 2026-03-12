@@ -55,7 +55,8 @@
     <!-- Chart.js date adapter for time-scale axes -->
     <script src="{{ url_for('static', filename='vendor/chartjs/chartjs-adapter-date-fns.bundle.min.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/layout.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
@@ -666,16 +667,14 @@
                         </div>
                     </div>
 
-                    <div id="toolStatusPager" class="info-text tool-status-section"
-                        style="display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                    <div id="toolStatusPager" class="info-text tool-status-section">
                         <span>rtl_fm:</span><span class="tool-status {{ 'ok' if tools.rtl_fm else 'missing' }}">{{ 'OK'
                             if tools.rtl_fm else 'Missing' }}</span>
                         <span>multimon-ng:</span><span
                             class="tool-status {{ 'ok' if tools.multimon else 'missing' }}">{{ 'OK' if tools.multimon
                             else 'Missing' }}</span>
                     </div>
-                    <div id="toolStatusSensor" class="info-text tool-status-section"
-                        style="display: none; grid-template-columns: auto auto; gap: 4px 8px; align-items: center;">
+                    <div id="toolStatusSensor" class="info-text tool-status-section">
                         <span>rtl_433:</span><span class="tool-status {{ 'ok' if tools.rtl_433 else 'missing' }}">{{
                             'OK' if tools.rtl_433 else 'Missing' }}</span>
                     </div>
@@ -751,11 +750,11 @@
                             <div title="POCSAG Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> <span id="pocsagCount">0</span></div>
                             <div title="FLEX Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> <span id="flexCount">0</span></div>
                         </div>
-                        <div class="stats" id="sensorStats" style="display: none;">
+                        <div class="stats" id="sensorStats">
                             <div title="Unique Sensors"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span> <span id="sensorCount">0</span></div>
                             <div title="Device Types"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> <span id="deviceCount">0</span></div>
                         </div>
-                        <div class="stats" id="wifiStats" style="display: none;">
+                        <div class="stats" id="wifiStats">
                             <div title="Access Points"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span> <span id="apCount">0</span></div>
                             <div title="Connected Clients"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> <span id="clientCount">0</span></div>
                             <div title="Captured Handshakes" style="color: var(--accent-green);"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg></span> <span id="handshakeCount">0</span></div>
@@ -764,14 +763,14 @@
                             <div style="color: var(--accent-red); cursor: pointer;" onclick="showRogueApDetails()"
                                 title="Click: Rogue AP details"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> <span id="rogueApCount">0</span></div>
                         </div>
-                        <div class="stats" id="satelliteStats" style="display: none;">
+                        <div class="stats" id="satelliteStats">
                             <div title="Upcoming Passes"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7L9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4-6 6"/></svg></span> <span id="passCount">0</span></div>
                         </div>
                         </div>
                     </div>
 
                     <!-- WiFi Layout Container -->
-                    <div class="wifi-layout-container" id="wifiLayoutContainer" style="display: none;">
+                    <div class="wifi-layout-container" id="wifiLayoutContainer">
                     <!-- Status Bar -->
                     <div class="wifi-status-bar">
                         <div class="wifi-status-item">
@@ -945,7 +944,7 @@
                 </div>
 
                 <!-- Bluetooth Layout Container (visualizations left, device cards right) -->
-                <div class="bt-layout-container" id="btLayoutContainer" style="display: none;">
+                <div class="bt-layout-container" id="btLayoutContainer">
                     <!-- Left: Bluetooth Visualizations -->
                     <div class="bt-visuals-column" id="btVisuals">
                         <!-- Device Detail Panel (always visible) -->
@@ -1347,7 +1346,7 @@
                 </div>
 
                 <!-- Satellite Dashboard (Embedded) -->
-                <div id="satelliteVisuals" class="satellite-dashboard-embed" style="display: none;">
+                <div id="satelliteVisuals" class="satellite-dashboard-embed">
                     <iframe id="satelliteDashboardFrame" src="/satellite/dashboard?embedded=true" frameborder="0"
                         style="width: 100%; height: 100%; min-height: 700px; border: none; border-radius: 8px;"
                         allowfullscreen>
@@ -4460,14 +4459,10 @@
             document.getElementById('ookMode')?.classList.toggle('active', mode === 'ook');
 
 
-            const pagerStats = document.getElementById('pagerStats');
-            const sensorStats = document.getElementById('sensorStats');
-            const satelliteStats = document.getElementById('satelliteStats');
-            const wifiStats = document.getElementById('wifiStats');
-            if (pagerStats) pagerStats.style.display = mode === 'pager' ? 'flex' : 'none';
-            if (sensorStats) sensorStats.style.display = mode === 'sensor' ? 'flex' : 'none';
-            if (satelliteStats) satelliteStats.style.display = mode === 'satellite' ? 'flex' : 'none';
-            if (wifiStats) wifiStats.style.display = mode === 'wifi' ? 'flex' : 'none';
+            document.getElementById('pagerStats')?.classList.toggle('active', mode === 'pager');
+            document.getElementById('sensorStats')?.classList.toggle('active', mode === 'sensor');
+            document.getElementById('satelliteStats')?.classList.toggle('active', mode === 'satellite');
+            document.getElementById('wifiStats')?.classList.toggle('active', mode === 'wifi');
 
             // Update header stats groups
             document.getElementById('headerPagerStats')?.classList.toggle('active', mode === 'pager');
@@ -4476,8 +4471,7 @@
             document.getElementById('headerWifiStats')?.classList.toggle('active', mode === 'wifi');
 
             // Show/hide dashboard buttons in nav bar
-            const satelliteDashboardBtn = document.getElementById('satelliteDashboardBtn');
-            if (satelliteDashboardBtn) satelliteDashboardBtn.style.display = mode === 'satellite' ? 'inline-flex' : 'none';
+            document.getElementById('satelliteDashboardBtn')?.classList.toggle('active', mode === 'satellite');
 
             // Update active mode indicator
             const modeMeta = modeCatalog[mode] || {};
@@ -4503,9 +4497,9 @@
             const radiosondeVisuals = document.getElementById('radiosondeVisuals');
             const meteorVisuals = document.getElementById('meteorVisuals');
             const systemVisuals = document.getElementById('systemVisuals');
-            if (wifiLayoutContainer) wifiLayoutContainer.style.display = mode === 'wifi' ? 'flex' : 'none';
-            if (btLayoutContainer) btLayoutContainer.style.display = mode === 'bluetooth' ? 'flex' : 'none';
-            if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
+            if (wifiLayoutContainer) wifiLayoutContainer.classList.toggle('active', mode === 'wifi');
+            if (btLayoutContainer) btLayoutContainer.classList.toggle('active', mode === 'bluetooth');
+            if (satelliteVisuals) satelliteVisuals.classList.toggle('active', mode === 'satellite');
             const satFrame = document.getElementById('satelliteDashboardFrame');
             if (satFrame && satFrame.contentWindow) {
                 satFrame.contentWindow.postMessage({type: 'satellite-visibility', visible: mode === 'satellite'}, '*');
@@ -4584,18 +4578,10 @@
             const reconBtn = document.getElementById('reconBtn');
             const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
             const reconPanel = document.getElementById('reconPanel');
-            if (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'gps' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall' || mode === 'meteor' || mode === 'system') {
-                if (reconPanel) reconPanel.style.display = 'none';
-                if (reconBtn) reconBtn.style.display = 'none';
-                if (intelBtn) intelBtn.style.display = 'none';
-            } else {
-                if (reconBtn) reconBtn.style.display = 'inline-block';
-                if (intelBtn) intelBtn.style.display = 'inline-block';
-                // Restore panel visibility based on reconEnabled state
-                if (reconEnabled && reconPanel) {
-                    reconPanel.style.display = 'block';
-                }
-            }
+            const hideRecon = ['satellite', 'sstv', 'weathersat', 'sstv_general', 'wefax', 'gps', 'aprs', 'tscm', 'spystations', 'meshtastic', 'websdr', 'subghz', 'spaceweather', 'waterfall', 'meteor', 'system'].includes(mode);
+            if (reconPanel) reconPanel.classList.toggle('active', !hideRecon && reconEnabled);
+            if (reconBtn) reconBtn.classList.toggle('hidden', hideRecon);
+            if (intelBtn) intelBtn.classList.toggle('hidden', hideRecon);
 
             // Show agent selector for modes that support remote agents
             const agentSection = document.getElementById('agentSection');
@@ -4605,7 +4591,8 @@
             // Show RTL-SDR device section for modes that use it
             const rtlDeviceSection = document.getElementById('rtlDeviceSection');
             if (rtlDeviceSection) {
-                rtlDeviceSection.style.display = (mode === 'pager' || mode === 'sensor' || mode === 'rtlamr' || mode === 'aprs' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'morse' || mode === 'radiosonde' || mode === 'meteor' || mode === 'ook') ? 'block' : 'none';
+                const showRtl = ['pager', 'sensor', 'rtlamr', 'aprs', 'sstv', 'weathersat', 'sstv_general', 'wefax', 'morse', 'radiosonde', 'meteor', 'ook'].includes(mode);
+                rtlDeviceSection.classList.toggle('active', showRtl);
                 // Save original sidebar position of SDR device section (once)
                 if (!rtlDeviceSection._origParent) {
                     rtlDeviceSection._origParent = rtlDeviceSection.parentNode;
@@ -4639,16 +4626,15 @@
             }
 
             // Toggle mode-specific tool status displays
-            const toolStatusPager = document.getElementById('toolStatusPager');
-            const toolStatusSensor = document.getElementById('toolStatusSensor');
-            if (toolStatusPager) toolStatusPager.style.display = (mode === 'pager') ? 'grid' : 'none';
-            if (toolStatusSensor) toolStatusSensor.style.display = (mode === 'sensor') ? 'grid' : 'none';
+            document.getElementById('toolStatusPager')?.classList.toggle('active', mode === 'pager');
+            document.getElementById('toolStatusSensor')?.classList.toggle('active', mode === 'sensor');
 
             // Hide output console for modes with their own visualizations
-            const outputEl = document.getElementById('output');
-            const statusBar = document.querySelector('.status-bar');
-            if (outputEl) outputEl.style.display = (mode === 'satellite' || mode === 'sstv' || mode === 'weathersat' || mode === 'sstv_general' || mode === 'wefax' || mode === 'aprs' || mode === 'wifi' || mode === 'bluetooth' || mode === 'tscm' || mode === 'spystations' || mode === 'meshtastic' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'bt_locate' || mode === 'waterfall' || mode === 'morse' || mode === 'meteor' || mode === 'system' || mode === 'ook') ? 'none' : 'block';
-            if (statusBar) statusBar.style.display = (mode === 'satellite' || mode === 'websdr' || mode === 'subghz' || mode === 'spaceweather' || mode === 'waterfall' || mode === 'morse' || mode === 'meteor' || mode === 'system') ? 'none' : 'flex';
+            const fullVisualModes = ['satellite', 'sstv', 'weathersat', 'sstv_general', 'wefax', 'aprs', 'wifi', 'bluetooth', 'tscm', 'spystations', 'meshtastic', 'websdr', 'subghz', 'spaceweather', 'bt_locate', 'waterfall', 'morse', 'meteor', 'system', 'ook'];
+            const hideConsole = fullVisualModes.includes(mode);
+            document.getElementById('output')?.classList.toggle('active', !hideConsole);
+            const hideStatusBar = ['satellite', 'websdr', 'subghz', 'spaceweather', 'waterfall', 'morse', 'meteor', 'system'].includes(mode);
+            document.querySelector('.status-bar')?.classList.toggle('active', !hideStatusBar);
 
             // Restore sidebar when leaving Meshtastic mode (user may have collapsed it)
             if (mode !== 'meshtastic') {
@@ -5102,7 +5088,7 @@
         }
 
         // Start sensor decoding
-        function startSensorDecoding() {
+        async function startSensorDecoding() {
             const freq = document.getElementById('sensorFrequency').value;
             const gain = document.getElementById('sensorGain').value;
             const ppm = document.getElementById('sensorPpm').value;
@@ -5111,7 +5097,7 @@
             // Check if using remote agent
             if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
                 // Check for conflicts with other running SDR modes
-                if (typeof checkAgentModeConflict === 'function' && !checkAgentModeConflict('sensor')) {
+                if (typeof checkAgentModeConflict === 'function' && !await checkAgentModeConflict('sensor')) {
                     return;  // User cancelled or conflict not resolved
                 }
 
@@ -5146,7 +5132,7 @@
             }
 
             // Check if device is available
-            if (!checkDeviceAvailability('sensor')) {
+            if (!await checkDeviceAvailability('sensor')) {
                 return;
             }
 
@@ -5462,7 +5448,7 @@
         let rtlamrPollTimer = null;
         let rtlamrCurrentAgent = null;
 
-        function startRtlamrDecoding() {
+        async function startRtlamrDecoding() {
             const freq = document.getElementById('rtlamrFrequency').value;
             const gain = document.getElementById('rtlamrGain').value;
             const ppm = document.getElementById('rtlamrPpm').value;
@@ -5476,7 +5462,7 @@
             rtlamrCurrentAgent = isAgentMode ? currentAgent : null;
 
             // Check if device is available (only for local mode)
-            if (!isAgentMode && !checkDeviceAvailability('rtlamr')) {
+            if (!isAgentMode && !await checkDeviceAvailability('rtlamr')) {
                 return;
             }
 
@@ -5897,8 +5883,14 @@
             input.value = '';
         }
 
-        function removePreset(freq) {
-            if (confirm('Remove preset ' + freq + ' MHz?')) {
+        async function removePreset(freq) {
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Remove Preset',
+                message: 'Remove preset ' + freq + ' MHz?',
+                confirmLabel: 'Remove',
+                confirmClass: 'btn-danger'
+            });
+            if (confirmed) {
                 let presets = loadPresets();
                 presets = presets.filter(p => p !== freq);
                 savePresets(presets);
@@ -5906,8 +5898,14 @@
             }
         }
 
-        function resetPresets() {
-            if (confirm('Reset to default presets?')) {
+        async function resetPresets() {
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Reset Presets',
+                message: 'Reset to default presets?',
+                confirmLabel: 'Reset',
+                confirmClass: 'btn-danger'
+            });
+            if (confirmed) {
                 savePresets([...defaultPresets]);
                 renderPresets();
             }
@@ -6008,7 +6006,7 @@
             });
         }
 
-        function checkDeviceAvailability(modeName) {
+        async function checkDeviceAvailability(modeName) {
             const selectedDevice = parseInt(getSelectedDevice());
             const usedBy = getDeviceInUseBy(selectedDevice);
 
@@ -6018,10 +6016,12 @@
 
                 if (availableDevice !== null) {
                     // Another device is available - offer to switch
-                    const switchDevice = confirm(
-                        `Device ${selectedDevice} is in use by ${usedBy.toUpperCase()}.\n\n` +
-                        `Device ${availableDevice} is available. Switch to it?`
-                    );
+                    const switchDevice = await AppFeedback.confirmAction({
+                        title: 'SDR Device In Use',
+                        message: `Device ${selectedDevice} is in use by ${usedBy.toUpperCase()}. Device ${availableDevice} is available. Switch to it?`,
+                        confirmLabel: 'Switch Device',
+                        confirmClass: 'btn-danger'
+                    });
                     if (switchDevice) {
                         document.getElementById('deviceSelect').value = availableDevice;
                         return true; // Can proceed with new device
@@ -6507,7 +6507,7 @@
             pagerScopeLastInputSample = 0;
         }
 
-        function startDecoding() {
+        async function startDecoding() {
             const freq = document.getElementById('frequency').value;
             const gain = document.getElementById('gain').value;
             const squelch = document.getElementById('squelch').value;
@@ -6524,7 +6524,7 @@
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
 
             // Check if device is available (only for local mode)
-            if (!isAgentMode && !checkDeviceAvailability('pager')) {
+            if (!isAgentMode && !await checkDeviceAvailability('pager')) {
                 return;
             }
 
@@ -7263,8 +7263,8 @@
         function toggleRecon() {
             reconEnabled = !reconEnabled;
             localStorage.setItem('reconEnabled', reconEnabled);
-            document.getElementById('reconPanel').style.display = reconEnabled ? 'block' : 'none';
-            document.getElementById('reconBtn').classList.toggle('active', reconEnabled);
+            document.getElementById('reconPanel')?.classList.toggle('active', reconEnabled);
+            document.getElementById('reconBtn')?.classList.toggle('active', reconEnabled);
 
             // Populate recon display if enabled and we have data
             if (reconEnabled && deviceDatabase.size > 0) {
@@ -7275,11 +7275,9 @@
         }
 
         // Initialize recon state
+        document.getElementById('reconPanel')?.classList.toggle('active', reconEnabled);
         if (reconEnabled) {
-            document.getElementById('reconPanel').style.display = 'block';
-            document.getElementById('reconBtn').classList.add('active');
-        } else {
-            document.getElementById('reconPanel').style.display = 'none';
+            document.getElementById('reconBtn')?.classList.add('active');
         }
 
         // Hook into existing message handlers to track devices
@@ -9098,7 +9096,13 @@
 
         // Start handshake capture
         async function captureHandshake(bssid, channel) {
-            if (!confirm('Start handshake capture for ' + bssid + '? This will stop the current scan.')) {
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Capture Handshake',
+                message: 'Start handshake capture for ' + bssid + '? This will stop the current scan.',
+                confirmLabel: 'Start Capture',
+                confirmClass: 'btn-danger'
+            });
+            if (!confirmed) {
                 return;
             }
 
@@ -9339,7 +9343,7 @@
         }
 
         // Send deauth
-        function sendDeauth() {
+        async function sendDeauth() {
             const bssid = document.getElementById('targetBssid').value;
             const client = document.getElementById('targetClient').value || 'FF:FF:FF:FF:FF:FF';
             const count = document.getElementById('deauthCount').value || '5';
@@ -9349,7 +9353,13 @@
                 return;
             }
 
-            if (!confirm('Send ' + count + ' deauth packets to ' + bssid + '?\\n\\n⚠ Only use on networks you own or have authorization to test!')) {
+            const deauthConfirmed = await AppFeedback.confirmAction({
+                title: 'Send Deauth Packets',
+                message: 'Send ' + count + ' deauth packets to ' + bssid + '? Only use on networks you own or have authorization to test.',
+                confirmLabel: 'Send Deauth',
+                confirmClass: 'btn-danger'
+            });
+            if (!deauthConfirmed) {
                 return;
             }
 
@@ -11779,7 +11789,7 @@
 
             // Check for conflicts if using agent
             if (isAgentMode && typeof checkAgentModeConflict === 'function') {
-                if (!checkAgentModeConflict('tscm')) {
+                if (!await checkAgentModeConflict('tscm')) {
                     return;  // Conflict detected, user cancelled
                 }
             }
@@ -15082,7 +15092,13 @@
         }
 
         async function tscmRemoveKnownDevice(identifier) {
-            if (!confirm('Remove this device from known devices list?')) return;
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Remove Known Device',
+                message: 'Remove this device from known devices list?',
+                confirmLabel: 'Remove',
+                confirmClass: 'btn-danger'
+            });
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`/tscm/known-devices/${identifier}`, {
@@ -15603,7 +15619,13 @@
         }
 
         async function tscmDeleteSchedule(scheduleId) {
-            if (!confirm('Delete this schedule?')) return;
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Delete Schedule',
+                message: 'Delete this schedule?',
+                confirmLabel: 'Delete',
+                confirmClass: 'btn-danger'
+            });
+            if (!confirmed) return;
             try {
                 const response = await fetch(`/tscm/schedules/${scheduleId}`, { method: 'DELETE' });
                 const data = await response.json();
@@ -16121,6 +16143,7 @@
     <script src="{{ url_for('static', filename='js/core/alerts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/recordings.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/ui-feedback.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/sse-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/run-state.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/command-palette.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/first-run-setup.js') }}"></script>

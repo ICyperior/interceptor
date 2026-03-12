@@ -269,8 +269,14 @@ const AlertCenter = (function() {
             });
     }
 
-    function deleteRule(ruleId) {
-        if (!confirm('Delete this alert rule?')) return;
+    async function deleteRule(ruleId) {
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete Alert Rule',
+            message: 'Delete this alert rule?',
+            confirmLabel: 'Delete',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
 
         fetch(`/alerts/rules/${ruleId}`, { method: 'DELETE' })
             .then((r) => r.json())

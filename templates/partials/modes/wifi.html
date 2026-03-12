@@ -24,7 +24,7 @@
                     <div class="section">
                         <h3>WiFi Adapter</h3>
                         <div class="form-group">
-                            <label>Select Device</label>
+                            <label for="wifiInterfaceSelect">Select Device</label>
                             <select id="wifiInterfaceSelect" style="font-size: 12px;">
                                 <option value="">Detecting interfaces...</option>
                             </select>
@@ -62,7 +62,7 @@
                     <div class="section">
                         <h3>Scan Settings</h3>
                         <div class="form-group">
-                            <label>Band</label>
+                            <label for="wifiBand">Band</label>
                             <select id="wifiBand">
                                 <option value="abg">All (2.4 + 5 GHz)</option>
                                 <option value="bg">2.4 GHz only</option>
@@ -70,7 +70,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Channel Preset</label>
+                            <label for="wifiChannelPreset">Channel Preset</label>
                             <select id="wifiChannelPreset">
                                 <option value="">Auto hop (all)</option>
                                 <option value="2.4-common">2.4 GHz Common (1,6,11)</option>
@@ -81,11 +81,11 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Channel List (overrides preset)</label>
+                            <label for="wifiChannelList">Channel List (overrides preset)</label>
                             <input type="text" id="wifiChannelList" placeholder="e.g., 1,6,11 or 36,40,44,48">
                         </div>
                         <div class="form-group">
-                            <label>Channel (single)</label>
+                            <label for="wifiChannel">Channel (single)</label>
                             <input type="text" id="wifiChannel" placeholder="e.g., 6 or 36">
                         </div>
                     </div>
@@ -110,15 +110,15 @@
                             <span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Only use on authorized networks
                         </div>
                         <div class="form-group">
-                            <label>Target BSSID</label>
+                            <label for="targetBssid">Target BSSID</label>
                             <input type="text" id="targetBssid" placeholder="AA:BB:CC:DD:EE:FF">
                         </div>
                         <div class="form-group">
-                            <label>Target Client (optional)</label>
+                            <label for="targetClient">Target Client (optional)</label>
                             <input type="text" id="targetClient" placeholder="FF:FF:FF:FF:FF:FF (broadcast)">
                         </div>
                         <div class="form-group">
-                            <label>Deauth Count</label>
+                            <label for="deauthCount">Deauth Count</label>
                             <input type="text" id="deauthCount" value="5" placeholder="5">
                         </div>
                         <button class="preset-btn" onclick="sendDeauth()" style="width: 100%; border-color: var(--accent-red); color: var(--accent-red);">

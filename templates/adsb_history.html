@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/global-nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/layout.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v={{ version }}&r=maptheme17">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_history.css') }}">
@@ -608,7 +608,12 @@
             }
             const dayEndLocal = new Date(dayStartLocal.getTime() + (24 * 60 * 60 * 1000));
             const dayLabel = dayStartLocal.toLocaleDateString();
-            const confirmed = window.confirm(`Delete ADS-B history for ${dayLabel}? This cannot be undone.`);
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Delete Day History',
+                message: `Delete ADS-B history for ${dayLabel}? This cannot be undone.`,
+                confirmLabel: 'Delete',
+                confirmClass: 'btn-danger'
+            });
             if (!confirmed) {
                 return;
             }
@@ -623,7 +628,12 @@
         }
 
         async function clearAllHistory() {
-            const confirmed = window.confirm('Delete ALL ADS-B history records? This cannot be undone.');
+            const confirmed = await AppFeedback.confirmAction({
+                title: 'Delete All History',
+                message: 'Delete ALL ADS-B history records? This cannot be undone.',
+                confirmLabel: 'Delete All',
+                confirmClass: 'btn-danger'
+            });
             if (!confirmed) {
                 return;
             }

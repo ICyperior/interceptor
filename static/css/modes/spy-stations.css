@@ -408,7 +408,7 @@
 }
 
 /* Small tablet / large phone (640px) */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .spy-station-footer {
         flex-direction: column;
         gap: 8px;

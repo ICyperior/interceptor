@@ -67,7 +67,7 @@
 
 .ook-warning {
     font-size: 11px;
-    color: #ffaa00;
+    color: var(--accent-orange);
     line-height: 1.5;
 }
 

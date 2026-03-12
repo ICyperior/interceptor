@@ -2449,7 +2449,7 @@ body {
     font-size: 10px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 480px) {
     .squawk-item {
         grid-template-columns: 45px 80px 1fr;
         gap: 8px;

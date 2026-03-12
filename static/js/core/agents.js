@@ -613,7 +613,7 @@ function checkAgentAudioMode(modeToStart) {
  * @param {string} modeToStart - Mode to start
  * @param {number} deviceToUse - Device index to use (optional, for smarter conflict detection)
  */
-function checkAgentModeConflict(modeToStart, deviceToUse = null) {
+async function checkAgentModeConflict(modeToStart, deviceToUse = null) {
     if (currentAgent === 'local') return true;  // No conflict checking for local
 
     // First check if this is an audio mode
@@ -648,11 +648,12 @@ function checkAgentModeConflict(modeToStart, deviceToUse = null) {
                 return detail ? `${m} (SDR ${detail.device})` : m;
             }).join(', ');
 
-            const proceed = confirm(
-                `The agent's SDR device is currently running: ${modeList}\n\n` +
-                `Starting ${modeToStart} on the same device will fail.\n\n` +
-                `Do you want to stop the conflicting mode(s) first?`
-            );
+            const proceed = await AppFeedback.confirmAction({
+                title: 'SDR Device Conflict',
+                message: `The agent's SDR device is currently running: ${modeList}. Starting ${modeToStart} on the same device will fail. Do you want to stop the conflicting mode(s) first?`,
+                confirmLabel: 'Stop & Continue',
+                confirmClass: 'btn-danger'
+            });
 
             if (proceed) {
                 // Stop conflicting modes

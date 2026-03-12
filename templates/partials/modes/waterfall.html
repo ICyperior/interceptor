@@ -36,7 +36,7 @@
     <div class="section">
         <h3>Device</h3>
         <div class="form-group">
-            <label>SDR Device</label>
+            <label for="wfDevice">SDR Device</label>
             <select id="wfDevice" onchange="Waterfall && Waterfall.onDeviceChange && Waterfall.onDeviceChange()">
                 <option value="">Loading devices...</option>
             </select>
@@ -60,11 +60,11 @@
     <div class="section">
         <h3>Tuning</h3>
         <div class="form-group">
-            <label>Center Frequency (MHz)</label>
+            <label for="wfCenterFreq">Center Frequency (MHz)</label>
             <input type="number" id="wfCenterFreq" value="100.0000" step="0.001" min="0.001" max="6000">
         </div>
         <div class="form-group">
-            <label>Span (MHz)</label>
+            <label for="wfSpanMhz">Span (MHz)</label>
             <input type="number" id="wfSpanMhz" value="2.4" step="0.1" min="0.05" max="30">
         </div>
         <div class="wf-side-grid-2">
@@ -130,11 +130,11 @@
             Identify current frequency using local catalog and SigID Wiki matches.
         </div>
         <div class="form-group">
-            <label>Frequency (MHz)</label>
+            <label for="wfSigIdFreq">Frequency (MHz)</label>
             <input type="number" id="wfSigIdFreq" value="100.0000" step="0.0001" min="0.001" max="6000">
         </div>
         <div class="form-group">
-            <label>Mode Hint</label>
+            <label for="wfSigIdMode">Mode Hint</label>
             <select id="wfSigIdMode">
                 <option value="auto" selected>Auto (Current Mode)</option>
                 <option value="wfm">WFM</option>
@@ -156,15 +156,15 @@
     <div class="section">
         <h3>Scan</h3>
         <div class="form-group">
-            <label>Range Start (MHz)</label>
+            <label for="wfScanStart">Range Start (MHz)</label>
             <input type="number" id="wfScanStart" value="98.8000" step="0.001" min="0.001" max="6000">
         </div>
         <div class="form-group">
-            <label>Range End (MHz)</label>
+            <label for="wfScanEnd">Range End (MHz)</label>
             <input type="number" id="wfScanEnd" value="101.2000" step="0.001" min="0.001" max="6000">
         </div>
         <div class="form-group">
-            <label>Step (kHz)</label>
+            <label for="wfScanStepKhz">Step (kHz)</label>
             <select id="wfScanStepKhz">
                 <option value="5">5</option>
                 <option value="10">10</option>
@@ -176,15 +176,15 @@
             </select>
         </div>
         <div class="form-group">
-            <label>Dwell (ms)</label>
+            <label for="wfScanDwellMs">Dwell (ms)</label>
             <input type="number" id="wfScanDwellMs" value="450" min="60" max="10000" step="10">
         </div>
         <div class="form-group">
-            <label>Signal Threshold <span id="wfScanThresholdValue" class="wf-inline-value">170</span></label>
+            <label for="wfScanThreshold">Signal Threshold <span id="wfScanThresholdValue" class="wf-inline-value">170</span></label>
             <input type="range" id="wfScanThreshold" min="0" max="255" value="170">
         </div>
         <div class="form-group">
-            <label>Hold On Hit (ms)</label>
+            <label for="wfScanHoldMs">Hold On Hit (ms)</label>
             <input type="number" id="wfScanHoldMs" value="2500" min="0" max="30000" step="100">
         </div>
         <div class="checkbox-group wf-scan-checkboxes">
@@ -246,11 +246,11 @@
     <div class="section">
         <h3>Capture</h3>
         <div class="form-group">
-            <label>Gain <span class="wf-inline-value">(dB or AUTO)</span></label>
+            <label for="wfGain">Gain <span class="wf-inline-value">(dB or AUTO)</span></label>
             <input type="text" id="wfGain" value="AUTO" placeholder="AUTO or numeric">
         </div>
         <div class="form-group">
-            <label>FFT Size</label>
+            <label for="wfFftSize">FFT Size</label>
             <select id="wfFftSize">
                 <option value="256">256</option>
                 <option value="512">512</option>
@@ -260,7 +260,7 @@
             </select>
         </div>
         <div class="form-group">
-            <label>Frame Rate</label>
+            <label for="wfFps">Frame Rate</label>
             <select id="wfFps">
                 <option value="10">10 fps</option>
                 <option value="20" selected>20 fps</option>
@@ -269,7 +269,7 @@
             </select>
         </div>
         <div class="form-group">
-            <label>FFT Averaging</label>
+            <label for="wfAvgCount">FFT Averaging</label>
             <select id="wfAvgCount">
                 <option value="1">1 (none)</option>
                 <option value="2">2</option>
@@ -279,7 +279,7 @@
             </select>
         </div>
         <div class="form-group">
-            <label>PPM Correction</label>
+            <label for="wfPpm">PPM Correction</label>
             <input type="number" id="wfPpm" value="0" step="1" min="-200" max="200" placeholder="0">
         </div>
         <div class="checkbox-group wf-scan-checkboxes">
@@ -293,7 +293,7 @@
     <div class="section">
         <h3>Display</h3>
         <div class="form-group">
-            <label>Color Palette</label>
+            <label for="wfPalette">Color Palette</label>
             <select id="wfPalette" onchange="Waterfall.setPalette(this.value)">
                 <option value="turbo" selected>Turbo</option>
                 <option value="plasma">Plasma</option>
@@ -302,11 +302,11 @@
             </select>
         </div>
         <div class="form-group">
-            <label>Noise Floor (dB)</label>
+            <label for="wfDbMin">Noise Floor (dB)</label>
             <input type="number" id="wfDbMin" value="-100" step="5" disabled>
         </div>
         <div class="form-group">
-            <label>Ceiling (dB)</label>
+            <label for="wfDbMax">Ceiling (dB)</label>
             <input type="number" id="wfDbMax" value="-20" step="5" disabled>
         </div>
         <div class="checkbox-group wf-scan-checkboxes">

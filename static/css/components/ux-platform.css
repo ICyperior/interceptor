@@ -429,7 +429,7 @@
     border-color: rgba(31, 95, 168, 0.45);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1023px) {
     .run-state-strip {
         flex-direction: column;
         align-items: stretch;
@@ -440,7 +440,7 @@
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .command-palette-overlay {
         padding: 8vh 10px 0;
     }

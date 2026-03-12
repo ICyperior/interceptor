@@ -3,6 +3,7 @@ const AppFeedback = (function() {
 
     let stackEl = null;
     let nextToastId = 1;
+    const TOAST_MAX = 5;
 
     function init() {
         ensureStack();
@@ -17,6 +18,8 @@ const AppFeedback = (function() {
             stackEl = document.createElement('div');
             stackEl.id = 'appToastStack';
             stackEl.className = 'app-toast-stack';
+            stackEl.setAttribute('aria-live', 'assertive');
+            stackEl.setAttribute('role', 'alert');
             document.body.appendChild(stackEl);
         }
         return stackEl;
@@ -64,7 +67,14 @@ const AppFeedback = (function() {
             root.appendChild(actionsEl);
         }
 
-        ensureStack().appendChild(root);
+        const stack = ensureStack();
+
+        // Enforce toast cap — remove oldest when exceeded
+        while (stack.children.length >= TOAST_MAX) {
+            stack.removeChild(stack.firstChild);
+        }
+
+        stack.appendChild(root);
 
         if (durationMs > 0) {
             window.setTimeout(() => {
@@ -240,6 +250,151 @@ const AppFeedback = (function() {
         return text.includes('permission') || text.includes('denied') || text.includes('dependency') || text.includes('tool');
     }
 
+    // --- Button loading state ---
+
+    function withLoadingButton(btn, asyncFn) {
+        if (!btn || btn.disabled) return Promise.resolve();
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.classList.add('btn-loading');
+
+        return Promise.resolve()
+            .then(function() { return asyncFn(); })
+            .then(function(result) {
+                btn.disabled = false;
+                btn.classList.remove('btn-loading');
+                btn.textContent = originalText;
+                return result;
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                btn.classList.remove('btn-loading');
+                btn.textContent = originalText;
+                throw err;
+            });
+    }
+
+    // --- Confirmation modal ---
+
+    function confirmAction(options) {
+        var opts = options || {};
+        var title = opts.title || 'Confirm Action';
+        var message = opts.message || 'Are you sure?';
+        var confirmLabel = opts.confirmLabel || 'Confirm';
+        var confirmClass = opts.confirmClass || 'btn-danger';
+
+        return new Promise(function(resolve) {
+            // Create backdrop
+            var backdrop = document.createElement('div');
+            backdrop.className = 'confirm-modal-backdrop';
+
+            var modal = document.createElement('div');
+            modal.className = 'confirm-modal';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'confirm-modal-title');
+
+            var titleEl = document.createElement('div');
+            titleEl.className = 'confirm-modal-title';
+            titleEl.id = 'confirm-modal-title';
+            titleEl.textContent = title;
+            modal.appendChild(titleEl);
+
+            var msgEl = document.createElement('div');
+            msgEl.className = 'confirm-modal-message';
+            msgEl.textContent = message;
+            modal.appendChild(msgEl);
+
+            var actions = document.createElement('div');
+            actions.className = 'confirm-modal-actions';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'btn btn-ghost';
+            cancelBtn.textContent = 'Cancel';
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.type = 'button';
+            confirmBtn.className = 'btn ' + confirmClass;
+            confirmBtn.textContent = confirmLabel;
+
+            actions.appendChild(cancelBtn);
+            actions.appendChild(confirmBtn);
+            modal.appendChild(actions);
+            backdrop.appendChild(modal);
+            document.body.appendChild(backdrop);
+
+            // Focus confirm button
+            confirmBtn.focus();
+
+            function cleanup(result) {
+                backdrop.remove();
+                document.removeEventListener('keydown', onKey);
+                resolve(result);
+            }
+
+            function onKey(e) {
+                if (e.key === 'Escape') cleanup(false);
+                if (e.key === 'Enter') cleanup(true);
+            }
+
+            cancelBtn.addEventListener('click', function() { cleanup(false); });
+            confirmBtn.addEventListener('click', function() { cleanup(true); });
+            backdrop.addEventListener('click', function(e) {
+                if (e.target === backdrop) cleanup(false);
+            });
+            document.addEventListener('keydown', onKey);
+        });
+    }
+
+    // --- Keyboard navigation for lists ---
+
+    function enableListKeyNav(container, itemSelector) {
+        if (!container) return;
+
+        container.setAttribute('role', 'listbox');
+        container.setAttribute('tabindex', '0');
+
+        container.addEventListener('keydown', function(e) {
+            var items = container.querySelectorAll(itemSelector);
+            if (!items.length) return;
+
+            var current = container.querySelector(itemSelector + '[aria-selected="true"]');
+            var idx = current ? Array.prototype.indexOf.call(items, current) : -1;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                var next = Math.min(idx + 1, items.length - 1);
+                selectItem(items, next);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                var prev = Math.max(idx - 1, 0);
+                selectItem(items, prev);
+            } else if (e.key === 'Enter' && current) {
+                e.preventDefault();
+                current.click();
+            } else if (e.key === 'Escape' && current) {
+                e.preventDefault();
+                current.setAttribute('aria-selected', 'false');
+                current.classList.remove('keyboard-focused');
+            }
+        });
+
+        function selectItem(items, index) {
+            items.forEach(function(item) {
+                item.setAttribute('aria-selected', 'false');
+                item.classList.remove('keyboard-focused');
+            });
+            var target = items[index];
+            if (target) {
+                target.setAttribute('aria-selected', 'true');
+                target.classList.add('keyboard-focused');
+                target.scrollIntoView({ block: 'nearest' });
+            }
+        }
+    }
+
     return {
         init,
         toast,
@@ -249,6 +404,9 @@ const AppFeedback = (function() {
         isOffline,
         isTransientNetworkError,
         isTransientOrOffline,
+        withLoadingButton,
+        confirmAction,
+        enableListKeyNav,
     };
 })();
 

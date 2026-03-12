@@ -266,8 +266,10 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('Failed to start Meshtastic:', err);
+            reportActionableError('Start Meshtastic', err, {
+                onRetry: () => start()
+            });
             updateStatusIndicator('disconnected', 'Connection error');
-            showStatusMessage('Connection error: ' + err.message, 'error');
         }
     }
 
@@ -283,6 +285,7 @@ const Meshtastic = (function() {
             showNotification('Meshtastic', 'Disconnected');
         } catch (err) {
             console.error('Failed to stop Meshtastic:', err);
+            reportActionableError('Stop Meshtastic', err);
         }
     }
 
@@ -589,7 +592,9 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('Failed to configure channel:', err);
-            showStatusMessage('Error configuring channel: ' + err.message, 'error');
+            reportActionableError('Configure Channel', err, {
+                onRetry: () => saveChannel()
+            });
         }
     }
 
@@ -1246,11 +1251,11 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('Failed to send message:', err);
+            reportActionableError('Send Message', err, {
+                onRetry: () => sendMessage()
+            });
             optimisticMsg._failed = true;
             updatePendingMessage(optimisticMsg, true);
-            if (typeof showNotification === 'function') {
-                showNotification('Meshtastic', 'Send error: ' + err.message);
-            }
         } finally {
             if (sendBtn) {
                 sendBtn.disabled = false;
@@ -1382,6 +1387,9 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('Traceroute error:', err);
+            reportActionableError('Send Traceroute', err, {
+                onRetry: () => sendTraceroute(destination)
+            });
             showTracerouteModal(destination, { error: err.message }, false);
         }
     }
@@ -1564,7 +1572,9 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('Position request error:', err);
-            showStatusMessage('Error requesting position: ' + err.message, 'error');
+            reportActionableError('Request Position', err, {
+                onRetry: () => requestPosition(nodeId)
+            });
         }
     }
 
@@ -2085,7 +2095,9 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('Range test error:', err);
-            showStatusMessage('Error starting range test: ' + err.message, 'error');
+            reportActionableError('Start Range Test', err, {
+                onRetry: () => startRangeTest()
+            });
         }
     }
 
@@ -2099,6 +2111,7 @@ const Meshtastic = (function() {
             showNotification('Meshtastic', 'Range test stopped');
         } catch (err) {
             console.error('Error stopping range test:', err);
+            reportActionableError('Stop Range Test', err);
         }
     }
 
@@ -2243,7 +2256,9 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('S&F request error:', err);
-            showStatusMessage('Error: ' + err.message, 'error');
+            reportActionableError('Request Store & Forward History', err, {
+                onRetry: () => requestStoreForwardHistory()
+            });
         }
     }
 

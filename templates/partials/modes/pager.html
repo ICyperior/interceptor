@@ -3,7 +3,7 @@
     <div class="section">
         <h3>Frequency</h3>
         <div class="form-group">
-            <label>Frequency (MHz)</label>
+            <label for="frequency">Frequency (MHz)</label>
             <input type="text" id="frequency" value="153.350" placeholder="e.g., 153.350">
         </div>
         <div class="preset-buttons" id="presetButtons">
@@ -31,15 +31,15 @@
     <div class="section">
         <h3>Settings</h3>
         <div class="form-group">
-            <label>Gain (dB, 0 = auto)</label>
+            <label for="gain">Gain (dB, 0 = auto)</label>
             <input type="text" id="gain" value="0" placeholder="0-49 or 0 for auto">
         </div>
         <div class="form-group">
-            <label>Squelch Level</label>
+            <label for="squelch">Squelch Level</label>
             <input type="text" id="squelch" value="0" placeholder="0 = off">
         </div>
         <div class="form-group">
-            <label>PPM Correction</label>
+            <label for="ppm">PPM Correction</label>
             <input type="text" id="ppm" value="0" placeholder="Frequency correction">
         </div>
     </div>
@@ -53,7 +53,7 @@
             </label>
         </div>
         <div class="form-group">
-            <label>Log file path</label>
+            <label for="logFilePath">Log file path</label>
             <input type="text" id="logFilePath" value="pager_messages.log" placeholder="pager_messages.log">
         </div>
     </div>
@@ -67,7 +67,7 @@
             </label>
         </div>
         <div class="form-group">
-            <label>Hide messages containing (comma-separated)</label>
+            <label for="filterKeywords">Hide messages containing (comma-separated)</label>
             <input type="text" id="filterKeywords" placeholder="e.g. test, spam, alert" oninput="savePagerFilters()">
         </div>
         <div class="info-text" style="font-size: 10px; color: #666; margin-top: 5px;">

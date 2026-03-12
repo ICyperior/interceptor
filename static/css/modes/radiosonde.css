@@ -221,7 +221,7 @@
 }
 
 /* Responsive: stack cards on narrow screens */
-@media (max-width: 600px) {
+@media (max-width: 480px) {
     .radiosonde-card {
         flex: 1 1 100%;
         max-width: 100%;

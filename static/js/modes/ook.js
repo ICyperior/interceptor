@@ -498,15 +498,27 @@ var OokMode = (function () {
         input.value = '';
     }
 
-    function removePreset(freq) {
-        if (!confirm('Remove preset ' + freq + ' MHz?')) return;
+    async function removePreset(freq) {
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Remove Preset',
+            message: 'Remove preset ' + freq + ' MHz?',
+            confirmLabel: 'Remove',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         var presets = loadPresets().filter(function (p) { return p !== freq; });
         savePresets(presets);
         renderPresets();
     }
 
-    function resetPresets() {
-        if (!confirm('Reset to default presets?')) return;
+    async function resetPresets() {
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Reset Presets',
+            message: 'Reset to default presets?',
+            confirmLabel: 'Reset',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         savePresets(DEFAULT_FREQ_PRESETS.slice());
         renderPresets();
     }

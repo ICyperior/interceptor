@@ -120,19 +120,19 @@ function switchMode(mode) {
     document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
     document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
 
-    // Toggle stats visibility
-    document.getElementById('pagerStats').style.display = mode === 'pager' ? 'flex' : 'none';
-    document.getElementById('sensorStats').style.display = mode === 'sensor' ? 'flex' : 'none';
-    document.getElementById('aircraftStats').style.display = mode === 'aircraft' ? 'flex' : 'none';
-    document.getElementById('satelliteStats').style.display = mode === 'satellite' ? 'flex' : 'none';
-    document.getElementById('wifiStats').style.display = mode === 'wifi' ? 'flex' : 'none';
+    // Toggle stats visibility via class
+    document.getElementById('pagerStats')?.classList.toggle('active', mode === 'pager');
+    document.getElementById('sensorStats')?.classList.toggle('active', mode === 'sensor');
+    document.getElementById('aircraftStats')?.classList.toggle('active', mode === 'aircraft');
+    document.getElementById('satelliteStats')?.classList.toggle('active', mode === 'satellite');
+    document.getElementById('wifiStats')?.classList.toggle('active', mode === 'wifi');
 
-    // Hide signal meter - individual panels show signal strength where needed
-    document.getElementById('signalMeter').style.display = 'none';
+    // Hide signal meter
+    document.getElementById('signalMeter')?.classList.remove('active');
 
     // Show/hide dashboard buttons in nav bar
-    document.getElementById('adsbDashboardBtn').style.display = mode === 'aircraft' ? 'inline-flex' : 'none';
-    document.getElementById('satelliteDashboardBtn').style.display = mode === 'satellite' ? 'inline-flex' : 'none';
+    document.getElementById('adsbDashboardBtn')?.classList.toggle('active', mode === 'aircraft');
+    document.getElementById('satelliteDashboardBtn')?.classList.toggle('active', mode === 'satellite');
 
     // Update active mode indicator
     const modeNames = {
@@ -156,14 +156,14 @@ function switchMode(mode) {
         window.closeMobileDrawer();
     }
 
-    // Toggle layout containers
-    document.getElementById('wifiLayoutContainer').style.display = mode === 'wifi' ? 'flex' : 'none';
-    document.getElementById('btLayoutContainer').style.display = mode === 'bluetooth' ? 'flex' : 'none';
+    // Toggle layout containers via class
+    document.getElementById('wifiLayoutContainer')?.classList.toggle('active', mode === 'wifi');
+    document.getElementById('btLayoutContainer')?.classList.toggle('active', mode === 'bluetooth');
 
     // Respect the "Show Radar Display" checkbox for aircraft mode
     const showRadar = document.getElementById('adsbEnableMap')?.checked;
-    document.getElementById('aircraftVisuals').style.display = (mode === 'aircraft' && showRadar) ? 'grid' : 'none';
-    document.getElementById('satelliteVisuals').style.display = mode === 'satellite' ? 'block' : 'none';
+    document.getElementById('aircraftVisuals')?.classList.toggle('active', mode === 'aircraft' && showRadar);
+    document.getElementById('satelliteVisuals')?.classList.toggle('active', mode === 'satellite');
 
     // Update output panel title based on mode
     const titles = {
@@ -178,35 +178,30 @@ function switchMode(mode) {
     document.getElementById('outputTitle').textContent = titles[mode] || 'Signal Monitor';
 
     // Show/hide Device Intelligence for modes that use it
+    const hideRecon = (mode === 'satellite' || mode === 'aircraft');
     const reconBtn = document.getElementById('reconBtn');
     const intelBtn = document.querySelector('[onclick="exportDeviceDB()"]');
-    if (mode === 'satellite' || mode === 'aircraft') {
-        document.getElementById('reconPanel').style.display = 'none';
-        if (reconBtn) reconBtn.style.display = 'none';
-        if (intelBtn) intelBtn.style.display = 'none';
-    } else {
-        if (reconBtn) reconBtn.style.display = 'inline-block';
-        if (intelBtn) intelBtn.style.display = 'inline-block';
-        if (typeof reconEnabled !== 'undefined' && reconEnabled) {
-            document.getElementById('reconPanel').style.display = 'block';
-        }
-    }
+    document.getElementById('reconPanel')?.classList.toggle('active', !hideRecon && typeof reconEnabled !== 'undefined' && reconEnabled);
+    if (reconBtn) reconBtn.classList.toggle('hidden', hideRecon);
+    if (intelBtn) intelBtn.classList.toggle('hidden', hideRecon);
 
     // Show RTL-SDR device section for modes that use it
-    document.getElementById('rtlDeviceSection').style.display =
-        (mode === 'pager' || mode === 'sensor' || mode === 'aircraft') ? 'block' : 'none';
+    const showRtl = (mode === 'pager' || mode === 'sensor' || mode === 'aircraft');
+    document.getElementById('rtlDeviceSection')?.classList.toggle('active', showRtl);
 
     // Toggle mode-specific tool status displays
-    document.getElementById('toolStatusPager').style.display = (mode === 'pager') ? 'grid' : 'none';
-    document.getElementById('toolStatusSensor').style.display = (mode === 'sensor') ? 'grid' : 'none';
-    document.getElementById('toolStatusAircraft').style.display = (mode === 'aircraft') ? 'grid' : 'none';
+    document.getElementById('toolStatusPager')?.classList.toggle('active', mode === 'pager');
+    document.getElementById('toolStatusSensor')?.classList.toggle('active', mode === 'sensor');
+    document.getElementById('toolStatusAircraft')?.classList.toggle('active', mode === 'aircraft');
 
     // Hide waterfall and output console for modes with their own visualizations
-    document.querySelector('.waterfall-container').style.display =
-        (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth' || mode === 'meshtastic' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations') ? 'none' : 'block';
-    document.getElementById('output').style.display =
-        (mode === 'satellite' || mode === 'aircraft' || mode === 'wifi' || mode === 'bluetooth' || mode === 'meshtastic' || mode === 'aprs' || mode === 'tscm' || mode === 'spystations') ? 'none' : 'block';
-    document.querySelector('.status-bar').style.display = (mode === 'satellite' || mode === 'tscm' || mode === 'meshtastic' || mode === 'aprs' || mode === 'spystations') ? 'none' : 'flex';
+    const fullVisualModes = ['satellite', 'aircraft', 'wifi', 'bluetooth', 'meshtastic', 'aprs', 'tscm', 'spystations'];
+    const hideConsole = fullVisualModes.includes(mode);
+    document.querySelector('.waterfall-container')?.classList.toggle('active', !hideConsole);
+    document.getElementById('output')?.classList.toggle('active', !hideConsole);
+
+    const hideStatusBar = ['satellite', 'tscm', 'meshtastic', 'aprs', 'spystations'].includes(mode);
+    document.querySelector('.status-bar')?.classList.toggle('active', !hideStatusBar);
 
     // Load interfaces and initialize visualizations when switching modes
     if (mode === 'wifi') {

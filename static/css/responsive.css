@@ -424,30 +424,30 @@
 /* ============== MOBILE LAYOUT FIXES ============== */
 @media (max-width: 1023px) {
     /* Fix main content to allow scrolling on mobile */
-    .main-content {
-        height: auto !important;
+    .app-shell .main-content {
+        height: auto;
         min-height: calc(100dvh - var(--header-height) - var(--nav-height));
-        overflow-y: auto !important;
+        overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
     }
 
-    .sidebar {
+    .app-shell .sidebar {
         padding: 10px;
         gap: 10px;
     }
 
-    .output-panel {
+    .app-shell .output-panel {
         min-height: 58vh;
     }
 
-    .output-header {
+    .app-shell .output-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
     }
 
-    .header-controls {
+    .app-shell .header-controls {
         width: 100%;
         gap: 8px;
         overflow-x: auto;
@@ -455,20 +455,21 @@
         padding-bottom: 2px;
     }
 
-    .header-controls .stats {
+    .app-shell .header-controls .stats {
         min-width: max-content;
     }
 
     /* Container should not clip content */
-    .container {
+    .app-shell .container {
         overflow: visible;
         height: auto;
         min-height: 100dvh;
     }
 
     /* Layout containers need to stack vertically on mobile */
-    .wifi-layout-container,
-    .bt-layout-container {
+    /* overrides inline style - JS sets display via style attribute */
+    .app-shell .wifi-layout-container,
+    .app-shell .bt-layout-container {
         flex-direction: column !important;
         height: auto !important;
         max-height: none !important;
@@ -478,126 +479,128 @@
     }
 
     /* Visual panels should be scrollable, not clipped */
-    .wifi-visuals,
-    .bt-visuals-column {
-        max-height: none !important;
-        overflow: visible !important;
+    .app-shell .wifi-visuals,
+    .app-shell .bt-visuals-column {
+        max-height: none;
+        overflow: visible;
         margin-bottom: 15px;
     }
 
     /* Device lists should have reasonable height on mobile */
-    .wifi-device-list,
-    .bt-device-list {
+    .app-shell .wifi-device-list,
+    .app-shell .bt-device-list {
         max-height: 400px;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
     }
 
     /* Visual panels should stack in single column on mobile when visible */
-    .wifi-visuals,
-    .bt-visuals-column {
+    .app-shell .wifi-visuals,
+    .app-shell .bt-visuals-column {
         display: flex;
         flex-direction: column;
         gap: 10px;
     }
 
-    /* Only apply flex when aircraft visuals are shown (via JS setting display: grid) */
-    #aircraftVisuals[style*="grid"] {
-        display: flex !important;
-        flex-direction: column !important;
+    /* Stack aircraft visuals vertically on mobile when active */
+    #aircraftVisuals.active {
+        display: flex;
+        flex-direction: column;
         gap: 10px;
     }
 
-    /* APRS visuals - only when visible */
-    #aprsVisuals[style*="flex"] {
-        flex-direction: column !important;
+    /* APRS visuals stack vertically on mobile */
+    .app-shell #aprsVisuals {
+        flex-direction: column;
     }
 
-    .wifi-visual-panel {
-        grid-column: auto !important;
+    .app-shell .wifi-visual-panel {
+        grid-column: auto;
     }
 
-    .bt-main-area {
-        flex-direction: column !important;
-        min-height: auto !important;
+    .app-shell .bt-main-area {
+        flex-direction: column;
+        min-height: auto;
     }
 
-    .bt-side-panels {
-        width: 100% !important;
-        flex-direction: column !important;
+    .app-shell .bt-side-panels {
+        width: 100%;
+        flex-direction: column;
     }
 
-    .bt-detail-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    .app-shell .bt-detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .bt-row-secondary {
-        padding-left: 0 !important;
-        white-space: normal !important;
+    .app-shell .bt-row-secondary {
+        padding-left: 0;
+        white-space: normal;
     }
 
-    .bt-row-actions {
-        padding-left: 0 !important;
-        justify-content: flex-start !important;
+    .app-shell .bt-row-actions {
+        padding-left: 0;
+        justify-content: flex-start;
     }
 
-    .bt-list-summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    .app-shell .bt-list-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 /* ============== MOBILE MAP FIXES ============== */
 @media (max-width: 1023px) {
     /* Aircraft map container needs explicit height on mobile */
-    .aircraft-map-container {
-        height: 300px !important;
-        min-height: 300px !important;
-        width: 100% !important;
+    .app-shell .aircraft-map-container {
+        height: 300px;
+        min-height: 300px;
+        width: 100%;
     }
 
-    #aircraftMap {
-        height: 100% !important;
-        width: 100% !important;
+    .app-shell #aircraftMap {
+        height: 100%;
+        width: 100%;
         min-height: 250px;
     }
 
     /* APRS map container */
-    #aprsMap {
-        min-height: 300px !important;
-        height: 300px !important;
-        width: 100% !important;
+    .app-shell #aprsMap {
+        min-height: 300px;
+        height: 300px;
+        width: 100%;
     }
 
     /* Satellite embed */
-    .satellite-dashboard-embed {
-        height: 400px !important;
-        min-height: 400px !important;
+    .app-shell .satellite-dashboard-embed {
+        height: 400px;
+        min-height: 400px;
     }
 
     /* Map panels should be full width */
+    /* overrides inline style - HTML sets grid-column via style attribute */
     .wifi-visual-panel[style*="grid-column: span 2"] {
         grid-column: auto !important;
     }
 
     /* Make map container full width when it has ACARS sidebar */
+    /* overrides inline style - HTML sets flex-direction via style attribute */
     .wifi-visual-panel[style*="display: flex"][style*="gap: 0"] {
         flex-direction: column !important;
     }
 
     /* ACARS sidebar should be below map on mobile */
-    .main-acars-sidebar {
-        width: 100% !important;
-        max-width: none !important;
-        border-left: none !important;
-        border-top: 1px solid var(--border-color, #1f2937) !important;
+    .app-shell .main-acars-sidebar {
+        width: 100%;
+        max-width: none;
+        border-left: none;
+        border-top: 1px solid var(--border-color, #1f2937);
     }
 
-    .main-acars-sidebar.collapsed {
-        width: 100% !important;
+    .app-shell .main-acars-sidebar.collapsed {
+        width: 100%;
     }
 
-    .main-acars-content {
-        max-height: 200px !important;
+    .app-shell .main-acars-content {
+        max-height: 200px;
     }
 }
 
@@ -611,55 +614,55 @@
     touch-action: manipulation;
 }
 
-.leaflet-control-zoom a {
-    min-width: var(--touch-min, 44px) !important;
-    min-height: var(--touch-min, 44px) !important;
-    line-height: var(--touch-min, 44px) !important;
-    font-size: 18px !important;
+.app-shell .leaflet-container .leaflet-control-zoom a {
+    min-width: var(--touch-min, 44px);
+    min-height: var(--touch-min, 44px);
+    line-height: var(--touch-min, 44px);
+    font-size: 18px;
 }
 
 /* ============== MOBILE HEADER STATS ============== */
 @media (max-width: 1023px) {
-    .header-stats {
-        display: none !important;
-    }
-
-    /* Simplify header on mobile */
-    header h1 {
-        font-size: 16px !important;
-    }
-
-    header h1 .tagline,
-    header h1 .version-badge {
+    .app-shell .header-stats {
         display: none;
     }
 
-    header .subtitle {
-        font-size: 10px !important;
+    /* Simplify header on mobile */
+    .app-shell header h1 {
+        font-size: 16px;
+    }
+
+    .app-shell header h1 .tagline,
+    .app-shell header h1 .version-badge {
+        display: none;
+    }
+
+    .app-shell header .subtitle {
+        font-size: 10px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    header .logo svg {
-        width: 30px !important;
-        height: 30px !important;
+    .app-shell header .logo svg {
+        width: 30px;
+        height: 30px;
     }
 }
 
 /* ============== MOBILE MODE PANELS ============== */
 @media (max-width: 1023px) {
     /* Mode panel grids should be single column */
-    .data-grid,
-    .stats-grid,
-    .sensor-grid {
-        grid-template-columns: 1fr !important;
+    .app-shell .data-grid,
+    .app-shell .stats-grid,
+    .app-shell .sensor-grid {
+        grid-template-columns: 1fr;
     }
 
     /* Section headers should be easier to tap */
-    .section h3 {
+    .app-shell .section h3 {
         min-height: var(--touch-min);
-        padding: 12px !important;
+        padding: 12px;
     }
 
     /* Tables need horizontal scroll */
@@ -682,85 +685,85 @@
 
 /* ============== WELCOME PAGE MOBILE ============== */
 @media (max-width: 767px) {
-    .welcome-container {
-        padding: 15px !important;
-        max-width: 100% !important;
+    .app-shell .welcome-container {
+        padding: 15px;
+        max-width: 100%;
     }
 
-    .welcome-header {
+    .app-shell .welcome-header {
         flex-direction: column;
         text-align: center;
         gap: 10px;
     }
 
-    .welcome-logo svg {
+    .app-shell .welcome-logo svg {
         width: 50px;
         height: 50px;
     }
 
-    .welcome-title {
-        font-size: 24px !important;
+    .app-shell .welcome-title {
+        font-size: 24px;
     }
 
-    .welcome-content {
-        grid-template-columns: 1fr !important;
+    .app-shell .welcome-content {
+        grid-template-columns: 1fr;
     }
 
-    .mode-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 8px !important;
+    .app-shell .mode-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
     }
 
-    .mode-card {
-        padding: 12px 8px !important;
+    .app-shell .mode-card {
+        padding: 12px 8px;
     }
 
-    .mode-icon {
-        font-size: 20px !important;
+    .app-shell .mode-icon {
+        font-size: 20px;
     }
 
-    .mode-name {
-        font-size: 11px !important;
+    .app-shell .mode-name {
+        font-size: 11px;
     }
 
-    .mode-desc {
-        font-size: 9px !important;
+    .app-shell .mode-desc {
+        font-size: 9px;
     }
 
-    .changelog-release {
-        padding: 10px !important;
+    .app-shell .changelog-release {
+        padding: 10px;
     }
 }
 
 /* ============== TSCM MODE MOBILE ============== */
 @media (max-width: 1023px) {
-    .tscm-layout {
-        flex-direction: column !important;
-        height: auto !important;
+    .app-shell .tscm-layout {
+        flex-direction: column;
+        height: auto;
     }
 
-    .tscm-spectrum-panel,
-    .tscm-detection-panel {
-        width: 100% !important;
-        max-width: none !important;
-        height: auto !important;
+    .app-shell .tscm-spectrum-panel,
+    .app-shell .tscm-detection-panel {
+        width: 100%;
+        max-width: none;
+        height: auto;
         min-height: 300px;
     }
 }
 
 /* ============== LISTENING POST MOBILE ============== */
 @media (max-width: 1023px) {
-    .radio-controls-section {
-        flex-direction: column !important;
+    .app-shell .radio-controls-section {
+        flex-direction: column;
         gap: 15px;
     }
 
-    .knobs-row {
+    .app-shell .knobs-row {
         flex-wrap: wrap;
         justify-content: center;
     }
 
-    .radio-module-box {
-        width: 100% !important;
+    .app-shell .radio-module-box {
+        width: 100%;
     }
 }

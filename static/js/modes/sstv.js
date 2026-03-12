@@ -606,8 +606,10 @@ const SSTV = (function() {
             }
         } catch (err) {
             console.error('Failed to start SSTV:', err);
+            reportActionableError('Start SSTV', err, {
+                onRetry: () => start()
+            });
             updateStatusUI('idle', 'Error');
-            showStatusMessage('Connection error: ' + err.message, 'error');
         }
     }
 
@@ -626,6 +628,7 @@ const SSTV = (function() {
             showNotification('SSTV', 'Decoder stopped');
         } catch (err) {
             console.error('Failed to stop SSTV:', err);
+            reportActionableError('Stop SSTV', err);
         }
     }
 
@@ -1297,7 +1300,13 @@ const SSTV = (function() {
      * Delete a single image
      */
     async function deleteImage(filename) {
-        if (!confirm('Delete this image?')) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete Image',
+            message: 'Delete this image? This cannot be undone.',
+            confirmLabel: 'Delete',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         try {
             const response = await fetch(`/sstv/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
             const data = await response.json();
@@ -1310,6 +1319,7 @@ const SSTV = (function() {
             }
         } catch (err) {
             console.error('Failed to delete image:', err);
+            reportActionableError('Delete Image', err);
         }
     }
 
@@ -1317,7 +1327,13 @@ const SSTV = (function() {
      * Delete all images
      */
     async function deleteAllImages() {
-        if (!confirm('Delete all decoded images?')) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete All Images',
+            message: 'Delete all decoded images? This cannot be undone.',
+            confirmLabel: 'Delete All',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         try {
             const response = await fetch('/sstv/images', { method: 'DELETE' });
             const data = await response.json();
@@ -1329,6 +1345,7 @@ const SSTV = (function() {
             }
         } catch (err) {
             console.error('Failed to delete images:', err);
+            reportActionableError('Delete All Images', err);
         }
     }
 

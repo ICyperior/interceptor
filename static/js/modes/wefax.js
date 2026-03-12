@@ -242,6 +242,7 @@ var WeFax = (function () {
             .catch(function (err) {
                 setStatus('Stopped');
                 console.error('WeFax stop error:', err);
+                reportActionableError('Stop WeFax', err);
             });
     }
 
@@ -626,9 +627,15 @@ var WeFax = (function () {
         gallery.innerHTML = html;
     }
 
-    function deleteImage(filename) {
+    async function deleteImage(filename) {
         if (!filename) return;
-        if (!confirm('Delete this image?')) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete Image',
+            message: 'Delete this image? This cannot be undone.',
+            confirmLabel: 'Delete',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         fetch('/wefax/images/' + encodeURIComponent(filename), { method: 'DELETE' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -641,12 +648,18 @@ var WeFax = (function () {
             })
             .catch(function (err) {
                 console.error('WeFax delete error:', err);
-                setStatus('Delete failed: ' + err.message);
+                reportActionableError('Delete Image', err);
             });
     }
 
-    function deleteAllImages() {
-        if (!confirm('Delete all WeFax images?')) return;
+    async function deleteAllImages() {
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete All Images',
+            message: 'Delete all WeFax images? This cannot be undone.',
+            confirmLabel: 'Delete All',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         fetch('/wefax/images', { method: 'DELETE' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -654,7 +667,10 @@ var WeFax = (function () {
                     loadImages();
                 }
             })
-            .catch(function (err) { console.error('WeFax delete all error:', err); });
+            .catch(function (err) {
+                console.error('WeFax delete all error:', err);
+                reportActionableError('Delete All Images', err);
+            });
     }
 
     var currentModalUrl = null;
@@ -1107,6 +1123,7 @@ var WeFax = (function () {
             })
             .catch(function (err) {
                 console.error('WeFax scheduler disable error:', err);
+                reportActionableError('Disable Scheduler', err);
             });
     }
 

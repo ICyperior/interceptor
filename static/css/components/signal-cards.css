@@ -1128,7 +1128,7 @@
 }
 
 /* Responsive adjustments for aggregated meters */
-@media (max-width: 500px) {
+@media (max-width: 480px) {
     .meter-aggregated-grid {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: auto auto;
@@ -1922,7 +1922,7 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 500px) {
+@media (max-width: 480px) {
     .signal-details-modal-content {
         width: 95%;
         max-height: 90vh;

@@ -2739,7 +2739,7 @@ header h1 .tagline {
     gap: 15px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1023px) {
     .pass-predictor {
         grid-template-columns: 1fr;
     }
@@ -4090,13 +4090,13 @@ header h1 .tagline {
 }
 
 /* WiFi Responsive */
-@media (max-width: 1400px) {
+@media (max-width: 1280px) {
     .wifi-main-content {
         grid-template-columns: minmax(280px, 1fr) 240px 240px;
     }
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
     .wifi-layout-container {
         flex: 1;
         min-height: 0;
@@ -5415,7 +5415,7 @@ header h1 .tagline {
     background: var(--bg-secondary, #1a1a2e);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
     .bt-layout-container {
         flex-direction: column;
         flex: 1;

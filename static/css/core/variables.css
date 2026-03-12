@@ -31,8 +31,10 @@
     --accent-cyan-dim: rgba(74, 163, 255, 0.16);
     --accent-cyan-hover: #6bb3ff;
     --accent-green: #38c180;
+    --accent-green-hover: #16a34a;
     --accent-green-dim: rgba(56, 193, 128, 0.18);
     --accent-red: #e25d5d;
+    --accent-red-hover: #dc2626;
     --accent-red-dim: rgba(226, 93, 93, 0.16);
     --accent-orange: #d6a85e;
     --accent-orange-dim: rgba(214, 168, 94, 0.16);
@@ -96,7 +98,7 @@
        TYPOGRAPHY
        ============================================ */
     --font-sans: 'Roboto Condensed', 'Arial Narrow', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-mono: 'Roboto Condensed', 'Arial Narrow', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
 
     /* Font sizes */
     --text-xs: 10px;
@@ -189,8 +191,10 @@
     --accent-cyan-dim: rgba(31, 95, 168, 0.12);
     --accent-cyan-hover: #2c73bf;
     --accent-green: #1f8a57;
+    --accent-green-hover: #167a4a;
     --accent-green-dim: rgba(31, 138, 87, 0.12);
     --accent-red: #c74444;
+    --accent-red-hover: #b33a3a;
     --accent-red-dim: rgba(199, 68, 68, 0.12);
     --accent-orange: #b5863a;
     --accent-orange-dim: rgba(181, 134, 58, 0.12);

@@ -2237,10 +2237,16 @@ const SubGhz = (function() {
         renderCaptures(latestCaptures);
     }
 
-    function deleteSelectedCaptures() {
+    async function deleteSelectedCaptures() {
         if (!captureSelectMode || selectedCaptureIds.size === 0) return;
         const ids = [...selectedCaptureIds];
-        if (!confirm(`Delete ${ids.length} selected capture${ids.length === 1 ? '' : 's'}?`)) return;
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete Captures',
+            message: `Delete ${ids.length} selected capture${ids.length === 1 ? '' : 's'}? This cannot be undone.`,
+            confirmLabel: 'Delete',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
 
         Promise.all(
             ids.map(id => fetch(`/subghz/captures/${encodeURIComponent(id)}`, { method: 'DELETE' }))
@@ -2254,8 +2260,14 @@ const SubGhz = (function() {
             .catch(err => alert('Error deleting captures: ' + err.message));
     }
 
-    function deleteCapture(id) {
-        if (!confirm('Delete this capture?')) return;
+    async function deleteCapture(id) {
+        const confirmed = await AppFeedback.confirmAction({
+            title: 'Delete Capture',
+            message: 'Delete this capture? This cannot be undone.',
+            confirmLabel: 'Delete',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
         fetch(`/subghz/captures/${encodeURIComponent(id)}`, { method: 'DELETE' })
             .then(r => r.json())
             .then(() => loadCaptures())

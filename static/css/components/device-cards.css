@@ -522,7 +522,7 @@
 /* ============================================
    RESPONSIVE ADJUSTMENTS
    ============================================ */
-@media (max-width: 600px) {
+@media (max-width: 480px) {
     .device-signal-row {
         flex-direction: column;
         align-items: stretch;
@@ -841,7 +841,7 @@
 /* ============================================
    RESPONSIVE MODAL
    ============================================ */
-@media (max-width: 600px) {
+@media (max-width: 480px) {
     .modal-signal-stats {
         grid-template-columns: repeat(2, 1fr);
     }
