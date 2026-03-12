@@ -87,7 +87,9 @@
     color: var(--text-primary);
 }
 
-/* Branded "i" — cyan stem with green dot, matching the logo icon */
+/* Branded "i" — cyan letter with green dot, matching the logo icon.
+   Uses a normal "i" glyph. The ::after pseudo-element overlays a green
+   circle on top of the font's native dot to recolor it. */
 .brand-i {
     color: var(--accent-cyan);
     position: relative;
@@ -96,11 +98,11 @@
 .brand-i::after {
     content: '';
     position: absolute;
-    top: 0.05em;
+    top: 0.12em;
     left: 50%;
     transform: translateX(-50%);
-    width: 0.22em;
-    height: 0.22em;
+    width: 0.25em;
+    height: 0.25em;
     background: var(--accent-green);
     border-radius: 50%;
     box-shadow: 0 0 0.4em var(--accent-green);
