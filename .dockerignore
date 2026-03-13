@@ -40,7 +40,11 @@ tasks/
 
 # Runtime data (mounted as volume)
 instance/
-data/
+
+# data/ is a Python package — only exclude non-code files
+data/*.json
+data/*.csv
+data/*.db
 
 # Build scripts
 build-multiarch.sh

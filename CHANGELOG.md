@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.2] - 2026-03-13
+
+### Fixed
+- **Docker startup crash** — `.dockerignore` excluded the entire `data/` directory, which is now a Python package (`data.oui`, `data.patterns`, `data.satellites`). Caused `ModuleNotFoundError: No module named 'data.oui'` on container startup. Fixed by only excluding non-code files from `data/`.
+
+---
+
 ## [2.26.1] - 2026-03-13
 
 ### Fixed

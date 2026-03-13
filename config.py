@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.1"
+VERSION = "2.26.2"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.2",
+        "date": "March 2026",
+        "highlights": [
+            "Fix Docker startup crash — data/ Python package was excluded by .dockerignore",
+        ]
+    },
     {
         "version": "2.26.1",
         "date": "March 2026",
