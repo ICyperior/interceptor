@@ -611,9 +611,9 @@ def get_station(station_id):
 @spy_stations_bp.route('/filters')
 def get_filters():
     """Return available filter options."""
-    types = list(set(s['type'] for s in STATIONS))
-    countries = sorted(list(set((s['country'], s['country_code']) for s in STATIONS)))
-    modes = sorted(list(set(s['mode'].split('/')[0] for s in STATIONS)))
+    types = list({s['type'] for s in STATIONS})
+    countries = sorted({(s['country'], s['country_code']) for s in STATIONS})
+    modes = sorted({s['mode'].split('/')[0] for s in STATIONS})
 
     return jsonify({
         'status': 'success',

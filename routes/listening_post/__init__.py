@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import os
 import queue
-import signal
 import shutil
+import signal
 import struct
 import subprocess
 import threading
@@ -22,15 +22,15 @@ from typing import Dict, List, Optional
 
 from flask import Blueprint
 
-from utils.logging import get_logger
-from utils.sse import sse_stream_fanout
-from utils.event_pipeline import process_event
 from utils.constants import (
-    SSE_QUEUE_TIMEOUT,
-    SSE_KEEPALIVE_INTERVAL,
     PROCESS_TERMINATE_TIMEOUT,
+    SSE_KEEPALIVE_INTERVAL,
+    SSE_QUEUE_TIMEOUT,
 )
+from utils.event_pipeline import process_event
+from utils.logging import get_logger
 from utils.sdr import SDRFactory, SDRType
+from utils.sse import sse_stream_fanout
 
 logger = get_logger('intercept.receiver')
 
@@ -39,6 +39,8 @@ receiver_bp = Blueprint('receiver', __name__, url_prefix='/receiver')
 # Deferred import to avoid circular import at module load time.
 # app.py -> register_blueprints -> from .listening_post import receiver_bp
 # must find receiver_bp already defined (above) before this import runs.
+import contextlib
+
 import app as app_module  # noqa: E402
 
 # ============================================
@@ -57,16 +59,16 @@ audio_source = 'process'
 audio_start_token = 0
 
 # Scanner state
-scanner_thread: Optional[threading.Thread] = None
+scanner_thread: threading.Thread | None = None
 scanner_running = False
 scanner_lock = threading.Lock()
 scanner_paused = False
 scanner_current_freq = 0.0
-scanner_active_device: Optional[int] = None
+scanner_active_device: int | None = None
 scanner_active_sdr_type: str = 'rtlsdr'
-receiver_active_device: Optional[int] = None
+receiver_active_device: int | None = None
 receiver_active_sdr_type: str = 'rtlsdr'
-scanner_power_process: Optional[subprocess.Popen] = None
+scanner_power_process: subprocess.Popen | None = None
 scanner_config = {
     'start_freq': 88.0,
     'end_freq': 108.0,
@@ -84,7 +86,7 @@ scanner_config = {
 }
 
 # Activity log
-activity_log: List[Dict] = []
+activity_log: list[dict] = []
 activity_log_lock = threading.Lock()
 MAX_LOG_ENTRIES = 500
 
@@ -95,12 +97,12 @@ scanner_queue: queue.Queue = queue.Queue(maxsize=100)
 scanner_skip_signal = False
 
 # Waterfall / spectrogram state
-waterfall_process: Optional[subprocess.Popen] = None
-waterfall_thread: Optional[threading.Thread] = None
+waterfall_process: subprocess.Popen | None = None
+waterfall_thread: threading.Thread | None = None
 waterfall_running = False
 waterfall_lock = threading.Lock()
 waterfall_queue: queue.Queue = queue.Queue(maxsize=200)
-waterfall_active_device: Optional[int] = None
+waterfall_active_device: int | None = None
 waterfall_active_sdr_type: str = 'rtlsdr'
 waterfall_config = {
     'start_freq': 88.0,
@@ -185,13 +187,11 @@ def add_activity_log(event_type: str, frequency: float, details: str = ''):
             activity_log.pop()
 
         # Also push to SSE queue
-        try:
+        with contextlib.suppress(queue.Full):
             scanner_queue.put_nowait({
                 'type': 'log',
                 'entry': entry
             })
-        except queue.Full:
-            pass
 
 
 def _start_audio_stream(
@@ -348,12 +348,12 @@ def _start_audio_stream(
                 rtl_stderr = ''
                 ffmpeg_stderr = ''
                 try:
-                    with open(rtl_stderr_log, 'r') as f:
+                    with open(rtl_stderr_log) as f:
                         rtl_stderr = f.read().strip()
                 except Exception:
                     pass
                 try:
-                    with open(ffmpeg_stderr_log, 'r') as f:
+                    with open(ffmpeg_stderr_log) as f:
                         ffmpeg_stderr = f.read().strip()
                 except Exception:
                     pass
@@ -502,10 +502,8 @@ def _stop_waterfall_internal() -> None:
             waterfall_process.terminate()
             waterfall_process.wait(timeout=1)
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 waterfall_process.kill()
-            except Exception:
-                pass
         waterfall_process = None
 
     if waterfall_active_device is not None:
@@ -517,7 +515,9 @@ def _stop_waterfall_internal() -> None:
 # ============================================
 # Import sub-modules to register routes on receiver_bp
 # ============================================
-from . import scanner  # noqa: E402, F401
-from . import audio  # noqa: E402, F401
-from . import waterfall  # noqa: E402, F401
-from . import tools  # noqa: E402, F401
+from . import (
+    audio,  # noqa: E402, F401
+    scanner,  # noqa: E402, F401
+    tools,  # noqa: E402, F401
+    waterfall,  # noqa: E402, F401
+)

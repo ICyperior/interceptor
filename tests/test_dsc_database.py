@@ -1,9 +1,10 @@
 """Tests for DSC database operations."""
 
 import tempfile
-import pytest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -15,7 +16,7 @@ def temp_db():
 
         with patch('utils.database.DB_PATH', test_db_path), \
              patch('utils.database.DB_DIR', test_db_dir):
-            from utils.database import init_db, close_db
+            from utils.database import close_db, init_db
 
             init_db()
             yield test_db_path
@@ -27,7 +28,7 @@ class TestDSCAlertsCRUD:
 
     def test_store_and_get_dsc_alert(self, temp_db):
         """Test storing and retrieving a DSC alert."""
-        from utils.database import store_dsc_alert, get_dsc_alert
+        from utils.database import get_dsc_alert, store_dsc_alert
 
         alert_id = store_dsc_alert(
             source_mmsi='232123456',
@@ -56,7 +57,7 @@ class TestDSCAlertsCRUD:
 
     def test_store_minimal_alert(self, temp_db):
         """Test storing alert with only required fields."""
-        from utils.database import store_dsc_alert, get_dsc_alert
+        from utils.database import get_dsc_alert, store_dsc_alert
 
         alert_id = store_dsc_alert(
             source_mmsi='366000001',
@@ -81,7 +82,7 @@ class TestDSCAlertsCRUD:
 
     def test_get_dsc_alerts_all(self, temp_db):
         """Test getting all alerts."""
-        from utils.database import store_dsc_alert, get_dsc_alerts
+        from utils.database import get_dsc_alerts, store_dsc_alert
 
         store_dsc_alert('232123456', '100', 'DISTRESS')
         store_dsc_alert('366000001', '120', 'URGENCY')
@@ -93,7 +94,7 @@ class TestDSCAlertsCRUD:
 
     def test_get_dsc_alerts_by_category(self, temp_db):
         """Test filtering alerts by category."""
-        from utils.database import store_dsc_alert, get_dsc_alerts
+        from utils.database import get_dsc_alerts, store_dsc_alert
 
         store_dsc_alert('232123456', '100', 'DISTRESS')
         store_dsc_alert('232123457', '100', 'DISTRESS')
@@ -108,11 +109,7 @@ class TestDSCAlertsCRUD:
 
     def test_get_dsc_alerts_by_acknowledged(self, temp_db):
         """Test filtering alerts by acknowledgement status."""
-        from utils.database import (
-            store_dsc_alert,
-            get_dsc_alerts,
-            acknowledge_dsc_alert
-        )
+        from utils.database import acknowledge_dsc_alert, get_dsc_alerts, store_dsc_alert
 
         id1 = store_dsc_alert('232123456', '100', 'DISTRESS')
         id2 = store_dsc_alert('366000001', '100', 'DISTRESS')
@@ -129,7 +126,7 @@ class TestDSCAlertsCRUD:
 
     def test_get_dsc_alerts_by_mmsi(self, temp_db):
         """Test filtering alerts by source MMSI."""
-        from utils.database import store_dsc_alert, get_dsc_alerts
+        from utils.database import get_dsc_alerts, store_dsc_alert
 
         store_dsc_alert('232123456', '100', 'DISTRESS')
         store_dsc_alert('232123456', '120', 'URGENCY')
@@ -143,7 +140,7 @@ class TestDSCAlertsCRUD:
 
     def test_get_dsc_alerts_pagination(self, temp_db):
         """Test alert pagination."""
-        from utils.database import store_dsc_alert, get_dsc_alerts
+        from utils.database import get_dsc_alerts, store_dsc_alert
 
         # Create 10 alerts
         for i in range(10):
@@ -164,7 +161,7 @@ class TestDSCAlertsCRUD:
 
     def test_get_dsc_alerts_order(self, temp_db):
         """Test alerts are returned in reverse chronological order."""
-        from utils.database import store_dsc_alert, get_dsc_alerts
+        from utils.database import get_dsc_alerts, store_dsc_alert
 
         id1 = store_dsc_alert('232123456', '100', 'DISTRESS')
         id2 = store_dsc_alert('366000001', '100', 'DISTRESS')
@@ -182,11 +179,7 @@ class TestDSCAlertsCRUD:
 
     def test_acknowledge_dsc_alert(self, temp_db):
         """Test acknowledging a DSC alert."""
-        from utils.database import (
-            store_dsc_alert,
-            get_dsc_alert,
-            acknowledge_dsc_alert
-        )
+        from utils.database import acknowledge_dsc_alert, get_dsc_alert, store_dsc_alert
 
         alert_id = store_dsc_alert('232123456', '100', 'DISTRESS')
 
@@ -204,11 +197,7 @@ class TestDSCAlertsCRUD:
 
     def test_acknowledge_dsc_alert_with_notes(self, temp_db):
         """Test acknowledging with notes."""
-        from utils.database import (
-            store_dsc_alert,
-            get_dsc_alert,
-            acknowledge_dsc_alert
-        )
+        from utils.database import acknowledge_dsc_alert, get_dsc_alert, store_dsc_alert
 
         alert_id = store_dsc_alert('232123456', '100', 'DISTRESS')
 
@@ -227,11 +216,7 @@ class TestDSCAlertsCRUD:
 
     def test_get_dsc_alert_summary(self, temp_db):
         """Test getting alert summary counts."""
-        from utils.database import (
-            store_dsc_alert,
-            get_dsc_alert_summary,
-            acknowledge_dsc_alert
-        )
+        from utils.database import acknowledge_dsc_alert, get_dsc_alert_summary, store_dsc_alert
 
         # Create various alerts
         store_dsc_alert('232123456', '100', 'DISTRESS')
@@ -264,12 +249,7 @@ class TestDSCAlertsCRUD:
 
     def test_cleanup_old_dsc_alerts(self, temp_db):
         """Test cleanup function behavior."""
-        from utils.database import (
-            store_dsc_alert,
-            get_dsc_alerts,
-            acknowledge_dsc_alert,
-            cleanup_old_dsc_alerts
-        )
+        from utils.database import acknowledge_dsc_alert, cleanup_old_dsc_alerts, get_dsc_alerts, store_dsc_alert
 
         # Create and acknowledge some alerts
         id1 = store_dsc_alert('232123456', '100', 'DISTRESS')
@@ -294,11 +274,7 @@ class TestDSCAlertsCRUD:
 
     def test_cleanup_preserves_unacknowledged(self, temp_db):
         """Test cleanup preserves unacknowledged alerts regardless of age."""
-        from utils.database import (
-            store_dsc_alert,
-            get_dsc_alerts,
-            cleanup_old_dsc_alerts
-        )
+        from utils.database import cleanup_old_dsc_alerts, get_dsc_alerts, store_dsc_alert
 
         # Create unacknowledged alerts
         store_dsc_alert('232123456', '100', 'DISTRESS')
@@ -314,7 +290,7 @@ class TestDSCAlertsCRUD:
 
     def test_store_alert_with_raw_message(self, temp_db):
         """Test storing alert with raw message data."""
-        from utils.database import store_dsc_alert, get_dsc_alert
+        from utils.database import get_dsc_alert, store_dsc_alert
 
         raw = '100023212345603660000110010010000000000127'
 
@@ -330,7 +306,7 @@ class TestDSCAlertsCRUD:
 
     def test_store_alert_with_destination(self, temp_db):
         """Test storing alert with destination MMSI."""
-        from utils.database import store_dsc_alert, get_dsc_alert
+        from utils.database import get_dsc_alert, store_dsc_alert
 
         alert_id = store_dsc_alert(
             source_mmsi='232123456',
@@ -349,11 +325,11 @@ class TestDSCDatabaseIntegration:
     def test_full_alert_lifecycle(self, temp_db):
         """Test complete lifecycle of a DSC alert."""
         from utils.database import (
-            store_dsc_alert,
-            get_dsc_alert,
-            get_dsc_alerts,
             acknowledge_dsc_alert,
-            get_dsc_alert_summary
+            get_dsc_alert,
+            get_dsc_alert_summary,
+            get_dsc_alerts,
+            store_dsc_alert,
         )
 
         # 1. Store a distress alert
@@ -396,7 +372,7 @@ class TestDSCDatabaseIntegration:
 
     def test_multiple_vessel_alerts(self, temp_db):
         """Test handling alerts from multiple vessels."""
-        from utils.database import store_dsc_alert, get_dsc_alerts
+        from utils.database import get_dsc_alerts, store_dsc_alert
 
         # Simulate multiple vessels in distress
         vessels = [
@@ -405,7 +381,7 @@ class TestDSCDatabaseIntegration:
             ('351234567', 'Panama', 'COLLISION'),
         ]
 
-        for mmsi, country, nature in vessels:
+        for mmsi, _country, nature in vessels:
             store_dsc_alert(
                 source_mmsi=mmsi,
                 format_code='100',

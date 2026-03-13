@@ -6,13 +6,14 @@ maritime/aviation weather services worldwide.
 
 from __future__ import annotations
 
+import contextlib
 import queue
 
 from flask import Blueprint, Response, jsonify, request, send_file
 
-from utils.responses import api_success, api_error
 import app as app_module
 from utils.logging import get_logger
+from utils.responses import api_error
 from utils.sdr import SDRType
 from utils.sse import sse_stream_fanout
 from utils.validation import validate_frequency
@@ -129,10 +130,8 @@ def start_decoder():
     frequency_reference = str(data.get('frequency_reference', 'auto')).strip().lower()
 
     sdr_type_str = str(data.get('sdr_type', 'rtlsdr')).lower()
-    try:
-        sdr_type = SDRType(sdr_type_str)
-    except ValueError:
-        sdr_type = SDRType.RTL_SDR
+    with contextlib.suppress(ValueError):
+        SDRType(sdr_type_str)
     if not frequency_reference:
         frequency_reference = 'auto'
 

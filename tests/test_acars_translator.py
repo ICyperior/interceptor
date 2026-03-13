@@ -1,18 +1,15 @@
 """Tests for ACARS message translator."""
 
-import pytest
 
 from utils.acars_translator import (
-    ACARS_LABELS,
-    translate_label,
     classify_message_type,
-    parse_position_report,
     parse_engine_data,
-    parse_weather_data,
     parse_oooi,
+    parse_position_report,
+    parse_weather_data,
+    translate_label,
     translate_message,
 )
-
 
 # --- translate_label ---
 

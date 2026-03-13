@@ -7,18 +7,17 @@ and routine communications per ITU-R M.493.
 """
 
 from .constants import (
-    FORMAT_CODES,
-    DISTRESS_NATURE_CODES,
-    TELECOMMAND_CODES,
     CATEGORY_PRIORITY,
+    DISTRESS_NATURE_CODES,
+    FORMAT_CODES,
     MID_COUNTRY_MAP,
+    TELECOMMAND_CODES,
 )
-
 from .parser import (
-    parse_dsc_message,
     get_country_from_mmsi,
     get_distress_nature_text,
     get_format_text,
+    parse_dsc_message,
 )
 
 __all__ = [

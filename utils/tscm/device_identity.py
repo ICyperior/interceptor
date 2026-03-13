@@ -26,13 +26,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import math
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger('intercept.tscm.device_identity')
 
@@ -119,18 +117,18 @@ class BLEObservation:
     timestamp: datetime
     addr: str  # MAC-like address
     addr_type: AddressType = AddressType.UNKNOWN
-    rssi: Optional[int] = None
-    tx_power: Optional[int] = None
+    rssi: int | None = None
+    tx_power: int | None = None
     adv_type: AdvType = AdvType.UNKNOWN
-    adv_flags: Optional[int] = None
-    manufacturer_id: Optional[int] = None
-    manufacturer_data: Optional[bytes] = None
+    adv_flags: int | None = None
+    manufacturer_id: int | None = None
+    manufacturer_data: bytes | None = None
     service_uuids: list[str] = field(default_factory=list)
-    service_data: Optional[bytes] = None
-    local_name: Optional[str] = None
-    appearance: Optional[int] = None
-    packet_length: Optional[int] = None
-    phy: Optional[str] = None
+    service_data: bytes | None = None
+    local_name: str | None = None
+    appearance: int | None = None
+    packet_length: int | None = None
+    phy: str | None = None
 
     def __post_init__(self):
         if isinstance(self.addr_type, str):
@@ -202,26 +200,26 @@ class WifiObservation:
     """Single WiFi frame observation."""
     timestamp: datetime
     src_mac: str
-    dst_mac: Optional[str] = None
-    bssid: Optional[str] = None
-    ssid: Optional[str] = None
+    dst_mac: str | None = None
+    bssid: str | None = None
+    ssid: str | None = None
     frame_type: WifiFrameType = WifiFrameType.UNKNOWN
-    rssi: Optional[int] = None
-    channel: Optional[int] = None
-    bandwidth: Optional[int] = None  # 20/40/80/160
-    encryption: Optional[str] = None
-    beacon_interval: Optional[int] = None
-    capabilities: Optional[int] = None
+    rssi: int | None = None
+    channel: int | None = None
+    bandwidth: int | None = None  # 20/40/80/160
+    encryption: str | None = None
+    beacon_interval: int | None = None
+    capabilities: int | None = None
     supported_rates: list[float] = field(default_factory=list)
     extended_rates: list[float] = field(default_factory=list)
     ht_capable: bool = False
     vht_capable: bool = False
     he_capable: bool = False
-    ht_capabilities: Optional[int] = None
-    vht_capabilities: Optional[int] = None
+    ht_capabilities: int | None = None
+    vht_capabilities: int | None = None
     vendor_ies: list[tuple[str, int]] = field(default_factory=list)  # (OUI, length)
     wps_present: bool = False
-    sequence_number: Optional[int] = None
+    sequence_number: int | None = None
     probed_ssids: list[str] = field(default_factory=list)
 
     def __post_init__(self):
@@ -263,7 +261,7 @@ class WifiObservation:
 
         # Vendor IE fingerprint (OUIs only, not content)
         if self.vendor_ies:
-            ouis = sorted(set(oui for oui, _ in self.vendor_ies))
+            ouis = sorted({oui for oui, _ in self.vendor_ies})
             components.append(f"vie:{','.join(ouis)}")
 
         if self.capabilities is not None:
@@ -301,7 +299,7 @@ class DeviceSession:
     first_seen: datetime
     last_seen: datetime
     observations: list = field(default_factory=list)
-    primary_mac: Optional[str] = None
+    primary_mac: str | None = None
     observed_macs: set[str] = field(default_factory=set)
     fingerprint_hashes: set[str] = field(default_factory=set)
 
@@ -341,7 +339,7 @@ class DeviceSession:
         """Get session duration."""
         return self.last_seen - self.first_seen
 
-    def get_mean_rssi(self) -> Optional[float]:
+    def get_mean_rssi(self) -> float | None:
         """Get mean RSSI across session."""
         if not self.rssi_samples:
             return None
@@ -362,7 +360,7 @@ class DeviceSession:
         except statistics.StatisticsError:
             return 0.0
 
-    def get_mean_interval(self) -> Optional[float]:
+    def get_mean_interval(self) -> float | None:
         """Get mean advertising/probing interval."""
         if not self.observation_intervals:
             return None
@@ -427,10 +425,10 @@ class DeviceCluster:
     link_evidence: list[dict] = field(default_factory=list)
 
     # Best available identifiers
-    best_name: Optional[str] = None
-    manufacturer_id: Optional[int] = None
-    manufacturer_name: Optional[str] = None
-    device_type: Optional[str] = None
+    best_name: str | None = None
+    manufacturer_id: int | None = None
+    manufacturer_name: str | None = None
+    device_type: str | None = None
 
     # TSCM risk assessment
     risk_level: RiskLevel = RiskLevel.INFORMATIONAL
@@ -439,8 +437,8 @@ class DeviceCluster:
 
     # Behavioral profile
     total_observations: int = 0
-    first_seen: Optional[datetime] = None
-    last_seen: Optional[datetime] = None
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
     presence_ratio: float = 0.0  # % of monitoring period device was present
 
     def add_session(self, session: DeviceSession, link_reason: str,
@@ -532,8 +530,8 @@ def jaccard_similarity(set1: set, set2: set) -> float:
     return intersection / union if union > 0 else 0.0
 
 
-def manufacturer_data_similarity(data1: Optional[bytes],
-                                  data2: Optional[bytes]) -> float:
+def manufacturer_data_similarity(data1: bytes | None,
+                                  data2: bytes | None) -> float:
     """
     Calculate similarity between manufacturer data blobs.
 
@@ -626,7 +624,7 @@ def timing_pattern_similarity(intervals1: list[float],
     return 0.7 * ratio + 0.3 * max(0, cv_sim)
 
 
-def name_similarity(name1: Optional[str], name2: Optional[str]) -> float:
+def name_similarity(name1: str | None, name2: str | None) -> float:
     """Calculate similarity between device names."""
     if not name1 or not name2:
         return 0.0
@@ -673,8 +671,8 @@ class DeviceIdentityEngine:
         self._cluster_counter = 0
 
         # Monitoring period for presence calculation
-        self.monitoring_start: Optional[datetime] = None
-        self.monitoring_end: Optional[datetime] = None
+        self.monitoring_start: datetime | None = None
+        self.monitoring_end: datetime | None = None
 
     def _generate_session_id(self, protocol: str) -> str:
         """Generate unique session ID."""
@@ -714,9 +712,8 @@ class DeviceIdentityEngine:
 
         # Update fingerprint index
         fp = obs.compute_fingerprint_hash()
-        if fp:
-            if session.session_id not in self._fingerprint_to_sessions[fp]:
-                self._fingerprint_to_sessions[fp].append(session.session_id)
+        if fp and session.session_id not in self._fingerprint_to_sessions[fp]:
+            self._fingerprint_to_sessions[fp].append(session.session_id)
 
         return session
 
@@ -757,9 +754,8 @@ class DeviceIdentityEngine:
 
         # Update fingerprint index
         fp = obs.compute_fingerprint_hash()
-        if fp:
-            if session.session_id not in self._fingerprint_to_sessions[fp]:
-                self._fingerprint_to_sessions[fp].append(session.session_id)
+        if fp and session.session_id not in self._fingerprint_to_sessions[fp]:
+            self._fingerprint_to_sessions[fp].append(session.session_id)
 
         return session
 
@@ -784,7 +780,7 @@ class DeviceIdentityEngine:
             similarity = self._calculate_cluster_similarity(cluster, session)
             cluster.add_session(
                 session,
-                link_reason=f"Fingerprint/behavioral match",
+                link_reason="Fingerprint/behavioral match",
                 link_confidence=similarity
             )
         else:
@@ -795,7 +791,7 @@ class DeviceIdentityEngine:
         # Run risk assessment on the cluster
         self._assess_cluster_risk(cluster)
 
-    def _find_matching_cluster(self, session: DeviceSession) -> Optional[DeviceCluster]:
+    def _find_matching_cluster(self, session: DeviceSession) -> DeviceCluster | None:
         """
         Find an existing cluster that matches this session.
 
@@ -884,7 +880,7 @@ class DeviceIdentityEngine:
 
         return weighted_sum / total_weight if total_weight > 0 else 0.0
 
-    def _get_cluster_manufacturer_data(self, cluster: DeviceCluster) -> Optional[bytes]:
+    def _get_cluster_manufacturer_data(self, cluster: DeviceCluster) -> bytes | None:
         """Get representative manufacturer data from cluster."""
         for session in cluster.sessions:
             for obs in session.observations:
@@ -892,7 +888,7 @@ class DeviceIdentityEngine:
                     return obs.manufacturer_data
         return None
 
-    def _get_session_manufacturer_data(self, session: DeviceSession) -> Optional[bytes]:
+    def _get_session_manufacturer_data(self, session: DeviceSession) -> bytes | None:
         """Get manufacturer data from session."""
         for obs in session.observations:
             if hasattr(obs, 'manufacturer_data') and obs.manufacturer_data:
@@ -923,7 +919,7 @@ class DeviceIdentityEngine:
             intervals.extend(session.observation_intervals)
         return intervals
 
-    def _get_session_name(self, session: DeviceSession) -> Optional[str]:
+    def _get_session_name(self, session: DeviceSession) -> str | None:
         """Get device name from session."""
         for obs in session.observations:
             if hasattr(obs, 'local_name') and obs.local_name:
@@ -1140,7 +1136,7 @@ class DeviceIdentityEngine:
 # =============================================================================
 
 # Global engine instance
-_identity_engine: Optional[DeviceIdentityEngine] = None
+_identity_engine: DeviceIdentityEngine | None = None
 
 
 def get_identity_engine() -> DeviceIdentityEngine:
@@ -1157,7 +1153,7 @@ def reset_identity_engine() -> None:
     _identity_engine = DeviceIdentityEngine()
 
 
-def _convert_to_bytes(value) -> Optional[bytes]:
+def _convert_to_bytes(value) -> bytes | None:
     """Convert various data types to bytes safely."""
     if value is None:
         return None

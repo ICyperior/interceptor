@@ -5,21 +5,21 @@ Tests device key stability, EMA smoothing, distance estimation,
 band classification, and ring buffer functionality.
 """
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import patch
+
+import pytest
 
 from utils.bluetooth.device_key import (
+    extract_key_type,
     generate_device_key,
     is_randomized_mac,
-    extract_key_type,
 )
 from utils.bluetooth.distance import (
-    DistanceEstimator,
-    ProximityBand,
+    RSSI_THRESHOLD_FAR,
     RSSI_THRESHOLD_IMMEDIATE,
     RSSI_THRESHOLD_NEAR,
-    RSSI_THRESHOLD_FAR,
+    DistanceEstimator,
+    ProximityBand,
 )
 from utils.bluetooth.ring_buffer import RingBuffer
 

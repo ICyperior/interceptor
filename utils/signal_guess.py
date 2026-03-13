@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
-
 
 # =============================================================================
 # Confidence Levels
@@ -41,7 +39,7 @@ class SignalTypeDefinition:
     # Optional modulation hints (if provided, boosts confidence)
     modulation_hints: list[str] = field(default_factory=list)
     # Optional bandwidth range (min_hz, max_hz) - if provided, used for scoring
-    bandwidth_range: Optional[tuple[int, int]] = None
+    bandwidth_range: tuple[int, int] | None = None
     # Base score for frequency match
     base_score: int = 10
     # Is this a burst/telemetry type signal?
@@ -414,12 +412,12 @@ class SignalGuessingEngine:
     def guess_signal_type(
         self,
         frequency_hz: int,
-        modulation: Optional[str] = None,
-        bandwidth_hz: Optional[int] = None,
-        duration_ms: Optional[int] = None,
-        repetition_count: Optional[int] = None,
-        rssi_dbm: Optional[float] = None,
-        region: Optional[str] = None,
+        modulation: str | None = None,
+        bandwidth_hz: int | None = None,
+        duration_ms: int | None = None,
+        repetition_count: int | None = None,
+        rssi_dbm: float | None = None,
+        region: str | None = None,
     ) -> SignalGuessResult:
         """
         Guess the signal type based on detection parameters.
@@ -523,10 +521,10 @@ class SignalGuessingEngine:
         self,
         signal_type: SignalTypeDefinition,
         frequency_hz: int,
-        modulation: Optional[str],
-        bandwidth_hz: Optional[int],
-        duration_ms: Optional[int],
-        repetition_count: Optional[int],
+        modulation: str | None,
+        bandwidth_hz: int | None,
+        duration_ms: int | None,
+        repetition_count: int | None,
         region: str,
     ) -> int:
         """Calculate score for a signal type match."""
@@ -580,8 +578,8 @@ class SignalGuessingEngine:
         primary_score: int,
         all_scores: dict[str, int],
         sorted_labels: list[str],
-        modulation: Optional[str],
-        bandwidth_hz: Optional[int],
+        modulation: str | None,
+        bandwidth_hz: int | None,
     ) -> Confidence:
         """Calculate confidence level based on scores and data quality."""
 
@@ -603,9 +601,7 @@ class SignalGuessingEngine:
 
         if primary_score >= 18 and margin >= 5:
             return Confidence.HIGH
-        elif primary_score >= 14 and margin >= 3:
-            return Confidence.MEDIUM
-        elif primary_score >= 12 and margin >= 2:
+        elif primary_score >= 14 and margin >= 3 or primary_score >= 12 and margin >= 2:
             return Confidence.MEDIUM
         return Confidence.LOW
 
@@ -636,10 +632,10 @@ class SignalGuessingEngine:
         signal_type: SignalTypeDefinition,
         confidence: Confidence,
         frequency_hz: int,
-        modulation: Optional[str],
-        bandwidth_hz: Optional[int],
-        duration_ms: Optional[int],
-        repetition_count: Optional[int],
+        modulation: str | None,
+        bandwidth_hz: int | None,
+        duration_ms: int | None,
+        repetition_count: int | None,
     ) -> str:
         """Build a hedged, client-safe explanation."""
         freq_mhz = frequency_hz / 1_000_000
@@ -676,7 +672,7 @@ class SignalGuessingEngine:
     def _build_unknown_explanation(
         self,
         frequency_hz: int,
-        modulation: Optional[str],
+        modulation: str | None,
     ) -> str:
         """Build explanation for unknown signal."""
         freq_mhz = frequency_hz / 1_000_000
@@ -693,7 +689,7 @@ class SignalGuessingEngine:
     def get_frequency_allocations(
         self,
         frequency_hz: int,
-        region: Optional[str] = None,
+        region: str | None = None,
     ) -> list[str]:
         """
         Get all possible allocations for a frequency.
@@ -720,7 +716,7 @@ class SignalGuessingEngine:
 # =============================================================================
 
 # Default engine instance
-_default_engine: Optional[SignalGuessingEngine] = None
+_default_engine: SignalGuessingEngine | None = None
 
 
 def get_engine(region: str = "UK/EU") -> SignalGuessingEngine:
@@ -733,11 +729,11 @@ def get_engine(region: str = "UK/EU") -> SignalGuessingEngine:
 
 def guess_signal_type(
     frequency_hz: int,
-    modulation: Optional[str] = None,
-    bandwidth_hz: Optional[int] = None,
-    duration_ms: Optional[int] = None,
-    repetition_count: Optional[int] = None,
-    rssi_dbm: Optional[float] = None,
+    modulation: str | None = None,
+    bandwidth_hz: int | None = None,
+    duration_ms: int | None = None,
+    repetition_count: int | None = None,
+    rssi_dbm: float | None = None,
     region: str = "UK/EU",
 ) -> SignalGuessResult:
     """
@@ -759,11 +755,11 @@ def guess_signal_type(
 
 def guess_signal_type_dict(
     frequency_hz: int,
-    modulation: Optional[str] = None,
-    bandwidth_hz: Optional[int] = None,
-    duration_ms: Optional[int] = None,
-    repetition_count: Optional[int] = None,
-    rssi_dbm: Optional[float] = None,
+    modulation: str | None = None,
+    bandwidth_hz: int | None = None,
+    duration_ms: int | None = None,
+    repetition_count: int | None = None,
+    rssi_dbm: float | None = None,
     region: str = "UK/EU",
 ) -> dict:
     """

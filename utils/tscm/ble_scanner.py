@@ -180,9 +180,7 @@ class BLEScanner:
                             ble_device.manufacturer_name = COMPANY_IDS.get(company_id, f'Unknown ({hex(company_id)})')
                             # Handle various data types safely
                             try:
-                                if isinstance(data, (bytes, bytearray)):
-                                    ble_device.manufacturer_data = bytes(data)
-                                elif isinstance(data, (list, tuple)):
+                                if isinstance(data, (bytes, bytearray, list, tuple)):
                                     ble_device.manufacturer_data = bytes(data)
                                 elif isinstance(data, str):
                                     ble_device.manufacturer_data = bytes.fromhex(data)
@@ -237,7 +235,7 @@ class BLEScanner:
             try:
                 # Try to get existing event loop
                 try:
-                    loop = asyncio.get_running_loop()
+                    asyncio.get_running_loop()
                     # We're in an async context, can't use run()
                     future = asyncio.ensure_future(self.scan_async(duration))
                     return asyncio.get_event_loop().run_until_complete(future)

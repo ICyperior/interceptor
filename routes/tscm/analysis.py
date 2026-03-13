@@ -14,7 +14,6 @@ from datetime import datetime
 from flask import Response, jsonify, request
 
 from routes.tscm import (
-    _current_sweep_id,
     _generate_assessment,
     tscm_bp,
 )
@@ -253,9 +252,9 @@ def get_pdf_report():
     summary, and mandatory disclaimers.
     """
     try:
-        from utils.tscm.reports import generate_report, get_pdf_report
-        from utils.tscm.advanced import detect_sweep_capabilities, get_timeline_manager
         from routes.tscm import _current_sweep_id
+        from utils.tscm.advanced import detect_sweep_capabilities, get_timeline_manager
+        from utils.tscm.reports import generate_report, get_pdf_report
 
         sweep_id = request.args.get('sweep_id', _current_sweep_id, type=int)
         if not sweep_id:
@@ -306,9 +305,9 @@ def get_technical_annex():
     for audit purposes. No packet data included.
     """
     try:
-        from utils.tscm.reports import generate_report, get_json_annex, get_csv_annex
-        from utils.tscm.advanced import detect_sweep_capabilities, get_timeline_manager
         from routes.tscm import _current_sweep_id
+        from utils.tscm.advanced import detect_sweep_capabilities, get_timeline_manager
+        from utils.tscm.reports import generate_report, get_csv_annex, get_json_annex
 
         sweep_id = request.args.get('sweep_id', _current_sweep_id, type=int)
         format_type = request.args.get('format', 'json')
@@ -900,8 +899,8 @@ def get_device_timeline_endpoint(identifier: str):
     and meeting window correlation.
     """
     try:
-        from utils.tscm.advanced import get_timeline_manager
         from utils.database import get_device_timeline
+        from utils.tscm.advanced import get_timeline_manager
 
         protocol = request.args.get('protocol', 'bluetooth')
         since_hours = request.args.get('since_hours', 24, type=int)

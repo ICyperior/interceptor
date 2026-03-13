@@ -10,30 +10,34 @@ This blueprint provides:
 
 from __future__ import annotations
 
-import json
 import logging
 import queue
 import threading
 import time
+from collections.abc import Generator
 from datetime import datetime, timezone
-from typing import Generator
 
 import requests
+from flask import Blueprint, Response, jsonify, request
 
-from flask import Blueprint, jsonify, request, Response
-
-from utils.responses import api_success, api_error
+from utils.agent_client import AgentClient, AgentConnectionError, AgentHTTPError, create_client_from_agent
 from utils.database import (
-    create_agent, get_agent, get_agent_by_name, list_agents,
-    update_agent, delete_agent, store_push_payload, get_recent_payloads
+    create_agent,
+    delete_agent,
+    get_agent,
+    get_agent_by_name,
+    get_recent_payloads,
+    list_agents,
+    store_push_payload,
+    update_agent,
 )
-from utils.agent_client import (
-    AgentClient, AgentHTTPError, AgentConnectionError, create_client_from_agent
-)
+from utils.responses import api_error
 from utils.sse import format_sse
 from utils.trilateration import (
-    DeviceLocationTracker, PathLossModel, Trilateration,
-    AgentObservation, estimate_location_from_observations
+    DeviceLocationTracker,
+    PathLossModel,
+    Trilateration,
+    estimate_location_from_observations,
 )
 
 logger = logging.getLogger('intercept.controller')
@@ -700,6 +704,7 @@ def stream_all_agents():
 def agent_management_page():
     """Render the agent management page."""
     from flask import render_template
+
     from config import VERSION
     return render_template('agents.html', version=VERSION)
 

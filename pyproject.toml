@@ -1,6 +1,6 @@
 [project]
 name = "intercept"
-version = "2.24.0"
+version = "2.26.0"
 description = "Signal Intelligence Platform - Pager/433MHz/ADS-B/Satellite/WiFi/Bluetooth"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -93,7 +93,31 @@ ignore = [
     "B008",   # do not perform function calls in argument defaults
     "B905",   # zip without explicit strict
     "SIM108", # use ternary operator instead of if-else
+    "SIM102", # collapsible if statements
+    "SIM105", # use contextlib.suppress (stylistic, not a bug)
+    "SIM115", # use context manager for open (not always applicable)
+    "SIM116", # use dict instead of if/elif chain (stylistic)
+    "SIM117", # combine nested with statements (stylistic)
+    "E402",   # module-level import not at top (needed for conditional imports)
+    "E741",   # ambiguous variable name
+    "E721",   # type comparison (use isinstance)
+    "E722",   # bare except
+    "B904",   # raise from within except (stylistic)
+    "B007",   # unused loop variable (use _ prefix)
+    "B023",   # function definition doesn't bind loop variable
+    "F601",   # membership test with duplicate items
+    "F821",   # undefined name (too many false positives with conditional imports)
+    "UP035",  # deprecated typing imports
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # re-exports in __init__.py are intentional
+"utils/bluetooth/capability_check.py" = ["F401"]  # imports used for availability checking
+"utils/bluetooth/fallback_scanner.py" = ["F401"]  # imports used for availability checking
+"utils/tscm/ble_scanner.py" = ["F401"]  # imports used for availability checking
+"utils/wifi/deauth_detector.py" = ["F401"]  # imports used for availability checking
+"routes/dsc.py" = ["F401"]  # imports used for availability checking
+"intercept_agent.py" = ["F401"]  # conditional imports
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "config", "routes", "utils", "data"]

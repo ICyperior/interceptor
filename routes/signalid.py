@@ -10,8 +10,8 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 from utils.logging import get_logger
+from utils.responses import api_error
 
 logger = get_logger('intercept.signalid')
 

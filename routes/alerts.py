@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import queue
-import time
-from typing import Generator
+from collections.abc import Generator
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, request
 
 from utils.alerts import get_alert_manager
-from utils.responses import api_success, api_error
+from utils.responses import api_error, api_success
 from utils.sse import format_sse
 
 alerts_bp = Blueprint('alerts', __name__, url_prefix='/alerts')

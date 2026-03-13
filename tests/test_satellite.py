@@ -1,7 +1,8 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-import json
-from unittest.mock import patch, MagicMock
 from flask import Flask
+
 from routes.satellite import satellite_bp
 
 
@@ -38,11 +39,11 @@ def test_fetch_celestrak_invalid_category(client):
 def test_update_tle_success(mock_urlopen, client):
     """Simulate a successful response from CelesTrak."""
     mock_content = (
-        "ISS (ZARYA)\n"
-        "1 25544U 98067A   23321.52083333  .00016717  00000-0  30171-3 0  9992\n"
-        "2 25544  51.6416  20.4567 0004561  45.3212  67.8912 15.49876543123456\n"
-    ).encode('utf-8')
-    
+        b"ISS (ZARYA)\n"
+        b"1 25544U 98067A   23321.52083333  .00016717  00000-0  30171-3 0  9992\n"
+        b"2 25544  51.6416  20.4567 0004561  45.3212  67.8912 15.49876543123456\n"
+    )
+
     mock_response = MagicMock()
     mock_response.read.return_value = mock_content
     mock_response.__enter__.return_value = mock_response
@@ -58,7 +59,7 @@ def test_get_satellite_position_skyfield_error(mock_load, client):
     """Test behavior when Skyfield fails or data is missing."""
     # Force the timescale load to fail
     mock_load.side_effect = Exception("Skyfield error")
-    
+
     payload = {
         "latitude": 51.5,
         "longitude": -0.1,

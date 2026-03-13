@@ -6,8 +6,9 @@ and ground track generation.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from utils.weather_sat_predict import _format_utc_iso, predict_passes
@@ -526,7 +527,7 @@ class TestPredictPasses:
                  patch('utils.weather_sat_predict.EarthSatellite'), \
                  patch('utils.weather_sat_predict.find_discrete', return_value=([], [])):
 
-                passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
+                predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
                 # Should not raise
 
     @patch('utils.weather_sat_predict.load')

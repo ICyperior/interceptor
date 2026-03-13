@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import json
 import os
@@ -11,39 +12,25 @@ import re
 import subprocess
 import threading
 import time
-from typing import Any, Generator
+from typing import Any
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
-from utils.dependencies import check_tool, get_tool_path
-from utils.logging import wifi_logger as logger
-from utils.process import is_valid_mac, is_valid_channel
-from utils.validation import validate_wifi_channel, validate_mac_address, validate_network_interface
-from utils.sse import format_sse, sse_stream_fanout
-from utils.event_pipeline import process_event
 from data.oui import get_manufacturer
 from utils.constants import (
-    WIFI_TERMINATE_TIMEOUT,
-    PMKID_TERMINATE_TIMEOUT,
     SSE_KEEPALIVE_INTERVAL,
     SSE_QUEUE_TIMEOUT,
-    WIFI_CSV_PARSE_INTERVAL,
-    WIFI_CSV_TIMEOUT_WARNING,
-    SUBPROCESS_TIMEOUT_SHORT,
     SUBPROCESS_TIMEOUT_MEDIUM,
-    SUBPROCESS_TIMEOUT_LONG,
-    DEAUTH_TIMEOUT,
-    MIN_DEAUTH_COUNT,
-    MAX_DEAUTH_COUNT,
-    DEFAULT_DEAUTH_COUNT,
-    PROCESS_START_WAIT,
-    MONITOR_MODE_DELAY,
-    WIFI_CAPTURE_PATH_PREFIX,
-    HANDSHAKE_CAPTURE_PATH_PREFIX,
-    PMKID_CAPTURE_PATH_PREFIX,
+    SUBPROCESS_TIMEOUT_SHORT,
 )
+from utils.dependencies import check_tool, get_tool_path
+from utils.event_pipeline import process_event
+from utils.logging import wifi_logger as logger
+from utils.process import is_valid_channel, is_valid_mac
+from utils.responses import api_error, api_success
+from utils.sse import format_sse, sse_stream_fanout
+from utils.validation import validate_network_interface, validate_wifi_channel
 
 wifi_bp = Blueprint('wifi', __name__, url_prefix='/wifi')
 
@@ -201,9 +188,9 @@ def _get_interface_details(iface_name):
     # Get MAC address
     try:
         mac_path = f'/sys/class/net/{iface_name}/address'
-        with open(mac_path, 'r') as f:
+        with open(mac_path) as f:
             details['mac'] = f.read().strip().upper()
-    except (FileNotFoundError, IOError):
+    except (OSError, FileNotFoundError):
         pass
 
     # Get driver name
@@ -212,7 +199,7 @@ def _get_interface_details(iface_name):
         if os.path.islink(driver_link):
             driver_path = os.readlink(driver_link)
             details['driver'] = os.path.basename(driver_path)
-    except (FileNotFoundError, IOError, OSError):
+    except (FileNotFoundError, OSError):
         pass
 
     # Try airmon-ng first for chipset info (most reliable for WiFi adapters)
@@ -230,11 +217,10 @@ def _get_interface_details(iface_name):
                     break
             # Also try space-separated format
             parts = line.split()
-            if len(parts) >= 4:
-                if parts[1] == iface_name or parts[1].startswith(iface_name):
-                    details['driver'] = parts[2]
-                    details['chipset'] = ' '.join(parts[3:])
-                    break
+            if len(parts) >= 4 and (parts[1] == iface_name or parts[1].startswith(iface_name)):
+                details['driver'] = parts[2]
+                details['chipset'] = ' '.join(parts[3:])
+                break
     except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
         pass
 
@@ -246,10 +232,10 @@ def _get_interface_details(iface_name):
                 # Try to get USB product name
                 for usb_path in [f'{device_path}/product', f'{device_path}/../product']:
                     try:
-                        with open(usb_path, 'r') as f:
+                        with open(usb_path) as f:
                             details['chipset'] = f.read().strip()
                             break
-                    except (FileNotFoundError, IOError):
+                    except (OSError, FileNotFoundError):
                         pass
 
                 # If no USB product, try lsusb for USB devices
@@ -257,7 +243,7 @@ def _get_interface_details(iface_name):
                     try:
                         # Get USB bus/device info
                         uevent_path = f'{device_path}/uevent'
-                        with open(uevent_path, 'r') as f:
+                        with open(uevent_path) as f:
                             for line in f:
                                 if line.startswith('PRODUCT='):
                                     # PRODUCT format: vendor/product/bcdDevice
@@ -280,9 +266,9 @@ def _get_interface_details(iface_name):
                                         except (FileNotFoundError, subprocess.TimeoutExpired):
                                             pass
                                     break
-                    except (FileNotFoundError, IOError):
+                    except (OSError, FileNotFoundError):
                         pass
-        except (FileNotFoundError, IOError, OSError):
+        except (FileNotFoundError, OSError):
             pass
 
     return details
@@ -294,7 +280,7 @@ def parse_airodump_csv(csv_path):
     clients = {}
 
     try:
-        with open(csv_path, 'r', errors='replace') as f:
+        with open(csv_path, errors='replace') as f:
             content = f.read()
 
         sections = content.split('\n\n')
@@ -602,7 +588,6 @@ def toggle_monitor_mode():
                 return api_success(data={'monitor_interface': app_module.wifi_monitor_interface})
 
             except Exception as e:
-                import traceback
                 logger.error(f"Error enabling monitor mode: {e}", exc_info=True)
                 return api_error(str(e))
 
@@ -683,11 +668,9 @@ def start_wifi_scan():
 
         csv_path = '/tmp/intercept_wifi'
 
-        for f in [f'/tmp/intercept_wifi-01.csv', f'/tmp/intercept_wifi-01.cap']:
-            try:
+        for f in ['/tmp/intercept_wifi-01.csv', '/tmp/intercept_wifi-01.cap']:
+            with contextlib.suppress(OSError):
                 os.remove(f)
-            except OSError:
-                pass
 
         airodump_path = get_tool_path('airodump-ng')
         cmd = [
@@ -1021,7 +1004,7 @@ def check_pmkid_status():
 
     try:
         hash_file = capture_file.replace('.pcapng', '.22000')
-        result = subprocess.run(
+        subprocess.run(
             ['hcxpcapngtool', '-o', hash_file, capture_file],
             capture_output=True, text=True, timeout=10
         )
@@ -1170,7 +1153,7 @@ def stream_wifi():
 # V2 API Endpoints - Using unified WiFi scanner
 # =============================================================================
 
-from utils.wifi.scanner import get_wifi_scanner, reset_wifi_scanner
+from utils.wifi.scanner import get_wifi_scanner
 
 
 @wifi_bp.route('/v2/capabilities')

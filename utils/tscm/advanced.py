@@ -24,7 +24,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger('intercept.tscm.advanced')
 
@@ -893,10 +893,10 @@ def _calculate_baseline_health(diff: BaselineDiff, baseline: dict) -> None:
 class DeviceObservation:
     """A single observation of a device."""
     timestamp: datetime
-    rssi: Optional[int] = None
+    rssi: int | None = None
     present: bool = True
-    channel: Optional[int] = None
-    frequency: Optional[float] = None
+    channel: int | None = None
+    frequency: float | None = None
     attributes: dict = field(default_factory=dict)
 
 
@@ -910,21 +910,21 @@ class DeviceTimeline:
     """
     identifier: str
     protocol: str
-    name: Optional[str] = None
+    name: str | None = None
 
     # Observation history (time-bucketed)
     observations: list[DeviceObservation] = field(default_factory=list)
 
     # Computed metrics
-    first_seen: Optional[datetime] = None
-    last_seen: Optional[datetime] = None
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
     total_observations: int = 0
     presence_ratio: float = 0.0  # % of time device was present
 
     # Signal metrics
-    rssi_min: Optional[int] = None
-    rssi_max: Optional[int] = None
-    rssi_mean: Optional[float] = None
+    rssi_min: int | None = None
+    rssi_max: int | None = None
+    rssi_mean: float | None = None
     rssi_stability: float = 0.0  # 0-1, higher = more stable
 
     # Movement assessment
@@ -991,17 +991,17 @@ class TimelineManager:
         self.bucket_seconds = bucket_seconds
         self.max_observations = max_observations
         self.timelines: dict[str, DeviceTimeline] = {}
-        self._meeting_windows: list[tuple[datetime, Optional[datetime]]] = []
+        self._meeting_windows: list[tuple[datetime, datetime | None]] = []
 
     def add_observation(
         self,
         identifier: str,
         protocol: str,
-        rssi: Optional[int] = None,
-        channel: Optional[int] = None,
-        frequency: Optional[float] = None,
-        name: Optional[str] = None,
-        attributes: Optional[dict] = None
+        rssi: int | None = None,
+        channel: int | None = None,
+        frequency: float | None = None,
+        name: str | None = None,
+        attributes: dict | None = None
     ) -> None:
         """Add an observation for a device."""
         key = f"{protocol}:{identifier.upper()}"
@@ -1080,7 +1080,7 @@ class TimelineManager:
                 return True
         return False
 
-    def compute_metrics(self, identifier: str, protocol: str) -> Optional[DeviceTimeline]:
+    def compute_metrics(self, identifier: str, protocol: str) -> DeviceTimeline | None:
         """Compute all metrics for a device timeline."""
         key = f"{protocol}:{identifier.upper()}"
         if key not in self.timelines:
@@ -1125,7 +1125,7 @@ class TimelineManager:
 
         return timeline
 
-    def get_timeline(self, identifier: str, protocol: str) -> Optional[DeviceTimeline]:
+    def get_timeline(self, identifier: str, protocol: str) -> DeviceTimeline | None:
         """Get computed timeline for a device."""
         return self.compute_metrics(identifier, protocol)
 
@@ -1150,9 +1150,9 @@ class MeetingWindowSummary:
     and applies meeting-window scoring modifiers.
     """
     meeting_id: int
-    name: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    name: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     duration_minutes: float = 0.0
 
     # Devices first seen during meeting (high interest)
@@ -1431,7 +1431,7 @@ class WiFiAdvancedDetector:
         self.indicators.extend(indicators)
         return indicators
 
-    def add_probe_request(self, frame: dict) -> Optional[WiFiAdvancedIndicator]:
+    def add_probe_request(self, frame: dict) -> WiFiAdvancedIndicator | None:
         """
         Record a probe request frame (requires monitor mode).
 
@@ -1475,7 +1475,7 @@ class WiFiAdvancedDetector:
                     details={
                         'ssid': ssid,
                         'probe_count': len(recent_probes),
-                        'source_macs': list(set(p['src_mac'] for p in recent_probes)),
+                        'source_macs': list({p['src_mac'] for p in recent_probes}),
                         'pattern': 'Multiple probe requests for potentially sensitive network',
                     },
                     requires_monitor_mode=True,
@@ -1485,7 +1485,7 @@ class WiFiAdvancedDetector:
 
         return None
 
-    def add_deauth_frame(self, frame: dict) -> Optional[WiFiAdvancedIndicator]:
+    def add_deauth_frame(self, frame: dict) -> WiFiAdvancedIndicator | None:
         """
         Record a deauthentication frame (requires monitor mode).
 
@@ -1523,7 +1523,7 @@ class WiFiAdvancedDetector:
                     'deauth_count': len(recent_deauths),
                     'time_window_seconds': 10,
                     'targeted_bssid': bssid if targeting_bssid else None,
-                    'unique_sources': len(set(d['src_mac'] for d in recent_deauths)),
+                    'unique_sources': len({d['src_mac'] for d in recent_deauths}),
                     'pattern': 'Abnormal deauthentication frame volume',
                 },
                 requires_monitor_mode=True,
@@ -1574,7 +1574,7 @@ class BLERiskExplanation:
     and recommended actions.
     """
     identifier: str
-    name: Optional[str] = None
+    name: str | None = None
 
     # Risk assessment
     risk_level: str = 'informational'
@@ -1588,7 +1588,7 @@ class BLERiskExplanation:
 
     # Tracker detection
     is_tracker: bool = False
-    tracker_type: Optional[str] = None
+    tracker_type: str | None = None
     tracker_explanation: str = ''
 
     # Meeting correlation
@@ -1686,7 +1686,7 @@ def estimate_ble_proximity(rssi: int) -> tuple[BLEProximity, str, str]:
 
 def generate_ble_risk_explanation(
     device: dict,
-    profile: Optional[dict] = None,
+    profile: dict | None = None,
     is_during_meeting: bool = False
 ) -> BLERiskExplanation:
     """
@@ -1722,7 +1722,7 @@ def generate_ble_risk_explanation(
             explanation.proximity_explanation = "Could not parse RSSI value"
 
     # Tracker detection with explanation
-    tracker_info = device.get('tracker_type') or device.get('is_tracker')
+    device.get('tracker_type') or device.get('is_tracker')
     if device.get('is_airtag'):
         explanation.is_tracker = True
         explanation.tracker_type = 'Apple AirTag'
@@ -1902,7 +1902,7 @@ class PlaybookStep:
     step_number: int
     action: str
     details: str
-    safety_note: Optional[str] = None
+    safety_note: str | None = None
 
 
 @dataclass
@@ -2145,8 +2145,8 @@ PLAYBOOKS = {
 
 def get_playbook_for_finding(
     risk_level: str,
-    finding_type: Optional[str] = None,
-    indicators: Optional[list[dict]] = None
+    finding_type: str | None = None,
+    indicators: list[dict] | None = None
 ) -> OperatorPlaybook:
     """
     Get appropriate playbook for a finding.
@@ -2166,9 +2166,8 @@ def get_playbook_for_finding(
     # Check indicators for tracker
     if indicators:
         tracker_types = ['airtag_detected', 'tile_detected', 'smarttag_detected', 'known_tracker']
-        if any(i.get('type') in tracker_types for i in indicators):
-            if risk_level == 'high_interest':
-                return PLAYBOOKS['high_interest_tracker']
+        if any(i.get('type') in tracker_types for i in indicators) and risk_level == 'high_interest':
+            return PLAYBOOKS['high_interest_tracker']
 
     # Return based on risk level
     if risk_level == 'high_interest':
@@ -2207,8 +2206,8 @@ def attach_playbook_to_finding(finding: dict) -> dict:
 # Global Instance Management
 # =============================================================================
 
-_timeline_manager: Optional[TimelineManager] = None
-_wifi_detector: Optional[WiFiAdvancedDetector] = None
+_timeline_manager: TimelineManager | None = None
+_wifi_detector: WiFiAdvancedDetector | None = None
 
 
 def get_timeline_manager() -> TimelineManager:

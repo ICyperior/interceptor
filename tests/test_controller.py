@@ -11,9 +11,10 @@ Tests cover:
 
 import json
 import os
-import pytest
 import sys
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -51,6 +52,7 @@ def setup_db(tmp_path):
 def app(setup_db):
     """Create Flask app with controller blueprint."""
     from flask import Flask
+
     from routes.controller import controller_bp
 
     app = Flask(__name__)

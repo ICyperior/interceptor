@@ -11,21 +11,19 @@ Supports multiple connection types:
 from __future__ import annotations
 
 import queue
-import time
-from typing import Generator
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 from utils.logging import get_logger
-from utils.sse import sse_stream_fanout
 from utils.meshtastic import (
+    MeshtasticMessage,
     get_meshtastic_client,
+    is_meshtastic_available,
     start_meshtastic,
     stop_meshtastic,
-    is_meshtastic_available,
-    MeshtasticMessage,
 )
+from utils.responses import api_error
+from utils.sse import sse_stream_fanout
 
 logger = get_logger('intercept.meshtastic')
 

@@ -6,20 +6,16 @@ and image handling.
 
 from __future__ import annotations
 
-import os
-import tempfile
-import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch, MagicMock, call, mock_open
-import pytest
+from unittest.mock import MagicMock, patch
 
 from utils.weather_sat import (
+    WEATHER_SATELLITES,
+    CaptureProgress,
     WeatherSatDecoder,
     WeatherSatImage,
-    CaptureProgress,
-    WEATHER_SATELLITES,
     get_weather_sat_decoder,
     is_weather_sat_available,
 )

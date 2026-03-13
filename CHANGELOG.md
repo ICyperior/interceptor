@@ -2,6 +2,14 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.0] - 2026-03-13
+
+### Fixed
+- **SSE fanout crash** - `_run_fanout` daemon thread no longer crashes with `AttributeError: 'NoneType' object has no attribute 'get'` when source queue becomes None during interpreter shutdown
+- **Branded logo FOUC** - Added inline `width`/`height` to branded "i" SVG elements across 10 templates to prevent oversized rendering before CSS loads; refresh no longer needed
+
+---
+
 ## [2.25.0] - 2026-03-12
 
 ### Added

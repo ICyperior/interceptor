@@ -25,7 +25,6 @@ from utils.database import (
     set_active_tscm_baseline,
 )
 from utils.tscm.baseline import (
-    BaselineComparator,
     get_comparison_for_active_baseline,
 )
 
@@ -213,7 +212,6 @@ def get_baseline_diff(baseline_id: int, sweep_id: int):
 def get_baseline_health(baseline_id: int):
     """Get health assessment for a baseline."""
     try:
-        from utils.tscm.advanced import BaselineHealth
 
         baseline = get_tscm_baseline(baseline_id)
         if not baseline:

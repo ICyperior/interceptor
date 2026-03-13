@@ -13,7 +13,7 @@ from typing import Any
 from flask import Blueprint, Response, jsonify
 
 from utils.logging import get_logger
-from utils.responses import api_success, api_error
+from utils.responses import api_error
 
 logger = get_logger('intercept.space_weather')
 

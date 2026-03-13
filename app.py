@@ -6,8 +6,8 @@ Flask application and shared state.
 
 from __future__ import annotations
 
-import sys
 import site
+import sys
 
 from utils.database import get_db
 
@@ -17,32 +17,44 @@ if not site.ENABLE_USER_SITE:
     if user_site and user_site not in sys.path:
         sys.path.insert(0, user_site)
 
+import logging
 import os
-import queue
-import threading
 import platform
+import queue
 import subprocess
+import threading
 from pathlib import Path
 
-from typing import Any
-
-from flask import Flask, render_template, jsonify, send_file, Response, request,redirect, url_for, flash, session, send_from_directory
+from flask import (
+    Flask,
+    Response,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    send_from_directory,
+    session,
+    url_for,
+)
 from werkzeug.security import check_password_hash
-from config import VERSION, CHANGELOG, SHARED_OBSERVER_LOCATION_ENABLED, DEFAULT_LATITUDE, DEFAULT_LONGITUDE
-from utils.dependencies import check_tool, check_all_dependencies, TOOL_DEPENDENCIES
-from utils.process import cleanup_stale_processes, cleanup_stale_dump1090
-from utils.sdr import SDRFactory
+
+from config import CHANGELOG, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, SHARED_OBSERVER_LOCATION_ENABLED, VERSION
 from utils.cleanup import DataStore, cleanup_manager
 from utils.constants import (
     MAX_AIRCRAFT_AGE_SECONDS,
-    MAX_WIFI_NETWORK_AGE_SECONDS,
     MAX_BT_DEVICE_AGE_SECONDS,
-    MAX_VESSEL_AGE_SECONDS,
-    MAX_DSC_MESSAGE_AGE_SECONDS,
     MAX_DEAUTH_ALERTS_AGE_SECONDS,
+    MAX_DSC_MESSAGE_AGE_SECONDS,
+    MAX_VESSEL_AGE_SECONDS,
+    MAX_WIFI_NETWORK_AGE_SECONDS,
     QUEUE_MAX_SIZE,
 )
-import logging
+from utils.dependencies import check_all_dependencies, check_tool
+from utils.process import cleanup_stale_dump1090, cleanup_stale_processes
+from utils.sdr import SDRFactory
+
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
@@ -60,7 +72,9 @@ try:
 except ImportError:
     _has_csrf = False
 # Track application start time for uptime calculation
+import contextlib
 import time as _time
+
 _app_start_time = _time.time()
 logger = logging.getLogger('intercept.database')
 
@@ -124,7 +138,7 @@ else:
 os.environ['WERKZEUG_DEBUG_PIN'] = 'off'
 
 # ============================================
-# ERROR HANDLERS    
+# ERROR HANDLERS
 # ============================================
 @app.errorhandler(429)
 def ratelimit_handler(e):
@@ -425,7 +439,7 @@ def require_login():
     # If user is not logged in and the current route is not allowed...
     if 'logged_in' not in session and request.endpoint not in allowed_routes:
         return redirect(url_for('login'))
-    
+
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
@@ -437,7 +451,7 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
+
         # Connect to DB and find user
         with get_db() as conn:
             cursor = conn.execute(
@@ -452,13 +466,13 @@ def login():
             session['logged_in'] = True
             session['username'] = username
             session['role'] = user['role']
-            
+
             logger.info(f"User '{username}' logged in successfully.")
             return redirect(url_for('index'))
         else:
             logger.warning(f"Failed login attempt for username: {username}")
             flash("ACCESS DENIED: INVALID CREDENTIALS", "error")
-            
+
     return render_template('login.html', version=VERSION)
 
 @app.route('/')
@@ -1023,10 +1037,8 @@ def kill_all() -> Response:
                 bt_process.terminate()
                 bt_process.wait(timeout=2)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     bt_process.kill()
-                except Exception:
-                    pass
         bt_process = None
 
     # Reset Bluetooth v2 scanner
@@ -1155,10 +1167,10 @@ def _init_app() -> None:
         # Register and start database cleanup
         try:
             from utils.database import (
+                cleanup_old_dsc_alerts,
+                cleanup_old_payloads,
                 cleanup_old_signal_history,
                 cleanup_old_timeline_entries,
-                cleanup_old_dsc_alerts,
-                cleanup_old_payloads
             )
             cleanup_manager.register_db_cleanup(cleanup_old_signal_history, interval_multiplier=1440)
             cleanup_manager.register_db_cleanup(cleanup_old_timeline_entries, interval_multiplier=1440)
@@ -1186,6 +1198,7 @@ _init_app()
 def main() -> None:
     """Main entry point."""
     import argparse
+
     import config
 
     parser = argparse.ArgumentParser(
@@ -1227,7 +1240,7 @@ def main() -> None:
         results = check_all_dependencies()
         print("Dependency Status:")
         print("-" * 40)
-        for mode, info in results.items():
+        for _mode, info in results.items():
             status = "✓" if info['ready'] else "✗"
             print(f"\n{status} {info['name']}:")
             for tool, tool_info in info['tools'].items():

@@ -27,24 +27,23 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import struct
 import sys
+from collections.abc import Generator
 from datetime import datetime
-from typing import Generator
 
 import numpy as np
 from scipy import signal as scipy_signal
 
 from .constants import (
+    DISTRESS_NATURE_CODES,
+    DSC_AUDIO_SAMPLE_RATE,
     DSC_BAUD_RATE,
     DSC_MARK_FREQ,
     DSC_SPACE_FREQ,
-    DSC_AUDIO_SAMPLE_RATE,
     FORMAT_CODES,
-    DISTRESS_NATURE_CODES,
-    VALID_EOS,
-    TELECOMMAND_FORMATS,
     MIN_SYMBOLS_FOR_FORMAT,
+    TELECOMMAND_FORMATS,
+    VALID_EOS,
 )
 
 # Configure logging
@@ -191,12 +190,11 @@ class DSCDecoder:
             self.bit_buffer = self.bit_buffer[-1500:]
 
         # Look for dot pattern (sync) - alternating 1010101...
-        if not self.in_message:
-            if self._detect_dot_pattern():
-                self.in_message = True
-                self.message_bits = []
-                logger.debug("DSC sync detected")
-                return None
+        if not self.in_message and self._detect_dot_pattern():
+            self.in_message = True
+            self.message_bits = []
+            logger.debug("DSC sync detected")
+            return None
 
         # Collect message bits
         if self.in_message:

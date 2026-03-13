@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import io
+import contextlib
 import json
 import os
 import platform
@@ -13,11 +13,10 @@ import subprocess
 import threading
 import time
 from datetime import datetime
-from typing import Any, Generator
+from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
 from utils.acars_translator import translate_message
 from utils.constants import (
@@ -30,6 +29,7 @@ from utils.event_pipeline import process_event
 from utils.flight_correlator import get_flight_correlator
 from utils.logging import sensor_logger as logger
 from utils.process import register_process, unregister_process
+from utils.responses import api_error
 from utils.sdr import SDRFactory, SDRType
 from utils.sse import sse_stream_fanout
 from utils.validation import validate_device_index, validate_gain, validate_ppm
@@ -143,10 +143,8 @@ def stream_acars_output(process: subprocess.Popen, is_text_mode: bool = False) -
                 app_module.acars_queue.put(data)
 
                 # Feed flight correlator
-                try:
+                with contextlib.suppress(Exception):
                     get_flight_correlator().add_acars_message(data)
-                except Exception:
-                    pass
 
                 # Log if enabled
                 if app_module.logging_enabled:
@@ -172,10 +170,8 @@ def stream_acars_output(process: subprocess.Popen, is_text_mode: bool = False) -
             process.terminate()
             process.wait(timeout=2)
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 process.kill()
-            except Exception:
-                pass
         unregister_process(process)
         app_module.acars_queue.put({'type': 'status', 'status': 'stopped'})
         with app_module.acars_lock:
@@ -335,7 +331,7 @@ def start_acars() -> Response:
             )
             os.close(slave_fd)
             # Wrap master_fd as a text file for line-buffered reading
-            process.stdout = io.open(master_fd, 'r', buffering=1)
+            process.stdout = open(master_fd, buffering=1)
             is_text_mode = True
         else:
             process = subprocess.Popen(

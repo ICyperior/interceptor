@@ -17,10 +17,7 @@ Requirements:
 """
 
 import argparse
-import json
 import sys
-import time
-from typing import Any
 
 try:
     import requests
@@ -258,7 +255,7 @@ class SmokeTests:
     def run_all(self):
         """Run all smoke tests."""
         print(f"\n{'='*60}")
-        print(f"BLUETOOTH API SMOKE TESTS")
+        print("BLUETOOTH API SMOKE TESTS")
         print(f"Target: {self.base_url}")
         print(f"{'='*60}")
 

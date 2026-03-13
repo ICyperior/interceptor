@@ -9,13 +9,15 @@ from __future__ import annotations
 import struct
 import threading
 import time
-from typing import Optional, Callable
+from typing import Callable
 
 try:
     import websocket  # websocket-client library
     WEBSOCKET_CLIENT_AVAILABLE = True
 except ImportError:
     WEBSOCKET_CLIENT_AVAILABLE = False
+
+import contextlib
 
 from utils.logging import get_logger
 
@@ -78,9 +80,9 @@ class KiwiSDRClient:
         self,
         host: str,
         port: int = KIWI_DEFAULT_PORT,
-        on_audio: Optional[Callable[[bytes, int], None]] = None,
-        on_error: Optional[Callable[[str], None]] = None,
-        on_disconnect: Optional[Callable[[], None]] = None,
+        on_audio: Callable[[bytes, int], None] | None = None,
+        on_error: Callable[[str], None] | None = None,
+        on_disconnect: Callable[[], None] | None = None,
         password: str = '',
     ):
         self.host = host
@@ -93,8 +95,8 @@ class KiwiSDRClient:
         self._ws = None
         self._connected = False
         self._stopping = False
-        self._receive_thread: Optional[threading.Thread] = None
-        self._keepalive_thread: Optional[threading.Thread] = None
+        self._receive_thread: threading.Thread | None = None
+        self._keepalive_thread: threading.Thread | None = None
         self._send_lock = threading.Lock()
 
         self.frequency_khz: float = 0
@@ -230,10 +232,8 @@ class KiwiSDRClient:
             if not self._stopping:
                 self._connected = False
                 if self._on_disconnect:
-                    try:
+                    with contextlib.suppress(Exception):
                         self._on_disconnect()
-                    except Exception:
-                        pass
 
     def _parse_snd_frame(self, data: bytes) -> None:
         """Parse a KiwiSDR SND binary frame."""
@@ -255,10 +255,8 @@ class KiwiSDRClient:
         pcm_data = data[KIWI_SND_HEADER_SIZE:]
 
         if pcm_data and self._on_audio:
-            try:
+            with contextlib.suppress(Exception):
                 self._on_audio(pcm_data, smeter_raw)
-            except Exception:
-                pass
 
     def _keepalive_loop(self) -> None:
         """Background thread: send keepalive every 5 seconds."""
@@ -273,10 +271,8 @@ class KiwiSDRClient:
     def _cleanup(self) -> None:
         """Close WebSocket and join threads."""
         if self._ws:
-            try:
+            with contextlib.suppress(Exception):
                 self._ws.close()
-            except Exception:
-                pass
             self._ws = None
 
         if self._receive_thread and self._receive_thread.is_alive():

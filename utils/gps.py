@@ -507,7 +507,7 @@ def get_current_position() -> GPSPosition | None:
 # GPS device detection and gpsd auto-start
 # ============================================
 
-_gpsd_process: 'subprocess.Popen | None' = None
+_gpsd_process: subprocess.Popen | None = None
 _gpsd_process_lock = threading.RLock()
 
 
@@ -672,10 +672,8 @@ def stop_gpsd_daemon() -> None:
                 _gpsd_process.terminate()
                 _gpsd_process.wait(timeout=3.0)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     _gpsd_process.kill()
-                except Exception:
-                    pass
             logger.info("Stopped gpsd daemon")
             print("[GPS] Stopped gpsd daemon", flush=True)
         _gpsd_process = None

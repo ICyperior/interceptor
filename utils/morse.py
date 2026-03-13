@@ -1044,9 +1044,7 @@ def morse_decoder_thread(
             except queue.Empty:
                 now = time.monotonic()
                 should_emit_waiting = False
-                if last_pcm_at is None:
-                    should_emit_waiting = True
-                elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
+                if last_pcm_at is None or (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
                     should_emit_waiting = True
 
                 if should_emit_waiting and waiting_since is None:
@@ -1308,9 +1306,7 @@ def morse_iq_decoder_thread(
             except queue.Empty:
                 now = time.monotonic()
                 should_emit_waiting = False
-                if last_pcm_at is None:
-                    should_emit_waiting = True
-                elif (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
+                if last_pcm_at is None or (now - last_pcm_at) >= STALLED_AFTER_DATA_SECONDS:
                     should_emit_waiting = True
 
                 if should_emit_waiting and waiting_since is None:

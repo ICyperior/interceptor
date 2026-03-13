@@ -7,6 +7,7 @@ threat detection, and reporting.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import queue
@@ -23,9 +24,9 @@ from data.tscm_frequencies import (
     get_sweep_preset,
 )
 from utils.database import (
+    acknowledge_tscm_threat,
     add_device_timeline_entry,
     add_tscm_threat,
-    acknowledge_tscm_threat,
     cleanup_old_timeline_entries,
     create_tscm_schedule,
     create_tscm_sweep,
@@ -43,6 +44,8 @@ from utils.database import (
     update_tscm_schedule,
     update_tscm_sweep,
 )
+from utils.event_pipeline import process_event
+from utils.sse import sse_stream_fanout
 from utils.tscm.baseline import (
     BaselineComparator,
     BaselineRecorder,
@@ -56,12 +59,10 @@ from utils.tscm.correlation import (
 from utils.tscm.detector import ThreatDetector
 from utils.tscm.device_identity import (
     get_identity_engine,
-    reset_identity_engine,
     ingest_ble_dict,
     ingest_wifi_dict,
+    reset_identity_engine,
 )
-from utils.event_pipeline import process_event
-from utils.sse import sse_stream_fanout
 
 # Import unified Bluetooth scanner helper for TSCM integration
 try:
@@ -659,8 +660,8 @@ def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
     Uses the BLE scanner module (bleak library) for proper manufacturer ID
     detection, with fallback to system tools if bleak is unavailable.
     """
-    import platform
     import os
+    import platform
     import re
     import shutil
     import subprocess
@@ -874,10 +875,8 @@ def _scan_bluetooth_devices(interface: str, duration: int = 10) -> list[dict]:
                 except subprocess.TimeoutExpired:
                     process.kill()
 
-                try:
+                with contextlib.suppress(OSError):
                     os.close(master_fd)
-                except OSError:
-                    pass
 
                 logger.info(f"bluetoothctl scan found {len(devices)} devices")
 
@@ -914,7 +913,8 @@ def _scan_rf_signals(
     """
     # Default stop check uses module-level _sweep_running
     if stop_check is None:
-        stop_check = lambda: not _sweep_running
+        def stop_check():
+            return not _sweep_running
     import os
     import shutil
     import subprocess
@@ -954,11 +954,11 @@ def _scan_rf_signals(
         # Tool exists but no device detected — try anyway (detection may have failed)
         sdr_type = 'rtlsdr'
         sweep_tool_path = rtl_power_path
-        logger.info(f"No SDR detected but rtl_power found, attempting RTL-SDR scan")
+        logger.info("No SDR detected but rtl_power found, attempting RTL-SDR scan")
     elif hackrf_sweep_path:
         sdr_type = 'hackrf'
         sweep_tool_path = hackrf_sweep_path
-        logger.info(f"No SDR detected but hackrf_sweep found, attempting HackRF scan")
+        logger.info("No SDR detected but hackrf_sweep found, attempting HackRF scan")
 
     if not sweep_tool_path:
         logger.warning("No supported sweep tool found (rtl_power or hackrf_sweep)")
@@ -1059,14 +1059,14 @@ def _scan_rf_signals(
 
                 # Parse the CSV output (same format for both rtl_power and hackrf_sweep)
                 if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
-                    with open(tmp_path, 'r') as f:
+                    with open(tmp_path) as f:
                         for line in f:
                             parts = line.strip().split(',')
                             if len(parts) >= 7:
                                 try:
                                     # CSV format: date, time, hz_low, hz_high, hz_step, samples, db_values...
                                     hz_low = int(parts[2].strip())
-                                    hz_high = int(parts[3].strip())
+                                    int(parts[3].strip())
                                     hz_step = float(parts[4].strip())
                                     db_values = [float(x) for x in parts[6:] if x.strip()]
 
@@ -1100,10 +1100,8 @@ def _scan_rf_signals(
 
     finally:
         # Cleanup temp file
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
 
     # Deduplicate nearby frequencies (within 100kHz)
     if signals:
@@ -1816,9 +1814,11 @@ def _generate_assessment(summary: dict) -> str:
 # =============================================================================
 # Import sub-modules to register routes on tscm_bp
 # =============================================================================
-from routes.tscm import sweep  # noqa: E402, F401
-from routes.tscm import baseline  # noqa: E402, F401
-from routes.tscm import cases  # noqa: E402, F401
-from routes.tscm import meeting  # noqa: E402, F401
-from routes.tscm import analysis  # noqa: E402, F401
-from routes.tscm import schedules  # noqa: E402, F401
+from routes.tscm import (
+    analysis,  # noqa: E402, F401
+    baseline,  # noqa: E402, F401
+    cases,  # noqa: E402, F401
+    meeting,  # noqa: E402, F401
+    schedules,  # noqa: E402, F401
+    sweep,  # noqa: E402, F401
+)

@@ -2,7 +2,8 @@
 
 from routes.listening_post import _rtl_fm_demod_mode as listening_post_rtl_mode
 from utils.sdr.base import SDRDevice, SDRType
-from utils.sdr.rtlsdr import RTLSDRCommandBuilder, _rtl_fm_demod_mode as builder_rtl_mode
+from utils.sdr.rtlsdr import RTLSDRCommandBuilder
+from utils.sdr.rtlsdr import _rtl_fm_demod_mode as builder_rtl_mode
 
 
 def _dummy_rtlsdr_device() -> SDRDevice:

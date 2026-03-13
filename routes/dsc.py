@@ -6,7 +6,7 @@ distress and safety communications per ITU-R M.493.
 
 from __future__ import annotations
 
-import json
+import contextlib
 import logging
 import os
 import pty
@@ -16,37 +16,36 @@ import shutil
 import subprocess
 import threading
 import time
-from datetime import datetime
-from typing import Any, Generator
+from typing import Any
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
 from utils.constants import (
-    DSC_VHF_FREQUENCY_MHZ,
     DSC_SAMPLE_RATE,
     DSC_TERMINATE_TIMEOUT,
+    DSC_VHF_FREQUENCY_MHZ,
 )
 from utils.database import (
-    store_dsc_alert,
-    get_dsc_alerts,
-    get_dsc_alert,
     acknowledge_dsc_alert,
+    get_dsc_alert,
     get_dsc_alert_summary,
+    get_dsc_alerts,
+    store_dsc_alert,
 )
+from utils.dependencies import get_tool_path
 from utils.dsc.parser import parse_dsc_message
-from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
+from utils.process import register_process, unregister_process
+from utils.responses import api_error
+from utils.sdr import SDRFactory, SDRType
+from utils.sse import sse_stream_fanout
 from utils.validation import (
     validate_device_index,
     validate_gain,
     validate_rtl_tcp_host,
     validate_rtl_tcp_port,
 )
-from utils.sdr import SDRFactory, SDRType
-from utils.dependencies import get_tool_path
-from utils.process import register_process, unregister_process
 
 logger = logging.getLogger('intercept.dsc')
 
@@ -83,8 +82,8 @@ def _check_dsc_tools() -> dict:
     # Check for scipy/numpy (needed for decoder)
     scipy_available = False
     try:
-        import scipy
         import numpy
+        import scipy
         scipy_available = True
     except ImportError:
         pass
@@ -179,10 +178,8 @@ def stream_dsc_decoder(master_fd: int, decoder_process: subprocess.Popen) -> Non
         })
     finally:
         global dsc_active_device, dsc_active_sdr_type
-        try:
+        with contextlib.suppress(OSError):
             os.close(master_fd)
-        except OSError:
-            pass
         dsc_running = False
         # Cleanup both processes
         with app_module.dsc_lock:
@@ -193,10 +190,8 @@ def stream_dsc_decoder(master_fd: int, decoder_process: subprocess.Popen) -> Non
                     proc.terminate()
                     proc.wait(timeout=2)
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         proc.kill()
-                    except Exception:
-                        pass
                 unregister_process(proc)
         app_module.dsc_queue.put({'type': 'status', 'status': 'stopped'})
         with app_module.dsc_lock:
@@ -466,10 +461,8 @@ def start_decoding() -> Response:
                 rtl_process.terminate()
                 rtl_process.wait(timeout=2)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     rtl_process.kill()
-                except Exception:
-                    pass
             # Release device on failure
             if dsc_active_device is not None:
                 app_module.release_sdr_device(dsc_active_device, dsc_active_sdr_type or 'rtlsdr')
@@ -485,10 +478,8 @@ def start_decoding() -> Response:
                 rtl_process.terminate()
                 rtl_process.wait(timeout=2)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     rtl_process.kill()
-                except Exception:
-                    pass
             # Release device on failure
             if dsc_active_device is not None:
                 app_module.release_sdr_device(dsc_active_device, dsc_active_sdr_type or 'rtlsdr')
@@ -518,10 +509,8 @@ def stop_decoding() -> Response:
                 app_module.dsc_rtl_process.terminate()
                 app_module.dsc_rtl_process.wait(timeout=DSC_TERMINATE_TIMEOUT)
             except subprocess.TimeoutExpired:
-                try:
+                with contextlib.suppress(OSError):
                     app_module.dsc_rtl_process.kill()
-                except OSError:
-                    pass
             except OSError:
                 pass
 
@@ -531,10 +520,8 @@ def stop_decoding() -> Response:
                 app_module.dsc_process.terminate()
                 app_module.dsc_process.wait(timeout=DSC_TERMINATE_TIMEOUT)
             except subprocess.TimeoutExpired:
-                try:
+                with contextlib.suppress(OSError):
                     app_module.dsc_process.kill()
-                except OSError:
-                    pass
             except OSError:
                 pass
 

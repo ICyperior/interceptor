@@ -18,7 +18,6 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger('intercept.bluetooth.tracker_signatures')
 
@@ -108,7 +107,7 @@ class TrackerSignature:
     tracker_type: TrackerType
     name: str
     description: str
-    company_id: Optional[int] = None
+    company_id: int | None = None
     company_ids: list[int] = field(default_factory=list)
     manufacturer_data_prefixes: list[bytes] = field(default_factory=list)
     service_uuids: list[str] = field(default_factory=list)
@@ -218,15 +217,15 @@ class TrackerDetectionResult:
     confidence: TrackerConfidence = TrackerConfidence.NONE
     confidence_score: float = 0.0  # 0.0 to 1.0
     evidence: list[str] = field(default_factory=list)
-    matched_signature: Optional[str] = None
+    matched_signature: str | None = None
 
     # For suspicious presence heuristics
     risk_factors: list[str] = field(default_factory=list)
     risk_score: float = 0.0  # 0.0 to 1.0
 
     # Raw data used for detection
-    manufacturer_id: Optional[int] = None
-    manufacturer_data_hex: Optional[str] = None
+    manufacturer_id: int | None = None
+    manufacturer_data_hex: str | None = None
     service_uuids_found: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -264,13 +263,13 @@ class DeviceFingerprint:
     fingerprint_id: str  # SHA256 hash of stable features
 
     # Features used for fingerprinting
-    manufacturer_id: Optional[int] = None
-    manufacturer_data_prefix: Optional[bytes] = None  # First 4 bytes (stable across MACs)
+    manufacturer_id: int | None = None
+    manufacturer_data_prefix: bytes | None = None  # First 4 bytes (stable across MACs)
     manufacturer_data_length: int = 0
     service_uuids: list[str] = field(default_factory=list)
     service_data_keys: list[str] = field(default_factory=list)
-    tx_power_bucket: Optional[str] = None  # "high"/"medium"/"low"
-    name_hint: Optional[str] = None
+    tx_power_bucket: str | None = None  # "high"/"medium"/"low"
+    name_hint: str | None = None
 
     # Confidence in this fingerprint's stability
     stability_confidence: float = 0.5  # 0.0-1.0
@@ -291,12 +290,12 @@ class DeviceFingerprint:
 
 
 def generate_fingerprint(
-    manufacturer_id: Optional[int],
-    manufacturer_data: Optional[bytes],
+    manufacturer_id: int | None,
+    manufacturer_data: bytes | None,
     service_uuids: list[str],
     service_data: dict[str, bytes],
-    tx_power: Optional[int],
-    name: Optional[str],
+    tx_power: int | None,
+    name: str | None,
 ) -> DeviceFingerprint:
     """
     Generate a stable fingerprint for a BLE device.
@@ -407,12 +406,12 @@ class TrackerSignatureEngine:
         self,
         address: str,
         address_type: str,
-        name: Optional[str] = None,
-        manufacturer_id: Optional[int] = None,
-        manufacturer_data: Optional[bytes] = None,
-        service_uuids: Optional[list[str]] = None,
-        service_data: Optional[dict[str, bytes]] = None,
-        tx_power: Optional[int] = None,
+        name: str | None = None,
+        manufacturer_id: int | None = None,
+        manufacturer_data: bytes | None = None,
+        service_uuids: list[str] | None = None,
+        service_data: dict[str, bytes] | None = None,
+        tx_power: int | None = None,
     ) -> TrackerDetectionResult:
         """
         Analyze a BLE device for tracker indicators.
@@ -502,9 +501,9 @@ class TrackerSignatureEngine:
         self,
         signature: TrackerSignature,
         address: str,
-        name: Optional[str],
-        manufacturer_id: Optional[int],
-        manufacturer_data: Optional[bytes],
+        name: str | None,
+        manufacturer_id: int | None,
+        manufacturer_data: bytes | None,
         normalized_uuids: list[str],
         service_data: dict[str, bytes],
     ) -> tuple[float, list[str]]:
@@ -517,9 +516,7 @@ class TrackerSignatureEngine:
         # Many Apple devices (AirPods, Watch, etc.) share the same manufacturer ID
         company_id_matches = False
         if manufacturer_id is not None:
-            if signature.company_id == manufacturer_id:
-                company_id_matches = True
-            elif manufacturer_id in signature.company_ids:
+            if signature.company_id == manufacturer_id or manufacturer_id in signature.company_ids:
                 company_id_matches = True
 
         # For Apple devices, only add company ID score if we also have Find My indicators
@@ -592,8 +589,8 @@ class TrackerSignatureEngine:
         self,
         address: str,
         address_type: str,
-        manufacturer_id: Optional[int],
-        manufacturer_data: Optional[bytes],
+        manufacturer_id: int | None,
+        manufacturer_data: bytes | None,
         normalized_uuids: list[str],
     ) -> tuple[float, list[str]]:
         """Check for generic tracker-like indicators."""
@@ -606,12 +603,11 @@ class TrackerSignatureEngine:
             evidence.append('Uses Apple Find My network service (fd6f)')
 
         # Apple manufacturer with Find My advertisement type
-        if manufacturer_id == APPLE_COMPANY_ID and manufacturer_data:
-            if len(manufacturer_data) >= 2:
-                adv_type = manufacturer_data[0]
-                if adv_type == APPLE_FINDMY_ADV_TYPE:
-                    score += 0.35
-                    evidence.append('Apple Find My network advertisement detected')
+        if manufacturer_id == APPLE_COMPANY_ID and manufacturer_data and len(manufacturer_data) >= 2:
+            adv_type = manufacturer_data[0]
+            if adv_type == APPLE_FINDMY_ADV_TYPE:
+                score += 0.35
+                evidence.append('Apple Find My network advertisement detected')
 
         # Check for beacon-like service UUIDs
         for beacon_uuid in BEACON_SERVICE_UUIDS:
@@ -628,10 +624,9 @@ class TrackerSignatureEngine:
                 evidence.append('Uses randomized MAC address')
 
         # Small manufacturer data payload typical of beacons
-        if manufacturer_data and 20 <= len(manufacturer_data) <= 30:
-            if score > 0:
-                score += 0.05
-                evidence.append(f'Manufacturer data length ({len(manufacturer_data)} bytes) typical of beacon')
+        if manufacturer_data and 20 <= len(manufacturer_data) <= 30 and score > 0:
+            score += 0.05
+            evidence.append(f'Manufacturer data length ({len(manufacturer_data)} bytes) typical of beacon')
 
         return score, evidence
 
@@ -651,12 +646,12 @@ class TrackerSignatureEngine:
 
     def generate_device_fingerprint(
         self,
-        manufacturer_id: Optional[int],
-        manufacturer_data: Optional[bytes],
+        manufacturer_id: int | None,
+        manufacturer_data: bytes | None,
         service_uuids: list[str],
         service_data: dict[str, bytes],
-        tx_power: Optional[int],
-        name: Optional[str],
+        tx_power: int | None,
+        name: str | None,
     ) -> DeviceFingerprint:
         """Generate a fingerprint for device tracking across MAC rotations."""
         return generate_fingerprint(
@@ -668,7 +663,7 @@ class TrackerSignatureEngine:
             name=name,
         )
 
-    def record_sighting(self, fingerprint_id: str, timestamp: Optional[datetime] = None) -> int:
+    def record_sighting(self, fingerprint_id: str, timestamp: datetime | None = None) -> int:
         """
         Record a device sighting for persistence tracking.
 
@@ -704,7 +699,7 @@ class TrackerSignatureEngine:
         seen_count: int,
         duration_seconds: float,
         seen_rate: float,
-        rssi_variance: Optional[float],
+        rssi_variance: float | None,
         is_new: bool,
     ) -> tuple[float, list[str]]:
         """
@@ -765,7 +760,7 @@ class TrackerSignatureEngine:
 # SINGLETON ENGINE INSTANCE
 # =============================================================================
 
-_engine_instance: Optional[TrackerSignatureEngine] = None
+_engine_instance: TrackerSignatureEngine | None = None
 
 
 def get_tracker_engine() -> TrackerSignatureEngine:
@@ -779,12 +774,12 @@ def get_tracker_engine() -> TrackerSignatureEngine:
 def detect_tracker(
     address: str,
     address_type: str = 'public',
-    name: Optional[str] = None,
-    manufacturer_id: Optional[int] = None,
-    manufacturer_data: Optional[bytes] = None,
-    service_uuids: Optional[list[str]] = None,
-    service_data: Optional[dict[str, bytes]] = None,
-    tx_power: Optional[int] = None,
+    name: str | None = None,
+    manufacturer_id: int | None = None,
+    manufacturer_data: bytes | None = None,
+    service_uuids: list[str] | None = None,
+    service_data: dict[str, bytes] | None = None,
+    tx_power: int | None = None,
 ) -> TrackerDetectionResult:
     """
     Convenience function to detect if a BLE device is a tracker.

@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from utils.database import add_correlation, get_correlations as db_get_correlations
+from utils.database import add_correlation
+from utils.database import get_correlations as db_get_correlations
 
 logger = logging.getLogger('intercept.correlation')
 
@@ -243,9 +244,8 @@ class DeviceCorrelator:
         if wifi_oui == bt_oui:
             reasons.append("same OUI")
 
-        if wifi.manufacturer and bt.manufacturer:
-            if wifi.manufacturer.lower() == bt.manufacturer.lower():
-                reasons.append(f"same manufacturer ({wifi.manufacturer})")
+        if wifi.manufacturer and bt.manufacturer and wifi.manufacturer.lower() == bt.manufacturer.lower():
+            reasons.append(f"same manufacturer ({wifi.manufacturer})")
 
         if wifi.rssi is not None and bt.rssi is not None:
             rssi_diff = abs(wifi.rssi - bt.rssi)

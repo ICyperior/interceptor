@@ -1,9 +1,11 @@
 """Pytest configuration and fixtures."""
 
+import contextlib
 import sqlite3
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from app import app as flask_app
 from routes import register_blueprints
 
@@ -80,8 +82,9 @@ def mock_app_state():
 
     Provides mock process, queue, and lock objects on the app module.
     """
-    import app as app_module
     import queue
+
+    import app as app_module
 
     mock_process = MagicMock()
     mock_process.poll.return_value = None
@@ -107,10 +110,8 @@ def mock_app_state():
 
     for attr, orig in originals.items():
         if orig is None:
-            try:
+            with contextlib.suppress(AttributeError):
                 delattr(app_module, attr)
-            except AttributeError:
-                pass
         else:
             setattr(app_module, attr, orig)
 

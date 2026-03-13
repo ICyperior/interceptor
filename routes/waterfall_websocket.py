@@ -372,7 +372,6 @@ def init_waterfall_websocket(app: Flask):
         capture_center_mhz = 0.0
         capture_start_freq = 0.0
         capture_end_freq = 0.0
-        capture_span_mhz = 0.0
         # Queue for outgoing messages — only the main loop touches ws.send()
         send_queue = queue.Queue(maxsize=120)
 
@@ -619,7 +618,6 @@ def init_waterfall_websocket(app: Flask):
                     capture_center_mhz = center_freq_mhz
                     capture_start_freq = start_freq
                     capture_end_freq = end_freq
-                    capture_span_mhz = effective_span_mhz
 
                     my_generation = _set_shared_capture_state(
                         running=True,

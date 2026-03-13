@@ -7,13 +7,14 @@ Provides enhanced sniffing capabilities compared to standard Bluetooth adapters.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import shutil
 import subprocess
 import threading
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable
 
 from .constants import (
     ADDRESS_TYPE_PUBLIC,
@@ -38,7 +39,7 @@ class UbertoothScanner:
     def __init__(
         self,
         device_index: int = 0,
-        on_observation: Optional[Callable[[BTObservation], None]] = None,
+        on_observation: Callable[[BTObservation], None] | None = None,
     ):
         """
         Initialize Ubertooth scanner.
@@ -49,9 +50,9 @@ class UbertoothScanner:
         """
         self._device_index = device_index
         self._on_observation = on_observation
-        self._process: Optional[subprocess.Popen] = None
+        self._process: subprocess.Popen | None = None
         self._is_scanning = False
-        self._reader_thread: Optional[threading.Thread] = None
+        self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
     @staticmethod
@@ -177,7 +178,7 @@ class UbertoothScanner:
         finally:
             self._is_scanning = False
 
-    def _parse_advertisement(self, line: str) -> Optional[BTObservation]:
+    def _parse_advertisement(self, line: str) -> BTObservation | None:
         """
         Parse a single ubertooth-btle output line into a BTObservation.
 
@@ -280,10 +281,8 @@ class UbertoothScanner:
 
             # 0x08/0x09 = Shortened/Complete Local Name
             elif ad_type in (0x08, 0x09):
-                try:
+                with contextlib.suppress(Exception):
                     name = ad_payload.decode('utf-8', errors='replace')
-                except Exception:
-                    pass
 
             # 0x0A = TX Power Level
             elif ad_type == 0x0A and len(ad_payload) >= 1:

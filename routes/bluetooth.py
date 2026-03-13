@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import fcntl
-import json
+import contextlib
 import os
 import platform
 import pty
@@ -13,30 +12,22 @@ import select
 import subprocess
 import threading
 import time
-from typing import Any, Generator
+from typing import Any
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
-from utils.dependencies import check_tool
-from utils.logging import bluetooth_logger as logger
-from utils.sse import sse_stream_fanout
-from utils.event_pipeline import process_event
-from utils.validation import validate_bluetooth_interface
-from data.oui import OUI_DATABASE, load_oui_database, get_manufacturer
-from data.patterns import AIRTAG_PREFIXES, TILE_PREFIXES, SAMSUNG_TRACKER
+from data.oui import OUI_DATABASE, get_manufacturer, load_oui_database
+from data.patterns import AIRTAG_PREFIXES, SAMSUNG_TRACKER, TILE_PREFIXES
 from utils.constants import (
-    BT_TERMINATE_TIMEOUT,
-    SSE_KEEPALIVE_INTERVAL,
-    SSE_QUEUE_TIMEOUT,
     SUBPROCESS_TIMEOUT_SHORT,
-    SERVICE_ENUM_TIMEOUT,
-    PROCESS_START_WAIT,
-    BT_RESET_DELAY,
-    BT_ADAPTER_DOWN_WAIT,
-    PROCESS_TERMINATE_TIMEOUT,
 )
+from utils.dependencies import check_tool
+from utils.event_pipeline import process_event
+from utils.logging import bluetooth_logger as logger
+from utils.responses import api_error, api_success
+from utils.sse import sse_stream_fanout
+from utils.validation import validate_bluetooth_interface
 
 bluetooth_bp = Blueprint('bluetooth', __name__, url_prefix='/bt')
 
@@ -328,10 +319,8 @@ def stream_bt_scan(process, scan_mode):
                     except OSError:
                         break
 
-            try:
+            with contextlib.suppress(OSError):
                 os.close(master_fd)
-            except OSError:
-                pass
 
     except Exception as e:
         app_module.bt_queue.put({'type': 'error', 'text': str(e)})
@@ -485,10 +474,8 @@ def reset_bt_adapter():
                 app_module.bt_process.terminate()
                 app_module.bt_process.wait(timeout=2)
             except (subprocess.TimeoutExpired, OSError):
-                try:
+                with contextlib.suppress(OSError):
                     app_module.bt_process.kill()
-                except OSError:
-                    pass
             app_module.bt_process = None
 
     try:
@@ -507,7 +494,7 @@ def reset_bt_adapter():
 
         return jsonify({
             'status': 'success' if is_up else 'warning',
-            'message': f'Adapter {interface} reset' if is_up else f'Reset attempted but adapter may still be down',
+            'message': f'Adapter {interface} reset' if is_up else 'Reset attempted but adapter may still be down',
             'is_up': is_up
         })
 

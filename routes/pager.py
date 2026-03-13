@@ -2,34 +2,39 @@
 
 from __future__ import annotations
 
+import contextlib
 import math
 import os
 import pathlib
-import re
 import pty
 import queue
+import re
 import select
 import struct
 import subprocess
 import threading
 import time
 from datetime import datetime
-from typing import Any, Generator
+from typing import Any
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
-from utils.logging import pager_logger as logger
-from utils.validation import (
-    validate_frequency, validate_device_index, validate_gain, validate_ppm,
-    validate_rtl_tcp_host, validate_rtl_tcp_port
-)
-from utils.sse import sse_stream_fanout
-from utils.event_pipeline import process_event
-from utils.process import safe_terminate, register_process, unregister_process
-from utils.sdr import SDRFactory, SDRType, SDRValidationError
 from utils.dependencies import get_tool_path
+from utils.event_pipeline import process_event
+from utils.logging import pager_logger as logger
+from utils.process import register_process, unregister_process
+from utils.responses import api_error
+from utils.sdr import SDRFactory, SDRType
+from utils.sse import sse_stream_fanout
+from utils.validation import (
+    validate_device_index,
+    validate_frequency,
+    validate_gain,
+    validate_ppm,
+    validate_rtl_tcp_host,
+    validate_rtl_tcp_port,
+)
 
 pager_bp = Blueprint('pager', __name__)
 
@@ -189,10 +194,8 @@ def audio_relay_thread(
     except Exception as e:
         logger.debug(f"Audio relay error: {e}")
     finally:
-        try:
+        with contextlib.suppress(OSError):
             multimon_stdin.close()
-        except OSError:
-            pass
 
 
 def stream_decoder(master_fd: int, process: subprocess.Popen[bytes]) -> None:
@@ -237,10 +240,8 @@ def stream_decoder(master_fd: int, process: subprocess.Popen[bytes]) -> None:
         app_module.output_queue.put({'type': 'error', 'text': str(e)})
     finally:
         global pager_active_device, pager_active_sdr_type
-        try:
+        with contextlib.suppress(OSError):
             os.close(master_fd)
-        except OSError:
-            pass
         # Signal relay thread to stop
         with app_module.process_lock:
             stop_relay = getattr(app_module.current_process, '_stop_relay', None)
@@ -255,10 +256,8 @@ def stream_decoder(master_fd: int, process: subprocess.Popen[bytes]) -> None:
                     proc.terminate()
                     proc.wait(timeout=2)
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         proc.kill()
-                    except Exception:
-                        pass
                 unregister_process(proc)
         app_module.output_queue.put({'type': 'status', 'text': 'stopped'})
         with app_module.process_lock:
@@ -454,10 +453,8 @@ def start_decoding() -> Response:
                 rtl_process.terminate()
                 rtl_process.wait(timeout=2)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     rtl_process.kill()
-                except Exception:
-                    pass
             # Release device on failure
             if pager_active_device is not None:
                 app_module.release_sdr_device(pager_active_device, pager_active_sdr_type or 'rtlsdr')
@@ -470,10 +467,8 @@ def start_decoding() -> Response:
                 rtl_process.terminate()
                 rtl_process.wait(timeout=2)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     rtl_process.kill()
-                except Exception:
-                    pass
             # Release device on failure
             if pager_active_device is not None:
                 app_module.release_sdr_device(pager_active_device, pager_active_sdr_type or 'rtlsdr')
@@ -498,17 +493,13 @@ def stop_decoding() -> Response:
                     app_module.current_process._rtl_process.terminate()
                     app_module.current_process._rtl_process.wait(timeout=2)
                 except (subprocess.TimeoutExpired, OSError):
-                    try:
+                    with contextlib.suppress(OSError):
                         app_module.current_process._rtl_process.kill()
-                    except OSError:
-                        pass
 
             # Close PTY master fd
             if hasattr(app_module.current_process, '_master_fd'):
-                try:
+                with contextlib.suppress(OSError):
                     os.close(app_module.current_process._master_fd)
-                except OSError:
-                    pass
 
             # Kill multimon-ng
             app_module.current_process.terminate()

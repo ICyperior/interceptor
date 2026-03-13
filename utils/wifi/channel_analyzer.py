@@ -11,26 +11,20 @@ Analyzes channel congestion based on:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
+from dataclasses import dataclass
 
 from .constants import (
     BAND_2_4_GHZ,
     BAND_5_GHZ,
-    BAND_6_GHZ,
-    CHANNELS_2_4_GHZ,
-    CHANNELS_5_GHZ,
-    CHANNELS_6_GHZ,
-    NON_OVERLAPPING_2_4_GHZ,
-    NON_OVERLAPPING_5_GHZ,
     CHANNEL_FREQUENCIES,
+    CHANNEL_RSSI_INTERFERENCE_FACTOR,
     CHANNEL_WEIGHT_AP_COUNT,
     CHANNEL_WEIGHT_CLIENT_COUNT,
-    CHANNEL_RSSI_INTERFERENCE_FACTOR,
+    NON_OVERLAPPING_2_4_GHZ,
+    NON_OVERLAPPING_5_GHZ,
     get_band_from_channel,
 )
-from .models import WiFiAccessPoint, ChannelStats, ChannelRecommendation
+from .models import ChannelRecommendation, ChannelStats, WiFiAccessPoint
 
 logger = logging.getLogger(__name__)
 
@@ -255,7 +249,7 @@ class ChannelAnalyzer:
             if ap_count == 0:
                 reason = "No APs detected - clear channel"
             elif ap_count == 1:
-                reason = f"1 AP on channel"
+                reason = "1 AP on channel"
             else:
                 reason = f"{ap_count} APs on channel"
 

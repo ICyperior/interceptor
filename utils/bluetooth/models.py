@@ -6,26 +6,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
-
-from .constants import (
-    MANUFACTURER_NAMES,
-    ADDRESS_TYPE_PUBLIC,
-    ADDRESS_TYPE_RANDOM,
-    ADDRESS_TYPE_RANDOM_STATIC,
-    ADDRESS_TYPE_RPA,
-    ADDRESS_TYPE_NRPA,
-    RANGE_UNKNOWN,
-    PROTOCOL_BLE,
-    PROXIMITY_UNKNOWN,
-    get_appearance_name,
-)
 
 # Import tracker types (will be available after tracker_signatures module loads)
 # Use string type hints to avoid circular imports
 from typing import TYPE_CHECKING
+
+from .constants import (
+    ADDRESS_TYPE_PUBLIC,
+    MANUFACTURER_NAMES,
+    PROTOCOL_BLE,
+    PROXIMITY_UNKNOWN,
+    RANGE_UNKNOWN,
+    get_appearance_name,
+)
+
 if TYPE_CHECKING:
-    from .tracker_signatures import TrackerDetectionResult, DeviceFingerprint
+    pass
 
 
 @dataclass
@@ -35,21 +31,21 @@ class BTObservation:
     timestamp: datetime
     address: str
     address_type: str = ADDRESS_TYPE_PUBLIC  # public, random, random_static, rpa, nrpa
-    rssi: Optional[int] = None
-    tx_power: Optional[int] = None
-    name: Optional[str] = None
-    manufacturer_id: Optional[int] = None
-    manufacturer_data: Optional[bytes] = None
+    rssi: int | None = None
+    tx_power: int | None = None
+    name: str | None = None
+    manufacturer_id: int | None = None
+    manufacturer_data: bytes | None = None
     service_uuids: list[str] = field(default_factory=list)
     service_data: dict[str, bytes] = field(default_factory=dict)
-    appearance: Optional[int] = None
+    appearance: int | None = None
     is_connectable: bool = False
     is_paired: bool = False
     is_connected: bool = False
-    class_of_device: Optional[int] = None  # Classic BT only
-    major_class: Optional[str] = None
-    minor_class: Optional[str] = None
-    adapter_id: Optional[str] = None
+    class_of_device: int | None = None  # Classic BT only
+    major_class: str | None = None
+    minor_class: str | None = None
+    adapter_id: str | None = None
 
     @property
     def device_id(self) -> str:
@@ -57,7 +53,7 @@ class BTObservation:
         return f"{self.address}:{self.address_type}"
 
     @property
-    def manufacturer_name(self) -> Optional[str]:
+    def manufacturer_name(self) -> str | None:
         """Look up manufacturer name from ID."""
         if self.manufacturer_id is not None:
             return MANUFACTURER_NAMES.get(self.manufacturer_id)
@@ -105,11 +101,11 @@ class BTDeviceAggregate:
 
     # RSSI aggregation (capped at MAX_RSSI_SAMPLES samples)
     rssi_samples: list[tuple[datetime, int]] = field(default_factory=list)
-    rssi_current: Optional[int] = None
-    rssi_median: Optional[float] = None
-    rssi_min: Optional[int] = None
-    rssi_max: Optional[int] = None
-    rssi_variance: Optional[float] = None
+    rssi_current: int | None = None
+    rssi_median: float | None = None
+    rssi_min: int | None = None
+    rssi_max: int | None = None
+    rssi_variance: float | None = None
     rssi_confidence: float = 0.0  # 0.0-1.0
 
     # Range band (very_close/close/nearby/far/unknown) - legacy
@@ -117,27 +113,27 @@ class BTDeviceAggregate:
     range_confidence: float = 0.0
 
     # Proximity band (new system: immediate/near/far/unknown)
-    device_key: Optional[str] = None
+    device_key: str | None = None
     proximity_band: str = PROXIMITY_UNKNOWN
-    estimated_distance_m: Optional[float] = None
+    estimated_distance_m: float | None = None
     distance_confidence: float = 0.0
-    rssi_ema: Optional[float] = None
-    rssi_60s_min: Optional[int] = None
-    rssi_60s_max: Optional[int] = None
+    rssi_ema: float | None = None
+    rssi_60s_min: int | None = None
+    rssi_60s_max: int | None = None
     is_randomized_mac: bool = False
     threat_tags: list[str] = field(default_factory=list)
 
     # Device info (merged from observations)
-    name: Optional[str] = None
-    manufacturer_id: Optional[int] = None
-    manufacturer_name: Optional[str] = None
-    manufacturer_bytes: Optional[bytes] = None
+    name: str | None = None
+    manufacturer_id: int | None = None
+    manufacturer_name: str | None = None
+    manufacturer_bytes: bytes | None = None
     service_uuids: list[str] = field(default_factory=list)
-    tx_power: Optional[int] = None
-    appearance: Optional[int] = None
-    class_of_device: Optional[int] = None
-    major_class: Optional[str] = None
-    minor_class: Optional[str] = None
+    tx_power: int | None = None
+    appearance: int | None = None
+    class_of_device: int | None = None
+    major_class: str | None = None
+    minor_class: str | None = None
     is_connectable: bool = False
     is_paired: bool = False
     is_connected: bool = False
@@ -151,14 +147,14 @@ class BTDeviceAggregate:
 
     # Baseline tracking
     in_baseline: bool = False
-    baseline_id: Optional[int] = None
+    baseline_id: int | None = None
     seen_before: bool = False
 
     # Tracker detection fields
     is_tracker: bool = False
-    tracker_type: Optional[str] = None  # 'airtag', 'tile', 'samsung_smarttag', etc.
-    tracker_name: Optional[str] = None
-    tracker_confidence: Optional[str] = None  # 'high', 'medium', 'low', 'none'
+    tracker_type: str | None = None  # 'airtag', 'tile', 'samsung_smarttag', etc.
+    tracker_name: str | None = None
+    tracker_confidence: str | None = None  # 'high', 'medium', 'low', 'none'
     tracker_confidence_score: float = 0.0  # 0.0 to 1.0
     tracker_evidence: list[str] = field(default_factory=list)
 
@@ -167,11 +163,11 @@ class BTDeviceAggregate:
     risk_factors: list[str] = field(default_factory=list)
 
     # IRK (Identity Resolving Key) from paired device database
-    irk_hex: Optional[str] = None  # 32-char hex if known
-    irk_source_name: Optional[str] = None  # Name from paired DB
+    irk_hex: str | None = None  # 32-char hex if known
+    irk_source_name: str | None = None  # Name from paired DB
 
     # Payload fingerprint (survives MAC randomization)
-    payload_fingerprint_id: Optional[str] = None
+    payload_fingerprint_id: str | None = None
     payload_fingerprint_stability: float = 0.0
 
     # Service data (for tracker analysis)
@@ -379,22 +375,22 @@ class ScanStatus:
 
     is_scanning: bool = False
     mode: str = 'auto'  # 'dbus', 'bleak', 'hcitool', 'bluetoothctl', 'auto'
-    backend: Optional[str] = None  # Active backend being used
-    adapter_id: Optional[str] = None
-    started_at: Optional[datetime] = None
-    duration_s: Optional[int] = None
+    backend: str | None = None  # Active backend being used
+    adapter_id: str | None = None
+    started_at: datetime | None = None
+    duration_s: int | None = None
     devices_found: int = 0
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
-    def elapsed_seconds(self) -> Optional[float]:
+    def elapsed_seconds(self) -> float | None:
         """Seconds since scan started."""
         if self.started_at:
             return (datetime.now() - self.started_at).total_seconds()
         return None
 
     @property
-    def remaining_seconds(self) -> Optional[float]:
+    def remaining_seconds(self) -> float | None:
         """Seconds remaining if duration was set."""
         if self.duration_s and self.elapsed_seconds:
             return max(0, self.duration_s - self.elapsed_seconds)
@@ -423,11 +419,11 @@ class SystemCapabilities:
     # DBus/BlueZ
     has_dbus: bool = False
     has_bluez: bool = False
-    bluez_version: Optional[str] = None
+    bluez_version: str | None = None
 
     # Adapters
     adapters: list[dict] = field(default_factory=list)
-    default_adapter: Optional[str] = None
+    default_adapter: str | None = None
 
     # Permissions
     has_bluetooth_permission: bool = False

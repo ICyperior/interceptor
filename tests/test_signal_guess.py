@@ -13,12 +13,9 @@ Tests cover:
 - Confidence level calculations
 """
 
-import pytest
 from utils.signal_guess import (
-    SignalGuessingEngine,
-    SignalGuessResult,
-    SignalAlternative,
     Confidence,
+    SignalGuessingEngine,
     guess_signal_type,
     guess_signal_type_dict,
 )

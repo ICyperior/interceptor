@@ -4,11 +4,11 @@ WiFi scan output parsers.
 Each parser converts tool-specific output into WiFiObservation objects.
 """
 
+from .airodump import parse_airodump_csv
 from .airport import parse_airport_scan
-from .nmcli import parse_nmcli_scan
 from .iw import parse_iw_scan
 from .iwlist import parse_iwlist_scan
-from .airodump import parse_airodump_csv
+from .nmcli import parse_nmcli_scan
 
 __all__ = [
     'parse_airport_scan',

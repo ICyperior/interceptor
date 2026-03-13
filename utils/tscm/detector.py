@@ -9,21 +9,15 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
 
 from data.tscm_frequencies import (
-    BLE_TRACKER_SIGNATURES,
-    THREAT_TYPES,
-    WIFI_CAMERA_PATTERNS,
     get_frequency_risk,
     get_threat_severity,
     is_known_tracker,
     is_potential_camera,
 )
 from utils.tscm.signal_classification import (
-    classify_signal_strength,
     get_signal_strength_info,
-    SignalStrength,
 )
 
 logger = logging.getLogger('intercept.tscm.detector')
@@ -337,7 +331,7 @@ class ThreatDetector:
         """
         frequency = signal.get('frequency', 0)
         power = signal.get('power', signal.get('level', -100))
-        band = signal.get('band', '')
+        signal.get('band', '')
 
         reasons = []
         classification = 'informational'

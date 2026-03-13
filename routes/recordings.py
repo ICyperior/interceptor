@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, request, send_file
 
-from utils.recording import get_recording_manager, RECORDING_ROOT
-from utils.responses import api_success, api_error
+from utils.recording import RECORDING_ROOT, get_recording_manager
+from utils.responses import api_error, api_success
 
 recordings_bp = Blueprint('recordings', __name__, url_prefix='/recordings')
 

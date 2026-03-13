@@ -1,20 +1,17 @@
 """Tests for the KiwiSDR WebSocket audio client."""
 
 import struct
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from utils.kiwisdr import (
-    KiwiSDRClient,
+    KIWI_DEFAULT_PORT,
     KIWI_SAMPLE_RATE,
     KIWI_SND_HEADER_SIZE,
-    KIWI_DEFAULT_PORT,
     MODE_FILTERS,
     VALID_MODES,
+    KiwiSDRClient,
     parse_host_port,
 )
-
 
 # ============================================
 # parse_host_port tests

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import queue
 import threading
 import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generator
+from typing import Any, Callable
 
 
 @dataclass
@@ -29,6 +31,12 @@ def _run_fanout(channel: _QueueFanoutChannel) -> None:
     idle_drain_batch = 512
 
     while True:
+        src = channel.source_queue
+        if src is None:
+            # Source queue was cleared (e.g. during interpreter shutdown).
+            time.sleep(0.5)
+            continue
+
         with channel.lock:
             subscribers = tuple(channel.subscribers)
 
@@ -39,7 +47,7 @@ def _run_fanout(channel: _QueueFanoutChannel) -> None:
             drained = 0
             for _ in range(idle_drain_batch):
                 try:
-                    channel.source_queue.get_nowait()
+                    src.get_nowait()
                     drained += 1
                 except queue.Empty:
                     break
@@ -49,7 +57,7 @@ def _run_fanout(channel: _QueueFanoutChannel) -> None:
             continue
 
         try:
-            msg = channel.source_queue.get(timeout=channel.source_timeout)
+            msg = src.get(timeout=channel.source_timeout)
         except queue.Empty:
             continue
 
@@ -153,10 +161,8 @@ def sse_stream_fanout(
                 msg = subscriber.get(timeout=timeout)
                 last_keepalive = time.time()
                 if on_message and isinstance(msg, dict):
-                    try:
+                    with contextlib.suppress(Exception):
                         on_message(msg)
-                    except Exception:
-                        pass
                 yield format_sse(msg)
             except queue.Empty:
                 now = time.time()

@@ -24,8 +24,8 @@ def register_blueprints(app):
     from .meshtastic import meshtastic_bp
     from .meteor_websocket import meteor_bp
     from .morse import morse_bp
-    from .ook import ook_bp
     from .offline import offline_bp
+    from .ook import ook_bp
     from .pager import pager_bp
     from .radiosonde import radiosonde_bp
     from .recordings import recordings_bp
@@ -44,8 +44,8 @@ def register_blueprints(app):
     from .updater import updater_bp
     from .vdl2 import vdl2_bp
     from .weather_sat import weather_sat_bp
-    from .wefax import wefax_bp
     from .websdr import websdr_bp
+    from .wefax import wefax_bp
     from .wifi import wifi_bp
     from .wifi_v2 import wifi_v2_bp
 

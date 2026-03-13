@@ -17,44 +17,43 @@ import shutil
 import subprocess
 import threading
 import time
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Generator, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from .deauth_detector import DeauthDetector
 
+import contextlib
+
 from .constants import (
     DEFAULT_QUICK_SCAN_TIMEOUT,
-    SCAN_MODE_QUICK,
-    SCAN_MODE_DEEP,
-    QUICK_SCAN_TOOLS_LINUX,
-    QUICK_SCAN_TOOLS_DARWIN,
-    TOOL_TIMEOUT_QUICK,
-    TOOL_TIMEOUT_DETECT,
-    NETWORK_STALE_TIMEOUT,
     MAX_RSSI_SAMPLES,
+    SCAN_MODE_DEEP,
+    SCAN_MODE_QUICK,
+    TOOL_TIMEOUT_DETECT,
     WIFI_EMA_ALPHA,
-    get_signal_band,
     get_proximity_band,
+    get_signal_band,
     get_vendor_from_mac,
 )
 from .models import (
+    ChannelRecommendation,
+    ChannelStats,
     WiFiAccessPoint,
+    WiFiCapabilities,
     WiFiClient,
+    WiFiObservation,
     WiFiProbeRequest,
     WiFiScanResult,
     WiFiScanStatus,
-    WiFiCapabilities,
-    WiFiObservation,
-    ChannelStats,
-    ChannelRecommendation,
 )
 
 logger = logging.getLogger(__name__)
 
 # Global scanner instance
-_scanner_instance: Optional['UnifiedWiFiScanner'] = None
+_scanner_instance: UnifiedWiFiScanner | None = None
 _scanner_lock = threading.Lock()
 
 
@@ -66,7 +65,7 @@ class UnifiedWiFiScanner:
     Deep Scan: Continuous monitoring with airodump-ng
     """
 
-    def __init__(self, interface: Optional[str] = None):
+    def __init__(self, interface: str | None = None):
         """
         Initialize WiFi scanner.
 
@@ -78,7 +77,7 @@ class UnifiedWiFiScanner:
 
         # State
         self._status = WiFiScanStatus()
-        self._capabilities: Optional[WiFiCapabilities] = None
+        self._capabilities: WiFiCapabilities | None = None
 
         # Discovered entities
         self._access_points: dict[str, WiFiAccessPoint] = {}  # bssid -> AP
@@ -86,24 +85,24 @@ class UnifiedWiFiScanner:
         self._probe_requests: list[WiFiProbeRequest] = []
 
         # Deep scan process
-        self._deep_scan_process: Optional[subprocess.Popen] = None
-        self._deep_scan_thread: Optional[threading.Thread] = None
+        self._deep_scan_process: subprocess.Popen | None = None
+        self._deep_scan_thread: threading.Thread | None = None
         self._deep_scan_stop_event = threading.Event()
 
         # Deauth detector
-        self._deauth_detector: Optional['DeauthDetector'] = None
+        self._deauth_detector: DeauthDetector | None = None
 
         # Event queue for SSE streaming
         self._event_queue: queue.Queue = queue.Queue(maxsize=1000)
 
         # Callbacks
-        self._on_network_updated: Optional[Callable[[WiFiAccessPoint], None]] = None
-        self._on_client_updated: Optional[Callable[[WiFiClient], None]] = None
-        self._on_probe_request: Optional[Callable[[WiFiProbeRequest], None]] = None
+        self._on_network_updated: Callable[[WiFiAccessPoint], None] | None = None
+        self._on_client_updated: Callable[[WiFiClient], None] | None = None
+        self._on_probe_request: Callable[[WiFiProbeRequest], None] | None = None
 
         # Baseline tracking
         self._baseline_networks: set[str] = set()  # BSSIDs in baseline
-        self._baseline_set_at: Optional[datetime] = None
+        self._baseline_set_at: datetime | None = None
 
     # =========================================================================
     # Properties
@@ -374,7 +373,7 @@ class UnifiedWiFiScanner:
 
     def quick_scan(
         self,
-        interface: Optional[str] = None,
+        interface: str | None = None,
         timeout: float = DEFAULT_QUICK_SCAN_TIMEOUT,
     ) -> WiFiScanResult:
         """
@@ -664,10 +663,10 @@ class UnifiedWiFiScanner:
 
     def start_deep_scan(
         self,
-        interface: Optional[str] = None,
+        interface: str | None = None,
         band: str = 'all',
-        channel: Optional[int] = None,
-        channels: Optional[list[int]] = None,
+        channel: int | None = None,
+        channels: list[int] | None = None,
     ) -> bool:
         """
         Start continuous deep scan with airodump-ng.
@@ -733,8 +732,8 @@ class UnifiedWiFiScanner:
         Returns:
             True if scan was stopped.
         """
-        cleanup_process: Optional[subprocess.Popen] = None
-        cleanup_thread: Optional[threading.Thread] = None
+        cleanup_process: subprocess.Popen | None = None
+        cleanup_thread: threading.Thread | None = None
         cleanup_detector = None
 
         with self._lock:
@@ -760,8 +759,8 @@ class UnifiedWiFiScanner:
         cleanup_start = time.perf_counter()
 
         def _finalize_stop(
-            process: Optional[subprocess.Popen],
-            scan_thread: Optional[threading.Thread],
+            process: subprocess.Popen | None,
+            scan_thread: threading.Thread | None,
             detector,
         ) -> None:
             if detector:
@@ -777,10 +776,8 @@ class UnifiedWiFiScanner:
                     process.terminate()
                     process.wait(timeout=1.5)
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         process.kill()
-                    except Exception:
-                        pass
 
             if scan_thread and scan_thread.is_alive():
                 scan_thread.join(timeout=1.5)
@@ -801,13 +798,13 @@ class UnifiedWiFiScanner:
         self,
         interface: str,
         band: str,
-        channel: Optional[int],
-        channels: Optional[list[int]],
+        channel: int | None,
+        channels: list[int] | None,
     ):
         """Background thread for running airodump-ng."""
-        from .parsers.airodump import parse_airodump_csv
-
         import tempfile
+
+        from .parsers.airodump import parse_airodump_csv
 
         # Create temp directory for output files
         with tempfile.TemporaryDirectory(prefix='wifi_scan_') as tmpdir:
@@ -829,7 +826,7 @@ class UnifiedWiFiScanner:
 
             logger.info(f"Starting airodump-ng: {' '.join(cmd)}")
 
-            process: Optional[subprocess.Popen] = None
+            process: subprocess.Popen | None = None
             try:
                 process = subprocess.Popen(
                     cmd,
@@ -848,10 +845,8 @@ class UnifiedWiFiScanner:
                         process.terminate()
                         process.wait(timeout=1.0)
                     except Exception:
-                        try:
+                        with contextlib.suppress(Exception):
                             process.kill()
-                        except Exception:
-                            pass
                     return
 
                 csv_file = f"{output_prefix}-01.csv"
@@ -1129,8 +1124,6 @@ class UnifiedWiFiScanner:
     def _calculate_channel_stats(self) -> list[ChannelStats]:
         """Calculate statistics for each channel."""
         from .constants import (
-            CHANNELS_2_4_GHZ,
-            CHANNELS_5_GHZ,
             CHANNEL_FREQUENCIES,
             get_band_from_channel,
         )
@@ -1175,10 +1168,10 @@ class UnifiedWiFiScanner:
     def _generate_recommendations(self, stats: list[ChannelStats]) -> list[ChannelRecommendation]:
         """Generate channel recommendations."""
         from .constants import (
-            NON_OVERLAPPING_2_4_GHZ,
-            NON_OVERLAPPING_5_GHZ,
             BAND_2_4_GHZ,
             BAND_5_GHZ,
+            NON_OVERLAPPING_2_4_GHZ,
+            NON_OVERLAPPING_5_GHZ,
         )
 
         recommendations = []
@@ -1273,12 +1266,12 @@ class UnifiedWiFiScanner:
     # Data Access
     # =========================================================================
 
-    def get_network(self, bssid: str) -> Optional[WiFiAccessPoint]:
+    def get_network(self, bssid: str) -> WiFiAccessPoint | None:
         """Get a specific network by BSSID."""
         with self._lock:
             return self._access_points.get(bssid.upper())
 
-    def get_client(self, mac: str) -> Optional[WiFiClient]:
+    def get_client(self, mac: str) -> WiFiClient | None:
         """Get a specific client by MAC."""
         with self._lock:
             return self._clients.get(mac.upper())
@@ -1336,10 +1329,8 @@ class UnifiedWiFiScanner:
                     alert_id = event.get('id', str(time.time()))
                     app_module.deauth_alerts[alert_id] = event
                 if hasattr(app_module, 'deauth_detector_queue'):
-                    try:
+                    with contextlib.suppress(queue.Full):
                         app_module.deauth_detector_queue.put_nowait(event)
-                    except queue.Full:
-                        pass
             except Exception as e:
                 logger.debug(f"Error storing deauth alert: {e}")
 
@@ -1389,7 +1380,7 @@ class UnifiedWiFiScanner:
                 self._deauth_detector = None
 
     @property
-    def deauth_detector(self) -> Optional['DeauthDetector']:
+    def deauth_detector(self) -> DeauthDetector | None:
         """Get the deauth detector instance."""
         return self._deauth_detector
 
@@ -1416,7 +1407,7 @@ class UnifiedWiFiScanner:
 # Module-level functions
 # =============================================================================
 
-def get_wifi_scanner(interface: Optional[str] = None) -> UnifiedWiFiScanner:
+def get_wifi_scanner(interface: str | None = None) -> UnifiedWiFiScanner:
     """
     Get or create the global WiFi scanner instance.
 

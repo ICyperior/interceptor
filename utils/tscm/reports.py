@@ -13,21 +13,14 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
 
 from utils.tscm.signal_classification import (
-    SignalStrength,
-    ConfidenceLevel,
-    assess_signal,
-    classify_signal_strength,
-    describe_signal_for_report,
-    format_signal_for_dashboard,
-    generate_hedged_statement,
     SIGNAL_ANALYSIS_DISCLAIMER,
+    assess_signal,
+    generate_hedged_statement,
 )
 
 logger = logging.getLogger('intercept.tscm.reports')
@@ -41,7 +34,7 @@ class ReportFinding:
     """A single finding for the report."""
     identifier: str
     protocol: str
-    name: Optional[str]
+    name: str | None
     risk_level: str
     risk_score: int
     description: str
@@ -49,18 +42,18 @@ class ReportFinding:
     recommended_action: str = ''
     playbook_reference: str = ''
     # Signal classification data
-    signal_strength: Optional[str] = None  # minimal, weak, moderate, strong, very_strong
-    signal_confidence: Optional[str] = None  # low, medium, high
-    signal_interpretation: Optional[str] = None
+    signal_strength: str | None = None  # minimal, weak, moderate, strong, very_strong
+    signal_confidence: str | None = None  # low, medium, high
+    signal_interpretation: str | None = None
     signal_caveats: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ReportMeetingSummary:
     """Meeting window summary for report."""
-    name: Optional[str]
+    name: str | None
     start_time: str
-    end_time: Optional[str]
+    end_time: str | None
     duration_minutes: float
     devices_first_seen: int
     behavior_changes: int
@@ -81,9 +74,9 @@ class TSCMReport:
     sweep_type: str
 
     # Location and context
-    location: Optional[str] = None
-    baseline_id: Optional[int] = None
-    baseline_name: Optional[str] = None
+    location: str | None = None
+    baseline_id: int | None = None
+    baseline_name: str | None = None
 
     # Executive summary
     executive_summary: str = ''
@@ -112,14 +105,14 @@ class TSCMReport:
     missing_devices: int = 0
 
     # Sweep duration
-    sweep_start: Optional[datetime] = None
-    sweep_end: Optional[datetime] = None
+    sweep_start: datetime | None = None
+    sweep_end: datetime | None = None
     duration_minutes: float = 0.0
 
     # Technical data (for annex only)
     device_timelines: list[dict] = field(default_factory=list)
     all_indicators: list[dict] = field(default_factory=list)
-    baseline_diff: Optional[dict] = None
+    baseline_diff: dict | None = None
     correlation_data: list[dict] = field(default_factory=list)
 
 
@@ -613,15 +606,15 @@ class TSCMReportBuilder:
             sweep_type='standard',
         )
 
-    def set_sweep_type(self, sweep_type: str) -> 'TSCMReportBuilder':
+    def set_sweep_type(self, sweep_type: str) -> TSCMReportBuilder:
         self.report.sweep_type = sweep_type
         return self
 
-    def set_location(self, location: str) -> 'TSCMReportBuilder':
+    def set_location(self, location: str) -> TSCMReportBuilder:
         self.report.location = location
         return self
 
-    def set_baseline(self, baseline_id: int, baseline_name: str) -> 'TSCMReportBuilder':
+    def set_baseline(self, baseline_id: int, baseline_name: str) -> TSCMReportBuilder:
         self.report.baseline_id = baseline_id
         self.report.baseline_name = baseline_name
         return self
@@ -629,8 +622,8 @@ class TSCMReportBuilder:
     def set_sweep_times(
         self,
         start: datetime,
-        end: Optional[datetime] = None
-    ) -> 'TSCMReportBuilder':
+        end: datetime | None = None
+    ) -> TSCMReportBuilder:
         self.report.sweep_start = start
         self.report.sweep_end = end or datetime.now()
         self.report.duration_minutes = (
@@ -638,12 +631,12 @@ class TSCMReportBuilder:
         )
         return self
 
-    def add_capabilities(self, capabilities: dict) -> 'TSCMReportBuilder':
+    def add_capabilities(self, capabilities: dict) -> TSCMReportBuilder:
         self.report.capabilities = capabilities
         self.report.limitations = capabilities.get('all_limitations', [])
         return self
 
-    def add_finding(self, finding: ReportFinding) -> 'TSCMReportBuilder':
+    def add_finding(self, finding: ReportFinding) -> TSCMReportBuilder:
         if finding.risk_level == 'high_interest':
             self.report.high_interest_findings.append(finding)
         elif finding.risk_level in ['review', 'needs_review']:
@@ -652,7 +645,7 @@ class TSCMReportBuilder:
             self.report.informational_findings.append(finding)
         return self
 
-    def add_findings_from_profiles(self, profiles: list[dict]) -> 'TSCMReportBuilder':
+    def add_findings_from_profiles(self, profiles: list[dict]) -> TSCMReportBuilder:
         """Add findings from correlation engine device profiles."""
         for profile in profiles:
             # Get signal classification data
@@ -759,9 +752,8 @@ class TSCMReportBuilder:
 
         # Check for tracker
         tracker_types = ['airtag_detected', 'tile_detected', 'smarttag_detected', 'known_tracker']
-        if any(i.get('type') in tracker_types for i in indicators):
-            if risk_level == 'high_interest':
-                return 'PB-001 (Tracker Detection)'
+        if any(i.get('type') in tracker_types for i in indicators) and risk_level == 'high_interest':
+            return 'PB-001 (Tracker Detection)'
 
         if risk_level == 'high_interest':
             return 'PB-002 (Suspicious Device)'
@@ -770,7 +762,7 @@ class TSCMReportBuilder:
 
         return ''
 
-    def add_meeting_summary(self, summary: dict) -> 'TSCMReportBuilder':
+    def add_meeting_summary(self, summary: dict) -> TSCMReportBuilder:
         """Add meeting window summary."""
         meeting = ReportMeetingSummary(
             name=summary.get('name'),
@@ -792,7 +784,7 @@ class TSCMReportBuilder:
         rf: int = 0,
         new: int = 0,
         missing: int = 0
-    ) -> 'TSCMReportBuilder':
+    ) -> TSCMReportBuilder:
         self.report.wifi_devices = wifi
         self.report.wifi_clients = wifi_clients
         self.report.bluetooth_devices = bluetooth
@@ -802,19 +794,19 @@ class TSCMReportBuilder:
         self.report.missing_devices = missing
         return self
 
-    def add_device_timelines(self, timelines: list[dict]) -> 'TSCMReportBuilder':
+    def add_device_timelines(self, timelines: list[dict]) -> TSCMReportBuilder:
         self.report.device_timelines = timelines
         return self
 
-    def add_all_indicators(self, indicators: list[dict]) -> 'TSCMReportBuilder':
+    def add_all_indicators(self, indicators: list[dict]) -> TSCMReportBuilder:
         self.report.all_indicators = indicators
         return self
 
-    def add_baseline_diff(self, diff: dict) -> 'TSCMReportBuilder':
+    def add_baseline_diff(self, diff: dict) -> TSCMReportBuilder:
         self.report.baseline_diff = diff
         return self
 
-    def add_correlations(self, correlations: list[dict]) -> 'TSCMReportBuilder':
+    def add_correlations(self, correlations: list[dict]) -> TSCMReportBuilder:
         self.report.correlation_data = correlations
         return self
 
@@ -852,9 +844,9 @@ def generate_report(
     device_profiles: list[dict],
     capabilities: dict,
     timelines: list[dict],
-    baseline_diff: Optional[dict] = None,
-    meeting_summaries: Optional[list[dict]] = None,
-    correlations: Optional[list[dict]] = None,
+    baseline_diff: dict | None = None,
+    meeting_summaries: list[dict] | None = None,
+    correlations: list[dict] | None = None,
 ) -> TSCMReport:
     """
     Generate a complete TSCM report from sweep data.
@@ -883,9 +875,8 @@ def generate_report(
     if started_at:
         if isinstance(started_at, str):
             started_at = datetime.fromisoformat(started_at.replace('Z', '+00:00')).replace(tzinfo=None)
-        if completed_at:
-            if isinstance(completed_at, str):
-                completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00')).replace(tzinfo=None)
+        if completed_at and isinstance(completed_at, str):
+            completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00')).replace(tzinfo=None)
         builder.set_sweep_times(started_at, completed_at)
 
     # Capabilities

@@ -24,35 +24,32 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from typing import Optional
 
-from ..models import WiFiObservation
 from ..constants import (
+    AUTH_EAP,
+    AUTH_OPEN,
+    AUTH_OWE,
+    AUTH_PSK,
+    AUTH_SAE,
+    AUTH_UNKNOWN,
+    CIPHER_CCMP,
+    CIPHER_GCMP,
+    CIPHER_TKIP,
+    CIPHER_UNKNOWN,
+    CIPHER_WEP,
     SECURITY_OPEN,
     SECURITY_WEP,
     SECURITY_WPA,
     SECURITY_WPA2,
     SECURITY_WPA3,
     SECURITY_WPA_WPA2,
-    SECURITY_WPA2_WPA3,
-    SECURITY_UNKNOWN,
-    CIPHER_CCMP,
-    CIPHER_TKIP,
-    CIPHER_GCMP,
-    CIPHER_WEP,
-    CIPHER_UNKNOWN,
-    AUTH_PSK,
-    AUTH_SAE,
-    AUTH_EAP,
-    AUTH_OWE,
-    AUTH_OPEN,
-    AUTH_UNKNOWN,
     WIDTH_20_MHZ,
     WIDTH_40_MHZ,
     WIDTH_80_MHZ,
     WIDTH_160_MHZ,
     get_channel_from_frequency,
 )
+from ..models import WiFiObservation
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +87,7 @@ def parse_iw_scan(output: str) -> list[WiFiObservation]:
     return observations
 
 
-def _parse_iw_block(lines: list[str]) -> Optional[WiFiObservation]:
+def _parse_iw_block(lines: list[str]) -> WiFiObservation | None:
     """Parse a single BSS block from iw output."""
     try:
         # First line: BSS 00:11:22:33:44:55(on wlan0) -- associated

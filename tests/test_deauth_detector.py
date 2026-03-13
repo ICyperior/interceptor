@@ -9,17 +9,17 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from utils.constants import (
+    DEAUTH_ALERT_THRESHOLD,
+    DEAUTH_CRITICAL_THRESHOLD,
+    DEAUTH_DETECTION_WINDOW,
+)
 from utils.wifi.deauth_detector import (
+    DEAUTH_REASON_CODES,
+    DeauthAlert,
     DeauthDetector,
     DeauthPacketInfo,
     DeauthTracker,
-    DeauthAlert,
-    DEAUTH_REASON_CODES,
-)
-from utils.constants import (
-    DEAUTH_DETECTION_WINDOW,
-    DEAUTH_ALERT_THRESHOLD,
-    DEAUTH_CRITICAL_THRESHOLD,
 )
 
 
@@ -515,9 +515,7 @@ class TestDeauthDetectorIntegration:
                 return True
             if 'Dot11Disas' in str(layer):
                 return False
-            if 'RadioTap' in str(layer):
-                return True
-            return False
+            return 'RadioTap' in str(layer)
 
         mock_pkt.haslayer = haslayer_side_effect
 

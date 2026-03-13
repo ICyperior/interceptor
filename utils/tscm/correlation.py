@@ -10,11 +10,11 @@ Findings indicate anomalies and indicators, not confirmed surveillance devices.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger('intercept.tscm.correlation')
 
@@ -119,36 +119,36 @@ class DeviceProfile:
     protocol: str    # 'bluetooth', 'wifi', 'rf'
 
     # Device info
-    name: Optional[str] = None
-    manufacturer: Optional[str] = None
-    device_type: Optional[str] = None
-    tracker_type: Optional[str] = None
-    tracker_name: Optional[str] = None
-    tracker_confidence: Optional[str] = None
-    tracker_confidence_score: Optional[float] = None
+    name: str | None = None
+    manufacturer: str | None = None
+    device_type: str | None = None
+    tracker_type: str | None = None
+    tracker_name: str | None = None
+    tracker_confidence: str | None = None
+    tracker_confidence_score: float | None = None
     tracker_evidence: list[str] = field(default_factory=list)
 
     # Bluetooth-specific
     services: list[str] = field(default_factory=list)
-    company_id: Optional[int] = None
-    advertising_interval: Optional[int] = None
+    company_id: int | None = None
+    advertising_interval: int | None = None
 
     # Wi-Fi-specific
-    ssid: Optional[str] = None
-    channel: Optional[int] = None
-    encryption: Optional[str] = None
-    beacon_interval: Optional[int] = None
+    ssid: str | None = None
+    channel: int | None = None
+    encryption: str | None = None
+    beacon_interval: int | None = None
     is_hidden: bool = False
 
     # RF-specific
-    frequency: Optional[float] = None
-    bandwidth: Optional[float] = None
-    modulation: Optional[str] = None
+    frequency: float | None = None
+    bandwidth: float | None = None
+    modulation: str | None = None
 
     # Common measurements
     rssi_samples: list[tuple[datetime, int]] = field(default_factory=list)
-    first_seen: Optional[datetime] = None
-    last_seen: Optional[datetime] = None
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
     detection_count: int = 0
 
     # Behavioral analysis
@@ -163,7 +163,7 @@ class DeviceProfile:
     confidence: float = 0.0
     recommended_action: str = 'monitor'
     known_device: bool = False
-    known_device_name: Optional[str] = None
+    known_device_name: str | None = None
     score_modifier: int = 0
 
     def add_rssi_sample(self, rssi: int) -> None:
@@ -466,10 +466,8 @@ class CorrelationEngine:
         # Add RSSI sample
         rssi = device.get('rssi', device.get('signal'))
         if rssi:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 profile.add_rssi_sample(int(rssi))
-            except (ValueError, TypeError):
-                pass
 
         # Clear previous indicators for fresh analysis
         profile.indicators = []
@@ -789,10 +787,8 @@ class CorrelationEngine:
         # Add RSSI sample
         rssi = device.get('rssi', device.get('power', device.get('signal')))
         if rssi:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 profile.add_rssi_sample(int(rssi))
-            except (ValueError, TypeError):
-                pass
 
         # Clear previous indicators
         profile.indicators = []
@@ -937,10 +933,8 @@ class CorrelationEngine:
         # Add power sample
         power = signal.get('power', signal.get('level'))
         if power:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 profile.add_rssi_sample(int(float(power)))
-            except (ValueError, TypeError):
-                pass
 
         # Clear previous indicators
         profile.indicators = []

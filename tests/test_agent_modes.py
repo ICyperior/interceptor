@@ -10,14 +10,13 @@ Tests cover:
 - Error handling and edge cases
 """
 
+import contextlib
 import os
 import sys
-import json
 import time
+from unittest.mock import MagicMock, patch
+
 import pytest
-import threading
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -34,10 +33,8 @@ def mode_manager():
     yield manager
     # Cleanup: stop all modes
     for mode in list(manager.running_modes.keys()):
-        try:
+        with contextlib.suppress(Exception):
             manager.stop_mode(mode)
-        except Exception:
-            pass
 
 
 @pytest.fixture
@@ -139,14 +136,13 @@ class TestModeLifecycle:
         mock_popen, mock_proc = mock_subprocess
 
         # Mock glob for CSV file detection
-        with patch('glob.glob', return_value=[]):
-            with patch('tempfile.mkdtemp', return_value='/tmp/test'):
-                result = mode_manager.start_mode('wifi', {
-                    'interface': 'wlan0',
-                    'scan_type': 'quick'
-                })
-                # Quick scan returns data directly
-                assert result['status'] in ['started', 'error', 'success']
+        with patch('glob.glob', return_value=[]), patch('tempfile.mkdtemp', return_value='/tmp/test'):
+            result = mode_manager.start_mode('wifi', {
+                'interface': 'wlan0',
+                'scan_type': 'quick'
+            })
+            # Quick scan returns data directly
+            assert result['status'] in ['started', 'error', 'success']
 
     def test_bluetooth_mode_lifecycle(self, mode_manager, mock_subprocess, mock_tools):
         """Bluetooth mode should start and stop cleanly."""

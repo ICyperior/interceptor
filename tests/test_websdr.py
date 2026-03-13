@@ -1,10 +1,11 @@
 """Tests for the HF/Shortwave WebSDR integration."""
 
-from unittest.mock import patch, MagicMock
-import pytest
-from routes.websdr import _parse_gps_coord, _haversine
-from utils.kiwisdr import parse_host_port
+from unittest.mock import patch
 
+import pytest
+
+from routes.websdr import _haversine, _parse_gps_coord
+from utils.kiwisdr import parse_host_port
 
 # ============================================
 # Helper function tests

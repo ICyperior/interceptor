@@ -7,27 +7,25 @@ Handles /sweep/*, /status, /devices, /presets/*, /feed/*,
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import platform
 import re
-import shutil
 import subprocess
 from typing import Any
 
 from flask import Response, jsonify, request
 
+from data.tscm_frequencies import get_all_sweep_presets, get_sweep_preset
 from routes.tscm import (
+    _baseline_recorder,
     _current_sweep_id,
     _emit_event,
     _start_sweep_internal,
     _sweep_running,
     tscm_bp,
     tscm_queue,
-    _baseline_recorder,
 )
-from data.tscm_frequencies import get_all_sweep_presets, get_sweep_preset
 from utils.database import get_tscm_sweep, update_tscm_sweep
 from utils.event_pipeline import process_event
 from utils.sse import sse_stream_fanout
@@ -38,7 +36,6 @@ logger = logging.getLogger('intercept.tscm')
 @tscm_bp.route('/status')
 def tscm_status():
     """Check if any TSCM operation is currently running."""
-    from routes.tscm import _sweep_running
     return jsonify({'running': _sweep_running})
 
 
@@ -98,7 +95,6 @@ def stop_sweep():
 @tscm_bp.route('/sweep/status')
 def sweep_status():
     """Get current sweep status."""
-    from routes.tscm import _sweep_running, _current_sweep_id
 
     status = {
         'running': _sweep_running,
@@ -116,7 +112,6 @@ def sweep_status():
 @tscm_bp.route('/sweep/stream')
 def sweep_stream():
     """SSE stream for real-time sweep updates."""
-    from routes.tscm import tscm_queue
 
     def _on_msg(msg: dict[str, Any]) -> None:
         process_event('tscm', msg, msg.get('type'))
@@ -218,7 +213,7 @@ def get_tscm_devices():
                 capture_output=True, text=True, timeout=5
             )
             blocks = re.split(r'(?=^hci\d+:)', result.stdout, flags=re.MULTILINE)
-            for idx, block in enumerate(blocks):
+            for _idx, block in enumerate(blocks):
                 if block.strip():
                     first_line = block.split('\n')[0]
                     match = re.match(r'(hci\d+):', first_line)
@@ -353,7 +348,6 @@ def get_preset(preset_name: str):
 @tscm_bp.route('/feed/wifi', methods=['POST'])
 def feed_wifi():
     """Feed WiFi device data for baseline recording."""
-    from routes.tscm import _baseline_recorder
 
     data = request.get_json()
     if data:
@@ -367,7 +361,6 @@ def feed_wifi():
 @tscm_bp.route('/feed/bluetooth', methods=['POST'])
 def feed_bluetooth():
     """Feed Bluetooth device data for baseline recording."""
-    from routes.tscm import _baseline_recorder
 
     data = request.get_json()
     if data:
@@ -378,7 +371,6 @@ def feed_bluetooth():
 @tscm_bp.route('/feed/rf', methods=['POST'])
 def feed_rf():
     """Feed RF signal data for baseline recording."""
-    from routes.tscm import _baseline_recorder
 
     data = request.get_json()
     if data:

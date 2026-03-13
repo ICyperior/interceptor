@@ -8,11 +8,12 @@ import queue
 import re
 import threading
 import time
+from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Generator
+from typing import Any
 
-from config import ALERT_WEBHOOK_URL, ALERT_WEBHOOK_TIMEOUT, ALERT_WEBHOOK_SECRET
+from config import ALERT_WEBHOOK_SECRET, ALERT_WEBHOOK_TIMEOUT, ALERT_WEBHOOK_URL
 from utils.database import get_db
 
 logger = logging.getLogger('intercept.alerts')

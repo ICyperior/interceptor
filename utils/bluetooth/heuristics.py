@@ -7,15 +7,13 @@ Provides factual, observable heuristics without making tracker detection claims.
 from __future__ import annotations
 
 import statistics
-from datetime import datetime, timedelta
-from typing import Optional
 
 from .constants import (
+    BEACON_INTERVAL_MAX_VARIANCE,
     PERSISTENT_MIN_SEEN_COUNT,
     PERSISTENT_WINDOW_SECONDS,
-    BEACON_INTERVAL_MAX_VARIANCE,
-    STRONG_RSSI_THRESHOLD,
     STABLE_VARIANCE_THRESHOLD,
+    STRONG_RSSI_THRESHOLD,
 )
 from .models import BTDeviceAggregate
 
@@ -111,10 +109,7 @@ class HeuristicsEngine:
             return False
 
         # Must have reasonable sample count for confidence
-        if len(device.rssi_samples) < 5:
-            return False
-
-        return True
+        return not len(device.rssi_samples) < 5
 
     def _calculate_intervals(self, device: BTDeviceAggregate) -> list[float]:
         """Calculate time intervals between observations."""

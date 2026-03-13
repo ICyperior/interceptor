@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
-import tempfile
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from utils.subghz import SubGhzManager, SubGhzCapture
+from utils.subghz import SubGhzCapture, SubGhzManager
 
 
 @pytest.fixture
@@ -32,7 +29,7 @@ def manager(tmp_data_dir):
 class TestSubGhzManagerInit:
     def test_creates_data_dirs(self, tmp_path):
         data_dir = tmp_path / 'new_subghz'
-        mgr = SubGhzManager(data_dir=data_dir)
+        SubGhzManager(data_dir=data_dir)
         assert (data_dir / 'captures').is_dir()
 
     def test_active_mode_idle(self, manager):

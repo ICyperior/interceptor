@@ -20,7 +20,7 @@ from typing import Any
 
 from flask import Blueprint, Flask, Response, jsonify, request
 
-from utils.responses import api_success, api_error
+from utils.responses import api_error
 
 try:
     from flask_sock import Sock

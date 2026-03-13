@@ -6,20 +6,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from .constants import (
-    BAND_UNKNOWN,
-    SECURITY_UNKNOWN,
-    CIPHER_UNKNOWN,
     AUTH_UNKNOWN,
-    WIDTH_UNKNOWN,
-    SIGNAL_UNKNOWN,
+    BAND_UNKNOWN,
+    CIPHER_UNKNOWN,
     PROXIMITY_UNKNOWN,
     SCAN_MODE_QUICK,
+    SECURITY_UNKNOWN,
+    SIGNAL_UNKNOWN,
+    WIDTH_UNKNOWN,
     get_band_from_channel,
-    get_signal_band,
-    get_proximity_band,
     get_vendor_from_mac,
 )
 
@@ -30,10 +27,10 @@ class WiFiObservation:
 
     timestamp: datetime
     bssid: str
-    essid: Optional[str] = None
-    channel: Optional[int] = None
-    frequency_mhz: Optional[int] = None
-    rssi: Optional[int] = None
+    essid: str | None = None
+    channel: int | None = None
+    frequency_mhz: int | None = None
+    rssi: int | None = None
 
     # Security
     security: str = SECURITY_UNKNOWN
@@ -58,7 +55,7 @@ class WiFiObservation:
         return BAND_UNKNOWN
 
     @property
-    def vendor(self) -> Optional[str]:
+    def vendor(self) -> str | None:
         """Get vendor name from BSSID."""
         return get_vendor_from_mac(self.bssid)
 
@@ -89,29 +86,29 @@ class WiFiAccessPoint:
 
     # Identity
     bssid: str
-    essid: Optional[str] = None
+    essid: str | None = None
     is_hidden: bool = False
-    revealed_essid: Optional[str] = None  # Revealed through correlation
+    revealed_essid: str | None = None  # Revealed through correlation
 
     # Radio info
-    channel: Optional[int] = None
-    frequency_mhz: Optional[int] = None
+    channel: int | None = None
+    frequency_mhz: int | None = None
     band: str = BAND_UNKNOWN
     width: str = WIDTH_UNKNOWN
 
     # Signal aggregation
     rssi_samples: list[tuple[datetime, int]] = field(default_factory=list)
-    rssi_current: Optional[int] = None
-    rssi_median: Optional[float] = None
-    rssi_min: Optional[int] = None
-    rssi_max: Optional[int] = None
-    rssi_variance: Optional[float] = None
-    rssi_ema: Optional[float] = None
+    rssi_current: int | None = None
+    rssi_median: float | None = None
+    rssi_min: int | None = None
+    rssi_max: int | None = None
+    rssi_variance: float | None = None
+    rssi_ema: float | None = None
 
     # Proximity/signal bands
     signal_band: str = SIGNAL_UNKNOWN
     proximity_band: str = PROXIMITY_UNKNOWN
-    estimated_distance_m: Optional[float] = None
+    estimated_distance_m: float | None = None
     distance_confidence: float = 0.0
 
     # Security
@@ -131,7 +128,7 @@ class WiFiAccessPoint:
     client_count: int = 0
 
     # Metadata
-    vendor: Optional[str] = None
+    vendor: str | None = None
 
     # Heuristic flags
     heuristic_flags: list[str] = field(default_factory=list)
@@ -141,7 +138,7 @@ class WiFiAccessPoint:
 
     # Baseline tracking
     in_baseline: bool = False
-    baseline_id: Optional[int] = None
+    baseline_id: int | None = None
 
     @property
     def display_name(self) -> str:
@@ -281,23 +278,23 @@ class WiFiClient:
 
     # Identity
     mac: str
-    vendor: Optional[str] = None
+    vendor: str | None = None
 
     # Signal
     rssi_samples: list[tuple[datetime, int]] = field(default_factory=list)
-    rssi_current: Optional[int] = None
-    rssi_median: Optional[float] = None
-    rssi_min: Optional[int] = None
-    rssi_max: Optional[int] = None
-    rssi_ema: Optional[float] = None
+    rssi_current: int | None = None
+    rssi_median: float | None = None
+    rssi_min: int | None = None
+    rssi_max: int | None = None
+    rssi_ema: float | None = None
 
     # Proximity
     signal_band: str = SIGNAL_UNKNOWN
     proximity_band: str = PROXIMITY_UNKNOWN
-    estimated_distance_m: Optional[float] = None
+    estimated_distance_m: float | None = None
 
     # Association
-    associated_bssid: Optional[str] = None
+    associated_bssid: str | None = None
     is_associated: bool = False
 
     # Probes
@@ -380,8 +377,8 @@ class WiFiProbeRequest:
     timestamp: datetime
     client_mac: str
     probed_ssid: str
-    rssi: Optional[int] = None
-    client_vendor: Optional[str] = None
+    rssi: int | None = None
+    client_vendor: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -400,22 +397,22 @@ class ChannelStats:
 
     channel: int
     band: str = BAND_UNKNOWN
-    frequency_mhz: Optional[int] = None
+    frequency_mhz: int | None = None
 
     # Counts
     ap_count: int = 0
     client_count: int = 0
 
     # Signal stats
-    rssi_avg: Optional[float] = None
-    rssi_min: Optional[int] = None
-    rssi_max: Optional[int] = None
+    rssi_avg: float | None = None
+    rssi_min: int | None = None
+    rssi_max: int | None = None
 
     # Utilization score (0.0-1.0, lower is better)
     utilization_score: float = 0.0
 
     # Recommendation rank (1 = best)
-    recommendation_rank: Optional[int] = None
+    recommendation_rank: int | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -442,7 +439,7 @@ class ChannelRecommendation:
     score: float  # Lower is better
     reason: str
     is_dfs: bool = False
-    recommendation_rank: Optional[int] = None
+    recommendation_rank: int | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -471,14 +468,14 @@ class WiFiScanResult:
 
     # Scan metadata
     scan_mode: str = SCAN_MODE_QUICK
-    interface: Optional[str] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    duration_seconds: Optional[float] = None
+    interface: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: float | None = None
 
     # Status
     is_complete: bool = False
-    error: Optional[str] = None
+    error: str | None = None
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -545,14 +542,14 @@ class WiFiScanStatus:
 
     is_scanning: bool = False
     scan_mode: str = SCAN_MODE_QUICK
-    interface: Optional[str] = None
-    started_at: Optional[datetime] = None
+    interface: str | None = None
+    started_at: datetime | None = None
     networks_found: int = 0
     clients_found: int = 0
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
-    def elapsed_seconds(self) -> Optional[float]:
+    def elapsed_seconds(self) -> float | None:
         """Seconds since scan started."""
         if self.started_at:
             return (datetime.now() - self.started_at).total_seconds()
@@ -582,20 +579,20 @@ class WiFiCapabilities:
 
     # Interfaces
     interfaces: list[dict] = field(default_factory=list)
-    default_interface: Optional[str] = None
+    default_interface: str | None = None
 
     # Quick scan tools
     has_nmcli: bool = False
     has_iw: bool = False
     has_iwlist: bool = False
     has_airport: bool = False
-    preferred_quick_tool: Optional[str] = None
+    preferred_quick_tool: str | None = None
 
     # Deep scan tools
     has_airmon_ng: bool = False
     has_airodump_ng: bool = False
     has_monitor_capable_interface: bool = False
-    monitor_interface: Optional[str] = None
+    monitor_interface: str | None = None
 
     # Issues
     issues: list[str] = field(default_factory=list)

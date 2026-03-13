@@ -91,7 +91,6 @@ def start_tracked_meeting():
     """
     from utils.database import start_meeting_window
     from utils.tscm.advanced import get_timeline_manager
-    from routes.tscm import _current_sweep_id
 
     data = request.get_json() or {}
 
@@ -156,9 +155,9 @@ def end_tracked_meeting(meeting_id: int):
 def get_meeting_summary_endpoint(meeting_id: int):
     """Get detailed summary of device activity during a meeting."""
     try:
+        from routes.tscm import _current_sweep_id
         from utils.database import get_meeting_windows
         from utils.tscm.advanced import generate_meeting_summary, get_timeline_manager
-        from routes.tscm import _current_sweep_id
 
         # Get meeting window
         windows = get_meeting_windows(_current_sweep_id or 0)
@@ -194,7 +193,6 @@ def get_meeting_summary_endpoint(meeting_id: int):
 def get_active_meeting():
     """Get currently active meeting window."""
     from utils.database import get_active_meeting_window
-    from routes.tscm import _current_sweep_id
 
     meeting = get_active_meeting_window(_current_sweep_id)
 

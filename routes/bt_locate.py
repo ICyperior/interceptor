@@ -12,7 +12,6 @@ from collections.abc import Generator
 
 from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 from utils.bluetooth.irk_extractor import get_paired_irks
 from utils.bt_locate import (
     Environment,
@@ -22,6 +21,7 @@ from utils.bt_locate import (
     start_locate_session,
     stop_locate_session,
 )
+from utils.responses import api_error
 from utils.sse import format_sse
 
 logger = logging.getLogger('intercept.bt_locate')

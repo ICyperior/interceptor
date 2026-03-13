@@ -7,6 +7,7 @@ telemetry (position, altitude, temperature, humidity, pressure) on the
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
@@ -20,7 +21,6 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
 from utils.constants import (
     MAX_RADIOSONDE_AGE_SECONDS,
@@ -32,6 +32,7 @@ from utils.constants import (
 )
 from utils.gps import is_gpsd_running
 from utils.logging import get_logger
+from utils.responses import api_error, api_success
 from utils.sdr import SDRFactory, SDRType
 from utils.sse import sse_stream_fanout
 from utils.validation import (
@@ -270,7 +271,7 @@ def _fix_data_ownership(path: str) -> None:
         return
     try:
         uid_int, gid_int = int(uid), int(gid)
-        for dirpath, dirnames, filenames in os.walk(path):
+        for dirpath, _dirnames, filenames in os.walk(path):
             os.chown(dirpath, uid_int, gid_int)
             for fname in filenames:
                 os.chown(os.path.join(dirpath, fname), uid_int, gid_int)
@@ -315,18 +316,14 @@ def parse_radiosonde_udp(udp_port: int) -> None:
             if serial:
                 with _balloons_lock:
                     radiosonde_balloons[serial] = balloon
-                try:
+                with contextlib.suppress(queue.Full):
                     app_module.radiosonde_queue.put_nowait({
                         'type': 'balloon',
                         **balloon,
                     })
-                except queue.Full:
-                    pass
 
-    try:
+    with contextlib.suppress(OSError):
         sock.close()
-    except OSError:
-        pass
     _udp_socket = None
     logger.info("Radiosonde UDP listener stopped")
 
@@ -354,71 +351,51 @@ def _process_telemetry(msg: dict) -> dict | None:
     # Position
     for key in ('lat', 'latitude'):
         if key in msg:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 balloon['lat'] = float(msg[key])
-            except (ValueError, TypeError):
-                pass
             break
     for key in ('lon', 'longitude'):
         if key in msg:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 balloon['lon'] = float(msg[key])
-            except (ValueError, TypeError):
-                pass
             break
 
     # Altitude (metres)
     if 'alt' in msg:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             balloon['alt'] = float(msg['alt'])
-        except (ValueError, TypeError):
-            pass
 
     # Meteorological data
     for field in ('temp', 'humidity', 'pressure'):
         if field in msg:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 balloon[field] = float(msg[field])
-            except (ValueError, TypeError):
-                pass
 
     # Velocity
     if 'vel_h' in msg:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             balloon['vel_h'] = float(msg['vel_h'])
-        except (ValueError, TypeError):
-            pass
     if 'vel_v' in msg:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             balloon['vel_v'] = float(msg['vel_v'])
-        except (ValueError, TypeError):
-            pass
     if 'heading' in msg:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             balloon['heading'] = float(msg['heading'])
-        except (ValueError, TypeError):
-            pass
 
     # GPS satellites
     if 'sats' in msg:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             balloon['sats'] = int(msg['sats'])
-        except (ValueError, TypeError):
-            pass
 
     # Battery voltage
     if 'batt' in msg:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             balloon['batt'] = float(msg['batt'])
-        except (ValueError, TypeError):
-            pass
 
     # Frequency
     if 'freq' in msg:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             balloon['freq'] = float(msg['freq'])
-        except (ValueError, TypeError):
-            pass
 
     balloon['last_seen'] = time.time()
     return balloon
@@ -612,12 +589,10 @@ def start_radiosonde():
             app_module.release_sdr_device(device_int, sdr_type_str)
             stderr_output = ''
             if app_module.radiosonde_process.stderr:
-                try:
+                with contextlib.suppress(Exception):
                     stderr_output = app_module.radiosonde_process.stderr.read().decode(
                         'utf-8', errors='ignore'
                     ).strip()
-                except Exception:
-                    pass
             if stderr_output:
                 logger.error(f"radiosonde_auto_rx stderr:\n{stderr_output}")
             if stderr_output and (
@@ -686,10 +661,8 @@ def stop_radiosonde():
 
         # Close UDP socket to unblock listener thread
         if _udp_socket:
-            try:
+            with contextlib.suppress(OSError):
                 _udp_socket.close()
-            except OSError:
-                pass
             _udp_socket = None
 
         # Release SDR device

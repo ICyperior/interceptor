@@ -7,8 +7,6 @@ HackRF supports 1 MHz to 6 GHz frequency range.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from utils.dependencies import get_tool_path
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
@@ -33,7 +31,7 @@ class HackRFCommandBuilder(CommandBuilder):
         """Build SoapySDR device string for HackRF."""
         if device.serial and device.serial != 'N/A':
             return f'driver=hackrf,serial={device.serial}'
-        return f'driver=hackrf'
+        return 'driver=hackrf'
 
     def _split_gain(self, gain: float) -> tuple[int, int]:
         """
@@ -59,10 +57,10 @@ class HackRFCommandBuilder(CommandBuilder):
         device: SDRDevice,
         frequency_mhz: float,
         sample_rate: int = 22050,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         modulation: str = "fm",
-        squelch: Optional[int] = None,
+        squelch: int | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -99,7 +97,7 @@ class HackRFCommandBuilder(CommandBuilder):
     def build_adsb_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None,
+        gain: float | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -129,8 +127,8 @@ class HackRFCommandBuilder(CommandBuilder):
         self,
         device: SDRDevice,
         frequency_mhz: float = 433.92,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -161,7 +159,7 @@ class HackRFCommandBuilder(CommandBuilder):
     def build_ais_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None,
+        gain: float | None = None,
         bias_t: bool = False,
         tcp_port: int = 10110
     ) -> list[str]:
@@ -193,8 +191,8 @@ class HackRFCommandBuilder(CommandBuilder):
         device: SDRDevice,
         frequency_mhz: float,
         sample_rate: int = 2048000,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         bias_t: bool = False,
         output_format: str = 'cu8',
     ) -> list[str]:

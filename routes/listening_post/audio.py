@@ -2,27 +2,27 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import select
 import subprocess
 import time
-from typing import Any
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
+
+import routes.listening_post as _state
 
 from . import (
-    receiver_bp,
-    logger,
-    app_module,
-    scanner_config,
-    _wav_header,
     _start_audio_stream,
     _stop_audio_stream,
     _stop_waterfall_internal,
+    _wav_header,
+    app_module,
+    logger,
     normalize_modulation,
+    receiver_bp,
+    scanner_config,
 )
-import routes.listening_post as _state
-
 
 # ============================================
 # MANUAL AUDIO ENDPOINTS (for direct listening)
@@ -106,23 +106,17 @@ def start_audio() -> Response:
     # Scanner teardown outside lock (blocking: thread join, process wait, pkill, sleep)
     if need_scanner_teardown:
         if scanner_thread_ref and scanner_thread_ref.is_alive():
-            try:
+            with contextlib.suppress(Exception):
                 scanner_thread_ref.join(timeout=2.0)
-            except Exception:
-                pass
         if scanner_proc_ref and scanner_proc_ref.poll() is None:
             try:
                 scanner_proc_ref.terminate()
                 scanner_proc_ref.wait(timeout=1)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     scanner_proc_ref.kill()
-                except Exception:
-                    pass
-        try:
+        with contextlib.suppress(Exception):
             subprocess.run(['pkill', '-9', 'rtl_power'], capture_output=True, timeout=0.5)
-        except Exception:
-            pass
         time.sleep(0.5)
 
     # Re-acquire lock for waterfall check and device claim
@@ -232,7 +226,7 @@ def start_audio() -> Response:
         start_error = ''
         for log_path in ('/tmp/rtl_fm_stderr.log', '/tmp/ffmpeg_stderr.log'):
             try:
-                with open(log_path, 'r') as handle:
+                with open(log_path) as handle:
                     content = handle.read().strip()
                 if content:
                     start_error = content.splitlines()[-1]
@@ -290,7 +284,7 @@ def audio_debug() -> Response:
 
     def _read_log(path: str) -> str:
         try:
-            with open(path, 'r') as handle:
+            with open(path) as handle:
                 return handle.read().strip()
         except Exception:
             return ''

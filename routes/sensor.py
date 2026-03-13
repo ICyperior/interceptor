@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 import queue
@@ -9,21 +10,25 @@ import subprocess
 import threading
 import time
 from datetime import datetime
-from typing import Any, Generator
+from typing import Any
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
-from utils.logging import sensor_logger as logger
-from utils.validation import (
-    validate_frequency, validate_device_index, validate_gain, validate_ppm,
-    validate_rtl_tcp_host, validate_rtl_tcp_port
-)
-from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
-from utils.process import safe_terminate, register_process, unregister_process
+from utils.logging import sensor_logger as logger
+from utils.process import register_process, unregister_process
+from utils.responses import api_error, api_success
 from utils.sdr import SDRFactory, SDRType
+from utils.sse import sse_stream_fanout
+from utils.validation import (
+    validate_device_index,
+    validate_frequency,
+    validate_gain,
+    validate_ppm,
+    validate_rtl_tcp_host,
+    validate_rtl_tcp_port,
+)
 
 sensor_bp = Blueprint('sensor', __name__)
 
@@ -137,10 +142,8 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
             process.terminate()
             process.wait(timeout=2)
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 process.kill()
-            except Exception:
-                pass
         unregister_process(process)
         app_module.sensor_queue.put({'type': 'status', 'text': 'stopped'})
         with app_module.sensor_lock:

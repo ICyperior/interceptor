@@ -9,30 +9,26 @@ from __future__ import annotations
 import logging
 import queue
 import threading
-import time
+from collections.abc import Generator
 from datetime import datetime
-from typing import Callable, Generator, Optional
+from typing import Callable
 
 from .aggregator import DeviceAggregator
 from .capability_check import check_capabilities
 from .constants import (
-    DEFAULT_SCAN_DURATION,
     DEVICE_STALE_TIMEOUT,
-    PROTOCOL_AUTO,
-    PROTOCOL_BLE,
-    PROTOCOL_CLASSIC,
 )
 from .dbus_scanner import DBusScanner
 from .fallback_scanner import FallbackScanner
-from .ubertooth_scanner import UbertoothScanner
 from .heuristics import HeuristicsEngine
 from .irk_extractor import get_paired_irks
 from .models import BTDeviceAggregate, BTObservation, ScanStatus, SystemCapabilities
+from .ubertooth_scanner import UbertoothScanner
 
 logger = logging.getLogger(__name__)
 
 # Global scanner instance
-_scanner_instance: Optional['BluetoothScanner'] = None
+_scanner_instance: BluetoothScanner | None = None
 _scanner_lock = threading.Lock()
 
 
@@ -43,7 +39,7 @@ class BluetoothScanner:
     Provides unified API for scanning, device aggregation, and heuristics.
     """
 
-    def __init__(self, adapter_id: Optional[str] = None):
+    def __init__(self, adapter_id: str | None = None):
         """
         Initialize Bluetooth scanner.
 
@@ -57,27 +53,27 @@ class BluetoothScanner:
         self._lock = threading.Lock()
 
         # Scanner backends
-        self._dbus_scanner: Optional[DBusScanner] = None
-        self._fallback_scanner: Optional[FallbackScanner] = None
-        self._ubertooth_scanner: Optional[UbertoothScanner] = None
-        self._active_backend: Optional[str] = None
+        self._dbus_scanner: DBusScanner | None = None
+        self._fallback_scanner: FallbackScanner | None = None
+        self._ubertooth_scanner: UbertoothScanner | None = None
+        self._active_backend: str | None = None
 
         # Event queue for SSE streaming
         self._event_queue: queue.Queue = queue.Queue(maxsize=1000)
 
         # Duration-based scanning
-        self._scan_timer: Optional[threading.Timer] = None
+        self._scan_timer: threading.Timer | None = None
 
         # Callbacks
         self._on_device_updated_callbacks: list[Callable[[BTDeviceAggregate], None]] = []
 
         # Capability check result
-        self._capabilities: Optional[SystemCapabilities] = None
+        self._capabilities: SystemCapabilities | None = None
 
     def start_scan(
         self,
         mode: str = 'auto',
-        duration_s: Optional[int] = None,
+        duration_s: int | None = None,
         transport: str = 'auto',
         rssi_threshold: int = -100,
     ) -> bool:
@@ -160,7 +156,7 @@ class BluetoothScanner:
         adapter: str,
         transport: str,
         rssi_threshold: int
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Start DBus scanner."""
         try:
             self._dbus_scanner = DBusScanner(
@@ -173,7 +169,7 @@ class BluetoothScanner:
             logger.warning(f"DBus scanner failed: {e}")
         return False, None
 
-    def _start_ubertooth(self) -> tuple[bool, Optional[str]]:
+    def _start_ubertooth(self) -> tuple[bool, str | None]:
         """Start Ubertooth One scanner."""
         try:
             self._ubertooth_scanner = UbertoothScanner(
@@ -185,7 +181,7 @@ class BluetoothScanner:
             logger.warning(f"Ubertooth scanner failed: {e}")
         return False, None
 
-    def _start_fallback(self, adapter: str, preferred: str) -> tuple[bool, Optional[str]]:
+    def _start_fallback(self, adapter: str, preferred: str) -> tuple[bool, str | None]:
         """Start fallback scanner."""
         try:
             # Extract adapter name from path if needed
@@ -342,8 +338,8 @@ class BluetoothScanner:
         self,
         sort_by: str = 'last_seen',
         sort_desc: bool = True,
-        min_rssi: Optional[int] = None,
-        protocol: Optional[str] = None,
+        min_rssi: int | None = None,
+        protocol: str | None = None,
         max_age_seconds: float = DEVICE_STALE_TIMEOUT,
     ) -> list[BTDeviceAggregate]:
         """
@@ -382,7 +378,7 @@ class BluetoothScanner:
 
         return devices
 
-    def get_device(self, device_id: str) -> Optional[BTDeviceAggregate]:
+    def get_device(self, device_id: str) -> BTDeviceAggregate | None:
         """Get a specific device by ID."""
         return self._aggregator.get_device(device_id)
 
@@ -491,7 +487,7 @@ class BluetoothScanner:
         return self._aggregator.has_baseline
 
 
-def get_bluetooth_scanner(adapter_id: Optional[str] = None) -> BluetoothScanner:
+def get_bluetooth_scanner(adapter_id: str | None = None) -> BluetoothScanner:
     """
     Get or create the global Bluetooth scanner instance.
 

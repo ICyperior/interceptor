@@ -1,9 +1,8 @@
 """Tests for utility modules."""
 
-import pytest
-from utils.process import is_valid_mac, is_valid_channel
-from utils.dependencies import check_tool
 from data.oui import get_manufacturer
+from utils.dependencies import check_tool
+from utils.process import is_valid_channel, is_valid_mac
 
 
 class TestMacValidation:

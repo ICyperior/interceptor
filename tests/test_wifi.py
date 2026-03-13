@@ -1,10 +1,13 @@
-import pytest
-import sys
 import os
-from unittest.mock import MagicMock, patch, mock_open
+import sys
+from unittest.mock import MagicMock, mock_open, patch
+
+import pytest
 from flask import Flask
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from routes.wifi import wifi_bp, parse_airodump_csv
+from routes.wifi import parse_airodump_csv, wifi_bp
+
 
 @pytest.fixture
 def mock_app_module(mocker):
@@ -37,11 +40,11 @@ def test_parse_airodump_csv(mocker):
         "Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probes\n"
         "11:22:33:44:55:66, 2023-01-01, 2023-01-01, -60, 20, AA:BB:CC:DD:EE:FF, MyWiFi\n"
     )
-    
+
     with patch("builtins.open", mock_open(read_data=csv_content)):
         mocker.patch("routes.wifi.get_manufacturer", return_value="Apple")
         networks, clients = parse_airodump_csv("dummy.csv")
-        
+
         assert "AA:BB:CC:DD:EE:FF" in networks
         assert networks["AA:BB:CC:DD:EE:FF"]["essid"] == "MyWiFi"
         assert "11:22:33:44:55:66" in clients
@@ -53,10 +56,10 @@ def test_get_interfaces(client, mocker):
     """Test the /interfaces endpoint."""
     mocker.patch("routes.wifi.detect_wifi_interfaces", return_value=[{'name': 'wlan0', 'type': 'managed'}])
     mocker.patch("routes.wifi.check_tool", return_value=True)
-    
+
     response = client.get('/wifi/interfaces')
     data = response.get_json()
-    
+
     assert response.status_code == 200
     assert len(data['interfaces']) == 1
     assert data['tools']['airmon'] is True
@@ -67,18 +70,18 @@ def test_toggle_monitor_start_success(client, mocker):
     mocker.patch("routes.wifi.check_tool", return_value=True)
     mock_run = mocker.patch("routes.wifi.subprocess.run")
     mock_run.return_value = MagicMock(stdout="enabled on [phy0]wlan0mon", stderr="", returncode=0)
-    
+
     with patch("os.path.exists", return_value=True):
         response = client.post('/wifi/monitor', json={'action': 'start', 'interface': 'wlan0'})
-        
+
         assert response.status_code == 200
         assert response.get_json()['status'] == 'success'
         assert response.get_json()['monitor_interface'] == 'wlan0mon'
 
 def test_start_scan_already_running(client, mock_app_module):
     """Test that we can't start a scan if one is already active."""
-    mock_app_module.wifi_process = MagicMock() 
-    
+    mock_app_module.wifi_process = MagicMock()
+
     response = client.post('/wifi/scan/start', json={'interface': 'wlan0mon'})
     data = response.get_json()
     assert data['status'] == 'error'
@@ -86,21 +89,21 @@ def test_start_scan_already_running(client, mock_app_module):
 
 def test_start_scan_execution(client, mock_app_module, mocker):
     """Test the full command construction of airodump-ng."""
-    mock_app_module.wifi_process = None 
+    mock_app_module.wifi_process = None
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("routes.wifi.get_tool_path", return_value="/usr/bin/airodump-ng")
-    
+
     mock_popen = mocker.patch("routes.wifi.subprocess.Popen")
     mock_proc = MagicMock()
-    mock_proc.poll.return_value = None 
+    mock_proc.poll.return_value = None
     mock_popen.return_value = mock_proc
-    
+
     payload = {'interface': 'wlan0mon', 'channel': 6, 'band': 'g'}
     response = client.post('/wifi/scan/start', json=payload)
-    
+
     assert response.status_code == 200
     assert response.get_json()['status'] == 'started'
-    
+
     args, _ = mock_popen.call_args
     cmd = args[0]
     assert "-c" in cmd and "6" in cmd
@@ -110,9 +113,9 @@ def test_stop_scan(client, mock_app_module):
     """Test terminating the scanning process."""
     mock_proc = MagicMock()
     mock_app_module.wifi_process = mock_proc
-    
+
     response = client.post('/wifi/scan/stop')
-    
+
     assert response.status_code == 200
     assert response.get_json()['status'] == 'stopped'
     mock_proc.terminate.assert_called_once()
@@ -123,14 +126,14 @@ def test_send_deauth_success(client, mock_app_module, mocker):
     mocker.patch("routes.wifi.get_tool_path", return_value="/usr/bin/aireplay-ng")
     mock_run = mocker.patch("routes.wifi.subprocess.run")
     mock_run.return_value = MagicMock(returncode=0)
-    
+
     payload = {
         'bssid': 'AA:BB:CC:DD:EE:FF',
         'count': 10,
         'interface': 'wlan0mon'
     }
     response = client.post('/wifi/deauth', json=payload)
-    
+
     assert response.status_code == 200
     args, _ = mock_run.call_args
     cmd = args[0]
@@ -145,10 +148,10 @@ def test_capture_handshake_start(client, mock_app_module, mocker):
     mock_app_module.wifi_process = None
     mocker.patch("routes.wifi.get_tool_path", return_value="/usr/bin/airodump-ng")
     mock_popen = mocker.patch("routes.wifi.subprocess.Popen")
-    
+
     payload = {'bssid': 'AA:BB:CC:DD:EE:FF', 'channel': '6', 'interface': 'wlan0mon'}
     response = client.post('/wifi/handshake/capture', json=payload)
-    
+
     assert response.status_code == 200
     assert 'capture_file' in response.get_json()
     assert mock_popen.called
@@ -158,13 +161,13 @@ def test_check_handshake_status_found(client, mocker):
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("os.path.getsize", return_value=1024)
     mocker.patch("routes.wifi.get_tool_path", return_value="aircrack-ng")
-    
+
     mock_run = mocker.patch("routes.wifi.subprocess.run")
     mock_run.return_value = MagicMock(stdout="WPA (1 handshake)", stderr="", returncode=0)
-    
+
     payload = {'file': '/tmp/intercept_handshake_test.cap', 'bssid': 'AA:BB:CC:DD:EE:FF'}
     response = client.post('/wifi/handshake/status', json=payload)
-    
+
     assert response.get_json()['handshake_found'] is True
 
 ### --- PMKID TESTS --- ###
@@ -184,22 +187,22 @@ def test_crack_handshake_success(client, mocker):
     """Test successful password extraction using Regex."""
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("routes.wifi.get_tool_path", return_value="aircrack-ng")
-    
+
     mock_run = mocker.patch("routes.wifi.subprocess.run")
     # Simulate the actual aircrack-ng success output
     mock_run.return_value = MagicMock(
-        stdout="KEY FOUND! [ secret123 ]", 
-        stderr="", 
+        stdout="KEY FOUND! [ secret123 ]",
+        stderr="",
         returncode=0
     )
-    
+
     payload = {
         'capture_file': '/tmp/intercept_handshake_test.cap',
         'wordlist': '/home/user/passwords.txt',
         'bssid': 'AA:BB:CC:DD:EE:FF'
     }
     response = client.post('/wifi/handshake/crack', json=payload)
-    
+
     data = response.get_json()
     assert data['status'] == 'success'
     assert data['password'] == 'secret123'
@@ -212,10 +215,10 @@ def test_get_wifi_networks(client, mock_app_module):
         'AA:BB:CC:DD:EE:FF': {'essid': 'Home-WiFi', 'bssid': 'AA:BB:CC:DD:EE:FF'}
     }
     mock_app_module.wifi_handshakes = ['AA:BB:CC:DD:EE:FF']
-    
+
     response = client.get('/wifi/networks')
     data = response.get_json()
-    
+
     assert len(data['networks']) == 1
     assert data['networks'][0]['essid'] == 'Home-WiFi'
     assert 'AA:BB:CC:DD:EE:FF' in data['handshakes']

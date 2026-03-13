@@ -10,7 +10,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class SDRType(Enum):
@@ -49,8 +48,8 @@ class SDRDevice:
     serial: str
     driver: str                  # e.g., "rtlsdr", "lime", "hackrf"
     capabilities: SDRCapabilities
-    rtl_tcp_host: Optional[str] = None   # Remote rtl_tcp server host
-    rtl_tcp_port: Optional[int] = None   # Remote rtl_tcp server port
+    rtl_tcp_host: str | None = None   # Remote rtl_tcp server host
+    rtl_tcp_port: int | None = None   # Remote rtl_tcp server port
 
     @property
     def is_network(self) -> bool:
@@ -92,10 +91,10 @@ class CommandBuilder(ABC):
         device: SDRDevice,
         frequency_mhz: float,
         sample_rate: int = 22050,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         modulation: str = "fm",
-        squelch: Optional[int] = None,
+        squelch: int | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -120,7 +119,7 @@ class CommandBuilder(ABC):
     def build_adsb_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None,
+        gain: float | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -141,8 +140,8 @@ class CommandBuilder(ABC):
         self,
         device: SDRDevice,
         frequency_mhz: float = 433.92,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -164,7 +163,7 @@ class CommandBuilder(ABC):
     def build_ais_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None,
+        gain: float | None = None,
         bias_t: bool = False,
         tcp_port: int = 10110
     ) -> list[str]:
@@ -192,8 +191,8 @@ class CommandBuilder(ABC):
         device: SDRDevice,
         frequency_mhz: float,
         sample_rate: int = 2048000,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         bias_t: bool = False,
         output_format: str = 'cu8',
     ) -> list[str]:

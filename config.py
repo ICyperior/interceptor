@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.25.0"
+VERSION = "2.26.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.0",
+        "date": "March 2026",
+        "highlights": [
+            "Fix SSE fanout thread crash when source queue is None during shutdown",
+            "Fix branded 'i' logo FOUC (flash of unstyled content) on first page load",
+        ]
+    },
     {
         "version": "2.25.0",
         "date": "March 2026",

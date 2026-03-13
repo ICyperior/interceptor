@@ -1,6 +1,5 @@
 """Tests for main application routes."""
 
-import pytest
 
 
 def test_index_page(client):

@@ -111,7 +111,7 @@ class TestWeFaxStations:
                 station_callsign='NOJ',
                 frequency_reference='invalid',
             )
-            assert False, "Expected ValueError for invalid frequency_reference"
+            raise AssertionError("Expected ValueError for invalid frequency_reference")
         except ValueError as exc:
             assert 'frequency_reference' in str(exc)
 

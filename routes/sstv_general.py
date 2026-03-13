@@ -6,18 +6,17 @@ frequencies used by amateur radio operators worldwide.
 
 from __future__ import annotations
 
+import contextlib
 import queue
-import time
-from collections.abc import Generator
 from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request, send_file
 
-from utils.responses import api_success, api_error
 import app as app_module
-from utils.logging import get_logger
-from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
+from utils.logging import get_logger
+from utils.responses import api_error
+from utils.sse import sse_stream_fanout
 from utils.sstv import (
     get_general_sstv_decoder,
 )
@@ -325,7 +324,5 @@ def decode_file():
         return api_error(str(e), 500)
 
     finally:
-        try:
+        with contextlib.suppress(Exception):
             Path(tmp_path).unlink()
-        except Exception:
-            pass

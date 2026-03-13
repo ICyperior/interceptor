@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
 import logging
 import os
 import platform
+import re
 import signal
 import subprocess
-import re
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .dependencies import check_tool
 
@@ -38,10 +39,8 @@ def close_process_pipes(process: subprocess.Popen) -> None:
     """Close stdin/stdout/stderr pipes on a subprocess to free file descriptors."""
     for pipe in (process.stdin, process.stdout, process.stderr):
         if pipe:
-            try:
+            with contextlib.suppress(OSError):
                 pipe.close()
-            except OSError:
-                pass
 
 
 def cleanup_all_processes() -> None:
@@ -97,10 +96,8 @@ def safe_terminate(process: subprocess.Popen | None, timeout: float = 2.0) -> bo
         return True
     except subprocess.TimeoutExpired:
         process.kill()
-        try:
+        with contextlib.suppress(subprocess.TimeoutExpired):
             process.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            pass
         close_process_pipes(process)
         unregister_process(process)
         return True
@@ -157,10 +154,8 @@ def cleanup_stale_processes() -> None:
     # Note: dump1090 is NOT included here as users may run it as a system service
     processes_to_kill = ['rtl_adsb', 'rtl_433', 'multimon-ng', 'rtl_fm']
     for proc_name in processes_to_kill:
-        try:
+        with contextlib.suppress(subprocess.SubprocessError, OSError):
             subprocess.run(['pkill', '-9', proc_name], capture_output=True)
-        except (subprocess.SubprocessError, OSError):
-            pass
 
 
 _DUMP1090_PID_FILE = Path(__file__).resolve().parent.parent / 'instance' / 'dump1090.pid'
@@ -240,10 +235,8 @@ def cleanup_stale_dump1090() -> None:
                 break
         else:
             # Still alive, force kill
-            try:
+            with contextlib.suppress(OSError):
                 os.killpg(pgid, signal.SIGKILL)
-            except OSError:
-                pass
     except OSError as e:
         logger.debug(f"Error killing stale dump1090 PID {pid}: {e}")
 

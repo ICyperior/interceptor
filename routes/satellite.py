@@ -2,30 +2,25 @@
 
 from __future__ import annotations
 
-import json
 import math
 import urllib.request
 from datetime import datetime, timedelta
-from typing import Any, Optional
-from urllib.parse import urlparse
 
 import requests
+from flask import Blueprint, jsonify, render_template, request
 
-from flask import Blueprint, jsonify, request, render_template, Response
-
-from utils.responses import api_success, api_error
 from config import SHARED_OBSERVER_LOCATION_ENABLED
-
 from data.satellites import TLE_SATELLITES
 from utils.database import (
-    get_tracked_satellites,
     add_tracked_satellite,
     bulk_add_tracked_satellites,
-    update_tracked_satellite,
+    get_tracked_satellites,
     remove_tracked_satellite,
+    update_tracked_satellite,
 )
 from utils.logging import satellite_logger as logger
-from utils.validation import validate_latitude, validate_longitude, validate_hours, validate_elevation
+from utils.responses import api_error
+from utils.validation import validate_elevation, validate_hours, validate_latitude, validate_longitude
 
 satellite_bp = Blueprint('satellite', __name__, url_prefix='/satellite')
 
@@ -87,7 +82,7 @@ def init_tle_auto_refresh():
     logger.info("TLE auto-refresh scheduled")
 
 
-def _fetch_iss_realtime(observer_lat: Optional[float] = None, observer_lon: Optional[float] = None) -> Optional[dict]:
+def _fetch_iss_realtime(observer_lat: float | None = None, observer_lon: float | None = None) -> dict | None:
     """
     Fetch real-time ISS position from external APIs.
 
@@ -190,8 +185,8 @@ def satellite_dashboard():
 def predict_passes():
     """Calculate satellite passes using skyfield."""
     try:
-        from skyfield.api import wgs84, EarthSatellite
         from skyfield.almanac import find_discrete
+        from skyfield.api import EarthSatellite, wgs84
     except ImportError:
         return jsonify({
             'status': 'error',
@@ -344,7 +339,7 @@ def predict_passes():
 def get_satellite_position():
     """Get real-time positions of satellites."""
     try:
-        from skyfield.api import wgs84, EarthSatellite
+        from skyfield.api import EarthSatellite, wgs84
     except ImportError:
         return api_error('skyfield not installed', 503)
 

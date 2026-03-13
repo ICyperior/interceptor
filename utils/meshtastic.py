@@ -13,11 +13,12 @@ Install SDK with: pip install meshtastic
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
+import json
 import secrets
 import threading
 import urllib.request
-import json
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -420,10 +421,8 @@ class MeshtasticClient:
             if self._running:
                 # Another thread connected while we were connecting — discard ours
                 if new_interface:
-                    try:
+                    with contextlib.suppress(Exception):
                         new_interface.close()
-                    except Exception:
-                        pass
                 return True
 
             self._interface = new_interface
@@ -456,18 +455,12 @@ class MeshtasticClient:
     def _cleanup_subscriptions(self) -> None:
         """Unsubscribe from pubsub topics."""
         if HAS_MESHTASTIC:
-            try:
+            with contextlib.suppress(Exception):
                 pub.unsubscribe(self._on_receive, "meshtastic.receive")
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 pub.unsubscribe(self._on_connection, "meshtastic.connection.established")
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 pub.unsubscribe(self._on_disconnect, "meshtastic.connection.lost")
-            except Exception:
-                pass
 
     def _on_connection(self, interface, topic=None) -> None:
         """Handle connection established event."""
@@ -1283,7 +1276,7 @@ class MeshtasticClient:
             try:
                 my_info = self._interface.getMyNodeInfo()
                 if my_info:
-                    metadata = my_info.get('deviceMetrics', {})
+                    my_info.get('deviceMetrics', {})
                     # Firmware version is in the user section or metadata
                     if 'firmware_version' in my_info:
                         self._firmware_version = my_info['firmware_version']
@@ -1356,8 +1349,9 @@ class MeshtasticClient:
             PNG image bytes, or None on error
         """
         try:
-            import qrcode
             from io import BytesIO
+
+            import qrcode
         except ImportError:
             logger.error("qrcode library not installed. Install with: pip install qrcode[pil]")
             return None
@@ -1454,7 +1448,7 @@ class MeshtasticClient:
 
                     try:
                         # Send range test packet with sequence number
-                        payload = f"RangeTest #{i+1}".encode('utf-8')
+                        payload = f"RangeTest #{i+1}".encode()
                         self._interface.sendData(
                             payload,
                             destinationId=BROADCAST_ADDR,

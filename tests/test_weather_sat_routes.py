@@ -7,12 +7,11 @@ Covers all weather_sat endpoints: /status, /satellites, /start, /test-decode,
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
-import pytest
-
-from utils.weather_sat import WeatherSatImage, WEATHER_SATELLITES
 from datetime import datetime, timezone
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from utils.weather_sat import WeatherSatImage
 
 
 class TestWeatherSatRoutes:
@@ -69,7 +68,7 @@ class TestWeatherSatRoutes:
         """POST /weather-sat/start successfully starts capture."""
         with patch('routes.weather_sat.is_weather_sat_available', return_value=True), \
              patch('routes.weather_sat.get_weather_sat_decoder') as mock_get, \
-             patch('routes.weather_sat.queue.Queue') as mock_queue:
+             patch('routes.weather_sat.queue.Queue'):
 
             mock_decoder = MagicMock()
             mock_decoder.is_running = False
@@ -207,7 +206,7 @@ class TestWeatherSatRoutes:
         """POST /weather-sat/start when SDR device is busy."""
         with patch('routes.weather_sat.is_weather_sat_available', return_value=True), \
              patch('routes.weather_sat.get_weather_sat_decoder') as mock_get, \
-             patch('app.claim_sdr_device', return_value='Device busy with pager') as mock_claim:
+             patch('app.claim_sdr_device', return_value='Device busy with pager'):
 
             mock_decoder = MagicMock()
             mock_decoder.is_running = False
@@ -548,7 +547,7 @@ class TestWeatherSatRoutes:
             mock_get.return_value = mock_decoder
             mock_send.return_value = MagicMock()
 
-            response = client.get('/weather-sat/images/test_image.png')
+            client.get('/weather-sat/images/test_image.png')
             mock_send.assert_called_once()
             call_args = mock_send.call_args
             assert call_args[1]['mimetype'] == 'image/png'

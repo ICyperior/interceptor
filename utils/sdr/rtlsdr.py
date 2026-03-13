@@ -10,10 +10,10 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
-from typing import Optional
+
+from utils.dependencies import get_tool_path
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
-from utils.dependencies import get_tool_path
 
 logger = logging.getLogger('intercept.sdr.rtlsdr')
 
@@ -46,7 +46,7 @@ def _rtl_tool_supports_bias_t(tool_path: str) -> bool:
         return False
 
 
-def _get_dump1090_bias_t_flag(dump1090_path: str) -> Optional[str]:
+def _get_dump1090_bias_t_flag(dump1090_path: str) -> str | None:
     """Detect the correct bias-t flag for the installed dump1090 variant.
 
     Different dump1090 forks use different flags:
@@ -106,12 +106,12 @@ class RTLSDRCommandBuilder(CommandBuilder):
         device: SDRDevice,
         frequency_mhz: float,
         sample_rate: int = 22050,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         modulation: str = "fm",
-        squelch: Optional[int] = None,
+        squelch: int | None = None,
         bias_t: bool = False,
-        direct_sampling: Optional[int] = None,
+        direct_sampling: int | None = None,
     ) -> list[str]:
         """
         Build rtl_fm command for FM demodulation.
@@ -163,7 +163,7 @@ class RTLSDRCommandBuilder(CommandBuilder):
     def build_adsb_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None,
+        gain: float | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -208,8 +208,8 @@ class RTLSDRCommandBuilder(CommandBuilder):
         self,
         device: SDRDevice,
         frequency_mhz: float = 433.92,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         bias_t: bool = False
     ) -> list[str]:
         """
@@ -247,7 +247,7 @@ class RTLSDRCommandBuilder(CommandBuilder):
     def build_ais_command(
         self,
         device: SDRDevice,
-        gain: Optional[float] = None,
+        gain: float | None = None,
         bias_t: bool = False,
         tcp_port: int = 10110
     ) -> list[str]:
@@ -283,8 +283,8 @@ class RTLSDRCommandBuilder(CommandBuilder):
         device: SDRDevice,
         frequency_mhz: float,
         sample_rate: int = 2048000,
-        gain: Optional[float] = None,
-        ppm: Optional[int] = None,
+        gain: float | None = None,
+        ppm: int | None = None,
         bias_t: bool = False,
         output_format: str = 'cu8',
     ) -> list[str]:

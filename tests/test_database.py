@@ -1,10 +1,11 @@
 """Tests for database utilities."""
 
-import os
 import tempfile
-import pytest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
+
 
 # Need to patch DB_PATH before importing database module
 @pytest.fixture(autouse=True)
@@ -17,7 +18,7 @@ def temp_db():
         with patch('utils.database.DB_PATH', test_db_path), \
              patch('utils.database.DB_DIR', test_db_dir):
             # Import after patching
-            from utils.database import init_db, close_db
+            from utils.database import close_db, init_db
 
             init_db()
             yield test_db_path
@@ -29,14 +30,14 @@ class TestSettingsCRUD:
 
     def test_set_and_get_string(self, temp_db):
         """Test setting and getting string values."""
-        from utils.database import set_setting, get_setting
+        from utils.database import get_setting, set_setting
 
         set_setting('test_key', 'test_value')
         assert get_setting('test_key') == 'test_value'
 
     def test_set_and_get_int(self, temp_db):
         """Test setting and getting integer values."""
-        from utils.database import set_setting, get_setting
+        from utils.database import get_setting, set_setting
 
         set_setting('int_key', 42)
         result = get_setting('int_key')
@@ -45,7 +46,7 @@ class TestSettingsCRUD:
 
     def test_set_and_get_float(self, temp_db):
         """Test setting and getting float values."""
-        from utils.database import set_setting, get_setting
+        from utils.database import get_setting, set_setting
 
         set_setting('float_key', 3.14)
         result = get_setting('float_key')
@@ -54,7 +55,7 @@ class TestSettingsCRUD:
 
     def test_set_and_get_bool(self, temp_db):
         """Test setting and getting boolean values."""
-        from utils.database import set_setting, get_setting
+        from utils.database import get_setting, set_setting
 
         set_setting('bool_true', True)
         set_setting('bool_false', False)
@@ -64,7 +65,7 @@ class TestSettingsCRUD:
 
     def test_set_and_get_dict(self, temp_db):
         """Test setting and getting dictionary values."""
-        from utils.database import set_setting, get_setting
+        from utils.database import get_setting, set_setting
 
         test_dict = {'name': 'test', 'value': 123, 'nested': {'a': 1}}
         set_setting('dict_key', test_dict)
@@ -75,7 +76,7 @@ class TestSettingsCRUD:
 
     def test_set_and_get_list(self, temp_db):
         """Test setting and getting list values."""
-        from utils.database import set_setting, get_setting
+        from utils.database import get_setting, set_setting
 
         test_list = [1, 2, 3, 'four', {'five': 5}]
         set_setting('list_key', test_list)
@@ -92,7 +93,7 @@ class TestSettingsCRUD:
 
     def test_update_existing_setting(self, temp_db):
         """Test updating an existing setting."""
-        from utils.database import set_setting, get_setting
+        from utils.database import get_setting, set_setting
 
         set_setting('update_key', 'original')
         assert get_setting('update_key') == 'original'
@@ -102,7 +103,7 @@ class TestSettingsCRUD:
 
     def test_delete_setting(self, temp_db):
         """Test deleting a setting."""
-        from utils.database import set_setting, get_setting, delete_setting
+        from utils.database import delete_setting, get_setting, set_setting
 
         set_setting('delete_key', 'value')
         assert get_setting('delete_key') == 'value'
@@ -120,7 +121,7 @@ class TestSettingsCRUD:
 
     def test_get_all_settings(self, temp_db):
         """Test getting all settings."""
-        from utils.database import set_setting, get_all_settings
+        from utils.database import get_all_settings, set_setting
 
         set_setting('key1', 'value1')
         set_setting('key2', 42)

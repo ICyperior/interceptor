@@ -7,7 +7,6 @@ Generates consistent identifiers for devices even when MAC addresses rotate.
 from __future__ import annotations
 
 import hashlib
-from typing import Optional
 
 from .constants import (
     ADDRESS_TYPE_PUBLIC,
@@ -19,10 +18,10 @@ from .constants import (
 def generate_device_key(
     address: str,
     address_type: str,
-    identity_address: Optional[str] = None,
-    name: Optional[str] = None,
-    manufacturer_id: Optional[int] = None,
-    service_uuids: Optional[list[str]] = None,
+    identity_address: str | None = None,
+    name: str | None = None,
+    manufacturer_id: int | None = None,
+    service_uuids: list[str] | None = None,
 ) -> str:
     """
     Generate a stable device key for identifying a Bluetooth device.
@@ -61,9 +60,9 @@ def generate_device_key(
 
 def _generate_fingerprint_key(
     address: str,
-    name: Optional[str],
-    manufacturer_id: Optional[int],
-    service_uuids: Optional[list[str]],
+    name: str | None,
+    manufacturer_id: int | None,
+    service_uuids: list[str] | None,
 ) -> str:
     """
     Generate a fingerprint-based key for devices with random addresses.

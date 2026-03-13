@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
 
 from utils.database import (
     create_tscm_baseline,
     get_active_tscm_baseline,
-    get_tscm_baseline,
     update_tscm_baseline,
 )
 
@@ -107,7 +105,6 @@ class BaselineRecorder:
             f"{summary['bt_count']} BT, {summary['rf_count']} RF"
         )
 
-        baseline_id = self.current_baseline_id
         self.current_baseline_id = None
 
         return summary

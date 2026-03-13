@@ -16,20 +16,19 @@ import re
 import subprocess
 import threading
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable
 
 from .constants import (
-    BLEAK_SCAN_TIMEOUT,
-    HCITOOL_TIMEOUT,
-    BLUETOOTHCTL_TIMEOUT,
     ADDRESS_TYPE_PUBLIC,
     ADDRESS_TYPE_RANDOM,
     ADDRESS_TYPE_UUID,
-    MANUFACTURER_NAMES,
+    BLEAK_SCAN_TIMEOUT,
 )
 
 # CoreBluetooth UUID pattern: 8-4-4-4-12 hex digits
 _CB_UUID_RE = re.compile(r'^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$')
+import contextlib
+
 from .models import BTObservation
 
 logger = logging.getLogger(__name__)
@@ -44,12 +43,12 @@ class BleakScanner:
 
     def __init__(
         self,
-        on_observation: Optional[Callable[[BTObservation], None]] = None,
+        on_observation: Callable[[BTObservation], None] | None = None,
     ):
         self._on_observation = on_observation
         self._scanner = None
         self._is_scanning = False
-        self._scan_thread: Optional[threading.Thread] = None
+        self._scan_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
     def start(self, duration: float = BLEAK_SCAN_TIMEOUT) -> bool:
@@ -153,9 +152,7 @@ class BleakScanner:
                 manufacturer_id = mid
                 # Handle various data types safely
                 try:
-                    if isinstance(mdata, (bytes, bytearray)):
-                        manufacturer_data = bytes(mdata)
-                    elif isinstance(mdata, (list, tuple)):
+                    if isinstance(mdata, (bytes, bytearray, list, tuple)):
                         manufacturer_data = bytes(mdata)
                     elif isinstance(mdata, str):
                         manufacturer_data = bytes.fromhex(mdata)
@@ -170,9 +167,7 @@ class BleakScanner:
         if adv_data.service_data:
             for uuid, data in adv_data.service_data.items():
                 try:
-                    if isinstance(data, (bytes, bytearray)):
-                        service_data[str(uuid)] = bytes(data)
-                    elif isinstance(data, (list, tuple)):
+                    if isinstance(data, (bytes, bytearray, list, tuple)):
                         service_data[str(uuid)] = bytes(data)
                     elif isinstance(data, str):
                         service_data[str(uuid)] = bytes.fromhex(data)
@@ -206,13 +201,13 @@ class HcitoolScanner:
     def __init__(
         self,
         adapter: str = 'hci0',
-        on_observation: Optional[Callable[[BTObservation], None]] = None,
+        on_observation: Callable[[BTObservation], None] | None = None,
     ):
         self._adapter = adapter
         self._on_observation = on_observation
-        self._process: Optional[subprocess.Popen] = None
+        self._process: subprocess.Popen | None = None
         self._is_scanning = False
-        self._reader_thread: Optional[threading.Thread] = None
+        self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
     def start(self) -> bool:
@@ -275,14 +270,12 @@ class HcitoolScanner:
         try:
             # Also start hcidump in parallel for RSSI values
             dump_process = None
-            try:
+            with contextlib.suppress(Exception):
                 dump_process = subprocess.Popen(
                     ['hcidump', '-i', self._adapter, '--raw'],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
-            except Exception:
-                pass
 
             while not self._stop_event.is_set() and self._process:
                 line = self._process.stdout.readline()
@@ -323,12 +316,12 @@ class BluetoothctlScanner:
 
     def __init__(
         self,
-        on_observation: Optional[Callable[[BTObservation], None]] = None,
+        on_observation: Callable[[BTObservation], None] | None = None,
     ):
         self._on_observation = on_observation
-        self._process: Optional[subprocess.Popen] = None
+        self._process: subprocess.Popen | None = None
         self._is_scanning = False
-        self._reader_thread: Optional[threading.Thread] = None
+        self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._devices: dict[str, dict] = {}
 
@@ -379,10 +372,8 @@ class BluetoothctlScanner:
                 self._process.stdin.flush()
                 self._process.wait(timeout=2.0)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     self._process.terminate()
-                except Exception:
-                    pass
             self._process = None
 
         if self._reader_thread:
@@ -498,12 +489,12 @@ class FallbackScanner:
     def __init__(
         self,
         adapter: str = 'hci0',
-        on_observation: Optional[Callable[[BTObservation], None]] = None,
+        on_observation: Callable[[BTObservation], None] | None = None,
     ):
         self._adapter = adapter
         self._on_observation = on_observation
-        self._active_scanner: Optional[object] = None
-        self._backend: Optional[str] = None
+        self._active_scanner: object | None = None
+        self._backend: str | None = None
 
     def start(self) -> bool:
         """Start scanning with best available backend."""
@@ -563,5 +554,5 @@ class FallbackScanner:
         return self._active_scanner.is_scanning if self._active_scanner else False
 
     @property
-    def backend(self) -> Optional[str]:
+    def backend(self) -> str | None:
         return self._backend

@@ -7,16 +7,16 @@ and automatic capture execution.
 from __future__ import annotations
 
 import threading
-import time
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock, call
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from utils.weather_sat_scheduler import (
-    WeatherSatScheduler,
     ScheduledPass,
-    get_weather_sat_scheduler,
+    WeatherSatScheduler,
     _parse_utc_iso,
+    get_weather_sat_scheduler,
 )
 
 
@@ -742,8 +742,8 @@ class TestSchedulerConfiguration:
     def test_config_constants(self):
         """Scheduler should have configuration constants."""
         from utils.weather_sat_scheduler import (
-            WEATHER_SAT_SCHEDULE_REFRESH_MINUTES,
             WEATHER_SAT_CAPTURE_BUFFER_SECONDS,
+            WEATHER_SAT_SCHEDULE_REFRESH_MINUTES,
         )
 
         assert isinstance(WEATHER_SAT_SCHEDULE_REFRESH_MINUTES, int)

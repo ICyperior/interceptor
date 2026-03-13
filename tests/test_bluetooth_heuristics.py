@@ -1,18 +1,26 @@
 """Unit tests for Bluetooth heuristic detection."""
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock
 
-from utils.bluetooth.heuristics import HeuristicsEngine
-from utils.bluetooth.models import BTDeviceAggregate
+import pytest
+
+from utils.bluetooth.constants import (
+    BEACON_INTERVAL_MAX_VARIANCE as HEURISTIC_BEACON_VARIANCE_THRESHOLD,
+)
 from utils.bluetooth.constants import (
     PERSISTENT_MIN_SEEN_COUNT as HEURISTIC_PERSISTENT_MIN_SEEN,
+)
+from utils.bluetooth.constants import (
     PERSISTENT_WINDOW_SECONDS as HEURISTIC_PERSISTENT_WINDOW_SECONDS,
-    BEACON_INTERVAL_MAX_VARIANCE as HEURISTIC_BEACON_VARIANCE_THRESHOLD,
-    STRONG_RSSI_THRESHOLD as HEURISTIC_STRONG_STABLE_RSSI,
+)
+from utils.bluetooth.constants import (
     STABLE_VARIANCE_THRESHOLD as HEURISTIC_STRONG_STABLE_VARIANCE,
 )
+from utils.bluetooth.constants import (
+    STRONG_RSSI_THRESHOLD as HEURISTIC_STRONG_STABLE_RSSI,
+)
+from utils.bluetooth.heuristics import HeuristicsEngine
+from utils.bluetooth.models import BTDeviceAggregate
 
 
 @pytest.fixture

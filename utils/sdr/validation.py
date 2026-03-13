@@ -240,9 +240,9 @@ def get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
     Returns:
         SDRCapabilities for the specified type
     """
-    from .rtlsdr import RTLSDRCommandBuilder
-    from .limesdr import LimeSDRCommandBuilder
     from .hackrf import HackRFCommandBuilder
+    from .limesdr import LimeSDRCommandBuilder
+    from .rtlsdr import RTLSDRCommandBuilder
 
     builders = {
         SDRType.RTL_SDR: RTLSDRCommandBuilder,

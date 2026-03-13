@@ -7,31 +7,27 @@ aggregation, and heuristics.
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import json
 import logging
 import threading
 import time
+from collections.abc import Generator
 from datetime import datetime
-from typing import Generator
 
-from flask import Blueprint, Response, jsonify, request, session
+from flask import Blueprint, Response, jsonify, request
 
 from utils.bluetooth import (
-    BluetoothScanner,
     BTDeviceAggregate,
-    get_bluetooth_scanner,
     check_capabilities,
-    RANGE_UNKNOWN,
-    TrackerType,
-    TrackerConfidence,
-    get_tracker_engine,
+    get_bluetooth_scanner,
 )
 from utils.database import get_db
-from utils.responses import api_success, api_error
-from utils.sse import format_sse
 from utils.event_pipeline import process_event
+from utils.responses import api_error
+from utils.sse import format_sse
 
 logger = logging.getLogger('intercept.bluetooth_v2')
 
@@ -901,10 +897,8 @@ def stream_events():
         """Generate SSE events from scanner."""
         for event in scanner.stream_events(timeout=1.0):
             event_name, event_data = map_event_type(event)
-            try:
+            with contextlib.suppress(Exception):
                 process_event('bluetooth', event_data, event_name)
-            except Exception:
-                pass
             yield format_sse(event_data, event=event_name)
 
     return Response(
@@ -972,7 +966,6 @@ def get_tscm_bluetooth_snapshot(duration: int = 8) -> list[dict]:
     Returns:
         List of device dictionaries in TSCM format.
     """
-    import time
     import logging
     logger = logging.getLogger('intercept.bluetooth_v2')
 

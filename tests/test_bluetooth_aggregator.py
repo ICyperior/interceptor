@@ -1,15 +1,17 @@
 """Unit tests for Bluetooth device aggregation."""
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+
+import pytest
 
 from utils.bluetooth.aggregator import DeviceAggregator
-from utils.bluetooth.models import BTObservation, BTDeviceAggregate
 from utils.bluetooth.constants import (
-    MAX_RSSI_SAMPLES,
     DEVICE_STALE_TIMEOUT as DEVICE_STALE_SECONDS,
 )
+from utils.bluetooth.constants import (
+    MAX_RSSI_SAMPLES,
+)
+from utils.bluetooth.models import BTObservation
 
 
 @pytest.fixture

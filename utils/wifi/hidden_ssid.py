@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Callable, Optional
+from typing import Callable
 
 from .constants import (
     HIDDEN_CORRELATION_WINDOW_SECONDS,
@@ -29,7 +29,7 @@ from .constants import (
 logger = logging.getLogger(__name__)
 
 # Global correlator instance
-_correlator_instance: Optional['HiddenSSIDCorrelator'] = None
+_correlator_instance: HiddenSSIDCorrelator | None = None
 _correlator_lock = threading.Lock()
 
 
@@ -92,9 +92,9 @@ class HiddenSSIDCorrelator:
         self._revealed: dict[str, CorrelationResult] = {}  # BSSID -> result
 
         # Callbacks
-        self._on_ssid_revealed: Optional[Callable[[CorrelationResult], None]] = None
+        self._on_ssid_revealed: Callable[[CorrelationResult], None] | None = None
 
-    def record_probe(self, client_mac: str, probed_ssid: str, timestamp: Optional[datetime] = None):
+    def record_probe(self, client_mac: str, probed_ssid: str, timestamp: datetime | None = None):
         """
         Record a probe request.
 
@@ -122,7 +122,7 @@ class HiddenSSIDCorrelator:
             # Check for correlations with known hidden APs
             self._check_correlations()
 
-    def record_association(self, client_mac: str, bssid: str, timestamp: Optional[datetime] = None):
+    def record_association(self, client_mac: str, bssid: str, timestamp: datetime | None = None):
         """
         Record a client association with an AP.
 
@@ -151,7 +151,7 @@ class HiddenSSIDCorrelator:
             # Check for correlations
             self._check_correlations()
 
-    def record_hidden_ap(self, bssid: str, timestamp: Optional[datetime] = None):
+    def record_hidden_ap(self, bssid: str, timestamp: datetime | None = None):
         """
         Record a hidden access point (empty SSID).
 
@@ -171,7 +171,7 @@ class HiddenSSIDCorrelator:
             # Check for correlations
             self._check_correlations()
 
-    def get_revealed_ssid(self, bssid: str) -> Optional[str]:
+    def get_revealed_ssid(self, bssid: str) -> str | None:
         """
         Get the revealed SSID for a hidden AP, if known.
 
@@ -185,7 +185,7 @@ class HiddenSSIDCorrelator:
             result = self._revealed.get(bssid.upper())
             return result.revealed_ssid if result else None
 
-    def get_correlation(self, bssid: str) -> Optional[CorrelationResult]:
+    def get_correlation(self, bssid: str) -> CorrelationResult | None:
         """
         Get the full correlation result for a hidden AP.
 

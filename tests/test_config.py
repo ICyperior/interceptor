@@ -1,7 +1,5 @@
 """Tests for configuration module."""
 
-import os
-import pytest
 
 
 class TestConfigEnvVars:
@@ -9,7 +7,7 @@ class TestConfigEnvVars:
 
     def test_default_values(self):
         """Test that default values are set."""
-        from config import PORT, HOST, DEBUG
+        from config import DEBUG, HOST, PORT
 
         assert PORT == 5050
         assert HOST == '0.0.0.0'
@@ -22,6 +20,7 @@ class TestConfigEnvVars:
 
         # Re-import to get new values
         import importlib
+
         import config
         importlib.reload(config)
 
@@ -38,6 +37,7 @@ class TestConfigEnvVars:
         monkeypatch.setenv('INTERCEPT_PORT', 'invalid')
 
         import importlib
+
         import config
         importlib.reload(config)
 

@@ -2,10 +2,12 @@
 Offline mode routes - Asset management and settings for offline operation.
 """
 
-from flask import Blueprint, jsonify, request
-from utils.database import get_setting, set_setting
-from utils.responses import api_success, api_error
 import os
+
+from flask import Blueprint, request
+
+from utils.database import get_setting, set_setting
+from utils.responses import api_error, api_success
 
 offline_bp = Blueprint('offline', __name__, url_prefix='/offline')
 

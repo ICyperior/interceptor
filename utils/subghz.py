@@ -7,8 +7,9 @@ sweeps via hackrf_sweep.
 
 from __future__ import annotations
 
-import json
+import contextlib
 import hashlib
+import json
 import os
 import queue
 import shutil
@@ -23,21 +24,19 @@ from typing import BinaryIO, Callable
 
 import numpy as np
 
+from utils.constants import (
+    SUBGHZ_LNA_GAIN_MAX,
+    SUBGHZ_LNA_GAIN_MIN,
+    SUBGHZ_TX_ALLOWED_BANDS,
+    SUBGHZ_TX_MAX_DURATION,
+    SUBGHZ_TX_VGA_GAIN_MAX,
+    SUBGHZ_TX_VGA_GAIN_MIN,
+    SUBGHZ_VGA_GAIN_MAX,
+    SUBGHZ_VGA_GAIN_MIN,
+)
 from utils.dependencies import get_tool_path
 from utils.logging import get_logger
 from utils.process import register_process, safe_terminate, unregister_process
-from utils.constants import (
-    SUBGHZ_TX_ALLOWED_BANDS,
-    SUBGHZ_FREQ_MIN_MHZ,
-    SUBGHZ_FREQ_MAX_MHZ,
-    SUBGHZ_LNA_GAIN_MIN,
-    SUBGHZ_LNA_GAIN_MAX,
-    SUBGHZ_VGA_GAIN_MIN,
-    SUBGHZ_VGA_GAIN_MAX,
-    SUBGHZ_TX_VGA_GAIN_MIN,
-    SUBGHZ_TX_VGA_GAIN_MAX,
-    SUBGHZ_TX_MAX_DURATION,
-)
 
 logger = get_logger('intercept.subghz')
 
@@ -1020,10 +1019,8 @@ class SubGhzManager:
                 len(self._rx_bursts),
             )
         finally:
-            try:
+            with contextlib.suppress(OSError):
                 file_handle.close()
-            except OSError:
-                pass
             with self._lock:
                 if self._rx_file_handle is file_handle:
                     self._rx_file_handle = None
@@ -1162,10 +1159,8 @@ class SubGhzManager:
             thread_to_join.join(timeout=2.0)
 
         if file_handle:
-            try:
+            with contextlib.suppress(OSError):
                 file_handle.close()
-            except OSError:
-                pass
         with self._lock:
             if self._rx_file_handle is file_handle:
                 self._rx_file_handle = None
@@ -1580,22 +1575,16 @@ class SubGhzManager:
                     except queue.Full:
                         # Drop oldest chunk to prevent backpressure
                         logger.debug("IQ queue full, dropping oldest chunk")
-                        try:
+                        with contextlib.suppress(queue.Empty):
                             iq_queue.get_nowait()
-                        except queue.Empty:
-                            pass
-                        try:
+                        with contextlib.suppress(queue.Full):
                             iq_queue.put_nowait(data)
-                        except queue.Full:
-                            pass
             except OSError:
                 pass
 
         # Signal writer to stop
-        try:
+        with contextlib.suppress(queue.Full):
             iq_queue.put_nowait(None)
-        except queue.Full:
-            pass
 
     def _rtl433_writer(
         self,
@@ -1738,10 +1727,8 @@ class SubGhzManager:
                         'duration_ms': int(duration * 1000),
                         'peak_level': int(burst_peak),
                     })
-            try:
+            with contextlib.suppress(OSError):
                 dst.close()
-            except OSError:
-                pass
 
     def _read_decode_output(self) -> None:
         process = self._decode_process
@@ -2327,7 +2314,7 @@ class SubGhzManager:
                     if len(parts) < 7:
                         continue
                     hz_low = float(parts[2].strip())
-                    hz_high = float(parts[3].strip())
+                    float(parts[3].strip())
                     hz_bin_width = float(parts[4].strip())
                     powers = [float(p.strip()) for p in parts[6:] if p.strip()]
                     if not powers or hz_bin_width <= 0:
@@ -2551,9 +2538,7 @@ class SubGhzManager:
                         continue
                     best_peak = float(best_burst.get('peak_level', 0.0) or 0.0)
                     cur_peak = float(burst.get('peak_level', 0.0) or 0.0)
-                    if cur_peak > best_peak:
-                        best_burst = burst
-                    elif cur_peak == best_peak and dur > float(best_burst.get('duration_seconds', 0.0) or 0.0):
+                    if cur_peak > best_peak or cur_peak == best_peak and dur > float(best_burst.get('duration_seconds', 0.0) or 0.0):
                         best_burst = burst
 
                 if best_burst:
@@ -2832,10 +2817,8 @@ class SubGhzManager:
             sweep_thread.join(timeout=1.5)
 
         if rx_file_handle:
-            try:
+            with contextlib.suppress(OSError):
                 rx_file_handle.close()
-            except OSError:
-                pass
 
 
 # Global singleton

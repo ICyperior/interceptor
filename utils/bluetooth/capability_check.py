@@ -10,11 +10,10 @@ import os
 import re
 import shutil
 import subprocess
-from typing import Optional
 
 from .constants import (
-    BLUEZ_SERVICE,
     BLUEZ_PATH,
+    BLUEZ_SERVICE,
     SUBPROCESS_TIMEOUT_SHORT,
 )
 from .models import SystemCapabilities
@@ -82,7 +81,7 @@ def _check_bluez(caps: SystemCapabilities) -> None:
 
         # Check if BlueZ service exists
         try:
-            obj = bus.get_object(BLUEZ_SERVICE, BLUEZ_PATH)
+            bus.get_object(BLUEZ_SERVICE, BLUEZ_PATH)
             caps.has_bluez = True
 
             # Try to get BlueZ version from bluetoothd
@@ -296,17 +295,16 @@ def _determine_recommended_backend(caps: SystemCapabilities) -> None:
 
     # DBus is last resort - won't work properly with Flask but keep as option
     # for potential future use with a separate scanning daemon
-    if caps.has_dbus and caps.has_bluez and caps.adapters:
-        if not caps.is_soft_blocked and not caps.is_hard_blocked:
-            caps.recommended_backend = 'dbus'
-            return
+    if caps.has_dbus and caps.has_bluez and caps.adapters and not caps.is_soft_blocked and not caps.is_hard_blocked:
+        caps.recommended_backend = 'dbus'
+        return
 
     caps.recommended_backend = 'none'
     if not caps.issues:
         caps.issues.append('No suitable Bluetooth scanning backend available')
 
 
-def quick_adapter_check() -> Optional[str]:
+def quick_adapter_check() -> str | None:
     """
     Quick check to find a working adapter.
 

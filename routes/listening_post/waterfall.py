@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import math
 import queue
 import struct
@@ -11,23 +12,23 @@ import time
 from datetime import datetime
 from typing import Any
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
 
-from . import (
-    receiver_bp,
-    logger,
-    app_module,
-    _stop_waterfall_internal,
-    process_event,
-    sse_stream_fanout,
-    SSE_QUEUE_TIMEOUT,
-    SSE_KEEPALIVE_INTERVAL,
-    find_rtl_power,
-    SDRFactory,
-    SDRType,
-)
 import routes.listening_post as _state
 
+from . import (
+    SSE_KEEPALIVE_INTERVAL,
+    SSE_QUEUE_TIMEOUT,
+    SDRFactory,
+    SDRType,
+    _stop_waterfall_internal,
+    app_module,
+    find_rtl_power,
+    logger,
+    process_event,
+    receiver_bp,
+    sse_stream_fanout,
+)
 
 # ============================================
 # WATERFALL HELPER FUNCTIONS
@@ -75,14 +76,12 @@ def _parse_rtl_power_line(line: str) -> tuple[str | None, float | None, float | 
 
 def _queue_waterfall_error(message: str) -> None:
     """Push an error message onto the waterfall SSE queue."""
-    try:
+    with contextlib.suppress(queue.Full):
         _state.waterfall_queue.put_nowait({
             'type': 'waterfall_error',
             'message': message,
             'timestamp': datetime.now().isoformat(),
         })
-    except queue.Full:
-        pass
 
 
 def _downsample_bins(values: list[float], target: int) -> list[float]:
@@ -229,14 +228,10 @@ def _waterfall_loop_iq(sdr_type: SDRType):
             try:
                 _state.waterfall_queue.put_nowait(msg)
             except queue.Full:
-                try:
+                with contextlib.suppress(queue.Empty):
                     _state.waterfall_queue.get_nowait()
-                except queue.Empty:
-                    pass
-                try:
+                with contextlib.suppress(queue.Full):
                     _state.waterfall_queue.put_nowait(msg)
-                except queue.Full:
-                    pass
 
             # Throttle to respect interval
             time.sleep(interval)
@@ -254,10 +249,8 @@ def _waterfall_loop_iq(sdr_type: SDRType):
                 _state.waterfall_process.terminate()
                 _state.waterfall_process.wait(timeout=1)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     _state.waterfall_process.kill()
-                except Exception:
-                    pass
         _state.waterfall_process = None
         logger.info("Waterfall IQ loop stopped")
 
@@ -346,14 +339,10 @@ def _waterfall_loop_rtl_power():
                 try:
                     _state.waterfall_queue.put_nowait(msg)
                 except queue.Full:
-                    try:
+                    with contextlib.suppress(queue.Empty):
                         _state.waterfall_queue.get_nowait()
-                    except queue.Empty:
-                        pass
-                    try:
+                    with contextlib.suppress(queue.Full):
                         _state.waterfall_queue.put_nowait(msg)
-                    except queue.Full:
-                        pass
 
                 all_bins = []
                 sweep_start_hz = start_hz
@@ -379,10 +368,8 @@ def _waterfall_loop_rtl_power():
                 'bins': bins_to_send,
                 'timestamp': datetime.now().isoformat(),
             }
-            try:
+            with contextlib.suppress(queue.Full):
                 _state.waterfall_queue.put_nowait(msg)
-            except queue.Full:
-                pass
 
         if _state.waterfall_running and not received_any:
             _queue_waterfall_error('No waterfall FFT data received from rtl_power')
@@ -397,10 +384,8 @@ def _waterfall_loop_rtl_power():
                 _state.waterfall_process.terminate()
                 _state.waterfall_process.wait(timeout=1)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     _state.waterfall_process.kill()
-                except Exception:
-                    pass
         _state.waterfall_process = None
         logger.info("Waterfall loop stopped")
 
@@ -432,9 +417,8 @@ def start_waterfall() -> Response:
         sdr_type_str = sdr_type.value
 
     # RTL-SDR uses rtl_power; other types use rx_sdr via IQ capture
-    if sdr_type == SDRType.RTL_SDR:
-        if not find_rtl_power():
-            return jsonify({'status': 'error', 'message': 'rtl_power not found'}), 503
+    if sdr_type == SDRType.RTL_SDR and not find_rtl_power():
+        return jsonify({'status': 'error', 'message': 'rtl_power not found'}), 503
 
     try:
         _state.waterfall_config['start_freq'] = float(data.get('start_freq', 88.0))

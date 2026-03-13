@@ -22,7 +22,7 @@ from flask import Blueprint, Response, jsonify, request
 
 from utils.constants import SSE_KEEPALIVE_INTERVAL, SSE_QUEUE_TIMEOUT
 from utils.logging import sensor_logger as logger
-from utils.responses import api_success, api_error
+from utils.responses import api_error
 from utils.sse import sse_stream_fanout
 
 try:

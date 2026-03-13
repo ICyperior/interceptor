@@ -15,7 +15,7 @@ rtl_fm capture for manual decoding when SatDump is unavailable.
 
 from __future__ import annotations
 
-import io
+import contextlib
 import os
 import pty
 import re
@@ -24,8 +24,8 @@ import shutil
 import subprocess
 import threading
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -222,10 +222,8 @@ class WeatherSatDecoder:
         """Close the PTY master fd in a thread-safe manner."""
         with self._pty_lock:
             if self._pty_master_fd is not None:
-                try:
+                with contextlib.suppress(OSError):
                     os.close(self._pty_master_fd)
-                except OSError:
-                    pass
                 self._pty_master_fd = None
 
     def set_callback(self, callback: Callable[[CaptureProgress], None]) -> None:
@@ -836,19 +834,7 @@ class WeatherSatDecoder:
                         capture_phase=self._capture_phase,
                     ))
                     last_emit_time = now
-                elif log_type == 'error':
-                    self._emit_progress(CaptureProgress(
-                        status='capturing',
-                        satellite=self._current_satellite,
-                        frequency=self._current_frequency,
-                        mode=self._current_mode,
-                        message=line,
-                        elapsed_seconds=elapsed,
-                        log_type=log_type,
-                        capture_phase=self._capture_phase,
-                    ))
-                    last_emit_time = now
-                elif log_type == 'signal':
+                elif log_type == 'error' or log_type == 'signal':
                     self._emit_progress(CaptureProgress(
                         status='capturing',
                         satellite=self._current_satellite,

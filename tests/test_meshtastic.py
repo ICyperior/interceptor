@@ -9,10 +9,10 @@ Tests cover:
 """
 
 import json
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import Mock, patch
 
+import pytest
 
 # =============================================================================
 # Utility Module Tests
@@ -173,8 +173,9 @@ class TestPSKParsing:
 
     def test_parse_psk_base64(self):
         """Should decode base64 PSK."""
-        from utils.meshtastic import MeshtasticClient
         import base64
+
+        from utils.meshtastic import MeshtasticClient
 
         client = MeshtasticClient()
         # 32-byte key encoded as base64
@@ -197,8 +198,9 @@ class TestPSKParsing:
 
     def test_parse_psk_simple_passphrase(self):
         """Should hash simple passphrase to 32-byte key."""
-        from utils.meshtastic import MeshtasticClient
         import hashlib
+
+        from utils.meshtastic import MeshtasticClient
 
         client = MeshtasticClient()
         result = client._parse_psk('simple:MySecretPassword')
@@ -218,8 +220,9 @@ class TestPSKParsing:
 
     def test_parse_psk_raw_base64(self):
         """Should accept raw base64 without prefix."""
-        from utils.meshtastic import MeshtasticClient
         import base64
+
+        from utils.meshtastic import MeshtasticClient
 
         client = MeshtasticClient()
         key = b'B' * 16
@@ -261,6 +264,7 @@ class TestMeshtasticRoutes:
     def app(self):
         """Create Flask test app."""
         from flask import Flask
+
         from routes.meshtastic import meshtastic_bp
 
         app = Flask(__name__)

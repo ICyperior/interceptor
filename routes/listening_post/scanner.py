@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import math
 import queue
 import struct
@@ -10,32 +11,32 @@ import threading
 import time
 from typing import Any
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
+
+import routes.listening_post as _state
 
 from . import (
-    receiver_bp,
-    logger,
-    app_module,
-    scanner_queue,
-    scanner_config,
-    scanner_lock,
-    activity_log,
-    activity_log_lock,
-    add_activity_log,
-    find_rtl_fm,
-    find_rtl_power,
-    find_rx_fm,
-    normalize_modulation,
+    SSE_KEEPALIVE_INTERVAL,
+    SSE_QUEUE_TIMEOUT,
     _rtl_fm_demod_mode,
     _start_audio_stream,
     _stop_audio_stream,
+    activity_log,
+    activity_log_lock,
+    add_activity_log,
+    app_module,
+    find_rtl_fm,
+    find_rtl_power,
+    find_rx_fm,
+    logger,
+    normalize_modulation,
     process_event,
+    receiver_bp,
+    scanner_config,
+    scanner_lock,
+    scanner_queue,
     sse_stream_fanout,
-    SSE_QUEUE_TIMEOUT,
-    SSE_KEEPALIVE_INTERVAL,
 )
-import routes.listening_post as _state
-
 
 # ============================================
 # SCANNER IMPLEMENTATION
@@ -76,7 +77,7 @@ def scanner_loop():
             _state.scanner_current_freq = current_freq
 
             # Notify clients of frequency change
-            try:
+            with contextlib.suppress(queue.Full):
                 scanner_queue.put_nowait({
                     'type': 'freq_change',
                     'frequency': current_freq,
@@ -84,8 +85,6 @@ def scanner_loop():
                     'range_start': scanner_config['start_freq'],
                     'range_end': scanner_config['end_freq']
                 })
-            except queue.Full:
-                pass
 
             # Start rtl_fm at this frequency
             freq_hz = int(current_freq * 1e6)
@@ -168,7 +167,7 @@ def scanner_loop():
                     audio_detected = rms > effective_threshold
 
                 # Send level info to clients
-                try:
+                with contextlib.suppress(queue.Full):
                     scanner_queue.put_nowait({
                         'type': 'scan_update',
                         'frequency': current_freq,
@@ -178,8 +177,6 @@ def scanner_loop():
                         'range_start': scanner_config['start_freq'],
                         'range_end': scanner_config['end_freq']
                     })
-                except queue.Full:
-                    pass
 
                 if audio_detected and _state.scanner_running:
                     if not signal_detected:
@@ -214,13 +211,11 @@ def scanner_loop():
                         _state.scanner_skip_signal = False
                         signal_detected = False
                         _stop_audio_stream()
-                        try:
+                        with contextlib.suppress(queue.Full):
                             scanner_queue.put_nowait({
                                 'type': 'signal_skipped',
                                 'frequency': current_freq
                             })
-                        except queue.Full:
-                            pass
                         # Move to next frequency (step is in kHz, convert to MHz)
                         current_freq += step_mhz
                         if current_freq > scanner_config['end_freq']:
@@ -240,15 +235,13 @@ def scanner_loop():
                     if _state.scanner_running and not _state.scanner_skip_signal:
                         signal_detected = False
                         _stop_audio_stream()
-                        try:
+                        with contextlib.suppress(queue.Full):
                             scanner_queue.put_nowait({
                                 'type': 'signal_lost',
                                 'frequency': current_freq,
                                 'range_start': scanner_config['start_freq'],
                                 'range_end': scanner_config['end_freq']
                             })
-                        except queue.Full:
-                            pass
 
                         current_freq += step_mhz
                         if current_freq > scanner_config['end_freq']:
@@ -268,13 +261,11 @@ def scanner_loop():
                         # Stop audio
                         _stop_audio_stream()
 
-                        try:
+                        with contextlib.suppress(queue.Full):
                             scanner_queue.put_nowait({
                                 'type': 'signal_lost',
                                 'frequency': current_freq
                             })
-                        except queue.Full:
-                            pass
 
                     # Move to next frequency (step is in kHz, convert to MHz)
                     current_freq += step_mhz
@@ -321,7 +312,7 @@ def scanner_loop_power():
             step_khz = scanner_config['step']
             gain = scanner_config['gain']
             device = scanner_config['device']
-            squelch = scanner_config['squelch']
+            scanner_config['squelch']
             mod = scanner_config['modulation']
 
             # Configure sweep
@@ -355,7 +346,7 @@ def scanner_loop_power():
 
             if not stdout:
                 add_activity_log('error', start_mhz, 'Power sweep produced no data')
-                try:
+                with contextlib.suppress(queue.Full):
                     scanner_queue.put_nowait({
                         'type': 'scan_update',
                         'frequency': end_mhz,
@@ -365,8 +356,6 @@ def scanner_loop_power():
                         'range_start': scanner_config['start_freq'],
                         'range_end': scanner_config['end_freq']
                     })
-                except queue.Full:
-                    pass
                 time.sleep(0.2)
                 continue
 
@@ -414,7 +403,7 @@ def scanner_loop_power():
 
             if not segments:
                 add_activity_log('error', start_mhz, 'Power sweep bins missing')
-                try:
+                with contextlib.suppress(queue.Full):
                     scanner_queue.put_nowait({
                         'type': 'scan_update',
                         'frequency': end_mhz,
@@ -424,8 +413,6 @@ def scanner_loop_power():
                         'range_start': scanner_config['start_freq'],
                         'range_end': scanner_config['end_freq']
                     })
-                except queue.Full:
-                    pass
                 time.sleep(0.2)
                 continue
 
@@ -457,7 +444,7 @@ def scanner_loop_power():
                     level = int(max(0, snr) * 100)
                     threshold = int(snr_threshold * 100)
                     progress = min(1.0, (segment_offset + idx) / max(1, total_bins - 1))
-                    try:
+                    with contextlib.suppress(queue.Full):
                         scanner_queue.put_nowait({
                             'type': 'scan_update',
                             'frequency': _state.scanner_current_freq,
@@ -468,8 +455,6 @@ def scanner_loop_power():
                             'range_start': scanner_config['start_freq'],
                             'range_end': scanner_config['end_freq']
                         })
-                    except queue.Full:
-                        pass
                 segment_offset += len(bin_values)
 
                 # Detect peaks (clusters above threshold)
@@ -505,7 +490,7 @@ def scanner_loop_power():
                     threshold = int(snr_threshold * 100)
                     add_activity_log('signal_found', freq_mhz,
                                      f'Peak detected at {freq_mhz:.3f} MHz ({mod.upper()})')
-                    try:
+                    with contextlib.suppress(queue.Full):
                         scanner_queue.put_nowait({
                             'type': 'signal_found',
                             'frequency': freq_mhz,
@@ -517,8 +502,6 @@ def scanner_loop_power():
                             'range_start': scanner_config['start_freq'],
                             'range_end': scanner_config['end_freq']
                         })
-                    except queue.Full:
-                        pass
 
             add_activity_log('scan_cycle', start_mhz, 'Power sweep complete')
             time.sleep(max(0.1, scanner_config.get('scan_delay', 0.5)))
@@ -590,9 +573,8 @@ def start_scanner() -> Response:
     sdr_type = scanner_config['sdr_type']
 
     # Power scan only supports RTL-SDR for now
-    if scanner_config['scan_method'] == 'power':
-        if sdr_type != 'rtlsdr' or not find_rtl_power():
-            scanner_config['scan_method'] = 'classic'
+    if scanner_config['scan_method'] == 'power' and (sdr_type != 'rtlsdr' or not find_rtl_power()):
+        scanner_config['scan_method'] = 'classic'
 
     # Check tools based on chosen method
     if scanner_config['scan_method'] == 'power':
@@ -666,10 +648,8 @@ def stop_scanner() -> Response:
             _state.scanner_power_process.terminate()
             _state.scanner_power_process.wait(timeout=1)
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 _state.scanner_power_process.kill()
-            except Exception:
-                pass
         _state.scanner_power_process = None
     if _state.scanner_active_device is not None:
         app_module.release_sdr_device(_state.scanner_active_device, _state.scanner_active_sdr_type)

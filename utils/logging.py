@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 
-from config import LOG_LEVEL, LOG_FORMAT
+from config import LOG_FORMAT, LOG_LEVEL
 
 
 def get_logger(name: str) -> logging.Logger:

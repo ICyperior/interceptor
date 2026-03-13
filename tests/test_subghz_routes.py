@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

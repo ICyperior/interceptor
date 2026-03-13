@@ -340,7 +340,7 @@ def get_frequency_risk(frequency_mhz: float) -> tuple[str, str]:
     Returns:
         Tuple of (risk_level, category_name)
     """
-    for category, ranges in SURVEILLANCE_FREQUENCIES.items():
+    for _category, ranges in SURVEILLANCE_FREQUENCIES.items():
         for freq_range in ranges:
             if freq_range['start'] <= frequency_mhz <= freq_range['end']:
                 return freq_range['risk'], freq_range['name']
@@ -378,7 +378,7 @@ def is_known_tracker(device_name: str | None, manufacturer_data: bytes | str | N
     """
     if device_name:
         name_lower = device_name.lower()
-        for tracker_id, tracker_info in BLE_TRACKER_SIGNATURES.items():
+        for _tracker_id, tracker_info in BLE_TRACKER_SIGNATURES.items():
             for pattern in tracker_info.get('patterns', []):
                 if pattern in name_lower:
                     return tracker_info
@@ -394,7 +394,7 @@ def is_known_tracker(device_name: str | None, manufacturer_data: bytes | str | N
 
         if len(mfr_bytes) >= 2:
             company_id = int.from_bytes(mfr_bytes[:2], 'little')
-            for tracker_id, tracker_info in BLE_TRACKER_SIGNATURES.items():
+            for _tracker_id, tracker_info in BLE_TRACKER_SIGNATURES.items():
                 if tracker_info.get('company_id') == company_id:
                     return tracker_info
 

@@ -1,10 +1,11 @@
 """Comprehensive tests for validation utilities."""
 
 import pytest
+
 from utils.validation import (
+    validate_device_index,
     validate_frequency,
     validate_gain,
-    validate_device_index,
     validate_rtl_tcp_host,
     validate_rtl_tcp_port,
 )

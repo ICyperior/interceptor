@@ -22,29 +22,28 @@ import io
 import logging
 import re
 from datetime import datetime
-from typing import Optional
 
-from ..models import WiFiObservation
 from ..constants import (
+    AUTH_EAP,
+    AUTH_OPEN,
+    AUTH_OWE,
+    AUTH_PSK,
+    AUTH_SAE,
+    AUTH_UNKNOWN,
+    CHANNEL_FREQUENCIES,
+    CIPHER_CCMP,
+    CIPHER_TKIP,
+    CIPHER_UNKNOWN,
+    CIPHER_WEP,
     SECURITY_OPEN,
+    SECURITY_UNKNOWN,
     SECURITY_WEP,
     SECURITY_WPA,
     SECURITY_WPA2,
     SECURITY_WPA3,
     SECURITY_WPA_WPA2,
-    SECURITY_UNKNOWN,
-    CIPHER_CCMP,
-    CIPHER_TKIP,
-    CIPHER_WEP,
-    CIPHER_UNKNOWN,
-    AUTH_PSK,
-    AUTH_SAE,
-    AUTH_EAP,
-    AUTH_OWE,
-    AUTH_OPEN,
-    AUTH_UNKNOWN,
-    CHANNEL_FREQUENCIES,
 )
+from ..models import WiFiObservation
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +62,7 @@ def parse_airodump_csv(filepath: str) -> tuple[list[WiFiObservation], list[dict]
     clients = []
 
     try:
-        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        with open(filepath, encoding='utf-8', errors='replace') as f:
             content = f.read()
 
         # airodump-ng separates sections with blank lines

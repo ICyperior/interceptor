@@ -9,25 +9,22 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable
 
 from .constants import (
-    BLUEZ_SERVICE,
-    BLUEZ_PATH,
-    BLUEZ_ADAPTER_INTERFACE,
-    BLUEZ_DEVICE_INTERFACE,
-    DBUS_PROPERTIES_INTERFACE,
-    DBUS_OBJECT_MANAGER_INTERFACE,
-    DISCOVERY_FILTER_TRANSPORT,
-    DISCOVERY_FILTER_RSSI,
-    DISCOVERY_FILTER_DUPLICATE_DATA,
     ADDRESS_TYPE_PUBLIC,
     ADDRESS_TYPE_RANDOM,
+    BLUEZ_ADAPTER_INTERFACE,
+    BLUEZ_DEVICE_INTERFACE,
+    BLUEZ_SERVICE,
+    DBUS_OBJECT_MANAGER_INTERFACE,
+    DBUS_PROPERTIES_INTERFACE,
+    DISCOVERY_FILTER_DUPLICATE_DATA,
     MAJOR_DEVICE_CLASSES,
     MINOR_AUDIO_VIDEO,
-    MINOR_PHONE,
     MINOR_COMPUTER,
     MINOR_PERIPHERAL,
+    MINOR_PHONE,
     MINOR_WEARABLE,
 )
 from .models import BTObservation
@@ -44,8 +41,8 @@ class DBusScanner:
 
     def __init__(
         self,
-        adapter_path: Optional[str] = None,
-        on_observation: Optional[Callable[[BTObservation], None]] = None,
+        adapter_path: str | None = None,
+        on_observation: Callable[[BTObservation], None] | None = None,
     ):
         """
         Initialize DBus scanner.
@@ -59,7 +56,7 @@ class DBusScanner:
         self._bus = None
         self._adapter = None
         self._mainloop = None
-        self._mainloop_thread: Optional[threading.Thread] = None
+        self._mainloop_thread: threading.Thread | None = None
         self._is_scanning = False
         self._lock = threading.Lock()
         self._known_devices: set[str] = set()
@@ -98,7 +95,7 @@ class DBusScanner:
 
                 adapter_obj = self._bus.get_object(BLUEZ_SERVICE, self._adapter_path)
                 self._adapter = dbus.Interface(adapter_obj, BLUEZ_ADAPTER_INTERFACE)
-                adapter_props = dbus.Interface(adapter_obj, DBUS_PROPERTIES_INTERFACE)
+                dbus.Interface(adapter_obj, DBUS_PROPERTIES_INTERFACE)
 
                 # Set up signal handlers
                 self._bus.add_signal_receiver(
@@ -200,7 +197,7 @@ class DBusScanner:
         except Exception as e:
             logger.error(f"Mainloop error: {e}")
 
-    def _find_default_adapter(self) -> Optional[str]:
+    def _find_default_adapter(self) -> str | None:
         """Find the default Bluetooth adapter via DBus."""
         try:
             import dbus
@@ -307,11 +304,7 @@ class DBusScanner:
                         manufacturer_id = int(mid)
                         # Handle various DBus data types safely
                         try:
-                            if isinstance(mdata, (bytes, bytearray)):
-                                manufacturer_data = bytes(mdata)
-                            elif isinstance(mdata, dbus.Array):
-                                manufacturer_data = bytes(mdata)
-                            elif isinstance(mdata, (list, tuple)):
+                            if isinstance(mdata, (bytes, bytearray, dbus.Array, list, tuple)):
                                 manufacturer_data = bytes(mdata)
                             elif isinstance(mdata, str):
                                 manufacturer_data = bytes.fromhex(mdata)
@@ -330,11 +323,7 @@ class DBusScanner:
             if 'ServiceData' in props:
                 for uuid, data in props['ServiceData'].items():
                     try:
-                        if isinstance(data, (bytes, bytearray)):
-                            service_data[str(uuid)] = bytes(data)
-                        elif isinstance(data, dbus.Array):
-                            service_data[str(uuid)] = bytes(data)
-                        elif isinstance(data, (list, tuple)):
+                        if isinstance(data, (bytes, bytearray, dbus.Array, list, tuple)):
                             service_data[str(uuid)] = bytes(data)
                         elif isinstance(data, str):
                             service_data[str(uuid)] = bytes.fromhex(data)
@@ -389,7 +378,7 @@ class DBusScanner:
         except Exception as e:
             logger.error(f"Failed to process device properties: {e}")
 
-    def _decode_class_of_device(self, cod: int) -> tuple[Optional[str], Optional[str]]:
+    def _decode_class_of_device(self, cod: int) -> tuple[str | None, str | None]:
         """Decode Bluetooth Class of Device."""
         # Major class is bits 12-8 (5 bits)
         major_num = (cod >> 8) & 0x1F

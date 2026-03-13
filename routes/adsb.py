@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import csv
 import io
+import json
 import os
 import queue
 import shutil
@@ -13,11 +13,11 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Generator
+from typing import Any
 
 from flask import Blueprint, Response, jsonify, make_response, render_template, request
 
-from utils.responses import api_success, api_error
+from utils.responses import api_error, api_success
 
 # psycopg2 is optional - only needed for PostgreSQL history persistence
 try:
@@ -28,6 +28,8 @@ except ImportError:
     psycopg2 = None  # type: ignore
     RealDictCursor = None  # type: ignore
     PSYCOPG2_AVAILABLE = False
+
+import contextlib
 
 import app as app_module
 from config import (
@@ -406,18 +408,17 @@ def _get_active_session() -> dict[str, Any] | None:
         return None
     _ensure_history_schema()
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
                     SELECT *
                     FROM adsb_sessions
                     WHERE ended_at IS NULL
                     ORDER BY started_at DESC
                     LIMIT 1
                     """
-                )
-                return cur.fetchone()
+            )
+            return cur.fetchone()
     except Exception as exc:
         logger.warning("ADS-B session lookup failed: %s", exc)
         return None
@@ -436,10 +437,9 @@ def _record_session_start(
         return None
     _ensure_history_schema()
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
                     INSERT INTO adsb_sessions (
                         device_index,
                         sdr_type,
@@ -451,16 +451,16 @@ def _record_session_start(
                     VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING *
                     """,
-                    (
-                        device_index,
-                        sdr_type,
-                        remote_host,
-                        remote_port,
-                        start_source,
-                        started_by,
-                    ),
-                )
-                return cur.fetchone()
+                (
+                    device_index,
+                    sdr_type,
+                    remote_host,
+                    remote_port,
+                    start_source,
+                    started_by,
+                ),
+            )
+            return cur.fetchone()
     except Exception as exc:
         logger.warning("ADS-B session start record failed: %s", exc)
         return None
@@ -471,10 +471,9 @@ def _record_session_stop(*, stop_source: str | None, stopped_by: str | None) -> 
         return None
     _ensure_history_schema()
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
                     UPDATE adsb_sessions
                     SET ended_at = NOW(),
                         stop_source = COALESCE(%s, stop_source),
@@ -482,9 +481,9 @@ def _record_session_stop(*, stop_source: str | None, stopped_by: str | None) -> 
                     WHERE ended_at IS NULL
                     RETURNING *
                     """,
-                    (stop_source, stopped_by),
-                )
-                return cur.fetchone()
+                (stop_source, stopped_by),
+            )
+            return cur.fetchone()
     except Exception as exc:
         logger.warning("ADS-B session stop record failed: %s", exc)
         return None
@@ -665,10 +664,8 @@ def parse_sbs_stream(service_addr):
 
                         elif msg_type == '3' and len(parts) > 15:
                             if parts[11]:
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     aircraft['altitude'] = int(float(parts[11]))
-                                except (ValueError, TypeError):
-                                    pass
                             if parts[14] and parts[15]:
                                 try:
                                     aircraft['lat'] = float(parts[14])
@@ -678,15 +675,11 @@ def parse_sbs_stream(service_addr):
 
                         elif msg_type == '4' and len(parts) > 16:
                             if parts[12]:
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     aircraft['speed'] = int(float(parts[12]))
-                                except (ValueError, TypeError):
-                                    pass
                             if parts[13]:
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     aircraft['heading'] = int(float(parts[13]))
-                                except (ValueError, TypeError):
-                                    pass
                             if parts[16]:
                                 try:
                                     aircraft['vertical_rate'] = int(float(parts[16]))
@@ -705,10 +698,8 @@ def parse_sbs_stream(service_addr):
                                 if callsign:
                                     aircraft['callsign'] = callsign
                             if parts[11]:
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     aircraft['altitude'] = int(float(parts[11]))
-                                except (ValueError, TypeError):
-                                    pass
 
                         elif msg_type == '6' and len(parts) > 17:
                             if parts[17]:
@@ -724,20 +715,14 @@ def parse_sbs_stream(service_addr):
 
                         elif msg_type == '2' and len(parts) > 15:
                             if parts[11]:
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     aircraft['altitude'] = int(float(parts[11]))
-                                except (ValueError, TypeError):
-                                    pass
                             if parts[12]:
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     aircraft['speed'] = int(float(parts[12]))
-                                except (ValueError, TypeError):
-                                    pass
                             if parts[13]:
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     aircraft['heading'] = int(float(parts[13]))
-                                except (ValueError, TypeError):
-                                    pass
                             if parts[14] and parts[15]:
                                 try:
                                     aircraft['lat'] = float(parts[14])
@@ -765,10 +750,8 @@ def parse_sbs_stream(service_addr):
             time.sleep(SBS_RECONNECT_DELAY)
         finally:
             if sock:
-                try:
+                with contextlib.suppress(OSError):
                     sock.close()
-                except OSError:
-                    pass
 
     adsb_connected = False
     logger.info("SBS stream parser stopped")
@@ -1019,10 +1002,8 @@ def start_adsb():
             adsb_active_sdr_type = None
             stderr_output = ''
             if app_module.adsb_process.stderr:
-                try:
+                with contextlib.suppress(Exception):
                     stderr_output = app_module.adsb_process.stderr.read().decode('utf-8', errors='ignore').strip()
-                except Exception:
-                    pass
 
             # Parse stderr to provide specific guidance
             error_type = 'START_FAILED'
@@ -1190,10 +1171,8 @@ def stream_adsb():
                 try:
                     msg = client_queue.get(timeout=SSE_QUEUE_TIMEOUT)
                     last_keepalive = time.time()
-                    try:
+                    with contextlib.suppress(Exception):
                         process_event('adsb', msg, msg.get('type'))
-                    except Exception:
-                        pass
                     yield format_sse(msg)
                 except queue.Empty:
                     now = time.time()
@@ -1251,10 +1230,9 @@ def adsb_history_summary():
     """
 
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(sql, (window, window, window, window, window))
-                row = cur.fetchone() or {}
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, (window, window, window, window, window))
+            row = cur.fetchone() or {}
         return jsonify(row)
     except Exception as exc:
         logger.warning("ADS-B history summary failed: %s", exc)
@@ -1301,10 +1279,9 @@ def adsb_history_aircraft():
     """
 
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(sql, (window, search, pattern, pattern, pattern, limit))
-                rows = cur.fetchall()
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, (window, search, pattern, pattern, pattern, limit))
+            rows = cur.fetchall()
         return jsonify({'aircraft': rows, 'count': len(rows)})
     except Exception as exc:
         logger.warning("ADS-B history aircraft query failed: %s", exc)
@@ -1336,10 +1313,9 @@ def adsb_history_timeline():
     """
 
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(sql, (icao, window, limit))
-                rows = cur.fetchall()
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, (icao, window, limit))
+            rows = cur.fetchall()
         return jsonify({'icao': icao, 'timeline': rows, 'count': len(rows)})
     except Exception as exc:
         logger.warning("ADS-B history timeline query failed: %s", exc)
@@ -1368,10 +1344,9 @@ def adsb_history_messages():
     """
 
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(sql, (window, icao, icao, limit))
-                rows = cur.fetchall()
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, (window, icao, icao, limit))
+            rows = cur.fetchall()
         return jsonify({'icao': icao, 'messages': rows, 'count': len(rows)})
     except Exception as exc:
         logger.warning("ADS-B history message query failed: %s", exc)
@@ -1418,89 +1393,88 @@ def adsb_history_export():
         ]
 
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                if export_type in {'snapshots', 'all'}:
-                    snapshot_where: list[str] = []
-                    snapshot_params: list[Any] = []
-                    _add_time_filter(
-                        where_parts=snapshot_where,
-                        params=snapshot_params,
-                        scope=scope,
-                        timestamp_field='captured_at',
-                        since_minutes=since_minutes,
-                        start=start,
-                        end=end,
-                    )
-                    if icao:
-                        snapshot_where.append("icao = %s")
-                        snapshot_params.append(icao)
-                    if search:
-                        snapshot_where.append("(icao ILIKE %s OR callsign ILIKE %s OR registration ILIKE %s)")
-                        snapshot_params.extend([pattern, pattern, pattern])
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if export_type in {'snapshots', 'all'}:
+                snapshot_where: list[str] = []
+                snapshot_params: list[Any] = []
+                _add_time_filter(
+                    where_parts=snapshot_where,
+                    params=snapshot_params,
+                    scope=scope,
+                    timestamp_field='captured_at',
+                    since_minutes=since_minutes,
+                    start=start,
+                    end=end,
+                )
+                if icao:
+                    snapshot_where.append("icao = %s")
+                    snapshot_params.append(icao)
+                if search:
+                    snapshot_where.append("(icao ILIKE %s OR callsign ILIKE %s OR registration ILIKE %s)")
+                    snapshot_params.extend([pattern, pattern, pattern])
 
-                    snapshot_sql = """
+                snapshot_sql = """
                         SELECT captured_at, icao, callsign, registration, type_code, type_desc,
                                altitude, speed, heading, vertical_rate, lat, lon, squawk, source_host
                         FROM adsb_snapshots
                     """
-                    if snapshot_where:
-                        snapshot_sql += " WHERE " + " AND ".join(snapshot_where)
-                    snapshot_sql += " ORDER BY captured_at DESC"
-                    cur.execute(snapshot_sql, tuple(snapshot_params))
-                    snapshots = _filter_by_classification(cur.fetchall())
+                if snapshot_where:
+                    snapshot_sql += " WHERE " + " AND ".join(snapshot_where)
+                snapshot_sql += " ORDER BY captured_at DESC"
+                cur.execute(snapshot_sql, tuple(snapshot_params))
+                snapshots = _filter_by_classification(cur.fetchall())
 
-                if export_type in {'messages', 'all'}:
-                    message_where: list[str] = []
-                    message_params: list[Any] = []
-                    _add_time_filter(
-                        where_parts=message_where,
-                        params=message_params,
-                        scope=scope,
-                        timestamp_field='received_at',
-                        since_minutes=since_minutes,
-                        start=start,
-                        end=end,
-                    )
-                    if icao:
-                        message_where.append("icao = %s")
-                        message_params.append(icao)
-                    if search:
-                        message_where.append("(icao ILIKE %s OR callsign ILIKE %s)")
-                        message_params.extend([pattern, pattern])
+            if export_type in {'messages', 'all'}:
+                message_where: list[str] = []
+                message_params: list[Any] = []
+                _add_time_filter(
+                    where_parts=message_where,
+                    params=message_params,
+                    scope=scope,
+                    timestamp_field='received_at',
+                    since_minutes=since_minutes,
+                    start=start,
+                    end=end,
+                )
+                if icao:
+                    message_where.append("icao = %s")
+                    message_params.append(icao)
+                if search:
+                    message_where.append("(icao ILIKE %s OR callsign ILIKE %s)")
+                    message_params.extend([pattern, pattern])
 
-                    message_sql = """
+                message_sql = """
                         SELECT received_at, msg_time, logged_time, icao, msg_type, callsign,
                                altitude, speed, heading, vertical_rate, lat, lon, squawk,
                                session_id, aircraft_id, flight_id, source_host, raw_line
                         FROM adsb_messages
                     """
-                    if message_where:
-                        message_sql += " WHERE " + " AND ".join(message_where)
-                    message_sql += " ORDER BY received_at DESC"
-                    cur.execute(message_sql, tuple(message_params))
-                    messages = _filter_by_classification(cur.fetchall())
+                if message_where:
+                    message_sql += " WHERE " + " AND ".join(message_where)
+                message_sql += " ORDER BY received_at DESC"
+                cur.execute(message_sql, tuple(message_params))
+                messages = _filter_by_classification(cur.fetchall())
 
-                if export_type in {'sessions', 'all'}:
-                    session_where: list[str] = []
-                    session_params: list[Any] = []
-                    if scope == 'custom' and start is not None and end is not None:
-                        session_where.append("COALESCE(ended_at, %s) >= %s AND started_at < %s")
-                        session_params.extend([end, start, end])
-                    elif scope == 'window':
-                        session_where.append("COALESCE(ended_at, NOW()) >= NOW() - INTERVAL %s")
-                        session_params.append(f'{since_minutes} minutes')
+            if export_type in {'sessions', 'all'}:
+                session_where: list[str] = []
+                session_params: list[Any] = []
+                if scope == 'custom' and start is not None and end is not None:
+                    session_where.append("COALESCE(ended_at, %s) >= %s AND started_at < %s")
+                    session_params.extend([end, start, end])
+                elif scope == 'window':
+                    session_where.append("COALESCE(ended_at, NOW()) >= NOW() - INTERVAL %s")
+                    session_params.append(f'{since_minutes} minutes')
 
-                    session_sql = """
+                session_sql = """
                         SELECT id, started_at, ended_at, device_index, sdr_type, remote_host,
                                remote_port, start_source, stop_source, started_by, stopped_by, notes
                         FROM adsb_sessions
                     """
-                    if session_where:
-                        session_sql += " WHERE " + " AND ".join(session_where)
-                    session_sql += " ORDER BY started_at DESC"
-                    cur.execute(session_sql, tuple(session_params))
-                    sessions = cur.fetchall()
+                if session_where:
+                    session_sql += " WHERE " + " AND ".join(session_where)
+                session_sql += " ORDER BY started_at DESC"
+                cur.execute(session_sql, tuple(session_params))
+                sessions = cur.fetchall()
     except Exception as exc:
         logger.warning("ADS-B history export failed: %s", exc)
         return api_error('History database unavailable', 503)
@@ -1570,59 +1544,58 @@ def adsb_history_prune():
         return api_error('mode must be range or all', 400)
 
     try:
-        with _get_history_connection() as conn:
-            with conn.cursor() as cur:
-                deleted = {'messages': 0, 'snapshots': 0}
+        with _get_history_connection() as conn, conn.cursor() as cur:
+            deleted = {'messages': 0, 'snapshots': 0}
 
-                if mode == 'all':
-                    cur.execute("DELETE FROM adsb_messages")
-                    deleted['messages'] = max(0, cur.rowcount or 0)
-                    cur.execute("DELETE FROM adsb_snapshots")
-                    deleted['snapshots'] = max(0, cur.rowcount or 0)
-                    return jsonify({
-                        'status': 'ok',
-                        'mode': 'all',
-                        'deleted': deleted,
-                        'total_deleted': deleted['messages'] + deleted['snapshots'],
-                    })
+            if mode == 'all':
+                cur.execute("DELETE FROM adsb_messages")
+                deleted['messages'] = max(0, cur.rowcount or 0)
+                cur.execute("DELETE FROM adsb_snapshots")
+                deleted['snapshots'] = max(0, cur.rowcount or 0)
+                return jsonify({
+                    'status': 'ok',
+                    'mode': 'all',
+                    'deleted': deleted,
+                    'total_deleted': deleted['messages'] + deleted['snapshots'],
+                })
 
-                start = _parse_iso_datetime(payload.get('start'))
-                end = _parse_iso_datetime(payload.get('end'))
-                if start is None or end is None:
-                    return api_error('start and end ISO datetime values are required', 400)
-                if end <= start:
-                    return api_error('end must be after start', 400)
-                if end - start > timedelta(days=31):
-                    return api_error('range cannot exceed 31 days', 400)
+            start = _parse_iso_datetime(payload.get('start'))
+            end = _parse_iso_datetime(payload.get('end'))
+            if start is None or end is None:
+                return api_error('start and end ISO datetime values are required', 400)
+            if end <= start:
+                return api_error('end must be after start', 400)
+            if end - start > timedelta(days=31):
+                return api_error('range cannot exceed 31 days', 400)
 
-                cur.execute(
-                    """
+            cur.execute(
+                """
                     DELETE FROM adsb_messages
                     WHERE received_at >= %s
                       AND received_at < %s
                     """,
-                    (start, end),
-                )
-                deleted['messages'] = max(0, cur.rowcount or 0)
+                (start, end),
+            )
+            deleted['messages'] = max(0, cur.rowcount or 0)
 
-                cur.execute(
-                    """
+            cur.execute(
+                """
                     DELETE FROM adsb_snapshots
                     WHERE captured_at >= %s
                       AND captured_at < %s
                     """,
-                    (start, end),
-                )
-                deleted['snapshots'] = max(0, cur.rowcount or 0)
+                (start, end),
+            )
+            deleted['snapshots'] = max(0, cur.rowcount or 0)
 
-                return jsonify({
-                    'status': 'ok',
-                    'mode': 'range',
-                    'start': start.isoformat(),
-                    'end': end.isoformat(),
-                    'deleted': deleted,
-                    'total_deleted': deleted['messages'] + deleted['snapshots'],
-                })
+            return jsonify({
+                'status': 'ok',
+                'mode': 'range',
+                'start': start.isoformat(),
+                'end': end.isoformat(),
+                'deleted': deleted,
+                'total_deleted': deleted['messages'] + deleted['snapshots'],
+            })
     except Exception as exc:
         logger.warning("ADS-B history prune failed: %s", exc)
         return api_error('History database unavailable', 503)

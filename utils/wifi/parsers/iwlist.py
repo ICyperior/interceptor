@@ -25,27 +25,25 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from typing import Optional
 
-from ..models import WiFiObservation
 from ..constants import (
+    AUTH_EAP,
+    AUTH_OPEN,
+    AUTH_PSK,
+    AUTH_UNKNOWN,
+    CHANNEL_FREQUENCIES,
+    CIPHER_CCMP,
+    CIPHER_TKIP,
+    CIPHER_UNKNOWN,
+    CIPHER_WEP,
     SECURITY_OPEN,
     SECURITY_WEP,
     SECURITY_WPA,
     SECURITY_WPA2,
     SECURITY_WPA_WPA2,
-    SECURITY_UNKNOWN,
-    CIPHER_CCMP,
-    CIPHER_TKIP,
-    CIPHER_WEP,
-    CIPHER_UNKNOWN,
-    AUTH_PSK,
-    AUTH_EAP,
-    AUTH_OPEN,
-    AUTH_UNKNOWN,
     get_channel_from_frequency,
-    CHANNEL_FREQUENCIES,
 )
+from ..models import WiFiObservation
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +81,7 @@ def parse_iwlist_scan(output: str) -> list[WiFiObservation]:
     return observations
 
 
-def _parse_iwlist_block(lines: list[str]) -> Optional[WiFiObservation]:
+def _parse_iwlist_block(lines: list[str]) -> WiFiObservation | None:
     """Parse a single Cell block from iwlist output."""
     try:
         # Extract BSSID from first line

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import json
 import os
@@ -15,29 +16,29 @@ import tempfile
 import threading
 import time
 from datetime import datetime
-from subprocess import PIPE, STDOUT
-from typing import Any, Generator, Optional
+from subprocess import PIPE
+from typing import Any
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
+from utils.constants import (
+    PROCESS_START_WAIT,
+    PROCESS_TERMINATE_TIMEOUT,
+    SSE_KEEPALIVE_INTERVAL,
+    SSE_QUEUE_TIMEOUT,
+)
+from utils.event_pipeline import process_event
 from utils.logging import sensor_logger as logger
+from utils.responses import api_error, api_success
+from utils.sdr import SDRFactory, SDRType
+from utils.sse import sse_stream_fanout
 from utils.validation import (
     validate_device_index,
     validate_gain,
     validate_ppm,
     validate_rtl_tcp_host,
     validate_rtl_tcp_port,
-)
-from utils.sse import sse_stream_fanout
-from utils.event_pipeline import process_event
-from utils.sdr import SDRFactory, SDRType
-from utils.constants import (
-    PROCESS_TERMINATE_TIMEOUT,
-    SSE_KEEPALIVE_INTERVAL,
-    SSE_QUEUE_TIMEOUT,
-    PROCESS_START_WAIT,
 )
 
 aprs_bp = Blueprint('aprs', __name__, url_prefix='/aprs')
@@ -75,27 +76,27 @@ METER_MIN_INTERVAL = 0.1  # Max 10 updates/sec
 METER_MIN_CHANGE = 2  # Only send if level changes by at least this much
 
 
-def find_direwolf() -> Optional[str]:
+def find_direwolf() -> str | None:
     """Find direwolf binary."""
     return shutil.which('direwolf')
 
 
-def find_multimon_ng() -> Optional[str]:
+def find_multimon_ng() -> str | None:
     """Find multimon-ng binary."""
     return shutil.which('multimon-ng')
 
 
-def find_rtl_fm() -> Optional[str]:
+def find_rtl_fm() -> str | None:
     """Find rtl_fm binary."""
     return shutil.which('rtl_fm')
 
 
-def find_rx_fm() -> Optional[str]:
+def find_rx_fm() -> str | None:
     """Find SoapySDR rx_fm binary."""
     return shutil.which('rx_fm')
 
 
-def find_rtl_power() -> Optional[str]:
+def find_rtl_power() -> str | None:
     """Find rtl_power binary for spectrum scanning."""
     return shutil.which('rtl_power')
 
@@ -142,7 +143,7 @@ def normalize_aprs_output_line(line: str) -> str:
     return normalized
 
 
-def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
+def parse_aprs_packet(raw_packet: str) -> dict | None:
     """Parse APRS packet into structured data.
 
     Supports all major APRS packet types:
@@ -431,7 +432,7 @@ def parse_aprs_packet(raw_packet: str) -> Optional[dict]:
         return None
 
 
-def parse_position(data: str) -> Optional[dict]:
+def parse_position(data: str) -> dict | None:
     """Parse APRS position data."""
     try:
         # Format: DDMM.mmN/DDDMM.mmW (or similar with symbols)
@@ -591,7 +592,7 @@ def parse_position(data: str) -> Optional[dict]:
     return None
 
 
-def parse_object(data: str) -> Optional[dict]:
+def parse_object(data: str) -> dict | None:
     """Parse APRS object data.
 
     Object format: ;OBJECTNAME*DDHHMMzPOSITION or ;OBJECTNAME_DDHHMMzPOSITION
@@ -649,7 +650,7 @@ def parse_object(data: str) -> Optional[dict]:
         return None
 
 
-def parse_item(data: str) -> Optional[dict]:
+def parse_item(data: str) -> dict | None:
     """Parse APRS item data.
 
     Item format: )ITEMNAME!POSITION or )ITEMNAME_POSITION
@@ -830,7 +831,7 @@ MIC_E_MESSAGE_TYPES = {
 }
 
 
-def parse_mic_e(dest: str, data: str) -> Optional[dict]:
+def parse_mic_e(dest: str, data: str) -> dict | None:
     """Parse Mic-E encoded position from destination and data fields.
 
     Mic-E is a highly compressed format that encodes:
@@ -973,7 +974,7 @@ def parse_mic_e(dest: str, data: str) -> Optional[dict]:
         return None
 
 
-def parse_compressed_position(data: str) -> Optional[dict]:
+def parse_compressed_position(data: str) -> dict | None:
     r"""Parse compressed position format (Base-91 encoding).
 
     Compressed format: /YYYYXXXX$csT
@@ -1057,7 +1058,7 @@ def parse_compressed_position(data: str) -> Optional[dict]:
         return None
 
 
-def parse_telemetry(data: str) -> Optional[dict]:
+def parse_telemetry(data: str) -> dict | None:
     """Parse APRS telemetry data.
 
     Format: T#sss,aaa,aaa,aaa,aaa,aaa,bbbbbbbb
@@ -1122,7 +1123,7 @@ def parse_telemetry(data: str) -> Optional[dict]:
         return None
 
 
-def parse_telemetry_definition(callsign: str, msg_type: str, content: str) -> Optional[dict]:
+def parse_telemetry_definition(callsign: str, msg_type: str, content: str) -> dict | None:
     """Parse telemetry definition messages (PARM, UNIT, EQNS, BITS).
 
     These messages define the meaning of telemetry values for a station.
@@ -1174,7 +1175,7 @@ def parse_telemetry_definition(callsign: str, msg_type: str, content: str) -> Op
         return None
 
 
-def parse_phg(data: str) -> Optional[dict]:
+def parse_phg(data: str) -> dict | None:
     """Parse PHG (Power/Height/Gain/Directivity) data.
 
     Format: PHGphgd
@@ -1217,7 +1218,7 @@ def parse_phg(data: str) -> Optional[dict]:
         return None
 
 
-def parse_rng(data: str) -> Optional[dict]:
+def parse_rng(data: str) -> dict | None:
     """Parse RNG (radio range) data.
 
     Format: RNGrrrr where rrrr is range in miles.
@@ -1231,7 +1232,7 @@ def parse_rng(data: str) -> Optional[dict]:
         return None
 
 
-def parse_df_report(data: str) -> Optional[dict]:
+def parse_df_report(data: str) -> dict | None:
     """Parse Direction Finding (DF) report.
 
     Format: CSE/SPD/BRG/NRQ or similar patterns.
@@ -1260,7 +1261,7 @@ def parse_df_report(data: str) -> Optional[dict]:
         return None
 
 
-def parse_timestamp(data: str) -> Optional[dict]:
+def parse_timestamp(data: str) -> dict | None:
     """Parse APRS timestamp from position data.
 
     Formats:
@@ -1304,7 +1305,7 @@ def parse_timestamp(data: str) -> Optional[dict]:
         return None
 
 
-def parse_third_party(data: str) -> Optional[dict]:
+def parse_third_party(data: str) -> dict | None:
     """Parse third-party traffic (packets relayed from another network).
 
     Format: }CALL>PATH:DATA (the } indicates third-party)
@@ -1330,7 +1331,7 @@ def parse_third_party(data: str) -> Optional[dict]:
         return None
 
 
-def parse_user_defined(data: str) -> Optional[dict]:
+def parse_user_defined(data: str) -> dict | None:
     """Parse user-defined data format.
 
     Format: {UUXXXX...
@@ -1352,7 +1353,7 @@ def parse_user_defined(data: str) -> Optional[dict]:
         return None
 
 
-def parse_capabilities(data: str) -> Optional[dict]:
+def parse_capabilities(data: str) -> dict | None:
     """Parse station capabilities response.
 
     Format: <capability1,capability2,...
@@ -1381,7 +1382,7 @@ def parse_capabilities(data: str) -> Optional[dict]:
         return None
 
 
-def parse_nmea(data: str) -> Optional[dict]:
+def parse_nmea(data: str) -> dict | None:
     """Parse raw GPS NMEA sentences.
 
     APRS can include raw NMEA data starting with $.
@@ -1409,7 +1410,7 @@ def parse_nmea(data: str) -> Optional[dict]:
         return None
 
 
-def parse_audio_level(line: str) -> Optional[int]:
+def parse_audio_level(line: str) -> int | None:
     """Parse direwolf audio level line and return normalized level (0-100).
 
     Direwolf outputs lines like:
@@ -1579,10 +1580,8 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
         logger.error(f"APRS stream error: {e}")
         app_module.aprs_queue.put({'type': 'error', 'message': str(e)})
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.close(master_fd)
-        except OSError:
-            pass
         app_module.aprs_queue.put({'type': 'status', 'status': 'stopped'})
         # Cleanup processes
         for proc in [rtl_process, decoder_process]:
@@ -1590,10 +1589,8 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                 proc.terminate()
                 proc.wait(timeout=2)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     proc.kill()
-                except Exception:
-                    pass
         # Release SDR device — only if it's still ours (not reclaimed by a new start)
         if my_device is not None and aprs_active_device == my_device:
             app_module.release_sdr_device(my_device, aprs_active_sdr_type or 'rtlsdr')
@@ -1860,14 +1857,10 @@ def start_aprs() -> Response:
             if stderr_output:
                 error_msg += f': {stderr_output[:500]}'
             logger.error(error_msg)
-            try:
+            with contextlib.suppress(OSError):
                 os.close(master_fd)
-            except OSError:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 decoder_process.kill()
-            except Exception:
-                pass
             if aprs_active_device is not None:
                 app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
                 aprs_active_device = None
@@ -1888,14 +1881,10 @@ def start_aprs() -> Response:
             if error_output:
                 error_msg += f': {error_output}'
             logger.error(error_msg)
-            try:
+            with contextlib.suppress(OSError):
                 os.close(master_fd)
-            except OSError:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 rtl_process.kill()
-            except Exception:
-                pass
             if aprs_active_device is not None:
                 app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
                 aprs_active_device = None
@@ -1961,10 +1950,8 @@ def stop_aprs() -> Response:
 
         # Close PTY master fd
         if hasattr(app_module, 'aprs_master_fd') and app_module.aprs_master_fd is not None:
-            try:
+            with contextlib.suppress(OSError):
                 os.close(app_module.aprs_master_fd)
-            except OSError:
-                pass
             app_module.aprs_master_fd = None
 
         app_module.aprs_process = None
@@ -2099,7 +2086,7 @@ def scan_aprs_spectrum() -> Response:
             return api_error('rtl_power did not produce output file', 500)
 
         bins = []
-        with open(tmp_file, 'r') as f:
+        with open(tmp_file) as f:
             reader = csv.reader(f)
             for row in reader:
                 if len(row) < 7:

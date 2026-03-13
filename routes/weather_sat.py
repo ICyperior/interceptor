@@ -8,18 +8,26 @@ from __future__ import annotations
 
 import queue
 
-from flask import Blueprint, jsonify, request, Response, send_file
+from flask import Blueprint, Response, jsonify, request, send_file
 
-from utils.responses import api_success, api_error
 from utils.logging import get_logger
+from utils.responses import api_error
 from utils.sse import sse_stream
-from utils.validation import validate_device_index, validate_gain, validate_latitude, validate_longitude, validate_elevation, validate_rtl_tcp_host, validate_rtl_tcp_port
+from utils.validation import (
+    validate_device_index,
+    validate_elevation,
+    validate_gain,
+    validate_latitude,
+    validate_longitude,
+    validate_rtl_tcp_host,
+    validate_rtl_tcp_port,
+)
 from utils.weather_sat import (
+    DEFAULT_SAMPLE_RATE,
+    WEATHER_SATELLITES,
+    CaptureProgress,
     get_weather_sat_decoder,
     is_weather_sat_available,
-    CaptureProgress,
-    WEATHER_SATELLITES,
-    DEFAULT_SAMPLE_RATE,
 )
 
 logger = get_logger('intercept.weather_sat')
@@ -613,7 +621,7 @@ def enable_schedule():
             gain=gain_val,
             bias_t=bool(data.get('bias_t', False)),
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to enable weather sat scheduler")
         return jsonify({
             'status': 'error',

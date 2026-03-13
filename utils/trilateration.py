@@ -9,10 +9,9 @@ signal strength measurements from multiple agents at known positions.
 
 from __future__ import annotations
 
-import math
 import logging
+import math
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional
 from datetime import datetime, timezone
 
 logger = logging.getLogger('intercept.trilateration')
@@ -30,7 +29,7 @@ class AgentObservation:
     agent_lon: float
     rssi: float  # dBm
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    frequency_mhz: Optional[float] = None  # For frequency-dependent path loss
+    frequency_mhz: float | None = None  # For frequency-dependent path loss
 
 
 @dataclass
@@ -41,7 +40,7 @@ class LocationEstimate:
     accuracy_meters: float  # Estimated accuracy radius
     confidence: float  # 0.0 to 1.0
     num_observations: int
-    observations: List[AgentObservation] = field(default_factory=list)
+    observations: list[AgentObservation] = field(default_factory=list)
     method: str = "multilateration"
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -97,8 +96,8 @@ class PathLossModel:
     def __init__(
         self,
         environment: str = 'outdoor',
-        path_loss_exponent: Optional[float] = None,
-        reference_rssi: Optional[float] = None
+        path_loss_exponent: float | None = None,
+        reference_rssi: float | None = None
     ):
         """
         Initialize path loss model.
@@ -115,7 +114,7 @@ class PathLossModel:
     def rssi_to_distance(
         self,
         rssi: float,
-        frequency_mhz: Optional[float] = None
+        frequency_mhz: float | None = None
     ) -> float:
         """
         Convert RSSI to estimated distance in meters.
@@ -150,7 +149,7 @@ class PathLossModel:
     def distance_to_rssi(
         self,
         distance: float,
-        frequency_mhz: Optional[float] = None
+        frequency_mhz: float | None = None
     ) -> float:
         """
         Estimate RSSI at a given distance (inverse of rssi_to_distance).
@@ -195,7 +194,7 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
-def meters_to_degrees(meters: float, latitude: float) -> Tuple[float, float]:
+def meters_to_degrees(meters: float, latitude: float) -> tuple[float, float]:
     """
     Convert meters to approximate degrees at a given latitude.
 
@@ -210,7 +209,7 @@ def meters_to_degrees(meters: float, latitude: float) -> Tuple[float, float]:
     return lat_deg, lon_deg
 
 
-def offset_position(lat: float, lon: float, north_m: float, east_m: float) -> Tuple[float, float]:
+def offset_position(lat: float, lon: float, north_m: float, east_m: float) -> tuple[float, float]:
     """
     Offset a GPS position by meters north and east.
 
@@ -238,7 +237,7 @@ class Trilateration:
 
     def __init__(
         self,
-        path_loss_model: Optional[PathLossModel] = None,
+        path_loss_model: PathLossModel | None = None,
         min_observations: int = 2,
         max_iterations: int = 100,
         convergence_threshold: float = 0.1  # meters
@@ -259,8 +258,8 @@ class Trilateration:
 
     def estimate_location(
         self,
-        observations: List[AgentObservation]
-    ) -> Optional[LocationEstimate]:
+        observations: list[AgentObservation]
+    ) -> LocationEstimate | None:
         """
         Estimate device location from multiple agent observations.
 
@@ -395,7 +394,7 @@ class DeviceLocationTracker:
 
     def __init__(
         self,
-        trilateration: Optional[Trilateration] = None,
+        trilateration: Trilateration | None = None,
         observation_window_seconds: float = 60.0,
         min_observations: int = 2
     ):
@@ -412,7 +411,7 @@ class DeviceLocationTracker:
         self.min_observations = min_observations
 
         # device_id -> list of AgentObservation
-        self.observations: dict[str, List[AgentObservation]] = {}
+        self.observations: dict[str, list[AgentObservation]] = {}
 
         # device_id -> latest LocationEstimate
         self.locations: dict[str, LocationEstimate] = {}
@@ -424,9 +423,9 @@ class DeviceLocationTracker:
         agent_lat: float,
         agent_lon: float,
         rssi: float,
-        frequency_mhz: Optional[float] = None,
-        timestamp: Optional[datetime] = None
-    ) -> Optional[LocationEstimate]:
+        frequency_mhz: float | None = None,
+        timestamp: datetime | None = None
+    ) -> LocationEstimate | None:
         """
         Add an observation and potentially update location estimate.
 
@@ -472,7 +471,7 @@ class DeviceLocationTracker:
             if obs.timestamp.timestamp() > cutoff
         ]
 
-    def _update_location(self, device_id: str) -> Optional[LocationEstimate]:
+    def _update_location(self, device_id: str) -> LocationEstimate | None:
         """Compute location estimate from current observations."""
         obs_list = self.observations.get(device_id, [])
 
@@ -494,7 +493,7 @@ class DeviceLocationTracker:
 
         return estimate
 
-    def get_location(self, device_id: str) -> Optional[LocationEstimate]:
+    def get_location(self, device_id: str) -> LocationEstimate | None:
         """Get the latest location estimate for a device."""
         return self.locations.get(device_id)
 
@@ -507,7 +506,7 @@ class DeviceLocationTracker:
         lat: float,
         lon: float,
         radius_meters: float
-    ) -> List[Tuple[str, LocationEstimate]]:
+    ) -> list[tuple[str, LocationEstimate]]:
         """Find all tracked devices within radius of a point."""
         results = []
         for device_id, estimate in self.locations.items():
@@ -527,9 +526,9 @@ class DeviceLocationTracker:
 # =============================================================================
 
 def estimate_location_from_observations(
-    observations: List[dict],
+    observations: list[dict],
     environment: str = 'outdoor'
-) -> Optional[dict]:
+) -> dict | None:
     """
     Convenience function to estimate location from a list of observation dicts.
 

@@ -6,6 +6,7 @@ import socket
 import subprocess
 import threading
 import time
+
 from flask import Flask
 
 # Try to import flask-sock
@@ -15,6 +16,8 @@ try:
 except ImportError:
     WEBSOCKET_AVAILABLE = False
     Sock = None
+
+import contextlib
 
 from utils.logging import get_logger
 
@@ -56,10 +59,8 @@ def kill_audio_processes():
             audio_process.terminate()
             audio_process.wait(timeout=0.5)
         except:
-            try:
+            with contextlib.suppress(BaseException):
                 audio_process.kill()
-            except:
-                pass
         audio_process = None
 
     if rtl_process:
@@ -67,10 +68,8 @@ def kill_audio_processes():
             rtl_process.terminate()
             rtl_process.wait(timeout=0.5)
         except:
-            try:
+            with contextlib.suppress(BaseException):
                 rtl_process.kill()
-            except:
-                pass
         rtl_process = None
 
     time.sleep(0.3)
@@ -261,16 +260,10 @@ def init_audio_websocket(app: Flask):
             # Complete WebSocket close handshake, then shut down the
             # raw socket so Werkzeug cannot write its HTTP 200 response
             # on top of the WebSocket stream.
-            try:
+            with contextlib.suppress(Exception):
                 ws.close()
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 ws.sock.shutdown(socket.SHUT_RDWR)
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 ws.sock.close()
-            except Exception:
-                pass
             logger.info("WebSocket audio client disconnected")

@@ -6,25 +6,26 @@ signal replay/transmit, and wideband spectrum analysis.
 
 from __future__ import annotations
 
+import contextlib
 import queue
 
-from flask import Blueprint, jsonify, request, Response, send_file
+from flask import Blueprint, Response, jsonify, request, send_file
 
-from utils.responses import api_success, api_error
+from utils.constants import (
+    SUBGHZ_FREQ_MAX_MHZ,
+    SUBGHZ_FREQ_MIN_MHZ,
+    SUBGHZ_LNA_GAIN_MAX,
+    SUBGHZ_PRESETS,
+    SUBGHZ_SAMPLE_RATES,
+    SUBGHZ_TX_MAX_DURATION,
+    SUBGHZ_TX_VGA_GAIN_MAX,
+    SUBGHZ_VGA_GAIN_MAX,
+)
+from utils.event_pipeline import process_event
 from utils.logging import get_logger
+from utils.responses import api_error
 from utils.sse import sse_stream
 from utils.subghz import get_subghz_manager
-from utils.event_pipeline import process_event
-from utils.constants import (
-    SUBGHZ_FREQ_MIN_MHZ,
-    SUBGHZ_FREQ_MAX_MHZ,
-    SUBGHZ_LNA_GAIN_MAX,
-    SUBGHZ_VGA_GAIN_MAX,
-    SUBGHZ_TX_VGA_GAIN_MAX,
-    SUBGHZ_TX_MAX_DURATION,
-    SUBGHZ_SAMPLE_RATES,
-    SUBGHZ_PRESETS,
-)
 
 logger = get_logger('intercept.subghz')
 
@@ -36,10 +37,8 @@ _subghz_queue: queue.Queue = queue.Queue(maxsize=200)
 
 def _event_callback(event: dict) -> None:
     """Forward SubGhzManager events to the SSE queue."""
-    try:
+    with contextlib.suppress(Exception):
         process_event('subghz', event, event.get('type'))
-    except Exception:
-        pass
     try:
         _subghz_queue.put_nowait(event)
     except queue.Full:

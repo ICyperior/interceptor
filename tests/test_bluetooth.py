@@ -1,8 +1,8 @@
-import pytest
-import json
-import subprocess
 from unittest.mock import MagicMock, patch
+
+import pytest
 from flask import Flask
+
 from routes.bluetooth import bluetooth_bp, classify_bt_device, detect_tracker
 
 

@@ -1,13 +1,13 @@
 """API endpoint tests for Bluetooth v2 routes."""
 
-import pytest
-import json
-from unittest.mock import MagicMock, patch, PropertyMock
 from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
 from flask import Flask
 
 from routes.bluetooth_v2 import bluetooth_v2_bp
-from utils.bluetooth.models import BTDeviceAggregate, ScanStatus, SystemCapabilities
+from utils.bluetooth.models import BTDeviceAggregate, SystemCapabilities
 
 
 @pytest.fixture

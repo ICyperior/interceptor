@@ -7,18 +7,18 @@ frames, detecting potential deauth flood attacks.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Callable, Optional, Any
+from typing import Any, Callable
 
 from utils.constants import (
-    DEAUTH_DETECTION_WINDOW,
     DEAUTH_ALERT_THRESHOLD,
     DEAUTH_CRITICAL_THRESHOLD,
+    DEAUTH_DETECTION_WINDOW,
     DEAUTH_SNIFF_TIMEOUT,
 )
 
@@ -63,7 +63,7 @@ class DeauthPacketInfo:
     dst_mac: str
     bssid: str
     reason_code: int
-    signal_dbm: Optional[int] = None
+    signal_dbm: int | None = None
 
 
 @dataclass
@@ -106,20 +106,20 @@ class DeauthAlert:
 
     # Attacker info
     attacker_mac: str
-    attacker_vendor: Optional[str]
-    attacker_signal_dbm: Optional[int]
+    attacker_vendor: str | None
+    attacker_signal_dbm: int | None
     is_spoofed_ap: bool
 
     # Target info
     target_mac: str
-    target_vendor: Optional[str]
+    target_vendor: str | None
     target_type: str  # 'client', 'broadcast', 'ap'
     target_known_from_scan: bool
 
     # Access point info
     ap_bssid: str
-    ap_essid: Optional[str]
-    ap_channel: Optional[int]
+    ap_essid: str | None
+    ap_channel: int | None
 
     # Attack info
     frame_type: str
@@ -184,8 +184,8 @@ class DeauthDetector:
         self,
         interface: str,
         event_callback: Callable[[dict], None],
-        get_networks: Optional[Callable[[], dict[str, Any]]] = None,
-        get_clients: Optional[Callable[[], dict[str, Any]]] = None,
+        get_networks: Callable[[], dict[str, Any]] | None = None,
+        get_clients: Callable[[], dict[str, Any]] | None = None,
     ):
         """
         Initialize the deauth detector.
@@ -202,7 +202,7 @@ class DeauthDetector:
         self.get_clients = get_clients
 
         self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
 
         # Track deauth packets by (src, dst, bssid) tuple
@@ -215,7 +215,7 @@ class DeauthDetector:
         # Stats
         self._packets_captured = 0
         self._alerts_generated = 0
-        self._started_at: Optional[float] = None
+        self._started_at: float | None = None
 
     @property
     def is_running(self) -> bool:
@@ -296,7 +296,7 @@ class DeauthDetector:
     def _sniff_loop(self):
         """Main sniffing loop using scapy."""
         try:
-            from scapy.all import sniff, Dot11, Dot11Deauth, Dot11Disas
+            from scapy.all import Dot11, Dot11Deauth, Dot11Disas, sniff
         except ImportError:
             logger.error("scapy not installed. Install with: pip install scapy")
             self.event_callback({
@@ -388,10 +388,8 @@ class DeauthDetector:
         # Extract signal strength from RadioTap if available
         signal_dbm = None
         if pkt.haslayer(RadioTap):
-            try:
+            with contextlib.suppress(AttributeError):
                 signal_dbm = pkt[RadioTap].dBm_AntSignal
-            except AttributeError:
-                pass
 
         # Create packet info
         pkt_info = DeauthPacketInfo(
@@ -579,7 +577,7 @@ class DeauthDetector:
 
         try:
             networks = self.get_networks()
-            return {bssid.upper() for bssid in networks.keys()}
+            return {bssid.upper() for bssid in networks}
         except Exception:
             return set()
 
@@ -587,7 +585,7 @@ class DeauthDetector:
         """Check if source MAC matches a known AP (spoofing indicator)."""
         return src_mac.upper() in self._get_known_aps()
 
-    def _get_vendor(self, mac: str) -> Optional[str]:
+    def _get_vendor(self, mac: str) -> str | None:
         """Get vendor from MAC OUI."""
         try:
             from data.oui import get_manufacturer

@@ -8,20 +8,20 @@ from __future__ import annotations
 
 import threading
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from utils.logging import get_logger
-from utils.weather_sat import get_weather_sat_decoder, WEATHER_SATELLITES, CaptureProgress
+from utils.weather_sat import CaptureProgress, get_weather_sat_decoder
 
 logger = get_logger('intercept.weather_sat_scheduler')
 
 # Import config defaults
 try:
     from config import (
-        WEATHER_SAT_SCHEDULE_REFRESH_MINUTES,
         WEATHER_SAT_CAPTURE_BUFFER_SECONDS,
         WEATHER_SAT_SAMPLE_RATE,
+        WEATHER_SAT_SCHEDULE_REFRESH_MINUTES,
     )
 except ImportError:
     WEATHER_SAT_SCHEDULE_REFRESH_MINUTES = 30

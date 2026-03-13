@@ -8,7 +8,6 @@ and EMA smoothing for RSSI values.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 
 class ProximityBand(str, Enum):
@@ -70,9 +69,9 @@ class DistanceEstimator:
     def estimate_distance(
         self,
         rssi: float,
-        tx_power: Optional[int] = None,
-        variance: Optional[float] = None,
-    ) -> tuple[Optional[float], float]:
+        tx_power: int | None = None,
+        variance: float | None = None,
+    ) -> tuple[float | None, float]:
         """
         Estimate distance to a device based on RSSI.
 
@@ -143,7 +142,7 @@ class DistanceEstimator:
         else:
             return 15.0  # Very far: ~15m
 
-    def _calculate_variance_confidence(self, variance: Optional[float]) -> float:
+    def _calculate_variance_confidence(self, variance: float | None) -> float:
         """
         Calculate confidence based on RSSI variance.
 
@@ -169,8 +168,8 @@ class DistanceEstimator:
 
     def classify_proximity_band(
         self,
-        distance_m: Optional[float] = None,
-        rssi_ema: Optional[float] = None,
+        distance_m: float | None = None,
+        rssi_ema: float | None = None,
     ) -> ProximityBand:
         """
         Classify device into a proximity band.
@@ -209,8 +208,8 @@ class DistanceEstimator:
     def apply_ema_smoothing(
         self,
         current: int,
-        prev_ema: Optional[float] = None,
-        alpha: Optional[float] = None,
+        prev_ema: float | None = None,
+        alpha: float | None = None,
     ) -> float:
         """
         Apply Exponential Moving Average smoothing to RSSI.
@@ -237,7 +236,7 @@ class DistanceEstimator:
         self,
         rssi_samples: list[tuple],
         window_seconds: int = 60,
-    ) -> tuple[Optional[int], Optional[int]]:
+    ) -> tuple[int | None, int | None]:
         """
         Get min/max RSSI from the last N seconds.
 
@@ -263,7 +262,7 @@ class DistanceEstimator:
 
 
 # Module-level instance for convenience
-_default_estimator: Optional[DistanceEstimator] = None
+_default_estimator: DistanceEstimator | None = None
 
 
 def get_distance_estimator() -> DistanceEstimator:

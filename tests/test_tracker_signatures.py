@@ -6,15 +6,15 @@ the signature engine correctly identifies them with appropriate confidence.
 """
 
 import pytest
+
 from utils.bluetooth.tracker_signatures import (
+    APPLE_COMPANY_ID,
+    TrackerConfidence,
     TrackerSignatureEngine,
     TrackerType,
-    TrackerConfidence,
     detect_tracker,
     get_tracker_engine,
-    APPLE_COMPANY_ID,
 )
-
 
 # =============================================================================
 # SAMPLE PAYLOADS FROM REAL DEVICES

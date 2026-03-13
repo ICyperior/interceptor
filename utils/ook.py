@@ -18,6 +18,7 @@ Usage with rtl_433:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import queue
@@ -115,9 +116,8 @@ def ook_parser_thread(
             # rtl_433 flex decoder puts hex in 'codes' (list or string),
             # 'code' (singular), or 'data' depending on version.
             codes = data.get('codes')
-            if codes is not None:
-                if isinstance(codes, str):
-                    codes = [codes] if codes else None
+            if codes is not None and isinstance(codes, str):
+                codes = [codes] if codes else None
 
             if not codes:
                 code = data.get('code')
@@ -134,24 +134,20 @@ def ook_parser_thread(
             for _rssi_key in ('snr', 'rssi', 'level', 'noise'):
                 _rssi_val = data.get(_rssi_key)
                 if _rssi_val is not None:
-                    try:
+                    with contextlib.suppress(TypeError, ValueError):
                         rssi = round(float(_rssi_val), 1)
-                    except (TypeError, ValueError):
-                        pass
                     break
 
             if not codes:
                 logger.warning(
                     f'[rtl_433/ook] no code field — keys: {list(data.keys())}'
                 )
-                try:
+                with contextlib.suppress(queue.Full):
                     output_queue.put_nowait({
                         'type': 'ook_raw',
                         'data': data,
                         'timestamp': datetime.now().strftime('%H:%M:%S'),
                     })
-                except queue.Full:
-                    pass
                 continue
 
             for code_hex in codes:
@@ -194,14 +190,10 @@ def ook_parser_thread(
 
     except Exception as e:
         logger.warning(f'OOK parser thread error: {e}')
-        try:
+        with contextlib.suppress(queue.Full):
             output_queue.put_nowait({'type': 'error', 'text': str(e)})
-        except queue.Full:
-            pass
 
     # Notify frontend that the parser has stopped (covers both normal exit
     # and unexpected rtl_433 crashes so the UI doesn't stay in "Listening").
-    try:
+    with contextlib.suppress(queue.Full):
         output_queue.put_nowait({'type': 'status', 'text': 'stopped'})
-    except queue.Full:
-        pass

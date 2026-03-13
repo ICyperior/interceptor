@@ -6,7 +6,6 @@ import pytest
 
 from routes.aprs import parse_aprs_packet
 
-
 _BASE_PACKET = "N0CALL-9>APRS,TCPIP*:@092345z4903.50N/07201.75W_090/000g005t077"
 
 

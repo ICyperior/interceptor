@@ -10,22 +10,26 @@ Tests cover:
 
 import json
 import os
-import pytest
-import tempfile
-from unittest.mock import Mock, patch, MagicMock
-
 import sys
+import tempfile
+from unittest.mock import Mock, patch
+
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.agent_client import (
-    AgentClient, AgentHTTPError, AgentConnectionError, create_client_from_agent
-)
+from utils.agent_client import AgentClient, AgentConnectionError, AgentHTTPError, create_client_from_agent
 from utils.database import (
-    init_db, get_db_path, create_agent, get_agent, get_agent_by_name,
-    list_agents, update_agent, delete_agent, store_push_payload,
-    get_recent_payloads, cleanup_old_payloads
+    create_agent,
+    delete_agent,
+    get_agent,
+    get_agent_by_name,
+    get_recent_payloads,
+    init_db,
+    list_agents,
+    store_push_payload,
+    update_agent,
 )
-
 
 # =============================================================================
 # AgentConfig Tests
@@ -559,8 +563,8 @@ class TestAgentClientIntegration:
     @pytest.fixture
     def mock_agent(self):
         """Start mock agent server for testing."""
+
         from tests.mock_agent import app as mock_app
-        import threading
 
         # Run mock agent in background
         mock_app.config['TESTING'] = True

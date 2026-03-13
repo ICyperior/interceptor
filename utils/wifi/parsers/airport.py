@@ -12,33 +12,31 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from typing import Optional
 
-from ..models import WiFiObservation
 from ..constants import (
+    AUTH_EAP,
+    AUTH_OPEN,
+    AUTH_PSK,
+    AUTH_SAE,
+    AUTH_UNKNOWN,
+    CHANNEL_FREQUENCIES,
+    CIPHER_CCMP,
+    CIPHER_NONE,
+    CIPHER_TKIP,
+    CIPHER_UNKNOWN,
+    CIPHER_WEP,
     SECURITY_OPEN,
+    SECURITY_UNKNOWN,
     SECURITY_WEP,
     SECURITY_WPA,
     SECURITY_WPA2,
+    SECURITY_WPA2_WPA3,
     SECURITY_WPA3,
     SECURITY_WPA_WPA2,
-    SECURITY_WPA2_WPA3,
-    SECURITY_UNKNOWN,
-    CIPHER_CCMP,
-    CIPHER_TKIP,
-    CIPHER_WEP,
-    CIPHER_NONE,
-    CIPHER_UNKNOWN,
-    AUTH_PSK,
-    AUTH_SAE,
-    AUTH_EAP,
-    AUTH_OPEN,
-    AUTH_UNKNOWN,
     WIDTH_20_MHZ,
     WIDTH_40_MHZ,
-    get_band_from_channel,
-    CHANNEL_FREQUENCIES,
 )
+from ..models import WiFiObservation
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +66,7 @@ def parse_airport_scan(output: str) -> list[WiFiObservation]:
     return observations
 
 
-def _parse_airport_line(line: str) -> Optional[WiFiObservation]:
+def _parse_airport_line(line: str) -> WiFiObservation | None:
     """Parse a single line of airport output."""
     # airport output is space-aligned, need careful parsing
     # Format: SSID (variable width) BSSID RSSI CHANNEL HT CC SECURITY
@@ -95,10 +93,8 @@ def _parse_airport_line(line: str) -> Optional[WiFiObservation]:
         ssid = line[:bssid_pos].strip()
 
         # Handle hidden network indicator
-        is_hidden = False
         if ssid == '--' or not ssid:
             ssid = None
-            is_hidden = True
 
         # Parse remainder after BSSID
         remainder = line[bssid_match.end():].strip()

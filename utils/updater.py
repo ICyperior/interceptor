@@ -4,6 +4,7 @@ GitHub update checking and git-based update mechanism.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -264,10 +265,8 @@ def get_update_status() -> dict[str, Any]:
 
     last_check_time = None
     if last_check:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             last_check_time = datetime.fromtimestamp(float(last_check)).isoformat()
-        except (ValueError, TypeError):
-            pass
 
     return {
         'success': True,

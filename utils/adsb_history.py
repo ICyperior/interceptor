@@ -6,19 +6,21 @@ import logging
 import queue
 import threading
 import time
+from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Iterable
 
 # psycopg2 is optional - only needed for PostgreSQL history persistence
 try:
     import psycopg2
-    from psycopg2.extras import execute_values, Json
+    from psycopg2.extras import Json, execute_values
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     psycopg2 = None  # type: ignore
     execute_values = None  # type: ignore
     Json = None  # type: ignore
     PSYCOPG2_AVAILABLE = False
+
+import contextlib
 
 from config import (
     ADSB_DB_HOST,
@@ -289,10 +291,8 @@ class AdsbHistoryWriter:
             return True
         except Exception as exc:
             logger.warning("ADS-B history insert failed: %s", exc)
-            try:
+            with contextlib.suppress(Exception):
                 conn.rollback()
-            except Exception:
-                pass
             self._conn = None
             time.sleep(2.0)
             return False
@@ -393,10 +393,8 @@ class AdsbSnapshotWriter:
             return True
         except Exception as exc:
             logger.warning("ADS-B snapshot insert failed: %s", exc)
-            try:
+            with contextlib.suppress(Exception):
                 conn.rollback()
-            except Exception:
-                pass
             self._conn = None
             time.sleep(2.0)
             return False

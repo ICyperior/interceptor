@@ -1,6 +1,8 @@
 """Gunicorn configuration for INTERCEPT."""
 
+import contextlib
 import warnings
+
 warnings.filterwarnings(
     'ignore',
     message='Patching more than once',
@@ -33,10 +35,8 @@ def post_fork(server, worker):
         _orig = _ForkHooks.after_fork_in_child
 
         def _safe_after_fork(self):
-            try:
+            with contextlib.suppress(AssertionError):
                 _orig(self)
-            except AssertionError:
-                pass
 
         _ForkHooks.after_fork_in_child = _safe_after_fork
     except Exception:
@@ -53,6 +53,7 @@ def post_worker_init(worker):
     """
     try:
         import ssl
+
         from gevent import get_hub
         hub = get_hub()
         suppress = (SystemExit, ssl.SSLZeroReturnError, ssl.SSLError)

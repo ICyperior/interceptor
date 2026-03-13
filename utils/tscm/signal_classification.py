@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
-
 
 # =============================================================================
 # Signal Strength Classification
@@ -208,8 +206,8 @@ class ConfidenceLevel(Enum):
 @dataclass
 class SignalAssessment:
     """Complete signal assessment with confidence-safe language."""
-    rssi: Optional[float]
-    duration_seconds: Optional[float]
+    rssi: float | None
+    duration_seconds: float | None
     observation_count: int
 
     signal_strength: SignalStrength

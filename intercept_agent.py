@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import contextlib
 import json
 import logging
 import os
@@ -26,25 +27,24 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-from typing import Any
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import dependency checking from Intercept utils
 try:
-    from utils.dependencies import check_all_dependencies, check_tool, TOOL_DEPENDENCIES
+    from utils.dependencies import TOOL_DEPENDENCIES, check_all_dependencies, check_tool
     HAS_DEPENDENCIES_MODULE = True
 except ImportError:
     HAS_DEPENDENCIES_MODULE = False
 
 # Import TSCM modules for consistent analysis (same as local mode)
 try:
-    from utils.tscm.detector import ThreatDetector
     from utils.tscm.correlation import CorrelationEngine
+    from utils.tscm.detector import ThreatDetector
     HAS_TSCM_MODULES = True
 except ImportError:
     HAS_TSCM_MODULES = False
@@ -53,7 +53,7 @@ except ImportError:
 
 # Import database functions for baseline support (same as local mode)
 try:
-    from utils.database import get_tscm_baseline, get_active_tscm_baseline
+    from utils.database import get_active_tscm_baseline, get_tscm_baseline
     HAS_BASELINE_DB = True
 except ImportError:
     HAS_BASELINE_DB = False
@@ -143,7 +143,7 @@ class AgentConfig:
 
             # Modes section
             if parser.has_section('modes'):
-                for mode in self.modes_enabled.keys():
+                for mode in self.modes_enabled:
                     if parser.has_option('modes', mode):
                         self.modes_enabled[mode] = parser.getboolean('modes', mode)
 
@@ -310,10 +310,8 @@ class ControllerPushClient(threading.Thread):
             except Exception as e:
                 item['attempts'] += 1
                 if item['attempts'] < 3 and not self.stop_event.is_set():
-                    try:
+                    with contextlib.suppress(queue.Full):
                         self.queue.put_nowait(item)
-                    except queue.Full:
-                        pass
                 else:
                     logger.warning(f"Failed to push after {item['attempts']} attempts: {e}")
             finally:
@@ -795,9 +793,7 @@ class ModeManager:
                 info['vessel_count'] = len(getattr(self, 'ais_vessels', {}))
             elif mode == 'aprs':
                 info['station_count'] = len(getattr(self, 'aprs_stations', {}))
-            elif mode == 'pager':
-                info['message_count'] = len(self.data_snapshots.get(mode, []))
-            elif mode == 'acars':
+            elif mode == 'pager' or mode == 'acars':
                 info['message_count'] = len(self.data_snapshots.get(mode, []))
             elif mode == 'rtlamr':
                 info['reading_count'] = len(self.data_snapshots.get(mode, []))
@@ -1073,10 +1069,8 @@ class ModeManager:
                         proc.wait(timeout=2)
                     except subprocess.TimeoutExpired:
                         proc.kill()
-                        try:
+                        with contextlib.suppress(Exception):
                             proc.wait(timeout=1)
-                        except Exception:
-                            pass
             except (OSError, ProcessLookupError) as e:
                 # Process already dead or inaccessible
                 logger.debug(f"Process cleanup for {mode}: {e}")
@@ -1297,10 +1291,8 @@ class ModeManager:
         except Exception as e:
             logger.error(f"Sensor output reader error: {e}")
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            except Exception:
-                pass
             logger.info("Sensor output reader stopped")
 
     # -------------------------------------------------------------------------
@@ -1661,16 +1653,14 @@ class ModeManager:
         try:
             from utils.validation import validate_network_interface
             interface = validate_network_interface(interface)
-        except (ImportError, ValueError) as e:
+        except (ImportError, ValueError):
             if not os.path.exists(f'/sys/class/net/{interface}'):
                 return {'status': 'error', 'message': f'Interface {interface} not found'}
 
         csv_path = '/tmp/intercept_agent_wifi'
         for f in [f'{csv_path}-01.csv', f'{csv_path}-01.cap', f'{csv_path}-01.gps']:
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(f)
-            except OSError:
-                pass
 
         airodump_path = self._get_tool_path('airodump-ng')
         if not airodump_path:
@@ -1931,7 +1921,7 @@ class ModeManager:
             logger.warning("Intercept WiFi parser not available, using fallback")
             # Fallback: simple parsing if running standalone
             try:
-                with open(csv_path, 'r', errors='replace') as f:
+                with open(csv_path, errors='replace') as f:
                     content = f.read()
                 for section in content.split('\n\n'):
                     lines = section.strip().split('\n')
@@ -2303,10 +2293,8 @@ class ModeManager:
         except Exception as e:
             logger.error(f"Pager reader error: {e}")
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            except Exception:
-                pass
             if 'pager_rtl' in self.processes:
                 try:
                     rtl_proc = self.processes['pager_rtl']
@@ -2491,7 +2479,7 @@ class ModeManager:
 
                 sock.close()
 
-            except Exception as e:
+            except Exception:
                 retry_count += 1
                 if retry_count >= 10:
                     logger.error("Max AIS retries reached")
@@ -2701,10 +2689,8 @@ class ModeManager:
         except Exception as e:
             logger.error(f"ACARS reader error: {e}")
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            except Exception:
-                pass
             logger.info("ACARS reader stopped")
 
     # -------------------------------------------------------------------------
@@ -2846,10 +2832,8 @@ class ModeManager:
         except Exception as e:
             logger.error(f"APRS reader error: {e}")
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            except Exception:
-                pass
             if 'aprs_rtl' in self.processes:
                 try:
                     rtl_proc = self.processes['aprs_rtl']
@@ -3021,10 +3005,8 @@ class ModeManager:
         except Exception as e:
             logger.error(f"RTLAMR reader error: {e}")
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            except Exception:
-                pass
             if 'rtlamr_tcp' in self.processes:
                 try:
                     tcp_proc = self.processes['rtlamr_tcp']
@@ -3142,10 +3124,8 @@ class ModeManager:
         except Exception as e:
             logger.error(f"DSC reader error: {e}")
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            except Exception:
-                pass
             logger.info("DSC reader stopped")
 
     # -------------------------------------------------------------------------
@@ -3219,13 +3199,13 @@ class ModeManager:
         stop_event = self.stop_events.get(mode)
 
         # Import existing Intercept TSCM functions
-        from routes.tscm import _scan_wifi_networks, _scan_wifi_clients, _scan_bluetooth_devices, _scan_rf_signals
+        from routes.tscm import _scan_bluetooth_devices, _scan_rf_signals, _scan_wifi_clients, _scan_wifi_networks
         logger.info("TSCM imports successful")
 
         sweep_ranges = None
         if sweep_type:
             try:
-                from data.tscm_frequencies import get_sweep_preset, SWEEP_PRESETS
+                from data.tscm_frequencies import SWEEP_PRESETS, get_sweep_preset
                 preset = get_sweep_preset(sweep_type) or SWEEP_PRESETS.get('standard')
                 sweep_ranges = preset.get('ranges') if preset else None
             except Exception:
@@ -3412,7 +3392,8 @@ class ModeManager:
                 if scan_rf and (current_time - last_rf_scan) >= rf_scan_interval:
                     try:
                         # Pass a stop check that uses our stop_event (not the module's _sweep_running)
-                        agent_stop_check = lambda: stop_event and stop_event.is_set()
+                        def agent_stop_check():
+                            return stop_event and stop_event.is_set()
                         rf_signals = _scan_rf_signals(
                             sdr_device,
                             stop_check=agent_stop_check,
@@ -3610,10 +3591,8 @@ class ModeManager:
             # Ensure test process is killed on any error
             if test_proc and test_proc.poll() is None:
                 test_proc.kill()
-                try:
+                with contextlib.suppress(Exception):
                     test_proc.wait(timeout=1)
-                except Exception:
-                    pass
             return {'status': 'error', 'message': f'SDR check failed: {str(e)}'}
 
         # Initialize state
@@ -3647,9 +3626,9 @@ class ModeManager:
                                  step: float, modulation: str, squelch: int,
                                  device: str, gain: str, dwell_time: float = 1.0):
         """Scan frequency range and report signal detections."""
-        import select
-        import os
         import fcntl
+        import os
+        import select
 
         mode = 'listening_post'
         stop_event = self.stop_events.get(mode)
@@ -3709,7 +3688,7 @@ class ModeManager:
                                             signal_detected = True
                                 except Exception:
                                     pass
-                        except (IOError, BlockingIOError):
+                        except (OSError, BlockingIOError):
                             pass
 
                 proc.terminate()
@@ -4131,27 +4110,19 @@ def main():
 
             # Stop push services
             if data_push_loop:
-                try:
+                with contextlib.suppress(Exception):
                     data_push_loop.stop()
-                except Exception:
-                    pass
             if push_client:
-                try:
+                with contextlib.suppress(Exception):
                     push_client.stop()
-                except Exception:
-                    pass
 
             # Stop GPS
-            try:
+            with contextlib.suppress(Exception):
                 gps_manager.stop()
-            except Exception:
-                pass
 
             # Shutdown HTTP server
-            try:
+            with contextlib.suppress(Exception):
                 httpd.shutdown()
-            except Exception:
-                pass
 
         # Run cleanup in background thread so signal handler returns quickly
         cleanup_thread = threading.Thread(target=cleanup, daemon=True)

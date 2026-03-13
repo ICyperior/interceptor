@@ -12,12 +12,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import random
 import string
 import threading
 import time
 from datetime import datetime, timezone
+
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
@@ -53,7 +53,7 @@ def generate_sensors() -> list[dict]:
     """Generate fake 433MHz sensor data."""
     sensors = []
     models = ['Acurite-Tower', 'Oregon-THGR122N', 'LaCrosse-TX141W', 'Ambient-F007TH']
-    for i in range(random.randint(2, 5)):
+    for _i in range(random.randint(2, 5)):
         sensors.append({
             'time': datetime.now(timezone.utc).isoformat(),
             'model': random.choice(models),
@@ -71,7 +71,7 @@ def generate_wifi_networks() -> list[dict]:
     networks = []
     ssids = ['HomeNetwork', 'Linksys', 'NETGEAR', 'xfinitywifi', 'ATT-WIFI', 'CoffeeShop-Guest']
     for ssid in random.sample(ssids, random.randint(3, 6)):
-        bssid = ':'.join(['%02X' % random.randint(0, 255) for _ in range(6)])
+        bssid = ':'.join([f'{random.randint(0, 255):02X}' for _ in range(6)])
         networks.append({
             'ssid': ssid,
             'bssid': bssid,
@@ -89,7 +89,7 @@ def generate_bluetooth_devices() -> list[dict]:
     devices = []
     names = ['iPhone', 'Galaxy S21', 'AirPods', 'Tile Tracker', 'Fitbit', 'Unknown']
     for _ in range(random.randint(2, 8)):
-        mac = ':'.join(['%02X' % random.randint(0, 255) for _ in range(6)])
+        mac = ':'.join([f'{random.randint(0, 255):02X}' for _ in range(6)])
         devices.append({
             'address': mac,
             'name': random.choice(names),
@@ -209,9 +209,7 @@ def config():
         'name': agent_name,
         'port': request.environ.get('SERVER_PORT', 8021),
         'push_enabled': False,
-        'modes_enabled': {m: True for m in [
-            'pager', 'sensor', 'adsb', 'ais', 'wifi', 'bluetooth'
-        ]}
+        'modes_enabled': dict.fromkeys(['pager', 'sensor', 'adsb', 'ais', 'wifi', 'bluetooth'], True)
     })
 
 

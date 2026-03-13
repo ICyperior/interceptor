@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
-import json
 
 logger = logging.getLogger('intercept.oui')
 
@@ -12,7 +12,7 @@ def load_oui_database() -> dict[str, str] | None:
     oui_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'oui_database.json')
     try:
         if os.path.exists(oui_file):
-            with open(oui_file, 'r') as f:
+            with open(oui_file) as f:
                 data = json.load(f)
                 # Remove comment fields
                 return {k: v for k, v in data.items() if not k.startswith('_')}

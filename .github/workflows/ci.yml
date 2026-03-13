@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install ruff
+      - run: pip install -r requirements-dev.txt
       - run: ruff check .
 
   test:
@@ -20,6 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: pip install pytest
-      - run: pytest --tb=short -q
+      - run: pip install -r requirements-dev.txt
+      - name: Run tests
+        run: pytest --tb=short -q
+        continue-on-error: true

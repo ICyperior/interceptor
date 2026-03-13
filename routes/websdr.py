@@ -9,11 +9,10 @@ import re
 import struct
 import threading
 import time
-from typing import Optional
 
-from flask import Blueprint, Flask, jsonify, request, Response
+from flask import Blueprint, Flask, Response, jsonify, request
 
-from utils.responses import api_success, api_error
+from utils.responses import api_error, api_success
 
 try:
     from flask_sock import Sock
@@ -21,7 +20,9 @@ try:
 except ImportError:
     WEBSOCKET_AVAILABLE = False
 
-from utils.kiwisdr import KiwiSDRClient, KIWI_SAMPLE_RATE, VALID_MODES, parse_host_port
+import contextlib
+
+from utils.kiwisdr import KIWI_SAMPLE_RATE, VALID_MODES, KiwiSDRClient, parse_host_port
 from utils.logging import get_logger
 
 logger = get_logger('intercept.websdr')
@@ -38,7 +39,7 @@ _cache_timestamp: float = 0
 CACHE_TTL = 3600  # 1 hour
 
 
-def _parse_gps_coord(coord_str: str) -> Optional[float]:
+def _parse_gps_coord(coord_str: str) -> float | None:
     """Parse a GPS coordinate string like '51.5074' or '(-33.87)' into a float."""
     if not coord_str:
         return None
@@ -70,8 +71,8 @@ KIWI_DATA_URLS = [
 
 def _fetch_kiwi_receivers() -> list[dict]:
     """Fetch the KiwiSDR receiver list from the public directory."""
-    import urllib.request
     import json
+    import urllib.request
 
     receivers = []
     raw = None
@@ -335,7 +336,7 @@ def websdr_status() -> Response:
 # KIWISDR AUDIO PROXY
 # ============================================
 
-_kiwi_client: Optional[KiwiSDRClient] = None
+_kiwi_client: KiwiSDRClient | None = None
 _kiwi_lock = threading.Lock()
 _kiwi_audio_queue: queue.Queue = queue.Queue(maxsize=200)
 
@@ -387,26 +388,18 @@ def _handle_kiwi_command(ws, cmd: str, data: dict) -> None:
             try:
                 _kiwi_audio_queue.put_nowait(header + pcm_bytes)
             except queue.Full:
-                try:
+                with contextlib.suppress(queue.Empty):
                     _kiwi_audio_queue.get_nowait()
-                except queue.Empty:
-                    pass
-                try:
+                with contextlib.suppress(queue.Full):
                     _kiwi_audio_queue.put_nowait(header + pcm_bytes)
-                except queue.Full:
-                    pass
 
         def on_error(msg):
-            try:
+            with contextlib.suppress(Exception):
                 ws.send(json.dumps({'type': 'error', 'message': msg}))
-            except Exception:
-                pass
 
         def on_disconnect():
-            try:
+            with contextlib.suppress(Exception):
                 ws.send(json.dumps({'type': 'disconnected'}))
-            except Exception:
-                pass
 
         with _kiwi_lock:
             _kiwi_client = KiwiSDRClient(

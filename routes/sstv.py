@@ -6,23 +6,24 @@ ISS SSTV events occur during special commemorations and typically transmit on 14
 
 from __future__ import annotations
 
+import contextlib
 import queue
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, jsonify, request, Response, send_file
+from flask import Blueprint, Response, jsonify, request, send_file
 
-from utils.responses import api_success, api_error
 import app as app_module
-from utils.logging import get_logger
-from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
+from utils.logging import get_logger
+from utils.responses import api_error
+from utils.sse import sse_stream_fanout
 from utils.sstv import (
+    ISS_SSTV_FREQ,
     get_sstv_decoder,
     is_sstv_available,
-    ISS_SSTV_FREQ,
 )
 
 logger = get_logger('intercept.sstv')
@@ -520,9 +521,11 @@ def iss_schedule():
             return jsonify(_iss_schedule_cache)
 
     try:
-        from skyfield.api import wgs84, EarthSatellite
-        from skyfield.almanac import find_discrete
         from datetime import timedelta
+
+        from skyfield.almanac import find_discrete
+        from skyfield.api import EarthSatellite, wgs84
+
         from data.satellites import TLE_SATELLITES
 
         # Get ISS TLE
@@ -816,7 +819,5 @@ def decode_file():
 
     finally:
         # Clean up temp file
-        try:
+        with contextlib.suppress(Exception):
             Path(tmp_path).unlink()
-        except Exception:
-            pass

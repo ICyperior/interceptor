@@ -9,40 +9,37 @@ from __future__ import annotations
 import statistics
 import threading
 from datetime import datetime, timedelta
-from typing import Optional
 
 from .constants import (
-    MAX_RSSI_SAMPLES,
-    DEVICE_STALE_TIMEOUT,
-    RSSI_VERY_CLOSE,
-    RSSI_CLOSE,
-    RSSI_NEARBY,
-    RSSI_FAR,
-    CONFIDENCE_VERY_CLOSE,
-    CONFIDENCE_CLOSE,
-    CONFIDENCE_NEARBY,
-    CONFIDENCE_FAR,
-    RANGE_VERY_CLOSE,
-    RANGE_CLOSE,
-    RANGE_NEARBY,
-    RANGE_FAR,
-    RANGE_UNKNOWN,
+    ADDRESS_TYPE_NRPA,
     ADDRESS_TYPE_RANDOM,
     ADDRESS_TYPE_RANDOM_STATIC,
     ADDRESS_TYPE_RPA,
-    ADDRESS_TYPE_NRPA,
+    CONFIDENCE_CLOSE,
+    CONFIDENCE_FAR,
+    CONFIDENCE_NEARBY,
+    CONFIDENCE_VERY_CLOSE,
+    DEVICE_STALE_TIMEOUT,
     MANUFACTURER_NAMES,
+    MAX_RSSI_SAMPLES,
     PROTOCOL_BLE,
     PROTOCOL_CLASSIC,
+    RANGE_CLOSE,
+    RANGE_FAR,
+    RANGE_NEARBY,
+    RANGE_UNKNOWN,
+    RANGE_VERY_CLOSE,
+    RSSI_CLOSE,
+    RSSI_FAR,
+    RSSI_NEARBY,
+    RSSI_VERY_CLOSE,
 )
-from .models import BTObservation, BTDeviceAggregate
 from .device_key import generate_device_key, is_randomized_mac
-from .distance import DistanceEstimator, get_distance_estimator
+from .distance import get_distance_estimator
+from .models import BTDeviceAggregate, BTObservation
 from .ring_buffer import RingBuffer, get_ring_buffer
 from .tracker_signatures import (
-    TrackerSignatureEngine,
     get_tracker_engine,
-    TrackerDetectionResult,
 )
 
 
@@ -59,7 +56,7 @@ class DeviceAggregator:
         self._lock = threading.Lock()
         self._max_rssi_samples = max_rssi_samples
         self._baseline_device_ids: set[str] = set()
-        self._baseline_set_time: Optional[datetime] = None
+        self._baseline_set_time: datetime | None = None
 
         # Proximity estimation components
         self._distance_estimator = get_distance_estimator()
@@ -382,9 +379,8 @@ class DeviceAggregator:
     def _merge_device_info(self, device: BTDeviceAggregate, observation: BTObservation) -> None:
         """Merge observation data into device aggregate (prefer non-None values)."""
         # Name (prefer longer names as they're usually more complete)
-        if observation.name:
-            if not device.name or len(observation.name) > len(device.name):
-                device.name = observation.name
+        if observation.name and (not device.name or len(observation.name) > len(device.name)):
+            device.name = observation.name
 
         # Manufacturer
         if observation.manufacturer_id is not None:
@@ -416,7 +412,7 @@ class DeviceAggregator:
         device.is_paired = observation.is_paired
         device.is_connected = observation.is_connected
 
-    def get_device(self, device_id: str) -> Optional[BTDeviceAggregate]:
+    def get_device(self, device_id: str) -> BTDeviceAggregate | None:
         """Get a device by ID."""
         with self._lock:
             return self._devices.get(device_id)
@@ -511,7 +507,7 @@ class DeviceAggregator:
         """Access the ring buffer for timeseries data."""
         return self._ring_buffer
 
-    def get_device_by_key(self, device_key: str) -> Optional[BTDeviceAggregate]:
+    def get_device_by_key(self, device_key: str) -> BTDeviceAggregate | None:
         """Get a device by its stable device key."""
         with self._lock:
             # Find device_id from device_key

@@ -14,13 +14,13 @@ from datetime import datetime
 from typing import Any
 
 from .constants import (
-    FORMAT_CODES,
-    DISTRESS_NATURE_CODES,
-    TELECOMMAND_CODES,
     CATEGORY_PRIORITY,
+    DISTRESS_NATURE_CODES,
+    FORMAT_CODES,
     MID_COUNTRY_MAP,
-    VALID_FORMAT_SPECIFIERS,
+    TELECOMMAND_CODES,
     VALID_EOS,
+    VALID_FORMAT_SPECIFIERS,
 )
 
 logger = logging.getLogger('intercept.dsc.parser')
@@ -330,10 +330,7 @@ def validate_mmsi(mmsi: str) -> bool:
         return False
 
     # All zeros is invalid
-    if mmsi == '000000000':
-        return False
-
-    return True
+    return mmsi != '000000000'
 
 
 def classify_mmsi(mmsi: str) -> str:

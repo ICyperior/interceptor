@@ -16,7 +16,6 @@ from routes.tscm import (
     _get_schedule_timezone,
     _next_run_from_cron,
     _start_sweep_internal,
-    _sweep_running,
     tscm_bp,
 )
 from utils.database import (

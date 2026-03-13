@@ -2,25 +2,23 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import queue
 import subprocess
 import threading
 import time
 from datetime import datetime
-from typing import Generator
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
-from utils.responses import api_success, api_error
 import app as app_module
-from utils.logging import sensor_logger as logger
-from utils.validation import (
-    validate_frequency, validate_device_index, validate_gain, validate_ppm
-)
-from utils.sse import sse_stream_fanout
 from utils.event_pipeline import process_event
-from utils.process import safe_terminate, register_process, unregister_process
+from utils.logging import sensor_logger as logger
+from utils.process import register_process, unregister_process
+from utils.responses import api_error
+from utils.sse import sse_stream_fanout
+from utils.validation import validate_device_index, validate_frequency, validate_gain, validate_ppm
 
 rtlamr_bp = Blueprint('rtlamr', __name__)
 
@@ -70,10 +68,8 @@ def stream_rtlamr_output(process: subprocess.Popen[bytes]) -> None:
             process.terminate()
             process.wait(timeout=2)
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 process.kill()
-            except Exception:
-                pass
         unregister_process(process)
         # Kill companion rtl_tcp process
         with rtl_tcp_lock:
@@ -82,10 +78,8 @@ def stream_rtlamr_output(process: subprocess.Popen[bytes]) -> None:
                     rtl_tcp_process.terminate()
                     rtl_tcp_process.wait(timeout=2)
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         rtl_tcp_process.kill()
-                    except Exception:
-                        pass
                 unregister_process(rtl_tcp_process)
                 rtl_tcp_process = None
         app_module.rtlamr_queue.put({'type': 'status', 'text': 'stopped'})
@@ -139,7 +133,7 @@ def start_rtlamr() -> Response:
         # Get message type (default to scm)
         msgtype = data.get('msgtype', 'scm')
         output_format = data.get('format', 'json')
-        
+
         # Start rtl_tcp first
         rtl_tcp_just_started = False
         rtl_tcp_cmd_str = ''
@@ -191,16 +185,16 @@ def start_rtlamr() -> Response:
             f'-format={output_format}',
             f'-centerfreq={int(float(freq) * 1e6)}'
         ]
-        
+
         # Add filter options if provided
         filterid = data.get('filterid')
         if filterid:
             cmd.append(f'-filterid={filterid}')
-        
+
         filtertype = data.get('filtertype')
         if filtertype:
             cmd.append(f'-filtertype={filtertype}')
-        
+
         # Unique messages only
         if data.get('unique', True):
             cmd.append('-unique=true')

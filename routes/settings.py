@@ -6,14 +6,14 @@ import os
 import subprocess
 import sys
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, jsonify, request
 
 from utils.database import (
-    get_setting,
-    set_setting,
     delete_setting,
     get_all_settings,
     get_correlations,
+    get_setting,
+    set_setting,
 )
 from utils.logging import get_logger
 from utils.responses import api_error, api_success
@@ -163,7 +163,7 @@ def check_dvb_driver_status() -> Response:
     blacklist_contents = []
     if blacklist_exists:
         try:
-            with open(BLACKLIST_FILE, 'r') as f:
+            with open(BLACKLIST_FILE) as f:
                 blacklist_contents = [line.strip() for line in f if line.strip() and not line.startswith('#')]
         except Exception:
             pass

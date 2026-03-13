@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, Response, request
 
 import app as app_module
 from utils.correlation import get_correlations
-from utils.responses import api_success, api_error
 from utils.logging import get_logger
+from utils.responses import api_error, api_success
 
 logger = get_logger('intercept.correlation')
 

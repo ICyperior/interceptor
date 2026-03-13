@@ -10,8 +10,6 @@ from __future__ import annotations
 import threading
 from collections import deque
 from datetime import datetime, timedelta
-from typing import Optional
-
 
 # Default configuration
 DEFAULT_RETENTION_MINUTES = 30
@@ -58,7 +56,7 @@ class RingBuffer:
         self,
         device_key: str,
         rssi: int,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> bool:
         """
         Ingest an RSSI observation for a device.
@@ -99,7 +97,7 @@ class RingBuffer:
     def get_timeseries(
         self,
         device_key: str,
-        window_minutes: Optional[int] = None,
+        window_minutes: int | None = None,
         downsample_seconds: int = 10,
     ) -> list[dict]:
         """
@@ -131,9 +129,9 @@ class RingBuffer:
 
     def get_all_timeseries(
         self,
-        window_minutes: Optional[int] = None,
+        window_minutes: int | None = None,
         downsample_seconds: int = 10,
-        top_n: Optional[int] = None,
+        top_n: int | None = None,
         sort_by: str = 'recency',
     ) -> dict[str, list[dict]]:
         """
@@ -265,7 +263,7 @@ class RingBuffer:
         with self._lock:
             return len(self._observations)
 
-    def get_observation_count(self, device_key: Optional[str] = None) -> int:
+    def get_observation_count(self, device_key: str | None = None) -> int:
         """
         Get total observation count.
 
@@ -287,7 +285,7 @@ class RingBuffer:
             self._observations.clear()
             self._last_ingested.clear()
 
-    def get_device_stats(self, device_key: str) -> Optional[dict]:
+    def get_device_stats(self, device_key: str) -> dict | None:
         """
         Get statistics for a specific device.
 
@@ -316,7 +314,7 @@ class RingBuffer:
 
 
 # Module-level instance for shared access
-_ring_buffer: Optional[RingBuffer] = None
+_ring_buffer: RingBuffer | None = None
 
 
 def get_ring_buffer() -> RingBuffer:

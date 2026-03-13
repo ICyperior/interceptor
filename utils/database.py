@@ -9,11 +9,10 @@ import logging
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 from typing import Any
+
 from werkzeug.security import generate_password_hash
-from config import ADMIN_USERNAME, ADMIN_PASSWORD
 
 logger = logging.getLogger('intercept.database')
 
@@ -255,8 +254,9 @@ def init_db() -> None:
 
         cursor = conn.execute('SELECT COUNT(*) FROM users')
         if cursor.fetchone()[0] == 0:
-            from config import ADMIN_USERNAME, ADMIN_PASSWORD
             import secrets as _secrets
+
+            from config import ADMIN_PASSWORD, ADMIN_USERNAME
 
             admin_password = ADMIN_PASSWORD
             if not admin_password:

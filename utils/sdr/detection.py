@@ -6,11 +6,11 @@ Detects RTL-SDR devices via rtl_test and other SDR hardware via SoapySDR.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import subprocess
 import time
-from typing import Optional
 
 from utils.dependencies import get_tool_path
 
@@ -47,10 +47,10 @@ def _hackrf_probe_blocked() -> bool:
 def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
     """Get default capabilities for an SDR type."""
     # Import here to avoid circular imports
-    from .rtlsdr import RTLSDRCommandBuilder
-    from .limesdr import LimeSDRCommandBuilder
-    from .hackrf import HackRFCommandBuilder
     from .airspy import AirspyCommandBuilder
+    from .hackrf import HackRFCommandBuilder
+    from .limesdr import LimeSDRCommandBuilder
+    from .rtlsdr import RTLSDRCommandBuilder
     from .sdrplay import SDRPlayCommandBuilder
 
     builders = {
@@ -79,7 +79,7 @@ def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
     )
 
 
-def _driver_to_sdr_type(driver: str) -> Optional[SDRType]:
+def _driver_to_sdr_type(driver: str) -> SDRType | None:
     """Map SoapySDR driver name to SDRType."""
     mapping = {
         'rtlsdr': SDRType.RTL_SDR,
@@ -114,7 +114,7 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
         import os
         import platform
         env = os.environ.copy()
-        
+
         if platform.system() == 'Darwin':
             lib_paths = ['/usr/local/lib', '/opt/homebrew/lib']
             current_ld = env.get('DYLD_LIBRARY_PATH', '')
@@ -224,7 +224,7 @@ def _get_soapy_env() -> dict:
     return env
 
 
-def detect_soapy_devices(skip_types: Optional[set[SDRType]] = None) -> list[SDRDevice]:
+def detect_soapy_devices(skip_types: set[SDRType] | None = None) -> list[SDRDevice]:
     """
     Detect SDR devices via SoapySDR.
 
@@ -497,10 +497,8 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                 # rtl_test exited with error and we never saw a success message
                 error_found = True
         finally:
-            try:
+            with contextlib.suppress(OSError):
                 proc.kill()
-            except OSError:
-                pass
             proc.wait()
             if device_found:
                 # Allow the kernel to fully release the USB interface

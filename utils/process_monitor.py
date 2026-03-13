@@ -9,7 +9,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Optional, Any
+from typing import Any, Callable
 
 logger = logging.getLogger('intercept.process_monitor')
 
@@ -21,8 +21,8 @@ class ProcessInfo:
     process: Any  # subprocess.Popen
     started_at: datetime = field(default_factory=datetime.now)
     restart_count: int = 0
-    last_restart: Optional[datetime] = None
-    restart_callback: Optional[Callable] = None
+    last_restart: datetime | None = None
+    restart_callback: Callable | None = None
     max_restarts: int = 3
     backoff_seconds: float = 5.0
     enabled: bool = True
@@ -39,17 +39,17 @@ class ProcessMonitor:
     """
 
     def __init__(self, check_interval: float = 5.0):
-        self.processes: Dict[str, ProcessInfo] = {}
+        self.processes: dict[str, ProcessInfo] = {}
         self.check_interval = check_interval
         self._running = False
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
 
     def register(
         self,
         name: str,
         process: Any,
-        restart_callback: Optional[Callable] = None,
+        restart_callback: Callable | None = None,
         max_restarts: int = 3,
         backoff_seconds: float = 5.0
     ) -> None:
@@ -171,7 +171,7 @@ class ProcessMonitor:
             with self._lock:
                 info.restart_count += 1
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get status of all monitored processes.
 

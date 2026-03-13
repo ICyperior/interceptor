@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
@@ -10,30 +11,28 @@ import socket
 import subprocess
 import threading
 import time
-from typing import Generator
 
-from flask import Blueprint, jsonify, request, Response, render_template
+from flask import Blueprint, Response, jsonify, render_template, request
 
-from utils.responses import api_success, api_error
 import app as app_module
 from config import SHARED_OBSERVER_LOCATION_ENABLED
-from utils.logging import get_logger
-from utils.validation import validate_device_index, validate_gain
-from utils.sse import sse_stream_fanout
-from utils.event_pipeline import process_event
-from utils.sdr import SDRFactory, SDRType
 from utils.constants import (
+    AIS_RECONNECT_DELAY,
+    AIS_SOCKET_TIMEOUT,
     AIS_TCP_PORT,
     AIS_TERMINATE_TIMEOUT,
-    AIS_SOCKET_TIMEOUT,
-    AIS_RECONNECT_DELAY,
     AIS_UPDATE_INTERVAL,
+    PROCESS_TERMINATE_TIMEOUT,
     SOCKET_BUFFER_SIZE,
     SSE_KEEPALIVE_INTERVAL,
     SSE_QUEUE_TIMEOUT,
-    SOCKET_CONNECT_TIMEOUT,
-    PROCESS_TERMINATE_TIMEOUT,
 )
+from utils.event_pipeline import process_event
+from utils.logging import get_logger
+from utils.responses import api_error, api_success
+from utils.sdr import SDRFactory, SDRType
+from utils.sse import sse_stream_fanout
+from utils.validation import validate_device_index, validate_gain
 
 logger = get_logger('intercept.ais')
 
@@ -128,13 +127,11 @@ def parse_ais_stream(port: int):
                         for mmsi in pending_updates:
                             if mmsi in app_module.ais_vessels:
                                 _vessel_snap = app_module.ais_vessels[mmsi]
-                                try:
+                                with contextlib.suppress(queue.Full):
                                     app_module.ais_queue.put_nowait({
                                         'type': 'vessel',
                                         **_vessel_snap
                                     })
-                                except queue.Full:
-                                    pass
                                 # Geofence check
                                 _v_lat = _vessel_snap.get('lat')
                                 _v_lon = _vessel_snap.get('lon')
@@ -163,10 +160,8 @@ def parse_ais_stream(port: int):
             time.sleep(AIS_RECONNECT_DELAY)
         finally:
             if sock:
-                try:
+                with contextlib.suppress(OSError):
                     sock.close()
-                except OSError:
-                    pass
 
     ais_connected = False
     logger.info("AIS stream parser stopped")
@@ -440,10 +435,8 @@ def start_ais():
             app_module.release_sdr_device(device_int, sdr_type_str)
             stderr_output = ''
             if app_module.ais_process.stderr:
-                try:
+                with contextlib.suppress(Exception):
                     stderr_output = app_module.ais_process.stderr.read().decode('utf-8', errors='ignore').strip()
-                except Exception:
-                    pass
             if stderr_output:
                 logger.error(f"AIS-catcher stderr:\n{stderr_output}")
             error_msg = 'AIS-catcher failed to start. Check SDR device connection.'
@@ -533,7 +526,7 @@ def get_vessel_dsc(mmsi: str):
 
     matches = []
     try:
-        for key, msg in app_module.dsc_messages.items():
+        for _key, msg in app_module.dsc_messages.items():
             if str(msg.get('source_mmsi', '')) == mmsi:
                 matches.append(dict(msg))
     except Exception:

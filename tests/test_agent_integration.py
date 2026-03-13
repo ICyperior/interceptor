@@ -19,12 +19,13 @@ Skip live tests:
 
 import json
 import os
-import pytest
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

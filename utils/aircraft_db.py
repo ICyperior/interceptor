@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import threading
-import time
 from datetime import datetime
 from typing import Any
-from urllib.request import urlopen, Request
 from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 logger = logging.getLogger('intercept.aircraft_db')
 
@@ -53,14 +53,12 @@ def _load_meta() -> dict[str, Any] | None:
     """Load database metadata."""
     try:
         if os.path.exists(DB_META_FILE):
-            with open(DB_META_FILE, 'r') as f:
+            with open(DB_META_FILE) as f:
                 return json.load(f)
     except json.JSONDecodeError as e:
         logger.warning(f"Corrupt aircraft db meta file, removing: {e}")
-        try:
+        with contextlib.suppress(OSError):
             os.remove(DB_META_FILE)
-        except OSError:
-            pass
     except Exception as e:
         logger.warning(f"Error loading aircraft db meta: {e}")
     return None
@@ -89,7 +87,7 @@ def load_database() -> bool:
 
     try:
         with _cache_lock:
-            with open(DB_FILE, 'r') as f:
+            with open(DB_FILE) as f:
                 data = json.load(f)
 
             _aircraft_cache = data.get('aircraft', {})
