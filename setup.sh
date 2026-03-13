@@ -957,8 +957,14 @@ install_satdump_from_source_debian() {
     ) &
     progress_pid=$!
 
+    local arch_flags=""
+    if [[ "$(uname -m)" == "x86_64" ]]; then
+      arch_flags="-march=x86-64"
+    fi
+
     if cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_CXX_FLAGS="-Wno-template-body" .. >"$build_log" 2>&1 \
+        -DCMAKE_C_FLAGS="$arch_flags" \
+        -DCMAKE_CXX_FLAGS="$arch_flags -Wno-template-body" .. >"$build_log" 2>&1 \
         && make -j "$(nproc)" >>"$build_log" 2>&1; then
       kill $progress_pid 2>/dev/null; wait $progress_pid 2>/dev/null
       $SUDO make install >/dev/null 2>&1

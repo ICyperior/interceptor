@@ -130,7 +130,10 @@ RUN cd /tmp \
     && git clone --depth 1 --branch 1.2.2 https://github.com/SatDump/SatDump.git \
     && cd SatDump \
     && mkdir build && cd build \
-    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib .. \
+    && ARCH_FLAGS=""; if [ "$(uname -m)" = "x86_64" ]; then ARCH_FLAGS="-march=x86-64"; fi \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DCMAKE_INSTALL_LIBDIR=lib \
+           -DCMAKE_C_FLAGS="$ARCH_FLAGS" \
+           -DCMAKE_CXX_FLAGS="$ARCH_FLAGS" .. \
     && make -j$(nproc) \
     && make install \
     && ldconfig \
