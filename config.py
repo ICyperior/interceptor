@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.0"
+VERSION = "2.26.1"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.1",
+        "date": "March 2026",
+        "highlights": [
+            "Fix default admin credentials — now matches README (admin:admin)",
+            "Admin password changes in config.py / env vars now sync to DB on restart",
+        ]
+    },
     {
         "version": "2.26.0",
         "date": "March 2026",

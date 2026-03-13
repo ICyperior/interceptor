@@ -2,6 +2,14 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.1] - 2026-03-13
+
+### Fixed
+- **Default admin credentials** — Default `ADMIN_PASSWORD` changed from empty string to `admin`, matching the README documentation (`admin:admin`)
+- **Config credential sync** — Admin password changes in `config.py` or via `INTERCEPT_ADMIN_PASSWORD` env var now sync to the database on restart, without needing to delete the DB
+
+---
+
 ## [2.26.0] - 2026-03-13
 
 ### Fixed
