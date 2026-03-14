@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.5"
+VERSION = "2.26.6"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.6",
+        "date": "March 2026",
+        "highlights": [
+            "Fix oversized branded 'i' logo on Aircraft & Vessel dashboards",
+        ]
+    },
     {
         "version": "2.26.5",
         "date": "March 2026",

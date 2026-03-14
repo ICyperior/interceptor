@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.6] - 2026-03-14
+
+### Fixed
+- **Oversized branded 'i' logo on dashboards** — `.logo span { display: inline }` in dashboard CSS had higher specificity (0,1,1) than `.brand-i { display: inline-block }` (0,1,0), forcing the branded "i" SVG to render as inline which ignores width/height. Added `.logo .brand-i` selector (0,2,0) to retain `inline-block` display. (#189)
+
+---
+
 ## [2.26.5] - 2026-03-14
 
 ### Fixed

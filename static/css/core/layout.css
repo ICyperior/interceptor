@@ -88,8 +88,11 @@
 }
 
 /* Branded "i" — inline SVG that matches the logo icon.
-   Sized to 0.9em so it sits naturally alongside text at any font-size. */
-.brand-i {
+   Sized to 0.9em so it sits naturally alongside text at any font-size.
+   Uses .logo .brand-i (0,2,0) to beat .logo span (0,1,1) in dashboard CSS
+   which otherwise forces display:inline and breaks width/height. */
+.brand-i,
+.logo .brand-i {
     display: inline-block;
     width: 0.55em;
     height: 0.9em;
