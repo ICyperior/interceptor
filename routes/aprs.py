@@ -1924,7 +1924,13 @@ def start_aprs() -> Response:
 
 @aprs_bp.route('/stop', methods=['POST'])
 def stop_aprs() -> Response:
-    """Stop APRS decoder."""
+    """Stop APRS decoder.
+
+    Releases the SDR device immediately so the status panel updates
+    without waiting for process termination. Process cleanup runs in a
+    background thread to avoid blocking the HTTP response (which caused
+    frontend timeout errors when two processes each took up to 2s to die).
+    """
     global aprs_active_device, aprs_active_sdr_type
 
     with app_module.aprs_lock:
@@ -1939,6 +1945,28 @@ def stop_aprs() -> Response:
         if not processes_to_stop:
             return api_error('APRS decoder not running', 400)
 
+        # Release SDR device immediately so status panel reflects the
+        # change without waiting for process termination.
+        if aprs_active_device is not None:
+            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
+            aprs_active_device = None
+            aprs_active_sdr_type = None
+
+        # Capture refs to clear before releasing the lock
+        master_fd = getattr(app_module, 'aprs_master_fd', None)
+        app_module.aprs_process = None
+        if hasattr(app_module, 'aprs_rtl_process'):
+            app_module.aprs_rtl_process = None
+        app_module.aprs_master_fd = None
+
+    # Terminate processes in background so the response returns fast.
+    # Each proc.wait() can block up to PROCESS_TERMINATE_TIMEOUT (2s),
+    # which previously caused the frontend 2200ms fetch to abort.
+    def _cleanup():
+        # Close PTY master fd first — this unblocks the stream thread
+        if master_fd is not None:
+            with contextlib.suppress(OSError):
+                os.close(master_fd)
         for proc in processes_to_stop:
             try:
                 proc.terminate()
@@ -1948,21 +1976,7 @@ def stop_aprs() -> Response:
             except Exception as e:
                 logger.error(f"Error stopping APRS process: {e}")
 
-        # Close PTY master fd
-        if hasattr(app_module, 'aprs_master_fd') and app_module.aprs_master_fd is not None:
-            with contextlib.suppress(OSError):
-                os.close(app_module.aprs_master_fd)
-            app_module.aprs_master_fd = None
-
-        app_module.aprs_process = None
-        if hasattr(app_module, 'aprs_rtl_process'):
-            app_module.aprs_rtl_process = None
-
-        # Release SDR device
-        if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
-            aprs_active_device = None
-            aprs_active_sdr_type = None
+    threading.Thread(target=_cleanup, daemon=True).start()
 
     return jsonify({'status': 'stopped'})
 

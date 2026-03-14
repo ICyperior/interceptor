@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.10] - 2026-03-14
+
+### Fixed
+- **APRS stop timeout and inverted SDR device status** — The APRS stop endpoint terminated two processes sequentially (up to 4s) while the frontend timed out at 2.2s, causing console errors and the SDR status panel to show stale state (active after stop, idle during use). Now releases the SDR device immediately and terminates processes in a background thread so the response returns instantly. (#194)
+
+---
+
 ## [2.26.9] - 2026-03-14
 
 ### Fixed

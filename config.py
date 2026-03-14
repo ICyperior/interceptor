@@ -7,15 +7,15 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.9"
+VERSION = "2.26.10"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
     {
-        "version": "2.26.9",
+        "version": "2.26.10",
         "date": "March 2026",
         "highlights": [
-            "ADS-B bias-t fallback via rtl_biast for Blog V4 when dump1090 lacks native support",
+            "Fix APRS stop timeout and inverted SDR device status",
         ]
     },
     {
