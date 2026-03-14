@@ -46,6 +46,35 @@ def _rtl_tool_supports_bias_t(tool_path: str) -> bool:
         return False
 
 
+def enable_bias_t_via_rtl_biast(device_index: int = 0) -> bool:
+    """Enable bias-t power using rtl_biast (RTL-SDR Blog drivers).
+
+    Runs rtl_biast to set the bias-t register on the device, then exits.
+    The setting persists across device opens until the device is reset.
+
+    Returns True if bias-t was enabled successfully.
+    """
+    rtl_biast_path = get_tool_path('rtl_biast') or 'rtl_biast'
+    try:
+        result = subprocess.run(
+            [rtl_biast_path, '-b', '1', '-d', str(device_index)],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            logger.info(f"Bias-t enabled via rtl_biast on device {device_index}")
+            return True
+        logger.warning(f"rtl_biast failed (exit {result.returncode}): {result.stderr.strip()}")
+        return False
+    except FileNotFoundError:
+        logger.warning("rtl_biast not found — install RTL-SDR Blog drivers for bias-t support")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to enable bias-t via rtl_biast: {e}")
+        return False
+
+
 def _get_dump1090_bias_t_flag(dump1090_path: str) -> str | None:
     """Detect the correct bias-t flag for the installed dump1090 variant.
 
@@ -197,10 +226,13 @@ class RTLSDRCommandBuilder(CommandBuilder):
             if bias_t_flag:
                 cmd.append(bias_t_flag)
             else:
-                logger.warning(
-                    f"Bias-t requested but {dump1090_path} does not support it. "
-                    "Consider using dump1090-fa or readsb for bias-t support."
-                )
+                # Fallback: use rtl_biast to set bias-t before starting dump1090
+                if not enable_bias_t_via_rtl_biast(device.index):
+                    logger.warning(
+                        f"Bias-t requested but {dump1090_path} does not support it "
+                        "and rtl_biast is not available. Install RTL-SDR Blog drivers "
+                        "or use dump1090-fa/readsb for bias-t support."
+                    )
 
         return cmd
 

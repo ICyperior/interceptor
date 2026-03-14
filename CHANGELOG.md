@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.9] - 2026-03-14
+
+### Fixed
+- **ADS-B bias-t support for RTL-SDR Blog V4** — When dump1090 lacks native `--enable-biast` support, the system now falls back to `rtl_biast` (from RTL-SDR Blog drivers) to enable bias-t power before starting dump1090. The Blog V4's built-in LNA requires bias-t to receive ADS-B signals. (#195)
+
+---
+
 ## [2.26.8] - 2026-03-14
 
 ### Fixed

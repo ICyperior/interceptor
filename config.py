@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.8"
+VERSION = "2.26.9"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.9",
+        "date": "March 2026",
+        "highlights": [
+            "ADS-B bias-t fallback via rtl_biast for Blog V4 when dump1090 lacks native support",
+        ]
+    },
     {
         "version": "2.26.8",
         "date": "March 2026",
