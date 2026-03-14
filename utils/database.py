@@ -661,32 +661,36 @@ def get_setting(key: str, default: Any = None) -> Any:
     Returns:
         Setting value (auto-converted from JSON for complex types)
     """
-    with get_db() as conn:
-        cursor = conn.execute(
-            'SELECT value, value_type FROM settings WHERE key = ?',
-            (key,)
-        )
-        row = cursor.fetchone()
+    try:
+        with get_db() as conn:
+            cursor = conn.execute(
+                'SELECT value, value_type FROM settings WHERE key = ?',
+                (key,)
+            )
+            row = cursor.fetchone()
 
-        if row is None:
-            return default
-
-        value, value_type = row['value'], row['value_type']
-
-        # Convert based on type
-        if value_type == 'json':
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
+            if row is None:
                 return default
-        elif value_type == 'int':
-            return int(value)
-        elif value_type == 'float':
-            return float(value)
-        elif value_type == 'bool':
-            return value.lower() in ('true', '1', 'yes')
-        else:
-            return value
+
+            value, value_type = row['value'], row['value_type']
+
+            # Convert based on type
+            if value_type == 'json':
+                try:
+                    return json.loads(value)
+                except json.JSONDecodeError:
+                    return default
+            elif value_type == 'int':
+                return int(value)
+            elif value_type == 'float':
+                return float(value)
+            elif value_type == 'bool':
+                return value.lower() in ('true', '1', 'yes')
+            else:
+                return value
+    except sqlite3.OperationalError:
+        logger.warning("Database unavailable reading setting '%s', using default", key)
+        return default
 
 
 def set_setting(key: str, value: Any) -> None:

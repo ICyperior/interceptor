@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.5] - 2026-03-14
+
+### Fixed
+- **Database errors crash entire UI** — `get_setting()` now catches `sqlite3.OperationalError` and returns the default value instead of propagating the exception. Previously, if the database was inaccessible (e.g. root-owned `instance/` directory from running with `sudo`), the `inject_offline_settings` context processor would crash every page render with a 500 Internal Server Error. (#190)
+
+---
+
 ## [2.26.4] - 2026-03-14
 
 ### Fixed
