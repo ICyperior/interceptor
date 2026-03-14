@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.8] - 2026-03-14
+
+### Fixed
+- **acarsdec build failure on macOS** — `HOST_NAME_MAX` is Linux-specific (`<limits.h>`) and undefined on macOS, causing 3 compile errors in `acarsdec.c`. Now patched with `#define HOST_NAME_MAX 255` before building. Also fixed deprecated `-Ofast` flag warning on all macOS architectures (was only patched for arm64). (#187)
+
+---
+
 ## [2.26.7] - 2026-03-14
 
 ### Fixed

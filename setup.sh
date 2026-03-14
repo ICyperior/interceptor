@@ -751,9 +751,26 @@ install_acarsdec_from_source_macos() {
 
     cd "$tmp_dir/acarsdec"
 
+    # Replace deprecated -Ofast (all macOS, not just arm64)
+    if grep -q '\-Ofast' CMakeLists.txt 2>/dev/null; then
+      sed -i '' 's/-Ofast/-O3 -ffast-math/g' CMakeLists.txt
+      info "Patched deprecated -Ofast flag"
+    fi
+
+    # macOS doesn't have -march=native on arm64
     if [[ "$(uname -m)" == "arm64" ]]; then
-      sed -i '' 's/-Ofast -march=native/-O3 -ffast-math/g' CMakeLists.txt
-      info "Patched compiler flags for Apple Silicon (arm64)"
+      sed -i '' 's/ -march=native//g' CMakeLists.txt
+      info "Removed -march=native for Apple Silicon"
+    fi
+
+    # HOST_NAME_MAX is Linux-specific; macOS uses _POSIX_HOST_NAME_MAX
+    if grep -q 'HOST_NAME_MAX' acarsdec.c 2>/dev/null; then
+      sed -i '' '1i\
+#ifndef HOST_NAME_MAX\
+#define HOST_NAME_MAX 255\
+#endif
+' acarsdec.c
+      info "Patched HOST_NAME_MAX for macOS compatibility"
     fi
 
     if grep -q 'pthread_tryjoin_np' rtl.c 2>/dev/null; then

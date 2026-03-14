@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.7"
+VERSION = "2.26.8"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.8",
+        "date": "March 2026",
+        "highlights": [
+            "Fix acarsdec build failure on macOS (HOST_NAME_MAX undefined)",
+        ]
+    },
     {
         "version": "2.26.7",
         "date": "March 2026",
