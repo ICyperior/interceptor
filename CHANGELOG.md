@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.7] - 2026-03-14
+
+### Fixed
+- **Health check SDR detection on macOS** — `timeout` (GNU coreutils) is not available on macOS, causing `rtl_test` to silently fail and report "No RTL-SDR device found" even when one is connected. Now tries `timeout`, then `gtimeout` (Homebrew coreutils), then falls back to a background process with manual kill. (#188)
+
+---
+
 ## [2.26.6] - 2026-03-14
 
 ### Fixed

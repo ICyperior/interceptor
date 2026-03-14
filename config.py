@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.6"
+VERSION = "2.26.7"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.7",
+        "date": "March 2026",
+        "highlights": [
+            "Fix health check SDR detection on macOS (timeout command not available)",
+        ]
+    },
     {
         "version": "2.26.6",
         "date": "March 2026",

@@ -1924,7 +1924,18 @@ do_health_check() {
   info "SDR device detection..."
   if cmd_exists rtl_test; then
     local rtl_output
-    rtl_output=$(timeout 3 rtl_test -d 0 2>&1 || true)
+    if cmd_exists timeout; then
+      rtl_output=$(timeout 3 rtl_test -d 0 2>&1 || true)
+    elif cmd_exists gtimeout; then
+      rtl_output=$(gtimeout 3 rtl_test -d 0 2>&1 || true)
+    else
+      # No timeout command (common on macOS) — run with background kill
+      rtl_test -d 0 > /tmp/.rtl_test_out 2>&1 & local rtl_pid=$!
+      sleep 2
+      kill "$rtl_pid" 2>/dev/null; wait "$rtl_pid" 2>/dev/null
+      rtl_output=$(cat /tmp/.rtl_test_out 2>/dev/null || true)
+      rm -f /tmp/.rtl_test_out
+    fi
     if echo "$rtl_output" | grep -q "Found\|Using device"; then
       ok "RTL-SDR device detected"
       ((pass++)) || true
