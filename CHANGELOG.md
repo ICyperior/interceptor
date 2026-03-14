@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.26.4] - 2026-03-14
+
+### Fixed
+- **Environment Configurator crash** — `read_env_var()` crashed with "Setup failed at line 2333" when `.env` existed but didn't contain the variable being looked up. `grep` returned exit code 1 (no match), which `pipefail` propagated and `set -e` turned into a fatal error. Fixed by appending `|| true` to the pipeline. (#191)
+
+---
+
 ## [2.26.3] - 2026-03-13
 
 ### Fixed

@@ -174,7 +174,7 @@ read_env_var() {
   local fallback="${2:-}"
   if [[ -f "$SCRIPT_DIR/.env" ]]; then
     local val
-    val=$(grep -E "^${key}=" "$SCRIPT_DIR/.env" 2>/dev/null | tail -1 | cut -d'=' -f2-)
+    val=$(grep -E "^${key}=" "$SCRIPT_DIR/.env" 2>/dev/null | tail -1 | cut -d'=' -f2- || true)
     if [[ -n "$val" ]]; then
       # Strip surrounding quotes
       val="${val#\"}"

@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.3"
+VERSION = "2.26.4"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.4",
+        "date": "March 2026",
+        "highlights": [
+            "Fix Environment Configurator crash when .env exists but variable is missing",
+        ]
+    },
     {
         "version": "2.26.3",
         "date": "March 2026",
