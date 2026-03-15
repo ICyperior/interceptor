@@ -1,9 +1,6 @@
 // Shared observer location helper for map-based modules.
 // Default: shared location enabled unless explicitly disabled via config.
 window.ObserverLocation = (function() {
-    const DEFAULT_LOCATION = (window.INTERCEPT_DEFAULT_LAT && window.INTERCEPT_DEFAULT_LON)
-        ? { lat: window.INTERCEPT_DEFAULT_LAT, lon: window.INTERCEPT_DEFAULT_LON }
-        : { lat: 51.5074, lon: -0.1278 };
     const SHARED_KEY = 'observerLocation';
     const AIS_KEY = 'ais_observerLocation';
     const LEGACY_LAT_KEY = 'observerLat';
@@ -20,6 +17,9 @@ window.ObserverLocation = (function() {
         if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) return null;
         return { lat: latNum, lon: lonNum };
     }
+
+    const DEFAULT_LOCATION = normalize(window.INTERCEPT_DEFAULT_LAT, window.INTERCEPT_DEFAULT_LON)
+        || { lat: 51.5074, lon: -0.1278 };
 
     function parseLocation(raw) {
         if (!raw) return null;
@@ -39,7 +39,7 @@ window.ObserverLocation = (function() {
     function readLegacyLatLon() {
         const lat = localStorage.getItem(LEGACY_LAT_KEY);
         const lon = localStorage.getItem(LEGACY_LON_KEY);
-        if (!lat || !lon) return null;
+        if (lat === null || lon === null) return null;
         return normalize(lat, lon);
     }
 
@@ -60,11 +60,12 @@ window.ObserverLocation = (function() {
     }
 
     function setShared(location, options = {}) {
-        if (!location) return;
-        localStorage.setItem(SHARED_KEY, JSON.stringify(location));
+        const normalized = location ? normalize(location.lat, location.lon) : null;
+        if (!normalized) return;
+        localStorage.setItem(SHARED_KEY, JSON.stringify(normalized));
         if (options.updateLegacy !== false) {
-            localStorage.setItem(LEGACY_LAT_KEY, location.lat.toString());
-            localStorage.setItem(LEGACY_LON_KEY, location.lon.toString());
+            localStorage.setItem(LEGACY_LAT_KEY, normalized.lat.toString());
+            localStorage.setItem(LEGACY_LON_KEY, normalized.lon.toString());
         }
     }
 
@@ -84,16 +85,17 @@ window.ObserverLocation = (function() {
     }
 
     function setForModule(moduleKey, location, options = {}) {
-        if (!location) return;
+        const normalized = location ? normalize(location.lat, location.lon) : null;
+        if (!normalized) return;
         if (isSharedEnabled()) {
-            setShared(location, options);
+            setShared(normalized, options);
             return;
         }
         if (moduleKey) {
-            localStorage.setItem(moduleKey, JSON.stringify(location));
+            localStorage.setItem(moduleKey, JSON.stringify(normalized));
         } else if (options.fallbackToLatLon) {
-            localStorage.setItem(LEGACY_LAT_KEY, location.lat.toString());
-            localStorage.setItem(LEGACY_LON_KEY, location.lon.toString());
+            localStorage.setItem(LEGACY_LAT_KEY, normalized.lat.toString());
+            localStorage.setItem(LEGACY_LON_KEY, normalized.lon.toString());
         }
     }
 

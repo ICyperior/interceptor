@@ -189,6 +189,57 @@ class TestSettingsEndpoints:
         assert data['status'] == 'success'
         assert data['deleted'] is True
 
+    def test_save_observer_location_updates_env_and_runtime_defaults(self, client, monkeypatch, tmp_path):
+        """Saving observer location should persist to .env and update in-memory defaults."""
+        import app as app_module
+        import config
+        from routes import adsb as adsb_routes
+        from routes import ais as ais_routes
+        from routes import settings as settings_routes
+
+        with client.session_transaction() as sess:
+            sess['logged_in'] = True
+
+        env_path = tmp_path / '.env'
+        monkeypatch.setattr(settings_routes, '_get_env_file_path', lambda: env_path)
+
+        response = client.post(
+            '/settings/observer-location',
+            data=json.dumps({'lat': 48.0, 'lon': 16.16}),
+            content_type='application/json'
+        )
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        assert data['status'] == 'success'
+        assert data['lat'] == 48.0
+        assert data['lon'] == 16.16
+
+        env_text = env_path.read_text()
+        assert 'INTERCEPT_DEFAULT_LAT=48.0' in env_text
+        assert 'INTERCEPT_DEFAULT_LON=16.16' in env_text
+
+        assert config.DEFAULT_LATITUDE == 48.0
+        assert config.DEFAULT_LONGITUDE == 16.16
+        assert app_module.DEFAULT_LATITUDE == 48.0
+        assert app_module.DEFAULT_LONGITUDE == 16.16
+        assert adsb_routes.DEFAULT_LATITUDE == 48.0
+        assert adsb_routes.DEFAULT_LONGITUDE == 16.16
+        assert ais_routes.DEFAULT_LATITUDE == 48.0
+        assert ais_routes.DEFAULT_LONGITUDE == 16.16
+
+    def test_save_observer_location_rejects_invalid_values(self, client):
+        """Observer location save should validate coordinates."""
+        with client.session_transaction() as sess:
+            sess['logged_in'] = True
+
+        response = client.post(
+            '/settings/observer-location',
+            data=json.dumps({'lat': 200, 'lon': 16.16}),
+            content_type='application/json'
+        )
+        assert response.status_code == 400
+
 
 class TestCorrelationEndpoints:
     """Tests for correlation API endpoints."""

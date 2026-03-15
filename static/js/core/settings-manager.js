@@ -896,23 +896,26 @@ function loadObserverLocation() {
         lon = shared.lon.toString();
     }
 
+    const hasLat = lat !== undefined && lat !== null && lat !== '';
+    const hasLon = lon !== undefined && lon !== null && lon !== '';
+
     const latInput = document.getElementById('observerLatInput');
     const lonInput = document.getElementById('observerLonInput');
     const currentLatDisplay = document.getElementById('currentLatDisplay');
     const currentLonDisplay = document.getElementById('currentLonDisplay');
 
-    if (latInput && lat) latInput.value = lat;
-    if (lonInput && lon) lonInput.value = lon;
+    if (latInput && hasLat) latInput.value = lat;
+    if (lonInput && hasLon) lonInput.value = lon;
 
     if (currentLatDisplay) {
-        currentLatDisplay.textContent = lat ? parseFloat(lat).toFixed(4) + '°' : 'Not set';
+        currentLatDisplay.textContent = hasLat ? parseFloat(lat).toFixed(4) + '°' : 'Not set';
     }
     if (currentLonDisplay) {
-        currentLonDisplay.textContent = lon ? parseFloat(lon).toFixed(4) + '°' : 'Not set';
+        currentLonDisplay.textContent = hasLon ? parseFloat(lon).toFixed(4) + '°' : 'Not set';
     }
 
     // Sync dashboard-specific location keys for backward compatibility
-    if (lat !== undefined && lat !== null && lat !== '' && lon !== undefined && lon !== null && lon !== '') {
+    if (hasLat && hasLon) {
         const locationObj = JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) });
         if (!localStorage.getItem('observerLocation')) {
             localStorage.setItem('observerLocation', locationObj);
@@ -1011,9 +1014,9 @@ function detectLocationGPS(btn) {
 }
 
 /**
- * Save observer location to localStorage
+ * Save observer location to localStorage and persist defaults to .env
  */
-function saveObserverLocation() {
+async function saveObserverLocation() {
     const latInput = document.getElementById('observerLatInput');
     const lonInput = document.getElementById('observerLonInput');
 
@@ -1056,18 +1059,39 @@ function saveObserverLocation() {
     if (currentLatDisplay) currentLatDisplay.textContent = lat.toFixed(4) + '°';
     if (currentLonDisplay) currentLonDisplay.textContent = lon.toFixed(4) + '°';
 
-    if (typeof showNotification === 'function') {
-        showNotification('Location', 'Observer location saved');
-    }
-
     if (window.observerLocation) {
         window.observerLocation.lat = lat;
         window.observerLocation.lon = lon;
     }
 
+    let notificationMessage = 'Observer location saved';
+
+    try {
+        const response = await fetch('/settings/observer-location', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ lat, lon }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.status === 'error') {
+            throw new Error(data.message || 'Failed to save observer location to .env');
+        }
+        window.INTERCEPT_DEFAULT_LAT = lat;
+        window.INTERCEPT_DEFAULT_LON = lon;
+        notificationMessage = 'Observer location saved to settings and .env';
+    } catch (error) {
+        notificationMessage = `Observer location saved for this browser, but .env update failed: ${error.message}`;
+    }
+
     // Refresh SSTV ISS schedule if available
     if (typeof SSTV !== 'undefined' && typeof SSTV.loadIssSchedule === 'function') {
         SSTV.loadIssSchedule();
+    }
+
+    if (typeof showNotification === 'function') {
+        showNotification('Location', notificationMessage);
     }
 }
 

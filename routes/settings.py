@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
+import re
 import subprocess
 import sys
+import threading
+from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request
 
@@ -17,10 +21,81 @@ from utils.database import (
 )
 from utils.logging import get_logger
 from utils.responses import api_error, api_success
+from utils.validation import validate_latitude, validate_longitude
 
 logger = get_logger('intercept.settings')
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/settings')
+_env_lock = threading.Lock()
+
+
+def _get_env_file_path() -> Path:
+    """Return the project .env path."""
+    return Path(__file__).resolve().parent.parent / '.env'
+
+
+def _write_env_value(key: str, value: str, env_path: Path | None = None) -> None:
+    """Create or update a single key in the project .env file."""
+    path = env_path or _get_env_file_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with _env_lock:
+        lines = path.read_text().splitlines() if path.exists() else [
+            '# INTERCEPT environment configuration',
+            '',
+        ]
+
+        pattern = re.compile(rf'^\s*{re.escape(key)}=')
+        updated = False
+        new_lines: list[str] = []
+        for line in lines:
+            if pattern.match(line):
+                if not updated:
+                    new_lines.append(f'{key}={value}')
+                    updated = True
+                continue
+            new_lines.append(line)
+
+        if not updated:
+            if new_lines and new_lines[-1] != '':
+                new_lines.append('')
+            new_lines.append(f'{key}={value}')
+
+        path.write_text('\n'.join(new_lines).rstrip('\n') + '\n')
+
+        sudo_uid = os.environ.get('INTERCEPT_SUDO_UID')
+        sudo_gid = os.environ.get('INTERCEPT_SUDO_GID')
+        if os.geteuid() == 0 and sudo_uid and sudo_gid:
+            with contextlib.suppress(OSError, ValueError):
+                os.chown(path, int(sudo_uid), int(sudo_gid))
+
+
+def _apply_runtime_observer_defaults(lat: float, lon: float) -> None:
+    """Update in-process defaults so refreshed pages use the saved location."""
+    lat_str = str(lat)
+    lon_str = str(lon)
+    os.environ['INTERCEPT_DEFAULT_LAT'] = lat_str
+    os.environ['INTERCEPT_DEFAULT_LON'] = lon_str
+
+    import config
+
+    config.DEFAULT_LATITUDE = lat
+    config.DEFAULT_LONGITUDE = lon
+
+    with contextlib.suppress(Exception):
+        import app as app_module
+        app_module.DEFAULT_LATITUDE = lat
+        app_module.DEFAULT_LONGITUDE = lon
+
+    with contextlib.suppress(Exception):
+        from routes import adsb as adsb_routes
+        adsb_routes.DEFAULT_LATITUDE = lat
+        adsb_routes.DEFAULT_LONGITUDE = lon
+
+    with contextlib.suppress(Exception):
+        from routes import ais as ais_routes
+        ais_routes.DEFAULT_LATITUDE = lat
+        ais_routes.DEFAULT_LONGITUDE = lon
 
 
 @settings_bp.route('', methods=['GET'])
@@ -107,6 +182,34 @@ def delete_single_setting(key: str) -> Response:
     except Exception as e:
         logger.error(f"Error deleting setting {key}: {e}")
         return api_error(str(e), 500)
+
+
+@settings_bp.route('/observer-location', methods=['POST'])
+def save_observer_location() -> Response:
+    """Persist observer location to .env and refresh in-process defaults."""
+    data = request.json or {}
+
+    try:
+        lat = validate_latitude(data.get('lat'))
+        lon = validate_longitude(data.get('lon'))
+    except ValueError as exc:
+        return api_error(str(exc), 400)
+
+    try:
+        _write_env_value('INTERCEPT_DEFAULT_LAT', str(lat))
+        _write_env_value('INTERCEPT_DEFAULT_LON', str(lon))
+        _apply_runtime_observer_defaults(lat, lon)
+        return api_success(
+            data={
+                'lat': lat,
+                'lon': lon,
+                'saved': ['INTERCEPT_DEFAULT_LAT', 'INTERCEPT_DEFAULT_LON'],
+            },
+            message='Observer location saved to .env',
+        )
+    except Exception as exc:
+        logger.error(f'Error saving observer location to .env: {exc}')
+        return api_error(str(exc), 500)
 
 
 # =============================================================================

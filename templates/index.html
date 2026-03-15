@@ -3890,7 +3890,11 @@
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    if (parsed.lat && parsed.lon) return parsed;
+                    const lat = Number(parsed.lat);
+                    const lon = Number(parsed.lon);
+                    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                        return { lat, lon };
+                    }
                 } catch (e) { }
             }
             return { lat: 51.5074, lon: -0.1278 };
@@ -9857,16 +9861,16 @@
         (function _seedAprsLocation() {
             if (typeof ObserverLocation !== 'undefined' && ObserverLocation.getShared) {
                 const shared = ObserverLocation.getShared();
-                if (shared && shared.lat && shared.lon) {
+                if (shared && aprsHasValidCoordinates(shared.lat, shared.lon)) {
                     aprsUserLocation.lat = shared.lat;
                     aprsUserLocation.lon = shared.lon;
                     return;
                 }
             }
             // Fallback: read the Jinja-injected defaults directly
-            const lat = window.INTERCEPT_DEFAULT_LAT;
-            const lon = window.INTERCEPT_DEFAULT_LON;
-            if (lat && lon && Number.isFinite(lat) && Number.isFinite(lon)) {
+            const lat = Number(window.INTERCEPT_DEFAULT_LAT);
+            const lon = Number(window.INTERCEPT_DEFAULT_LON);
+            if (aprsHasValidCoordinates(lat, lon)) {
                 aprsUserLocation.lat = lat;
                 aprsUserLocation.lon = lon;
             }
@@ -10824,25 +10828,26 @@
         });
 
         function updateLocationFromGps(position) {
-            if (!position || !position.latitude || !position.longitude) {
+            const lat = Number(position && position.latitude);
+            const lon = Number(position && position.longitude);
+            const fixQuality = Number(position && position.fix_quality);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
                 return;
             }
+            if (Number.isFinite(fixQuality) && fixQuality < 2) return;
 
             // Update satellite observer location
             const satLatInput = document.getElementById('obsLat');
             const satLonInput = document.getElementById('obsLon');
-            if (satLatInput) satLatInput.value = position.latitude.toFixed(4);
-            if (satLonInput) satLonInput.value = position.longitude.toFixed(4);
+            if (satLatInput) satLatInput.value = lat.toFixed(4);
+            if (satLonInput) satLonInput.value = lon.toFixed(4);
 
             // Update observerLocation
-            observerLocation.lat = position.latitude;
-            observerLocation.lon = position.longitude;
-            if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
-                ObserverLocation.setShared({ lat: position.latitude, lon: position.longitude });
-            }
+            observerLocation.lat = lat;
+            observerLocation.lon = lon;
 
-            // Update APRS user location
-            updateAprsUserLocation(position);
+            // Keep live GPS separate from the configured shared observer location.
+            updateAprsUserLocation({ latitude: lat, longitude: lon });
         }
 
         function showGpsIndicator(show) {
