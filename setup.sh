@@ -530,12 +530,13 @@ install_python_deps() {
   progress "Installing Python dependencies"
 
   info "Installing core packages..."
-  $PIP install --quiet "flask>=3.0.0" "flask-limiter>=2.5.4" "requests>=2.28.0" \
+  $PIP install --quiet "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
+    "flask-limiter>=2.5.4" "requests>=2.28.0" \
     "Werkzeug>=3.1.5" "pyserial>=3.5" 2>/dev/null || true
 
-  $PY -c "import flask; import requests; from flask_limiter import Limiter" 2>/dev/null || {
-    fail "Critical Python packages (flask, requests, flask-limiter) not installed"
-    echo "Try: venv/bin/pip install flask requests flask-limiter"
+  $PY -c "import flask; import requests; from flask_limiter import Limiter; import flask_compress; import flask_wtf" 2>/dev/null || {
+    fail "Critical Python packages (flask, requests, flask-limiter, flask-compress, flask-wtf) not installed"
+    echo "Try: venv/bin/pip install flask requests flask-limiter flask-compress flask-wtf"
     exit 1
   }
   ok "Core Python packages installed"
