@@ -330,9 +330,9 @@
                     </select>
                     <button class="watchlist-btn" onclick="showWatchlistModal()" title="Manage Watchlist">★</button>
                     <select id="rangeSelect" onchange="updateRange()" title="Range rings distance">
-                        <option value="50">50nm</option>
+                        <option value="50" selected>50nm</option>
                         <option value="100">100nm</option>
-                        <option value="200" selected>200nm</option>
+                        <option value="200">200nm</option>
                         <option value="300">300nm</option>
                     </select>
                 </div>
@@ -469,7 +469,7 @@
         let showTrails = true;
         const MAX_TRAIL_POINTS = 100;
 
-        let maxRange = 200;  // nautical miles
+        let maxRange = 50;  // nautical miles
 
         // Statistics
         let stats = {
