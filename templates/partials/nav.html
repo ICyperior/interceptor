@@ -16,7 +16,12 @@
 
 {% macro mode_item(mode, label, icon_svg, href=None) -%}
     {%- set is_active = 'active' if active_mode == mode else '' -%}
-    {%- if href %}
+    {%- if mode == 'satellite' %}
+    <a href="/satellite/dashboard" class="mode-nav-btn {{ is_active }}" style="text-decoration: none;" data-mode="{{ mode }}" data-mode-label="{{ label }}" aria-label="{{ label }} mode">
+        <span class="nav-icon icon">{{ icon_svg | safe }}</span>
+        <span class="nav-label">{{ label }}</span>
+    </a>
+    {%- elif href %}
     <a href="{{ href }}" class="mode-nav-btn {{ is_active }}" style="text-decoration: none;" data-mode="{{ mode }}" data-mode-label="{{ label }}" aria-label="{{ label }} mode">
         <span class="nav-icon icon">{{ icon_svg | safe }}</span>
         <span class="nav-label">{{ label }}</span>
@@ -36,7 +41,11 @@
 
 {% macro mobile_item(mode, label, icon_svg, href=None) -%}
     {%- set is_active = 'active' if active_mode == mode else '' -%}
-    {%- if href %}
+    {%- if mode == 'satellite' %}
+    <a href="/satellite/dashboard" class="mobile-nav-btn {{ is_active }}" style="text-decoration: none;" data-mode="{{ mode }}" data-mode-label="{{ label }}" aria-label="{{ label }} mode">
+        <span class="icon icon--sm">{{ icon_svg | safe }}</span> {{ label }}
+    </a>
+    {%- elif href %}
     <a href="{{ href }}" class="mobile-nav-btn {{ is_active }}" style="text-decoration: none;" data-mode="{{ mode }}" data-mode-label="{{ label }}" aria-label="{{ label }} mode">
         <span class="icon icon--sm">{{ icon_svg | safe }}</span> {{ label }}
     </a>

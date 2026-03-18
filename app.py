@@ -480,6 +480,9 @@ def login():
 
 @app.route('/')
 def index() -> str:
+    if request.args.get('mode') == 'satellite':
+        return redirect(url_for('satellite.dashboard'))
+
     tools = {
         'rtl_fm': check_tool('rtl_fm'),
         'multimon': check_tool('multimon-ng'),

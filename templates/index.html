@@ -3604,6 +3604,10 @@
 
         // Mode selection from welcome page
         function selectMode(mode) {
+            if (mode === 'satellite') {
+                window.location.href = '/satellite/dashboard';
+                return;
+            }
             selectedStartMode = mode;
             const welcome = document.getElementById('welcomePage');
             welcome.classList.add('fade-out');
@@ -3664,6 +3668,10 @@
         function applyModeFromQuery() {
             const mode = getModeFromQuery();
             if (!mode) return;
+            if (mode === 'satellite') {
+                window.location.replace('/satellite/dashboard');
+                return;
+            }
             const accepted = localStorage.getItem('disclaimerAccepted') === 'true';
             if (accepted) {
                 const welcome = document.getElementById('welcomePage');
@@ -4395,6 +4403,10 @@
             const switchStartMs = performance.now();
             const previousMode = currentMode;
             if (mode === 'listening') mode = 'waterfall';
+            if (mode === 'satellite') {
+                window.location.href = '/satellite/dashboard';
+                return;
+            }
             if (!validModes.has(mode)) mode = 'pager';
             const styleReadyPromise = (typeof window.ensureModeStyles === 'function')
                 ? Promise.resolve(window.ensureModeStyles(mode)).catch((err) => {
