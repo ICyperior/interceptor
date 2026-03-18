@@ -183,6 +183,8 @@ class WeatherSatDecoder:
         self._capture_output_dir: Path | None = None
         self._on_complete_callback: Callable[[], None] | None = None
         self._capture_phase: str = 'idle'
+        self._last_error_message: str = ''
+        self._last_process_returncode: int | None = None
 
         # Ensure output directory exists
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -318,6 +320,8 @@ class WeatherSatDecoder:
             self._device_index = -1  # Offline decode does not claim an SDR device
             self._capture_start_time = time.time()
             self._capture_phase = 'decoding'
+            self._last_error_message = ''
+            self._last_process_returncode = None
             self._stop_event.clear()
 
             try:
@@ -412,6 +416,8 @@ class WeatherSatDecoder:
             self._device_index = device_index
             self._capture_start_time = time.time()
             self._capture_phase = 'tuning'
+            self._last_error_message = ''
+            self._last_process_returncode = None
             self._stop_event.clear()
 
             try:
@@ -893,6 +899,7 @@ class WeatherSatDecoder:
                         process.kill()
                         process.wait()
                 retcode = process.returncode if process else None
+                self._last_process_returncode = retcode
                 if retcode and retcode != 0:
                     self._capture_phase = 'error'
                     self._emit_progress(CaptureProgress(
@@ -1140,6 +1147,8 @@ class WeatherSatDecoder:
 
     def _emit_progress(self, progress: CaptureProgress) -> None:
         """Emit progress update to callback."""
+        if progress.status == 'error' and progress.message:
+            self._last_error_message = str(progress.message)
         if self._callback:
             try:
                 self._callback(progress)
@@ -1159,8 +1168,11 @@ class WeatherSatDecoder:
             'satellite': self._current_satellite,
             'frequency': self._current_frequency,
             'mode': self._current_mode,
+            'capture_phase': self._capture_phase,
             'elapsed_seconds': elapsed,
             'image_count': len(self._images),
+            'last_error': self._last_error_message,
+            'last_returncode': self._last_process_returncode,
         }
 
 

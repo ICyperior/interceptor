@@ -6,8 +6,8 @@
             ALPHA: Weather Satellite capture is experimental and may fail depending on SatDump version, SDR driver support, and pass conditions.
         </div>
         <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">
-            Receive and decode weather images from NOAA and Meteor satellites.
-            Uses SatDump for live SDR capture and image processing.
+            Receive and decode Meteor LRPT weather imagery.
+            Uses SatDump for live SDR capture and image processing, and also shows Meteor imagery produced by the ground-station scheduler.
         </p>
     </div>
 
@@ -18,9 +18,6 @@
             <select id="weatherSatSelect" class="mode-select">
                 <option value="METEOR-M2-3" selected>Meteor-M2-3 (137.900 MHz LRPT)</option>
                 <option value="METEOR-M2-4">Meteor-M2-4 (137.900 MHz LRPT)</option>
-                <option value="NOAA-15" disabled>NOAA-15 (137.620 MHz APT) [DEFUNCT]</option>
-                <option value="NOAA-18" disabled>NOAA-18 (137.9125 MHz APT) [DEFUNCT]</option>
-                <option value="NOAA-19" disabled>NOAA-19 (137.100 MHz APT) [DEFUNCT]</option>
             </select>
         </div>
         <div class="form-group">
@@ -72,7 +69,7 @@
                     <li><strong style="color: var(--text-primary);">Connection:</strong> Solder elements to coax center + shield, connect to SDR via SMA</li>
                 </ul>
                 <p style="margin-top: 6px; color: var(--text-dim); font-style: italic;">
-                    Best starter antenna. Good enough for clear NOAA images with a direct overhead pass.
+                    Best starter antenna. Good enough for a clean Meteor LRPT pass when the satellite gets high overhead.
                 </p>
             </div>
 
@@ -136,7 +133,7 @@
                     <li><strong style="color: var(--text-primary);">Avoid:</strong> Metal roofs, power lines, buildings blocking the sky</li>
                     <li><strong style="color: var(--text-primary);">Coax length:</strong> Keep short (&lt;10m). Signal loss at 137 MHz is ~3 dB per 10m of RG-58</li>
                     <li><strong style="color: var(--text-primary);">LNA:</strong> Mount at the antenna feed point, NOT at the SDR end.
-                        Recommended: Nooelec SAWbird+ NOAA (137 MHz filtered LNA, ~$30)</li>
+                        Recommended: a low-noise 137 MHz filtered LNA near the antenna feed point</li>
                     <li><strong style="color: var(--text-primary);">Bias-T:</strong> Enable the Bias-T checkbox above if your LNA is powered via the coax from the SDR</li>
                 </ul>
             </div>
@@ -165,10 +162,6 @@
                         <td style="padding: 3px 4px; color: var(--text-dim);">Polarization</td>
                         <td style="padding: 3px 4px; color: var(--text-primary); text-align: right;">RHCP</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding: 3px 4px; color: var(--text-dim);">NOAA (APT) bandwidth</td>
-                        <td style="padding: 3px 4px; color: var(--text-primary); text-align: right;">~40 kHz</td>
-                    </tr>
                     <tr>
                         <td style="padding: 3px 4px; color: var(--text-dim);">Meteor (LRPT) bandwidth</td>
                         <td style="padding: 3px 4px; color: var(--text-primary); text-align: right;">~140 kHz</td>
@@ -185,31 +178,26 @@
         </h3>
         <div class="wxsat-test-decode-body collapsed" style="overflow: hidden;">
             <p class="info-text" style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">
-                Decode a pre-recorded IQ or WAV file without SDR hardware.
-                Run <code style="font-size: 10px;">./download-weather-sat-samples.sh</code> to fetch sample files.
+                Decode a pre-recorded Meteor IQ file without SDR hardware.
+                Shared ground-station recordings are also accepted by the backend.
             </p>
             <div class="form-group">
                 <label>Satellite</label>
                 <select id="wxsatTestSatSelect" class="mode-select">
                     <option value="METEOR-M2-3" selected>Meteor-M2-3 (LRPT)</option>
                     <option value="METEOR-M2-4">Meteor-M2-4 (LRPT)</option>
-                    <option value="NOAA-15">NOAA-15 (APT)</option>
-                    <option value="NOAA-18">NOAA-18 (APT)</option>
-                    <option value="NOAA-19">NOAA-19 (APT)</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>File Path (server-side)</label>
-                <input type="text" id="wxsatTestFilePath" value="data/weather_sat/samples/noaa_apt_argentina.wav" style="font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif; font-size: 11px;">
+                <input type="text" id="wxsatTestFilePath" value="data/weather_sat/samples/meteor_lrpt.sigmf-data" style="font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif; font-size: 11px;">
             </div>
             <div class="form-group">
                 <label>Sample Rate</label>
                 <select id="wxsatTestSampleRate" class="mode-select">
-                    <option value="11025">11025 Hz (WAV audio APT)</option>
-                    <option value="48000">48000 Hz (WAV audio APT)</option>
                     <option value="500000">500 kHz (IQ LRPT)</option>
-                    <option value="1000000" selected>1 MHz (IQ default)</option>
-                    <option value="2000000">2 MHz (IQ wideband)</option>
+                    <option value="1000000">1 MHz (IQ narrow)</option>
+                    <option value="2400000" selected>2.4 MHz (INTERCEPT default)</option>
                 </select>
             </div>
             <button class="mode-btn" onclick="WeatherSat.testDecode()" style="width: 100%; margin-top: 4px;">
@@ -241,8 +229,8 @@
             <a href="https://github.com/SatDump/SatDump" target="_blank" rel="noopener" class="preset-btn" style="text-decoration: none; text-align: center;">
                 SatDump Documentation
             </a>
-            <a href="https://www.rtl-sdr.com/rtl-sdr-tutorial-receiving-noaa-weather-satellite-images/" target="_blank" rel="noopener" class="preset-btn" style="text-decoration: none; text-align: center;">
-                NOAA Reception Guide
+            <a href="https://www.rtl-sdr.com/rtl-sdr-tutorial-receiving-meteor-m2-weather-satellite-images/" target="_blank" rel="noopener" class="preset-btn" style="text-decoration: none; text-align: center;">
+                Meteor Reception Guide
             </a>
         </div>
     </div>

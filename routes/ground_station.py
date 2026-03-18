@@ -379,6 +379,52 @@ def download_output(output_id: int):
         return jsonify({'error': str(e)}), 500
 
 
+@ground_station_bp.route('/decode-jobs', methods=['GET'])
+def list_decode_jobs():
+    try:
+        query = '''
+            SELECT * FROM ground_station_decode_jobs
+            WHERE (? IS NULL OR norad_id = ?)
+              AND (? IS NULL OR observation_id = ?)
+              AND (? IS NULL OR backend = ?)
+            ORDER BY created_at DESC
+            LIMIT ?
+        '''
+        norad_id = request.args.get('norad_id', type=int)
+        observation_id = request.args.get('observation_id', type=int)
+        backend = request.args.get('backend')
+        limit = min(request.args.get('limit', 20, type=int) or 20, 200)
+
+        from utils.database import get_db
+        with get_db() as conn:
+            rows = conn.execute(
+                query,
+                (
+                    norad_id, norad_id,
+                    observation_id, observation_id,
+                    backend, backend,
+                    limit,
+                ),
+            ).fetchall()
+
+        results = []
+        for row in rows:
+            item = dict(row)
+            details_raw = item.get('details_json')
+            if details_raw:
+                try:
+                    item['details'] = json.loads(details_raw)
+                except json.JSONDecodeError:
+                    item['details'] = {}
+            else:
+                item['details'] = {}
+            item.pop('details_json', None)
+            results.append(item)
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ---------------------------------------------------------------------------
 # Phase 5 — Live waterfall WebSocket
 # ---------------------------------------------------------------------------

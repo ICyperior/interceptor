@@ -1962,12 +1962,15 @@
             const list = document.getElementById('gsOutputsList');
             const status = document.getElementById('gsDecodeStatus');
             if (!panel || !list || !norad) return;
+            gsLoadDecodeJobs(norad);
             fetch(`/ground_station/outputs?norad_id=${encodeURIComponent(norad)}&type=image`)
                 .then(r => r.json())
                 .then(outputs => {
                     if (!Array.isArray(outputs) || !outputs.length) {
-                        panel.style.display = 'none';
-                        if (status) status.style.display = 'none';
+                        if (!status || !status.textContent) {
+                            panel.style.display = 'none';
+                            if (status) status.style.display = 'none';
+                        }
                         return;
                     }
                     panel.style.display = '';
@@ -1980,6 +1983,35 @@
                             <span style="color:var(--text-secondary);font-size:9px;">${product}</span>
                         </div>`;
                     }).join('');
+                })
+                .catch(() => {});
+        }
+
+        function gsLoadDecodeJobs(norad) {
+            const panel = document.getElementById('gsOutputsPanel');
+            const status = document.getElementById('gsDecodeStatus');
+            if (!panel || !status || !norad) return;
+            fetch(`/ground_station/decode-jobs?norad_id=${encodeURIComponent(norad)}&backend=meteor_lrpt&limit=1`)
+                .then(r => r.json())
+                .then(jobs => {
+                    if (!Array.isArray(jobs) || !jobs.length) return;
+                    const job = jobs[0];
+                    const details = job.details || {};
+                    let message = '';
+                    if (job.status === 'queued') {
+                        message = 'Decode queued';
+                    } else if (job.status === 'decoding') {
+                        message = 'Decode in progress';
+                    } else if (job.status === 'failed') {
+                        message = job.error_message || details.message || 'Decode failed';
+                    } else if (job.status === 'complete') {
+                        const count = details.output_count;
+                        message = count ? `Decode complete (${count} image${count === 1 ? '' : 's'})` : 'Decode complete';
+                    }
+                    if (!message) return;
+                    status.textContent = message;
+                    status.style.display = '';
+                    panel.style.display = '';
                 })
                 .catch(() => {});
         }

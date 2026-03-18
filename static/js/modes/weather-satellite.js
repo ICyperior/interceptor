@@ -1,6 +1,6 @@
 /**
  * Weather Satellite Mode
- * NOAA APT and Meteor LRPT decoder interface with auto-scheduler,
+ * Meteor LRPT decoder interface with auto-scheduler,
  * polar plot, styled real-world map, countdown, and timeline.
  */
 
@@ -28,6 +28,7 @@ const WeatherSat = (function() {
     let currentModalFilename = null;
     let locationListenersAttached = false;
     let initialized = false;
+    let imageRefreshInterval = null;
 
     /**
      * Initialize the Weather Satellite mode
@@ -52,6 +53,7 @@ const WeatherSat = (function() {
         startCountdownTimer();
         checkSchedulerStatus();
         initGroundMap();
+        ensureImageRefresh();
     }
 
     /**
@@ -137,7 +139,12 @@ const WeatherSat = (function() {
             if (latInput) latInput.addEventListener('change', saveLocationFromInputs);
             if (lonInput) lonInput.addEventListener('change', saveLocationFromInputs);
             const satSelect = document.getElementById('weatherSatSelect');
-            if (satSelect) satSelect.addEventListener('change', applyPassFilter);
+            if (satSelect) {
+                satSelect.addEventListener('change', () => {
+                    applyPassFilter();
+                    loadImages();
+                });
+            }
             locationListenersAttached = true;
         }
     }
@@ -536,6 +543,7 @@ const WeatherSat = (function() {
             updatePhaseIndicator('error');
             if (consoleAutoHideTimer) clearTimeout(consoleAutoHideTimer);
             consoleAutoHideTimer = setTimeout(() => showConsole(false), 15000);
+            loadImages();
         }
     }
 
@@ -1549,7 +1557,12 @@ const WeatherSat = (function() {
      */
     async function loadImages() {
         try {
-            const response = await fetch('/weather-sat/images');
+            const satSelect = document.getElementById('weatherSatSelect');
+            const selectedSatellite = satSelect?.value || '';
+            const url = selectedSatellite
+                ? `/weather-sat/images?satellite=${encodeURIComponent(selectedSatellite)}`
+                : '/weather-sat/images';
+            const response = await fetch(url);
             const data = await response.json();
 
             if (data.status === 'ok') {
@@ -1614,6 +1627,14 @@ const WeatherSat = (function() {
             html += `<div class="wxsat-date-header">${escapeHtml(date)}</div>`;
             html += imgs.map(img => {
                 const fn = escapeHtml(img.filename || img.url.split('/').pop());
+                const deleteButton = img.deletable === false ? '' : `
+                    <div class="wxsat-image-actions">
+                        <button onclick="event.stopPropagation(); WeatherSat.deleteImage('${fn}')" title="Delete image">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </button>
+                    </div>`;
                 return `
                 <div class="wxsat-image-card">
                     <div class="wxsat-image-clickable" onclick="WeatherSat.showImage('${escapeHtml(img.url)}', '${escapeHtml(img.satellite)}', '${escapeHtml(img.product)}', '${fn}')">
@@ -1624,13 +1645,7 @@ const WeatherSat = (function() {
                             <div class="wxsat-image-timestamp">${formatTimestamp(img.timestamp)}</div>
                         </div>
                     </div>
-                    <div class="wxsat-image-actions">
-                        <button onclick="event.stopPropagation(); WeatherSat.deleteImage('${fn}')" title="Delete image">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            </svg>
-                        </button>
-                    </div>
+                    ${deleteButton}
                 </div>`;
             }).join('');
         }
@@ -1722,9 +1737,14 @@ const WeatherSat = (function() {
      */
     async function deleteAllImages() {
         if (images.length === 0) return;
+        const deletableCount = images.filter(img => img.deletable !== false).length;
+        if (deletableCount === 0) {
+            showNotification('Weather Sat', 'Only shared ground-station imagery is available here');
+            return;
+        }
         const confirmed = await AppFeedback.confirmAction({
             title: 'Delete All Images',
-            message: `Delete all ${images.length} decoded images? This cannot be undone.`,
+            message: `Delete all ${deletableCount} local decoded images? Shared ground-station outputs will be kept.`,
             confirmLabel: 'Delete All',
             confirmClass: 'btn-danger'
         });
@@ -1735,8 +1755,8 @@ const WeatherSat = (function() {
             const data = await response.json();
 
             if (data.status === 'ok') {
-                images = [];
-                updateImageCount(0);
+                images = images.filter(img => img.deletable === false);
+                updateImageCount(images.length);
                 renderGallery();
                 showNotification('Weather Sat', `Deleted ${data.deleted} images`);
             } else {
@@ -1758,6 +1778,15 @@ const WeatherSat = (function() {
         } catch {
             return isoString;
         }
+    }
+
+    function ensureImageRefresh() {
+        if (imageRefreshInterval) return;
+        imageRefreshInterval = setInterval(() => {
+            const mode = document.getElementById('weatherSatMode');
+            if (!mode || !mode.classList.contains('active')) return;
+            loadImages();
+        }, 30000);
     }
 
     /**

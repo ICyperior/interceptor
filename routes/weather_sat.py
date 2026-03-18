@@ -1,12 +1,15 @@
 """Weather Satellite decoder routes.
 
-Provides endpoints for capturing and decoding weather satellite images
-from NOAA (APT) and Meteor (LRPT) satellites using SatDump.
+Provides endpoints for capturing and decoding Meteor LRPT weather
+imagery, including shared results produced by the ground-station
+observation pipeline.
 """
 
 from __future__ import annotations
 
+import json
 import queue
+from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request, send_file
 
@@ -36,6 +39,15 @@ weather_sat_bp = Blueprint('weather_sat', __name__, url_prefix='/weather-sat')
 
 # Queue for SSE progress streaming
 _weather_sat_queue: queue.Queue = queue.Queue(maxsize=100)
+
+METEOR_NORAD_IDS = {
+    'METEOR-M2-3': 57166,
+    'METEOR-M2-4': 59051,
+}
+ALLOWED_TEST_DECODE_DIRS = (
+    Path(__file__).resolve().parent.parent / 'data',
+    Path(__file__).resolve().parent.parent / 'instance' / 'ground_station' / 'recordings',
+)
 
 
 def _progress_callback(progress: CaptureProgress) -> None:
@@ -120,7 +132,7 @@ def start_capture():
 
     JSON body:
         {
-            "satellite": "NOAA-18",    // Required: satellite key
+            "satellite": "METEOR-M2-3", // Required: satellite key
             "device": 0,               // RTL-SDR device index (default: 0)
             "gain": 40.0,              // SDR gain in dB (default: 40)
             "bias_t": false            // Enable bias-T for LNA (default: false)
@@ -248,7 +260,7 @@ def test_decode():
 
     JSON body:
         {
-            "satellite": "NOAA-18",       // Required: satellite key
+            "satellite": "METEOR-M2-3",   // Required: satellite key
             "input_file": "/path/to/file", // Required: server-side file path
             "sample_rate": 1000000         // Sample rate in Hz (default: 1000000)
         }
@@ -292,14 +304,13 @@ def test_decode():
     from pathlib import Path
     input_path = Path(input_file)
 
-    # Security: restrict to data directory (anchored to app root, not CWD)
-    allowed_base = Path(__file__).resolve().parent.parent / 'data'
+    # Restrict test-decode to application-owned sample and recording paths.
     try:
         resolved = input_path.resolve()
-        if not resolved.is_relative_to(allowed_base):
+        if not any(resolved.is_relative_to(base) for base in ALLOWED_TEST_DECODE_DIRS):
             return jsonify({
                 'status': 'error',
-                'message': 'input_file must be under the data/ directory'
+                'message': 'input_file must be under INTERCEPT data or ground-station recordings'
             }), 403
     except (OSError, ValueError):
         return jsonify({
@@ -389,21 +400,34 @@ def list_images():
         JSON with list of decoded images.
     """
     decoder = get_weather_sat_decoder()
-    images = decoder.get_images()
+    images = [
+        {
+            **img.to_dict(),
+            'source': 'weather_sat',
+            'deletable': True,
+        }
+        for img in decoder.get_images()
+    ]
+    images.extend(_get_ground_station_images())
 
     # Filter by satellite if specified
     satellite_filter = request.args.get('satellite')
     if satellite_filter:
-        images = [img for img in images if img.satellite == satellite_filter]
+        images = [
+            img for img in images
+            if str(img.get('satellite', '')).upper() == satellite_filter.upper()
+        ]
+
+    images.sort(key=lambda img: img.get('timestamp') or '', reverse=True)
 
     # Apply limit
     limit = request.args.get('limit', type=int)
     if limit and limit > 0:
-        images = images[-limit:]
+        images = images[:limit]
 
     return jsonify({
         'status': 'ok',
-        'images': [img.to_dict() for img in images],
+        'images': images,
         'count': len(images),
     })
 
@@ -433,6 +457,36 @@ def get_image(filename: str):
         return api_error('Image not found', 404)
 
     mimetype = 'image/png' if filename.endswith('.png') else 'image/jpeg'
+    return send_file(image_path, mimetype=mimetype)
+
+
+@weather_sat_bp.route('/images/shared/<int:output_id>')
+def get_shared_image(output_id: int):
+    """Serve a Meteor image stored in ground-station outputs."""
+    try:
+        from utils.database import get_db
+
+        with get_db() as conn:
+            row = conn.execute(
+                '''
+                SELECT file_path FROM ground_station_outputs
+                WHERE id=? AND output_type='image'
+                ''',
+                (output_id,),
+            ).fetchone()
+    except Exception as e:
+        logger.warning("Failed to load shared weather image %s: %s", output_id, e)
+        return api_error('Image not found', 404)
+
+    if not row:
+        return api_error('Image not found', 404)
+
+    image_path = Path(row['file_path'])
+    if not image_path.exists():
+        return api_error('Image not found', 404)
+
+    suffix = image_path.suffix.lower()
+    mimetype = 'image/png' if suffix == '.png' else 'image/jpeg'
     return send_file(image_path, mimetype=mimetype)
 
 
@@ -467,6 +521,62 @@ def delete_all_images():
     decoder = get_weather_sat_decoder()
     count = decoder.delete_all_images()
     return jsonify({'status': 'ok', 'deleted': count})
+
+
+def _get_ground_station_images() -> list[dict]:
+    try:
+        from utils.database import get_db
+
+        with get_db() as conn:
+            rows = conn.execute(
+                '''
+                SELECT id, norad_id, file_path, metadata_json, created_at
+                FROM ground_station_outputs
+                WHERE output_type='image' AND backend='meteor_lrpt'
+                ORDER BY created_at DESC
+                LIMIT 200
+                '''
+            ).fetchall()
+    except Exception as e:
+        logger.debug("Failed to fetch ground-station weather outputs: %s", e)
+        return []
+
+    images: list[dict] = []
+    for row in rows:
+        file_path = Path(row['file_path'])
+        if not file_path.exists():
+            continue
+
+        metadata = {}
+        raw_metadata = row['metadata_json']
+        if raw_metadata:
+            try:
+                metadata = json.loads(raw_metadata)
+            except json.JSONDecodeError:
+                metadata = {}
+
+        satellite = metadata.get('satellite') or _satellite_from_norad(row['norad_id'])
+        images.append({
+            'filename': file_path.name,
+            'satellite': satellite,
+            'mode': metadata.get('mode', 'LRPT'),
+            'timestamp': metadata.get('timestamp') or row['created_at'],
+            'frequency': metadata.get('frequency', 137.9),
+            'size_bytes': metadata.get('size_bytes') or file_path.stat().st_size,
+            'product': metadata.get('product', ''),
+            'url': f"/weather-sat/images/shared/{row['id']}",
+            'source': 'ground_station',
+            'deletable': False,
+            'output_id': row['id'],
+        })
+    return images
+
+
+def _satellite_from_norad(norad_id: int | None) -> str:
+    for satellite, known_norad in METEOR_NORAD_IDS.items():
+        if known_norad == norad_id:
+            return satellite
+    return 'METEOR'
 
 
 @weather_sat_bp.route('/stream')

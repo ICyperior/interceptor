@@ -719,6 +719,25 @@ def init_db() -> None:
         ''')
 
         conn.execute('''
+            CREATE TABLE IF NOT EXISTS ground_station_decode_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                observation_id INTEGER,
+                norad_id INTEGER,
+                backend TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                input_path TEXT,
+                output_dir TEXT,
+                error_message TEXT,
+                details_json TEXT,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (observation_id) REFERENCES ground_station_observations(id) ON DELETE CASCADE
+            )
+        ''')
+
+        conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_gs_observations_norad
             ON ground_station_observations(norad_id, created_at)
         ''')
@@ -731,6 +750,11 @@ def init_db() -> None:
         conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_gs_outputs_observation
             ON ground_station_outputs(observation_id, created_at)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gs_decode_jobs_observation
+            ON ground_station_decode_jobs(observation_id, created_at)
         ''')
 
         # Lightweight schema migrations for existing installs.
