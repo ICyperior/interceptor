@@ -273,6 +273,29 @@
                                     <option value="iq_only">IQ record only</option>
                                 </select>
                             </div>
+                            <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(0,212,255,0.08);">
+                                <div style="font-size:10px;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.05em;">TASKS</div>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-primary);margin-bottom:4px;">
+                                    <input type="checkbox" id="gsTaskTelemetryAx25" style="accent-color:var(--accent-cyan);">
+                                    Telemetry AX.25 / AFSK
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-primary);margin-bottom:4px;">
+                                    <input type="checkbox" id="gsTaskTelemetryGmsk" style="accent-color:var(--accent-cyan);">
+                                    Telemetry GMSK
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-primary);margin-bottom:4px;">
+                                    <input type="checkbox" id="gsTaskTelemetryBpsk" style="accent-color:var(--accent-cyan);">
+                                    Telemetry BPSK
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-primary);margin-bottom:4px;">
+                                    <input type="checkbox" id="gsTaskWeatherMeteor" style="accent-color:var(--accent-cyan);">
+                                    Meteor LRPT capture
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-primary);">
+                                    <input type="checkbox" id="gsTaskRecordIq" style="accent-color:var(--accent-cyan);">
+                                    Record IQ artifact
+                                </label>
+                            </div>
                             <div class="gs-form-row">
                                 <label class="gs-form-label">Min El</label>
                                 <div style="display:flex;align-items:center;gap:4px;">
@@ -313,6 +336,11 @@
                     <div id="gsRecordingsPanel" style="margin-top:8px;display:none;">
                         <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">IQ RECORDINGS</div>
                         <div id="gsRecordingsList" style="max-height:100px;overflow-y:auto;"></div>
+                    </div>
+                    <div id="gsOutputsPanel" style="margin-top:8px;display:none;">
+                        <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">DECODED IMAGERY</div>
+                        <div id="gsDecodeStatus" style="display:none;color:var(--accent-cyan);font-size:9px;font-family:var(--font-mono);margin-bottom:4px;"></div>
+                        <div id="gsOutputsList" style="max-height:120px;overflow-y:auto;"></div>
                     </div>
                     <!-- Rotator (Phase 6, shown only if connected) -->
                     <div id="gsRotatorPanel" style="display:none;margin-top:8px;">
@@ -638,6 +666,7 @@
 
             loadTransmitters(selectedSatellite);
             calculatePasses();
+            gsLoadOutputs();
             if (window.gsOnSatelliteChange) gsOnSatelliteChange();
         }
 
@@ -1696,8 +1725,9 @@
             }
             el.innerHTML = profiles.map(p => {
                 const enCls = p.enabled ? 'gs-profile-enabled' : '';
+                const taskSummary = _formatTaskSummary(p.tasks || []);
                 return `<div class="gs-profile-item">
-                    <span class="prof-name ${enCls}" title="NORAD ${p.norad_id}">${_esc(p.name)}</span>
+                    <span class="prof-name ${enCls}" title="NORAD ${p.norad_id}${taskSummary ? ' • ' + taskSummary : ''}">${_esc(p.name)}</span>
                     <span class="prof-freq">${(+p.frequency_mhz).toFixed(3)}</span>
                     <div class="prof-actions">
                         <button onclick="gsEditProfile(${p.norad_id})">EDIT</button>
@@ -1707,7 +1737,7 @@
             }).join('');
         }
 
-        window.gsShowProfileForm = function (norad, name, freqMhz, decoder, minEl, gain, recordIQ) {
+        window.gsShowProfileForm = function (norad, name, freqMhz, decoder, minEl, gain, recordIQ, tasks) {
             _editingNorad = norad || null;
             const form  = document.getElementById('gsProfileForm');
             const title = document.getElementById('gsProfileFormTitle');
@@ -1726,6 +1756,7 @@
             document.getElementById('gsProfMinEl').value    = minEl    != null ? minEl    : 10;
             document.getElementById('gsProfGain').value     = gain     != null ? gain     : 40;
             document.getElementById('gsProfRecordIQ').checked = !!recordIQ;
+            _applyTaskSelection(Array.isArray(tasks) ? tasks : _tasksFromLegacyDecoder(decoder || _guessDecoder(), !!recordIQ));
 
             if (title) title.textContent = _editingNorad ? 'EDIT PROFILE' : 'NEW PROFILE';
             if (err) { err.style.display = 'none'; err.textContent = ''; }
@@ -1738,7 +1769,7 @@
                 .then(r => r.json())
                 .then(p => {
                     gsShowProfileForm(p.norad_id, p.name, p.frequency_mhz,
-                        p.decoder_type, p.min_elevation, p.gain, p.record_iq);
+                        p.decoder_type, p.min_elevation, p.gain, p.record_iq, p.tasks);
                 })
                 .catch(() => {});
         };
@@ -1758,6 +1789,7 @@
             if (!freq  || isNaN(freq))  { _showFormErr('Enter a valid frequency'); return; }
 
             const name = document.getElementById('gsProfSatName').textContent || `SAT-${norad}`;
+            const tasks = _collectSelectedTasks();
             const payload = {
                 norad_id:      norad,
                 name:          name,
@@ -1767,6 +1799,7 @@
                 gain:          parseFloat(document.getElementById('gsProfGain').value) || 40,
                 record_iq:     document.getElementById('gsProfRecordIQ').checked,
                 enabled:       true,
+                tasks:         tasks,
             };
 
             fetch('/ground_station/profiles', {
@@ -1791,6 +1824,51 @@
             if (!el) return;
             el.textContent = msg;
             el.style.display = '';
+        }
+
+        function _tasksFromLegacyDecoder(decoder, recordIQ) {
+            const tasks = [];
+            const value = String(decoder || 'fm').toLowerCase();
+            if (value === 'afsk' || value === 'fm') tasks.push('telemetry_ax25');
+            else if (value === 'gmsk') tasks.push('telemetry_gmsk');
+            else if (value === 'bpsk') tasks.push('telemetry_bpsk');
+            if (recordIQ || value === 'iq_only') tasks.push('record_iq');
+            return tasks;
+        }
+
+        function _collectSelectedTasks() {
+            const tasks = [];
+            if (document.getElementById('gsTaskTelemetryAx25')?.checked) tasks.push('telemetry_ax25');
+            if (document.getElementById('gsTaskTelemetryGmsk')?.checked) tasks.push('telemetry_gmsk');
+            if (document.getElementById('gsTaskTelemetryBpsk')?.checked) tasks.push('telemetry_bpsk');
+            if (document.getElementById('gsTaskWeatherMeteor')?.checked) tasks.push('weather_meteor_lrpt');
+            if (document.getElementById('gsTaskRecordIq')?.checked || document.getElementById('gsProfRecordIQ')?.checked) tasks.push('record_iq');
+            return tasks;
+        }
+
+        function _applyTaskSelection(tasks) {
+            const set = new Set(tasks || []);
+            const ax25 = document.getElementById('gsTaskTelemetryAx25');
+            const gmsk = document.getElementById('gsTaskTelemetryGmsk');
+            const bpsk = document.getElementById('gsTaskTelemetryBpsk');
+            const meteor = document.getElementById('gsTaskWeatherMeteor');
+            const recordIq = document.getElementById('gsTaskRecordIq');
+            if (ax25) ax25.checked = set.has('telemetry_ax25');
+            if (gmsk) gmsk.checked = set.has('telemetry_gmsk');
+            if (bpsk) bpsk.checked = set.has('telemetry_bpsk');
+            if (meteor) meteor.checked = set.has('weather_meteor_lrpt');
+            if (recordIq) recordIq.checked = set.has('record_iq');
+        }
+
+        function _formatTaskSummary(tasks) {
+            const labels = [];
+            const set = new Set(tasks || []);
+            if (set.has('telemetry_ax25')) labels.push('AX25');
+            if (set.has('telemetry_gmsk')) labels.push('GMSK');
+            if (set.has('telemetry_bpsk')) labels.push('BPSK');
+            if (set.has('weather_meteor_lrpt')) labels.push('METEOR');
+            if (set.has('record_iq')) labels.push('IQ');
+            return labels.join(', ');
         }
 
         // Try to get a sensible default frequency from the SatNOGS transmitter list
@@ -1878,6 +1956,66 @@
                 .catch(() => {});
         }
 
+        function gsLoadOutputs() {
+            const norad = typeof selectedSatellite !== 'undefined' ? selectedSatellite : null;
+            const panel = document.getElementById('gsOutputsPanel');
+            const list = document.getElementById('gsOutputsList');
+            const status = document.getElementById('gsDecodeStatus');
+            if (!panel || !list || !norad) return;
+            fetch(`/ground_station/outputs?norad_id=${encodeURIComponent(norad)}&type=image`)
+                .then(r => r.json())
+                .then(outputs => {
+                    if (!Array.isArray(outputs) || !outputs.length) {
+                        panel.style.display = 'none';
+                        if (status) status.style.display = 'none';
+                        return;
+                    }
+                    panel.style.display = '';
+                    list.innerHTML = outputs.slice(0, 10).map(o => {
+                        const meta = o.metadata || {};
+                        const filename = (o.file_path || '').split('/').pop() || `output-${o.id}`;
+                        const product = meta.product ? _esc(String(meta.product)) : 'Image';
+                        return `<div class="gs-recording-item">
+                            <a href="/ground_station/outputs/${o.id}/download" title="${_esc(filename)}">${_esc(filename.slice(0, 24))}</a>
+                            <span style="color:var(--text-secondary);font-size:9px;">${product}</span>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(() => {});
+        }
+
+        function _updateDecodeStatus(data) {
+            const panel = document.getElementById('gsOutputsPanel');
+            const status = document.getElementById('gsDecodeStatus');
+            if (!panel || !status) return;
+            if (data && data.norad_id && parseInt(data.norad_id) !== parseInt(selectedSatellite)) return;
+
+            if (!data) {
+                status.textContent = '';
+                status.style.display = 'none';
+                return;
+            }
+
+            const message = data.message || data.status || '';
+            if (!message) {
+                status.textContent = '';
+                status.style.display = 'none';
+                return;
+            }
+
+            status.textContent = message;
+            panel.style.display = '';
+            status.style.display = '';
+            if (data.type === 'weather_decode_complete' || data.type === 'weather_decode_failed') {
+                setTimeout(() => {
+                    if (status.textContent === message) {
+                        status.textContent = '';
+                        status.style.display = 'none';
+                    }
+                }, 8000);
+            }
+        }
+
         // -----------------------------------------------------------------------
         // SSE
         // -----------------------------------------------------------------------
@@ -1902,7 +2040,7 @@
                 case 'observation_complete':
                 case 'observation_failed':
                 case 'observation_skipped':
-                    gsLoadStatus(); gsLoadUpcoming(); gsLoadRecordings(); break;
+                    gsLoadStatus(); gsLoadUpcoming(); gsLoadRecordings(); gsLoadOutputs(); break;
                 case 'iq_bus_started':
                     _showWaterfall(true);
                     if (window.GroundStationWaterfall) {
@@ -1916,6 +2054,13 @@
                     break;
                 case 'doppler_update':   _updateDoppler(data); break;
                 case 'recording_complete': gsLoadRecordings(); break;
+                case 'weather_decode_started':
+                case 'weather_decode_progress':
+                    _updateDecodeStatus(data); break;
+                case 'weather_decode_complete':
+                case 'weather_decode_failed':
+                    _updateDecodeStatus(data);
+                    gsLoadOutputs(); break;
                 case 'packet_decoded':   _appendPacket(data); break;
             }
         }
@@ -1941,7 +2086,10 @@
             if (placeholder) placeholder.remove();
             const item = document.createElement('div');
             item.style.cssText = 'padding:4px 6px;border-bottom:1px solid rgba(0,212,255,0.08);font-size:10px;font-family:var(--font-mono);word-break:break-all;';
-            item.textContent = data.data || '';
+            const protocol = data.protocol ? `<div style="color:var(--accent-cyan);margin-bottom:2px;">${_esc(String(data.protocol))}${data.source ? ' / ' + _esc(String(data.source)) : ''}</div>` : '';
+            const parsed = data.parsed ? `<pre style="white-space:pre-wrap;margin:2px 0 4px 0;color:var(--text-primary);font-family:var(--font-mono);font-size:9px;">${_esc(JSON.stringify(data.parsed, null, 2))}</pre>` : '';
+            const raw = data.data ? `<div style="color:var(--text-secondary);">${_esc(String(data.data))}</div>` : '';
+            item.innerHTML = protocol + parsed + raw;
             list.prepend(item);
             const countEl = document.getElementById('packetCount');
             if (countEl) { const n = parseInt(countEl.textContent) || 0; countEl.textContent = n + 1; }

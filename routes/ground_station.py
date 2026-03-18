@@ -67,18 +67,31 @@ def create_profile():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
-    from utils.ground_station.observation_profile import ObservationProfile, save_profile
+    from utils.ground_station.observation_profile import (
+        ObservationProfile,
+        legacy_decoder_to_tasks,
+        normalize_tasks,
+        save_profile,
+        tasks_to_legacy_decoder,
+    )
+    tasks = normalize_tasks(data.get('tasks'))
+    if not tasks:
+        tasks = legacy_decoder_to_tasks(
+            str(data.get('decoder_type', 'fm')),
+            bool(data.get('record_iq', False)),
+        )
     profile = ObservationProfile(
         norad_id=int(data['norad_id']),
         name=str(data['name']),
         frequency_mhz=float(data['frequency_mhz']),
-        decoder_type=str(data.get('decoder_type', 'fm')),
+        decoder_type=tasks_to_legacy_decoder(tasks),
         gain=float(data.get('gain', 40.0)),
         bandwidth_hz=int(data.get('bandwidth_hz', 200_000)),
         min_elevation=float(data.get('min_elevation', 10.0)),
         enabled=bool(data.get('enabled', True)),
-        record_iq=bool(data.get('record_iq', False)),
+        record_iq=bool(data.get('record_iq', False)) or ('record_iq' in tasks),
         iq_sample_rate=int(data.get('iq_sample_rate', 2_400_000)),
+        tasks=tasks,
     )
     saved = save_profile(profile)
     return jsonify(saved.to_dict()), 201
@@ -87,7 +100,13 @@ def create_profile():
 @ground_station_bp.route('/profiles/<int:norad_id>', methods=['PUT'])
 def update_profile(norad_id: int):
     data = request.get_json(force=True) or {}
-    from utils.ground_station.observation_profile import get_profile as _get, save_profile
+    from utils.ground_station.observation_profile import (
+        get_profile as _get,
+        legacy_decoder_to_tasks,
+        normalize_tasks,
+        save_profile,
+        tasks_to_legacy_decoder,
+    )
     existing = _get(norad_id)
     if not existing:
         return jsonify({'error': f'No profile for NORAD {norad_id}'}), 404
@@ -104,6 +123,16 @@ def update_profile(norad_id: int):
             setattr(existing, field, bool(data[field]))
     if 'iq_sample_rate' in data:
         existing.iq_sample_rate = int(data['iq_sample_rate'])
+    if 'tasks' in data:
+        existing.tasks = normalize_tasks(data['tasks'])
+    elif 'decoder_type' in data:
+        existing.tasks = legacy_decoder_to_tasks(
+            str(data.get('decoder_type', existing.decoder_type)),
+            bool(data.get('record_iq', existing.record_iq)),
+        )
+
+    existing.decoder_type = tasks_to_legacy_decoder(existing.tasks)
+    existing.record_iq = bool(existing.record_iq) or ('record_iq' in existing.tasks)
 
     saved = save_profile(existing)
     return jsonify(saved.to_dict())
@@ -287,6 +316,69 @@ def download_recording(rec_id: int, file_type: str):
         return jsonify({'error': str(e)}), 500
 
 
+@ground_station_bp.route('/outputs', methods=['GET'])
+def list_outputs():
+    try:
+        query = '''
+            SELECT * FROM ground_station_outputs
+            WHERE (? IS NULL OR norad_id = ?)
+              AND (? IS NULL OR observation_id = ?)
+              AND (? IS NULL OR output_type = ?)
+            ORDER BY created_at DESC
+            LIMIT 200
+        '''
+        norad_id = request.args.get('norad_id', type=int)
+        observation_id = request.args.get('observation_id', type=int)
+        output_type = request.args.get('type')
+
+        from utils.database import get_db
+        with get_db() as conn:
+            rows = conn.execute(
+                query,
+                (
+                    norad_id, norad_id,
+                    observation_id, observation_id,
+                    output_type, output_type,
+                ),
+            ).fetchall()
+
+        results = []
+        for row in rows:
+            item = dict(row)
+            metadata_raw = item.get('metadata_json')
+            if metadata_raw:
+                try:
+                    item['metadata'] = json.loads(metadata_raw)
+                except json.JSONDecodeError:
+                    item['metadata'] = {}
+            else:
+                item['metadata'] = {}
+            item.pop('metadata_json', None)
+            results.append(item)
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@ground_station_bp.route('/outputs/<int:output_id>/download', methods=['GET'])
+def download_output(output_id: int):
+    try:
+        from utils.database import get_db
+        with get_db() as conn:
+            row = conn.execute(
+                'SELECT file_path FROM ground_station_outputs WHERE id=?',
+                (output_id,),
+            ).fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        p = Path(row['file_path'])
+        if not p.exists():
+            return jsonify({'error': 'File not found on disk'}), 404
+        return send_file(p, as_attachment=True, download_name=p.name)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ---------------------------------------------------------------------------
 # Phase 5 — Live waterfall WebSocket
 # ---------------------------------------------------------------------------
@@ -409,7 +501,21 @@ def _validate_profile(data: dict) -> None:
             raise ValueError("frequency_mhz must be between 0.1 and 3000")
     except (TypeError, ValueError):
         raise ValueError("frequency_mhz must be a number between 0.1 and 3000")
+    from utils.ground_station.observation_profile import VALID_TASK_TYPES
+
     valid_decoders = {'fm', 'afsk', 'gmsk', 'bpsk', 'iq_only'}
-    dt = str(data.get('decoder_type', 'fm'))
-    if dt not in valid_decoders:
-        raise ValueError(f"decoder_type must be one of: {', '.join(sorted(valid_decoders))}")
+    if 'tasks' in data:
+        if not isinstance(data['tasks'], list):
+            raise ValueError("tasks must be a list")
+        invalid = [
+            str(task) for task in data['tasks']
+            if str(task).strip().lower() not in VALID_TASK_TYPES
+        ]
+        if invalid:
+            raise ValueError(
+                f"tasks contains unsupported values: {', '.join(invalid)}"
+            )
+    else:
+        dt = str(data.get('decoder_type', 'fm'))
+        if dt not in valid_decoders:
+            raise ValueError(f"decoder_type must be one of: {', '.join(sorted(valid_decoders))}")

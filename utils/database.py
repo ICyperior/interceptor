@@ -648,6 +648,7 @@ def init_db() -> None:
                 name TEXT NOT NULL,
                 frequency_mhz REAL NOT NULL,
                 decoder_type TEXT NOT NULL DEFAULT 'fm',
+                tasks_json TEXT,
                 gain REAL DEFAULT 40.0,
                 bandwidth_hz INTEGER DEFAULT 200000,
                 min_elevation REAL DEFAULT 10.0,
@@ -703,6 +704,21 @@ def init_db() -> None:
         ''')
 
         conn.execute('''
+            CREATE TABLE IF NOT EXISTS ground_station_outputs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                observation_id INTEGER,
+                norad_id INTEGER,
+                output_type TEXT NOT NULL,
+                backend TEXT,
+                file_path TEXT NOT NULL,
+                preview_path TEXT,
+                metadata_json TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (observation_id) REFERENCES ground_station_observations(id) ON DELETE CASCADE
+            )
+        ''')
+
+        conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_gs_observations_norad
             ON ground_station_observations(norad_id, created_at)
         ''')
@@ -711,6 +727,18 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_gs_events_observation
             ON ground_station_events(observation_id, timestamp)
         ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gs_outputs_observation
+            ON ground_station_outputs(observation_id, created_at)
+        ''')
+
+        # Lightweight schema migrations for existing installs.
+        profile_cols = {
+            row['name'] for row in conn.execute('PRAGMA table_info(observation_profiles)')
+        }
+        if 'tasks_json' not in profile_cols:
+            conn.execute('ALTER TABLE observation_profiles ADD COLUMN tasks_json TEXT')
 
         logger.info("Database initialized successfully")
 

@@ -385,8 +385,8 @@ class GroundStationScheduler:
         # Attach decoder consumers
         self._attach_decoder_consumers(bus, profile, obs_db_id, obs)
 
-        # Attach SigMF consumer if requested
-        if profile.record_iq:
+        # Attach SigMF consumer when explicitly requested or required by tasks
+        if _profile_requires_iq_recording(profile):
             self._attach_sigmf_consumer(bus, profile, obs_db_id)
 
         # Start bus
@@ -473,12 +473,12 @@ class GroundStationScheduler:
     # ------------------------------------------------------------------
 
     def _attach_decoder_consumers(self, bus, profile, obs_db_id: int | None, obs) -> None:
-        """Attach the appropriate decoder consumer based on profile.decoder_type."""
-        decoder_type = (profile.decoder_type or '').lower()
+        """Attach consumers for all telemetry tasks on the profile."""
+        import shutil
 
-        if decoder_type in ('fm', 'afsk'):
-            # direwolf for AX.25 / AFSK
-            import shutil
+        tasks = _get_profile_tasks(profile)
+
+        if 'telemetry_ax25' in tasks:
             if shutil.which('direwolf'):
                 from utils.ground_station.consumers.fm_demod import FMDemodConsumer
                 consumer = FMDemodConsumer(
@@ -486,40 +486,42 @@ class GroundStationScheduler:
                         'direwolf', '-r', '48000', '-n', '1', '-b', '16', '-',
                     ],
                     modulation='fm',
-                    on_decoded=lambda line: self._on_packet_decoded(line, obs_db_id, obs),
+                    on_decoded=lambda line: self._on_packet_decoded(
+                        line, obs_db_id, obs, source='direwolf'
+                    ),
                 )
                 bus.add_consumer(consumer)
                 logger.info("Ground station: attached direwolf AX.25 decoder")
             else:
                 logger.warning("direwolf not found — AX.25 decoding disabled")
 
-        elif decoder_type == 'gmsk':
-            import shutil
+        if 'telemetry_gmsk' in tasks:
             if shutil.which('multimon-ng'):
                 from utils.ground_station.consumers.fm_demod import FMDemodConsumer
                 consumer = FMDemodConsumer(
                     decoder_cmd=['multimon-ng', '-t', 'raw', '-a', 'GMSK', '-'],
                     modulation='fm',
-                    on_decoded=lambda line: self._on_packet_decoded(line, obs_db_id, obs),
+                    on_decoded=lambda line: self._on_packet_decoded(
+                        line, obs_db_id, obs, source='multimon-ng'
+                    ),
                 )
                 bus.add_consumer(consumer)
                 logger.info("Ground station: attached multimon-ng GMSK decoder")
             else:
                 logger.warning("multimon-ng not found — GMSK decoding disabled")
 
-        elif decoder_type == 'bpsk':
+        if 'telemetry_bpsk' in tasks:
             from utils.ground_station.consumers.gr_satellites import GrSatConsumer
             consumer = GrSatConsumer(
                 satellite_name=profile.name,
                 on_decoded=lambda pkt: self._on_packet_decoded(
-                    json.dumps(pkt) if isinstance(pkt, dict) else str(pkt),
+                    pkt,
                     obs_db_id,
                     obs,
+                    source='gr_satellites',
                 ),
             )
             bus.add_consumer(consumer)
-
-        # 'iq_only' → no decoder, just SigMF
 
     def _attach_sigmf_consumer(self, bus, profile, obs_db_id: int | None) -> None:
         """Attach a SigMFConsumer for raw IQ recording."""
@@ -543,6 +545,27 @@ class GroundStationScheduler:
                 'data_path': str(data_path),
                 'meta_path': str(meta_path),
             })
+            if 'weather_meteor_lrpt' in _get_profile_tasks(profile):
+                try:
+                    from utils.ground_station.meteor_backend import launch_meteor_decode
+                    launch_meteor_decode(
+                        obs_db_id=obs_db_id,
+                        norad_id=profile.norad_id,
+                        satellite_name=profile.name,
+                        sample_rate=profile.iq_sample_rate,
+                        data_path=Path(data_path),
+                        emit_event=self._emit_event,
+                        register_output=_insert_output_record,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to launch Meteor decode backend: {e}")
+                    self._emit_event({
+                        'type': 'weather_decode_failed',
+                        'norad_id': profile.norad_id,
+                        'satellite': profile.name,
+                        'backend': 'meteor_lrpt',
+                        'message': str(e),
+                    })
 
         consumer = SigMFConsumer(metadata=meta, on_complete=_on_recording_complete)
         bus.add_consumer(consumer)
@@ -622,16 +645,25 @@ class GroundStationScheduler:
     # Packet / event callbacks
     # ------------------------------------------------------------------
 
-    def _on_packet_decoded(self, line: str, obs_db_id: int | None, obs: ScheduledObservation) -> None:
-        """Handle a decoded packet line from a decoder consumer."""
-        if not line:
+    def _on_packet_decoded(
+        self,
+        payload,
+        obs_db_id: int | None,
+        obs: ScheduledObservation,
+        *,
+        source: str = 'decoder',
+    ) -> None:
+        """Handle a decoded packet payload from a decoder consumer."""
+        if payload is None or payload == '':
             return
-        _insert_event_record(obs_db_id, 'packet', line)
+
+        packet_event = _build_packet_event(payload, source)
+        _insert_event_record(obs_db_id, 'packet', json.dumps(packet_event))
         self._emit_event({
             'type': 'packet_decoded',
             'norad_id': obs.profile_norad_id,
             'satellite': obs.satellite_name,
-            'data': line,
+            **packet_event,
         })
 
     def _emit_event(self, event: dict[str, Any]) -> None:
@@ -698,6 +730,68 @@ def _insert_event_record(obs_db_id: int | None, event_type: str, payload: str) -
         logger.debug(f"Failed to insert event record: {e}")
 
 
+def _get_profile_tasks(profile) -> list[str]:
+    get_tasks = getattr(profile, 'get_tasks', None)
+    if callable(get_tasks):
+        return get_tasks()
+    return []
+
+
+def _profile_requires_iq_recording(profile) -> bool:
+    tasks = _get_profile_tasks(profile)
+    return bool(getattr(profile, 'record_iq', False) or 'record_iq' in tasks or 'weather_meteor_lrpt' in tasks)
+
+
+def _build_packet_event(payload, source: str) -> dict[str, Any]:
+    event: dict[str, Any] = {
+        'source': source,
+        'data': payload if isinstance(payload, str) else json.dumps(payload),
+        'parsed': None,
+    }
+
+    if isinstance(payload, dict):
+        event['parsed'] = payload
+        event['protocol'] = payload.get('protocol') or payload.get('type') or source
+        return event
+
+    text = str(payload).strip()
+    event['data'] = text
+
+    parsed = None
+    if source == 'gr_satellites':
+        try:
+            candidate = json.loads(text)
+            if isinstance(candidate, dict):
+                parsed = candidate
+        except json.JSONDecodeError:
+            parsed = None
+
+    if parsed is None:
+        try:
+            from utils.satellite_telemetry import auto_parse
+            import base64
+
+            for token in text.replace(',', ' ').split():
+                cleaned = token.strip()
+                if not cleaned or len(cleaned) < 8:
+                    continue
+                try:
+                    raw = base64.b64decode(cleaned, validate=True)
+                except Exception:
+                    continue
+                maybe = auto_parse(raw)
+                if maybe:
+                    parsed = maybe
+                    break
+        except Exception:
+            parsed = None
+
+    event['parsed'] = parsed
+    if isinstance(parsed, dict):
+        event['protocol'] = parsed.get('protocol') or source
+    return event
+
+
 def _insert_recording_record(obs_db_id: int | None, meta_path: Path, data_path: Path, profile) -> None:
     try:
         from utils.database import get_db
@@ -720,6 +814,45 @@ def _insert_recording_record(obs_db_id: int | None, meta_path: Path, data_path: 
             ))
     except Exception as e:
         logger.warning(f"Failed to insert recording record: {e}")
+
+
+def _insert_output_record(
+    *,
+    observation_id: int | None,
+    norad_id: int | None,
+    output_type: str,
+    backend: str,
+    file_path: Path,
+    preview_path: Path | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> int | None:
+    try:
+        from utils.database import get_db
+        from datetime import datetime, timezone
+
+        with get_db() as conn:
+            cur = conn.execute(
+                '''
+                INSERT INTO ground_station_outputs
+                    (observation_id, norad_id, output_type, backend, file_path,
+                     preview_path, metadata_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''',
+                (
+                    observation_id,
+                    norad_id,
+                    output_type,
+                    backend,
+                    str(file_path),
+                    str(preview_path) if preview_path else None,
+                    json.dumps(metadata or {}),
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            return cur.lastrowid
+    except Exception as e:
+        logger.warning(f"Failed to insert output record: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------

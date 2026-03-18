@@ -34,6 +34,12 @@ from utils.process import register_process, safe_terminate
 
 logger = get_logger('intercept.weather_sat')
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ALLOWED_OFFLINE_INPUT_DIRS = (
+    PROJECT_ROOT / 'data',
+    PROJECT_ROOT / 'instance' / 'ground_station' / 'recordings',
+)
+
 
 # Weather satellite definitions
 WEATHER_SATELLITES = {
@@ -277,13 +283,13 @@ class WeatherSatDecoder:
 
             input_path = Path(input_file)
 
-            # Security: restrict to data directory
-            allowed_base = Path(__file__).resolve().parent.parent / 'data'
+            # Security: restrict offline decode inputs to application-owned
+            # capture directories so external paths cannot be injected.
             try:
                 resolved = input_path.resolve()
-                if not resolved.is_relative_to(allowed_base):
+                if not any(resolved.is_relative_to(base) for base in ALLOWED_OFFLINE_INPUT_DIRS):
                     logger.warning(f"Path traversal blocked in start_from_file: {input_file}")
-                    msg = 'Input file must be under the data/ directory'
+                    msg = 'Input file must be under INTERCEPT data or ground-station recordings'
                     self._emit_progress(CaptureProgress(
                         status='error',
                         message=msg,
