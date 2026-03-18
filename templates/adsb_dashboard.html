@@ -628,6 +628,33 @@
             const defaultLon = window.INTERCEPT_DEFAULT_LON || -0.1278;
             return { lat: defaultLat, lon: defaultLon };
         })();
+        const ADSB_FETCH_TIMEOUT_MS = 8000;
+        function scheduleAuxDashboardInit(fn, delay = 1200) {
+            const run = () => setTimeout(fn, delay);
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(run, { timeout: delay + 1200 });
+            } else {
+                run();
+            }
+        }
+        async function fetchJsonWithTimeout(url, options = {}, timeoutMs = ADSB_FETCH_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(url, {
+                    credentials: 'same-origin',
+                    ...options,
+                    signal: controller.signal,
+                });
+                const contentType = response.headers.get('Content-Type') || '';
+                if (!contentType.includes('application/json')) {
+                    throw new Error(`Unexpected response from ${url}`);
+                }
+                return await response.json();
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
         let rangeRingsLayer = null;
         let observerMarker = null;
 
@@ -1585,8 +1612,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         // ============================================
         async function autoConnectGps() {
             try {
-                const response = await fetch('/gps/auto-connect', { method: 'POST' });
-                const data = await response.json();
+                const data = await fetchJsonWithTimeout('/gps/auto-connect', { method: 'POST' });
 
                 if (data.status === 'connected') {
                     gpsConnected = true;
@@ -1737,15 +1763,14 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             updateClock();
             setInterval(updateClock, 1000);
             setInterval(cleanupOldAircraft, 10000);
-            checkAdsbTools();
-            checkAircraftDatabase();
-            checkDvbDriverConflict();
-
-            // Auto-connect to gpsd if available
-            autoConnectGps();
 
             // Sync tracking state if ADS-B already running
             syncTrackingStatus();
+
+            scheduleAuxDashboardInit(() => checkAdsbTools(), 500);
+            scheduleAuxDashboardInit(() => checkAircraftDatabase(), 800);
+            scheduleAuxDashboardInit(() => checkDvbDriverConflict(), 1100);
+            scheduleAuxDashboardInit(() => autoConnectGps(), 1400);
         });
 
         // Track which device is being used for ADS-B tracking
@@ -1753,8 +1778,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
 
         function initDeviceSelectors() {
             // Populate both ADS-B and airband device selectors
-            fetch('/devices')
-                .then(r => r.json())
+            fetchJsonWithTimeout('/devices')
                 .then(devices => {
                     const adsbSelect = document.getElementById('adsbDeviceSelect');
                     const airbandSelect = document.getElementById('airbandDeviceSelect');
@@ -2405,18 +2429,7 @@ sudo make install</code>
             }
 
             try {
-                const response = await fetch('/adsb/session');
-                if (!response.ok) {
-                    // No session info - only auto-start if enabled
-                    if (window.INTERCEPT_ADSB_AUTO_START) {
-                        console.log('[ADS-B] No session found, attempting auto-start...');
-                        await tryAutoStartLocal();
-                    } else {
-                        console.log('[ADS-B] No session found; auto-start disabled');
-                    }
-                    return;
-                }
-                const data = await response.json();
+                const data = await fetchJsonWithTimeout('/adsb/session');
 
                 if (data.tracking_active) {
                     // Session is running - auto-connect to stream
@@ -2479,10 +2492,7 @@ sudo make install</code>
             // Try to auto-start local ADS-B tracking if SDR is available
             try {
                 // Check if any SDR devices are available
-                const devResponse = await fetch('/devices');
-                if (!devResponse.ok) return;
-
-                const devices = await devResponse.json();
+                const devices = await fetchJsonWithTimeout('/devices');
                 if (!devices || devices.length === 0) {
                     console.log('[ADS-B] No SDR devices found - cannot auto-start');
                     return;
@@ -3842,7 +3852,9 @@ sudo make install</code>
         }
 
         // Initialize airband on page load
-        document.addEventListener('DOMContentLoaded', initAirband);
+        document.addEventListener('DOMContentLoaded', () => {
+            scheduleAuxDashboardInit(initAirband, 1200);
+        });
 
         // ============================================
         // ACARS Functions
@@ -3876,38 +3888,35 @@ sudo make install</code>
 
         // Initialize ACARS sidebar state and frequency checkboxes
         document.addEventListener('DOMContentLoaded', () => {
-            const sidebar = document.getElementById('acarsSidebar');
-            if (sidebar && acarsSidebarCollapsed) {
-                sidebar.classList.add('collapsed');
-            }
-            updateAcarsFreqCheckboxes();
+            scheduleAuxDashboardInit(() => {
+                const sidebar = document.getElementById('acarsSidebar');
+                if (sidebar && acarsSidebarCollapsed) {
+                    sidebar.classList.add('collapsed');
+                }
+                updateAcarsFreqCheckboxes();
 
-            // Check if ACARS is already running (e.g. after page reload)
-            fetch('/acars/status')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.running) {
-                        isAcarsRunning = true;
-                        acarsMessageCount = data.message_count || 0;
-                        document.getElementById('acarsCount').textContent = acarsMessageCount;
-                        document.getElementById('acarsToggleBtn').textContent = '■ STOP ACARS';
-                        document.getElementById('acarsToggleBtn').classList.add('active');
-                        document.getElementById('acarsPanelIndicator').classList.add('active');
-                        startAcarsStream(false);
-                        // Reload message history from backend
-                        fetch('/acars/messages?limit=50')
-                            .then(r => r.json())
-                            .then(msgs => {
-                                if (!msgs || !msgs.length) return;
-                                // Add oldest first so newest ends up on top
-                                for (let i = msgs.length - 1; i >= 0; i--) {
-                                    addAcarsMessage(msgs[i]);
-                                }
-                            })
-                            .catch(() => {});
-                    }
-                })
-                .catch(() => {});
+                fetchJsonWithTimeout('/acars/status')
+                    .then(data => {
+                        if (data.running) {
+                            isAcarsRunning = true;
+                            acarsMessageCount = data.message_count || 0;
+                            document.getElementById('acarsCount').textContent = acarsMessageCount;
+                            document.getElementById('acarsToggleBtn').textContent = '■ STOP ACARS';
+                            document.getElementById('acarsToggleBtn').classList.add('active');
+                            document.getElementById('acarsPanelIndicator').classList.add('active');
+                            startAcarsStream(false);
+                            fetchJsonWithTimeout('/acars/messages?limit=50')
+                                .then(msgs => {
+                                    if (!msgs || !msgs.length) return;
+                                    for (let i = msgs.length - 1; i >= 0; i--) {
+                                        addAcarsMessage(msgs[i]);
+                                    }
+                                })
+                                .catch(() => {});
+                        }
+                    })
+                    .catch(() => {});
+            }, 1600);
         });
 
         function updateAcarsFreqCheckboxes() {
@@ -4297,26 +4306,28 @@ sudo make install</code>
 
         // Populate ACARS device selector
         document.addEventListener('DOMContentLoaded', () => {
-            fetch('/devices')
-                .then(r => r.json())
-                .then(devices => {
-                    const select = document.getElementById('acarsDeviceSelect');
-                    select.innerHTML = '';
-                    if (devices.length === 0) {
-                        select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
-                    } else {
-                        devices.forEach((d, i) => {
-                            const opt = document.createElement('option');
-                            const sdrType = d.sdr_type || 'rtlsdr';
-                            const idx = d.index !== undefined ? d.index : i;
-                            opt.value = `${sdrType}:${idx}`;
-                            opt.dataset.sdrType = sdrType;
-                            opt.dataset.index = idx;
-                            opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
-                            select.appendChild(opt);
-                        });
-                    }
-                });
+            scheduleAuxDashboardInit(() => {
+                fetchJsonWithTimeout('/devices')
+                    .then(devices => {
+                        const select = document.getElementById('acarsDeviceSelect');
+                        select.innerHTML = '';
+                        if (devices.length === 0) {
+                            select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
+                        } else {
+                            devices.forEach((d, i) => {
+                                const opt = document.createElement('option');
+                                const sdrType = d.sdr_type || 'rtlsdr';
+                                const idx = d.index !== undefined ? d.index : i;
+                                opt.value = `${sdrType}:${idx}`;
+                                opt.dataset.sdrType = sdrType;
+                                opt.dataset.index = idx;
+                                opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
+                                select.appendChild(opt);
+                            });
+                        }
+                    })
+                    .catch(() => {});
+            }, 1800);
         });
 
         // ============================================
@@ -4357,11 +4368,13 @@ sudo make install</code>
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const sidebar = document.getElementById('vdl2Sidebar');
-            if (sidebar && vdl2SidebarCollapsed) {
-                sidebar.classList.add('collapsed');
-            }
-            updateVdl2FreqCheckboxes();
+            scheduleAuxDashboardInit(() => {
+                const sidebar = document.getElementById('vdl2Sidebar');
+                if (sidebar && vdl2SidebarCollapsed) {
+                    sidebar.classList.add('collapsed');
+                }
+                updateVdl2FreqCheckboxes();
+            }, 1800);
         });
 
         function updateVdl2FreqCheckboxes() {
@@ -4846,52 +4859,50 @@ sudo make install</code>
 
         // Populate VDL2 device selector and check running status
         document.addEventListener('DOMContentLoaded', () => {
-            fetch('/devices')
-                .then(r => r.json())
-                .then(devices => {
-                    const select = document.getElementById('vdl2DeviceSelect');
-                    select.innerHTML = '';
-                    if (devices.length === 0) {
-                        select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
-                    } else {
-                        devices.forEach((d, i) => {
-                            const opt = document.createElement('option');
-                            const sdrType = d.sdr_type || 'rtlsdr';
-                            const idx = d.index !== undefined ? d.index : i;
-                            opt.value = `${sdrType}:${idx}`;
-                            opt.dataset.sdrType = sdrType;
-                            opt.dataset.index = idx;
-                            opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
-                            select.appendChild(opt);
-                        });
-                    }
-                });
+            scheduleAuxDashboardInit(() => {
+                fetchJsonWithTimeout('/devices')
+                    .then(devices => {
+                        const select = document.getElementById('vdl2DeviceSelect');
+                        select.innerHTML = '';
+                        if (devices.length === 0) {
+                            select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
+                        } else {
+                            devices.forEach((d, i) => {
+                                const opt = document.createElement('option');
+                                const sdrType = d.sdr_type || 'rtlsdr';
+                                const idx = d.index !== undefined ? d.index : i;
+                                opt.value = `${sdrType}:${idx}`;
+                                opt.dataset.sdrType = sdrType;
+                                opt.dataset.index = idx;
+                                opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
+                                select.appendChild(opt);
+                            });
+                        }
+                    })
+                    .catch(() => {});
 
-            // Check if VDL2 is already running (e.g. after page reload)
-            fetch('/vdl2/status')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.running) {
-                        isVdl2Running = true;
-                        vdl2MessageCount = data.message_count || 0;
-                        document.getElementById('vdl2Count').textContent = vdl2MessageCount;
-                        document.getElementById('vdl2ToggleBtn').innerHTML = '&#9632; STOP VDL2';
-                        document.getElementById('vdl2ToggleBtn').classList.add('active');
-                        document.getElementById('vdl2PanelIndicator').classList.add('active');
-                        startVdl2Stream(false);
-                        // Reload message history from backend
-                        fetch('/vdl2/messages?limit=50')
-                            .then(r => r.json())
-                            .then(msgs => {
-                                if (!msgs || !msgs.length) return;
-                                for (let i = msgs.length - 1; i >= 0; i--) {
-                                    addVdl2Message(msgs[i]);
-                                }
-                            })
-                            .catch(() => {});
-                    }
-                })
-                .catch(() => {});
+                fetchJsonWithTimeout('/vdl2/status')
+                    .then(data => {
+                        if (data.running) {
+                            isVdl2Running = true;
+                            vdl2MessageCount = data.message_count || 0;
+                            document.getElementById('vdl2Count').textContent = vdl2MessageCount;
+                            document.getElementById('vdl2ToggleBtn').innerHTML = '&#9632; STOP VDL2';
+                            document.getElementById('vdl2ToggleBtn').classList.add('active');
+                            document.getElementById('vdl2PanelIndicator').classList.add('active');
+                            startVdl2Stream(false);
+                            fetchJsonWithTimeout('/vdl2/messages?limit=50')
+                                .then(msgs => {
+                                    if (!msgs || !msgs.length) return;
+                                    for (let i = msgs.length - 1; i >= 0; i--) {
+                                        addVdl2Message(msgs[i]);
+                                    }
+                                })
+                                .catch(() => {});
+                        }
+                    })
+                    .catch(() => {});
+            }, 2000);
         });
 
         // ============================================
