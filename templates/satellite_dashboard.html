@@ -1997,19 +1997,10 @@
                     if (!Array.isArray(jobs) || !jobs.length) return;
                     const job = jobs[0];
                     const details = job.details || {};
-                    let message = '';
-                    if (job.status === 'queued') {
-                        message = 'Decode queued';
-                    } else if (job.status === 'decoding') {
-                        message = 'Decode in progress';
-                    } else if (job.status === 'failed') {
-                        message = job.error_message || details.message || 'Decode failed';
-                    } else if (job.status === 'complete') {
-                        const count = details.output_count;
-                        message = count ? `Decode complete (${count} image${count === 1 ? '' : 's'})` : 'Decode complete';
-                    }
+                    const message = _formatDecodeJobSummary(job, details);
                     if (!message) return;
-                    status.textContent = message;
+                    const meta = _formatDecodeJobMeta(details);
+                    status.textContent = meta ? `${message} • ${meta}` : message;
                     status.style.display = '';
                     panel.style.display = '';
                 })
@@ -2046,6 +2037,36 @@
                     }
                 }, 8000);
             }
+        }
+
+        function _formatDecodeJobSummary(job, details) {
+            if (job.status === 'queued') return 'Decode queued';
+            if (job.status === 'decoding') return details.message || 'Decode in progress';
+            if (job.status === 'complete') {
+                const count = details.output_count;
+                return count ? `Decode complete (${count} image${count === 1 ? '' : 's'})` : 'Decode complete';
+            }
+            if (job.status === 'failed') {
+                const reasonLabels = {
+                    sample_rate_too_low: 'Sample rate too low',
+                    invalid_sample_rate: 'Sample rate rejected',
+                    recording_too_small: 'Recording too small',
+                    satdump_failed: 'SatDump failed',
+                    permission_error: 'Permission error',
+                    input_missing: 'Input not accessible',
+                    missing_recording: 'Recording missing',
+                    no_imagery_produced: 'No imagery produced',
+                };
+                return job.error_message || reasonLabels[details.reason] || details.message || 'Decode failed';
+            }
+            return '';
+        }
+
+        function _formatDecodeJobMeta(details) {
+            const parts = [];
+            if (details.sample_rate) parts.push(`${Number(details.sample_rate).toLocaleString()} Hz`);
+            if (details.file_size_human) parts.push(details.file_size_human);
+            return parts.join(' / ');
         }
 
         // -----------------------------------------------------------------------
