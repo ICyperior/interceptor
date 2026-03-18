@@ -330,6 +330,11 @@ const CommandPalette = (function() {
     }
 
     function goToMode(mode) {
+        if (mode === 'satellite') {
+            window.location.href = '/satellite/dashboard';
+            return;
+        }
+
         const welcome = document.getElementById('welcomePage');
         if (welcome && getComputedStyle(welcome).display !== 'none') {
             welcome.style.display = 'none';
