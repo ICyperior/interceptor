@@ -490,11 +490,11 @@ PY
 
   # Python 3.13+ warning: some packages (gevent, numpy, scipy) may not have
   # pre-built wheels yet and will be skipped to avoid hanging on compilation.
-  python3 - <<'PY'
+  if python3 - <<'PY'
 import sys
 raise SystemExit(0 if sys.version_info >= (3,13) else 1)
 PY
-  if [[ $? -eq 0 ]]; then
+  then
     warn "Python 3.13+ detected: optional packages without pre-built wheels will be skipped (--prefer-binary)."
   fi
 }
