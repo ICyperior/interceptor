@@ -112,6 +112,7 @@
                     <option value="40069">METEOR-M2</option>
                     <option value="57166">METEOR-M2-3</option>
                 </select>
+                <button id="satRefreshBtn" onclick="loadDashboardSatellites()" title="Refresh satellite list">↺</button>
             </div>
 
             <!-- Countdown -->
@@ -375,10 +376,17 @@
         const satColors = ['#00ffff', '#9370DB', '#ff00ff', '#00ff00', '#ff6600', '#ffff00', '#ff69b4', '#7b68ee'];
 
         function loadDashboardSatellites() {
+            const btn = document.getElementById('satRefreshBtn');
+            if (btn) {
+                btn.classList.remove('spinning');
+                void btn.offsetWidth; // force reflow to restart animation
+                btn.classList.add('spinning');
+            }
             fetch('/satellite/tracked?enabled=true')
                 .then(r => r.json())
                 .then(data => {
                     if (data.status === 'success' && data.satellites && data.satellites.length > 0) {
+                        const prevSelected = selectedSatellite;
                         const newSats = {};
                         const select = document.getElementById('satSelect');
                         select.innerHTML = '';
@@ -394,8 +402,12 @@
                             select.appendChild(opt);
                         });
                         satellites = newSats;
-                        // Default to ISS if available
-                        if (newSats[25544]) select.value = '25544';
+                        // Restore previous selection if still available, else default to ISS
+                        if (newSats[prevSelected]) {
+                            select.value = prevSelected;
+                        } else if (newSats[25544]) {
+                            select.value = '25544';
+                        }
                         selectedSatellite = parseInt(select.value);
                     }
                 })
@@ -566,6 +578,9 @@
                 }
             }
         });
+
+        // Refresh satellite list when the window regains focus (e.g. after enabling sats in the sidebar)
+        window.addEventListener('focus', loadDashboardSatellites);
 
         document.addEventListener('DOMContentLoaded', () => {
             loadDashboardSatellites();
