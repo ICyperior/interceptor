@@ -1820,31 +1820,34 @@ const WeatherSat = (function() {
             const captureStatus = document.getElementById('wxsatCaptureStatus');
             const captureMsg = document.getElementById('wxsatCaptureMsg');
             const captureElapsed = document.getElementById('wxsatCaptureElapsed');
+            const summary = formatDecodeJobSummary(job, details);
 
             if (!isRunning) {
                 if (job.status === 'queued') {
                     updateStatusUI('idle', 'Decode queued');
-                    if (captureMsg) captureMsg.textContent = 'Ground-station decode queued';
+                    if (captureMsg) captureMsg.textContent = summary;
                     if (captureElapsed) captureElapsed.textContent = '--';
                     if (captureStatus) captureStatus.classList.add('active');
                 } else if (job.status === 'decoding') {
                     updateStatusUI('decoding', 'Ground-station decode running');
-                    if (captureMsg) captureMsg.textContent = details.message || 'Ground-station decode in progress';
+                    if (captureMsg) captureMsg.textContent = summary;
                     if (captureStatus) captureStatus.classList.add('active');
                 } else if (job.status === 'failed') {
                     updateStatusUI('idle', 'Last decode failed');
-                    if (captureMsg) captureMsg.textContent = job.error_message || details.message || 'Decode failed';
-                    if (captureElapsed) captureElapsed.textContent = '--';
+                    if (captureMsg) captureMsg.textContent = summary;
+                    if (captureElapsed) captureElapsed.textContent = formatDecodeJobMeta(details);
                     if (captureStatus) captureStatus.classList.remove('active');
                     if (signature !== lastDecodeJobSignature) {
                         showConsole(true);
-                        addConsoleEntry(job.error_message || details.message || 'Last decode failed', 'error');
+                        addConsoleEntry(summary, 'error');
+                        const context = formatDecodeJobContext(details);
+                        if (context) addConsoleEntry(context, 'warning');
                     }
                 } else if (job.status === 'complete') {
                     const count = details.output_count;
                     updateStatusUI('idle', count ? `Last decode: ${count} image${count === 1 ? '' : 's'}` : 'Last decode complete');
-                    if (captureMsg) captureMsg.textContent = details.message || 'Ground-station decode complete';
-                    if (captureElapsed) captureElapsed.textContent = '--';
+                    if (captureMsg) captureMsg.textContent = summary;
+                    if (captureElapsed) captureElapsed.textContent = formatDecodeJobMeta(details);
                     if (captureStatus) captureStatus.classList.remove('active');
                     if (signature !== lastDecodeJobSignature) {
                         addConsoleEntry(
@@ -1860,6 +1863,48 @@ const WeatherSat = (function() {
         } catch (err) {
             console.error('Failed to load latest decode job:', err);
         }
+    }
+
+    function formatDecodeJobSummary(job, details) {
+        if (job.status === 'queued') return 'Ground-station decode queued';
+        if (job.status === 'decoding') return details.message || 'Ground-station decode in progress';
+        if (job.status === 'complete') {
+            const count = details.output_count;
+            return count ? `Ground-station decode complete: ${count} image${count === 1 ? '' : 's'} produced`
+                         : 'Ground-station decode complete';
+        }
+        if (job.status === 'failed') {
+            const reasonLabels = {
+                sample_rate_too_low: 'Sample rate too low for Meteor LRPT',
+                invalid_sample_rate: 'Sample rate rejected by decoder',
+                recording_too_small: 'Recording too small for useful decode',
+                satdump_failed: 'SatDump decode failed',
+                permission_error: 'Decoder could not access recording/output path',
+                input_missing: 'Input recording was not accessible',
+                missing_recording: 'Recording was missing when decode started',
+                no_imagery_produced: 'Decode produced no imagery',
+            };
+            return job.error_message || reasonLabels[details.reason] || details.message || 'Last decode failed';
+        }
+        return details.message || 'Decode status unavailable';
+    }
+
+    function formatDecodeJobMeta(details) {
+        const parts = [];
+        if (details.sample_rate) parts.push(`${Number(details.sample_rate).toLocaleString()} Hz`);
+        if (details.file_size_human) parts.push(details.file_size_human);
+        return parts.join(' / ') || '--';
+    }
+
+    function formatDecodeJobContext(details) {
+        const parts = [];
+        if (details.reason) parts.push(`Reason: ${String(details.reason).replace(/_/g, ' ')}`);
+        if (details.sample_rate) parts.push(`Sample rate ${Number(details.sample_rate).toLocaleString()} Hz`);
+        if (details.file_size_human) parts.push(`Recording ${details.file_size_human}`);
+        if (details.last_returncode !== undefined && details.last_returncode !== null) {
+            parts.push(`Exit code ${details.last_returncode}`);
+        }
+        return parts.join(' | ');
     }
 
     /**
