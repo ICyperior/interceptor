@@ -2336,28 +2336,37 @@ def add_tracked_satellite(
 
 def bulk_add_tracked_satellites(satellites_list: list[dict]) -> int:
     """Insert many tracked satellites at once. Returns count of newly inserted."""
-    added = 0
+    if not satellites_list:
+        return 0
+
+    rows = []
+    for sat in satellites_list:
+        try:
+            rows.append((
+                str(sat['norad_id']),
+                sat['name'],
+                sat.get('tle_line1'),
+                sat.get('tle_line2'),
+                int(sat.get('enabled', True)),
+                int(sat.get('builtin', False)),
+            ))
+        except (KeyError, TypeError) as e:
+            logger.warning(f"Skipping malformed satellite entry: {e}")
+
+    norad_ids = [r[0] for r in rows]
+    placeholders = ','.join('?' * len(norad_ids))
+    count_sql = f'SELECT COUNT(*) FROM tracked_satellites WHERE norad_id IN ({placeholders})'
+
     with get_db() as conn:
-        for sat in satellites_list:
-            try:
-                cursor = conn.execute(
-                    'INSERT OR IGNORE INTO tracked_satellites '
-                    '(norad_id, name, tle_line1, tle_line2, enabled, builtin) '
-                    'VALUES (?, ?, ?, ?, ?, ?)',
-                    (
-                        str(sat['norad_id']),
-                        sat['name'],
-                        sat.get('tle_line1'),
-                        sat.get('tle_line2'),
-                        int(sat.get('enabled', True)),
-                        int(sat.get('builtin', False)),
-                    ),
-                )
-                if cursor.rowcount > 0:
-                    added += 1
-            except (sqlite3.Error, KeyError) as e:
-                logger.warning(f"Error bulk-adding satellite: {e}")
-    return added
+        before = conn.execute(count_sql, norad_ids).fetchone()[0]
+        conn.executemany(
+            'INSERT OR IGNORE INTO tracked_satellites '
+            '(norad_id, name, tle_line1, tle_line2, enabled, builtin) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            rows,
+        )
+        after = conn.execute(count_sql, norad_ids).fetchone()[0]
+    return after - before
 
 
 def update_tracked_satellite(norad_id: str, enabled: bool) -> bool:
