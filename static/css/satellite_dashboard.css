@@ -560,10 +560,22 @@ body {
 
 /* Pass list */
 .pass-list {
-    flex: 1;
-    min-height: 0;
+    flex: 0 0 auto;
+    min-height: 180px;
     display: flex;
     flex-direction: column;
+}
+
+.gs-panel {
+    flex: 0 0 auto;
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+}
+
+.gs-panel .panel-content {
+    height: auto;
+    overflow-y: auto;
 }
 
 .pass-list-content {
