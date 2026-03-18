@@ -487,6 +487,16 @@ import sys
 raise SystemExit(0 if sys.version_info >= (3,9) else 1)
 PY
   ok "Python version OK (>= 3.9)"
+
+  # Python 3.13+ warning: some packages (gevent, numpy, scipy) may not have
+  # pre-built wheels yet and will be skipped to avoid hanging on compilation.
+  python3 - <<'PY'
+import sys
+raise SystemExit(0 if sys.version_info >= (3,13) else 1)
+PY
+  if [[ $? -eq 0 ]]; then
+    warn "Python 3.13+ detected: optional packages without pre-built wheels will be skipped (--prefer-binary)."
+  fi
 }
 
 install_python_deps() {
@@ -520,8 +530,11 @@ install_python_deps() {
   source venv/bin/activate
   local PIP="venv/bin/python -m pip"
   local PY="venv/bin/python"
+  # --no-cache-dir avoids pip hanging on a corrupt/stale HTTP cache (cachecontrol .pyc issue)
+  # --timeout prevents pip from hanging indefinitely on slow/unresponsive PyPI connections
+  local PIP_OPTS="--no-cache-dir --timeout 120"
 
-  if ! $PIP install --upgrade pip setuptools wheel; then
+  if ! $PIP install $PIP_OPTS --upgrade pip setuptools wheel; then
     warn "pip/setuptools/wheel upgrade failed - continuing with existing versions"
   else
     ok "Upgraded pip tooling"
@@ -530,16 +543,18 @@ install_python_deps() {
   progress "Installing Python dependencies"
 
   info "Installing core packages..."
-  $PIP install "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
+  $PIP install $PIP_OPTS "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
     "flask-limiter>=2.5.4" "requests>=2.28.0" \
     "Werkzeug>=3.1.5" "pyserial>=3.5" || true
 
-  # Verify core packages are importable from the venv (not user site-packages)
-  $PY -s -c "import flask; import requests; from flask_limiter import Limiter; import flask_compress; import flask_wtf" 2>/dev/null || {
-    fail "Critical Python packages (flask, requests, flask-limiter, flask-compress, flask-wtf) not installed"
-    echo "Try: venv/bin/pip install flask requests flask-limiter flask-compress flask-wtf"
-    exit 1
-  }
+  # Verify core packages are installed by checking pip's reported list (avoids hanging imports)
+  for core_pkg in flask requests flask-limiter flask-compress flask-wtf; do
+    if ! $PIP show "$core_pkg" >/dev/null 2>&1; then
+      fail "Critical Python package not installed: ${core_pkg}"
+      echo "Try: venv/bin/pip install ${core_pkg}"
+      exit 1
+    fi
+  done
   ok "Core Python packages installed"
 
   info "Installing optional packages..."
@@ -549,7 +564,8 @@ install_python_deps() {
              "gunicorn>=21.2.0" "gevent>=23.9.0" "psutil>=5.9.0"; do
     pkg_name="${pkg%%>=*}"
     info "  Installing ${pkg_name}..."
-    if ! $PIP install "$pkg"; then
+    # --only-binary :all: skips packages with no pre-built wheel, preventing source compilation hangs
+    if ! $PIP install $PIP_OPTS --only-binary :all: "$pkg"; then
       warn "${pkg_name} failed to install (optional - related features may be unavailable)"
     fi
   done

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import math
+import time
 import urllib.request
 from datetime import datetime, timedelta
 
 import requests
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, Response, jsonify, render_template, request
 
-from config import SHARED_OBSERVER_LOCATION_ENABLED
+from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE, SHARED_OBSERVER_LOCATION_ENABLED
+from utils.sse import sse_stream_fanout
 from data.satellites import TLE_SATELLITES
 from utils.database import (
     add_tracked_satellite,
@@ -44,6 +46,11 @@ ALLOWED_TLE_HOSTS = ['celestrak.org', 'celestrak.com', 'www.celestrak.org', 'www
 # Local TLE cache (can be updated via API)
 _tle_cache = dict(TLE_SATELLITES)
 
+# Ground track cache: key=(sat_name, tle_line1[:20]) -> (track_data, computed_at_timestamp)
+# TTL is 1800 seconds (30 minutes)
+_track_cache: dict = {}
+_TRACK_CACHE_TTL = 1800
+
 
 def _load_db_satellites_into_cache():
     """Load user-tracked satellites from DB into the TLE cache."""
@@ -64,6 +71,112 @@ def _load_db_satellites_into_cache():
         logger.warning(f"Failed to load DB satellites into TLE cache: {e}")
 
 
+def _start_satellite_tracker():
+    """Background thread: push live satellite positions to satellite_queue every second."""
+    import app as app_module
+
+    try:
+        from skyfield.api import EarthSatellite, wgs84
+    except ImportError:
+        logger.warning("skyfield not installed; satellite tracker thread will not run")
+        return
+
+    ts = _get_timescale()
+    logger.info("Satellite tracker thread started")
+
+    while True:
+        try:
+            now = ts.now()
+            now_dt = now.utc_datetime()
+
+            obs_lat = DEFAULT_LATITUDE
+            obs_lon = DEFAULT_LONGITUDE
+            has_observer = (obs_lat != 0.0 or obs_lon != 0.0)
+            observer = wgs84.latlon(obs_lat, obs_lon) if has_observer else None
+
+            tracked = get_tracked_satellites(enabled_only=True)
+            positions = []
+
+            for sat_rec in tracked:
+                sat_name = sat_rec['name']
+                norad_id = sat_rec.get('norad_id', 0)
+                tle1 = sat_rec.get('tle_line1')
+                tle2 = sat_rec.get('tle_line2')
+                if not tle1 or not tle2:
+                    # Fall back to TLE cache
+                    cache_key = sat_name.replace(' ', '-').upper()
+                    if cache_key not in _tle_cache:
+                        continue
+                    tle_entry = _tle_cache[cache_key]
+                    tle1 = tle_entry[1]
+                    tle2 = tle_entry[2]
+
+                try:
+                    satellite = EarthSatellite(tle1, tle2, sat_name, ts)
+                    geocentric = satellite.at(now)
+                    subpoint = wgs84.subpoint(geocentric)
+
+                    pos = {
+                        'satellite': sat_name,
+                        'norad_id': norad_id,
+                        'lat': float(subpoint.latitude.degrees),
+                        'lon': float(subpoint.longitude.degrees),
+                        'altitude': float(geocentric.distance().km - 6371),
+                        'visible': False,
+                    }
+
+                    if has_observer and observer is not None:
+                        diff = satellite - observer
+                        topocentric = diff.at(now)
+                        alt, az, dist = topocentric.altaz()
+                        pos['elevation'] = float(alt.degrees)
+                        pos['azimuth'] = float(az.degrees)
+                        pos['distance'] = float(dist.km)
+                        pos['visible'] = bool(alt.degrees > 0)
+
+                    # Ground track with caching (90 points, TTL 1800s)
+                    cache_key_track = (sat_name, tle1[:20])
+                    cached = _track_cache.get(cache_key_track)
+                    if cached and (time.time() - cached[1]) < _TRACK_CACHE_TTL:
+                        pos['groundTrack'] = cached[0]
+                    else:
+                        track = []
+                        for minutes_offset in range(-45, 46, 1):
+                            t_point = ts.utc(now_dt + timedelta(minutes=minutes_offset))
+                            try:
+                                geo = satellite.at(t_point)
+                                sp = wgs84.subpoint(geo)
+                                track.append({
+                                    'lat': float(sp.latitude.degrees),
+                                    'lon': float(sp.longitude.degrees),
+                                    'past': minutes_offset < 0,
+                                })
+                            except Exception:
+                                continue
+                        _track_cache[cache_key_track] = (track, time.time())
+                        pos['groundTrack'] = track
+
+                    positions.append(pos)
+                except Exception:
+                    continue
+
+            if positions:
+                msg = {
+                    'type': 'positions',
+                    'positions': positions,
+                    'timestamp': datetime.utcnow().isoformat(),
+                }
+                try:
+                    app_module.satellite_queue.put_nowait(msg)
+                except Exception:
+                    pass
+
+        except Exception as e:
+            logger.debug(f"Satellite tracker error: {e}")
+
+        time.sleep(1)
+
+
 def init_tle_auto_refresh():
     """Initialize TLE auto-refresh. Called by app.py after initialization."""
     import threading
@@ -80,6 +193,15 @@ def init_tle_auto_refresh():
     # Start auto-refresh in background
     threading.Timer(2.0, _auto_refresh_tle).start()
     logger.info("TLE auto-refresh scheduled")
+
+    # Start live position tracker thread
+    tracker_thread = threading.Thread(
+        target=_start_satellite_tracker,
+        daemon=True,
+        name='satellite-tracker',
+    )
+    tracker_thread.start()
+    logger.info("Satellite tracker thread launched")
 
 
 def _fetch_iss_realtime(observer_lat: float | None = None, observer_lon: float | None = None) -> dict | None:
@@ -185,13 +307,14 @@ def satellite_dashboard():
 def predict_passes():
     """Calculate satellite passes using skyfield."""
     try:
-        from skyfield.almanac import find_discrete
         from skyfield.api import EarthSatellite, wgs84
     except ImportError:
         return jsonify({
             'status': 'error',
             'message': 'skyfield library not installed. Run: pip install skyfield'
         }), 503
+
+    from utils.satellite_predict import predict_passes as _predict_passes
 
     data = request.json or {}
 
@@ -228,7 +351,6 @@ def predict_passes():
 
     ts = _get_timescale()
     observer = wgs84.latlon(lat, lon)
-
     t0 = ts.now()
     t1 = ts.utc(t0.utc_datetime() + timedelta(hours=hours))
 
@@ -237,97 +359,30 @@ def predict_passes():
             continue
 
         tle_data = _tle_cache[sat_name]
+
+        # Current position for map marker (computed once per satellite)
+        current_pos = None
         try:
             satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
+            geo = satellite.at(ts.now())
+            sp = wgs84.subpoint(geo)
+            current_pos = {
+                'lat': float(sp.latitude.degrees),
+                'lon': float(sp.longitude.degrees),
+            }
         except Exception:
-            continue
+            pass
 
-        def above_horizon(t):
-            diff = satellite - observer
-            topocentric = diff.at(t)
-            alt, _, _ = topocentric.altaz()
-            return alt.degrees > 0
+        sat_passes = _predict_passes(tle_data, observer, ts, t0, t1, min_el=min_el)
+        for p in sat_passes:
+            p['satellite'] = sat_name
+            p['norad'] = name_to_norad.get(sat_name, 0)
+            p['color'] = colors.get(sat_name, '#00ff00')
+            if current_pos:
+                p['currentPos'] = current_pos
+        passes.extend(sat_passes)
 
-        above_horizon.step_days = 1/720
-
-        try:
-            times, events = find_discrete(t0, t1, above_horizon)
-        except Exception:
-            continue
-
-        i = 0
-        while i < len(times):
-            if i < len(events) and events[i]:
-                rise_time = times[i]
-                set_time = None
-                for j in range(i + 1, len(times)):
-                    if not events[j]:
-                        set_time = times[j]
-                        i = j
-                        break
-
-                if set_time is None:
-                    i += 1
-                    continue
-
-                trajectory = []
-                max_elevation = 0
-                num_points = 30
-
-                duration_seconds = (set_time.utc_datetime() - rise_time.utc_datetime()).total_seconds()
-
-                for k in range(num_points):
-                    frac = k / (num_points - 1)
-                    t_point = ts.utc(rise_time.utc_datetime() + timedelta(seconds=duration_seconds * frac))
-
-                    diff = satellite - observer
-                    topocentric = diff.at(t_point)
-                    alt, az, _ = topocentric.altaz()
-
-                    el = alt.degrees
-                    azimuth = az.degrees
-
-                    if el > max_elevation:
-                        max_elevation = el
-
-                    trajectory.append({'el': float(max(0, el)), 'az': float(azimuth)})
-
-                if max_elevation >= min_el:
-                    duration_minutes = int(duration_seconds / 60)
-
-                    ground_track = []
-                    for k in range(60):
-                        frac = k / 59
-                        t_point = ts.utc(rise_time.utc_datetime() + timedelta(seconds=duration_seconds * frac))
-                        geocentric = satellite.at(t_point)
-                        subpoint = wgs84.subpoint(geocentric)
-                        ground_track.append({
-                            'lat': float(subpoint.latitude.degrees),
-                            'lon': float(subpoint.longitude.degrees)
-                        })
-
-                    current_geo = satellite.at(ts.now())
-                    current_subpoint = wgs84.subpoint(current_geo)
-
-                    passes.append({
-                        'satellite': sat_name,
-                        'norad': name_to_norad.get(sat_name, 0),
-                        'startTime': rise_time.utc_datetime().strftime('%Y-%m-%d %H:%M UTC'),
-                        'startTimeISO': rise_time.utc_datetime().isoformat(),
-                        'maxEl': float(round(max_elevation, 1)),
-                        'duration': int(duration_minutes),
-                        'trajectory': trajectory,
-                        'groundTrack': ground_track,
-                        'currentPos': {
-                            'lat': float(current_subpoint.latitude.degrees),
-                            'lon': float(current_subpoint.longitude.degrees)
-                        },
-                        'color': colors.get(sat_name, '#00ff00')
-                    })
-
-            i += 1
-
-    passes.sort(key=lambda p: p['startTime'])
+    passes.sort(key=lambda p: p['startTimeISO'])
 
     return jsonify({
         'status': 'success',
@@ -456,6 +511,48 @@ def get_satellite_position():
         'positions': positions,
         'timestamp': datetime.utcnow().isoformat()
     })
+
+
+@satellite_bp.route('/transmitters/<int:norad_id>')
+def get_transmitters_endpoint(norad_id: int):
+    """Return SatNOGS transmitter data for a satellite by NORAD ID."""
+    from utils.satnogs import get_transmitters
+    transmitters = get_transmitters(norad_id)
+    return jsonify({'status': 'success', 'norad_id': norad_id, 'transmitters': transmitters})
+
+
+@satellite_bp.route('/parse-packet', methods=['POST'])
+def parse_packet():
+    """Parse a raw satellite telemetry packet (base64-encoded)."""
+    import base64
+    from utils.satellite_telemetry import auto_parse
+    data = request.json or {}
+    try:
+        raw_bytes = base64.b64decode(data.get('data', ''))
+    except Exception:
+        return api_error('Invalid base64 data', 400)
+    result = auto_parse(raw_bytes)
+    return jsonify({'status': 'success', 'parsed': result})
+
+
+@satellite_bp.route('/stream_satellite')
+def stream_satellite() -> Response:
+    """SSE endpoint streaming live satellite positions from the background tracker."""
+    import app as app_module
+
+    response = Response(
+        sse_stream_fanout(
+            source_queue=app_module.satellite_queue,
+            channel_key='satellite',
+            timeout=1.0,
+            keepalive_interval=30.0,
+        ),
+        mimetype='text/event-stream',
+    )
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 
 def refresh_tle_data() -> list:

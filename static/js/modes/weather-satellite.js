@@ -303,6 +303,16 @@ const WeatherSat = (function() {
     }
 
     /**
+     * Pre-select a satellite without starting capture.
+     * Used by the satellite dashboard handoff so the user can review
+     * settings before hitting Start.
+     */
+    function preSelect(satellite) {
+        const satSelect = document.getElementById('weatherSatSelect');
+        if (satSelect) satSelect.value = satellite;
+    }
+
+    /**
      * Start capture for a specific pass
      */
     function startPass(satellite) {
@@ -1910,6 +1920,7 @@ const WeatherSat = (function() {
         destroy,
         start,
         stop,
+        preSelect,
         startPass,
         selectPass,
         testDecode,

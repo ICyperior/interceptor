@@ -4571,6 +4571,12 @@
             if (satFrame && satFrame.contentWindow) {
                 satFrame.contentWindow.postMessage({type: 'satellite-visibility', visible: mode === 'satellite'}, '*');
             }
+
+            // Weather-sat handoff: when switching away from satellite mode, clear any pending handoff banner
+            if (mode !== 'satellite' && mode !== 'weathersat') {
+                const existing = document.getElementById('weatherSatHandoffBanner');
+                if (existing) existing.remove();
+            }
             if (aprsVisuals) aprsVisuals.style.display = mode === 'aprs' ? 'flex' : 'none';
             if (tscmVisuals) tscmVisuals.style.display = mode === 'tscm' ? 'flex' : 'none';
             if (spyStationsVisuals) spyStationsVisuals.style.display = mode === 'spystations' ? 'flex' : 'none';
@@ -16314,6 +16320,69 @@
         if (typeof VoiceAlerts !== 'undefined') VoiceAlerts.init();
         if (typeof KeyboardShortcuts !== 'undefined') KeyboardShortcuts.init();
     });
+
+    // ── Weather-satellite handoff from the satellite dashboard iframe ─────────
+    window.addEventListener('message', (event) => {
+        if (!event.data || event.data.type !== 'weather-sat-handoff') return;
+
+        const { satellite, aosTime, tcaEl, duration } = event.data;
+        if (!satellite) return;
+
+        // Determine how far away the pass is
+        const aosMs = aosTime ? (new Date(aosTime) - Date.now()) : Infinity;
+        const minsAway = aosMs / 60000;
+
+        // Switch to weather-satellite mode and pre-select the satellite
+        switchMode('weathersat', { updateUrl: true }).then(() => {
+            if (typeof WeatherSat !== 'undefined') {
+                if (minsAway <= 2) {
+                    // Pass is imminent — start immediately
+                    WeatherSat.startPass(satellite);
+                    showNotification('Weather Sat', `Auto-starting capture: ${satellite}`);
+                } else {
+                    // Pre-select so the user can review settings and hit Start
+                    WeatherSat.preSelect(satellite);
+                    showHandoffBanner(satellite, minsAway, tcaEl, duration);
+                }
+            }
+        });
+    });
+
+    function showHandoffBanner(satellite, minsAway, tcaEl, duration) {
+        // Remove any existing banner
+        const existing = document.getElementById('weatherSatHandoffBanner');
+        if (existing) existing.remove();
+
+        const mins = Math.round(minsAway);
+        const elStr = tcaEl != null ? `${Number(tcaEl).toFixed(0)}°` : '?°';
+        const durStr = duration != null ? `${Math.round(duration)} min` : '';
+
+        const banner = document.createElement('div');
+        banner.id = 'weatherSatHandoffBanner';
+        banner.style.cssText = [
+            'position:fixed', 'top:60px', 'left:50%', 'transform:translateX(-50%)',
+            'background:rgba(0,20,30,0.95)', 'border:1px solid rgba(0,255,136,0.5)',
+            'color:#00ff88', 'font-family:var(--font-mono,monospace)', 'font-size:12px',
+            'padding:10px 18px', 'border-radius:6px', 'z-index:9999',
+            'display:flex', 'align-items:center', 'gap:12px',
+            'box-shadow:0 0 20px rgba(0,255,136,0.2)'
+        ].join(';');
+
+        banner.innerHTML = `
+            <span>📡 <strong>${satellite}</strong> pass in <strong>${mins} min</strong> · max ${elStr}${durStr ? ' · ' + durStr : ''} — satellite pre-selected</span>
+            <button onclick="if(typeof WeatherSat!=='undefined')WeatherSat.start();this.closest('#weatherSatHandoffBanner').remove();"
+                style="background:rgba(0,255,136,0.2);border:1px solid rgba(0,255,136,0.5);color:#00ff88;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;">
+                Start Now
+            </button>
+            <button onclick="this.closest('#weatherSatHandoffBanner').remove();"
+                style="background:none;border:none;color:#666;cursor:pointer;font-size:14px;padding:0 4px;">✕</button>
+        `;
+
+        document.body.appendChild(banner);
+
+        // Auto-dismiss after 2 minutes
+        setTimeout(() => { if (banner.parentNode) banner.remove(); }, 120000);
+    }
     </script>
 </body>
 

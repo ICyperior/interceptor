@@ -194,6 +194,32 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Transmitters -->
+            <div class="panel transmitters-panel">
+                <div class="panel-header">
+                    <span>TRANSMITTERS <span id="txCount" style="color:var(--accent-cyan);"></span></span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="panel-content" id="transmittersList">
+                    <div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">
+                        Select a satellite to load transmitters
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decoded Packets -->
+            <div class="panel packets-panel">
+                <div class="panel-header">
+                    <span>DECODED PACKETS <span id="packetCount" style="color:var(--accent-cyan);"></span></span>
+                    <div class="panel-indicator"></div>
+                </div>
+                <div class="panel-content" id="packetList">
+                    <div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">
+                        No packets received.<br>Packet decoding requires an AFSK/FSK decoder (coming soon).
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Controls Bar -->
@@ -252,6 +278,75 @@
         .location-status-dot.offline {
             background: #ff4444;
             box-shadow: 0 0 6px #ff4444;
+        }
+
+        /* Pass event row */
+        .pass-event-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            color: var(--accent-cyan);
+            opacity: 0.75;
+            margin-top: 4px;
+            font-family: var(--font-mono);
+        }
+        .pass-capture-btn {
+            background: rgba(0, 255, 136, 0.12);
+            border: 1px solid rgba(0, 255, 136, 0.4);
+            color: var(--accent-green, #00ff88);
+            font-size: 10px;
+            font-family: var(--font-mono);
+            padding: 2px 7px;
+            border-radius: 3px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .pass-capture-btn:hover {
+            background: rgba(0, 255, 136, 0.25);
+        }
+
+        /* Transmitters panel */
+        .transmitters-panel, .packets-panel {
+            margin-top: 10px;
+        }
+        .tx-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px;
+            border-bottom: 1px solid rgba(0,212,255,0.08);
+            font-size: 11px;
+        }
+        .tx-item:last-child { border-bottom: none; }
+        .tx-inactive { opacity: 0.5; }
+        .tx-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 3px;
+        }
+        .tx-body { flex: 1; min-width: 0; }
+        .tx-desc {
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tx-freq {
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            margin-top: 2px;
+        }
+        .tx-uplink { color: var(--accent-green, #00ff88); }
+        .tx-service {
+            color: var(--text-muted, #556677);
+            font-size: 10px;
+            margin-top: 1px;
         }
     </style>
     <script>
@@ -324,6 +419,7 @@
                 if (orbitTrack) { groundMap.removeLayer(orbitTrack); orbitTrack = null; }
             }
 
+            loadTransmitters(selectedSatellite);
             calculatePasses();
         }
 
@@ -362,29 +458,111 @@
             return false;
         }
 
-        let positionPollingInterval = null;
+        let satelliteSSE = null;
 
-        function startPositionPolling() {
-            if (!positionPollingInterval) {
-                updateRealTimePositions();
-                positionPollingInterval = setInterval(updateRealTimePositions, 5000);
+        function startSSETracking() {
+            if (satelliteSSE) return;
+            satelliteSSE = new EventSource('/satellite/stream_satellite');
+            satelliteSSE.onmessage = (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (msg.type === 'positions') handleLivePositions(msg.positions);
+                } catch (_) {}
+            };
+            satelliteSSE.onerror = () => {
+                // Reconnect automatically after 5s
+                if (satelliteSSE) { satelliteSSE.close(); satelliteSSE = null; }
+                setTimeout(startSSETracking, 5000);
+            };
+        }
+
+        function stopSSETracking() {
+            if (satelliteSSE) { satelliteSSE.close(); satelliteSSE = null; }
+        }
+
+        function handleLivePositions(positions) {
+            // Find the selected satellite by name or norad_id
+            const satName = satellites[selectedSatellite]?.name;
+            const pos = positions.find(p =>
+                p.norad_id === selectedSatellite ||
+                p.satellite === satName ||
+                p.satellite === satellites[selectedSatellite]?.name
+            );
+
+            // Update visible count from all positions
+            const visibleCount = positions.filter(p => p.visible).length;
+            const visEl = document.getElementById('statVisible');
+            if (visEl) visEl.textContent = visibleCount;
+
+            if (!pos) return;
+
+            // Update telemetry panel
+            const telLat = document.getElementById('telLat');
+            const telLon = document.getElementById('telLon');
+            const telAlt = document.getElementById('telAlt');
+            const telEl = document.getElementById('telEl');
+            const telAz = document.getElementById('telAz');
+            const telDist = document.getElementById('telDist');
+            if (telLat) telLat.textContent = (pos.lat ?? 0).toFixed(4) + '°';
+            if (telLon) telLon.textContent = (pos.lon ?? 0).toFixed(4) + '°';
+            if (telAlt) telAlt.textContent = (pos.altitude ?? 0).toFixed(0) + ' km';
+            if (telEl) telEl.textContent = (pos.elevation ?? 0).toFixed(1) + '°';
+            if (telAz) telAz.textContent = (pos.azimuth ?? 0).toFixed(1) + '°';
+            if (telDist) telDist.textContent = (pos.distance ?? 0).toFixed(0) + ' km';
+
+            // Update live marker on map
+            if (groundMap && pos.lat != null && pos.lon != null) {
+                const satColor = satellites[selectedSatellite]?.color || '#00d4ff';
+                if (satMarker) groundMap.removeLayer(satMarker);
+                const satIcon = L.divIcon({
+                    className: 'sat-marker-live',
+                    html: `<div style="width:20px;height:20px;background:${satColor};border-radius:50%;border:3px solid #fff;box-shadow:0 0 20px ${satColor},0 0 40px ${satColor};"></div>`,
+                    iconSize: [20, 20], iconAnchor: [10, 10]
+                });
+                satMarker = L.marker([pos.lat, pos.lon], { icon: satIcon }).addTo(groundMap);
+            }
+
+            // Update orbit track from groundTrack if available
+            if (groundMap && pos.groundTrack && pos.groundTrack.length > 1) {
+                if (orbitTrack) { groundMap.removeLayer(orbitTrack); orbitTrack = null; }
+                const satColor = satellites[selectedSatellite]?.color || '#00d4ff';
+                const segments = splitAtAntimeridian(pos.groundTrack);
+                orbitTrack = L.layerGroup();
+                segments.forEach(seg => {
+                    const past = seg.filter(p => p.past);
+                    const future = seg.filter(p => !p.past);
+                    if (past.length > 1) L.polyline(past.map(p => [p.lat, p.lon]), { color: satColor, weight: 2, opacity: 0.4 }).addTo(orbitTrack);
+                    if (future.length > 1) L.polyline(future.map(p => [p.lat, p.lon]), { color: satColor, weight: 2, opacity: 0.7, dashArray: '5, 5' }).addTo(orbitTrack);
+                });
+                orbitTrack.addTo(groundMap);
             }
         }
 
-        function stopPositionPolling() {
-            if (positionPollingInterval) {
-                clearInterval(positionPollingInterval);
-                positionPollingInterval = null;
+        function splitAtAntimeridian(track) {
+            const segments = [];
+            let current = [];
+            for (let i = 0; i < track.length; i++) {
+                const p = track[i];
+                if (current.length > 0) {
+                    const prev = current[current.length - 1];
+                    if ((prev.lon > 90 && p.lon < -90) || (prev.lon < -90 && p.lon > 90)) {
+                        if (current.length >= 2) segments.push(current);
+                        current = [];
+                    }
+                }
+                current.push(p);
             }
+            if (current.length >= 2) segments.push(current);
+            return segments;
         }
 
         // Listen for visibility messages from parent page (embedded mode)
         window.addEventListener('message', (event) => {
             if (event.data && event.data.type === 'satellite-visibility') {
                 if (event.data.visible) {
-                    startPositionPolling();
+                    startSSETracking();
                 } else {
-                    stopPositionPolling();
+                    stopSSETracking();
                 }
             }
         });
@@ -397,12 +575,13 @@
             updateClock();
             setInterval(updateClock, 1000);
             setInterval(updateCountdown, 1000);
-            // In standalone mode, start polling immediately.
+            // In standalone mode, start SSE tracking immediately.
             // In embedded mode, wait for parent to signal visibility.
             if (!isEmbedded) {
-                startPositionPolling();
+                startSSETracking();
             }
             loadAgents();
+            loadTransmitters(selectedSatellite);
             if (!usedShared) {
                 getLocation();
             }
@@ -595,6 +774,12 @@
             }
         }
 
+        // Satellites that can be handed off to the weather-satellite capture mode
+        const WEATHER_SAT_KEYS = new Set([
+            'NOAA-15', 'NOAA-18', 'NOAA-19', 'NOAA-20', 'NOAA-21',
+            'METEOR-M2', 'METEOR-M2-3', 'METEOR-M2-4'
+        ]);
+
         function renderPassList() {
             const container = document.getElementById('passList');
             const countEl = document.getElementById('passCount');
@@ -610,7 +795,15 @@
             container.innerHTML = passes.slice(0, 10).map((pass, idx) => {
                 const quality = pass.maxEl >= 60 ? 'excellent' : pass.maxEl >= 30 ? 'good' : 'fair';
                 const qualityText = pass.maxEl >= 60 ? 'EXCELLENT' : pass.maxEl >= 30 ? 'GOOD' : 'FAIR';
-                const time = pass.startTime.split(' ')[1] || pass.startTime;
+                const aosAz = pass.aosAz != null ? pass.aosAz.toFixed(0) + '°' : '--';
+                const tcaEl = pass.tcaEl != null ? pass.tcaEl.toFixed(0) + '°' : (pass.maxEl != null ? pass.maxEl.toFixed(0) + '°' : '--');
+                const tcaAz = pass.tcaAz != null ? pass.tcaAz.toFixed(0) + '°' : '--';
+                const losAz = pass.losAz != null ? pass.losAz.toFixed(0) + '°' : '--';
+                const timeStr = (pass.aosTime || pass.startTime || '').split('T')[1]?.substring(0, 5) || pass.startTime?.split(' ')[1] || '--:--';
+                const isWeatherSat = WEATHER_SAT_KEYS.has(pass.satellite);
+                const captureBtn = isWeatherSat
+                    ? `<button class="pass-capture-btn" onclick="event.stopPropagation(); handoffToWeatherSat(${idx})" title="Switch to Weather Satellite mode for this pass">→ Capture</button>`
+                    : '';
 
                 return `
                     <div class="pass-item ${selectedPass === idx ? 'active' : ''}" onclick="selectPass(${idx})">
@@ -619,12 +812,37 @@
                             <span class="pass-quality ${quality}">${qualityText}</span>
                         </div>
                         <div class="pass-item-details">
-                            <span class="pass-time">${time}</span>
-                            <span>${pass.maxEl.toFixed(0)}° · ${pass.duration} min</span>
+                            <span class="pass-time">${timeStr} UTC</span>
+                            <span>${tcaEl} · ${pass.duration} min</span>
+                        </div>
+                        <div class="pass-event-row">
+                            <span title="AOS azimuth">↑ ${aosAz}</span>
+                            <span title="TCA azimuth">⊙ ${tcaAz}</span>
+                            <span title="LOS azimuth">↓ ${losAz}</span>
+                            ${captureBtn}
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        function handoffToWeatherSat(passIdx) {
+            const pass = passes[passIdx];
+            if (!pass) return;
+
+            const msg = {
+                type: 'weather-sat-handoff',
+                satellite: pass.satellite,
+                aosTime: pass.aosTime || pass.startTimeISO,
+                tcaEl: pass.tcaEl ?? pass.maxEl,
+                duration: pass.duration,
+            };
+
+            // Prefer parent (embedded iframe), fall back to opener (new window)
+            const target = window.parent !== window ? window.parent : window.opener;
+            if (target) {
+                target.postMessage(msg, '*');
+            }
         }
 
         function selectPass(idx) {
@@ -637,7 +855,6 @@
             drawPolarPlot(pass);
             updateGroundTrack(pass);
             updateTelemetry(pass);
-            updateRealTimePositions(true);
         }
 
         function drawPolarPlot(pass) {
@@ -914,112 +1131,6 @@
             }
         }
 
-        async function updateRealTimePositions(fitBoundsToOrbit = false) {
-            const lat = parseFloat(document.getElementById('obsLat').value);
-            const lon = parseFloat(document.getElementById('obsLon').value);
-
-            let targetSatellite = selectedSatellite;
-            let satColor = satellites[selectedSatellite]?.color || '#00d4ff';
-
-            if (selectedPass !== null && passes[selectedPass]) {
-                const pass = passes[selectedPass];
-                targetSatellite = pass.satellite;
-                satColor = pass.color || satColor;
-            }
-
-            try {
-                const response = await fetch('/satellite/position', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        latitude: lat,
-                        longitude: lon,
-                        satellites: [targetSatellite],
-                        includeTrack: true
-                    })
-                });
-
-                const data = await response.json();
-                if (data.status === 'success' && data.positions.length > 0) {
-                    const pos = data.positions[0];
-
-                    document.getElementById('telLat').textContent = pos.lat.toFixed(4) + '°';
-                    document.getElementById('telLon').textContent = pos.lon.toFixed(4) + '°';
-                    document.getElementById('telAlt').textContent = pos.altitude.toFixed(0) + ' km';
-                    document.getElementById('telEl').textContent = pos.elevation.toFixed(1) + '°';
-                    document.getElementById('telAz').textContent = pos.azimuth.toFixed(1) + '°';
-                    document.getElementById('telDist').textContent = pos.distance.toFixed(0) + ' km';
-
-                    document.getElementById('statVisible').textContent = pos.elevation > 0 ? '1' : '0';
-
-                    if (groundMap) {
-                        if (satMarker) groundMap.removeLayer(satMarker);
-
-                        const satIcon = L.divIcon({
-                            className: 'sat-marker-live',
-                            html: `<div style="width: 20px; height: 20px; background: ${satColor}; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 20px ${satColor}, 0 0 40px ${satColor};"></div>`,
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10]
-                        });
-                        satMarker = L.marker([pos.lat, pos.lon], { icon: satIcon }).addTo(groundMap);
-                    }
-
-                    if (pos.track && groundMap) {
-                        if (orbitTrack) groundMap.removeLayer(orbitTrack);
-
-                        const segments = [];
-                        let currentSegment = [];
-
-                        for (let i = 0; i < pos.track.length; i++) {
-                            const p = pos.track[i];
-                            if (currentSegment.length > 0) {
-                                const prevLon = currentSegment[currentSegment.length - 1][1];
-                                const crossesAntimeridian = (prevLon > 90 && p.lon < -90) || (prevLon < -90 && p.lon > 90);
-                                if (crossesAntimeridian) {
-                                    if (currentSegment.length >= 1) segments.push(currentSegment);
-                                    currentSegment = [];
-                                }
-                            }
-                            currentSegment.push([p.lat, p.lon]);
-                        }
-                        if (currentSegment.length >= 1) segments.push(currentSegment);
-
-                        orbitTrack = L.layerGroup();
-                        const allOrbitCoords = [];
-                        segments.forEach(seg => {
-                            L.polyline(seg, {
-                                color: satColor,
-                                weight: 2,
-                                opacity: 0.6,
-                                dashArray: '5, 5'
-                            }).addTo(orbitTrack);
-                            allOrbitCoords.push(...seg);
-                        });
-                        orbitTrack.addTo(groundMap);
-
-                        if (fitBoundsToOrbit && allOrbitCoords.length > 0) {
-                            allOrbitCoords.push([lat, lon]);
-                            groundMap.fitBounds(L.latLngBounds(allOrbitCoords), { padding: [30, 30] });
-                        }
-                    }
-
-                    if (selectedPass !== null && passes[selectedPass]) {
-                        drawPolarPlot(passes[selectedPass]);
-                        drawCurrentPositionOnPolar(pos.azimuth, pos.elevation, satColor);
-                    } else {
-                        drawPolarPlotWithPosition(pos.azimuth, pos.elevation, satColor);
-                    }
-                }
-            } catch (err) {
-                const transient = (typeof window.isTransientOrOffline === 'function' && window.isTransientOrOffline(err)) ||
-                    (typeof navigator !== 'undefined' && navigator.onLine === false) ||
-                    /failed to fetch|network io suspended|networkerror|timeout/i.test(String((err && err.message) || err || ''));
-                if (!transient) {
-                    console.error('Position update error:', err);
-                }
-            }
-        }
-
         function drawPolarPlotWithPosition(az, el, color) {
             const canvas = document.getElementById('polarPlot');
             const ctx = canvas.getContext('2d');
@@ -1127,6 +1238,60 @@
                 ctx.textAlign = 'center';
                 ctx.fillText('BELOW HORIZON', cx, cy + radius + 35);
             }
+        }
+
+        async function loadTransmitters(noradId) {
+            const container = document.getElementById('transmittersList');
+            const countEl = document.getElementById('txCount');
+            if (!container) return;
+            if (!noradId) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">Select a satellite</div>';
+                if (countEl) countEl.textContent = '';
+                return;
+            }
+            container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">Loading...</div>';
+            try {
+                const r = await fetch(`/satellite/transmitters/${noradId}`);
+                const data = await r.json();
+                renderTransmitters(data.transmitters || []);
+            } catch (e) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">Failed to load</div>';
+                if (countEl) countEl.textContent = '';
+            }
+        }
+
+        function renderTransmitters(txList) {
+            const container = document.getElementById('transmittersList');
+            const countEl = document.getElementById('txCount');
+            if (!container) return;
+
+            const active = txList.filter(t => t.status === 'active');
+            const all = txList;
+
+            if (countEl) countEl.textContent = all.length ? `(${active.length}/${all.length})` : '';
+
+            if (!all.length) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">No transmitter data available</div>';
+                return;
+            }
+
+            container.innerHTML = all.map(tx => {
+                const isActive = tx.status === 'active';
+                const dl = tx.downlink_low != null ? tx.downlink_low.toFixed(3) + ' MHz' : null;
+                const dlHigh = tx.downlink_high != null && tx.downlink_high !== tx.downlink_low ? '–' + tx.downlink_high.toFixed(3) : '';
+                const ul = tx.uplink_low != null ? tx.uplink_low.toFixed(3) + ' MHz' : null;
+                const baud = tx.baud ? ` · ${tx.baud} Bd` : '';
+                const mode = tx.mode || '';
+                return `<div class="tx-item ${isActive ? 'tx-active' : 'tx-inactive'}">
+                    <div class="tx-status-dot" style="background:${isActive ? 'var(--accent-green)' : '#444'};"></div>
+                    <div class="tx-body">
+                        <div class="tx-desc">${tx.description || 'Unknown'}</div>
+                        ${dl ? `<div class="tx-freq">↓ ${dl}${dlHigh} ${mode}${baud}</div>` : ''}
+                        ${ul ? `<div class="tx-freq tx-uplink">↑ ${ul}</div>` : ''}
+                        <div class="tx-service">${tx.service || ''} ${tx.type || ''}</div>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         function drawCurrentPositionOnPolar(az, el, color) {
