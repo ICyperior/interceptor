@@ -28,6 +28,63 @@ _prefetch_started = False
 _SATNOGS_URL = "https://db.satnogs.org/api/transmitters/?format=json"
 _REQUEST_TIMEOUT = 6  # seconds
 
+_BUILTIN_TRANSMITTERS: dict[int, list[dict]] = {
+    25544: [
+        {
+            "description": "APRS digipeater",
+            "downlink_low": 145.825,
+            "downlink_high": 145.825,
+            "uplink_low": None,
+            "uplink_high": None,
+            "mode": "FM AX.25",
+            "baud": 1200,
+            "status": "active",
+            "type": "beacon",
+            "service": "Packet",
+        },
+        {
+            "description": "SSTV events",
+            "downlink_low": 145.800,
+            "downlink_high": 145.800,
+            "uplink_low": None,
+            "uplink_high": None,
+            "mode": "FM",
+            "baud": None,
+            "status": "active",
+            "type": "image",
+            "service": "SSTV",
+        },
+    ],
+    57166: [
+        {
+            "description": "Meteor LRPT weather downlink",
+            "downlink_low": 137.900,
+            "downlink_high": 137.900,
+            "uplink_low": None,
+            "uplink_high": None,
+            "mode": "LRPT",
+            "baud": 72000,
+            "status": "active",
+            "type": "image",
+            "service": "Weather",
+        },
+    ],
+    59051: [
+        {
+            "description": "Meteor LRPT weather downlink",
+            "downlink_low": 137.900,
+            "downlink_high": 137.900,
+            "uplink_low": None,
+            "uplink_high": None,
+            "mode": "LRPT",
+            "baud": 72000,
+            "status": "active",
+            "type": "image",
+            "service": "Weather",
+        },
+    ],
+}
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -125,10 +182,12 @@ def get_transmitters(norad_id: int) -> list[dict]:
     with _fetch_lock:
         age = time.time() - _fetched_at
         if not _transmitters or age > _CACHE_TTL:
-            _transmitters = fetch_transmitters()
-            _fetched_at = time.time()
+            fetched = fetch_transmitters()
+            if fetched:
+                _transmitters = fetched
+                _fetched_at = time.time()
 
-        return _transmitters.get(int(norad_id), [])
+        return _transmitters.get(int(norad_id), _BUILTIN_TRANSMITTERS.get(int(norad_id), []))
 
 
 def refresh_transmitters() -> int:
@@ -141,8 +200,10 @@ def refresh_transmitters() -> int:
     global _transmitters, _fetched_at  # noqa: PLW0603
 
     with _fetch_lock:
-        _transmitters = fetch_transmitters()
-        _fetched_at = time.time()
+        fetched = fetch_transmitters()
+        if fetched:
+            _transmitters = fetched
+            _fetched_at = time.time()
         return len(_transmitters)
 
 

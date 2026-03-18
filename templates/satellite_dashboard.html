@@ -666,6 +666,7 @@
                 if (orbitTrack) { groundMap.removeLayer(orbitTrack); orbitTrack = null; }
             }
 
+            clearTelemetry();
             loadTransmitters(selectedSatellite);
             calculatePasses();
             fetchCurrentTelemetry();
@@ -744,7 +745,10 @@
             const visEl = document.getElementById('statVisible');
             if (visEl) visEl.textContent = visibleCount;
 
-            if (!pos) return;
+            if (!pos) {
+                clearTelemetry();
+                return;
+            }
 
             // Update telemetry panel
             const telLat = document.getElementById('telLat');
@@ -786,6 +790,21 @@
                 });
                 orbitTrack.addTo(groundMap);
             }
+        }
+
+        function clearTelemetry() {
+            const telLat = document.getElementById('telLat');
+            const telLon = document.getElementById('telLon');
+            const telAlt = document.getElementById('telAlt');
+            const telEl = document.getElementById('telEl');
+            const telAz = document.getElementById('telAz');
+            const telDist = document.getElementById('telDist');
+            if (telLat) telLat.textContent = '---.----';
+            if (telLon) telLon.textContent = '---.----';
+            if (telAlt) telAlt.textContent = '--- km';
+            if (telEl) telEl.textContent = '--.-';
+            if (telAz) telAz.textContent = '---.-';
+            if (telDist) telDist.textContent = '---- km';
         }
 
         async function fetchCurrentTelemetry() {
