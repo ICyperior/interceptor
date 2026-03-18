@@ -1167,6 +1167,9 @@ def stream_adsb():
 
     def generate():
         last_keepalive = time.time()
+        # Send immediate keepalive so Werkzeug dev server flushes response
+        # headers right away (it buffers until first body byte is written).
+        yield format_sse({'type': 'keepalive'})
 
         try:
             while True:

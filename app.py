@@ -1128,35 +1128,35 @@ def _init_app() -> None:
     try:
         from routes.audio_websocket import init_audio_websocket
         init_audio_websocket(app)
-    except ImportError:
+    except Exception:
         pass
 
     # Initialize KiwiSDR WebSocket audio proxy
     try:
         from routes.websdr import init_websdr_audio
         init_websdr_audio(app)
-    except ImportError:
+    except Exception:
         pass
 
     # Initialize WebSocket for waterfall streaming
     try:
         from routes.waterfall_websocket import init_waterfall_websocket
         init_waterfall_websocket(app)
-    except ImportError:
+    except Exception:
         pass
 
     # Initialize WebSocket for meteor scatter monitoring
     try:
         from routes.meteor_websocket import init_meteor_websocket
         init_meteor_websocket(app)
-    except ImportError:
+    except Exception:
         pass
 
     # Initialize WebSocket for ground station live waterfall
     try:
         from routes.ground_station import init_ground_station_websocket
         init_ground_station_websocket(app)
-    except ImportError:
+    except Exception:
         pass
 
     # Defer heavy/network operations so the worker can serve requests immediately

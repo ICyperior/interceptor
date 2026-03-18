@@ -673,6 +673,7 @@ def stream_all_agents():
     def generate() -> Generator[str, None, None]:
         last_keepalive = time.time()
         keepalive_interval = 30.0
+        yield format_sse({'type': 'keepalive'})
 
         try:
             while True:
