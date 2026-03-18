@@ -11554,10 +11554,13 @@
         function fetchCelestrakCategory(category) {
             const status = document.getElementById('celestrakStatus');
             status.innerHTML = '<span style="color: var(--accent-cyan);">Fetching ' + category + '...</span>';
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
 
-            fetch('/satellite/celestrak/' + category)
+            fetch('/satellite/celestrak/' + category, { signal: controller.signal })
                 .then(r => r.json())
                 .then(async data => {
+                    clearTimeout(timeout);
                     if (data.status === 'success' && data.satellites) {
                         const toAdd = data.satellites
                             .filter(sat => !trackedSatellites.find(s => s.norad === String(sat.norad)))
@@ -11602,8 +11605,10 @@
                     }
                 })
                 .catch((err) => {
+                    clearTimeout(timeout);
                     const msg = err && err.message ? err.message : 'Network error';
-                    status.innerHTML = `<span style="color: var(--accent-red);">Import failed: ${msg}</span>`;
+                    const label = err && err.name === 'AbortError' ? 'Request timed out' : msg;
+                    status.innerHTML = `<span style="color: var(--accent-red);">Import failed: ${label}</span>`;
                 });
         }
 
@@ -11613,7 +11618,7 @@
                 .then(data => {
                     if (data.status === 'success' && data.satellites) {
                         trackedSatellites = data.satellites.map(sat => ({
-                            id: sat.name.replace(/[^a-zA-Z0-9]/g, '-').toUpperCase(),
+                            id: String(sat.norad_id),
                             name: sat.name,
                             norad: sat.norad_id,
                             builtin: sat.builtin,
@@ -11627,9 +11632,9 @@
                     // Fallback to hardcoded defaults if API fails
                     if (trackedSatellites.length === 0) {
                         trackedSatellites = [
-                            { id: 'ISS', name: 'ISS (ZARYA)', norad: '25544', builtin: true, checked: true },
-                            { id: 'METEOR-M2-3', name: 'Meteor-M2-3', norad: '57166', builtin: true, checked: true },
-                            { id: 'METEOR-M2-4', name: 'Meteor-M2-4', norad: '59051', builtin: true, checked: true }
+                            { id: '25544', name: 'ISS (ZARYA)', norad: '25544', builtin: true, checked: true },
+                            { id: '57166', name: 'Meteor-M2-3', norad: '57166', builtin: true, checked: true },
+                            { id: '59051', name: 'Meteor-M2-4', norad: '59051', builtin: true, checked: true }
                         ];
                         renderSatelliteList();
                     }

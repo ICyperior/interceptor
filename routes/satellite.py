@@ -51,6 +51,13 @@ _tle_cache = dict(TLE_SATELLITES)
 _track_cache: dict = {}
 _TRACK_CACHE_TTL = 1800
 
+_BUILTIN_NORAD_TO_KEY = {
+    25544: 'ISS',
+    40069: 'METEOR-M2',
+    57166: 'METEOR-M2-3',
+    59051: 'METEOR-M2-4',
+}
+
 
 def _load_db_satellites_into_cache():
     """Load user-tracked satellites from DB into the TLE cache."""
@@ -69,6 +76,100 @@ def _load_db_satellites_into_cache():
             logger.info(f"Loaded {loaded} user-tracked satellites into TLE cache")
     except Exception as e:
         logger.warning(f"Failed to load DB satellites into TLE cache: {e}")
+
+
+def _normalize_satellite_name(value: object) -> str:
+    """Normalize satellite identifiers for loose name matching."""
+    return str(value or '').strip().replace(' ', '-').upper()
+
+
+def _get_tracked_satellite_maps() -> tuple[dict[int, dict], dict[str, dict]]:
+    """Return tracked satellites indexed by NORAD ID and normalized name."""
+    by_norad: dict[int, dict] = {}
+    by_name: dict[str, dict] = {}
+    try:
+        for sat in get_tracked_satellites():
+            try:
+                norad_id = int(sat['norad_id'])
+            except (TypeError, ValueError):
+                continue
+            by_norad[norad_id] = sat
+            by_name[_normalize_satellite_name(sat.get('name'))] = sat
+    except Exception as e:
+        logger.warning(f"Failed to read tracked satellites for lookup: {e}")
+    return by_norad, by_name
+
+
+def _resolve_satellite_request(sat: object, tracked_by_norad: dict[int, dict], tracked_by_name: dict[str, dict]) -> tuple[str, int | None, tuple[str, str, str] | None]:
+    """Resolve a satellite request to display name, NORAD ID, and TLE data."""
+    norad_id: int | None = None
+    sat_key: str | None = None
+    tracked: dict | None = None
+
+    if isinstance(sat, int):
+        norad_id = sat
+    elif isinstance(sat, str):
+        stripped = sat.strip()
+        if stripped.isdigit():
+            norad_id = int(stripped)
+        else:
+            sat_key = stripped
+
+    if norad_id is not None:
+        tracked = tracked_by_norad.get(norad_id)
+        sat_key = _BUILTIN_NORAD_TO_KEY.get(norad_id) or (tracked.get('name') if tracked else str(norad_id))
+    else:
+        normalized = _normalize_satellite_name(sat_key)
+        tracked = tracked_by_name.get(normalized)
+        if tracked:
+            try:
+                norad_id = int(tracked['norad_id'])
+            except (TypeError, ValueError):
+                norad_id = None
+            sat_key = tracked.get('name') or sat_key
+
+    tle_data = None
+    candidate_keys: list[str] = []
+    if sat_key:
+        candidate_keys.extend([
+            sat_key,
+            _normalize_satellite_name(sat_key),
+        ])
+    if tracked and tracked.get('name'):
+        candidate_keys.extend([
+            tracked['name'],
+            _normalize_satellite_name(tracked['name']),
+        ])
+
+    seen: set[str] = set()
+    for key in candidate_keys:
+        norm = _normalize_satellite_name(key)
+        if norm in seen:
+            continue
+        seen.add(norm)
+        if key in _tle_cache:
+            tle_data = _tle_cache[key]
+            break
+        if norm in _tle_cache:
+            tle_data = _tle_cache[norm]
+            break
+
+    if tle_data is None and tracked and tracked.get('tle_line1') and tracked.get('tle_line2'):
+        display_name = tracked.get('name') or sat_key or str(norad_id or 'UNKNOWN')
+        tle_data = (display_name, tracked['tle_line1'], tracked['tle_line2'])
+        _tle_cache[_normalize_satellite_name(display_name)] = tle_data
+
+    if tle_data is None and sat_key:
+        normalized = _normalize_satellite_name(sat_key)
+        for key, value in _tle_cache.items():
+            if key == normalized or _normalize_satellite_name(value[0]) == normalized:
+                tle_data = value
+                break
+
+    display_name = _BUILTIN_NORAD_TO_KEY.get(norad_id or -1)
+    if not display_name:
+        display_name = (tracked.get('name') if tracked else None) or (tle_data[0] if tle_data else None) or (sat_key if sat_key else str(norad_id or 'UNKNOWN'))
+    return display_name, norad_id, tle_data
 
 
 def _start_satellite_tracker():
@@ -328,21 +429,7 @@ def predict_passes():
     except ValueError as e:
         return api_error(str(e), 400)
 
-    norad_to_name = {
-        25544: 'ISS',
-        40069: 'METEOR-M2',
-        57166: 'METEOR-M2-3',
-        59051: 'METEOR-M2-4',
-    }
-
     sat_input = data.get('satellites', ['ISS', 'METEOR-M2-3', 'METEOR-M2-4'])
-    satellites = []
-    for sat in sat_input:
-        if isinstance(sat, int) and sat in norad_to_name:
-            satellites.append(norad_to_name[sat])
-        else:
-            satellites.append(sat)
-
     passes = []
     colors = {
         'ISS': '#00ffff',
@@ -350,18 +437,17 @@ def predict_passes():
         'METEOR-M2-3': '#ff00ff',
         'METEOR-M2-4': '#00ff88',
     }
-    name_to_norad = {v: k for k, v in norad_to_name.items()}
+    tracked_by_norad, tracked_by_name = _get_tracked_satellite_maps()
 
     ts = _get_timescale()
     observer = wgs84.latlon(lat, lon)
     t0 = ts.now()
     t1 = ts.utc(t0.utc_datetime() + timedelta(hours=hours))
 
-    for sat_name in satellites:
-        if sat_name not in _tle_cache:
+    for sat in sat_input:
+        sat_name, norad_id, tle_data = _resolve_satellite_request(sat, tracked_by_norad, tracked_by_name)
+        if not tle_data:
             continue
-
-        tle_data = _tle_cache[sat_name]
 
         # Current position for map marker (computed once per satellite)
         current_pos = None
@@ -379,7 +465,7 @@ def predict_passes():
         sat_passes = _predict_passes(tle_data, observer, ts, t0, t1, min_el=min_el)
         for p in sat_passes:
             p['satellite'] = sat_name
-            p['norad'] = name_to_norad.get(sat_name, 0)
+            p['norad'] = norad_id or 0
             p['color'] = colors.get(sat_name, '#00ff00')
             if current_pos:
                 p['currentPos'] = current_pos
@@ -413,30 +499,18 @@ def get_satellite_position():
     sat_input = data.get('satellites', [])
     include_track = bool(data.get('includeTrack', True))
 
-    norad_to_name = {
-        25544: 'ISS',
-        40069: 'METEOR-M2',
-        57166: 'METEOR-M2-3',
-        59051: 'METEOR-M2-4',
-    }
-
-    satellites = []
-    for sat in sat_input:
-        if isinstance(sat, int) and sat in norad_to_name:
-            satellites.append(norad_to_name[sat])
-        else:
-            satellites.append(sat)
-
     ts = _get_timescale()
     observer = wgs84.latlon(lat, lon)
     now = ts.now()
     now_dt = now.utc_datetime()
+    tracked_by_norad, tracked_by_name = _get_tracked_satellite_maps()
 
     positions = []
 
-    for sat_name in satellites:
+    for sat in sat_input:
+        sat_name, norad_id, tle_data = _resolve_satellite_request(sat, tracked_by_norad, tracked_by_name)
         # Special handling for ISS - use real-time API for accurate position
-        if sat_name == 'ISS':
+        if norad_id == 25544 or sat_name == 'ISS':
             iss_data = _fetch_iss_realtime(lat, lon)
             if iss_data:
                 # Add orbit track if requested (using TLE for track prediction)
@@ -464,10 +538,9 @@ def get_satellite_position():
             continue
 
         # Other satellites - use TLE data
-        if sat_name not in _tle_cache:
+        if not tle_data:
             continue
 
-        tle_data = _tle_cache[sat_name]
         try:
             satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
 
@@ -480,7 +553,7 @@ def get_satellite_position():
 
             pos_data = {
                 'satellite': sat_name,
-                'norad_id': next((nid for nid, name in norad_to_name.items() if name == sat_name), None),
+                'norad_id': norad_id,
                 'lat': float(subpoint.latitude.degrees),
                 'lon': float(subpoint.longitude.degrees),
                 'altitude': float(geocentric.distance().km - 6371),

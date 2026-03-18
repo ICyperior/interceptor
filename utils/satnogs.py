@@ -179,15 +179,27 @@ def get_transmitters(norad_id: int) -> list[dict]:
     """
     global _transmitters, _fetched_at  # noqa: PLW0603
 
-    with _fetch_lock:
+    sat_id = int(norad_id)
+    age = time.time() - _fetched_at
+
+    # Fast path: serve warm cache immediately.
+    if _transmitters and age <= _CACHE_TTL:
+        return _transmitters.get(sat_id, _BUILTIN_TRANSMITTERS.get(sat_id, []))
+
+    # Avoid blocking the UI behind a long-running background refresh.
+    if not _fetch_lock.acquire(blocking=False):
+        return _transmitters.get(sat_id, _BUILTIN_TRANSMITTERS.get(sat_id, []))
+
+    try:
         age = time.time() - _fetched_at
         if not _transmitters or age > _CACHE_TTL:
             fetched = fetch_transmitters()
             if fetched:
                 _transmitters = fetched
                 _fetched_at = time.time()
-
-        return _transmitters.get(int(norad_id), _BUILTIN_TRANSMITTERS.get(int(norad_id), []))
+        return _transmitters.get(sat_id, _BUILTIN_TRANSMITTERS.get(sat_id, []))
+    finally:
+        _fetch_lock.release()
 
 
 def refresh_transmitters() -> int:
