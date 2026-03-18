@@ -245,6 +245,7 @@ def _fetch_iss_realtime(observer_lat: float | None = None, observer_lon: float |
 
     result = {
         'satellite': 'ISS',
+        'norad_id': 25544,
         'lat': iss_lat,
         'lon': iss_lon,
         'altitude': iss_alt,
@@ -479,6 +480,7 @@ def get_satellite_position():
 
             pos_data = {
                 'satellite': sat_name,
+                'norad_id': next((nid for nid, name in norad_to_name.items() if name == sat_name), None),
                 'lat': float(subpoint.latitude.degrees),
                 'lon': float(subpoint.longitude.degrees),
                 'altitude': float(geocentric.distance().km - 6371),
