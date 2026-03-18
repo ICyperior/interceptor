@@ -366,7 +366,8 @@ body {
     display: flex;
     flex-direction: column;
     border-left: 1px solid rgba(0, 212, 255, 0.2);
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* Satellite selector at top of sidebar */
@@ -514,6 +515,20 @@ body {
 /* Telemetry panel */
 .telemetry-panel {
     flex-shrink: 0;
+}
+
+.transmitters-panel,
+.packets-panel {
+    flex-shrink: 0;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+}
+
+.transmitters-panel .panel-content,
+.packets-panel .panel-content {
+    height: auto;
+    overflow-y: auto;
 }
 
 .telemetry-rows {
