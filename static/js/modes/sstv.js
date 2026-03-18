@@ -18,6 +18,7 @@ const SSTV = (function() {
     let countdownInterval = null;
     let nextPassData = null;
     let pendingMapInvalidate = false;
+    let locationListenersAttached = false;
 
     // ISS frequency
     const ISS_FREQ = 145.800;
@@ -92,9 +93,11 @@ const SSTV = (function() {
         if (latInput && storedLat) latInput.value = storedLat;
         if (lonInput && storedLon) lonInput.value = storedLon;
 
-        // Add change handlers to save and refresh
-        if (latInput) latInput.addEventListener('change', saveLocationFromInputs);
-        if (lonInput) lonInput.addEventListener('change', saveLocationFromInputs);
+        if (!locationListenersAttached) {
+            if (latInput) latInput.addEventListener('change', saveLocationFromInputs);
+            if (lonInput) lonInput.addEventListener('change', saveLocationFromInputs);
+            locationListenersAttached = true;
+        }
     }
 
     /**

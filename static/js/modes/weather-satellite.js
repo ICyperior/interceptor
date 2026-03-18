@@ -27,11 +27,24 @@ const WeatherSat = (function() {
     let consoleAutoHideTimer = null;
     let currentModalFilename = null;
     let locationListenersAttached = false;
+    let initialized = false;
 
     /**
      * Initialize the Weather Satellite mode
      */
     function init() {
+        if (initialized) {
+            checkStatus();
+            loadImages();
+            loadLocationInputs();
+            loadPasses();
+            startCountdownTimer();
+            checkSchedulerStatus();
+            initGroundMap();
+            return;
+        }
+        initialized = true;
+
         checkStatus();
         loadImages();
         loadLocationInputs();
@@ -39,14 +52,6 @@ const WeatherSat = (function() {
         startCountdownTimer();
         checkSchedulerStatus();
         initGroundMap();
-
-        // Re-filter passes when satellite selection changes
-        const satSelect = document.getElementById('weatherSatSelect');
-        if (satSelect) {
-            satSelect.addEventListener('change', () => {
-                applyPassFilter();
-            });
-        }
     }
 
     /**

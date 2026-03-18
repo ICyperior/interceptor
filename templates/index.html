@@ -4386,8 +4386,11 @@
             }
         }
 
+        let modeSwitchRequestId = 0;
+
         // Mode switching
         async function switchMode(mode, options = {}) {
+            const requestId = ++modeSwitchRequestId;
             const { updateUrl = true } = options;
             const switchStartMs = performance.now();
             const previousMode = currentMode;
@@ -4457,6 +4460,7 @@
             const stopPhaseMs = Math.round(performance.now() - stopPhaseStartMs);
             await styleReadyPromise;
             await scriptReadyPromise;
+            if (requestId !== modeSwitchRequestId) return;
 
             // Generic module cleanup — destroy previous mode's timers, SSE, etc.
             if (previousMode && previousMode !== mode) {
@@ -4465,6 +4469,7 @@
                     try { destroyFn(); } catch(e) { console.warn(`[switchMode] destroy ${previousMode} failed:`, e); }
                 }
             }
+            if (requestId !== modeSwitchRequestId) return;
 
             currentMode = mode;
             document.body.setAttribute('data-mode', mode);
@@ -4480,6 +4485,7 @@
                 // Sync with local status
                 syncLocalModeStates();
             }
+            if (requestId !== modeSwitchRequestId) return;
 
             // Close dropdowns and update active state
             closeAllDropdowns();
@@ -4799,6 +4805,7 @@
             } else if (mode === 'ook') {
                 OokMode.init();
             }
+            if (requestId !== modeSwitchRequestId) return;
 
             // Waterfall destroy is now handled by moduleDestroyMap above.
 

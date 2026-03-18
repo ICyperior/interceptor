@@ -18,6 +18,7 @@ const Meshtastic = (function() {
     let meshMap = null;
     let meshMarkers = {};  // nodeId -> marker
     let localNodeId = null;
+    let clickDelegationAttached = false;
 
     /**
      * Initialize the Meshtastic mode
@@ -33,6 +34,9 @@ const Meshtastic = (function() {
      * Setup event delegation for dynamically created elements
      */
     function setupEventDelegation() {
+        if (clickDelegationAttached) return;
+        clickDelegationAttached = true;
+
         // Handle button clicks in Leaflet popups and elsewhere
         document.addEventListener('click', function(e) {
             const tracerouteBtn = e.target.closest('.mesh-traceroute-btn');
