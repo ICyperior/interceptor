@@ -248,8 +248,69 @@
                         <button class="pass-capture-btn" onclick="gsDisableScheduler()" id="gsDisableBtn" style="display:none;border-color:rgba(255,80,80,0.5);color:#ff6666;">DISABLE</button>
                         <button class="pass-capture-btn" onclick="gsStopActive()" id="gsStopBtn" style="display:none;">STOP</button>
                     </div>
+
+                    <!-- Observation profiles -->
+                    <div style="margin-top:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <span style="font-size:10px;color:var(--text-secondary);letter-spacing:0.05em;">OBSERVATION PROFILES</span>
+                            <button class="pass-capture-btn" onclick="gsShowProfileForm()" id="gsAddProfileBtn" style="font-size:9px;padding:2px 7px;">+ ADD</button>
+                        </div>
+                        <div id="gsProfileList" style="max-height:140px;overflow-y:auto;"></div>
+
+                        <!-- Inline profile form (hidden by default) -->
+                        <div id="gsProfileForm" style="display:none;background:rgba(0,40,60,0.6);border:1px solid rgba(0,212,255,0.2);border-radius:4px;padding:8px;margin-top:6px;">
+                            <div style="font-size:10px;color:var(--accent-cyan);margin-bottom:6px;" id="gsProfileFormTitle">NEW PROFILE</div>
+                            <input type="hidden" id="gsProfNorad">
+                            <div class="gs-form-row">
+                                <label class="gs-form-label">Satellite</label>
+                                <span id="gsProfSatName" style="font-size:11px;color:var(--text-primary);font-family:var(--font-mono);">-</span>
+                            </div>
+                            <div class="gs-form-row">
+                                <label class="gs-form-label">Frequency</label>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <input type="number" id="gsProfFreq" step="0.001" min="50" max="2000" style="width:80px;" placeholder="MHz">
+                                    <span style="font-size:10px;color:var(--text-secondary);">MHz</span>
+                                </div>
+                            </div>
+                            <div class="gs-form-row">
+                                <label class="gs-form-label">Decoder</label>
+                                <select id="gsProfDecoder" style="font-size:11px;background:rgba(0,20,40,0.8);border:1px solid rgba(0,212,255,0.3);color:var(--text-primary);border-radius:3px;padding:2px 4px;">
+                                    <option value="fm">FM (general)</option>
+                                    <option value="afsk">AFSK / AX.25</option>
+                                    <option value="gmsk">GMSK</option>
+                                    <option value="bpsk">BPSK (gr-satellites)</option>
+                                    <option value="iq_only">IQ record only</option>
+                                </select>
+                            </div>
+                            <div class="gs-form-row">
+                                <label class="gs-form-label">Min El</label>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <input type="number" id="gsProfMinEl" value="10" min="0" max="90" style="width:50px;">
+                                    <span style="font-size:10px;color:var(--text-secondary);">°</span>
+                                </div>
+                            </div>
+                            <div class="gs-form-row">
+                                <label class="gs-form-label">Gain</label>
+                                <input type="number" id="gsProfGain" value="40" min="0" max="60" style="width:50px;">
+                            </div>
+                            <div class="gs-form-row">
+                                <label class="gs-form-label">Record IQ</label>
+                                <input type="checkbox" id="gsProfRecordIQ" style="accent-color:var(--accent-cyan);">
+                            </div>
+                            <div style="display:flex;gap:6px;margin-top:8px;">
+                                <button class="pass-capture-btn" onclick="gsSaveProfile()" style="flex:1;">SAVE</button>
+                                <button class="pass-capture-btn" onclick="gsHideProfileForm()" style="flex:1;border-color:rgba(255,80,80,0.4);color:#ff6666;">CANCEL</button>
+                            </div>
+                            <div id="gsProfileError" style="display:none;color:#ff6666;font-size:10px;margin-top:4px;"></div>
+                        </div>
+                    </div>
+
                     <!-- Upcoming auto-observations -->
-                    <div id="gsUpcomingList" style="margin-top:8px;max-height:120px;overflow-y:auto;"></div>
+                    <div style="margin-top:10px;">
+                        <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;letter-spacing:0.05em;">UPCOMING PASSES</div>
+                        <div id="gsUpcomingList" style="max-height:120px;overflow-y:auto;"></div>
+                    </div>
+
                     <!-- Live waterfall (Phase 5) -->
                     <div id="gsWaterfallPanel" style="display:none;margin-top:8px;">
                         <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">
@@ -436,6 +497,72 @@
             font-family: var(--font-mono);
         }
         .gs-recording-item a:hover { text-decoration: underline; }
+        .gs-form-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(0,212,255,0.06);
+        }
+        .gs-form-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            min-width: 58px;
+        }
+        .gs-form-row input[type="number"],
+        .gs-form-row select {
+            background: rgba(0,20,40,0.8);
+            border: 1px solid rgba(0,212,255,0.3);
+            color: var(--text-primary);
+            border-radius: 3px;
+            padding: 2px 4px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+        .gs-profile-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(0,212,255,0.06);
+            font-size: 10px;
+        }
+        .gs-profile-item .prof-name {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .gs-profile-item .prof-freq {
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            font-size: 9px;
+            margin: 0 6px;
+            flex-shrink: 0;
+        }
+        .gs-profile-item .prof-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .gs-profile-item button {
+            background: none;
+            border: 1px solid rgba(0,212,255,0.3);
+            color: var(--accent-cyan);
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 9px;
+            cursor: pointer;
+            font-family: var(--font-mono);
+        }
+        .gs-profile-item button:hover { background: rgba(0,212,255,0.1); }
+        .gs-profile-item button.del { border-color: rgba(255,80,80,0.4); color: #ff6666; }
+        .gs-profile-item button.del:hover { background: rgba(255,80,80,0.1); }
+        .gs-profile-enabled { color: var(--accent-green) !important; }
     </style>
     <script>
         // Check if embedded mode
@@ -520,6 +647,7 @@
 
             loadTransmitters(selectedSatellite);
             calculatePasses();
+            if (window.gsOnSatelliteChange) gsOnSatelliteChange();
         }
 
         function setupEmbeddedMode() {
@@ -1465,52 +1593,52 @@
 
         let _gsEnabled = false;
         let _gsEventSource = null;
+        let _editingNorad = null;   // norad_id being edited, or null for new
+
+        // -----------------------------------------------------------------------
+        // Init
+        // -----------------------------------------------------------------------
 
         function gsInit() {
             gsLoadStatus();
+            gsLoadProfiles();
             gsLoadUpcoming();
             gsLoadRecordings();
             gsConnectSSE();
         }
 
+        // -----------------------------------------------------------------------
+        // Scheduler status
+        // -----------------------------------------------------------------------
+
         function gsLoadStatus() {
             fetch('/ground_station/scheduler/status')
                 .then(r => r.json())
-                .then(data => {
-                    _gsEnabled = data.enabled;
-                    _applyStatus(data);
-                })
+                .then(data => { _gsEnabled = data.enabled; _applyStatus(data); })
                 .catch(() => {});
         }
 
         function _applyStatus(data) {
-            const statusEl = document.getElementById('gsSchedulerStatus');
+            const statusEl  = document.getElementById('gsSchedulerStatus');
             const enableBtn = document.getElementById('gsEnableBtn');
             const disableBtn = document.getElementById('gsDisableBtn');
-            const stopBtn = document.getElementById('gsStopBtn');
+            const stopBtn   = document.getElementById('gsStopBtn');
             const activeRow = document.getElementById('gsActiveRow');
             const indicator = document.getElementById('gsIndicator');
-
             if (!statusEl) return;
-
             _gsEnabled = data.enabled;
             statusEl.textContent = data.enabled
-                ? (data.active_observation ? 'CAPTURING' : 'ACTIVE')
-                : 'IDLE';
+                ? (data.active_observation ? 'CAPTURING' : 'ACTIVE') : 'IDLE';
             statusEl.style.color = data.enabled
                 ? (data.active_observation ? 'var(--accent-green)' : 'var(--accent-cyan)')
                 : 'var(--text-secondary)';
-
             if (indicator) {
                 indicator.style.background = data.enabled
-                    ? (data.active_observation ? '#00ff88' : '#00d4ff')
-                    : '';
+                    ? (data.active_observation ? '#00ff88' : '#00d4ff') : '';
             }
-
-            if (enableBtn) enableBtn.style.display = data.enabled ? 'none' : '';
+            if (enableBtn)  enableBtn.style.display  = data.enabled ? 'none' : '';
             if (disableBtn) disableBtn.style.display = data.enabled ? '' : 'none';
-            if (stopBtn) stopBtn.style.display = data.active_observation ? '' : 'none';
-
+            if (stopBtn)    stopBtn.style.display    = data.active_observation ? '' : 'none';
             if (activeRow) {
                 activeRow.style.display = data.active_observation ? '' : 'none';
                 if (data.active_observation) {
@@ -1520,6 +1648,160 @@
             }
         }
 
+        // -----------------------------------------------------------------------
+        // Observation profiles
+        // -----------------------------------------------------------------------
+
+        function gsLoadProfiles() {
+            fetch('/ground_station/profiles')
+                .then(r => r.json())
+                .then(profiles => _renderProfiles(profiles))
+                .catch(() => { _renderProfiles([]); });
+        }
+
+        function _renderProfiles(profiles) {
+            const el = document.getElementById('gsProfileList');
+            if (!el) return;
+            if (!profiles.length) {
+                el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:10px;padding:6px 0;">No profiles — click + ADD to create one</div>';
+                return;
+            }
+            el.innerHTML = profiles.map(p => {
+                const enCls = p.enabled ? 'gs-profile-enabled' : '';
+                return `<div class="gs-profile-item">
+                    <span class="prof-name ${enCls}" title="NORAD ${p.norad_id}">${_esc(p.name)}</span>
+                    <span class="prof-freq">${(+p.frequency_mhz).toFixed(3)}</span>
+                    <div class="prof-actions">
+                        <button onclick="gsEditProfile(${p.norad_id})">EDIT</button>
+                        <button class="del" onclick="gsDeleteProfile(${p.norad_id})">✕</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        window.gsShowProfileForm = function (norad, name, freqMhz, decoder, minEl, gain, recordIQ) {
+            _editingNorad = norad || null;
+            const form  = document.getElementById('gsProfileForm');
+            const title = document.getElementById('gsProfileFormTitle');
+            const err   = document.getElementById('gsProfileError');
+            if (!form) return;
+
+            // Pre-fill with provided values OR pull from current satellite selection
+            const noradId  = norad  || (typeof selectedSatellite !== 'undefined' ? selectedSatellite : '');
+            const satName  = name   || (typeof satellites !== 'undefined' && satellites[noradId] ? satellites[noradId].name : 'Unknown');
+            const freq     = freqMhz != null ? freqMhz : _guessFrequency();
+
+            document.getElementById('gsProfNorad').value    = noradId;
+            document.getElementById('gsProfSatName').textContent = satName;
+            document.getElementById('gsProfFreq').value     = freq != null ? freq : '';
+            document.getElementById('gsProfDecoder').value  = decoder  || _guessDecoder();
+            document.getElementById('gsProfMinEl').value    = minEl    != null ? minEl    : 10;
+            document.getElementById('gsProfGain').value     = gain     != null ? gain     : 40;
+            document.getElementById('gsProfRecordIQ').checked = !!recordIQ;
+
+            if (title) title.textContent = _editingNorad ? 'EDIT PROFILE' : 'NEW PROFILE';
+            if (err) { err.style.display = 'none'; err.textContent = ''; }
+            form.style.display = '';
+            document.getElementById('gsAddProfileBtn').style.display = 'none';
+        };
+
+        window.gsEditProfile = function (norad) {
+            fetch(`/ground_station/profiles/${norad}`)
+                .then(r => r.json())
+                .then(p => {
+                    gsShowProfileForm(p.norad_id, p.name, p.frequency_mhz,
+                        p.decoder_type, p.min_elevation, p.gain, p.record_iq);
+                })
+                .catch(() => {});
+        };
+
+        window.gsHideProfileForm = function () {
+            const form = document.getElementById('gsProfileForm');
+            if (form) form.style.display = 'none';
+            document.getElementById('gsAddProfileBtn').style.display = '';
+            _editingNorad = null;
+        };
+
+        window.gsSaveProfile = function () {
+            const norad = parseInt(document.getElementById('gsProfNorad').value);
+            const freq  = parseFloat(document.getElementById('gsProfFreq').value);
+            const errEl = document.getElementById('gsProfileError');
+            if (!norad || isNaN(norad)) { _showFormErr('Select a satellite first'); return; }
+            if (!freq  || isNaN(freq))  { _showFormErr('Enter a valid frequency'); return; }
+
+            const name = document.getElementById('gsProfSatName').textContent || `SAT-${norad}`;
+            const payload = {
+                norad_id:      norad,
+                name:          name,
+                frequency_mhz: freq,
+                decoder_type:  document.getElementById('gsProfDecoder').value,
+                min_elevation: parseFloat(document.getElementById('gsProfMinEl').value) || 10,
+                gain:          parseFloat(document.getElementById('gsProfGain').value) || 40,
+                record_iq:     document.getElementById('gsProfRecordIQ').checked,
+                enabled:       true,
+            };
+
+            fetch('/ground_station/profiles', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            })
+                .then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.error || 'Save failed'); }))
+                .then(() => { gsHideProfileForm(); gsLoadProfiles(); })
+                .catch(e => _showFormErr(e.message || 'Save failed'));
+        };
+
+        window.gsDeleteProfile = function (norad) {
+            if (!confirm(`Delete profile for NORAD ${norad}?`)) return;
+            fetch(`/ground_station/profiles/${norad}`, {method: 'DELETE'})
+                .then(() => gsLoadProfiles())
+                .catch(() => {});
+        };
+
+        function _showFormErr(msg) {
+            const el = document.getElementById('gsProfileError');
+            if (!el) return;
+            el.textContent = msg;
+            el.style.display = '';
+        }
+
+        // Try to get a sensible default frequency from the SatNOGS transmitter list
+        function _guessFrequency() {
+            const items = document.querySelectorAll('#transmittersList .tx-item');
+            for (const item of items) {
+                const freq = item.querySelector('.tx-freq');
+                if (!freq) continue;
+                const m = freq.textContent.match(/↓\s*([\d.]+)/);
+                if (m) return parseFloat(m[1]);
+            }
+            return null;
+        }
+
+        function _guessDecoder() {
+            const items = document.querySelectorAll('#transmittersList .tx-item');
+            for (const item of items) {
+                const freq = item.querySelector('.tx-freq');
+                if (!freq) continue;
+                const txt = freq.textContent.toLowerCase();
+                if (txt.includes('ax.25') || txt.includes('afsk')) return 'afsk';
+                if (txt.includes('gmsk')) return 'gmsk';
+                if (txt.includes('bpsk')) return 'bpsk';
+            }
+            return 'fm';
+        }
+
+        // Update form satellite when user changes the satellite dropdown
+        window.gsOnSatelliteChange = function () {
+            const form = document.getElementById('gsProfileForm');
+            if (!form || form.style.display === 'none' || _editingNorad) return;
+            // Re-open form with new satellite context
+            gsShowProfileForm();
+        };
+
+        // -----------------------------------------------------------------------
+        // Upcoming passes
+        // -----------------------------------------------------------------------
+
         function gsLoadUpcoming() {
             fetch('/ground_station/scheduler/observations')
                 .then(r => r.json())
@@ -1528,27 +1810,31 @@
                     if (!el) return;
                     const upcoming = obs.filter(o => o.status === 'scheduled').slice(0, 5);
                     if (!upcoming.length) {
-                        el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:10px;padding:8px;">No observations scheduled</div>';
+                        el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:10px;padding:4px 0;">No observations scheduled.<br>Enable scheduler to auto-observe.</div>';
                         return;
                     }
                     el.innerHTML = upcoming.map(o => {
                         const dt = new Date(o.aos);
-                        const timeStr = dt.toUTCString().replace('GMT', 'UTC').slice(17, 25);
+                        const timeStr = dt.toUTCString().replace('GMT','UTC').slice(17,25);
                         return `<div class="gs-obs-item">
                             <span class="sat-name">${_esc(o.satellite)}</span>
-                            <span class="obs-time">${timeStr} / ${o.max_el.toFixed(0)}°</span>
+                            <span class="obs-time">${timeStr} / ${(+o.max_el).toFixed(0)}°</span>
                         </div>`;
                     }).join('');
                 })
                 .catch(() => {});
         }
 
+        // -----------------------------------------------------------------------
+        // Recordings
+        // -----------------------------------------------------------------------
+
         function gsLoadRecordings() {
             fetch('/ground_station/recordings')
                 .then(r => r.json())
                 .then(recs => {
                     const panel = document.getElementById('gsRecordingsPanel');
-                    const list = document.getElementById('gsRecordingsList');
+                    const list  = document.getElementById('gsRecordingsList');
                     if (!panel || !list) return;
                     if (!recs.length) { panel.style.display = 'none'; return; }
                     panel.style.display = '';
@@ -1556,13 +1842,17 @@
                         const kb = Math.round((r.size_bytes || 0) / 1024);
                         const fname = (r.sigmf_data_path || '').split('/').pop();
                         return `<div class="gs-recording-item">
-                            <a href="/ground_station/recordings/${r.id}/download/data" title="${_esc(fname)}">${_esc(fname.slice(0, 20))}…</a>
+                            <a href="/ground_station/recordings/${r.id}/download/data" title="${_esc(fname)}">${_esc(fname.slice(0, 22))}</a>
                             <span style="color:var(--text-secondary);font-size:9px;">${kb} KB</span>
                         </div>`;
                     }).join('');
                 })
                 .catch(() => {});
         }
+
+        // -----------------------------------------------------------------------
+        // SSE
+        // -----------------------------------------------------------------------
 
         function gsConnectSSE() {
             if (_gsEventSource) _gsEventSource.close();
@@ -1574,24 +1864,17 @@
                     _handleGSEvent(data);
                 } catch (e) {}
             };
-            _gsEventSource.onerror = () => {
-                setTimeout(gsConnectSSE, 5000);
-            };
+            _gsEventSource.onerror = () => { setTimeout(gsConnectSSE, 5000); };
         }
 
         function _handleGSEvent(data) {
             switch (data.type) {
                 case 'observation_started':
-                    gsLoadStatus();
-                    gsLoadUpcoming();
-                    break;
+                    gsLoadStatus(); gsLoadUpcoming(); break;
                 case 'observation_complete':
                 case 'observation_failed':
                 case 'observation_skipped':
-                    gsLoadStatus();
-                    gsLoadUpcoming();
-                    gsLoadRecordings();
-                    break;
+                    gsLoadStatus(); gsLoadUpcoming(); gsLoadRecordings(); break;
                 case 'iq_bus_started':
                     _showWaterfall(true);
                     if (window.GroundStationWaterfall) {
@@ -1603,15 +1886,9 @@
                     setTimeout(() => _showWaterfall(false), 500);
                     if (window.GroundStationWaterfall) GroundStationWaterfall.disconnect();
                     break;
-                case 'doppler_update':
-                    _updateDoppler(data);
-                    break;
-                case 'recording_complete':
-                    gsLoadRecordings();
-                    break;
-                case 'packet_decoded':
-                    _appendPacket(data);
-                    break;
+                case 'doppler_update':   _updateDoppler(data); break;
+                case 'recording_complete': gsLoadRecordings(); break;
+                case 'packet_decoded':   _appendPacket(data); break;
             }
         }
 
@@ -1622,7 +1899,7 @@
 
         function _updateDoppler(data) {
             const row = document.getElementById('gsDopplerRow');
-            const el = document.getElementById('gsDopplerShift');
+            const el  = document.getElementById('gsDopplerShift');
             if (!row || !el) return;
             row.style.display = '';
             const hz = Math.round(data.shift_hz || 0);
@@ -1639,11 +1916,7 @@
             item.textContent = data.data || '';
             list.prepend(item);
             const countEl = document.getElementById('packetCount');
-            if (countEl) {
-                const n = parseInt(countEl.textContent) || 0;
-                countEl.textContent = n + 1;
-            }
-            // Keep at most 100 items
+            if (countEl) { const n = parseInt(countEl.textContent) || 0; countEl.textContent = n + 1; }
             while (list.children.length > 100) list.removeChild(list.lastChild);
         }
 
