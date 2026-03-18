@@ -25,6 +25,7 @@ def register_blueprints(app):
     from .meteor_websocket import meteor_bp
     from .morse import morse_bp
     from .offline import offline_bp
+    from .ground_station import ground_station_bp
     from .ook import ook_bp
     from .pager import pager_bp
     from .radiosonde import radiosonde_bp
@@ -89,6 +90,7 @@ def register_blueprints(app):
     app.register_blueprint(radiosonde_bp)  # Radiosonde weather balloon tracking
     app.register_blueprint(system_bp)  # System health monitoring
     app.register_blueprint(ook_bp)  # Generic OOK signal decoder
+    app.register_blueprint(ground_station_bp)  # Ground station automation
 
     # Exempt all API blueprints from CSRF (they use JSON, not form tokens)
     if _csrf:

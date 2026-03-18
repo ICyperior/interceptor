@@ -221,6 +221,57 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Ground Station -->
+            <div class="panel gs-panel" id="gsPanel">
+                <div class="panel-header">
+                    <span>GROUND STATION</span>
+                    <div class="panel-indicator" id="gsIndicator"></div>
+                </div>
+                <div class="panel-content">
+                    <!-- Scheduler status -->
+                    <div class="gs-status-row">
+                        <span style="color:var(--text-secondary);font-size:11px;">Scheduler</span>
+                        <span id="gsSchedulerStatus" style="color:var(--text-secondary);font-size:11px;">IDLE</span>
+                    </div>
+                    <div class="gs-status-row" id="gsActiveRow" style="display:none;">
+                        <span style="color:var(--text-secondary);font-size:11px;">Capturing</span>
+                        <span id="gsActiveSat" style="color:var(--accent-cyan);font-family:var(--font-mono);font-size:11px;">-</span>
+                    </div>
+                    <div class="gs-status-row" id="gsDopplerRow" style="display:none;">
+                        <span style="color:var(--text-secondary);font-size:11px;">Doppler</span>
+                        <span id="gsDopplerShift" style="color:var(--accent-green);font-family:var(--font-mono);font-size:11px;">+0 Hz</span>
+                    </div>
+                    <!-- Quick enable -->
+                    <div style="margin-top:8px;display:flex;gap:6px;">
+                        <button class="pass-capture-btn" onclick="gsEnableScheduler()" id="gsEnableBtn">ENABLE</button>
+                        <button class="pass-capture-btn" onclick="gsDisableScheduler()" id="gsDisableBtn" style="display:none;border-color:rgba(255,80,80,0.5);color:#ff6666;">DISABLE</button>
+                        <button class="pass-capture-btn" onclick="gsStopActive()" id="gsStopBtn" style="display:none;">STOP</button>
+                    </div>
+                    <!-- Upcoming auto-observations -->
+                    <div id="gsUpcomingList" style="margin-top:8px;max-height:120px;overflow-y:auto;"></div>
+                    <!-- Live waterfall (Phase 5) -->
+                    <div id="gsWaterfallPanel" style="display:none;margin-top:8px;">
+                        <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">
+                            LIVE SPECTRUM <span id="gsWaterfallStatus" style="color:var(--accent-cyan);">STOPPED</span>
+                        </div>
+                        <canvas id="gs-waterfall" style="width:100%;height:160px;background:#000a14;display:block;"></canvas>
+                    </div>
+                    <!-- SigMF recordings -->
+                    <div id="gsRecordingsPanel" style="margin-top:8px;display:none;">
+                        <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">IQ RECORDINGS</div>
+                        <div id="gsRecordingsList" style="max-height:100px;overflow-y:auto;"></div>
+                    </div>
+                    <!-- Rotator (Phase 6, shown only if connected) -->
+                    <div id="gsRotatorPanel" style="display:none;margin-top:8px;">
+                        <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">ROTATOR</div>
+                        <div class="gs-status-row">
+                            <span style="font-size:10px;color:var(--text-secondary);">AZ/EL</span>
+                            <span id="gsRotatorPos" style="font-family:var(--font-mono);font-size:10px;color:var(--accent-cyan);">---/--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Controls Bar -->
@@ -349,6 +400,42 @@
             font-size: 10px;
             margin-top: 1px;
         }
+
+        /* Ground Station panel */
+        .gs-panel { margin-top: 10px; }
+        .gs-status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(0,212,255,0.06);
+            font-size: 11px;
+        }
+        .gs-obs-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 10px;
+            border-bottom: 1px solid rgba(0,212,255,0.06);
+            font-family: var(--font-mono);
+        }
+        .gs-obs-item .sat-name { color: var(--text-primary); }
+        .gs-obs-item .obs-time { color: var(--text-secondary); font-size: 9px; }
+        .gs-recording-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 10px;
+            border-bottom: 1px solid rgba(0,212,255,0.06);
+        }
+        .gs-recording-item a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+            font-family: var(--font-mono);
+        }
+        .gs-recording-item a:hover { text-decoration: underline; }
     </style>
     <script>
         // Check if embedded mode
@@ -1367,5 +1454,241 @@
 
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}?v={{ version }}&r=maptheme17"></script>
     <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modes/ground_station_waterfall.js') }}"></script>
+
+    <script>
+    // -------------------------------------------------------------------------
+    // Ground Station Panel — inline controller
+    // -------------------------------------------------------------------------
+    (function () {
+        'use strict';
+
+        let _gsEnabled = false;
+        let _gsEventSource = null;
+
+        function gsInit() {
+            gsLoadStatus();
+            gsLoadUpcoming();
+            gsLoadRecordings();
+            gsConnectSSE();
+        }
+
+        function gsLoadStatus() {
+            fetch('/ground_station/scheduler/status')
+                .then(r => r.json())
+                .then(data => {
+                    _gsEnabled = data.enabled;
+                    _applyStatus(data);
+                })
+                .catch(() => {});
+        }
+
+        function _applyStatus(data) {
+            const statusEl = document.getElementById('gsSchedulerStatus');
+            const enableBtn = document.getElementById('gsEnableBtn');
+            const disableBtn = document.getElementById('gsDisableBtn');
+            const stopBtn = document.getElementById('gsStopBtn');
+            const activeRow = document.getElementById('gsActiveRow');
+            const indicator = document.getElementById('gsIndicator');
+
+            if (!statusEl) return;
+
+            _gsEnabled = data.enabled;
+            statusEl.textContent = data.enabled
+                ? (data.active_observation ? 'CAPTURING' : 'ACTIVE')
+                : 'IDLE';
+            statusEl.style.color = data.enabled
+                ? (data.active_observation ? 'var(--accent-green)' : 'var(--accent-cyan)')
+                : 'var(--text-secondary)';
+
+            if (indicator) {
+                indicator.style.background = data.enabled
+                    ? (data.active_observation ? '#00ff88' : '#00d4ff')
+                    : '';
+            }
+
+            if (enableBtn) enableBtn.style.display = data.enabled ? 'none' : '';
+            if (disableBtn) disableBtn.style.display = data.enabled ? '' : 'none';
+            if (stopBtn) stopBtn.style.display = data.active_observation ? '' : 'none';
+
+            if (activeRow) {
+                activeRow.style.display = data.active_observation ? '' : 'none';
+                if (data.active_observation) {
+                    const satEl = document.getElementById('gsActiveSat');
+                    if (satEl) satEl.textContent = data.active_observation.satellite || '-';
+                }
+            }
+        }
+
+        function gsLoadUpcoming() {
+            fetch('/ground_station/scheduler/observations')
+                .then(r => r.json())
+                .then(obs => {
+                    const el = document.getElementById('gsUpcomingList');
+                    if (!el) return;
+                    const upcoming = obs.filter(o => o.status === 'scheduled').slice(0, 5);
+                    if (!upcoming.length) {
+                        el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:10px;padding:8px;">No observations scheduled</div>';
+                        return;
+                    }
+                    el.innerHTML = upcoming.map(o => {
+                        const dt = new Date(o.aos);
+                        const timeStr = dt.toUTCString().replace('GMT', 'UTC').slice(17, 25);
+                        return `<div class="gs-obs-item">
+                            <span class="sat-name">${_esc(o.satellite)}</span>
+                            <span class="obs-time">${timeStr} / ${o.max_el.toFixed(0)}°</span>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(() => {});
+        }
+
+        function gsLoadRecordings() {
+            fetch('/ground_station/recordings')
+                .then(r => r.json())
+                .then(recs => {
+                    const panel = document.getElementById('gsRecordingsPanel');
+                    const list = document.getElementById('gsRecordingsList');
+                    if (!panel || !list) return;
+                    if (!recs.length) { panel.style.display = 'none'; return; }
+                    panel.style.display = '';
+                    list.innerHTML = recs.slice(0, 10).map(r => {
+                        const kb = Math.round((r.size_bytes || 0) / 1024);
+                        const fname = (r.sigmf_data_path || '').split('/').pop();
+                        return `<div class="gs-recording-item">
+                            <a href="/ground_station/recordings/${r.id}/download/data" title="${_esc(fname)}">${_esc(fname.slice(0, 20))}…</a>
+                            <span style="color:var(--text-secondary);font-size:9px;">${kb} KB</span>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(() => {});
+        }
+
+        function gsConnectSSE() {
+            if (_gsEventSource) _gsEventSource.close();
+            _gsEventSource = new EventSource('/ground_station/stream');
+            _gsEventSource.onmessage = (evt) => {
+                try {
+                    const data = JSON.parse(evt.data);
+                    if (data.type === 'keepalive') return;
+                    _handleGSEvent(data);
+                } catch (e) {}
+            };
+            _gsEventSource.onerror = () => {
+                setTimeout(gsConnectSSE, 5000);
+            };
+        }
+
+        function _handleGSEvent(data) {
+            switch (data.type) {
+                case 'observation_started':
+                    gsLoadStatus();
+                    gsLoadUpcoming();
+                    break;
+                case 'observation_complete':
+                case 'observation_failed':
+                case 'observation_skipped':
+                    gsLoadStatus();
+                    gsLoadUpcoming();
+                    gsLoadRecordings();
+                    break;
+                case 'iq_bus_started':
+                    _showWaterfall(true);
+                    if (window.GroundStationWaterfall) {
+                        GroundStationWaterfall.setCenterFreq(data.center_mhz, data.span_mhz);
+                        GroundStationWaterfall.connect();
+                    }
+                    break;
+                case 'iq_bus_stopped':
+                    setTimeout(() => _showWaterfall(false), 500);
+                    if (window.GroundStationWaterfall) GroundStationWaterfall.disconnect();
+                    break;
+                case 'doppler_update':
+                    _updateDoppler(data);
+                    break;
+                case 'recording_complete':
+                    gsLoadRecordings();
+                    break;
+                case 'packet_decoded':
+                    _appendPacket(data);
+                    break;
+            }
+        }
+
+        function _showWaterfall(show) {
+            const panel = document.getElementById('gsWaterfallPanel');
+            if (panel) panel.style.display = show ? '' : 'none';
+        }
+
+        function _updateDoppler(data) {
+            const row = document.getElementById('gsDopplerRow');
+            const el = document.getElementById('gsDopplerShift');
+            if (!row || !el) return;
+            row.style.display = '';
+            const hz = Math.round(data.shift_hz || 0);
+            el.textContent = (hz >= 0 ? '+' : '') + hz + ' Hz';
+        }
+
+        function _appendPacket(data) {
+            const list = document.getElementById('packetList');
+            if (!list) return;
+            const placeholder = list.querySelector('div[style*="text-align:center"]');
+            if (placeholder) placeholder.remove();
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:4px 6px;border-bottom:1px solid rgba(0,212,255,0.08);font-size:10px;font-family:var(--font-mono);word-break:break-all;';
+            item.textContent = data.data || '';
+            list.prepend(item);
+            const countEl = document.getElementById('packetCount');
+            if (countEl) {
+                const n = parseInt(countEl.textContent) || 0;
+                countEl.textContent = n + 1;
+            }
+            // Keep at most 100 items
+            while (list.children.length > 100) list.removeChild(list.lastChild);
+        }
+
+        // -----------------------------------------------------------------------
+        // Button handlers (global scope)
+        // -----------------------------------------------------------------------
+
+        window.gsEnableScheduler = function () {
+            const lat = parseFloat(document.getElementById('obsLat')?.value || 0);
+            const lon = parseFloat(document.getElementById('obsLon')?.value || 0);
+            fetch('/ground_station/scheduler/enable', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({lat, lon}),
+            })
+                .then(r => r.json())
+                .then(d => { _applyStatus(d); gsLoadUpcoming(); })
+                .catch(() => {});
+        };
+
+        window.gsDisableScheduler = function () {
+            fetch('/ground_station/scheduler/disable', {method: 'POST'})
+                .then(r => r.json())
+                .then(d => { _applyStatus(d); gsLoadUpcoming(); })
+                .catch(() => {});
+        };
+
+        window.gsStopActive = function () {
+            fetch('/ground_station/scheduler/stop', {method: 'POST'})
+                .then(r => r.json())
+                .then(d => { _applyStatus(d); })
+                .catch(() => {});
+        };
+
+        function _esc(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // Init after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', gsInit);
+        } else {
+            gsInit();
+        }
+    })();
+    </script>
 </body>
 </html>

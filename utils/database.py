@@ -636,6 +636,82 @@ def init_db() -> None:
             VALUES ('40069', 'METEOR-M2', NULL, NULL, 1, 1)
         ''')
 
+        # =====================================================================
+        # Ground Station Tables (automated observations, IQ recordings)
+        # =====================================================================
+
+        # Observation profiles — per-satellite capture configuration
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS observation_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                norad_id INTEGER UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                frequency_mhz REAL NOT NULL,
+                decoder_type TEXT NOT NULL DEFAULT 'fm',
+                gain REAL DEFAULT 40.0,
+                bandwidth_hz INTEGER DEFAULT 200000,
+                min_elevation REAL DEFAULT 10.0,
+                enabled BOOLEAN DEFAULT 1,
+                record_iq BOOLEAN DEFAULT 0,
+                iq_sample_rate INTEGER DEFAULT 2400000,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Observation history — one row per captured pass
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS ground_station_observations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER,
+                norad_id INTEGER NOT NULL,
+                satellite TEXT NOT NULL,
+                aos_time TEXT,
+                los_time TEXT,
+                status TEXT DEFAULT 'scheduled',
+                output_path TEXT,
+                packets_decoded INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (profile_id) REFERENCES observation_profiles(id) ON DELETE SET NULL
+            )
+        ''')
+
+        # Per-observation events (packets decoded, Doppler updates, etc.)
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS ground_station_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                observation_id INTEGER,
+                event_type TEXT NOT NULL,
+                payload_json TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (observation_id) REFERENCES ground_station_observations(id) ON DELETE CASCADE
+            )
+        ''')
+
+        # SigMF recordings — one row per IQ recording file pair
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS sigmf_recordings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                observation_id INTEGER,
+                sigmf_data_path TEXT NOT NULL,
+                sigmf_meta_path TEXT NOT NULL,
+                size_bytes INTEGER DEFAULT 0,
+                sample_rate INTEGER,
+                center_freq_hz INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (observation_id) REFERENCES ground_station_observations(id) ON DELETE SET NULL
+            )
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gs_observations_norad
+            ON ground_station_observations(norad_id, created_at)
+        ''')
+
+        conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_gs_events_observation
+            ON ground_station_events(observation_id, timestamp)
+        ''')
+
         logger.info("Database initialized successfully")
 
 

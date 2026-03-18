@@ -3,8 +3,8 @@
 Provides the SSTVDecoder class that manages the full pipeline:
 rtl_fm subprocess -> audio stream -> VIS detection -> image decoding -> PNG output.
 
-Also contains DopplerTracker and supporting dataclasses migrated from the
-original monolithic utils/sstv.py.
+DopplerTracker and DopplerInfo live in utils/doppler.py and are re-exported
+here for backwards compatibility.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -24,7 +24,13 @@ import numpy as np
 
 from utils.logging import get_logger
 
-from .constants import ISS_SSTV_FREQ, SAMPLE_RATE, SPEED_OF_LIGHT
+# DopplerTracker/DopplerInfo now live in the shared utils/doppler module.
+# Import them here so existing code that does
+#   ``from utils.sstv.sstv_decoder import DopplerTracker``
+# continues to work unchanged.
+from utils.doppler import DopplerInfo, DopplerTracker  # noqa: F401
+
+from .constants import ISS_SSTV_FREQ, SAMPLE_RATE
 from .dsp import goertzel_mag, normalize_audio
 from .image_decoder import SSTVImageDecoder
 from .modes import get_mode
@@ -42,25 +48,10 @@ except ImportError:
 # Dataclasses
 # ---------------------------------------------------------------------------
 
-@dataclass
-class DopplerInfo:
-    """Doppler shift information."""
-    frequency_hz: float
-    shift_hz: float
-    range_rate_km_s: float
-    elevation: float
-    azimuth: float
-    timestamp: datetime
-
-    def to_dict(self) -> dict:
-        return {
-            'frequency_hz': self.frequency_hz,
-            'shift_hz': round(self.shift_hz, 1),
-            'range_rate_km_s': round(self.range_rate_km_s, 3),
-            'elevation': round(self.elevation, 1),
-            'azimuth': round(self.azimuth, 1),
-            'timestamp': self.timestamp.isoformat(),
-        }
+# DopplerInfo is now defined in utils/doppler and imported at the top of
+# this module.  The re-export keeps any code that does
+#   from utils.sstv.sstv_decoder import DopplerInfo
+# working without changes.
 
 
 @dataclass
@@ -133,93 +124,8 @@ def _encode_scope_waveform(raw_samples: np.ndarray, window_size: int = 256) -> l
     return packed.tolist()
 
 
-# ---------------------------------------------------------------------------
-# DopplerTracker
-# ---------------------------------------------------------------------------
-
-class DopplerTracker:
-    """Real-time Doppler shift calculator for satellite tracking.
-
-    Uses skyfield to calculate the range rate between observer and satellite,
-    then computes the Doppler-shifted receive frequency.
-    """
-
-    def __init__(self, satellite_name: str = 'ISS'):
-        self._satellite_name = satellite_name
-        self._observer_lat: float | None = None
-        self._observer_lon: float | None = None
-        self._satellite = None
-        self._observer = None
-        self._ts = None
-        self._enabled = False
-
-    def configure(self, latitude: float, longitude: float) -> bool:
-        """Configure the Doppler tracker with observer location."""
-        try:
-            from skyfield.api import EarthSatellite, load, wgs84
-
-            from data.satellites import TLE_SATELLITES
-
-            tle_data = TLE_SATELLITES.get(self._satellite_name)
-            if not tle_data:
-                logger.error(f"No TLE data for satellite: {self._satellite_name}")
-                return False
-
-            self._ts = load.timescale()
-            self._satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], self._ts)
-            self._observer = wgs84.latlon(latitude, longitude)
-            self._observer_lat = latitude
-            self._observer_lon = longitude
-            self._enabled = True
-
-            logger.info(f"Doppler tracker configured for {self._satellite_name} at ({latitude}, {longitude})")
-            return True
-
-        except ImportError:
-            logger.warning("skyfield not available - Doppler tracking disabled")
-            return False
-        except Exception as e:
-            logger.error(f"Failed to configure Doppler tracker: {e}")
-            return False
-
-    @property
-    def is_enabled(self) -> bool:
-        return self._enabled
-
-    def calculate(self, nominal_freq_mhz: float) -> DopplerInfo | None:
-        """Calculate current Doppler-shifted frequency."""
-        if not self._enabled or not self._satellite or not self._observer:
-            return None
-
-        try:
-            t = self._ts.now()
-            difference = self._satellite - self._observer
-            topocentric = difference.at(t)
-            alt, az, distance = topocentric.altaz()
-
-            dt_seconds = 1.0
-            t_future = self._ts.utc(t.utc_datetime() + timedelta(seconds=dt_seconds))
-            topocentric_future = difference.at(t_future)
-            _, _, distance_future = topocentric_future.altaz()
-
-            range_rate_km_s = (distance_future.km - distance.km) / dt_seconds
-            nominal_freq_hz = nominal_freq_mhz * 1_000_000
-            doppler_factor = 1 - (range_rate_km_s * 1000 / SPEED_OF_LIGHT)
-            corrected_freq_hz = nominal_freq_hz * doppler_factor
-            shift_hz = corrected_freq_hz - nominal_freq_hz
-
-            return DopplerInfo(
-                frequency_hz=corrected_freq_hz,
-                shift_hz=shift_hz,
-                range_rate_km_s=range_rate_km_s,
-                elevation=alt.degrees,
-                azimuth=az.degrees,
-                timestamp=datetime.now(timezone.utc)
-            )
-
-        except Exception as e:
-            logger.error(f"Doppler calculation failed: {e}")
-            return None
+# DopplerTracker is now imported from utils/doppler at the top of this module.
+# Nothing to define here.
 
 
 # ---------------------------------------------------------------------------

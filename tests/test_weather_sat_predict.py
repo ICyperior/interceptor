@@ -13,6 +13,20 @@ import pytest
 
 from utils.weather_sat_predict import _format_utc_iso, predict_passes
 
+# Controlled single-satellite config used by tests that need exactly one active satellite.
+# NOAA-18 was decommissioned Jun 2025 and is inactive in the real WEATHER_SATELLITES,
+# so tests that assert on satellite-specific fields patch the module-level name.
+_MOCK_WEATHER_SATS = {
+    'NOAA-18': {
+        'name': 'NOAA 18',
+        'frequency': 137.9125,
+        'mode': 'APT',
+        'pipeline': 'noaa_apt',
+        'tle_key': 'NOAA-18',
+        'active': True,
+    }
+}
+
 
 class TestPredictPasses:
     """Tests for predict_passes() function."""
@@ -31,6 +45,7 @@ class TestPredictPasses:
 
         assert passes == []
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -96,6 +111,7 @@ class TestPredictPasses:
         assert 'duration' in pass_data
         assert 'quality' in pass_data
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -150,6 +166,7 @@ class TestPredictPasses:
 
         assert len(passes) == 0
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -207,6 +224,7 @@ class TestPredictPasses:
         assert 'trajectory' in passes[0]
         assert len(passes[0]['trajectory']) == 30
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -281,6 +299,7 @@ class TestPredictPasses:
         assert 'groundTrack' in passes[0]
         assert len(passes[0]['groundTrack']) == 60
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -336,6 +355,7 @@ class TestPredictPasses:
         assert passes[0]['quality'] == 'excellent'
         assert passes[0]['maxEl'] >= 60
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -391,6 +411,7 @@ class TestPredictPasses:
         assert passes[0]['quality'] == 'good'
         assert 30 <= passes[0]['maxEl'] < 60
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -530,6 +551,7 @@ class TestPredictPasses:
                 predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
                 # Should not raise
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')
@@ -605,6 +627,7 @@ class TestPredictPasses:
 class TestPassDataStructure:
     """Tests for pass data structure."""
 
+    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
     @patch('utils.weather_sat_predict.load')
     @patch('utils.weather_sat_predict.TLE_SATELLITES')
     @patch('utils.weather_sat_predict.wgs84')

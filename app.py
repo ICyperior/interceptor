@@ -274,6 +274,9 @@ dsc_lock = threading.Lock()
 tscm_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 tscm_lock = threading.Lock()
 
+# Ground Station automation
+ground_station_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+
 # SubGHz Transceiver (HackRF)
 subghz_queue = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 subghz_lock = threading.Lock()
@@ -1149,6 +1152,13 @@ def _init_app() -> None:
     except ImportError:
         pass
 
+    # Initialize WebSocket for ground station live waterfall
+    try:
+        from routes.ground_station import init_ground_station_websocket
+        init_ground_station_websocket(app)
+    except ImportError:
+        pass
+
     # Defer heavy/network operations so the worker can serve requests immediately
     import threading
 
@@ -1195,6 +1205,22 @@ def _init_app() -> None:
                 prefetch_transmitters()
         except Exception as e:
             logger.warning(f"SatNOGS prefetch failed: {e}")
+
+        # Wire ground station scheduler event → SSE queue
+        try:
+            import app as _self
+            from utils.ground_station.scheduler import get_ground_station_scheduler
+            gs_scheduler = get_ground_station_scheduler()
+
+            def _gs_event_to_sse(event: dict) -> None:
+                try:
+                    _self.ground_station_queue.put_nowait(event)
+                except Exception:
+                    pass
+
+            gs_scheduler.set_event_callback(_gs_event_to_sse)
+        except Exception as e:
+            logger.warning(f"Ground station scheduler init failed: {e}")
 
     threading.Thread(target=_deferred_init, daemon=True).start()
 
