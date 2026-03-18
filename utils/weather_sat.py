@@ -1,16 +1,13 @@
-"""Weather Satellite decoder for NOAA APT and Meteor LRPT imagery.
+"""Weather satellite decoder focused on Meteor LRPT workflows.
 
-Provides automated capture and decoding of weather satellite images using SatDump.
+Provides automated capture and decoding of weather imagery using SatDump.
 
-Supported satellites:
-    - NOAA-15: 137.620 MHz (APT) [DEFUNCT - decommissioned Aug 2025]
-    - NOAA-18: 137.9125 MHz (APT) [DEFUNCT - decommissioned Jun 2025]
-    - NOAA-19: 137.100 MHz (APT) [DEFUNCT - decommissioned Aug 2025]
+Active satellites:
     - Meteor-M2-3: 137.900 MHz (LRPT)
     - Meteor-M2-4: 137.900 MHz (LRPT)
 
-Uses SatDump CLI for live SDR capture and decoding, with fallback to
-rtl_fm capture for manual decoding when SatDump is unavailable.
+Legacy NOAA APT entries remain in ``WEATHER_SATELLITES`` for compatibility
+and historical metadata, but they are no longer active operational targets.
 """
 
 from __future__ import annotations
@@ -41,7 +38,8 @@ ALLOWED_OFFLINE_INPUT_DIRS = (
 )
 
 
-# Weather satellite definitions
+# Weather satellite definitions.
+# NOAA APT entries are retained as inactive compatibility metadata.
 WEATHER_SATELLITES = {
     'NOAA-15': {
         'name': 'NOAA 15',
@@ -158,8 +156,8 @@ class CaptureProgress:
 class WeatherSatDecoder:
     """Weather satellite decoder using SatDump CLI.
 
-    Manages live SDR capture and decoding of NOAA APT and Meteor LRPT
-    satellite transmissions.
+    Manages live SDR capture and offline decode for the active Meteor LRPT
+    workflow, while preserving compatibility with older weather-sat metadata.
     """
 
     def __init__(self, output_dir: str | Path | None = None):
@@ -253,7 +251,7 @@ class WeatherSatDecoder:
         No SDR hardware is required — SatDump runs in offline mode.
 
         Args:
-            satellite: Satellite key (e.g. 'NOAA-18', 'METEOR-M2-3')
+            satellite: Satellite key (for example ``'METEOR-M2-3'``)
             input_file: Path to IQ baseband or WAV audio file
             sample_rate: Sample rate of the recording in Hz
 
@@ -370,7 +368,7 @@ class WeatherSatDecoder:
         """Start weather satellite capture and decode.
 
         Args:
-            satellite: Satellite key (e.g. 'NOAA-18', 'METEOR-M2-3')
+            satellite: Satellite key (for example ``'METEOR-M2-3'``)
             device_index: RTL-SDR device index
             gain: SDR gain in dB
             sample_rate: Sample rate in Hz
