@@ -23,6 +23,7 @@ _transmitters: dict[int, list[dict]] = {}
 _fetched_at: float = 0.0
 _CACHE_TTL = 86400  # 24 hours in seconds
 _fetch_lock = threading.Lock()
+_prefetch_started = False
 
 _SATNOGS_URL = "https://db.satnogs.org/api/transmitters/?format=json"
 _REQUEST_TIMEOUT = 15  # seconds
@@ -143,3 +144,28 @@ def refresh_transmitters() -> int:
         _transmitters = fetch_transmitters()
         _fetched_at = time.time()
         return len(_transmitters)
+
+
+def prefetch_transmitters() -> None:
+    """Kick off a background thread to warm the transmitter cache at startup.
+
+    Safe to call multiple times — only spawns one thread.
+    """
+    global _prefetch_started  # noqa: PLW0603
+
+    with _fetch_lock:
+        if _prefetch_started:
+            return
+        _prefetch_started = True
+
+    def _run() -> None:
+        logger.info("Pre-fetching SatNOGS transmitter data in background...")
+        global _transmitters, _fetched_at  # noqa: PLW0603
+        data = fetch_transmitters()
+        with _fetch_lock:
+            _transmitters = data
+            _fetched_at = time.time()
+        logger.info("SatNOGS prefetch complete: %d satellites cached", len(data))
+
+    t = threading.Thread(target=_run, name="satnogs-prefetch", daemon=True)
+    t.start()

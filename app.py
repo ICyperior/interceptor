@@ -1188,6 +1188,14 @@ def _init_app() -> None:
         except Exception as e:
             logger.warning(f"Failed to initialize TLE auto-refresh: {e}")
 
+        # Pre-warm SatNOGS transmitter cache so first dashboard load is instant
+        try:
+            if not os.environ.get('TESTING'):
+                from utils.satnogs import prefetch_transmitters
+                prefetch_transmitters()
+        except Exception as e:
+            logger.warning(f"SatNOGS prefetch failed: {e}")
+
     threading.Thread(target=_deferred_init, daemon=True).start()
 
 
