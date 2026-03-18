@@ -603,7 +603,6 @@
         let _telemetryPollTimer = null;
         let _passRequestId = 0;
         const DASHBOARD_FETCH_TIMEOUT_MS = 10000;
-        const DASHBOARD_AUX_INIT_DELAY_MS = 1200;
         const BUILTIN_TX_FALLBACK = {
             25544: [
                 { description: 'APRS digipeater', downlink_low: 145.825, downlink_high: 145.825, uplink_low: null, uplink_high: null, mode: 'FM AX.25', baud: 1200, status: 'active', type: 'beacon', service: 'Packet' },
@@ -625,34 +624,6 @@
 
         const satColors = ['#00ffff', '#9370DB', '#ff00ff', '#00ff00', '#ff6600', '#ffff00', '#ff69b4', '#7b68ee'];
 
-        async function fetchJsonWithTimeout(url, options = {}, timeoutMs = DASHBOARD_FETCH_TIMEOUT_MS) {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), timeoutMs);
-            try {
-                const response = await fetch(url, {
-                    credentials: 'same-origin',
-                    ...options,
-                    signal: controller.signal,
-                });
-                const contentType = response.headers.get('Content-Type') || '';
-                if (!contentType.includes('application/json')) {
-                    throw new Error(`Unexpected response from ${url}`);
-                }
-                return await response.json();
-            } finally {
-                clearTimeout(timeout);
-            }
-        }
-
-        function scheduleAuxInit(fn, delay = DASHBOARD_AUX_INIT_DELAY_MS) {
-            const run = () => setTimeout(fn, delay);
-            if (typeof window.requestIdleCallback === 'function') {
-                window.requestIdleCallback(run, { timeout: delay + 1000 });
-            } else {
-                run();
-            }
-        }
-
         function loadDashboardSatellites() {
             const btn = document.getElementById('satRefreshBtn');
             if (btn) {
@@ -660,7 +631,8 @@
                 void btn.offsetWidth; // force reflow to restart animation
                 btn.classList.add('spinning');
             }
-            fetchJsonWithTimeout('/satellite/tracked?enabled=true')
+            fetch('/satellite/tracked?enabled=true', { credentials: 'same-origin' })
+                .then(r => r.json())
                 .then(data => {
                     const prevSelected = selectedSatellite;
                     const newSats = {
@@ -954,20 +926,18 @@
                 startSSETracking();
             }
             startTelemetryPolling();
+            loadAgents();
             loadTransmitters(selectedSatellite);
             fetchCurrentTelemetry();
             if (!usedShared) {
                 getLocation();
             }
-            scheduleAuxInit(() => {
-                loadAgents();
-                if (window.gsInit) window.gsInit();
-            });
         });
 
         async function loadAgents() {
             try {
-                const data = await fetchJsonWithTimeout('/controller/agents');
+                const response = await fetch('/controller/agents');
+                const data = await response.json();
                 if (data.status === 'success' && data.agents) {
                     agents = data.agents;
                     populateLocationSelector();
@@ -1848,14 +1818,14 @@
             gsLoadRecordings();
             gsConnectSSE();
         }
-        window.gsInit = gsInit;
 
         // -----------------------------------------------------------------------
         // Scheduler status
         // -----------------------------------------------------------------------
 
         function gsLoadStatus() {
-            fetchJsonWithTimeout('/ground_station/scheduler/status')
+            fetch('/ground_station/scheduler/status')
+                .then(r => r.json())
                 .then(data => { _gsEnabled = data.enabled; _applyStatus(data); })
                 .catch(() => {});
         }
@@ -1895,7 +1865,8 @@
         // -----------------------------------------------------------------------
 
         function gsLoadProfiles() {
-            fetchJsonWithTimeout('/ground_station/profiles')
+            fetch('/ground_station/profiles')
+                .then(r => r.json())
                 .then(profiles => _renderProfiles(profiles))
                 .catch(() => { _renderProfiles([]); });
         }
@@ -2369,7 +2340,12 @@
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
-        // Init is scheduled by the main dashboard boot once the primary UI is live.
+        // Init after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', gsInit);
+        } else {
+            gsInit();
+        }
     })();
     </script>
 </body>
