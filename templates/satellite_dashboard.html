@@ -762,12 +762,7 @@
 
         function handleLivePositions(positions) {
             // Find the selected satellite by name or norad_id
-            const satName = satellites[selectedSatellite]?.name;
-            const pos = positions.find(p =>
-                parseInt(p.norad_id) === selectedSatellite ||
-                p.satellite === satName ||
-                p.satellite === satellites[selectedSatellite]?.name
-            );
+            const pos = findSelectedPosition(positions);
 
             // Update visible count from all positions
             const visibleCount = positions.filter(p => p.visible).length;
@@ -775,7 +770,6 @@
             if (visEl) visEl.textContent = visibleCount;
 
             if (!pos) {
-                clearTelemetry();
                 return;
             }
 
@@ -821,6 +815,16 @@
             }
         }
 
+        function findSelectedPosition(positions) {
+            if (!Array.isArray(positions)) return null;
+            const satName = satellites[selectedSatellite]?.name;
+            return positions.find(p =>
+                parseInt(p.norad_id) === selectedSatellite ||
+                p.satellite === satName ||
+                p.satellite === satellites[selectedSatellite]?.name
+            ) || null;
+        }
+
         function clearTelemetry() {
             const telLat = document.getElementById('telLat');
             const telLon = document.getElementById('telLon');
@@ -855,6 +859,10 @@
                 if (!response.ok) return;
                 const data = await response.json();
                 if (data.status !== 'success' || !Array.isArray(data.positions)) return;
+                if (!findSelectedPosition(data.positions)) {
+                    clearTelemetry();
+                    return;
+                }
                 handleLivePositions(data.positions);
             } catch (_) {}
         }

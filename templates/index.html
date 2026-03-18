@@ -4574,6 +4574,10 @@
             if (btLayoutContainer) btLayoutContainer.classList.toggle('active', mode === 'bluetooth');
             if (satelliteVisuals) satelliteVisuals.style.display = mode === 'satellite' ? 'block' : 'none';
             const satFrame = document.getElementById('satelliteDashboardFrame');
+            if (satFrame && mode === 'satellite') {
+                const baseSrc = '/satellite/dashboard?embedded=true&v={{ version }}';
+                satFrame.src = `${baseSrc}&ts=${Date.now()}`;
+            }
             if (satFrame && satFrame.contentWindow) {
                 satFrame.contentWindow.postMessage({type: 'satellite-visibility', visible: mode === 'satellite'}, '*');
             }

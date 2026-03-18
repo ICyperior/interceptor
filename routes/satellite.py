@@ -8,7 +8,7 @@ import urllib.request
 from datetime import datetime, timedelta
 
 import requests
-from flask import Blueprint, Response, jsonify, render_template, request
+from flask import Blueprint, Response, jsonify, make_response, render_template, request
 
 from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE, SHARED_OBSERVER_LOCATION_ENABLED
 from utils.sse import sse_stream_fanout
@@ -398,11 +398,15 @@ def _fetch_iss_realtime(observer_lat: float | None = None, observer_lon: float |
 def satellite_dashboard():
     """Popout satellite tracking dashboard."""
     embedded = request.args.get('embedded', 'false') == 'true'
-    return render_template(
+    response = make_response(render_template(
         'satellite_dashboard.html',
         shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
         embedded=embedded,
-    )
+    ))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 @satellite_bp.route('/predict', methods=['POST'])
