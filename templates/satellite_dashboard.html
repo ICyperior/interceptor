@@ -789,6 +789,9 @@
         let _dashboardRetryAttempts = 0;
         let _satelliteSelectionRequestToken = 0;
         let _lastSatelliteCatalogRefresh = 0;
+        let _pageTearingDown = false;
+        let _clockTimer = null;
+        let _countdownTimer = null;
         const passCache = new Map();
         const telemetryCache = new Map();
         const transmitterCache = new Map();
@@ -1247,6 +1250,7 @@
         let satelliteSSE = null;
 
         function startSSETracking() {
+            if (_pageTearingDown) return;
             if (satelliteSSE) return;
             satelliteSSE = new EventSource('/satellite/stream_satellite');
             satelliteSSE.onmessage = (e) => {
@@ -1256,9 +1260,12 @@
                 } catch (_) {}
             };
             satelliteSSE.onerror = () => {
+                if (_pageTearingDown) return;
                 // Reconnect automatically after 5s
                 if (satelliteSSE) { satelliteSSE.close(); satelliteSSE = null; }
-                setTimeout(startSSETracking, 5000);
+                setTimeout(() => {
+                    if (!_pageTearingDown) startSSETracking();
+                }, 5000);
             };
         }
 
@@ -1635,7 +1642,25 @@
         // Refresh the catalog on focus only occasionally, and do not clobber
         // working pass/telemetry panes when we already have cached state.
         window.addEventListener('focus', refreshSatelliteCatalogOnFocus);
-        window.addEventListener('pagehide', () => {
+        function teardownSatelliteDashboard() {
+            _pageTearingDown = true;
+            stopSSETracking();
+            if (_telemetryPollTimer) {
+                clearInterval(_telemetryPollTimer);
+                _telemetryPollTimer = null;
+            }
+            if (_clockTimer) {
+                clearInterval(_clockTimer);
+                _clockTimer = null;
+            }
+            if (_countdownTimer) {
+                clearInterval(_countdownTimer);
+                _countdownTimer = null;
+            }
+            if (_dashboardRetryTimer) {
+                clearTimeout(_dashboardRetryTimer);
+                _dashboardRetryTimer = null;
+            }
             if (_telemetryAbortController) {
                 _telemetryAbortController.abort();
                 _telemetryAbortController = null;
@@ -1649,7 +1674,17 @@
                 _passTimeoutId = null;
             }
             closePacketModal();
-        });
+            if (_gsEventSource) {
+                _gsEventSource.close();
+                _gsEventSource = null;
+            }
+            if (window.GroundStationWaterfall) {
+                GroundStationWaterfall.disconnect();
+            }
+        }
+
+        window.addEventListener('pagehide', teardownSatelliteDashboard);
+        window.addEventListener('beforeunload', teardownSatelliteDashboard);
         window.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 closePacketModal();
@@ -1658,6 +1693,7 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
+            _pageTearingDown = false;
             _satelliteSelectionRequestToken += 1;
             renderPacketPanels();
             loadTrackedSatelliteCatalog();
@@ -1667,8 +1703,8 @@
             const usedShared = applySharedObserverLocation();
             initGroundMap();
             updateClock();
-            setInterval(updateClock, 1000);
-            setInterval(updateCountdown, 1000);
+            _clockTimer = setInterval(updateClock, 1000);
+            _countdownTimer = setInterval(updateCountdown, 1000);
             // In standalone mode, start SSE tracking immediately.
             // In embedded mode, wait for parent to signal visibility.
             if (!isEmbedded) {
