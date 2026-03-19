@@ -602,6 +602,8 @@
         let _txRequestId = 0;
         let _telemetryPollTimer = null;
         let _passRequestId = 0;
+        let _passAbortController = null;
+        let _passTimeoutId = null;
         const DASHBOARD_FETCH_TIMEOUT_MS = 10000;
         const BUILTIN_TX_FALLBACK = {
             25544: [
@@ -911,6 +913,16 @@
 
         // Refresh satellite list when the window regains focus (e.g. after enabling sats in the sidebar)
         window.addEventListener('focus', loadDashboardSatellites);
+        window.addEventListener('pagehide', () => {
+            if (_passAbortController) {
+                _passAbortController.abort('pagehide');
+                _passAbortController = null;
+            }
+            if (_passTimeoutId) {
+                clearTimeout(_passTimeoutId);
+                _passTimeoutId = null;
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
             loadDashboardSatellites();
@@ -1131,9 +1143,19 @@
                 button.textContent = 'WORKING...';
             }
 
+            if (_passAbortController) {
+                _passAbortController.abort('superseded');
+                _passAbortController = null;
+            }
+            if (_passTimeoutId) {
+                clearTimeout(_passTimeoutId);
+                _passTimeoutId = null;
+            }
+
             try {
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), DASHBOARD_FETCH_TIMEOUT_MS);
+                _passAbortController = controller;
+                _passTimeoutId = setTimeout(() => controller.abort('timeout'), DASHBOARD_FETCH_TIMEOUT_MS);
                 const response = await fetch('/satellite/predict', {
                     method: 'POST',
                     credentials: 'same-origin',
@@ -1147,7 +1169,13 @@
                         satellites: [selectedSatellite]
                     })
                 });
-                clearTimeout(timeout);
+                if (_passTimeoutId) {
+                    clearTimeout(_passTimeoutId);
+                    _passTimeoutId = null;
+                }
+                if (_passAbortController === controller) {
+                    _passAbortController = null;
+                }
 
                 const contentType = response.headers.get('Content-Type') || '';
                 if (!contentType.includes('application/json')) {
@@ -1178,12 +1206,22 @@
                     }
                 }
             } catch (err) {
+                const isAbort = err && (err.name === 'AbortError' || String(err).includes('AbortError'));
+                if (_passTimeoutId) {
+                    clearTimeout(_passTimeoutId);
+                    _passTimeoutId = null;
+                }
+                if (_passAbortController && _passAbortController.signal.aborted) {
+                    _passAbortController = null;
+                }
                 if (requestId !== _passRequestId) return;
+                if (isAbort) {
+                    return;
+                }
                 console.error('Pass calculation error:', err);
                 passes = [];
                 if (container) {
-                    const timedOut = err && (err.name === 'AbortError' || String(err).includes('AbortError'));
-                    container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:20px;">${timedOut ? 'Timed out calculating passes' : 'Failed to calculate passes'}</div>`;
+                    container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Failed to calculate passes</div>';
                 } else {
                     renderPassList();
                 }
