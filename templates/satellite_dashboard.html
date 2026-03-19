@@ -777,14 +777,19 @@
         let _passRequestId = 0;
         let _passAbortController = null;
         let _passTimeoutId = null;
+        let _activePassRequestKey = null;
         let trackedSatelliteCatalog = [];
         let receiverDevices = [];
         let packetHistory = [];
         let packetConsoleCollapsed = false;
         let _dashboardRetryTimer = null;
         let _dashboardRetryAttempts = 0;
+        const passCache = new Map();
+        const telemetryCache = new Map();
+        const transmitterCache = new Map();
         const RECEIVER_STORAGE_KEY = 'satellite.dashboard.receiver';
         const DASHBOARD_FETCH_TIMEOUT_MS = 30000;
+        const PASS_FETCH_TIMEOUT_MS = 90000;
         const SAT_DRAWER_FETCH_TIMEOUT_MS = 8000;
         const BUILTIN_TX_FALLBACK = {
             25544: [
@@ -885,6 +890,124 @@
             }
         }
 
+        function getObserverCoords() {
+            const lat = parseFloat(document.getElementById('obsLat')?.value);
+            const lon = parseFloat(document.getElementById('obsLon')?.value);
+            return {
+                lat,
+                lon,
+                valid: Number.isFinite(lat) && Number.isFinite(lon)
+            };
+        }
+
+        function getPassCacheKey(noradId = selectedSatellite) {
+            const { lat, lon, valid } = getObserverCoords();
+            if (!valid) return `sat:${noradId}:observer:unknown`;
+            return `sat:${noradId}:observer:${lat.toFixed(3)}:${lon.toFixed(3)}`;
+        }
+
+        function getActivePassRequestKey(noradId = selectedSatellite) {
+            return getPassCacheKey(noradId);
+        }
+
+        function cacheCurrentPasses(noradId = selectedSatellite, passList = passes) {
+            if (!Array.isArray(passList) || !passList.length) return;
+            passCache.set(getPassCacheKey(noradId), {
+                timestamp: Date.now(),
+                passes: passList
+            });
+        }
+
+        function getCachedPasses(noradId = selectedSatellite) {
+            return passCache.get(getPassCacheKey(noradId)) || null;
+        }
+
+        function cacheLivePosition(noradId = selectedSatellite, position = latestLivePosition) {
+            if (!position) return;
+            telemetryCache.set(String(noradId), {
+                timestamp: Date.now(),
+                position
+            });
+        }
+
+        function getCachedLivePosition(noradId = selectedSatellite) {
+            return telemetryCache.get(String(noradId)) || null;
+        }
+
+        function cacheTransmitters(noradId, txList) {
+            if (!noradId || !Array.isArray(txList) || !txList.length) return;
+            transmitterCache.set(String(noradId), {
+                timestamp: Date.now(),
+                transmitters: txList
+            });
+        }
+
+        function getCachedTransmitters(noradId = selectedSatellite) {
+            return transmitterCache.get(String(noradId)) || null;
+        }
+
+        function applyTelemetryPosition(pos, options = {}) {
+            const { updateVisible = false } = options;
+            if (!pos) return;
+            latestLivePosition = pos;
+            cacheLivePosition(selectedSatellite, pos);
+
+            const telLat = document.getElementById('telLat');
+            const telLon = document.getElementById('telLon');
+            const telAlt = document.getElementById('telAlt');
+            const telEl = document.getElementById('telEl');
+            const telAz = document.getElementById('telAz');
+            const telDist = document.getElementById('telDist');
+            if (telLat) telLat.textContent = (pos.lat ?? 0).toFixed(4) + '°';
+            if (telLon) telLon.textContent = (pos.lon ?? 0).toFixed(4) + '°';
+            if (telAlt) telAlt.textContent = (pos.altitude ?? pos.alt ?? 0).toFixed(0) + ' km';
+            if (telEl) telEl.textContent = (pos.elevation ?? pos.el ?? 0).toFixed(1) + '°';
+            if (telAz) telAz.textContent = (pos.azimuth ?? pos.az ?? 0).toFixed(1) + '°';
+            if (telDist) telDist.textContent = (pos.distance ?? pos.dist ?? 0).toFixed(0) + ' km';
+
+            if (selectedPass == null && (pos.azimuth ?? pos.az) != null && (pos.elevation ?? pos.el) != null) {
+                drawPolarPlotWithPosition(
+                    pos.azimuth ?? pos.az,
+                    pos.elevation ?? pos.el,
+                    satellites[selectedSatellite]?.color || '#00d4ff'
+                );
+            }
+            renderMapTrackOverlays();
+            updateMapTrackSummary();
+
+            if (updateVisible) {
+                const visEl = document.getElementById('statVisible');
+                if (visEl && Number.isFinite(pos.visibleCount)) visEl.textContent = String(pos.visibleCount);
+            }
+        }
+
+        function restoreSatelliteStateFromCache() {
+            const cachedPasses = getCachedPasses(selectedSatellite);
+            if (cachedPasses?.passes?.length) {
+                passes = cachedPasses.passes;
+                renderPassList();
+                updateStats();
+                if (!Number.isInteger(selectedPass) || !passes[selectedPass]) {
+                    selectedPass = 0;
+                }
+                if (passes[selectedPass]) {
+                    selectPass(selectedPass);
+                }
+            }
+
+            const cachedTelemetry = getCachedLivePosition(selectedSatellite);
+            if (cachedTelemetry?.position) {
+                applyTelemetryPosition(cachedTelemetry.position);
+            }
+
+            const cachedTransmitters = getCachedTransmitters(selectedSatellite);
+            if (cachedTransmitters?.transmitters?.length) {
+                renderTransmitters(cachedTransmitters.transmitters);
+            }
+
+            updateMissionDrawerInfo();
+        }
+
         function loadDashboardSatellites() {
             const btn = document.getElementById('satRefreshBtn');
             if (btn) {
@@ -927,6 +1050,7 @@
                     }
                     selectedSatellite = parseInt(select.value);
                     clearTelemetry();
+                    restoreSatelliteStateFromCache();
                     updateMissionDrawerInfo();
                     loadTransmitters(selectedSatellite);
                     calculatePasses();
@@ -985,6 +1109,7 @@
 
             clearTelemetry();
             updateMapTrackSummary();
+            restoreSatelliteStateFromCache();
             updateMissionDrawerInfo();
             loadTransmitters(selectedSatellite);
             calculatePasses();
@@ -1065,31 +1190,7 @@
             if (!pos) {
                 return;
             }
-
-            latestLivePosition = pos;
-
-            // Update telemetry panel
-            const telLat = document.getElementById('telLat');
-            const telLon = document.getElementById('telLon');
-            const telAlt = document.getElementById('telAlt');
-            const telEl = document.getElementById('telEl');
-            const telAz = document.getElementById('telAz');
-            const telDist = document.getElementById('telDist');
-            if (telLat) telLat.textContent = (pos.lat ?? 0).toFixed(4) + '°';
-            if (telLon) telLon.textContent = (pos.lon ?? 0).toFixed(4) + '°';
-            if (telAlt) telAlt.textContent = (pos.altitude ?? 0).toFixed(0) + ' km';
-            if (telEl) telEl.textContent = (pos.elevation ?? 0).toFixed(1) + '°';
-            if (telAz) telAz.textContent = (pos.azimuth ?? 0).toFixed(1) + '°';
-            if (telDist) telDist.textContent = (pos.distance ?? 0).toFixed(0) + ' km';
-            if (selectedPass == null && pos.azimuth != null && pos.elevation != null) {
-                drawPolarPlotWithPosition(
-                    pos.azimuth,
-                    pos.elevation,
-                    satellites[selectedSatellite]?.color || '#00d4ff'
-                );
-            }
-            renderMapTrackOverlays();
-            updateMapTrackSummary();
+            applyTelemetryPosition({ ...pos, visibleCount }, { updateVisible: true });
         }
 
         function findSelectedPosition(positions) {
@@ -1144,10 +1245,6 @@
                 const data = await response.json();
                 if (data.status !== 'success' || !Array.isArray(data.positions)) return;
                 if (!findSelectedPosition(data.positions)) {
-                    latestLivePosition = null;
-                    clearTelemetry();
-                    renderMapTrackOverlays();
-                    updateMapTrackSummary();
                     return;
                 }
                 handleLivePositions(data.positions);
@@ -1694,8 +1791,14 @@
             const requestId = ++_passRequestId;
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
+            const requestKey = getActivePassRequestKey(selectedSatellite);
             const container = document.getElementById('passList');
             const button = document.querySelector('.controls-bar .btn.primary');
+
+            if (_passAbortController && _activePassRequestKey === requestKey) {
+                return;
+            }
+
             if (container) {
                 container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Calculating passes...</div>';
             }
@@ -1712,11 +1815,12 @@
                 clearTimeout(_passTimeoutId);
                 _passTimeoutId = null;
             }
+            _activePassRequestKey = requestKey;
 
             try {
                 const controller = new AbortController();
                 _passAbortController = controller;
-                _passTimeoutId = setTimeout(() => controller.abort('timeout'), DASHBOARD_FETCH_TIMEOUT_MS);
+                _passTimeoutId = setTimeout(() => controller.abort('timeout'), PASS_FETCH_TIMEOUT_MS);
                 const response = await fetch('/satellite/predict', {
                     method: 'POST',
                     credentials: 'same-origin',
@@ -1737,6 +1841,9 @@
                 if (_passAbortController === controller) {
                     _passAbortController = null;
                 }
+                if (_activePassRequestKey === requestKey) {
+                    _activePassRequestKey = null;
+                }
 
                 const contentType = response.headers.get('Content-Type') || '';
                 if (!contentType.includes('application/json')) {
@@ -1746,6 +1853,7 @@
                 if (requestId !== _passRequestId) return;
                 if (data.status === 'success') {
                     passes = data.passes;
+                    cacheCurrentPasses(selectedSatellite, passes);
                     renderPassList();
                     updateStats();
                     updateMissionDrawerInfo();
@@ -1766,14 +1874,25 @@
 
                     document.getElementById('trackingStatus').textContent = 'TRACKING';
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
+                    _dashboardRetryAttempts = 0;
                 } else {
-                    passes = [];
-                    renderPassList();
-                    updateMissionDrawerInfo();
-                    document.getElementById('trackingStatus').textContent = 'ERROR';
-                    document.getElementById('trackingDot').style.background = 'var(--accent-red)';
-                    if (container) {
-                        container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:20px;">${data.message || 'Failed to calculate passes'}</div>`;
+                    const cached = getCachedPasses(selectedSatellite);
+                    if (cached?.passes?.length) {
+                        passes = cached.passes;
+                        renderPassList();
+                        updateStats();
+                        updateMissionDrawerInfo();
+                        document.getElementById('trackingStatus').textContent = 'TRACKING';
+                        document.getElementById('trackingDot').style.background = 'var(--accent-green)';
+                    } else {
+                        passes = [];
+                        renderPassList();
+                        updateMissionDrawerInfo();
+                        document.getElementById('trackingStatus').textContent = 'ERROR';
+                        document.getElementById('trackingDot').style.background = 'var(--accent-red)';
+                        if (container) {
+                            container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:20px;">${data.message || 'Failed to calculate passes'}</div>`;
+                        }
                     }
                 }
             } catch (err) {
@@ -1785,22 +1904,37 @@
                 if (_passAbortController && _passAbortController.signal.aborted) {
                     _passAbortController = null;
                 }
+                if (_activePassRequestKey === requestKey) {
+                    _activePassRequestKey = null;
+                }
                 if (requestId !== _passRequestId) return;
                 if (isAbort) {
                     return;
                 }
                 console.error('Pass calculation error:', err);
-                passes = [];
-                updateMissionDrawerInfo();
-                if (container) {
-                    container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Failed to calculate passes</div>';
-                } else {
+                const cached = getCachedPasses(selectedSatellite);
+                if (cached?.passes?.length) {
+                    passes = cached.passes;
                     renderPassList();
+                    updateStats();
+                    document.getElementById('trackingStatus').textContent = 'TRACKING';
+                    document.getElementById('trackingDot').style.background = 'var(--accent-green)';
+                } else {
+                    passes = [];
+                    if (container) {
+                        container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Failed to calculate passes</div>';
+                    } else {
+                        renderPassList();
+                    }
+                    document.getElementById('trackingStatus').textContent = 'OFFLINE';
+                    document.getElementById('trackingDot').style.background = 'var(--accent-red)';
                 }
-                document.getElementById('trackingStatus').textContent = 'OFFLINE';
-                document.getElementById('trackingDot').style.background = 'var(--accent-red)';
+                updateMissionDrawerInfo();
                 scheduleDashboardDataRetry(3500);
             } finally {
+                if (_activePassRequestKey === requestKey) {
+                    _activePassRequestKey = null;
+                }
                 if (requestId === _passRequestId && button) {
                     button.disabled = false;
                     button.textContent = 'CALCULATE';
@@ -2252,12 +2386,20 @@
                 const txList = (data.transmitters && data.transmitters.length)
                     ? data.transmitters
                     : (BUILTIN_TX_FALLBACK[noradId] || []);
+                cacheTransmitters(noradId, txList);
                 renderTransmitters(txList);
                 updateMissionDrawerInfo();
             } catch (e) {
                 if (requestId !== _txRequestId) return;
+                const cached = getCachedTransmitters(noradId);
+                if (cached?.transmitters?.length) {
+                    renderTransmitters(cached.transmitters);
+                    updateMissionDrawerInfo();
+                    return;
+                }
                 const fallback = BUILTIN_TX_FALLBACK[noradId] || [];
                 if (fallback.length) {
+                    cacheTransmitters(noradId, fallback);
                     renderTransmitters(fallback);
                     updateMissionDrawerInfo();
                     return;
@@ -2641,7 +2783,7 @@
             if (_dashboardRetryTimer) clearTimeout(_dashboardRetryTimer);
             _dashboardRetryTimer = setTimeout(() => {
                 const txReady = !!document.querySelector('#transmittersList .tx-item');
-                const needsPassRetry = passes.length === 0;
+                const needsPassRetry = passes.length === 0 && !_passAbortController;
                 const needsTelemetryRetry = !latestLivePosition;
                 const needsTxRetry = !txReady;
                 if (!(needsPassRetry || needsTelemetryRetry || needsTxRetry)) {
