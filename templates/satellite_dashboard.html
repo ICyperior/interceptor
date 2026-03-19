@@ -2289,9 +2289,10 @@
         function drawPolarPlot(pass) {
             const canvas = document.getElementById('polarPlot');
             const ctx = canvas.getContext('2d');
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height - 20;
+            const rect = canvas.getBoundingClientRect();
+            const size = Math.round(Math.min(rect.width, rect.height || rect.width));
+            canvas.width = size;
+            canvas.height = size;
 
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
@@ -2517,9 +2518,10 @@
         function drawPolarPlotWithPosition(az, el, color) {
             const canvas = document.getElementById('polarPlot');
             const ctx = canvas.getContext('2d');
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height - 20;
+            const rect = canvas.getBoundingClientRect();
+            const size = Math.round(Math.min(rect.width, rect.height || rect.width));
+            canvas.width = size;
+            canvas.height = size;
 
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;

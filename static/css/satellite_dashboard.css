@@ -264,7 +264,6 @@ body {
 }
 
 /* Main dashboard grid */
-/* Header ~52px + Nav 44px = ~96px, using 100px for safety */
 .dashboard {
     position: relative;
     z-index: 10;
@@ -273,7 +272,6 @@ body {
     grid-template-rows: minmax(0, 1fr) auto auto;
     gap: 12px;
     height: auto;
-    min-height: 720px;
     padding: 12px;
 }
 
@@ -740,25 +738,22 @@ body {
 /* Polar plot */
 .polar-container {
     min-height: 0;
-    max-height: 340px;
-    align-self: start;
 }
 
 .polar-container .panel-content {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 14px;
+    padding: 8px;
+    height: auto;
     overflow: hidden;
 }
 
 #polarPlot {
     display: block;
     width: 100%;
-    height: 100%;
-    max-width: 320px;
-    max-height: 320px;
-    min-height: 0;
+    max-width: 300px;
+    aspect-ratio: 1 / 1;
 }
 
 /* Ground track map */
@@ -1566,7 +1561,6 @@ body {
     .dashboard {
         grid-template-rows: auto auto auto;
         height: auto;
-        min-height: calc(100vh - 100px);
     }
 
     .primary-layout {
