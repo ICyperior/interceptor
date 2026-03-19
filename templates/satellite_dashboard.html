@@ -1373,17 +1373,22 @@
             const lat = parseFloat(document.getElementById('obsLat')?.value);
             const lon = parseFloat(document.getElementById('obsLon')?.value);
             if (!Number.isFinite(lat) || !Number.isFinite(lon) || !selectedSatellite) return;
-            const requestKey = `telemetry:${requestedSatellite}:${lat.toFixed(3)}:${lon.toFixed(3)}`;
 
-            if (_telemetryAbortController && _activeTelemetryRequestKey === requestKey) {
-                return;
+            const requestKey = `telemetry:${requestedSatellite}:${lat.toFixed(3)}:${lon.toFixed(3)}`;
+            if (_activeTelemetryRequestKey === requestKey) return; // identical request already in flight
+
+            // Cancel any in-flight request for a different satellite/location
+            if (_telemetryAbortController) {
+                _telemetryAbortController.abort();
+                _telemetryAbortController = null;
             }
 
+            const controller = new AbortController();
+            _telemetryAbortController = controller;
+            _activeTelemetryRequestKey = requestKey;
+
             try {
-                const controller = new AbortController();
-                _telemetryAbortController = controller;
-                _activeTelemetryRequestKey = requestKey;
-                const timeout = setTimeout(() => controller.abort(), TELEMETRY_FETCH_TIMEOUT_MS);
+                const timeoutId = setTimeout(() => controller.abort(), TELEMETRY_FETCH_TIMEOUT_MS);
                 const response = await fetch('/satellite/position', {
                     method: 'POST',
                     credentials: 'same-origin',
@@ -1396,25 +1401,28 @@
                         includeTrack: false
                     })
                 });
-                clearTimeout(timeout);
-                if (_telemetryAbortController === controller) {
-                    _telemetryAbortController = null;
-                }
-                if (_activeTelemetryRequestKey === requestKey) {
-                    _activeTelemetryRequestKey = null;
-                }
+                clearTimeout(timeoutId);
+
                 if (!response.ok) return;
                 const contentType = response.headers.get('Content-Type') || '';
                 if (!contentType.includes('application/json')) return;
                 const data = await response.json();
                 if (data.status !== 'success' || !Array.isArray(data.positions)) return;
+
+                // Discard if satellite or selection changed while request was in flight
+                if (selectionToken !== _satelliteSelectionRequestToken || requestedSatellite !== selectedSatellite) return;
+
                 const pos = data.positions.find(p => parseInt(p.norad_id, 10) === requestedSatellite) || null;
                 if (!pos) return;
                 cacheLivePosition(requestedSatellite, pos);
-                if (selectionToken !== _satelliteSelectionRequestToken || requestedSatellite !== selectedSatellite) return;
                 handleLivePositions(data.positions, 'poll');
-            } catch (_) {
-                if (_telemetryAbortController?.signal?.aborted) {
+
+            } catch (err) {
+                if (err?.name === 'AbortError') return; // expected on cancel/timeout
+                console.debug('Telemetry fetch error:', err);
+            } finally {
+                // Always release the controller slot so the next poll can run
+                if (_telemetryAbortController === controller) {
                     _telemetryAbortController = null;
                 }
                 if (_activeTelemetryRequestKey === requestKey) {
