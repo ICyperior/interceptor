@@ -1288,7 +1288,7 @@
             satelliteSSE.onmessage = (e) => {
                 try {
                     const msg = JSON.parse(e.data);
-                    if (msg.type === 'positions') handleLivePositions(msg.positions);
+                    if (msg.type === 'positions') handleLivePositions(msg.positions, 'sse');
                 } catch (_) {}
             };
             satelliteSSE.onerror = () => {
@@ -1305,25 +1305,43 @@
             if (satelliteSSE) { satelliteSSE.close(); satelliteSSE = null; }
         }
 
-        function handleLivePositions(positions) {
+        function handleLivePositions(positions, source) {
             // Find the selected satellite by name or norad_id
             const pos = findSelectedPosition(positions);
 
-            // Update visible count from all positions
-            const visibleCount = positions.filter(p => p.visible).length;
-            const visEl = document.getElementById('statVisible');
-            if (visEl) visEl.textContent = visibleCount;
+            if (!pos) return;
 
-            if (!pos) {
-                return;
+            if (source === 'sse') {
+                // SSE is server-side and location-unaware: only update orbit
+                // position and ground track. Never set observer-relative fields
+                // (elevation, azimuth, distance, visible) from here — those are
+                // owned by the HTTP poll which uses the client's actual location.
+                const orbitOnly = {
+                    satellite: pos.satellite,
+                    norad_id: pos.norad_id,
+                    lat: pos.lat,
+                    lon: pos.lon,
+                    altitude: pos.altitude,
+                    groundTrack: pos.groundTrack,
+                    track: pos.track,
+                };
+                applyTelemetryPosition(orbitOnly, {
+                    updateVisible: false,
+                    noradId: parseInt(pos.norad_id, 10) || selectedSatellite,
+                });
+            } else {
+                // HTTP poll: owns all observer-relative data and visible-count badge
+                const visibleCount = positions.filter(p => p.visible).length;
+                const visEl = document.getElementById('statVisible');
+                if (visEl) visEl.textContent = visibleCount;
+                applyTelemetryPosition(
+                    { ...pos, visibleCount },
+                    {
+                        updateVisible: true,
+                        noradId: parseInt(pos.norad_id, 10) || selectedSatellite,
+                    }
+                );
             }
-            applyTelemetryPosition(
-                { ...pos, visibleCount },
-                {
-                    updateVisible: true,
-                    noradId: parseInt(pos.norad_id, 10) || selectedSatellite
-                }
-            );
         }
 
         function findSelectedPosition(positions) {
@@ -1394,7 +1412,7 @@
                 if (!pos) return;
                 cacheLivePosition(requestedSatellite, pos);
                 if (selectionToken !== _satelliteSelectionRequestToken || requestedSatellite !== selectedSatellite) return;
-                handleLivePositions(data.positions);
+                handleLivePositions(data.positions, 'poll');
             } catch (_) {
                 if (_telemetryAbortController?.signal?.aborted) {
                     _telemetryAbortController = null;
