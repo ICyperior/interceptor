@@ -2180,12 +2180,36 @@ sudo make install</code>
             return layer;
         }
 
+        function shouldAutoUpgradeRadarTiles(config) {
+            if (!config || !config.url) return false;
+
+            try {
+                const resolvedUrl = new URL(config.url, window.location.origin);
+
+                // Keep the zero-network fallback grid as the default map for any
+                // off-box provider. External tile fetches can keep the browser in
+                // a long-loading state even though the dashboard itself is ready.
+                return resolvedUrl.origin === window.location.origin;
+            } catch (e) {
+                console.warn('ADS-B: unable to resolve tile URL, keeping fallback grid:', e);
+                return false;
+            }
+        }
+
         async function upgradeRadarTilesFromSettings(fallbackTiles) {
             if (typeof Settings === 'undefined') return;
 
             try {
                 await Settings.init();
                 if (!radarMap) return;
+
+                const tileConfig = Settings.getTileConfig();
+                Settings.registerMap(radarMap);
+
+                if (!shouldAutoUpgradeRadarTiles(tileConfig)) {
+                    console.info('ADS-B: keeping local fallback grid for startup map');
+                    return;
+                }
 
                 const configuredLayer = Settings.createTileLayer();
                 let tileLoaded = false;
@@ -2204,7 +2228,6 @@ sudo make install</code>
                 });
 
                 configuredLayer.addTo(radarMap);
-                Settings.registerMap(radarMap);
             } catch (e) {
                 console.warn('ADS-B: Settings/tile upgrade failed, using fallback grid:', e);
             }
