@@ -439,6 +439,7 @@
         let panelSelectionFallbackTimer = null;
         let panelSelectionStageTimer = null;
         let mapCrosshairRequestId = 0;
+        let detectedDevicesPromise = null;
         // Watchlist - persisted to localStorage
         let watchlist = JSON.parse(localStorage.getItem('adsb_watchlist') || '[]');
 
@@ -1733,11 +1734,12 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             loadAdsbBiasTSetting();
 
             initMap();
-            initDeviceSelectors();
+            initDeviceSelectors()
+                .then((devices) => checkAdsbTools(devices))
+                .catch(() => checkAdsbTools([]));
             updateClock();
             setInterval(updateClock, 1000);
             setInterval(cleanupOldAircraft, 10000);
-            checkAdsbTools();
             checkAircraftDatabase();
             checkDvbDriverConflict();
 
@@ -1751,63 +1753,90 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         // Track which device is being used for ADS-B tracking
         let adsbActiveDevice = null;
 
-        function initDeviceSelectors() {
-            // Populate both ADS-B and airband device selectors
-            fetch('/devices')
-                .then(r => r.json())
-                .then(devices => {
-                    const adsbSelect = document.getElementById('adsbDeviceSelect');
-                    const airbandSelect = document.getElementById('airbandDeviceSelect');
+        function fetchJsonWithTimeout(url, options = {}, timeoutMs = 4000) {
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+            return fetch(url, {
+                ...options,
+                ...(controller ? { signal: controller.signal } : {})
+            }).finally(() => {
+                if (timeoutId) clearTimeout(timeoutId);
+            });
+        }
 
-                    // Clear loading state
-                    adsbSelect.innerHTML = '';
-                    airbandSelect.innerHTML = '';
+        function populateCompositeDeviceSelect(select, devices, emptyLabel = 'No SDR detected') {
+            if (!select) return;
+            select.innerHTML = '';
 
-                    if (devices.length === 0) {
-                        adsbSelect.innerHTML = '<option value="rtlsdr:0">No SDR found</option>';
-                        airbandSelect.innerHTML = '<option value="rtlsdr:0">No SDR found</option>';
-                        airbandSelect.disabled = true;
-                    } else {
-                        devices.forEach((dev, i) => {
-                            const idx = dev.index !== undefined ? dev.index : i;
-                            const sdrType = dev.sdr_type || 'rtlsdr';
-                            const compositeVal = `${sdrType}:${idx}`;
-                            const displayName = `SDR ${idx}: ${dev.name}`;
+            if (!devices || devices.length === 0) {
+                select.innerHTML = `<option value="rtlsdr:0">${emptyLabel}</option>`;
+                return;
+            }
 
-                            // Add to ADS-B selector
-                            const adsbOpt = document.createElement('option');
-                            adsbOpt.value = compositeVal;
-                            adsbOpt.dataset.sdrType = sdrType;
-                            adsbOpt.dataset.index = idx;
-                            adsbOpt.textContent = displayName;
-                            adsbSelect.appendChild(adsbOpt);
+            devices.forEach((dev, i) => {
+                const idx = dev.index !== undefined ? dev.index : i;
+                const sdrType = dev.sdr_type || 'rtlsdr';
+                const option = document.createElement('option');
+                option.value = `${sdrType}:${idx}`;
+                option.dataset.sdrType = sdrType;
+                option.dataset.index = idx;
+                option.textContent = `SDR ${idx}: ${dev.name || dev.type || 'SDR'}`;
+                select.appendChild(option);
+            });
+        }
 
-                            // Add to Airband selector
-                            const airbandOpt = document.createElement('option');
-                            airbandOpt.value = compositeVal;
-                            airbandOpt.dataset.sdrType = sdrType;
-                            airbandOpt.dataset.index = idx;
-                            airbandOpt.textContent = displayName;
-                            airbandSelect.appendChild(airbandOpt);
-                        });
-
-                        // Default: ADS-B uses first device, Airband uses second (if available)
-                        adsbSelect.value = adsbSelect.options[0]?.value || 'rtlsdr:0';
-                        if (devices.length > 1) {
-                            airbandSelect.value = airbandSelect.options[1]?.value || airbandSelect.options[0]?.value || 'rtlsdr:0';
-                        }
-
-                        // Show warning if only one device
-                        if (devices.length === 1) {
-                            document.getElementById('airbandStatus').textContent = '1 SDR only';
-                            document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
-                        }
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('adsbDeviceSelect').innerHTML = '<option value="rtlsdr:0">Error</option>';
-                    document.getElementById('airbandDeviceSelect').innerHTML = '<option value="rtlsdr:0">Error</option>';
+        function getDetectedDevices(force = false) {
+            if (!force && detectedDevicesPromise) {
+                return detectedDevicesPromise;
+            }
+            detectedDevicesPromise = fetchJsonWithTimeout('/devices', {}, 4000)
+                .then((r) => r.ok ? r.json() : [])
+                .catch((err) => {
+                    console.warn('[ADS-B] Device detection failed:', err?.message || err);
+                    return [];
                 });
+            return detectedDevicesPromise;
+        }
+
+        function initDeviceSelectors() {
+            return getDetectedDevices().then((devices) => {
+                const adsbSelect = document.getElementById('adsbDeviceSelect');
+                const airbandSelect = document.getElementById('airbandDeviceSelect');
+                const acarsSelect = document.getElementById('acarsDeviceSelect');
+                const vdl2Select = document.getElementById('vdl2DeviceSelect');
+
+                populateCompositeDeviceSelect(adsbSelect, devices, 'No SDR found');
+                populateCompositeDeviceSelect(airbandSelect, devices, 'No SDR found');
+                populateCompositeDeviceSelect(acarsSelect, devices);
+                populateCompositeDeviceSelect(vdl2Select, devices);
+
+                if (!devices || devices.length === 0) {
+                    if (airbandSelect) airbandSelect.disabled = true;
+                    return devices;
+                }
+
+                if (airbandSelect) {
+                    airbandSelect.disabled = false;
+                }
+
+                if (adsbSelect) {
+                    adsbSelect.value = adsbSelect.options[0]?.value || 'rtlsdr:0';
+                }
+                if (airbandSelect && devices.length > 1) {
+                    airbandSelect.value = airbandSelect.options[1]?.value || airbandSelect.options[0]?.value || 'rtlsdr:0';
+                }
+
+                if (devices.length === 1) {
+                    document.getElementById('airbandStatus').textContent = '1 SDR only';
+                    document.getElementById('airbandStatus').style.color = 'var(--accent-orange)';
+                }
+
+                return devices;
+            }).catch(() => {
+                document.getElementById('adsbDeviceSelect').innerHTML = '<option value="rtlsdr:0">Error</option>';
+                document.getElementById('airbandDeviceSelect').innerHTML = '<option value="rtlsdr:0">Error</option>';
+                return [];
+            });
         }
 
         function checkDvbDriverConflict() {
@@ -1911,12 +1940,15 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             if (warning) warning.remove();
         }
 
-        function checkAdsbTools() {
-            fetch('/adsb/tools')
+        function checkAdsbTools(devices = []) {
+            fetchJsonWithTimeout('/adsb/tools', {}, 3000)
                 .then(r => r.json())
                 .then(data => {
-                    if (data.needs_readsb) {
-                        showReadsbWarning(data.soapy_types);
+                    const soapyTypes = (devices || [])
+                        .filter((d) => ['hackrf', 'limesdr', 'airspy'].includes((d.sdr_type || '').toLowerCase()))
+                        .map((d) => d.sdr_type);
+                    if (!data.readsb && soapyTypes.length > 0) {
+                        showReadsbWarning(soapyTypes);
                     }
                 })
                 .catch(() => {});
@@ -4297,26 +4329,9 @@ sudo make install</code>
 
         // Populate ACARS device selector
         document.addEventListener('DOMContentLoaded', () => {
-            fetch('/devices')
-                .then(r => r.json())
-                .then(devices => {
-                    const select = document.getElementById('acarsDeviceSelect');
-                    select.innerHTML = '';
-                    if (devices.length === 0) {
-                        select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
-                    } else {
-                        devices.forEach((d, i) => {
-                            const opt = document.createElement('option');
-                            const sdrType = d.sdr_type || 'rtlsdr';
-                            const idx = d.index !== undefined ? d.index : i;
-                            opt.value = `${sdrType}:${idx}`;
-                            opt.dataset.sdrType = sdrType;
-                            opt.dataset.index = idx;
-                            opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
-                            select.appendChild(opt);
-                        });
-                    }
-                });
+            getDetectedDevices().then((devices) => {
+                populateCompositeDeviceSelect(document.getElementById('acarsDeviceSelect'), devices);
+            });
         });
 
         // ============================================
@@ -4846,26 +4861,9 @@ sudo make install</code>
 
         // Populate VDL2 device selector and check running status
         document.addEventListener('DOMContentLoaded', () => {
-            fetch('/devices')
-                .then(r => r.json())
-                .then(devices => {
-                    const select = document.getElementById('vdl2DeviceSelect');
-                    select.innerHTML = '';
-                    if (devices.length === 0) {
-                        select.innerHTML = '<option value="rtlsdr:0">No SDR detected</option>';
-                    } else {
-                        devices.forEach((d, i) => {
-                            const opt = document.createElement('option');
-                            const sdrType = d.sdr_type || 'rtlsdr';
-                            const idx = d.index !== undefined ? d.index : i;
-                            opt.value = `${sdrType}:${idx}`;
-                            opt.dataset.sdrType = sdrType;
-                            opt.dataset.index = idx;
-                            opt.textContent = `SDR ${idx}: ${d.name || d.type || 'SDR'}`;
-                            select.appendChild(opt);
-                        });
-                    }
-                });
+            getDetectedDevices().then((devices) => {
+                populateCompositeDeviceSelect(document.getElementById('vdl2DeviceSelect'), devices);
+            });
 
             // Check if VDL2 is already running (e.g. after page reload)
             fetch('/vdl2/status')
