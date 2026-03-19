@@ -911,8 +911,24 @@
             return `sat:${noradId}:observer:${lat.toFixed(3)}:${lon.toFixed(3)}`;
         }
 
-        function getActivePassRequestKey(noradId = selectedSatellite) {
-            return getPassCacheKey(noradId);
+        function getPassPredictionTargets() {
+            const targets = Object.keys(satellites || {})
+                .map(id => parseInt(id, 10))
+                .filter(id => Number.isFinite(id));
+            if (Number.isFinite(selectedSatellite) && !targets.includes(selectedSatellite)) {
+                targets.unshift(selectedSatellite);
+            }
+            return Array.from(new Set(targets));
+        }
+
+        function getActivePassRequestKey(targetIds = getPassPredictionTargets()) {
+            const { lat, lon, valid } = getObserverCoords();
+            const satKey = [...targetIds]
+                .filter(id => Number.isFinite(id))
+                .sort((a, b) => a - b)
+                .join(',');
+            if (!valid) return `sat-batch:observer:unknown:${satKey}`;
+            return `sat-batch:observer:${lat.toFixed(3)}:${lon.toFixed(3)}:${satKey}`;
         }
 
         function cacheCurrentPasses(noradId = selectedSatellite, passList = passes) {
@@ -925,6 +941,53 @@
 
         function getCachedPasses(noradId = selectedSatellite) {
             return passCache.get(getPassCacheKey(noradId)) || null;
+        }
+
+        function cachePredictedPassBatch(passList = [], targetIds = getPassPredictionTargets()) {
+            const grouped = new Map();
+            targetIds.forEach(id => grouped.set(id, []));
+
+            (Array.isArray(passList) ? passList : []).forEach(pass => {
+                const norad = parseInt(pass?.norad ?? pass?.norad_id, 10);
+                if (!Number.isFinite(norad)) return;
+                if (!grouped.has(norad)) grouped.set(norad, []);
+                grouped.get(norad).push(pass);
+            });
+
+            grouped.forEach((list, noradId) => {
+                passCache.set(getPassCacheKey(noradId), {
+                    timestamp: Date.now(),
+                    passes: list
+                });
+            });
+        }
+
+        function applySelectedSatellitePasses() {
+            const cached = getCachedPasses(selectedSatellite);
+            passes = cached?.passes || [];
+            if (!passes.length) {
+                selectedPass = null;
+                renderPassList();
+                updateStats();
+                updateMissionDrawerInfo();
+                renderMapTrackOverlays();
+                updateMapTrackSummary();
+                updateTelemetry(null);
+                return false;
+            }
+
+            if (!Number.isInteger(selectedPass) || !passes[selectedPass]) {
+                selectedPass = 0;
+            }
+
+            renderPassList();
+            updateStats();
+            updateMissionDrawerInfo();
+
+            if (passes[selectedPass]) {
+                selectPass(selectedPass);
+            }
+            return true;
         }
 
         function cacheLivePosition(noradId = selectedSatellite, position = latestLivePosition) {
@@ -1796,8 +1859,8 @@
         async function calculatePasses() {
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
-            const requestedSatellite = selectedSatellite;
-            const requestKey = getActivePassRequestKey(requestedSatellite);
+            const requestTargets = getPassPredictionTargets();
+            const requestKey = getActivePassRequestKey(requestTargets);
             const container = document.getElementById('passList');
             const button = document.querySelector('.controls-bar .btn.primary');
 
@@ -1839,7 +1902,7 @@
                         longitude: lon,
                         hours: 48,
                         minEl: 5,
-                        satellites: [requestedSatellite]
+                        satellites: requestTargets
                     })
                 });
                 if (_passTimeoutId) {
@@ -1859,46 +1922,14 @@
                 }
                 const data = await response.json();
                 if (requestId !== _passRequestId) return;
-                const stillSelected = requestedSatellite === selectedSatellite;
                 if (data.status === 'success') {
                     const resolvedPasses = Array.isArray(data.passes) ? data.passes : [];
-                    cacheCurrentPasses(requestedSatellite, resolvedPasses);
-                    if (!stillSelected) return;
-
-                    passes = resolvedPasses;
+                    cachePredictedPassBatch(resolvedPasses, requestTargets);
 
                     try {
-                        renderPassList();
-                        updateStats();
-                        updateMissionDrawerInfo();
+                        applySelectedSatellitePasses();
                     } catch (renderErr) {
                         console.error('Satellite pass list render error:', renderErr);
-                    }
-
-                    if (passes.length > 0) {
-                        try {
-                            selectPass(0);
-                        } catch (renderErr) {
-                            console.error('Satellite pass selection render error:', renderErr);
-                            selectedPass = 0;
-                            renderMapTrackOverlays();
-                            updateMapTrackSummary();
-                            updateTelemetry(passes[0]);
-                        }
-                    } else {
-                        try {
-                            renderMapTrackOverlays();
-                            updateMapTrackSummary();
-                            if (latestLivePosition?.azimuth != null && latestLivePosition?.elevation != null) {
-                                drawPolarPlotWithPosition(
-                                    latestLivePosition.azimuth,
-                                    latestLivePosition.elevation,
-                                    satellites[selectedSatellite]?.color || '#00d4ff'
-                                );
-                            }
-                        } catch (renderErr) {
-                            console.error('Satellite empty-pass render error:', renderErr);
-                        }
                     }
 
                     try {
@@ -1911,26 +1942,10 @@
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                     _dashboardRetryAttempts = 0;
                 } else {
-                    const cached = getCachedPasses(requestedSatellite);
-                    if (!stillSelected) return;
-                    if (cached?.passes?.length) {
-                        passes = cached.passes;
-                        renderPassList();
-                        updateStats();
-                        updateMissionDrawerInfo();
-                        if (!Number.isInteger(selectedPass) || !passes[selectedPass]) {
-                            selectedPass = 0;
-                        }
-                        if (passes[selectedPass]) {
-                            selectPass(selectedPass);
-                        }
+                    if (applySelectedSatellitePasses()) {
                         document.getElementById('trackingStatus').textContent = 'TRACKING';
                         document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                     } else {
-                        passes = [];
-                        selectedPass = null;
-                        renderPassList();
-                        updateMissionDrawerInfo();
                         document.getElementById('trackingStatus').textContent = 'ERROR';
                         document.getElementById('trackingDot').style.background = 'var(--accent-red)';
                         if (container) {
@@ -1955,24 +1970,10 @@
                     return;
                 }
                 console.error('Pass calculation error:', err);
-                const cached = getCachedPasses(requestedSatellite);
-                if (requestedSatellite !== selectedSatellite) return;
-                if (cached?.passes?.length) {
-                    passes = cached.passes;
-                    renderPassList();
-                    updateStats();
-                    updateMissionDrawerInfo();
-                    if (!Number.isInteger(selectedPass) || !passes[selectedPass]) {
-                        selectedPass = 0;
-                    }
-                    if (passes[selectedPass]) {
-                        selectPass(selectedPass);
-                    }
+                if (applySelectedSatellitePasses()) {
                     document.getElementById('trackingStatus').textContent = 'TRACKING';
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                 } else {
-                    passes = [];
-                    selectedPass = null;
                     if (container) {
                         container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Failed to calculate passes</div>';
                     } else {
