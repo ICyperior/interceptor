@@ -55,6 +55,20 @@ _BUILTIN_TRANSMITTERS: dict[int, list[dict]] = {
             "service": "SSTV",
         },
     ],
+    40069: [
+        {
+            "description": "Meteor LRPT weather downlink",
+            "downlink_low": 137.900,
+            "downlink_high": 137.900,
+            "uplink_low": None,
+            "uplink_high": None,
+            "mode": "LRPT",
+            "baud": 72000,
+            "status": "active",
+            "type": "image",
+            "service": "Weather",
+        },
+    ],
     57166: [
         {
             "description": "Meteor LRPT weather downlink",
