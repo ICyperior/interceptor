@@ -1024,6 +1024,23 @@
             return Number.isFinite(value);
         }
 
+        // Compute slant range (km) from observer on Earth's surface to satellite.
+        // Uses spherical Earth approximation; accurate enough for display.
+        function _computeSlantRange(obsLat, obsLon, satLat, satLon, satAltKm) {
+            const R = 6371;
+            const toRad = Math.PI / 180;
+            const lat1 = obsLat * toRad, lon1 = obsLon * toRad;
+            const lat2 = satLat * toRad, lon2 = satLon * toRad;
+            const rSat = R + satAltKm;
+            const ox = R    * Math.cos(lat1) * Math.cos(lon1);
+            const oy = R    * Math.cos(lat1) * Math.sin(lon1);
+            const oz = R    * Math.sin(lat1);
+            const sx = rSat * Math.cos(lat2) * Math.cos(lon2);
+            const sy = rSat * Math.cos(lat2) * Math.sin(lon2);
+            const sz = rSat * Math.sin(lat2);
+            return Math.sqrt((sx-ox)**2 + (sy-oy)**2 + (sz-oz)**2);
+        }
+
         function normalizeLivePosition(pos, previous = latestLivePosition) {
             if (!pos) return null;
             const merged = {
@@ -1063,7 +1080,17 @@
             if (telAlt && _isFiniteNumber(normalized.altitude ?? normalized.alt)) telAlt.textContent = (normalized.altitude ?? normalized.alt).toFixed(0) + ' km';
             if (telEl && _isFiniteNumber(normalized.elevation ?? normalized.el)) telEl.textContent = (normalized.elevation ?? normalized.el).toFixed(1) + '°';
             if (telAz && _isFiniteNumber(normalized.azimuth ?? normalized.az)) telAz.textContent = (normalized.azimuth ?? normalized.az).toFixed(1) + '°';
-            if (telDist && _isFiniteNumber(normalized.distance ?? normalized.dist)) telDist.textContent = (normalized.distance ?? normalized.dist).toFixed(0) + ' km';
+            // Compute slant range from the current lat/lon/altitude so the
+            // distance display updates at the same rate as position (1 Hz via
+            // SSE). Falls back to the Skyfield-computed value from the HTTP
+            // poll if geometry data is not available.
+            let displayDist = normalized.distance ?? normalized.dist;
+            const { lat: obsLat, lon: obsLon, valid: obsValid } = getObserverCoords();
+            const satAlt = normalized.altitude ?? normalized.alt;
+            if (obsValid && _isFiniteNumber(normalized.lat) && _isFiniteNumber(normalized.lon) && _isFiniteNumber(satAlt)) {
+                displayDist = _computeSlantRange(obsLat, obsLon, normalized.lat, normalized.lon, satAlt);
+            }
+            if (telDist && _isFiniteNumber(displayDist)) telDist.textContent = displayDist.toFixed(0) + ' km';
 
             if (selectedPass == null && _isFiniteNumber(normalized.azimuth ?? normalized.az) && _isFiniteNumber(normalized.elevation ?? normalized.el)) {
                 drawPolarPlotWithPosition(
@@ -2068,9 +2095,10 @@
                     clearTimeout(_passTimeoutId);
                     _passTimeoutId = null;
                 }
-                if (_passAbortController === controller) {
-                    _passAbortController = null;
-                }
+                // Keep _passAbortController set until AFTER response.json() so
+                // the retry scheduler doesn't incorrectly see the request as
+                // finished (passes=0 + no controller) and increment _passRequestId
+                // mid-parse, which would cause this response to be discarded.
                 if (_activePassRequestKey === requestKey) {
                     _activePassRequestKey = null;
                 }
@@ -2080,6 +2108,10 @@
                     throw new Error('Unexpected response while calculating passes');
                 }
                 const data = await response.json();
+                // Now safe to release the controller slot
+                if (_passAbortController === controller) {
+                    _passAbortController = null;
+                }
                 if (requestId !== _passRequestId) return;
                 if (data.status === 'success') {
                     const resolvedPasses = Array.isArray(data.passes) ? data.passes : [];
