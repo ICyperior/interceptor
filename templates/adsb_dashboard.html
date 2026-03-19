@@ -2180,6 +2180,36 @@ sudo make install</code>
             return layer;
         }
 
+        async function upgradeRadarTilesFromSettings(fallbackTiles) {
+            if (typeof Settings === 'undefined') return;
+
+            try {
+                await Settings.init();
+                if (!radarMap) return;
+
+                const configuredLayer = Settings.createTileLayer();
+                let tileLoaded = false;
+
+                configuredLayer.once('load', () => {
+                    tileLoaded = true;
+                    if (radarMap && fallbackTiles && radarMap.hasLayer(fallbackTiles)) {
+                        radarMap.removeLayer(fallbackTiles);
+                    }
+                });
+
+                configuredLayer.on('tileerror', () => {
+                    if (!tileLoaded) {
+                        console.warn('ADS-B tile layer failed to load, keeping fallback grid');
+                    }
+                });
+
+                configuredLayer.addTo(radarMap);
+                Settings.registerMap(radarMap);
+            } catch (e) {
+                console.warn('ADS-B: Settings/tile upgrade failed, using fallback grid:', e);
+            }
+        }
+
         async function initMap() {
             // Guard against double initialization (e.g. bfcache restore)
             const container = document.getElementById('radarMap');
@@ -2212,20 +2242,9 @@ sudo make install</code>
                 if (radarMap) radarMap.invalidateSize();
             }, 500);
 
-            // Upgrade tiles via Settings in the background (non-blocking)
-            if (typeof Settings !== 'undefined') {
-                try {
-                    await Promise.race([
-                        Settings.init(),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('Settings timeout')), 5000))
-                    ]);
-                    radarMap.removeLayer(fallbackTiles);
-                    Settings.createTileLayer().addTo(radarMap);
-                    Settings.registerMap(radarMap);
-                } catch (e) {
-                    console.warn('Settings init failed/timed out, using fallback tiles:', e);
-                }
-            }
+            // Upgrade tiles via Settings in the background without tearing down
+            // the local fallback grid until a real tile layer actually loads.
+            upgradeRadarTilesFromSettings(fallbackTiles);
         }
 
         // Handle window resize for map (especially important on mobile)
