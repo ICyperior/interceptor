@@ -1020,11 +1020,37 @@
             return transmitterCache.get(String(noradId)) || null;
         }
 
+        function _isFiniteNumber(value) {
+            return Number.isFinite(value);
+        }
+
+        function normalizeLivePosition(pos, previous = latestLivePosition) {
+            if (!pos) return null;
+            const merged = {
+                ...(previous || {}),
+                ...pos,
+            };
+            const liveTrack = Array.isArray(pos.groundTrack)
+                ? pos.groundTrack
+                : (Array.isArray(pos.track)
+                    ? pos.track
+                    : (Array.isArray(previous?.groundTrack)
+                        ? previous.groundTrack
+                        : (Array.isArray(previous?.track) ? previous.track : null)));
+            if (liveTrack) {
+                merged.groundTrack = liveTrack;
+                merged.track = liveTrack;
+            }
+            return merged;
+        }
+
         function applyTelemetryPosition(pos, options = {}) {
             const { updateVisible = false, noradId = selectedSatellite } = options;
             if (!pos) return;
-            latestLivePosition = pos;
-            cacheLivePosition(noradId, pos);
+            const normalized = normalizeLivePosition(pos);
+            if (!normalized) return;
+            latestLivePosition = normalized;
+            cacheLivePosition(noradId, normalized);
 
             const telLat = document.getElementById('telLat');
             const telLon = document.getElementById('telLon');
@@ -1032,26 +1058,26 @@
             const telEl = document.getElementById('telEl');
             const telAz = document.getElementById('telAz');
             const telDist = document.getElementById('telDist');
-            if (telLat) telLat.textContent = (pos.lat ?? 0).toFixed(4) + '°';
-            if (telLon) telLon.textContent = (pos.lon ?? 0).toFixed(4) + '°';
-            if (telAlt) telAlt.textContent = (pos.altitude ?? pos.alt ?? 0).toFixed(0) + ' km';
-            if (telEl) telEl.textContent = (pos.elevation ?? pos.el ?? 0).toFixed(1) + '°';
-            if (telAz) telAz.textContent = (pos.azimuth ?? pos.az ?? 0).toFixed(1) + '°';
-            if (telDist) telDist.textContent = (pos.distance ?? pos.dist ?? 0).toFixed(0) + ' km';
+            if (telLat && _isFiniteNumber(normalized.lat)) telLat.textContent = normalized.lat.toFixed(4) + '°';
+            if (telLon && _isFiniteNumber(normalized.lon)) telLon.textContent = normalized.lon.toFixed(4) + '°';
+            if (telAlt && _isFiniteNumber(normalized.altitude ?? normalized.alt)) telAlt.textContent = (normalized.altitude ?? normalized.alt).toFixed(0) + ' km';
+            if (telEl && _isFiniteNumber(normalized.elevation ?? normalized.el)) telEl.textContent = (normalized.elevation ?? normalized.el).toFixed(1) + '°';
+            if (telAz && _isFiniteNumber(normalized.azimuth ?? normalized.az)) telAz.textContent = (normalized.azimuth ?? normalized.az).toFixed(1) + '°';
+            if (telDist && _isFiniteNumber(normalized.distance ?? normalized.dist)) telDist.textContent = (normalized.distance ?? normalized.dist).toFixed(0) + ' km';
 
-            if (selectedPass == null && (pos.azimuth ?? pos.az) != null && (pos.elevation ?? pos.el) != null) {
+            if (selectedPass == null && _isFiniteNumber(normalized.azimuth ?? normalized.az) && _isFiniteNumber(normalized.elevation ?? normalized.el)) {
                 drawPolarPlotWithPosition(
-                    pos.azimuth ?? pos.az,
-                    pos.elevation ?? pos.el,
+                    normalized.azimuth ?? normalized.az,
+                    normalized.elevation ?? normalized.el,
                     satellites[selectedSatellite]?.color || '#00d4ff'
                 );
             }
-            renderMapTrackOverlays();
+            renderMapTrackOverlays({ refreshPass: false, refreshLive: true });
             updateMapTrackSummary();
 
             if (updateVisible) {
                 const visEl = document.getElementById('statVisible');
-                if (visEl && Number.isFinite(pos.visibleCount)) visEl.textContent = String(pos.visibleCount);
+                if (visEl && Number.isFinite(normalized.visibleCount)) visEl.textContent = String(normalized.visibleCount);
             }
         }
 
@@ -1125,10 +1151,16 @@
                     } else if (newSats[25544]) {
                         select.value = '25544';
                     }
-                    selectedSatellite = parseInt(select.value);
-                    _satelliteSelectionRequestToken += 1;
+                    const nextSelectedSatellite = parseInt(select.value, 10);
+                    const selectionChanged = nextSelectedSatellite !== selectedSatellite;
+                    selectedSatellite = nextSelectedSatellite;
+                    if (selectionChanged || forceDataRefresh) {
+                        _satelliteSelectionRequestToken += 1;
+                    }
                     _lastSatelliteCatalogRefresh = Date.now();
-                    clearTelemetry();
+                    if (selectionChanged) {
+                        clearTelemetry();
+                    }
                     restoreSatelliteStateFromCache(selectedSatellite);
                     updateMissionDrawerInfo();
                     const hasCachedPasses = !!getCachedPasses(selectedSatellite)?.passes?.length;
@@ -1525,10 +1557,13 @@
             const pass = getSelectedPass();
             const live = latestLivePosition;
             const nextTime = pass?.aosTime ? new Date(pass.aosTime).toISOString().substring(11, 16) + ' UTC' : null;
+            const liveElevation = _isFiniteNumber(live?.elevation ?? live?.el) ? (live.elevation ?? live.el).toFixed(1) + '°' : '--.-°';
+            const liveLat = _isFiniteNumber(live?.lat) ? live.lat.toFixed(2) + '°' : '--.--°';
+            const liveLon = _isFiniteNumber(live?.lon) ? live.lon.toFixed(2) + '°' : '--.--°';
 
             if (mapViewMode === 'both' && pass && live) {
                 primary.textContent = `${pass.satellite} pass corridor plus live orbit context`;
-                secondary.textContent = `Next rise ${nextTime || '--:-- UTC'} · peak ${pass.maxEl ?? '--'}° · current elevation ${(live.elevation ?? 0).toFixed(1)}°`;
+                secondary.textContent = `Next rise ${nextTime || '--:-- UTC'} · peak ${pass.maxEl ?? '--'}° · current elevation ${liveElevation}`;
                 return;
             }
             if (mapViewMode === 'pass' && pass) {
@@ -1538,7 +1573,7 @@
             }
             if (mapViewMode === 'live' && live) {
                 primary.textContent = `${satellites[selectedSatellite]?.name || 'Selected satellite'} live orbit track`;
-                secondary.textContent = `Subpoint ${(live.lat ?? 0).toFixed(2)}°, ${(live.lon ?? 0).toFixed(2)}° · elevation ${(live.elevation ?? 0).toFixed(1)}°`;
+                secondary.textContent = `Subpoint ${liveLat}, ${liveLon} · elevation ${liveElevation}`;
                 return;
             }
             if (pass) {
@@ -1557,10 +1592,10 @@
 
         function renderMapTrackOverlays(options = {}) {
             if (!groundMap) return;
-            const { fit = false } = options;
+            const { fit = false, refreshPass = true, refreshLive = true } = options;
 
-            if (trackLine) { groundMap.removeLayer(trackLine); trackLine = null; }
-            if (orbitTrack) { groundMap.removeLayer(orbitTrack); orbitTrack = null; }
+            if (refreshPass && trackLine) { groundMap.removeLayer(trackLine); trackLine = null; }
+            if (refreshLive && orbitTrack) { groundMap.removeLayer(orbitTrack); orbitTrack = null; }
             if (satMarker) { groundMap.removeLayer(satMarker); satMarker = null; }
 
             const bounds = [];
@@ -1568,22 +1603,29 @@
             const showPass = mapViewMode !== 'live';
             const showLive = mapViewMode !== 'pass';
 
-            if (showPass && pass) {
+            if (showPass && pass && (refreshPass || !trackLine)) {
                 const renderedPass = renderPassTrackLayer(pass);
                 if (renderedPass) {
                     trackLine = renderedPass.layer;
                     trackLine.addTo(groundMap);
                     bounds.push(...renderedPass.bounds);
                 }
+            } else if (trackLine) {
+                bounds.push(...(getSelectedPass()?.groundTrack || []).map(p => [p.lat, p.lon]));
             }
 
-            if (showLive && latestLivePosition) {
+            if (showLive && latestLivePosition && (refreshLive || !orbitTrack)) {
                 const renderedLive = renderLiveOrbitLayer(latestLivePosition);
                 if (renderedLive) {
                     orbitTrack = renderedLive.layer;
                     orbitTrack.addTo(groundMap);
                     bounds.push(...renderedLive.bounds);
                 }
+            } else if (orbitTrack) {
+                const liveTrack = Array.isArray(latestLivePosition?.groundTrack)
+                    ? latestLivePosition.groundTrack
+                    : (Array.isArray(latestLivePosition?.track) ? latestLivePosition.track : []);
+                bounds.push(...liveTrack.map(p => [p.lat, p.lon]));
             }
 
             const satColor = satellites[selectedSatellite]?.color || '#00d4ff';
@@ -1696,12 +1738,12 @@
             _pageTearingDown = false;
             _satelliteSelectionRequestToken += 1;
             renderPacketPanels();
-            loadTrackedSatelliteCatalog();
-            loadReceiverDevices();
-            loadDashboardSatellites();
             setupEmbeddedMode();
             const usedShared = applySharedObserverLocation();
             initGroundMap();
+            loadTrackedSatelliteCatalog();
+            loadReceiverDevices();
+            loadDashboardSatellites();
             updateClock();
             _clockTimer = setInterval(updateClock, 1000);
             _countdownTimer = setInterval(updateCountdown, 1000);
@@ -1712,9 +1754,6 @@
             }
             startTelemetryPolling();
             loadAgents();
-            calculatePasses(selectedSatellite, _satelliteSelectionRequestToken);
-            loadTransmitters(selectedSatellite, _satelliteSelectionRequestToken);
-            fetchCurrentTelemetry(selectedSatellite, _satelliteSelectionRequestToken);
             scheduleDashboardDataRetry(3500);
             if (!usedShared) {
                 getLocation();
@@ -2358,10 +2397,10 @@
 
             if (telLat) telLat.textContent = Number.isFinite(pos.lat) ? pos.lat.toFixed(4) + '°' : '---.----';
             if (telLon) telLon.textContent = Number.isFinite(pos.lon) ? pos.lon.toFixed(4) + '°' : '---.----';
-            if (telAlt) telAlt.textContent = Number.isFinite(pos.alt) ? pos.alt.toFixed(0) + ' km' : '--- km';
-            if (telEl) telEl.textContent = Number.isFinite(pos.el) ? pos.el.toFixed(1) + '°' : '--.-';
-            if (telAz) telAz.textContent = Number.isFinite(pos.az) ? pos.az.toFixed(1) + '°' : '---.-';
-            if (telDist) telDist.textContent = Number.isFinite(pos.dist) ? pos.dist.toFixed(0) + ' km' : '---- km';
+            if (telAlt && Number.isFinite(pos.alt)) telAlt.textContent = pos.alt.toFixed(0) + ' km';
+            if (telEl && Number.isFinite(pos.el)) telEl.textContent = pos.el.toFixed(1) + '°';
+            if (telAz && Number.isFinite(pos.az)) telAz.textContent = pos.az.toFixed(1) + '°';
+            if (telDist && Number.isFinite(pos.dist)) telDist.textContent = pos.dist.toFixed(0) + ' km';
         }
 
         function updateCountdown() {

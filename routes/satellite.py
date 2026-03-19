@@ -659,6 +659,7 @@ def get_satellite_position():
                         continue
 
                 pos_data['track'] = orbit_track
+                pos_data['groundTrack'] = orbit_track
 
             positions.append(pos_data)
         except Exception:
