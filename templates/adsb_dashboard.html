@@ -453,8 +453,6 @@
         let panelSelectionFallbackTimer = null;
         let panelSelectionStageTimer = null;
         let mapCrosshairRequestId = 0;
-        let radarMapResizeObserver = null;
-        let radarMapSizeSyncFrame = null;
         // Watchlist - persisted to localStorage
         let watchlist = JSON.parse(localStorage.getItem('adsb_watchlist') || '[]');
 
@@ -1732,14 +1730,6 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         window.addEventListener('pagehide', function() {
             if (eventSource) { eventSource.close(); eventSource = null; }
             if (gpsEventSource) { gpsEventSource.close(); gpsEventSource = null; }
-            if (radarMapResizeObserver) {
-                radarMapResizeObserver.disconnect();
-                radarMapResizeObserver = null;
-            }
-            if (radarMapSizeSyncFrame) {
-                cancelAnimationFrame(radarMapSizeSyncFrame);
-                radarMapSizeSyncFrame = null;
-            }
         });
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -2144,29 +2134,6 @@ sudo make install</code>
             return layer;
         }
 
-        function scheduleRadarMapSizeSync(drawRings = false) {
-            if (!radarMap) return;
-            if (radarMapSizeSyncFrame) {
-                cancelAnimationFrame(radarMapSizeSyncFrame);
-            }
-            radarMapSizeSyncFrame = requestAnimationFrame(() => {
-                radarMapSizeSyncFrame = null;
-                if (!radarMap) return;
-                radarMap.invalidateSize({ pan: false, debounceMoveend: true });
-                if (drawRings) {
-                    drawRangeRings();
-                }
-            });
-        }
-
-        function attachRadarMapResizeObserver(container) {
-            if (!container || radarMapResizeObserver || typeof ResizeObserver === 'undefined') return;
-            radarMapResizeObserver = new ResizeObserver(() => {
-                scheduleRadarMapSizeSync(true);
-            });
-            radarMapResizeObserver.observe(container);
-        }
-
         async function initMap() {
             // Guard against double initialization (e.g. bfcache restore)
             const container = document.getElementById('radarMap');
@@ -2186,10 +2153,18 @@ sudo make install</code>
             // when internet map providers are slow or unreachable.
             const fallbackTiles = createFallbackGridLayer().addTo(radarMap);
 
-            radarMap.whenReady(() => {
-                scheduleRadarMapSizeSync(true);
-            });
-            attachRadarMapResizeObserver(container);
+            // Draw range rings after map is ready
+            setTimeout(() => drawRangeRings(), 100);
+
+            // Fix map size on mobile after initialization
+            setTimeout(() => {
+                if (radarMap) radarMap.invalidateSize();
+            }, 200);
+
+            // Additional invalidateSize to ensure all tiles load
+            setTimeout(() => {
+                if (radarMap) radarMap.invalidateSize();
+            }, 500);
 
             // Upgrade tiles via Settings in the background (non-blocking)
             if (typeof Settings !== 'undefined') {
@@ -2209,12 +2184,14 @@ sudo make install</code>
 
         // Handle window resize for map (especially important on mobile)
         window.addEventListener('resize', function() {
-            scheduleRadarMapSizeSync(true);
+            if (radarMap) radarMap.invalidateSize();
         });
 
         // Handle orientation changes for mobile devices
         window.addEventListener('orientationchange', function() {
-            scheduleRadarMapSizeSync(true);
+            setTimeout(() => {
+                if (radarMap) radarMap.invalidateSize();
+            }, 200);
         });
 
         // ============================================
