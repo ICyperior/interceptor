@@ -743,11 +743,71 @@ body {
 .polar-container .panel-content {
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 10px;
     padding: 8px;
     min-height: 0;
     overflow: hidden;
+}
+
+.pass-data-strip {
+    width: 100%;
+    max-width: 320px;
+    border-top: 1px solid rgba(74, 163, 255, 0.12);
+    padding-top: 10px;
+    flex-shrink: 0;
+}
+
+.pass-data-strip--empty {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+}
+
+.pass-data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    text-align: center;
+}
+
+.pass-data-event {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 3px;
+}
+
+.pass-data-time {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.pass-data-sub {
+    font-size: 10px;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+}
+
+.pass-data-tca .pass-data-sub {
+    color: var(--accent-green);
+}
+
+.pass-data-footer {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
 }
 
 #polarPlot {

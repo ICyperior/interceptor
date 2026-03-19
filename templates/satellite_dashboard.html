@@ -281,6 +281,9 @@
                     </div>
                     <div class="panel-content">
                         <canvas id="polarPlot"></canvas>
+                        <div id="passDataStrip" class="pass-data-strip pass-data-strip--empty">
+                            <span>Select a pass to view geometry</span>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -2355,6 +2358,38 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillText(l.text, x, y);
             });
+
+            // Pass data strip
+            const strip = document.getElementById('passDataStrip');
+            if (strip) {
+                if (pass && pass.aosTime) {
+                    const fmtTime = iso => iso ? iso.slice(11, 16) + ' UTC' : '--';
+                    strip.className = 'pass-data-strip';
+                    strip.innerHTML = `
+                        <div class="pass-data-grid">
+                            <div class="pass-data-col">
+                                <div class="pass-data-event">AOS</div>
+                                <div class="pass-data-time">${fmtTime(pass.aosTime)}</div>
+                                <div class="pass-data-sub">Az ${pass.aosAz}°</div>
+                            </div>
+                            <div class="pass-data-col pass-data-tca">
+                                <div class="pass-data-event">TCA</div>
+                                <div class="pass-data-time">${fmtTime(pass.tcaTime)}</div>
+                                <div class="pass-data-sub">El ${pass.tcaEl}°</div>
+                            </div>
+                            <div class="pass-data-col">
+                                <div class="pass-data-event">LOS</div>
+                                <div class="pass-data-time">${fmtTime(pass.losTime)}</div>
+                                <div class="pass-data-sub">Az ${pass.losAz}°</div>
+                            </div>
+                        </div>
+                        <div class="pass-data-footer">Duration ${pass.duration} min &nbsp;·&nbsp; Max El ${pass.maxEl}°</div>
+                    `;
+                } else {
+                    strip.className = 'pass-data-strip pass-data-strip--empty';
+                    strip.innerHTML = '<span>Select a pass to view geometry</span>';
+                }
+            }
 
             // Pass trajectory
             if (pass && pass.trajectory) {
