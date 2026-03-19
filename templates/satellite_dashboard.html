@@ -72,6 +72,86 @@
 
     <main class="dashboard">
         <section class="primary-layout">
+            <aside class="mission-drawer">
+                <div class="panel drawer-panel">
+                    <div class="panel-header">
+                        <span>MISSION CONTROL</span>
+                        <div class="panel-indicator"></div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="drawer-actions">
+                            <button class="drawer-action-btn drawer-action-btn-primary" onclick="showAddSatelliteModal()">ADD TLE</button>
+                            <button class="drawer-action-btn" onclick="fetchCelestrak()">CELESTRAK</button>
+                            <button class="drawer-action-btn" onclick="updateTLE()">REFRESH TLE</button>
+                        </div>
+                        <div class="drawer-status" id="satCommandStatus">Manage tracked satellites, refresh orbital data, and choose the receiver used by ground-station capture.</div>
+                    </div>
+                </div>
+
+                <div class="panel drawer-panel">
+                    <div class="panel-header">
+                        <span>SATELLITE DATABASE</span>
+                        <div class="panel-indicator"></div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="drawer-panel-tools">
+                            <span class="drawer-panel-kicker">Tracked satellites</span>
+                            <button class="drawer-action-btn drawer-action-btn-small" onclick="loadTrackedSatelliteCatalog()">REFRESH</button>
+                        </div>
+                        <div class="drawer-list" id="satTrackingList">
+                            <div class="drawer-empty-state">Loading tracked satellites...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel drawer-panel">
+                    <div class="panel-header">
+                        <span>GROUND STATION RX</span>
+                        <div class="panel-indicator"></div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="drawer-field">
+                            <label for="gsReceiverSelect">Receiver</label>
+                            <select id="gsReceiverSelect" class="drawer-select" onchange="onReceiverSelectionChange()">
+                                <option value="">Detecting SDRs...</option>
+                            </select>
+                        </div>
+                        <div class="drawer-field">
+                            <label>SDR Type</label>
+                            <div class="drawer-field-value" id="gsReceiverType">Waiting for device list...</div>
+                        </div>
+                        <div class="drawer-note" id="gsReceiverNote">Used when enabling the scheduler and when observation profiles start a capture.</div>
+                    </div>
+                </div>
+
+                <div class="panel drawer-panel">
+                    <div class="panel-header">
+                        <span>QUICK INFO</span>
+                        <div class="panel-indicator"></div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="drawer-info-grid">
+                            <div class="drawer-info-card">
+                                <div class="drawer-info-label">Selected Target</div>
+                                <div class="drawer-info-value" id="drawerSelectedSat">ISS (ZARYA)</div>
+                            </div>
+                            <div class="drawer-info-card">
+                                <div class="drawer-info-label">Observer</div>
+                                <div class="drawer-info-value" id="drawerObserver">51.5074, -0.1278</div>
+                            </div>
+                            <div class="drawer-info-card">
+                                <div class="drawer-info-label">Receiver</div>
+                                <div class="drawer-info-value" id="drawerReceiverSummary">Detecting...</div>
+                            </div>
+                            <div class="drawer-info-card">
+                                <div class="drawer-info-label">Next Pass</div>
+                                <div class="drawer-info-value" id="drawerNextPassSummary">Calculating...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
             <!-- Ground Track Map -->
             <div class="panel map-container">
                 <div class="panel-header">
@@ -412,6 +492,45 @@
         </div>
     </div>
 
+    <div id="satModal" class="sat-management-modal" onclick="if(event.target === this) closeSatModal()">
+        <div class="sat-management-dialog" role="dialog" aria-modal="true" aria-labelledby="satModalTitle">
+            <button class="sat-management-close" onclick="closeSatModal()" aria-label="Close satellite modal">×</button>
+            <div class="sat-management-title" id="satModalTitle">Add Satellites</div>
+            <div class="sat-management-subtitle">Import from manual TLE data or fetch categories directly from CelesTrak.</div>
+
+            <div class="sat-management-tabs">
+                <button class="sat-management-tab active" data-tab="tle" onclick="switchSatModalTab('tle')">MANUAL TLE</button>
+                <button class="sat-management-tab" data-tab="celestrak" onclick="switchSatModalTab('celestrak')">CELESTRAK</button>
+            </div>
+
+            <div id="tleSection" class="sat-management-section active">
+                <div class="sat-management-copy">Paste one or more TLE triplets: satellite name, line 1, and line 2.</div>
+                <textarea id="tleInput" class="sat-management-textarea" placeholder="ISS (ZARYA)
+1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9002
+2 25544  51.6400 208.9163 0006703 296.5855  63.4606 15.49995465478450"></textarea>
+                <button class="drawer-action-btn drawer-action-btn-primary sat-management-submit" onclick="addFromTLE()">ADD SATELLITE</button>
+            </div>
+
+            <div id="celestrakSection" class="sat-management-section">
+                <div class="sat-management-copy">Fetch tracked satellites by category from CelesTrak.</div>
+                <div id="celestrakStatus" class="sat-management-status"></div>
+                <div class="sat-management-grid">
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('stations')">SPACE STATIONS</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('weather')">WEATHER</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('goes')">GOES</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('amateur')">AMATEUR</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('cubesat')">CUBESATS</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('starlink')">STARLINK</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('oneweb')">ONEWEB</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('visual')">VISUAL</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('geo')">GEOSTATIONARY</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('resource')">RESOURCE</button>
+                    <button class="drawer-action-btn" onclick="fetchCelestrakCategory('iridium-NEXT')">IRIDIUM NEXT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <style>
         /* Location selector styles */
         .location-selector {
@@ -658,8 +777,13 @@
         let _passRequestId = 0;
         let _passAbortController = null;
         let _passTimeoutId = null;
+        let trackedSatelliteCatalog = [];
+        let receiverDevices = [];
         let packetHistory = [];
         let packetConsoleCollapsed = false;
+        let _dashboardRetryTimer = null;
+        let _dashboardRetryAttempts = 0;
+        const RECEIVER_STORAGE_KEY = 'satellite.dashboard.receiver';
         const DASHBOARD_FETCH_TIMEOUT_MS = 30000;
         const BUILTIN_TX_FALLBACK = {
             25544: [
@@ -725,13 +849,21 @@
                     }
                     selectedSatellite = parseInt(select.value);
                     clearTelemetry();
+                    updateMissionDrawerInfo();
                     loadTransmitters(selectedSatellite);
                     calculatePasses();
                     fetchCurrentTelemetry();
                     if (window.gsLoadOutputs) window.gsLoadOutputs();
                     if (window.gsOnSatelliteChange) window.gsOnSatelliteChange();
+                    scheduleDashboardDataRetry(2500);
                 })
-                .catch(() => {})
+                .catch(() => {
+                    showSatelliteCommandStatus('Tracked-satellite refresh failed. Retrying with the current selection.', 'warn');
+                    calculatePasses();
+                    fetchCurrentTelemetry();
+                    loadTransmitters(selectedSatellite);
+                    scheduleDashboardDataRetry(2500);
+                })
                 .finally(() => {
                     if (btn) btn.classList.remove('spinning');
                 });
@@ -757,11 +889,14 @@
 
             clearTelemetry();
             updateMapTrackSummary();
+            updateMissionDrawerInfo();
             loadTransmitters(selectedSatellite);
             calculatePasses();
             fetchCurrentTelemetry();
             if (window.gsLoadOutputs) window.gsLoadOutputs();
             if (window.gsOnSatelliteChange) gsOnSatelliteChange();
+            _dashboardRetryAttempts = 0;
+            scheduleDashboardDataRetry(2500);
         }
 
         function setupEmbeddedMode() {
@@ -793,6 +928,7 @@
                     const lonInput = document.getElementById('obsLon');
                     if (latInput) latInput.value = shared.lat.toFixed(4);
                     if (lonInput) lonInput.value = shared.lon.toFixed(4);
+                    updateMissionDrawerInfo();
                     return true;
                 }
             }
@@ -1197,11 +1333,16 @@
             closePacketModal();
         });
         window.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') closePacketModal();
+            if (event.key === 'Escape') {
+                closePacketModal();
+                closeSatModal();
+            }
         });
 
         document.addEventListener('DOMContentLoaded', () => {
             renderPacketPanels();
+            loadTrackedSatelliteCatalog();
+            loadReceiverDevices();
             loadDashboardSatellites();
             setupEmbeddedMode();
             const usedShared = applySharedObserverLocation();
@@ -1216,8 +1357,10 @@
             }
             startTelemetryPolling();
             loadAgents();
+            calculatePasses();
             loadTransmitters(selectedSatellite);
             fetchCurrentTelemetry();
+            scheduleDashboardDataRetry(3500);
             if (!usedShared) {
                 getLocation();
             }
@@ -1264,6 +1407,7 @@
             if (value === 'local') {
                 // Use local GPS
                 statusDot.className = 'location-status-dot online';
+                updateMissionDrawerInfo();
                 getLocation();
             } else if (value.startsWith('agent-')) {
                 // Fetch agent's GPS position
@@ -1282,6 +1426,7 @@
                             if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
                                 ObserverLocation.setShared({ lat: gps.lat, lon: gps.lon });
                             }
+                            updateMissionDrawerInfo();
 
                             // Update observer marker label
                             const agent = agents.find(a => a.id == agentId);
@@ -1293,11 +1438,13 @@
                         } else {
                             alert('Agent does not have GPS data available');
                             statusDot.className = 'location-status-dot offline';
+                            updateMissionDrawerInfo();
                         }
                     }
                 } catch (err) {
                     console.error('Failed to get agent GPS:', err);
                     statusDot.className = 'location-status-dot offline';
+                    updateMissionDrawerInfo();
                     alert('Failed to connect to agent');
                 }
             }
@@ -1390,8 +1537,14 @@
         }
 
         function getLocation() {
+            const fallback = setTimeout(() => {
+                calculatePasses();
+                fetchCurrentTelemetry();
+                updateMissionDrawerInfo();
+            }, 2500);
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(pos => {
+                    clearTimeout(fallback);
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     document.getElementById('obsLat').value = lat.toFixed(4);
@@ -1399,12 +1552,22 @@
                     if (window.ObserverLocation && ObserverLocation.isSharedEnabled()) {
                         ObserverLocation.setShared({ lat, lon });
                     }
+                    updateMissionDrawerInfo();
                     calculatePasses();
+                    fetchCurrentTelemetry();
                 }, () => {
+                    clearTimeout(fallback);
                     calculatePasses();
+                    fetchCurrentTelemetry();
+                }, {
+                    enableHighAccuracy: false,
+                    timeout: 4000,
+                    maximumAge: 300000,
                 });
             } else {
+                clearTimeout(fallback);
                 calculatePasses();
+                fetchCurrentTelemetry();
             }
         }
 
@@ -1466,6 +1629,7 @@
                     passes = data.passes;
                     renderPassList();
                     updateStats();
+                    updateMissionDrawerInfo();
                     if (passes.length > 0) {
                         selectPass(0);
                     } else {
@@ -1486,6 +1650,7 @@
                 } else {
                     passes = [];
                     renderPassList();
+                    updateMissionDrawerInfo();
                     document.getElementById('trackingStatus').textContent = 'ERROR';
                     document.getElementById('trackingDot').style.background = 'var(--accent-red)';
                     if (container) {
@@ -1507,6 +1672,7 @@
                 }
                 console.error('Pass calculation error:', err);
                 passes = [];
+                updateMissionDrawerInfo();
                 if (container) {
                     container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Failed to calculate passes</div>';
                 } else {
@@ -1514,6 +1680,7 @@
                 }
                 document.getElementById('trackingStatus').textContent = 'OFFLINE';
                 document.getElementById('trackingDot').style.background = 'var(--accent-red)';
+                scheduleDashboardDataRetry(3500);
             } finally {
                 if (requestId === _passRequestId && button) {
                     button.disabled = false;
@@ -1535,6 +1702,7 @@
                 container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">No passes found</div>';
                 if (countEl) countEl.textContent = '';
                 updateMapTrackSummary();
+                updateMissionDrawerInfo();
                 return;
             }
 
@@ -1604,6 +1772,7 @@
             updateGroundTrack(pass);
             updateTelemetry(pass);
             updateMapTrackSummary();
+            updateMissionDrawerInfo();
         }
 
         function drawPolarPlot(pass) {
@@ -1965,16 +2134,19 @@
                     ? data.transmitters
                     : (BUILTIN_TX_FALLBACK[noradId] || []);
                 renderTransmitters(txList);
+                updateMissionDrawerInfo();
             } catch (e) {
                 if (requestId !== _txRequestId) return;
                 const fallback = BUILTIN_TX_FALLBACK[noradId] || [];
                 if (fallback.length) {
                     renderTransmitters(fallback);
+                    updateMissionDrawerInfo();
                     return;
                 }
                 const timedOut = e && (e.name === 'AbortError' || String(e).includes('AbortError'));
                 container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">${timedOut ? 'Timed out loading transmitter data' : 'Failed to load transmitter data'}</div>`;
                 if (countEl) countEl.textContent = '';
+                scheduleDashboardDataRetry(4000);
             }
         }
 
@@ -2010,6 +2182,345 @@
                     </div>
                 </div>`;
             }).join('');
+            updateMissionDrawerInfo();
+        }
+
+        function showSatelliteCommandStatus(message, level = 'info') {
+            const el = document.getElementById('satCommandStatus');
+            if (!el) return;
+            el.textContent = message;
+            el.dataset.level = level;
+        }
+
+        function getSelectedReceiverConfig() {
+            const select = document.getElementById('gsReceiverSelect');
+            const option = select?.selectedOptions?.[0];
+            return {
+                device: parseInt(select?.value || '0') || 0,
+                sdr_type: option?.dataset?.sdrType || 'rtlsdr',
+                label: option?.textContent?.trim() || 'Receiver 0',
+            };
+        }
+
+        function updateMissionDrawerInfo() {
+            const satEl = document.getElementById('drawerSelectedSat');
+            const obsEl = document.getElementById('drawerObserver');
+            const receiverEl = document.getElementById('drawerReceiverSummary');
+            const nextEl = document.getElementById('drawerNextPassSummary');
+            if (satEl) satEl.textContent = satellites[selectedSatellite]?.name || 'Unknown';
+            const lat = parseFloat(document.getElementById('obsLat')?.value);
+            const lon = parseFloat(document.getElementById('obsLon')?.value);
+            if (obsEl) {
+                obsEl.textContent = Number.isFinite(lat) && Number.isFinite(lon)
+                    ? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+                    : 'Observer unavailable';
+            }
+            if (receiverEl) {
+                const receiver = getSelectedReceiverConfig();
+                receiverEl.textContent = receiver.label || 'Detecting...';
+            }
+            if (nextEl) {
+                const nextPass = passes[0];
+                nextEl.textContent = nextPass
+                    ? `${(nextPass.aosTime || nextPass.startTimeISO || '').split('T')[1]?.substring(0, 5) || '--:--'} UTC · ${nextPass.maxEl?.toFixed ? nextPass.maxEl.toFixed(0) : '--'}°`
+                    : 'Calculating...';
+            }
+        }
+
+        function onReceiverSelectionChange() {
+            const select = document.getElementById('gsReceiverSelect');
+            const typeEl = document.getElementById('gsReceiverType');
+            const noteEl = document.getElementById('gsReceiverNote');
+            const receiver = getSelectedReceiverConfig();
+            if (typeEl) typeEl.textContent = receiver.sdr_type.toUpperCase();
+            if (noteEl) noteEl.textContent = `Ground station will claim ${receiver.label} when the scheduler is enabled.`;
+            if (select) {
+                localStorage.setItem(RECEIVER_STORAGE_KEY, `${receiver.sdr_type}:${receiver.device}`);
+            }
+            updateMissionDrawerInfo();
+        }
+
+        async function loadReceiverDevices() {
+            const select = document.getElementById('gsReceiverSelect');
+            const typeEl = document.getElementById('gsReceiverType');
+            const noteEl = document.getElementById('gsReceiverNote');
+            if (!select) return;
+            try {
+                const response = await fetch('/devices', { credentials: 'same-origin' });
+                const devices = await response.json();
+                receiverDevices = Array.isArray(devices) ? devices : [];
+                if (!receiverDevices.length) {
+                    select.innerHTML = '<option value="0">No SDRs detected</option>';
+                    if (typeEl) typeEl.textContent = 'RTLSDR';
+                    if (noteEl) noteEl.textContent = 'No SDR devices were detected. Scheduler will fall back to receiver 0.';
+                    updateMissionDrawerInfo();
+                    return;
+                }
+                const saved = localStorage.getItem(RECEIVER_STORAGE_KEY);
+                select.innerHTML = receiverDevices.map(device => {
+                    const label = `${device.index}: ${device.name || 'SDR'}${device.serial && device.serial !== 'N/A' && device.serial !== 'Unknown' ? ` (${device.serial})` : ''}`;
+                    return `<option value="${device.index}" data-sdr-type="${_esc(device.sdr_type || 'rtlsdr')}">${_esc(label)}</option>`;
+                }).join('');
+                if (saved) {
+                    const [savedType, savedIndex] = saved.split(':');
+                    const match = Array.from(select.options).find(opt =>
+                        opt.value === savedIndex && opt.dataset.sdrType === savedType
+                    );
+                    if (match) select.value = match.value;
+                }
+                onReceiverSelectionChange();
+            } catch (_) {
+                select.innerHTML = '<option value="0">Receiver detection failed</option>';
+                if (typeEl) typeEl.textContent = 'RTLSDR';
+                if (noteEl) noteEl.textContent = 'Device detection failed. Ground station will try receiver 0.';
+                updateMissionDrawerInfo();
+            }
+        }
+
+        function renderTrackedSatelliteCatalog() {
+            const list = document.getElementById('satTrackingList');
+            if (!list) return;
+            if (!trackedSatelliteCatalog.length) {
+                list.innerHTML = '<div class="drawer-empty-state">No tracked satellites configured yet.</div>';
+                return;
+            }
+            list.innerHTML = trackedSatelliteCatalog.map((sat, idx) => `
+                <div class="drawer-sat-item ${sat.builtin ? 'builtin' : ''}">
+                    <label class="drawer-sat-label">
+                        <input type="checkbox" ${sat.enabled ? 'checked' : ''} onchange="toggleTrackedSatellite(${idx})">
+                        <span class="drawer-sat-copy">
+                            <span class="drawer-sat-name">${_esc(sat.name)}</span>
+                            <span class="drawer-sat-meta">#${_esc(String(sat.norad_id))}${sat.builtin ? ' • builtin' : ''}</span>
+                        </span>
+                    </label>
+                    ${sat.builtin ? '' : `<button class="drawer-sat-remove" onclick="removeTrackedSatellite(${idx})" title="Remove tracked satellite">×</button>`}
+                </div>
+            `).join('');
+        }
+
+        async function loadTrackedSatelliteCatalog() {
+            try {
+                const response = await fetch('/satellite/tracked', { credentials: 'same-origin' });
+                const data = await response.json();
+                if (data.status === 'success' && Array.isArray(data.satellites)) {
+                    trackedSatelliteCatalog = data.satellites;
+                }
+            } catch (_) {}
+            renderTrackedSatelliteCatalog();
+        }
+
+        window.toggleTrackedSatellite = function (idx) {
+            const sat = trackedSatelliteCatalog[idx];
+            if (!sat) return;
+            const nextEnabled = !sat.enabled;
+            fetch(`/satellite/tracked/${sat.norad_id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: nextEnabled }),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        throw new Error(data.message || data.error || 'Failed to update satellite');
+                    }
+                    showSatelliteCommandStatus(`${sat.name} ${nextEnabled ? 'enabled' : 'disabled'} for tracking.`, 'success');
+                    loadTrackedSatelliteCatalog();
+                    loadDashboardSatellites();
+                })
+                .catch((err) => {
+                    showSatelliteCommandStatus(err.message || 'Failed to update tracked satellite.', 'error');
+                    loadTrackedSatelliteCatalog();
+                });
+        };
+
+        window.removeTrackedSatellite = function (idx) {
+            const sat = trackedSatelliteCatalog[idx];
+            if (!sat || sat.builtin) return;
+            fetch(`/satellite/tracked/${sat.norad_id}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        throw new Error(data.message || data.error || 'Failed to remove satellite');
+                    }
+                    showSatelliteCommandStatus(`${sat.name} removed from the tracked catalog.`, 'success');
+                    loadTrackedSatelliteCatalog();
+                    loadDashboardSatellites();
+                })
+                .catch((err) => {
+                    showSatelliteCommandStatus(err.message || 'Failed to remove tracked satellite.', 'error');
+                });
+        };
+
+        window.showAddSatelliteModal = function () {
+            const modal = document.getElementById('satModal');
+            if (modal) modal.classList.add('active');
+        };
+
+        window.closeSatModal = function () {
+            const modal = document.getElementById('satModal');
+            if (modal) modal.classList.remove('active');
+        };
+
+        window.switchSatModalTab = function (tab) {
+            document.querySelectorAll('.sat-management-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            document.querySelectorAll('.sat-management-section').forEach(section => {
+                section.classList.toggle('active', section.id === (tab === 'tle' ? 'tleSection' : 'celestrakSection'));
+            });
+        };
+
+        window.addFromTLE = function () {
+            const tleText = document.getElementById('tleInput')?.value.trim();
+            if (!tleText) {
+                showSatelliteCommandStatus('Paste one or more complete TLE triplets before adding.', 'warn');
+                return;
+            }
+            const lines = tleText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+            const toAdd = [];
+            for (let i = 0; i < lines.length; i += 3) {
+                if (i + 2 >= lines.length) break;
+                const [name, line1, line2] = [lines[i], lines[i + 1], lines[i + 2]];
+                if (line1.startsWith('1 ') && line2.startsWith('2 ')) {
+                    const norad = line1.substring(2, 7).trim();
+                    if (!trackedSatelliteCatalog.find(s => String(s.norad_id) === norad)) {
+                        toAdd.push({
+                            norad_id: norad,
+                            name,
+                            tle1: line1,
+                            tle2: line2,
+                            enabled: true,
+                        });
+                    }
+                }
+            }
+            if (!toAdd.length) {
+                showSatelliteCommandStatus('No valid TLE triplets were found in that input.', 'warn');
+                return;
+            }
+            fetch('/satellite/tracked', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(toAdd),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        throw new Error(data.message || data.error || 'Failed to add satellites');
+                    }
+                    const input = document.getElementById('tleInput');
+                    if (input) input.value = '';
+                    closeSatModal();
+                    showSatelliteCommandStatus(`Added ${data.added || toAdd.length} satellite(s) from TLE data.`, 'success');
+                    loadTrackedSatelliteCatalog();
+                    loadDashboardSatellites();
+                })
+                .catch((err) => {
+                    showSatelliteCommandStatus(err.message || 'Failed to save TLE satellites.', 'error');
+                });
+        };
+
+        window.fetchCelestrak = function () {
+            showAddSatelliteModal();
+            switchSatModalTab('celestrak');
+        };
+
+        window.fetchCelestrakCategory = function (category) {
+            const status = document.getElementById('celestrakStatus');
+            if (status) {
+                status.dataset.level = 'info';
+                status.textContent = `Fetching ${category}...`;
+            }
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            fetch(`/satellite/celestrak/${category}`, { signal: controller.signal })
+                .then(r => r.json())
+                .then(async data => {
+                    clearTimeout(timeout);
+                    if (data.status !== 'success' || !Array.isArray(data.satellites)) {
+                        throw new Error(data.message || 'Failed to fetch CelesTrak data');
+                    }
+                    const toAdd = data.satellites
+                        .filter(sat => !trackedSatelliteCatalog.find(existing => String(existing.norad_id) === String(sat.norad)))
+                        .map(sat => ({
+                            norad_id: String(sat.norad),
+                            name: sat.name,
+                            tle1: sat.tle1,
+                            tle2: sat.tle2,
+                            enabled: false,
+                        }));
+                    if (!toAdd.length) {
+                        if (status) {
+                            status.dataset.level = 'success';
+                            status.textContent = `All ${data.satellites.length} satellites in ${category} are already tracked.`;
+                        }
+                        return;
+                    }
+                    const response = await fetch('/satellite/tracked?include_satellites=false', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(toAdd),
+                    });
+                    const result = await response.json();
+                    if (!response.ok || result.status !== 'success') {
+                        throw new Error(result.message || result.error || `Failed to import ${category}`);
+                    }
+                    if (status) {
+                        status.dataset.level = 'success';
+                        status.textContent = `Imported ${result.added || toAdd.length} ${category} satellites.`;
+                    }
+                    showSatelliteCommandStatus(`Imported ${result.added || toAdd.length} ${category} satellites from CelesTrak.`, 'success');
+                    loadTrackedSatelliteCatalog();
+                    loadDashboardSatellites();
+                })
+                .catch((err) => {
+                    clearTimeout(timeout);
+                    const msg = err?.name === 'AbortError' ? 'CelesTrak request timed out.' : (err.message || 'Failed to fetch CelesTrak category.');
+                    if (status) {
+                        status.dataset.level = 'error';
+                        status.textContent = msg;
+                    }
+                    showSatelliteCommandStatus(msg, 'error');
+                });
+        };
+
+        window.updateTLE = function () {
+            showSatelliteCommandStatus('Refreshing orbital elements...', 'info');
+            fetch('/satellite/update-tle', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        throw new Error(data.message || data.error || 'Failed to refresh TLE data');
+                    }
+                    showSatelliteCommandStatus('Orbital elements refreshed successfully.', 'success');
+                    loadDashboardSatellites();
+                })
+                .catch((err) => {
+                    showSatelliteCommandStatus(err.message || 'Failed to refresh TLE data.', 'error');
+                });
+        };
+
+        function scheduleDashboardDataRetry(delayMs = 3500) {
+            if (_dashboardRetryAttempts >= 3) return;
+            if (_dashboardRetryTimer) clearTimeout(_dashboardRetryTimer);
+            _dashboardRetryTimer = setTimeout(() => {
+                const txReady = !!document.querySelector('#transmittersList .tx-item');
+                const needsPassRetry = passes.length === 0;
+                const needsTelemetryRetry = !latestLivePosition;
+                const needsTxRetry = !txReady;
+                if (!(needsPassRetry || needsTelemetryRetry || needsTxRetry)) {
+                    _dashboardRetryAttempts = 0;
+                    return;
+                }
+                _dashboardRetryAttempts += 1;
+                if (needsPassRetry) calculatePasses();
+                if (needsTelemetryRetry) fetchCurrentTelemetry();
+                if (needsTxRetry) loadTransmitters(selectedSatellite);
+                updateMissionDrawerInfo();
+                if (_dashboardRetryAttempts < 3) {
+                    scheduleDashboardDataRetry(4500);
+                }
+            }, delayMs);
         }
 
         function drawCurrentPositionOnPolar(az, el, color) {
@@ -2679,10 +3190,16 @@
         window.gsEnableScheduler = function () {
             const lat = parseFloat(document.getElementById('obsLat')?.value || 0);
             const lon = parseFloat(document.getElementById('obsLon')?.value || 0);
+            const receiver = getSelectedReceiverConfig();
             fetch('/ground_station/scheduler/enable', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({lat, lon}),
+                body: JSON.stringify({
+                    lat,
+                    lon,
+                    device: receiver.device,
+                    sdr_type: receiver.sdr_type,
+                }),
             })
                 .then(r => r.json())
                 .then(d => { _applyStatus(d); gsLoadUpcoming(); })
