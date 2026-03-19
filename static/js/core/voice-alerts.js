@@ -8,6 +8,7 @@ const VoiceAlerts = (function () {
     let _queue = [];
     let _speaking = false;
     let _sources = {};
+    let _streamStartTimer = null;
     const STORAGE_KEY = 'intercept-voice-muted';
     const CONFIG_KEY  = 'intercept-voice-config';
     const RATE_MIN = 0.5;
@@ -132,7 +133,12 @@ const VoiceAlerts = (function () {
     }
 
     function _startStreams() {
+        if (_streamStartTimer) {
+            clearTimeout(_streamStartTimer);
+            _streamStartTimer = null;
+        }
         if (!_enabled) return;
+        if (Object.keys(_sources).length > 0) return;
 
         // Pager stream
         if (_config.streams.pager) {
@@ -173,17 +179,32 @@ const VoiceAlerts = (function () {
     }
 
     function _stopStreams() {
+        if (_streamStartTimer) {
+            clearTimeout(_streamStartTimer);
+            _streamStartTimer = null;
+        }
         Object.values(_sources).forEach(es => { try { es.close(); } catch (_) {} });
         _sources = {};
     }
 
-    function init() {
+    function init(options) {
+        const opts = options || {};
         _loadConfig();
         if (_isSpeechSupported()) {
             // Prime voices list early so user-triggered test calls are less likely to be silent.
             speechSynthesis.getVoices();
         }
-        _startStreams();
+        if (opts.startStreams !== false) {
+            _startStreams();
+        }
+    }
+
+    function scheduleStreamStart(delayMs) {
+        if (_streamStartTimer || Object.keys(_sources).length > 0 || !_enabled) return;
+        _streamStartTimer = window.setTimeout(() => {
+            _streamStartTimer = null;
+            _startStreams();
+        }, Number(delayMs) > 0 ? Number(delayMs) : 20000);
     }
 
     function setEnabled(val) {
@@ -255,7 +276,7 @@ const VoiceAlerts = (function () {
         }, 1200);
     }
 
-    return { init, speak, toggleMute, setEnabled, getConfig, setConfig, getAvailableVoices, testVoice, PRIORITY };
+    return { init, scheduleStreamStart, speak, toggleMute, setEnabled, getConfig, setConfig, getAvailableVoices, testVoice, PRIORITY };
 })();
 
 window.VoiceAlerts = VoiceAlerts;

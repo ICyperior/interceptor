@@ -3892,6 +3892,8 @@
         // GPS Dongle state
         let gpsConnected = false;
         let gpsEventSource = null;
+        let gpsAutoConnectTimer = null;
+        let gpsAutoConnectInFlight = null;
         let gpsLastPosition = null;
 
         // Satellite state
@@ -4090,8 +4092,8 @@
             if (obsLatInput) obsLatInput.value = observerLocation.lat.toFixed(4);
             if (obsLonInput) obsLonInput.value = observerLocation.lon.toFixed(4);
 
-            // Auto-connect to gpsd if available
-            autoConnectGps();
+            // Defer GPS auto-connect so it doesn't compete with initial dashboard navigation.
+            scheduleGpsAutoConnect();
 
             // Load pager message filters
             loadPagerFilters();
@@ -10851,26 +10853,51 @@
         // GPS FUNCTIONS (gpsd auto-connect)
         // ============================================
 
-        async function autoConnectGps() {
-            // Automatically try to connect to gpsd on page load
-            try {
-                const response = await fetch('/gps/auto-connect', { method: 'POST' });
-                const data = await response.json();
+        function scheduleGpsAutoConnect(delayMs = 20000) {
+            if (gpsConnected || gpsAutoConnectInFlight || gpsAutoConnectTimer) return;
+            gpsAutoConnectTimer = setTimeout(() => {
+                gpsAutoConnectTimer = null;
+                autoConnectGps();
+            }, delayMs);
+        }
 
-                if (data.status === 'connected') {
-                    gpsConnected = true;
-                    startGpsStream();
-                    showGpsIndicator(true);
-                    console.log('GPS: Auto-connected to gpsd');
-                    if (data.position) {
-                        updateLocationFromGps(data.position);
-                    }
-                } else {
-                    console.log('GPS: gpsd not available -', data.message);
-                }
-            } catch (e) {
-                console.log('GPS: Auto-connect failed -', e.message);
+        async function autoConnectGps() {
+            if (gpsConnected) return true;
+            if (gpsAutoConnectTimer) {
+                clearTimeout(gpsAutoConnectTimer);
+                gpsAutoConnectTimer = null;
             }
+            if (gpsAutoConnectInFlight) {
+                return gpsAutoConnectInFlight;
+            }
+
+            gpsAutoConnectInFlight = (async () => {
+                try {
+                    const response = await fetch('/gps/auto-connect', { method: 'POST' });
+                    const data = await response.json();
+
+                    if (data.status === 'connected') {
+                        gpsConnected = true;
+                        startGpsStream();
+                        showGpsIndicator(true);
+                        console.log('GPS: Auto-connected to gpsd');
+                        if (data.position) {
+                            updateLocationFromGps(data.position);
+                        }
+                        return true;
+                    }
+
+                    console.log('GPS: gpsd not available -', data.message);
+                    return false;
+                } catch (e) {
+                    console.log('GPS: Auto-connect failed -', e.message);
+                    return false;
+                } finally {
+                    gpsAutoConnectInFlight = null;
+                }
+            })();
+
+            return gpsAutoConnectInFlight;
         }
 
         let gpsReconnectTimeout = null;
@@ -16367,7 +16394,10 @@
     <script>
     // Initialize global core modules after page load
     window.addEventListener('DOMContentLoaded', () => {
-        if (typeof VoiceAlerts !== 'undefined') VoiceAlerts.init();
+        if (typeof VoiceAlerts !== 'undefined') {
+            VoiceAlerts.init({ startStreams: false });
+            VoiceAlerts.scheduleStreamStart(20000);
+        }
         if (typeof KeyboardShortcuts !== 'undefined') KeyboardShortcuts.init();
     });
 
