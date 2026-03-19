@@ -90,7 +90,7 @@ class DopplerTracker:
             return False
 
         try:
-            ts = load.timescale()
+            ts = load.timescale(builtin=True)
             satellite = EarthSatellite(tle[1], tle[2], tle[0], ts)
             observer = wgs84.latlon(latitude, longitude)
         except Exception as e:

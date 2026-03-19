@@ -83,6 +83,62 @@ def find_auto_rx() -> str | None:
     return None
 
 
+def _iter_auto_rx_python_candidates(auto_rx_path: str):
+    """Yield plausible Python interpreters for radiosonde_auto_rx."""
+    auto_rx_abs = os.path.abspath(auto_rx_path)
+    auto_rx_dir = os.path.dirname(auto_rx_abs)
+    install_root = os.path.dirname(auto_rx_dir)
+
+    candidates = [
+        sys.executable,
+        os.path.join(install_root, 'venv', 'bin', 'python'),
+        os.path.join(install_root, '.venv', 'bin', 'python'),
+        os.path.join(auto_rx_dir, 'venv', 'bin', 'python'),
+        os.path.join(auto_rx_dir, '.venv', 'bin', 'python'),
+        shutil.which('python3'),
+    ]
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate:
+            continue
+        candidate_abs = os.path.abspath(candidate)
+        if candidate_abs in seen:
+            continue
+        seen.add(candidate_abs)
+        if os.path.isfile(candidate_abs) and os.access(candidate_abs, os.X_OK):
+            yield candidate_abs
+
+
+def _resolve_auto_rx_python(auto_rx_path: str) -> tuple[str | None, str, list[str]]:
+    """Pick a Python interpreter that can import autorx.scan successfully."""
+    auto_rx_dir = os.path.dirname(os.path.abspath(auto_rx_path))
+    checked: list[str] = []
+    last_error = 'No usable Python interpreter found'
+
+    for python_bin in _iter_auto_rx_python_candidates(auto_rx_path):
+        checked.append(python_bin)
+        try:
+            dep_check = subprocess.run(
+                [python_bin, '-c', 'import autorx.scan'],
+                cwd=auto_rx_dir,
+                capture_output=True,
+                timeout=10,
+            )
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+
+        if dep_check.returncode == 0:
+            return python_bin, '', checked
+
+        stderr_output = dep_check.stderr.decode('utf-8', errors='ignore').strip()
+        stdout_output = dep_check.stdout.decode('utf-8', errors='ignore').strip()
+        last_error = stderr_output or stdout_output or f'Interpreter exited with code {dep_check.returncode}'
+
+    return None, last_error, checked
+
+
 def generate_station_cfg(
     freq_min: float = 400.0,
     freq_max: float = 406.0,
@@ -547,30 +603,28 @@ def start_radiosonde():
     # Build command - auto_rx -c expects the path to station.cfg
     cfg_abs = os.path.abspath(cfg_path)
     if auto_rx_path.endswith('.py'):
-        cmd = [sys.executable, auto_rx_path, '-c', cfg_abs]
+        selected_python, dep_error, checked_interpreters = _resolve_auto_rx_python(auto_rx_path)
+        if not selected_python:
+            logger.error(
+                "radiosonde_auto_rx dependency check failed across interpreters %s: %s",
+                checked_interpreters,
+                dep_error,
+            )
+            app_module.release_sdr_device(device_int, sdr_type_str)
+            checked_msg = ', '.join(checked_interpreters) if checked_interpreters else 'none'
+            return api_error(
+                'radiosonde_auto_rx dependencies not satisfied. '
+                'Install or repair its Python environment (missing packages such as semver). '
+                f'Checked interpreters: {checked_msg}. '
+                f'Last error: {dep_error[:500]}',
+                500,
+            )
+        cmd = [selected_python, auto_rx_path, '-c', cfg_abs]
     else:
         cmd = [auto_rx_path, '-c', cfg_abs]
 
     # Set cwd to the auto_rx directory so 'from autorx.scan import ...' works
     auto_rx_dir = os.path.dirname(os.path.abspath(auto_rx_path))
-
-    # Quick dependency check before launching the full process
-    if auto_rx_path.endswith('.py'):
-        dep_check = subprocess.run(
-            [sys.executable, '-c', 'import autorx.scan'],
-            cwd=auto_rx_dir,
-            capture_output=True,
-            timeout=10,
-        )
-        if dep_check.returncode != 0:
-            dep_error = dep_check.stderr.decode('utf-8', errors='ignore').strip()
-            logger.error(f"radiosonde_auto_rx dependency check failed:\n{dep_error}")
-            app_module.release_sdr_device(device_int, sdr_type_str)
-            return api_error(
-                'radiosonde_auto_rx dependencies not satisfied. '
-                f'Re-run setup.sh to install. Error: {dep_error[:500]}',
-                500,
-            )
 
     try:
         logger.info(f"Starting radiosonde_auto_rx: {' '.join(cmd)}")

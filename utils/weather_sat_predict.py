@@ -70,7 +70,7 @@ def predict_passes(
     # patch sys.modules to simulate skyfield being unavailable).
     import skyfield  # noqa: F401
 
-    ts = load.timescale()
+    ts = load.timescale(builtin=True)
     observer = wgs84.latlon(lat, lon)
     t0 = ts.now()
     t1 = ts.utc(t0.utc_datetime() + datetime.timedelta(hours=hours))

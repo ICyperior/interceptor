@@ -24,7 +24,7 @@
     <script defer src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
     <script defer src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
 </head>
-<body>
+<body data-mode="ais">
     <!-- Radar background effects -->
     <div class="radar-bg"></div>
     <div class="scanline"></div>
@@ -1632,7 +1632,20 @@
     <!-- Help Modal -->
     {% include 'partials/help-modal.html' %}
 
+    <script src="{{ url_for('static', filename='js/core/voice-alerts.js') }}?v={{ version }}&r=voicefix2"></script>
+    <script src="{{ url_for('static', filename='js/core/keyboard-shortcuts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/cheat-sheets.js') }}"></script>
+    {% include 'partials/nav-utility-modals.html' %}
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}?v={{ version }}&r=maptheme17"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof VoiceAlerts !== 'undefined') {
+                VoiceAlerts.init({ startStreams: false });
+                VoiceAlerts.scheduleStreamStart(20000);
+            }
+            if (typeof KeyboardShortcuts !== 'undefined') KeyboardShortcuts.init();
+        });
+    </script>
 
     <!-- Agent Manager -->
     <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>

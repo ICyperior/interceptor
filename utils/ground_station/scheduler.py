@@ -286,10 +286,10 @@ class GroundStationScheduler:
         from utils.satellite_predict import predict_passes as _predict_passes
 
         try:
-            ts = load.timescale()
+            ts = load.timescale(builtin=True)
         except Exception:
             from skyfield.api import load as _load
-            ts = _load.timescale()
+            ts = _load.timescale(builtin=True)
 
         observer = wgs84.latlon(self._lat, self._lon)
         now = datetime.now(timezone.utc)

@@ -34,7 +34,8 @@ def _get_timescale():
     global _cached_timescale
     if _cached_timescale is None:
         from skyfield.api import load
-        _cached_timescale = load.timescale()
+        # Use bundled timescale data so the first request does not block on network I/O.
+        _cached_timescale = load.timescale(builtin=True)
     return _cached_timescale
 
 # Maximum response size for external requests (1MB)

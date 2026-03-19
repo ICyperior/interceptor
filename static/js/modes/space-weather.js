@@ -18,6 +18,11 @@ const SpaceWeather = (function () {
     // Current image selections
     let _solarImageKey = 'sdo_193';
     let _drapFreq = 'drap_global';
+    const SOLAR_IMAGE_FALLBACKS = {
+        sdo_193: 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg',
+        sdo_304: 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0304.jpg',
+        sdo_magnetogram: 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIBC.jpg',
+    };
 
     /** Stable cache-bust key that rotates every 5 minutes (matches backend max-age). */
     function _cacheBust() {
@@ -54,11 +59,12 @@ const SpaceWeather = (function () {
         const frame = document.getElementById('swSolarImageFrame');
         if (frame) {
             frame.innerHTML = '<div class="sw-loading">Loading</div>';
-            const img = new Image();
-            img.onload = function () { frame.innerHTML = ''; frame.appendChild(img); };
-            img.onerror = function () { frame.innerHTML = '<div class="sw-empty">Failed to load image</div>'; };
-            img.src = '/space-weather/image/' + key + '?' + _cacheBust();
-            img.alt = key;
+            _loadImageWithFallback(
+                frame,
+                ['/space-weather/image/' + key + '?' + _cacheBust(), _directImageUrlForKey(key)],
+                key,
+                '<div class="sw-empty">NASA SDO image is temporarily unavailable</div>'
+            );
         }
     }
 
@@ -68,11 +74,12 @@ const SpaceWeather = (function () {
         const frame = document.getElementById('swDrapImageFrame');
         if (frame) {
             frame.innerHTML = '<div class="sw-loading">Loading</div>';
-            const img = new Image();
-            img.onload = function () { frame.innerHTML = ''; frame.appendChild(img); };
-            img.onerror = function () { frame.innerHTML = '<div class="sw-empty">Failed to load image</div>'; };
-            img.src = '/space-weather/image/' + key + '?' + _cacheBust();
-            img.alt = key;
+            _loadImageWithFallback(
+                frame,
+                ['/space-weather/image/' + key + '?' + _cacheBust()],
+                key,
+                '<div class="sw-empty">Failed to load image</div>'
+            );
         }
     }
 
@@ -96,6 +103,38 @@ const SpaceWeather = (function () {
 
     function _stopAutoRefresh() {
         if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    }
+
+    function _directImageUrlForKey(key) {
+        const base = SOLAR_IMAGE_FALLBACKS[key];
+        if (!base) return null;
+        return base + '?' + _cacheBust();
+    }
+
+    function _loadImageWithFallback(frame, urls, alt, failureHtml) {
+        const candidates = (urls || []).filter(Boolean);
+        if (!frame || candidates.length === 0) {
+            if (frame) frame.innerHTML = failureHtml;
+            return;
+        }
+
+        let index = 0;
+        const img = new Image();
+        img.alt = alt;
+        img.referrerPolicy = 'no-referrer';
+        img.onload = function () {
+            frame.innerHTML = '';
+            frame.appendChild(img);
+        };
+        img.onerror = function () {
+            index += 1;
+            if (index < candidates.length) {
+                img.src = candidates[index];
+                return;
+            }
+            frame.innerHTML = failureHtml;
+        };
+        img.src = candidates[index];
     }
 
     function _fetchData() {

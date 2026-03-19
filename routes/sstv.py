@@ -478,7 +478,7 @@ def _get_timescale():
     with _timescale_lock:
         if _timescale is None:
             from skyfield.api import load
-            _timescale = load.timescale()
+            _timescale = load.timescale(builtin=True)
         return _timescale
 
 

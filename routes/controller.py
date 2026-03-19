@@ -729,7 +729,8 @@ def agent_management_page():
 def network_monitor_page():
     """Render the network monitor page for multi-agent aggregated view."""
     from flask import render_template
-    return render_template('network_monitor.html')
+    from config import VERSION
+    return render_template('network_monitor.html', version=VERSION)
 
 
 # =============================================================================

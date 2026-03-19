@@ -25,7 +25,7 @@
     <script defer src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
     <script defer src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
 </head>
-<body>
+<body data-mode="adsb">
     <div class="radar-bg"></div>
     <div class="scanline"></div>
 
@@ -422,6 +422,7 @@
         let eventSource = null;
         let agentPollTimer = null;  // Polling fallback for agent mode
         let isTracking = false;
+        let isTrackingStarting = false;
         let currentFilter = 'all';
         // ICAO -> { emergency: bool, watchlist: bool, military: bool }
         let alertedAircraft = {};
@@ -2367,6 +2368,10 @@ sudo make install</code>
             const btn = document.getElementById('startBtn');
             const useAgent = typeof adsbCurrentAgent !== 'undefined' && adsbCurrentAgent !== 'local';
 
+            if (isTrackingStarting) {
+                return;
+            }
+
             if (!isTracking) {
                 // Check for remote dump1090 config (only for local mode)
                 const remoteConfig = !useAgent ? getRemoteDump1090Config() : null;
@@ -2444,6 +2449,10 @@ sudo make install</code>
                     requestBody.remote_sbs_host = remoteConfig.host;
                     requestBody.remote_sbs_port = remoteConfig.port;
                 }
+                isTrackingStarting = true;
+                btn.disabled = true;
+                btn.textContent = 'STARTING...';
+                updateTrackingStatusDisplay();
                 try {
                     // Route through agent proxy if using remote agent
                     const url = useAgent
@@ -2470,10 +2479,12 @@ sudo make install</code>
                         drawRangeRings();
                         startSessionTimer();
                         isTracking = true;
+                        isTrackingStarting = false;
                         adsbActiveDevice = adsbDevice;  // Track which device is being used
                         adsbTrackingSource = useAgent ? adsbCurrentAgent : 'local';  // Track which source started tracking
                         btn.textContent = 'STOP';
                         btn.classList.add('active');
+                        btn.disabled = false;
                         document.getElementById('trackingDot').classList.remove('inactive');
                         updateTrackingStatusDisplay();
                         // Disable ADS-B device selector while tracking
@@ -2493,6 +2504,14 @@ sudo make install</code>
                     }
                 } catch (err) {
                     alert('Error: ' + err.message);
+                } finally {
+                    if (!isTracking) {
+                        isTrackingStarting = false;
+                        btn.disabled = false;
+                        btn.textContent = 'START';
+                        btn.classList.remove('active');
+                        updateTrackingStatusDisplay();
+                    }
                 }
             } else {
                 try {
@@ -5697,10 +5716,14 @@ sudo make install</code>
     {% include 'partials/help-modal.html' %}
 
     <script src="{{ url_for('static', filename='js/core/voice-alerts.js') }}?v={{ version }}&r=adsbvoice1"></script>
+    <script src="{{ url_for('static', filename='js/core/keyboard-shortcuts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/cheat-sheets.js') }}"></script>
+    {% include 'partials/nav-utility-modals.html' %}
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}?v={{ version }}&r=maptheme17"></script>
     <script>
         window.addEventListener('DOMContentLoaded', () => {
             if (typeof VoiceAlerts !== 'undefined') VoiceAlerts.init();
+            if (typeof KeyboardShortcuts !== 'undefined') KeyboardShortcuts.init();
         });
     </script>
 
@@ -5738,7 +5761,10 @@ sudo make install</code>
             const statusEl = document.getElementById('trackingStatus');
             if (!statusEl) return;
 
-            if (!isTracking) {
+            if (isTrackingStarting && !isTracking) {
+                statusEl.textContent = 'INITIALIZING';
+                statusEl.title = 'Starting ADS-B receiver';
+            } else if (!isTracking) {
                 statusEl.textContent = 'STANDBY';
                 statusEl.title = 'Select source and click START';
             } else {

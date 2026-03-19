@@ -3502,7 +3502,7 @@ class ModeManager:
             stations_url = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle'
             satellites = load.tle_file(stations_url)
 
-            ts = load.timescale()
+            ts = load.timescale(builtin=True)
             observer = Topos(latitude_degrees=lat, longitude_degrees=lon)
 
             logger.info(f"Satellite predictor: {len(satellites)} satellites loaded")
