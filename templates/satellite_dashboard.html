@@ -787,6 +787,7 @@
         let packetConsoleCollapsed = false;
         let _dashboardRetryTimer = null;
         let _dashboardRetryAttempts = 0;
+        let _satelliteSelectionRequestToken = 0;
         const passCache = new Map();
         const telemetryCache = new Map();
         const transmitterCache = new Map();
@@ -1050,8 +1051,10 @@
             }
         }
 
-        function restoreSatelliteStateFromCache() {
-            const cachedPasses = getCachedPasses(selectedSatellite);
+        function restoreSatelliteStateFromCache(noradId = selectedSatellite) {
+            if (noradId !== selectedSatellite) return;
+
+            const cachedPasses = getCachedPasses(noradId);
             if (cachedPasses?.passes?.length) {
                 passes = cachedPasses.passes;
                 renderPassList();
@@ -1064,12 +1067,12 @@
                 }
             }
 
-            const cachedTelemetry = getCachedLivePosition(selectedSatellite);
+            const cachedTelemetry = getCachedLivePosition(noradId);
             if (cachedTelemetry?.position) {
-                applyTelemetryPosition(cachedTelemetry.position);
+                applyTelemetryPosition(cachedTelemetry.position, { noradId });
             }
 
-            const cachedTransmitters = getCachedTransmitters(selectedSatellite);
+            const cachedTransmitters = getCachedTransmitters(noradId);
             if (cachedTransmitters?.transmitters?.length) {
                 renderTransmitters(cachedTransmitters.transmitters);
             }
@@ -1119,12 +1122,13 @@
                         select.value = '25544';
                     }
                     selectedSatellite = parseInt(select.value);
+                    _satelliteSelectionRequestToken += 1;
                     clearTelemetry();
-                    restoreSatelliteStateFromCache();
+                    restoreSatelliteStateFromCache(selectedSatellite);
                     updateMissionDrawerInfo();
-                    loadTransmitters(selectedSatellite);
-                    calculatePasses();
-                    fetchCurrentTelemetry();
+                    loadTransmitters(selectedSatellite, _satelliteSelectionRequestToken);
+                    calculatePasses(selectedSatellite, _satelliteSelectionRequestToken);
+                    fetchCurrentTelemetry(selectedSatellite, _satelliteSelectionRequestToken);
                     if (window.gsLoadOutputs) window.gsLoadOutputs();
                     if (window.gsOnSatelliteChange) window.gsOnSatelliteChange();
                     if (!trackedSatelliteCatalog.length) {
@@ -1149,9 +1153,9 @@
                         }));
                         renderTrackedSatelliteCatalog();
                     }
-                    calculatePasses();
-                    fetchCurrentTelemetry();
-                    loadTransmitters(selectedSatellite);
+                    calculatePasses(selectedSatellite, _satelliteSelectionRequestToken);
+                    fetchCurrentTelemetry(selectedSatellite, _satelliteSelectionRequestToken);
+                    loadTransmitters(selectedSatellite, _satelliteSelectionRequestToken);
                     scheduleDashboardDataRetry(2500);
                 })
                 .finally(() => {
@@ -1162,6 +1166,7 @@
         function onSatelliteChange() {
             const select = document.getElementById('satSelect');
             selectedSatellite = parseInt(select.value);
+            _satelliteSelectionRequestToken += 1;
             const satName = satellites[selectedSatellite]?.name || 'Unknown';
 
             document.getElementById('trackingStatus').textContent = 'ACQUIRING';
@@ -1184,11 +1189,11 @@
 
             clearTelemetry();
             updateMapTrackSummary();
-            restoreSatelliteStateFromCache();
+            restoreSatelliteStateFromCache(selectedSatellite);
             updateMissionDrawerInfo();
-            loadTransmitters(selectedSatellite);
-            calculatePasses();
-            fetchCurrentTelemetry();
+            loadTransmitters(selectedSatellite, _satelliteSelectionRequestToken);
+            calculatePasses(selectedSatellite, _satelliteSelectionRequestToken);
+            fetchCurrentTelemetry(selectedSatellite, _satelliteSelectionRequestToken);
             if (window.gsLoadOutputs) window.gsLoadOutputs();
             if (window.gsOnSatelliteChange) gsOnSatelliteChange();
             _dashboardRetryAttempts = 0;
@@ -1299,11 +1304,10 @@
             if (telDist) telDist.textContent = '---- km';
         }
 
-        async function fetchCurrentTelemetry() {
+        async function fetchCurrentTelemetry(requestedSatellite = selectedSatellite, selectionToken = _satelliteSelectionRequestToken) {
             const lat = parseFloat(document.getElementById('obsLat')?.value);
             const lon = parseFloat(document.getElementById('obsLon')?.value);
             if (!Number.isFinite(lat) || !Number.isFinite(lon) || !selectedSatellite) return;
-            const requestedSatellite = selectedSatellite;
             const requestKey = `telemetry:${requestedSatellite}:${lat.toFixed(3)}:${lon.toFixed(3)}`;
 
             if (_telemetryAbortController && _activeTelemetryRequestKey === requestKey) {
@@ -1342,7 +1346,7 @@
                 const pos = data.positions.find(p => parseInt(p.norad_id, 10) === requestedSatellite) || null;
                 if (!pos) return;
                 cacheLivePosition(requestedSatellite, pos);
-                if (requestedSatellite !== selectedSatellite) return;
+                if (selectionToken !== _satelliteSelectionRequestToken || requestedSatellite !== selectedSatellite) return;
                 handleLivePositions(data.positions);
             } catch (_) {
                 if (_telemetryAbortController?.signal?.aborted) {
@@ -1640,6 +1644,7 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
+            _satelliteSelectionRequestToken += 1;
             renderPacketPanels();
             loadTrackedSatelliteCatalog();
             loadReceiverDevices();
@@ -1657,9 +1662,9 @@
             }
             startTelemetryPolling();
             loadAgents();
-            calculatePasses();
-            loadTransmitters(selectedSatellite);
-            fetchCurrentTelemetry();
+            calculatePasses(selectedSatellite, _satelliteSelectionRequestToken);
+            loadTransmitters(selectedSatellite, _satelliteSelectionRequestToken);
+            fetchCurrentTelemetry(selectedSatellite, _satelliteSelectionRequestToken);
             scheduleDashboardDataRetry(3500);
             if (!usedShared) {
                 getLocation();
@@ -1894,10 +1899,10 @@
             }
         }
 
-        async function calculatePasses() {
+        async function calculatePasses(requestedSatellite = selectedSatellite, selectionToken = _satelliteSelectionRequestToken) {
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
-            const requestTargets = getPassPredictionTargets();
+            const requestTargets = Number.isFinite(requestedSatellite) ? [requestedSatellite] : getPassPredictionTargets();
             const requestKey = getActivePassRequestKey(requestTargets);
             const container = document.getElementById('passList');
             const button = document.querySelector('.controls-bar .btn.primary');
@@ -1963,6 +1968,9 @@
                 if (data.status === 'success') {
                     const resolvedPasses = Array.isArray(data.passes) ? data.passes : [];
                     cachePredictedPassBatch(resolvedPasses, requestTargets);
+                    if (selectionToken !== _satelliteSelectionRequestToken || requestedSatellite !== selectedSatellite) {
+                        return;
+                    }
 
                     try {
                         applySelectedSatellitePasses();
@@ -1980,7 +1988,7 @@
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                     _dashboardRetryAttempts = 0;
                 } else {
-                    if (applySelectedSatellitePasses()) {
+                    if (selectionToken === _satelliteSelectionRequestToken && requestedSatellite === selectedSatellite && applySelectedSatellitePasses()) {
                         document.getElementById('trackingStatus').textContent = 'TRACKING';
                         document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                     } else {
@@ -2008,7 +2016,7 @@
                     return;
                 }
                 console.error('Pass calculation error:', err);
-                if (applySelectedSatellitePasses()) {
+                if (selectionToken === _satelliteSelectionRequestToken && requestedSatellite === selectedSatellite && applySelectedSatellitePasses()) {
                     document.getElementById('trackingStatus').textContent = 'TRACKING';
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                 } else {
@@ -2468,7 +2476,7 @@
             }
         }
 
-        async function loadTransmitters(noradId) {
+        async function loadTransmitters(noradId, selectionToken = _satelliteSelectionRequestToken) {
             const container = document.getElementById('transmittersList');
             const countEl = document.getElementById('txCount');
             if (!container) return;
@@ -2495,12 +2503,14 @@
                     ? data.transmitters
                     : (BUILTIN_TX_FALLBACK[noradId] || []);
                 cacheTransmitters(noradId, txList);
+                if (selectionToken !== _satelliteSelectionRequestToken || noradId !== selectedSatellite) return;
                 renderTransmitters(txList);
                 updateMissionDrawerInfo();
             } catch (e) {
                 if (requestId !== _txRequestId) return;
                 const cached = getCachedTransmitters(noradId);
                 if (cached?.transmitters?.length) {
+                    if (selectionToken !== _satelliteSelectionRequestToken || noradId !== selectedSatellite) return;
                     renderTransmitters(cached.transmitters);
                     updateMissionDrawerInfo();
                     return;
@@ -2508,6 +2518,7 @@
                 const fallback = BUILTIN_TX_FALLBACK[noradId] || [];
                 if (fallback.length) {
                     cacheTransmitters(noradId, fallback);
+                    if (selectionToken !== _satelliteSelectionRequestToken || noradId !== selectedSatellite) return;
                     renderTransmitters(fallback);
                     updateMissionDrawerInfo();
                     return;
