@@ -440,6 +440,7 @@
         let panelSelectionStageTimer = null;
         let mapCrosshairRequestId = 0;
         let detectedDevicesPromise = null;
+        let deviceDetectionRetryTimer = null;
         let clockInterval = null;
         let cleanupInterval = null;
         let delayedGpsInitTimer = null;
@@ -1733,6 +1734,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             if (delayedGpsInitTimer) { clearTimeout(delayedGpsInitTimer); delayedGpsInitTimer = null; }
             if (delayedDriverCheckTimer) { clearTimeout(delayedDriverCheckTimer); delayedDriverCheckTimer = null; }
             if (delayedAircraftDbTimer) { clearTimeout(delayedAircraftDbTimer); delayedAircraftDbTimer = null; }
+            if (deviceDetectionRetryTimer) { clearTimeout(deviceDetectionRetryTimer); deviceDetectionRetryTimer = null; }
         });
 
         function ensureAdsbMapBootstrapped() {
@@ -1769,12 +1771,29 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 console.error('ADS-B Bias-T bootstrap warning:', e);
             }
 
+            showDeviceDetectionPendingState();
             initDeviceSelectors()
                 .then((devices) => checkAdsbTools(devices))
                 .catch((e) => {
                     console.error('ADS-B device selector bootstrap warning:', e);
                     checkAdsbTools([]);
                 });
+
+            deviceDetectionRetryTimer = setTimeout(() => {
+                deviceDetectionRetryTimer = null;
+                const adsbSelect = document.getElementById('adsbDeviceSelect');
+                const emptyText = adsbSelect?.options?.[0]?.textContent || '';
+                const stillWaitingForDevices = adsbSelect && adsbSelect.options.length === 1
+                    && /No SDR|Detecting SDR/i.test(emptyText);
+
+                if (!stillWaitingForDevices) return;
+
+                initDeviceSelectors(true, 20000)
+                    .then((devices) => checkAdsbTools(devices))
+                    .catch((e) => {
+                        console.error('ADS-B device selector retry warning:', e);
+                    });
+            }, 6000);
 
             try {
                 updateClock();
@@ -1848,21 +1867,46 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             });
         }
 
-        function getDetectedDevices(force = false) {
+        function showDeviceDetectionPendingState() {
+            populateCompositeDeviceSelect(document.getElementById('adsbDeviceSelect'), [], 'Detecting SDRs...');
+            populateCompositeDeviceSelect(document.getElementById('airbandDeviceSelect'), [], 'Detecting SDRs...');
+            populateCompositeDeviceSelect(document.getElementById('acarsDeviceSelect'), [], 'Detecting SDRs...');
+            populateCompositeDeviceSelect(document.getElementById('vdl2DeviceSelect'), [], 'Detecting SDRs...');
+        }
+
+        function getDetectedDevices(force = false, timeoutMs = 12000) {
+            if (force) {
+                detectedDevicesPromise = null;
+            }
+
             if (!force && detectedDevicesPromise) {
                 return detectedDevicesPromise;
             }
-            detectedDevicesPromise = fetchJsonWithTimeout('/devices', {}, 4000)
+
+            detectedDevicesPromise = fetchJsonWithTimeout('/devices', {}, timeoutMs)
                 .then((r) => r.ok ? r.json() : [])
+                .then((devices) => {
+                    if (!Array.isArray(devices)) {
+                        detectedDevicesPromise = null;
+                        return [];
+                    }
+
+                    if (devices.length === 0) {
+                        detectedDevicesPromise = null;
+                    }
+
+                    return devices;
+                })
                 .catch((err) => {
                     console.warn('[ADS-B] Device detection failed:', err?.message || err);
+                    detectedDevicesPromise = null;
                     return [];
                 });
             return detectedDevicesPromise;
         }
 
-        function initDeviceSelectors() {
-            return getDetectedDevices().then((devices) => {
+        function initDeviceSelectors(force = false, timeoutMs = 12000) {
+            return getDetectedDevices(force, timeoutMs).then((devices) => {
                 const adsbSelect = document.getElementById('adsbDeviceSelect');
                 const airbandSelect = document.getElementById('airbandDeviceSelect');
                 const acarsSelect = document.getElementById('acarsDeviceSelect');
