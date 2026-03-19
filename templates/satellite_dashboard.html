@@ -200,6 +200,7 @@
                     <label>TARGET:</label>
                     <select id="satSelect" onchange="onSatelliteChange()">
                         <option value="25544">ISS (ZARYA)</option>
+                        <option value="40069">METEOR-M2</option>
                         <option value="57166">METEOR-M2-3</option>
                         <option value="59051">METEOR-M2-4</option>
                     </select>
@@ -790,7 +791,7 @@
         const RECEIVER_STORAGE_KEY = 'satellite.dashboard.receiver';
         const DASHBOARD_FETCH_TIMEOUT_MS = 30000;
         const PASS_FETCH_TIMEOUT_MS = 90000;
-        const SAT_DRAWER_FETCH_TIMEOUT_MS = 8000;
+        const SAT_DRAWER_FETCH_TIMEOUT_MS = 15000;
         const BUILTIN_TX_FALLBACK = {
             25544: [
                 { description: 'APRS digipeater', downlink_low: 145.825, downlink_high: 145.825, uplink_low: null, uplink_high: null, mode: 'FM AX.25', baud: 1200, status: 'active', type: 'beacon', service: 'Packet' },
@@ -809,6 +810,7 @@
 
         let satellites = {
             25544: { name: 'ISS (ZARYA)', color: '#00ffff' },
+            40069: { name: 'METEOR-M2', color: '#9370DB' },
             57166: { name: 'METEOR-M2-3', color: '#ff00ff' },
             59051: { name: 'METEOR-M2-4', color: '#00ff88' }
         };
@@ -1023,6 +1025,7 @@
                     const prevSelected = selectedSatellite;
                     const newSats = {
                         25544: { name: 'ISS (ZARYA)', color: satellites[25544]?.color || satColors[0] },
+                        40069: { name: 'METEOR-M2', color: satellites[40069]?.color || satColors[1] },
                         57166: { name: 'METEOR-M2-3', color: satellites[57166]?.color || satColors[2] },
                         59051: { name: 'METEOR-M2-4', color: satellites[59051]?.color || satColors[4] },
                     };
@@ -1856,25 +1859,48 @@
                 const data = await response.json();
                 if (requestId !== _passRequestId) return;
                 if (data.status === 'success') {
-                    passes = data.passes;
+                    passes = Array.isArray(data.passes) ? data.passes : [];
                     cacheCurrentPasses(selectedSatellite, passes);
-                    renderPassList();
-                    updateStats();
-                    updateMissionDrawerInfo();
+
+                    try {
+                        renderPassList();
+                        updateStats();
+                        updateMissionDrawerInfo();
+                    } catch (renderErr) {
+                        console.error('Satellite pass list render error:', renderErr);
+                    }
+
                     if (passes.length > 0) {
-                        selectPass(0);
+                        try {
+                            selectPass(0);
+                        } catch (renderErr) {
+                            console.error('Satellite pass selection render error:', renderErr);
+                            selectedPass = 0;
+                            renderMapTrackOverlays();
+                            updateMapTrackSummary();
+                            updateTelemetry(passes[0]);
+                        }
                     } else {
-                        renderMapTrackOverlays();
-                        updateMapTrackSummary();
-                        if (latestLivePosition?.azimuth != null && latestLivePosition?.elevation != null) {
-                            drawPolarPlotWithPosition(
-                                latestLivePosition.azimuth,
-                                latestLivePosition.elevation,
-                                satellites[selectedSatellite]?.color || '#00d4ff'
-                            );
+                        try {
+                            renderMapTrackOverlays();
+                            updateMapTrackSummary();
+                            if (latestLivePosition?.azimuth != null && latestLivePosition?.elevation != null) {
+                                drawPolarPlotWithPosition(
+                                    latestLivePosition.azimuth,
+                                    latestLivePosition.elevation,
+                                    satellites[selectedSatellite]?.color || '#00d4ff'
+                                );
+                            }
+                        } catch (renderErr) {
+                            console.error('Satellite empty-pass render error:', renderErr);
                         }
                     }
-                    updateObserverMarker(lat, lon);
+
+                    try {
+                        updateObserverMarker(lat, lon);
+                    } catch (markerErr) {
+                        console.error('Satellite observer marker error:', markerErr);
+                    }
 
                     document.getElementById('trackingStatus').textContent = 'TRACKING';
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
@@ -2182,23 +2208,29 @@
         }
 
         function updateTelemetry(pass) {
+            if (latestLivePosition) {
+                applyTelemetryPosition(latestLivePosition);
+                return;
+            }
             if (!pass || !pass.currentPos) {
-                document.getElementById('telLat').textContent = '---.----';
-                document.getElementById('telLon').textContent = '---.----';
-                document.getElementById('telAlt').textContent = '--- km';
-                document.getElementById('telEl').textContent = '--.-';
-                document.getElementById('telAz').textContent = '---.-';
-                document.getElementById('telDist').textContent = '---- km';
+                clearTelemetry();
                 return;
             }
 
             const pos = pass.currentPos;
-            document.getElementById('telLat').textContent = (pos.lat || 0).toFixed(4) + '°';
-            document.getElementById('telLon').textContent = (pos.lon || 0).toFixed(4) + '°';
-            document.getElementById('telAlt').textContent = (pos.alt || 0).toFixed(0) + ' km';
-            document.getElementById('telEl').textContent = (pos.el || 0).toFixed(1) + '°';
-            document.getElementById('telAz').textContent = (pos.az || 0).toFixed(1) + '°';
-            document.getElementById('telDist').textContent = (pos.dist || 0).toFixed(0) + ' km';
+            const telLat = document.getElementById('telLat');
+            const telLon = document.getElementById('telLon');
+            const telAlt = document.getElementById('telAlt');
+            const telEl = document.getElementById('telEl');
+            const telAz = document.getElementById('telAz');
+            const telDist = document.getElementById('telDist');
+
+            if (telLat) telLat.textContent = Number.isFinite(pos.lat) ? pos.lat.toFixed(4) + '°' : '---.----';
+            if (telLon) telLon.textContent = Number.isFinite(pos.lon) ? pos.lon.toFixed(4) + '°' : '---.----';
+            if (telAlt) telAlt.textContent = Number.isFinite(pos.alt) ? pos.alt.toFixed(0) + ' km' : '--- km';
+            if (telEl) telEl.textContent = Number.isFinite(pos.el) ? pos.el.toFixed(1) + '°' : '--.-';
+            if (telAz) telAz.textContent = Number.isFinite(pos.az) ? pos.az.toFixed(1) + '°' : '---.-';
+            if (telDist) telDist.textContent = Number.isFinite(pos.dist) ? pos.dist.toFixed(0) + ' km' : '---- km';
         }
 
         function updateCountdown() {
