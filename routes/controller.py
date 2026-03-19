@@ -43,6 +43,8 @@ from utils.trilateration import (
 logger = logging.getLogger('intercept.controller')
 
 controller_bp = Blueprint('controller', __name__, url_prefix='/controller')
+AGENT_HEALTH_TIMEOUT_SECONDS = 2.0
+AGENT_STATUS_TIMEOUT_SECONDS = 2.5
 
 # Multi-agent SSE fanout state (per-client queues).
 _agent_stream_subscribers: set[queue.Queue] = set()
@@ -81,7 +83,11 @@ def get_agents():
     if refresh:
         for agent in agents:
             try:
-                client = create_client_from_agent(agent)
+                client = AgentClient(
+                    agent['base_url'],
+                    api_key=agent.get('api_key'),
+                    timeout=AGENT_HEALTH_TIMEOUT_SECONDS,
+                )
                 agent['healthy'] = client.health_check()
             except Exception:
                 agent['healthy'] = False
@@ -328,7 +334,11 @@ def check_all_agents_health():
         }
 
         try:
-            client = create_client_from_agent(agent)
+            client = AgentClient(
+                agent['base_url'],
+                api_key=agent.get('api_key'),
+                timeout=AGENT_HEALTH_TIMEOUT_SECONDS,
+            )
 
             # Time the health check
             start_time = time.time()
@@ -344,7 +354,12 @@ def check_all_agents_health():
 
                 # Also fetch running modes
                 try:
-                    status = client.get_status()
+                    status_client = AgentClient(
+                        agent['base_url'],
+                        api_key=agent.get('api_key'),
+                        timeout=AGENT_STATUS_TIMEOUT_SECONDS,
+                    )
+                    status = status_client.get_status()
                     result['running_modes'] = status.get('running_modes', [])
                     result['running_modes_detail'] = status.get('running_modes_detail', {})
                 except Exception:

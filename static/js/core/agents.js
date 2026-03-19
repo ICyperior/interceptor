@@ -14,6 +14,7 @@ let agentRunningModes = [];  // Track agent's running modes for conflict detecti
 let agentRunningModesDetail = {};  // Track device info per mode (for multi-SDR agents)
 let healthCheckInterval = null;  // Health monitoring interval
 let agentHealthStatus = {};  // Cache of health status per agent ID
+let healthCheckKickoffTimer = null;
 
 // ============== AGENT HEALTH MONITORING ==============
 
@@ -25,8 +26,15 @@ function startHealthMonitoring() {
     // Don't start if already running
     if (healthCheckInterval) return;
 
-    // Initial check
-    checkAllAgentsHealth();
+    // Defer the first probe so heavy dashboards can finish initial render
+    // before we start contacting remote agents.
+    if (healthCheckKickoffTimer) {
+        clearTimeout(healthCheckKickoffTimer);
+    }
+    healthCheckKickoffTimer = setTimeout(() => {
+        healthCheckKickoffTimer = null;
+        checkAllAgentsHealth();
+    }, 5000);
 
     // Start periodic checks every 30 seconds
     healthCheckInterval = setInterval(checkAllAgentsHealth, 30000);
@@ -37,6 +45,10 @@ function startHealthMonitoring() {
  * Stop health monitoring.
  */
 function stopHealthMonitoring() {
+    if (healthCheckKickoffTimer) {
+        clearTimeout(healthCheckKickoffTimer);
+        healthCheckKickoffTimer = null;
+    }
     if (healthCheckInterval) {
         clearInterval(healthCheckInterval);
         healthCheckInterval = null;
