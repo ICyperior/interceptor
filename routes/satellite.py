@@ -647,7 +647,7 @@ def get_satellite_position():
                 'norad_id': norad_id,
                 'lat': float(subpoint.latitude.degrees),
                 'lon': float(subpoint.longitude.degrees),
-                'altitude': float(geocentric.distance().km - 6371),
+                'altitude': float(subpoint.elevation.km),
                 'elevation': float(alt.degrees),
                 'azimuth': float(az.degrees),
                 'distance': float(distance.km),
