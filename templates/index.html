@@ -16401,11 +16401,11 @@
         if (typeof KeyboardShortcuts !== 'undefined') KeyboardShortcuts.init();
     });
 
-    // ── Weather-satellite handoff from the satellite dashboard iframe ─────────
-    window.addEventListener('message', (event) => {
-        if (!event.data || event.data.type !== 'weather-sat-handoff') return;
+    // ── Weather-satellite handoff from the satellite dashboard iframe/tab ─────
+    function processWeatherSatHandoff(payload) {
+        if (!payload || payload.type !== 'weather-sat-handoff') return;
 
-        const { satellite, aosTime, tcaEl, duration } = event.data;
+        const { satellite, aosTime, tcaEl, duration } = payload;
         if (!satellite) return;
 
         // Determine how far away the pass is
@@ -16426,6 +16426,32 @@
                 }
             }
         });
+    }
+
+    function consumePendingWeatherSatHandoff() {
+        let raw = null;
+        try {
+            raw = window.sessionStorage?.getItem('intercept.pendingWeatherSatHandoff')
+                || window.localStorage?.getItem('intercept.pendingWeatherSatHandoff');
+        } catch (_) {
+            raw = null;
+        }
+        if (!raw) return;
+
+        try {
+            window.sessionStorage?.removeItem('intercept.pendingWeatherSatHandoff');
+            window.localStorage?.removeItem('intercept.pendingWeatherSatHandoff');
+        } catch (_) {}
+
+        try {
+            processWeatherSatHandoff(JSON.parse(raw));
+        } catch (err) {
+            console.warn('Failed to consume weather-satellite handoff payload:', err);
+        }
+    }
+
+    window.addEventListener('message', (event) => {
+        processWeatherSatHandoff(event.data);
     });
 
     function showHandoffBanner(satellite, minsAway, tcaEl, duration) {
@@ -16463,6 +16489,10 @@
         // Auto-dismiss after 2 minutes
         setTimeout(() => { if (banner.parentNode) banner.remove(); }, 120000);
     }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(consumePendingWeatherSatHandoff, 250);
+    });
     </script>
 </body>
 

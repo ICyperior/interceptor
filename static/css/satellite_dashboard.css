@@ -280,7 +280,7 @@ body {
 .primary-layout {
     display: grid;
     grid-template-columns: 300px minmax(0, 1.6fr) 360px;
-    gap: 12px;
+    gap: 10px;
     min-height: 520px;
     min-width: 0;
 }
@@ -295,9 +295,10 @@ body {
 .command-rail {
     display: grid;
     grid-template-rows: auto auto auto minmax(260px, 340px);
-    gap: 12px;
+    gap: 6px;
     min-width: 0;
     align-items: start;
+    align-content: start;
 }
 
 .data-grid {

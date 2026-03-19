@@ -2041,7 +2041,18 @@
             const target = window.parent !== window ? window.parent : window.opener;
             if (target) {
                 target.postMessage(msg, '*');
+                return;
             }
+
+            try {
+                if (window.sessionStorage) {
+                    window.sessionStorage.setItem('intercept.pendingWeatherSatHandoff', JSON.stringify(msg));
+                } else if (window.localStorage) {
+                    window.localStorage.setItem('intercept.pendingWeatherSatHandoff', JSON.stringify(msg));
+                }
+            } catch (_) {}
+
+            window.location.assign('/?mode=weathersat');
         }
 
         function selectPass(idx) {
