@@ -775,6 +775,8 @@
         let agents = [];
         let _txRequestId = 0;
         let _telemetryPollTimer = null;
+        let _telemetryAbortController = null;
+        let _activeTelemetryRequestKey = null;
         let _passRequestId = 0;
         let _passAbortController = null;
         let _passTimeoutId = null;
@@ -792,7 +794,8 @@
         const DASHBOARD_FETCH_TIMEOUT_MS = 30000;
         const PASS_FETCH_TIMEOUT_MS = 90000;
         const SAT_DRAWER_FETCH_TIMEOUT_MS = 15000;
-        const TELEMETRY_POLL_INTERVAL_MS = 3000;
+        const TELEMETRY_POLL_INTERVAL_MS = 5000;
+        const TELEMETRY_FETCH_TIMEOUT_MS = 8000;
         const BUILTIN_TX_FALLBACK = {
             25544: [
                 { description: 'APRS digipeater', downlink_low: 145.825, downlink_high: 145.825, uplink_low: null, uplink_high: null, mode: 'FM AX.25', baud: 1200, status: 'active', type: 'beacon', service: 'Packet' },
@@ -913,13 +916,10 @@
         }
 
         function getPassPredictionTargets() {
-            const targets = Object.keys(satellites || {})
-                .map(id => parseInt(id, 10))
-                .filter(id => Number.isFinite(id));
-            if (Number.isFinite(selectedSatellite) && !targets.includes(selectedSatellite)) {
-                targets.unshift(selectedSatellite);
+            if (Number.isFinite(selectedSatellite)) {
+                return [selectedSatellite];
             }
-            return Array.from(new Set(targets));
+            return [25544];
         }
 
         function getActivePassRequestKey(targetIds = getPassPredictionTargets()) {
@@ -1170,6 +1170,11 @@
             selectedPass = null;
             passes = [];
             latestLivePosition = null;
+            if (_telemetryAbortController) {
+                _telemetryAbortController.abort();
+                _telemetryAbortController = null;
+            }
+            _activeTelemetryRequestKey = null;
 
             if (groundMap) {
                 if (trackLine) { groundMap.removeLayer(trackLine); trackLine = null; }
@@ -1299,10 +1304,17 @@
             const lon = parseFloat(document.getElementById('obsLon')?.value);
             if (!Number.isFinite(lat) || !Number.isFinite(lon) || !selectedSatellite) return;
             const requestedSatellite = selectedSatellite;
+            const requestKey = `telemetry:${requestedSatellite}:${lat.toFixed(3)}:${lon.toFixed(3)}`;
+
+            if (_telemetryAbortController && _activeTelemetryRequestKey === requestKey) {
+                return;
+            }
 
             try {
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), DASHBOARD_FETCH_TIMEOUT_MS);
+                _telemetryAbortController = controller;
+                _activeTelemetryRequestKey = requestKey;
+                const timeout = setTimeout(() => controller.abort(), TELEMETRY_FETCH_TIMEOUT_MS);
                 const response = await fetch('/satellite/position', {
                     method: 'POST',
                     credentials: 'same-origin',
@@ -1316,6 +1328,12 @@
                     })
                 });
                 clearTimeout(timeout);
+                if (_telemetryAbortController === controller) {
+                    _telemetryAbortController = null;
+                }
+                if (_activeTelemetryRequestKey === requestKey) {
+                    _activeTelemetryRequestKey = null;
+                }
                 if (!response.ok) return;
                 const contentType = response.headers.get('Content-Type') || '';
                 if (!contentType.includes('application/json')) return;
@@ -1326,7 +1344,14 @@
                 cacheLivePosition(requestedSatellite, pos);
                 if (requestedSatellite !== selectedSatellite) return;
                 handleLivePositions(data.positions);
-            } catch (_) {}
+            } catch (_) {
+                if (_telemetryAbortController?.signal?.aborted) {
+                    _telemetryAbortController = null;
+                }
+                if (_activeTelemetryRequestKey === requestKey) {
+                    _activeTelemetryRequestKey = null;
+                }
+            }
         }
 
         function startTelemetryPolling() {
@@ -1593,6 +1618,10 @@
         // Refresh satellite list when the window regains focus (e.g. after enabling sats in the sidebar)
         window.addEventListener('focus', loadDashboardSatellites);
         window.addEventListener('pagehide', () => {
+            if (_telemetryAbortController) {
+                _telemetryAbortController.abort();
+                _telemetryAbortController = null;
+            }
             if (_passAbortController) {
                 _passAbortController.abort('pagehide');
                 _passAbortController = null;

@@ -568,6 +568,7 @@ def get_satellite_position():
 
     sat_input = data.get('satellites', [])
     include_track = bool(data.get('includeTrack', True))
+    prefer_realtime_api = bool(data.get('preferRealtimeApi', False))
 
     observer = wgs84.latlon(lat, lon)
     ts = None
@@ -579,8 +580,9 @@ def get_satellite_position():
 
     for sat in sat_input:
         sat_name, norad_id, tle_data = _resolve_satellite_request(sat, tracked_by_norad, tracked_by_name)
-        # Special handling for ISS - prefer real-time API, but fall back to TLE if offline.
-        if norad_id == 25544 or sat_name == 'ISS':
+        # Optional special handling for ISS. The dashboard does not enable this
+        # because external API latency can make live updates stall.
+        if prefer_realtime_api and (norad_id == 25544 or sat_name == 'ISS'):
             iss_data = _fetch_iss_realtime(lat, lon)
             if iss_data:
                 # Add orbit track if requested (using TLE for track prediction)
