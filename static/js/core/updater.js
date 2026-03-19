@@ -5,6 +5,7 @@
 const Updater = {
     // State
     _checkInterval: null,
+    _startupCheckTimer: null,
     _toastElement: null,
     _modalElement: null,
     _updateData: null,
@@ -19,13 +20,26 @@ const Updater = {
         // Create toast container if it doesn't exist
         this._ensureToastContainer();
 
-        // Check for updates on page load
-        this.checkForUpdates();
+        const enabled = localStorage.getItem('intercept_update_check_enabled') !== 'false';
+        if (!enabled) {
+            this.destroy();
+            return;
+        }
+
+        // Defer the first check so the active dashboard can finish loading first.
+        if (!this._startupCheckTimer) {
+            this._startupCheckTimer = setTimeout(() => {
+                this._startupCheckTimer = null;
+                this.checkForUpdates();
+            }, 15000);
+        }
 
         // Set up periodic checks
-        this._checkInterval = setInterval(() => {
-            this.checkForUpdates();
-        }, this.CHECK_INTERVAL_MS);
+        if (!this._checkInterval) {
+            this._checkInterval = setInterval(() => {
+                this.checkForUpdates();
+            }, this.CHECK_INTERVAL_MS);
+        }
     },
 
     /**
@@ -506,6 +520,10 @@ const Updater = {
      * Clean up on page unload
      */
     destroy() {
+        if (this._startupCheckTimer) {
+            clearTimeout(this._startupCheckTimer);
+            this._startupCheckTimer = null;
+        }
         if (this._checkInterval) {
             clearInterval(this._checkInterval);
             this._checkInterval = null;

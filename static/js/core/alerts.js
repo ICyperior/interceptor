@@ -8,16 +8,41 @@ const AlertCenter = (function() {
     let eventSource = null;
     let reconnectTimer = null;
     let lastConnectionWarningAt = 0;
+    let rulesLoaded = false;
+    let rulesPromise = null;
+    let bootTimer = null;
+    let feedLoaded = false;
 
-    function init() {
-        loadRules();
-        loadFeed();
-        connect();
+    function init(options = {}) {
+        const connectFeed = options.connectFeed !== false;
+        const refreshRules = options.refreshRules === true;
+
+        if (bootTimer) {
+            clearTimeout(bootTimer);
+            bootTimer = null;
+        }
+
+        loadRules(refreshRules);
+
+        if (connectFeed) {
+            if (!feedLoaded) {
+                loadFeed();
+            }
+            connect();
+        }
+    }
+
+    function scheduleInit(delayMs = 15000) {
+        if (bootTimer || eventSource) return;
+        bootTimer = window.setTimeout(() => {
+            bootTimer = null;
+            init();
+        }, delayMs);
     }
 
     function connect() {
         if (eventSource) {
-            eventSource.close();
+            return;
         }
 
         eventSource = new EventSource('/alerts/stream');
@@ -39,6 +64,10 @@ const AlertCenter = (function() {
             if (shouldLog) {
                 lastConnectionWarningAt = now;
                 console.warn('[Alerts] SSE connection error; retrying');
+            }
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
             }
             if (reconnectTimer) clearTimeout(reconnectTimer);
             reconnectTimer = setTimeout(connect, 2500);
@@ -133,6 +162,7 @@ const AlertCenter = (function() {
     }
 
     function loadFeed() {
+        feedLoaded = true;
         fetch('/alerts/events?limit=30')
             .then((r) => r.json())
             .then((data) => {
@@ -144,21 +174,37 @@ const AlertCenter = (function() {
             .catch((err) => console.error('[Alerts] Load feed failed', err));
     }
 
-    function loadRules() {
-        return fetch('/alerts/rules?all=1')
+    function loadRules(force = false) {
+        if (!force && rulesLoaded) {
+            renderRulesUI();
+            return Promise.resolve(rules);
+        }
+        if (!force && rulesPromise) {
+            return rulesPromise;
+        }
+
+        rulesPromise = fetch('/alerts/rules?all=1')
             .then((r) => r.json())
             .then((data) => {
                 if (data.status === 'success') {
                     rules = data.rules || [];
+                    rulesLoaded = true;
                     renderRulesUI();
                 }
+                return rules;
             })
             .catch((err) => {
                 console.error('[Alerts] Load rules failed', err);
                 if (typeof reportActionableError === 'function') {
                     reportActionableError('Alert Rules', err, { onRetry: loadRules });
                 }
+                throw err;
+            })
+            .finally(() => {
+                rulesPromise = null;
             });
+
+        return rulesPromise;
     }
 
     function saveRule() {
@@ -260,7 +306,7 @@ const AlertCenter = (function() {
                 if (data.status !== 'success') {
                     throw new Error(data.message || 'Failed to update rule');
                 }
-                return loadRules();
+                return loadRules(true);
             })
             .catch((err) => {
                 if (typeof reportActionableError === 'function') {
@@ -287,7 +333,7 @@ const AlertCenter = (function() {
                 if (Number(getEditingRuleId()) === Number(ruleId)) {
                     clearRuleForm();
                 }
-                return loadRules();
+                return loadRules(true);
             })
             .catch((err) => {
                 if (typeof reportActionableError === 'function') {
@@ -325,7 +371,7 @@ const AlertCenter = (function() {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled }),
-                }).then(() => loadRules());
+                }).then(() => loadRules(true));
             }
 
             if (enabled) {
@@ -341,7 +387,7 @@ const AlertCenter = (function() {
                         enabled: true,
                         notify: { webhook: true },
                     }),
-                }).then(() => loadRules());
+                }).then(() => loadRules(true));
             }
             return null;
         });
@@ -349,39 +395,61 @@ const AlertCenter = (function() {
 
     function addBluetoothWatchlist(address, name) {
         if (!address) return;
-        const upper = String(address).toUpperCase();
-        const existing = rules.find((r) => r.mode === 'bluetooth' && r.match && String(r.match.address || '').toUpperCase() === upper);
-        if (existing) return;
+        loadRules().then(() => {
+            const upper = String(address).toUpperCase();
+            const existing = rules.find((r) => r.mode === 'bluetooth' && r.match && String(r.match.address || '').toUpperCase() === upper);
+            if (existing) return;
 
-        fetch('/alerts/rules', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: name ? `Watchlist ${name}` : `Watchlist ${upper}`,
-                mode: 'bluetooth',
-                event_type: 'device_update',
-                match: { address: upper },
-                severity: 'medium',
-                enabled: true,
-                notify: { webhook: true },
-            }),
-        }).then(() => loadRules());
+            return fetch('/alerts/rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name ? `Watchlist ${name}` : `Watchlist ${upper}`,
+                    mode: 'bluetooth',
+                    event_type: 'device_update',
+                    match: { address: upper },
+                    severity: 'medium',
+                    enabled: true,
+                    notify: { webhook: true },
+                }),
+            }).then(() => loadRules(true));
+        });
     }
 
     function removeBluetoothWatchlist(address) {
         if (!address) return;
-        const upper = String(address).toUpperCase();
-        const existing = rules.find((r) => r.mode === 'bluetooth' && r.match && String(r.match.address || '').toUpperCase() === upper);
-        if (!existing) return;
+        loadRules().then(() => {
+            const upper = String(address).toUpperCase();
+            const existing = rules.find((r) => r.mode === 'bluetooth' && r.match && String(r.match.address || '').toUpperCase() === upper);
+            if (!existing) return;
 
-        fetch(`/alerts/rules/${existing.id}`, { method: 'DELETE' })
-            .then(() => loadRules());
+            return fetch(`/alerts/rules/${existing.id}`, { method: 'DELETE' })
+                .then(() => loadRules(true));
+        });
     }
 
     function isWatchlisted(address) {
         if (!address) return false;
+        if (!rulesLoaded && !rulesPromise) {
+            loadRules();
+        }
         const upper = String(address).toUpperCase();
         return rules.some((r) => r.mode === 'bluetooth' && r.match && String(r.match.address || '').toUpperCase() === upper && r.enabled);
+    }
+
+    function destroy() {
+        if (bootTimer) {
+            clearTimeout(bootTimer);
+            bootTimer = null;
+        }
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
     }
 
     function escapeHtml(str) {
@@ -396,6 +464,7 @@ const AlertCenter = (function() {
 
     return {
         init,
+        scheduleInit,
         loadFeed,
         loadRules,
         saveRule,
@@ -408,11 +477,12 @@ const AlertCenter = (function() {
         addBluetoothWatchlist,
         removeBluetoothWatchlist,
         isWatchlisted,
+        destroy,
     };
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof AlertCenter !== 'undefined') {
-        AlertCenter.init();
+        AlertCenter.scheduleInit();
     }
 });

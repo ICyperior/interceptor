@@ -16241,40 +16241,6 @@
     </div>
 
     <script>
-        // Check dependencies on page load
-        document.addEventListener('DOMContentLoaded', function () {
-            // Check if user dismissed the startup check
-            const dismissed = localStorage.getItem('depsCheckDismissed');
-
-            // Quick check for missing dependencies
-            fetch('/dependencies')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        let missingModes = 0;
-                        let missingTools = [];
-
-                        for (const [modeKey, mode] of Object.entries(data.modes)) {
-                            if (!mode.ready) {
-                                missingModes++;
-                                mode.missing_required.forEach(tool => {
-                                    if (!missingTools.includes(tool)) {
-                                        missingTools.push(tool);
-                                    }
-                                });
-                            }
-                        }
-
-                        // Show startup prompt if tools are missing and not dismissed
-                        // Only show if disclaimer has been accepted
-                        const disclaimerAccepted = localStorage.getItem('disclaimerAccepted') === 'true';
-                        if (missingModes > 0 && !dismissed && disclaimerAccepted) {
-                            showStartupDepsPrompt(missingModes, missingTools.length);
-                        }
-                    }
-                });
-        });
-
         function showStartupDepsPrompt(modeCount, toolCount) {
             const notice = document.createElement('div');
             notice.id = 'startupDepsModal';

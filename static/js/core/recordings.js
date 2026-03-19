@@ -137,9 +137,3 @@ const RecordingUI = (function() {
         openReplay,
     };
 })();
-
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof RecordingUI !== 'undefined') {
-        RecordingUI.init();
-    }
-});

@@ -1292,11 +1292,11 @@ function switchSettingsTab(tabName) {
     } else if (tabName === 'alerts') {
         loadVoiceAlertConfig();
         if (typeof AlertCenter !== 'undefined') {
-            AlertCenter.loadFeed();
+            AlertCenter.init();
         }
     } else if (tabName === 'recording') {
         if (typeof RecordingUI !== 'undefined') {
-            RecordingUI.refresh();
+            RecordingUI.init();
         }
     } else if (tabName === 'apikeys') {
         loadApiKeyStatus();
