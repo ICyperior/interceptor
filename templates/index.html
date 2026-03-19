@@ -4350,8 +4350,10 @@
                             activeScans: getActiveScanSummary(),
                         });
                     }
+                    // Let dedicated dashboards navigate immediately.
+                    // Pre-navigation stop requests from active modes like Pager
+                    // can stall same-tab navigation badly on some browsers.
                     destroyCurrentMode();
-                    stopActiveLocalScansForNavigation();
                 } catch (_) {
                     // Ignore malformed hrefs.
                 }
