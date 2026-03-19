@@ -4218,7 +4218,14 @@
                 acars: () => { if (acarsMainEventSource) { acarsMainEventSource.close(); acarsMainEventSource = null; } },
                 vdl2: () => { if (vdl2MainEventSource) { vdl2MainEventSource.close(); vdl2MainEventSource = null; } },
                 radiosonde: () => { if (radiosondeEventSource) { radiosondeEventSource.close(); radiosondeEventSource = null; } },
-                aprs: () => { if (aprsEventSource) { aprsEventSource.close(); aprsEventSource = null; } },
+                aprs: () => {
+                    if (typeof destroyAprsMode === 'function') {
+                        destroyAprsMode();
+                    } else if (aprsEventSource) {
+                        aprsEventSource.close();
+                        aprsEventSource = null;
+                    }
+                },
                 tscm: () => { if (tscmEventSource) { tscmEventSource.close(); tscmEventSource = null; } },
                 meteor: () => typeof MeteorScatter !== 'undefined' && MeteorScatter.destroy?.(),
                 ook: () => typeof OokMode !== 'undefined' && OokMode.destroy?.(),
@@ -9880,6 +9887,7 @@
         let aprsStationCount = 0;
         let aprsMeterLastUpdate = 0;
         let aprsMeterCheckInterval = null;
+        let aprsClockInterval = null;
         const APRS_METER_TIMEOUT = 5000; // 5 seconds for "no signal" state
 
         // APRS user location (from GPS or shared observer location)
@@ -10023,6 +10031,47 @@
                 });
         }
 
+        function createAprsFallbackGridLayer() {
+            const layer = L.gridLayer({
+                tileSize: 256,
+                updateWhenIdle: true,
+                attribution: 'Local fallback grid'
+            });
+            layer.createTile = function(coords) {
+                const tile = document.createElement('canvas');
+                tile.width = 256;
+                tile.height = 256;
+                const ctx = tile.getContext('2d');
+
+                ctx.fillStyle = '#08121c';
+                ctx.fillRect(0, 0, 256, 256);
+
+                ctx.strokeStyle = 'rgba(0, 212, 255, 0.12)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(256, 0);
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, 256);
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+                ctx.beginPath();
+                ctx.moveTo(128, 0);
+                ctx.lineTo(128, 256);
+                ctx.moveTo(0, 128);
+                ctx.lineTo(256, 128);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(160, 220, 255, 0.28)';
+                ctx.font = '11px "JetBrains Mono", monospace';
+                ctx.fillText(`Z${coords.z} X${coords.x} Y${coords.y}`, 12, 22);
+
+                return tile;
+            };
+            return layer;
+        }
+
         async function initAprsMap() {
             if (aprsMap) return;
 
@@ -10054,13 +10103,8 @@
             aprsMap = L.map('aprsMap').setView([initialLat, initialLon], initialZoom);
             window.aprsMap = aprsMap;
 
-            // Add fallback tiles immediately so the map is visible instantly
-            const fallbackTiles = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-                maxZoom: 19,
-                subdomains: 'abcd',
-                className: 'tile-layer-cyan'
-            }).addTo(aprsMap);
+            // Zero-network fallback so mode switches never block on external tiles.
+            const fallbackTiles = createAprsFallbackGridLayer().addTo(aprsMap);
 
             // Upgrade tiles in background via Settings (with timeout fallback)
             if (typeof Settings !== 'undefined') {
@@ -10084,7 +10128,8 @@
             }
 
             // Update time display (both map header and function bar)
-            setInterval(() => {
+            if (aprsClockInterval) clearInterval(aprsClockInterval);
+            aprsClockInterval = setInterval(() => {
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
                 const utcStr = now.toUTCString().slice(17, 25) + ' UTC';
@@ -10095,6 +10140,31 @@
                 const stripTimeEl = document.getElementById('aprsStripTime');
                 if (stripTimeEl) stripTimeEl.textContent = utcStr;
             }, 1000);
+        }
+
+        function destroyAprsMode() {
+            stopAprsMeterCheck();
+            if (aprsEventSource) {
+                aprsEventSource.close();
+                aprsEventSource = null;
+            }
+            if (aprsPollTimer) {
+                clearInterval(aprsPollTimer);
+                aprsPollTimer = null;
+            }
+            if (aprsClockInterval) {
+                clearInterval(aprsClockInterval);
+                aprsClockInterval = null;
+            }
+            if (aprsMap) {
+                try {
+                    aprsMap.remove();
+                } catch (_) {}
+                aprsMap = null;
+                window.aprsMap = null;
+            }
+            aprsMarkers = {};
+            aprsUserMarker = null;
         }
 
         function updateAprsStatus(state, freq) {
