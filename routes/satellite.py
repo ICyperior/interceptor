@@ -51,6 +51,8 @@ _tle_cache = dict(TLE_SATELLITES)
 # TTL is 1800 seconds (30 minutes)
 _track_cache: dict = {}
 _TRACK_CACHE_TTL = 1800
+_pass_cache: dict = {}
+_PASS_CACHE_TTL = 300
 
 _BUILTIN_NORAD_TO_KEY = {
     25544: 'ISS',
@@ -171,6 +173,31 @@ def _resolve_satellite_request(sat: object, tracked_by_norad: dict[int, dict], t
     if not display_name:
         display_name = (tracked.get('name') if tracked else None) or (tle_data[0] if tle_data else None) or (sat_key if sat_key else str(norad_id or 'UNKNOWN'))
     return display_name, norad_id, tle_data
+
+
+def _make_pass_cache_key(
+    lat: float,
+    lon: float,
+    hours: int,
+    min_el: float,
+    resolved_satellites: list[tuple[str, int, tuple[str, str, str]]],
+) -> tuple:
+    """Build a stable cache key for predicted passes."""
+    return (
+        round(lat, 4),
+        round(lon, 4),
+        int(hours),
+        round(float(min_el), 1),
+        tuple(
+            (
+                sat_name,
+                norad_id,
+                tle_data[1][:32],
+                tle_data[2][:32],
+            )
+            for sat_name, norad_id, tle_data in resolved_satellites
+        ),
+    )
 
 
 def _start_satellite_tracker():
@@ -425,8 +452,8 @@ def predict_passes():
 
     data = request.json or {}
 
-    # Validate inputs
     try:
+        # Validate inputs
         lat = validate_latitude(data.get('latitude', data.get('lat', 51.5074)))
         lon = validate_longitude(data.get('longitude', data.get('lon', -0.1278)))
         hours = validate_hours(data.get('hours', 24))
@@ -434,54 +461,83 @@ def predict_passes():
     except ValueError as e:
         return api_error(str(e), 400)
 
-    sat_input = data.get('satellites', ['ISS', 'METEOR-M2-3', 'METEOR-M2-4'])
-    passes = []
-    colors = {
-        'ISS': '#00ffff',
-        'METEOR-M2': '#9370DB',
-        'METEOR-M2-3': '#ff00ff',
-        'METEOR-M2-4': '#00ff88',
-    }
-    tracked_by_norad, tracked_by_name = _get_tracked_satellite_maps()
-
-    ts = _get_timescale()
-    observer = wgs84.latlon(lat, lon)
-    t0 = ts.now()
-    t1 = ts.utc(t0.utc_datetime() + timedelta(hours=hours))
-
-    for sat in sat_input:
-        sat_name, norad_id, tle_data = _resolve_satellite_request(sat, tracked_by_norad, tracked_by_name)
-        if not tle_data:
-            continue
-
-        # Current position for map marker (computed once per satellite)
-        current_pos = None
         try:
-            satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
-            geo = satellite.at(ts.now())
-            sp = wgs84.subpoint(geo)
-            current_pos = {
-                'lat': float(sp.latitude.degrees),
-                'lon': float(sp.longitude.degrees),
+            sat_input = data.get('satellites', ['ISS', 'METEOR-M2-3', 'METEOR-M2-4'])
+            passes = []
+            colors = {
+                'ISS': '#00ffff',
+                'METEOR-M2': '#9370DB',
+                'METEOR-M2-3': '#ff00ff',
+                'METEOR-M2-4': '#00ff88',
             }
-        except Exception:
-            pass
+            tracked_by_norad, tracked_by_name = _get_tracked_satellite_maps()
 
-        sat_passes = _predict_passes(tle_data, observer, ts, t0, t1, min_el=min_el)
-        for p in sat_passes:
-            p['satellite'] = sat_name
-            p['norad'] = norad_id or 0
-            p['color'] = colors.get(sat_name, '#00ff00')
-            if current_pos:
-                p['currentPos'] = current_pos
-        passes.extend(sat_passes)
+            resolved_satellites: list[tuple[str, int, tuple[str, str, str]]] = []
+            for sat in sat_input:
+                sat_name, norad_id, tle_data = _resolve_satellite_request(
+                    sat,
+                    tracked_by_norad,
+                    tracked_by_name,
+                )
+                if not tle_data:
+                    continue
+                resolved_satellites.append((sat_name, norad_id or 0, tle_data))
 
-    passes.sort(key=lambda p: p['startTimeISO'])
+            if not resolved_satellites:
+                return jsonify({
+                    'status': 'success',
+                    'passes': [],
+                    'cached': False,
+                })
 
-    return jsonify({
-        'status': 'success',
-        'passes': passes
-    })
+            cache_key = _make_pass_cache_key(lat, lon, hours, min_el, resolved_satellites)
+            cached = _pass_cache.get(cache_key)
+            now_ts = time.time()
+            if cached and (now_ts - cached[1]) < _PASS_CACHE_TTL:
+                return jsonify({
+                    'status': 'success',
+                    'passes': cached[0],
+                    'cached': True,
+                })
+
+            ts = _get_timescale()
+            observer = wgs84.latlon(lat, lon)
+            t0 = ts.now()
+            t1 = ts.utc(t0.utc_datetime() + timedelta(hours=hours))
+
+            for sat_name, norad_id, tle_data in resolved_satellites:
+                current_pos = None
+                try:
+                    satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
+                    geo = satellite.at(t0)
+                    sp = wgs84.subpoint(geo)
+                    current_pos = {
+                        'lat': float(sp.latitude.degrees),
+                        'lon': float(sp.longitude.degrees),
+                    }
+                except Exception:
+                    pass
+
+                sat_passes = _predict_passes(tle_data, observer, ts, t0, t1, min_el=min_el)
+                for p in sat_passes:
+                    p['satellite'] = sat_name
+                    p['norad'] = norad_id
+                    p['color'] = colors.get(sat_name, '#00ff00')
+                    if current_pos:
+                        p['currentPos'] = current_pos
+                passes.extend(sat_passes)
+
+            passes.sort(key=lambda p: p['startTimeISO'])
+            _pass_cache[cache_key] = (passes, now_ts)
+
+            return jsonify({
+                'status': 'success',
+                'passes': passes,
+                'cached': False,
+            })
+        except Exception as exc:
+            logger.exception('Satellite pass calculation failed')
+            return api_error(f'Failed to calculate passes: {exc}', 500)
 
 
 @satellite_bp.route('/position', methods=['POST'])
