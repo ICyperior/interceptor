@@ -233,8 +233,14 @@ def _start_satellite_tracker():
                 tle1 = sat_rec.get('tle_line1')
                 tle2 = sat_rec.get('tle_line2')
                 if not tle1 or not tle2:
-                    # Fall back to TLE cache
-                    cache_key = sat_name.replace(' ', '-').upper()
+                    # Fall back to TLE cache. Try the builtin NORAD-ID key first
+                    # (e.g. 'ISS'), then the name-derived key as a last resort.
+                    try:
+                        norad_int = int(norad_id)
+                    except (TypeError, ValueError):
+                        norad_int = 0
+                    builtin_key = _BUILTIN_NORAD_TO_KEY.get(norad_int)
+                    cache_key = builtin_key if (builtin_key and builtin_key in _tle_cache) else sat_name.replace(' ', '-').upper()
                     if cache_key not in _tle_cache:
                         continue
                     tle_entry = _tle_cache[cache_key]
@@ -560,7 +566,11 @@ def predict_passes():
             passes.extend(sat_passes)
 
         passes.sort(key=lambda p: p['startTimeISO'])
-        _pass_cache[cache_key] = (passes, now_ts)
+        # Only cache non-empty results to avoid serving a stale empty response
+        # on the next request (which could happen if TLEs were too old to produce
+        # any events — the auto-refresh will update them shortly after startup).
+        if passes:
+            _pass_cache[cache_key] = (passes, now_ts)
 
         return jsonify({
             'status': 'success',
