@@ -1796,7 +1796,8 @@
         async function calculatePasses() {
             const lat = parseFloat(document.getElementById('obsLat').value);
             const lon = parseFloat(document.getElementById('obsLon').value);
-            const requestKey = getActivePassRequestKey(selectedSatellite);
+            const requestedSatellite = selectedSatellite;
+            const requestKey = getActivePassRequestKey(requestedSatellite);
             const container = document.getElementById('passList');
             const button = document.querySelector('.controls-bar .btn.primary');
 
@@ -1838,7 +1839,7 @@
                         longitude: lon,
                         hours: 48,
                         minEl: 5,
-                        satellites: [selectedSatellite]
+                        satellites: [requestedSatellite]
                     })
                 });
                 if (_passTimeoutId) {
@@ -1858,9 +1859,13 @@
                 }
                 const data = await response.json();
                 if (requestId !== _passRequestId) return;
+                const stillSelected = requestedSatellite === selectedSatellite;
                 if (data.status === 'success') {
-                    passes = Array.isArray(data.passes) ? data.passes : [];
-                    cacheCurrentPasses(selectedSatellite, passes);
+                    const resolvedPasses = Array.isArray(data.passes) ? data.passes : [];
+                    cacheCurrentPasses(requestedSatellite, resolvedPasses);
+                    if (!stillSelected) return;
+
+                    passes = resolvedPasses;
 
                     try {
                         renderPassList();
@@ -1906,16 +1911,24 @@
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                     _dashboardRetryAttempts = 0;
                 } else {
-                    const cached = getCachedPasses(selectedSatellite);
+                    const cached = getCachedPasses(requestedSatellite);
+                    if (!stillSelected) return;
                     if (cached?.passes?.length) {
                         passes = cached.passes;
                         renderPassList();
                         updateStats();
                         updateMissionDrawerInfo();
+                        if (!Number.isInteger(selectedPass) || !passes[selectedPass]) {
+                            selectedPass = 0;
+                        }
+                        if (passes[selectedPass]) {
+                            selectPass(selectedPass);
+                        }
                         document.getElementById('trackingStatus').textContent = 'TRACKING';
                         document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                     } else {
                         passes = [];
+                        selectedPass = null;
                         renderPassList();
                         updateMissionDrawerInfo();
                         document.getElementById('trackingStatus').textContent = 'ERROR';
@@ -1942,15 +1955,24 @@
                     return;
                 }
                 console.error('Pass calculation error:', err);
-                const cached = getCachedPasses(selectedSatellite);
+                const cached = getCachedPasses(requestedSatellite);
+                if (requestedSatellite !== selectedSatellite) return;
                 if (cached?.passes?.length) {
                     passes = cached.passes;
                     renderPassList();
                     updateStats();
+                    updateMissionDrawerInfo();
+                    if (!Number.isInteger(selectedPass) || !passes[selectedPass]) {
+                        selectedPass = 0;
+                    }
+                    if (passes[selectedPass]) {
+                        selectPass(selectedPass);
+                    }
                     document.getElementById('trackingStatus').textContent = 'TRACKING';
                     document.getElementById('trackingDot').style.background = 'var(--accent-green)';
                 } else {
                     passes = [];
+                    selectedPass = null;
                     if (container) {
                         container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Failed to calculate passes</div>';
                     } else {
