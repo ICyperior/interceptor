@@ -823,6 +823,68 @@
             }
         }
 
+        function _esc(s) {
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function _packetEmptyState() {
+            return '<div class="packet-empty-state">No packets received yet.<br>Run a ground-station observation with telemetry tasks enabled to populate this console.</div>';
+        }
+
+        function _packetSummary(packet) {
+            if (packet.parsed) {
+                try {
+                    const json = JSON.stringify(packet.parsed);
+                    return json.length > 140 ? json.slice(0, 137) + '...' : json;
+                } catch (_) {}
+            }
+            const raw = packet.raw || '';
+            return raw.length > 180 ? raw.slice(0, 177) + '...' : raw || 'Telemetry frame received';
+        }
+
+        function _packetItemHtml(packet, compact = false) {
+            const protocol = packet.protocol ? _esc(String(packet.protocol)) : 'TELEMETRY';
+            const source = packet.source ? ' / ' + _esc(String(packet.source)) : '';
+            const summary = _esc(_packetSummary(packet));
+            const raw = packet.raw ? `<div class="packet-entry-raw">${_esc(String(packet.raw))}</div>` : '';
+            const parsed = packet.parsed ? `<div class="packet-entry-json">${_esc(JSON.stringify(packet.parsed, null, 2))}</div>` : '';
+            return `
+                <div class="packet-entry ${compact ? 'compact' : ''}">
+                    <div class="packet-entry-header">
+                        <div class="packet-entry-protocol">${protocol}${source}</div>
+                        <div class="packet-entry-time">${packet.timeLabel}</div>
+                    </div>
+                    <div class="packet-entry-summary">${summary}</div>
+                    ${compact ? '' : parsed}
+                    ${raw}
+                </div>
+            `;
+        }
+
+        function renderPacketPanels() {
+            const list = document.getElementById('packetList');
+            const modalList = document.getElementById('packetModalList');
+            const countText = packetHistory.length ? `(${packetHistory.length})` : '';
+            const countEl = document.getElementById('packetCount');
+            const modalCountEl = document.getElementById('packetModalCount');
+            if (countEl) countEl.textContent = countText;
+            if (modalCountEl) modalCountEl.textContent = countText;
+
+            if (list) {
+                list.innerHTML = packetHistory.length
+                    ? packetHistory.map(packet => _packetItemHtml(packet, true)).join('')
+                    : _packetEmptyState();
+            }
+            if (modalList) {
+                modalList.innerHTML = packetHistory.length
+                    ? packetHistory.map(packet => _packetItemHtml(packet, false)).join('')
+                    : _packetEmptyState();
+            }
+        }
+
         function loadDashboardSatellites() {
             const btn = document.getElementById('satRefreshBtn');
             if (btn) {
