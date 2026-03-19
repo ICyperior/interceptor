@@ -121,6 +121,39 @@ def test_tracker_position_has_no_observer_fields():
         assert required in pos, f"SSE tracker must emit '{required}'"
 
 
+@patch('routes.satellite.refresh_tle_data', return_value=['ISS'])
+@patch('routes.satellite._load_db_satellites_into_cache')
+def test_tle_auto_refresh_schedules_daily_repeat(mock_load_db, mock_refresh):
+    """After the first TLE refresh, a 24-hour follow-up timer must be scheduled."""
+    import threading as real_threading
+
+    scheduled_delays = []
+
+    class CapturingTimer:
+        def __init__(self, delay, fn, *a, **kw):
+            scheduled_delays.append(delay)
+            self._fn = fn
+            self._delay = delay
+
+        def start(self):
+            # Execute the startup timer inline so we can capture the follow-up
+            if self._delay <= 5:
+                self._fn()
+
+    with patch('routes.satellite.threading') as mock_threading:
+        mock_threading.Timer = CapturingTimer
+        mock_threading.Thread = real_threading.Thread
+
+        from routes.satellite import init_tle_auto_refresh
+        init_tle_auto_refresh()
+
+    # First timer: startup delay (≤5s); second timer: 24h repeat (≥86400s)
+    assert any(d <= 5 for d in scheduled_delays), \
+        f"Expected startup delay timer; got delays: {scheduled_delays}"
+    assert any(d >= 86400 for d in scheduled_delays), \
+        f"Expected ~24h repeat timer; got delays: {scheduled_delays}"
+
+
 # Logic Integration Test (Simulating prediction)
 def test_predict_passes_empty_cache(client):
     """Verify that if the satellite is not in cache, no passes are returned."""

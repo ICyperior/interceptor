@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import threading
 import time
 import urllib.request
 from datetime import datetime, timedelta
@@ -295,9 +296,15 @@ def _start_satellite_tracker():
         time.sleep(1)
 
 
+_TLE_REFRESH_INTERVAL_SECONDS = 24 * 60 * 60  # 24 hours
+
+
 def init_tle_auto_refresh():
     """Initialize TLE auto-refresh. Called by app.py after initialization."""
-    import threading
+    def _schedule_next_tle_refresh(delay: float = _TLE_REFRESH_INTERVAL_SECONDS) -> None:
+        t = threading.Timer(delay, _auto_refresh_tle)
+        t.daemon = True
+        t.start()
 
     def _auto_refresh_tle():
         try:
@@ -307,10 +314,13 @@ def init_tle_auto_refresh():
                 logger.info(f"Auto-refreshed TLE data for: {', '.join(updated)}")
         except Exception as e:
             logger.warning(f"Auto TLE refresh failed: {e}")
+        finally:
+            # Schedule next refresh regardless of success/failure
+            _schedule_next_tle_refresh()
 
-    # Start auto-refresh in background
+    # First refresh 2 seconds after startup, then every 24 hours
     threading.Timer(2.0, _auto_refresh_tle).start()
-    logger.info("TLE auto-refresh scheduled")
+    logger.info("TLE auto-refresh scheduled (24h interval)")
 
     # Start live position tracker thread
     tracker_thread = threading.Thread(
