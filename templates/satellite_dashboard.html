@@ -86,6 +86,20 @@
                 </div>
                 <div class="panel-content map-panel-content">
                     <div id="groundMap"></div>
+                    <div class="packet-console" id="packetConsole">
+                        <div class="packet-console-header">
+                            <span>DECODED PACKETS <span id="packetCount" style="color:var(--accent-cyan);"></span></span>
+                            <div class="packet-console-actions">
+                                <button class="packet-console-btn" id="packetConsoleToggleBtn" onclick="togglePacketConsoleCollapsed()">MIN</button>
+                                <button class="packet-console-btn" onclick="openPacketModal()">POP OUT</button>
+                            </div>
+                        </div>
+                        <div class="packet-console-body" id="packetList">
+                            <div class="packet-empty-state">
+                                No packets received yet.<br>Run a ground-station observation with telemetry tasks enabled to populate this console.
+                            </div>
+                        </div>
+                    </div>
                     <div class="map-overlay-card">
                         <div class="map-overlay-kicker">TRACK VIEW</div>
                         <div class="map-overlay-primary" id="mapTrackPrimary">Loading active orbit and pass corridor...</div>
@@ -360,18 +374,6 @@
                 </div>
             </div>
 
-            <!-- Decoded Packets -->
-            <div class="panel packets-panel">
-                <div class="panel-header">
-                    <span>DECODED PACKETS <span id="packetCount" style="color:var(--accent-cyan);"></span></span>
-                    <div class="panel-indicator"></div>
-                </div>
-                <div class="panel-content" id="packetList">
-                    <div style="text-align:center;color:var(--text-secondary);padding:15px;font-size:11px;">
-                        No packets received yet.<br>Run a ground-station observation with telemetry tasks enabled to populate this panel.
-                    </div>
-                </div>
-            </div>
         </section>
 
         <!-- Controls Bar -->
@@ -388,6 +390,27 @@
             <button class="btn primary" onclick="calculatePasses()">CALCULATE</button>
         </div>
     </main>
+
+    <div class="packet-modal" id="packetModal" hidden>
+        <div class="packet-modal-backdrop" onclick="closePacketModal()"></div>
+        <div class="packet-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="packetModalTitle">
+            <div class="packet-modal-header">
+                <div>
+                    <div class="packet-modal-kicker">GROUND STATION</div>
+                    <div class="packet-modal-title" id="packetModalTitle">Decoded Packets <span id="packetModalCount" style="color:var(--accent-cyan);"></span></div>
+                </div>
+                <div class="packet-modal-actions">
+                    <button class="packet-console-btn" onclick="clearPacketConsole()">CLEAR</button>
+                    <button class="packet-console-btn" onclick="closePacketModal()">CLOSE</button>
+                </div>
+            </div>
+            <div class="packet-modal-body" id="packetModalList">
+                <div class="packet-empty-state">
+                    No packets received yet.<br>Run a ground-station observation with telemetry tasks enabled to populate this console.
+                </div>
+            </div>
+        </div>
+    </div>
 
     <style>
         /* Location selector styles */
@@ -499,6 +522,14 @@
             color: var(--text-muted, #556677);
             font-size: 10px;
             margin-top: 1px;
+        }
+
+        .packet-empty-state {
+            text-align:center;
+            color:var(--text-secondary);
+            padding:15px;
+            font-size:11px;
+            line-height:1.4;
         }
 
         /* Ground Station panel */
@@ -627,6 +658,8 @@
         let _passRequestId = 0;
         let _passAbortController = null;
         let _passTimeoutId = null;
+        let packetHistory = [];
+        let packetConsoleCollapsed = false;
         const DASHBOARD_FETCH_TIMEOUT_MS = 30000;
         const BUILTIN_TX_FALLBACK = {
             25544: [
@@ -1161,9 +1194,14 @@
                 clearTimeout(_passTimeoutId);
                 _passTimeoutId = null;
             }
+            closePacketModal();
+        });
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closePacketModal();
         });
 
         document.addEventListener('DOMContentLoaded', () => {
+            renderPacketPanels();
             loadDashboardSatellites();
             setupEmbeddedMode();
             const usedShared = applySharedObserverLocation();
@@ -2539,21 +2577,99 @@
             el.textContent = (hz >= 0 ? '+' : '') + hz + ' Hz';
         }
 
-        function _appendPacket(data) {
+        function _packetEmptyState() {
+            return '<div class="packet-empty-state">No packets received yet.<br>Run a ground-station observation with telemetry tasks enabled to populate this console.</div>';
+        }
+
+        function _packetSummary(packet) {
+            if (packet.parsed) {
+                try {
+                    const json = JSON.stringify(packet.parsed);
+                    return json.length > 140 ? json.slice(0, 137) + '...' : json;
+                } catch (_) {}
+            }
+            const raw = packet.raw || '';
+            return raw.length > 180 ? raw.slice(0, 177) + '...' : raw || 'Telemetry frame received';
+        }
+
+        function _packetItemHtml(packet, compact = false) {
+            const protocol = packet.protocol ? _esc(String(packet.protocol)) : 'TELEMETRY';
+            const source = packet.source ? ' / ' + _esc(String(packet.source)) : '';
+            const summary = _esc(_packetSummary(packet));
+            const raw = packet.raw ? `<div class="packet-entry-raw">${_esc(String(packet.raw))}</div>` : '';
+            const parsed = packet.parsed ? `<div class="packet-entry-json">${_esc(JSON.stringify(packet.parsed, null, 2))}</div>` : '';
+            return `
+                <div class="packet-entry ${compact ? 'compact' : ''}">
+                    <div class="packet-entry-header">
+                        <div class="packet-entry-protocol">${protocol}${source}</div>
+                        <div class="packet-entry-time">${packet.timeLabel}</div>
+                    </div>
+                    <div class="packet-entry-summary">${summary}</div>
+                    ${compact ? '' : parsed}
+                    ${raw}
+                </div>
+            `;
+        }
+
+        function renderPacketPanels() {
             const list = document.getElementById('packetList');
-            if (!list) return;
-            const placeholder = list.querySelector('div[style*="text-align:center"]');
-            if (placeholder) placeholder.remove();
-            const item = document.createElement('div');
-            item.style.cssText = 'padding:4px 6px;border-bottom:1px solid rgba(0,212,255,0.08);font-size:10px;font-family:var(--font-mono);word-break:break-all;';
-            const protocol = data.protocol ? `<div style="color:var(--accent-cyan);margin-bottom:2px;">${_esc(String(data.protocol))}${data.source ? ' / ' + _esc(String(data.source)) : ''}</div>` : '';
-            const parsed = data.parsed ? `<pre style="white-space:pre-wrap;margin:2px 0 4px 0;color:var(--text-primary);font-family:var(--font-mono);font-size:9px;">${_esc(JSON.stringify(data.parsed, null, 2))}</pre>` : '';
-            const raw = data.data ? `<div style="color:var(--text-secondary);">${_esc(String(data.data))}</div>` : '';
-            item.innerHTML = protocol + parsed + raw;
-            list.prepend(item);
+            const modalList = document.getElementById('packetModalList');
+            const countText = packetHistory.length ? `(${packetHistory.length})` : '';
             const countEl = document.getElementById('packetCount');
-            if (countEl) { const n = parseInt(countEl.textContent) || 0; countEl.textContent = n + 1; }
-            while (list.children.length > 100) list.removeChild(list.lastChild);
+            const modalCountEl = document.getElementById('packetModalCount');
+            if (countEl) countEl.textContent = countText;
+            if (modalCountEl) modalCountEl.textContent = countText;
+
+            if (list) {
+                list.innerHTML = packetHistory.length
+                    ? packetHistory.map(packet => _packetItemHtml(packet, true)).join('')
+                    : _packetEmptyState();
+            }
+            if (modalList) {
+                modalList.innerHTML = packetHistory.length
+                    ? packetHistory.map(packet => _packetItemHtml(packet, false)).join('')
+                    : _packetEmptyState();
+            }
+        }
+
+        function _appendPacket(data) {
+            packetHistory.unshift({
+                protocol: data.protocol || '',
+                source: data.source || '',
+                parsed: data.parsed || null,
+                raw: data.data || '',
+                timeLabel: new Date().toISOString().substring(11, 19) + ' UTC'
+            });
+            if (packetHistory.length > 100) packetHistory.length = 100;
+            renderPacketPanels();
+        }
+
+        window.togglePacketConsoleCollapsed = function () {
+            packetConsoleCollapsed = !packetConsoleCollapsed;
+            const consoleEl = document.getElementById('packetConsole');
+            const btn = document.getElementById('packetConsoleToggleBtn');
+            if (consoleEl) consoleEl.classList.toggle('collapsed', packetConsoleCollapsed);
+            if (btn) btn.textContent = packetConsoleCollapsed ? 'EXPAND' : 'MIN';
+        };
+
+        window.openPacketModal = function () {
+            const modal = document.getElementById('packetModal');
+            if (!modal) return;
+            renderPacketPanels();
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closePacketModal = function () {
+            const modal = document.getElementById('packetModal');
+            if (!modal || modal.hidden) return;
+            modal.hidden = true;
+            document.body.style.overflow = '';
+        };
+
+        window.clearPacketConsole = function () {
+            packetHistory = [];
+            renderPacketPanels();
         }
 
         // -----------------------------------------------------------------------

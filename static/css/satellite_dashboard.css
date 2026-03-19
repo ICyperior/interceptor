@@ -294,10 +294,10 @@ body {
 
 .data-grid {
     display: grid;
-    grid-template-columns: minmax(320px, 1.2fr) minmax(280px, 0.9fr) minmax(320px, 1.1fr);
-    grid-template-rows: minmax(220px, 1fr) minmax(220px, 1fr);
+    grid-template-columns: minmax(320px, 1.2fr) minmax(320px, 0.95fr) minmax(360px, 1.1fr);
+    grid-template-rows: minmax(340px, 1fr);
     gap: 12px;
-    min-height: 460px;
+    min-height: 340px;
 }
 
 /* Panels */
@@ -437,6 +437,198 @@ body {
         linear-gradient(135deg, rgba(5, 18, 30, 0.95), rgba(10, 27, 43, 0.9));
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.28);
     backdrop-filter: blur(6px);
+}
+
+.packet-console {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 500;
+    width: min(420px, calc(100% - 28px));
+    max-height: min(250px, calc(100% - 28px));
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(74, 163, 255, 0.24);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(4, 14, 23, 0.94), rgba(10, 25, 39, 0.9));
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+    overflow: hidden;
+}
+
+.packet-console.collapsed {
+    max-height: 42px;
+}
+
+.packet-console.collapsed .packet-console-body {
+    display: none;
+}
+
+.packet-console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(74, 163, 255, 0.12);
+    color: var(--accent-cyan);
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.packet-console-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.packet-console-btn {
+    padding: 4px 8px;
+    border: 1px solid rgba(74, 163, 255, 0.28);
+    border-radius: 4px;
+    background: rgba(8, 20, 31, 0.88);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.packet-console-btn:hover {
+    border-color: rgba(74, 163, 255, 0.65);
+    color: var(--accent-cyan);
+}
+
+.packet-console-body {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.packet-entry {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    word-break: break-word;
+}
+
+.packet-entry.compact .packet-entry-json {
+    display: none;
+}
+
+.packet-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.packet-entry-protocol {
+    color: var(--accent-cyan);
+    font-size: 10px;
+}
+
+.packet-entry-time {
+    color: var(--text-dim);
+    font-size: 9px;
+}
+
+.packet-entry-summary {
+    color: var(--text-primary);
+    line-height: 1.35;
+}
+
+.packet-entry-raw {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.packet-entry-json {
+    margin-top: 6px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    white-space: pre-wrap;
+    line-height: 1.35;
+}
+
+.packet-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.packet-modal[hidden] {
+    display: none;
+}
+
+.packet-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 12, 18, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.packet-modal-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(900px, calc(100vw - 40px));
+    max-height: min(80vh, 860px);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(74, 163, 255, 0.24);
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(8, 19, 30, 0.98), rgba(10, 27, 43, 0.96));
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+.packet-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(74, 163, 255, 0.14);
+}
+
+.packet-modal-kicker {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.packet-modal-title {
+    margin-top: 4px;
+    color: var(--text-primary);
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+}
+
+.packet-modal-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.packet-modal-body {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 0;
 }
 
 .map-overlay-kicker {
@@ -656,8 +848,7 @@ body {
 }
 
 .packets-panel {
-    grid-column: 2;
-    grid-row: 2;
+    display: none;
 }
 
 .transmitters-panel .panel-content,
@@ -698,7 +889,7 @@ body {
     display: flex;
     flex-direction: column;
     grid-column: 1;
-    grid-row: 1 / span 2;
+    grid-row: 1;
     min-height: 0;
 }
 
@@ -706,7 +897,7 @@ body {
     display: flex;
     flex-direction: column;
     grid-column: 3;
-    grid-row: 1 / span 2;
+    grid-row: 1;
     min-height: 0;
 }
 
@@ -937,12 +1128,12 @@ body {
 
     .data-grid {
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto auto;
+        grid-template-rows: auto auto;
     }
 
     .pass-list {
         grid-column: 1;
-        grid-row: 1 / span 2;
+        grid-row: 1;
     }
 
     .transmitters-panel {
@@ -950,14 +1141,9 @@ body {
         grid-row: 1;
     }
 
-    .packets-panel {
-        grid-column: 2;
-        grid-row: 2;
-    }
-
     .gs-panel {
         grid-column: 1 / -1;
-        grid-row: 3;
+        grid-row: 2;
         min-height: 320px;
     }
 }
@@ -989,7 +1175,6 @@ body {
 
     .pass-list,
     .transmitters-panel,
-    .packets-panel,
     .gs-panel {
         grid-column: auto;
         grid-row: auto;
@@ -1002,6 +1187,11 @@ body {
 
     .map-overlay-card {
         width: calc(100% - 28px);
+    }
+
+    .packet-console {
+        width: calc(100% - 28px);
+        max-height: 210px;
     }
 }
 
@@ -1022,6 +1212,16 @@ body {
 
     .map-header-tools {
         justify-content: flex-end;
+    }
+
+    .packet-modal-dialog {
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
+    }
+
+    .packet-modal-header {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 
