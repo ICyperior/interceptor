@@ -440,6 +440,11 @@
         let panelSelectionStageTimer = null;
         let mapCrosshairRequestId = 0;
         let detectedDevicesPromise = null;
+        let clockInterval = null;
+        let cleanupInterval = null;
+        let delayedGpsInitTimer = null;
+        let delayedDriverCheckTimer = null;
+        let delayedAircraftDbTimer = null;
         // Watchlist - persisted to localStorage
         let watchlist = JSON.parse(localStorage.getItem('adsb_watchlist') || '[]');
 
@@ -1586,7 +1591,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         // ============================================
         async function autoConnectGps() {
             try {
-                const response = await fetch('/gps/auto-connect', { method: 'POST' });
+                const response = await fetchJsonWithTimeout('/gps/auto-connect', { method: 'POST' }, 2000);
                 const data = await response.json();
 
                 if (data.status === 'connected') {
@@ -1717,6 +1722,17 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         window.addEventListener('pagehide', function() {
             if (eventSource) { eventSource.close(); eventSource = null; }
             if (gpsEventSource) { gpsEventSource.close(); gpsEventSource = null; }
+            if (acarsEventSource) { acarsEventSource.close(); acarsEventSource = null; }
+            if (vdl2EventSource) { vdl2EventSource.close(); vdl2EventSource = null; }
+            if (allAgentsEventSource) { allAgentsEventSource.close(); allAgentsEventSource = null; }
+            if (agentPollTimer) { clearInterval(agentPollTimer); agentPollTimer = null; }
+            if (acarsPollTimer) { clearInterval(acarsPollTimer); acarsPollTimer = null; }
+            if (vdl2PollTimer) { clearInterval(vdl2PollTimer); vdl2PollTimer = null; }
+            if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+            if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
+            if (delayedGpsInitTimer) { clearTimeout(delayedGpsInitTimer); delayedGpsInitTimer = null; }
+            if (delayedDriverCheckTimer) { clearTimeout(delayedDriverCheckTimer); delayedDriverCheckTimer = null; }
+            if (delayedAircraftDbTimer) { clearTimeout(delayedAircraftDbTimer); delayedAircraftDbTimer = null; }
         });
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -1738,13 +1754,25 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 .then((devices) => checkAdsbTools(devices))
                 .catch(() => checkAdsbTools([]));
             updateClock();
-            setInterval(updateClock, 1000);
-            setInterval(cleanupOldAircraft, 10000);
-            checkAircraftDatabase();
-            checkDvbDriverConflict();
+            clockInterval = setInterval(updateClock, 1000);
+            cleanupInterval = setInterval(cleanupOldAircraft, 10000);
 
-            // Auto-connect to gpsd if available
-            autoConnectGps();
+            // Defer nonessential startup probes so the page can paint and
+            // return navigation remains snappy if the user leaves quickly.
+            delayedAircraftDbTimer = setTimeout(() => {
+                delayedAircraftDbTimer = null;
+                checkAircraftDatabase();
+            }, 1200);
+
+            delayedDriverCheckTimer = setTimeout(() => {
+                delayedDriverCheckTimer = null;
+                checkDvbDriverConflict();
+            }, 1800);
+
+            delayedGpsInitTimer = setTimeout(() => {
+                delayedGpsInitTimer = null;
+                autoConnectGps();
+            }, 2500);
 
             // Sync tracking state if ADS-B already running
             syncTrackingStatus();
@@ -1960,7 +1988,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         let aircraftDbStatus = { installed: false };
 
         function checkAircraftDatabase() {
-            fetch('/adsb/aircraft-db/status')
+            fetchJsonWithTimeout('/adsb/aircraft-db/status', {}, 2000)
                 .then(r => r.json())
                 .then(status => {
                     aircraftDbStatus = status;
@@ -1968,7 +1996,7 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                         showAircraftDbBanner('not_installed');
                     } else {
                         // Check for updates in background
-                        fetch('/adsb/aircraft-db/check-updates')
+                        fetchJsonWithTimeout('/adsb/aircraft-db/check-updates', {}, 2000)
                             .then(r => r.json())
                             .then(data => {
                                 if (data.update_available) {
