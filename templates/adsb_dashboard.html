@@ -21,20 +21,6 @@
         window.INTERCEPT_ADSB_AUTO_START = {{ adsb_auto_start | tojson }};
         window.INTERCEPT_DEFAULT_LAT = {{ default_latitude | tojson }};
         window.INTERCEPT_DEFAULT_LON = {{ default_longitude | tojson }};
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.getRegistrations()
-                    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-                    .catch(() => {});
-                if ('caches' in window) {
-                    caches.keys()
-                        .then((keys) => Promise.all(
-                            keys.filter((key) => key.startsWith('intercept-')).map((key) => caches.delete(key))
-                        ))
-                        .catch(() => {});
-                }
-            });
-        }
     </script>
     <script defer src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
     <script defer src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>

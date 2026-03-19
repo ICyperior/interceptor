@@ -16407,22 +16407,7 @@
         </div>
     </div>
 
-    <!-- Disable legacy static-asset service worker to avoid stale dashboard JS/CSS -->
     <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.getRegistrations()
-                .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-                .catch(() => {});
-            if ('caches' in window) {
-                caches.keys()
-                    .then((keys) => Promise.all(
-                        keys.filter((key) => key.startsWith('intercept-')).map((key) => caches.delete(key))
-                    ))
-                    .catch(() => {});
-            }
-        });
-    }
     // Initialize global core modules after page load
     window.addEventListener('DOMContentLoaded', () => {
         if (typeof VoiceAlerts !== 'undefined') VoiceAlerts.init();
