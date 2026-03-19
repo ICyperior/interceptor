@@ -785,6 +785,7 @@
         let _dashboardRetryAttempts = 0;
         const RECEIVER_STORAGE_KEY = 'satellite.dashboard.receiver';
         const DASHBOARD_FETCH_TIMEOUT_MS = 30000;
+        const SAT_DRAWER_FETCH_TIMEOUT_MS = 8000;
         const BUILTIN_TX_FALLBACK = {
             25544: [
                 { description: 'APRS digipeater', downlink_low: 145.825, downlink_high: 145.825, uplink_low: null, uplink_high: null, mode: 'FM AX.25', baud: 1200, status: 'active', type: 'beacon', service: 'Packet' },
@@ -806,6 +807,22 @@
 
         const satColors = ['#00ffff', '#9370DB', '#ff00ff', '#00ff00', '#ff6600', '#ffff00', '#ff69b4', '#7b68ee'];
 
+        async function fetchJsonWithTimeout(url, options = {}, timeoutMs = SAT_DRAWER_FETCH_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(url, {
+                    credentials: 'same-origin',
+                    ...options,
+                    signal: controller.signal,
+                });
+                const data = await response.json();
+                return { response, data };
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
         function loadDashboardSatellites() {
             const btn = document.getElementById('satRefreshBtn');
             if (btn) {
@@ -813,9 +830,8 @@
                 void btn.offsetWidth; // force reflow to restart animation
                 btn.classList.add('spinning');
             }
-            fetch('/satellite/tracked?enabled=true', { credentials: 'same-origin' })
-                .then(r => r.json())
-                .then(data => {
+            fetchJsonWithTimeout('/satellite/tracked?enabled=true')
+                .then(({ data }) => {
                     const prevSelected = selectedSatellite;
                     const newSats = {
                         25544: { name: 'ISS (ZARYA)', color: satellites[25544]?.color || satColors[0] },
@@ -855,10 +871,28 @@
                     fetchCurrentTelemetry();
                     if (window.gsLoadOutputs) window.gsLoadOutputs();
                     if (window.gsOnSatelliteChange) window.gsOnSatelliteChange();
+                    if (!trackedSatelliteCatalog.length) {
+                        trackedSatelliteCatalog = Object.entries(newSats).map(([norad, sat]) => ({
+                            norad_id: parseInt(norad, 10),
+                            name: sat.name,
+                            builtin: true,
+                            enabled: true,
+                        }));
+                        renderTrackedSatelliteCatalog();
+                    }
                     scheduleDashboardDataRetry(2500);
                 })
                 .catch(() => {
                     showSatelliteCommandStatus('Tracked-satellite refresh failed. Retrying with the current selection.', 'warn');
+                    if (!trackedSatelliteCatalog.length) {
+                        trackedSatelliteCatalog = Object.entries(satellites).map(([norad, sat]) => ({
+                            norad_id: parseInt(norad, 10),
+                            name: sat.name,
+                            builtin: true,
+                            enabled: true,
+                        }));
+                        renderTrackedSatelliteCatalog();
+                    }
                     calculatePasses();
                     fetchCurrentTelemetry();
                     loadTransmitters(selectedSatellite);
@@ -1497,7 +1531,41 @@
             return layer;
         }
 
+        async function upgradeGroundTilesFromSettings(fallbackTiles) {
+            if (typeof Settings === 'undefined' || !groundMap) return;
+
+            try {
+                await Settings.init();
+                if (!groundMap) return;
+
+                const configuredLayer = Settings.createTileLayer();
+                let tileLoaded = false;
+
+                configuredLayer.once('load', () => {
+                    tileLoaded = true;
+                    if (groundMap && fallbackTiles && groundMap.hasLayer(fallbackTiles)) {
+                        groundMap.removeLayer(fallbackTiles);
+                    }
+                    groundMap.invalidateSize(false);
+                });
+
+                configuredLayer.on('tileerror', () => {
+                    if (!tileLoaded) {
+                        console.warn('Satellite tile layer failed to load, keeping fallback grid');
+                    }
+                });
+
+                configuredLayer.addTo(groundMap);
+                Settings.registerMap(groundMap);
+            } catch (e) {
+                console.warn('Satellite: Settings/tile upgrade failed, using fallback grid:', e);
+            }
+        }
+
         async function initGroundMap() {
+            const container = document.getElementById('groundMap');
+            if (!container || container._leaflet_id) return;
+
             groundMap = L.map('groundMap', {
                 center: [20, 0],
                 zoom: 2,
@@ -1512,26 +1580,15 @@
             // when internet map providers are slow or unreachable.
             const fallbackTiles = createFallbackGridLayer().addTo(groundMap);
 
-            // Upgrade tiles in background via Settings (with timeout fallback)
-            if (typeof Settings !== 'undefined') {
-                try {
-                    await Promise.race([
-                        Settings.init(),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('Settings timeout')), 5000))
-                    ]);
-                    groundMap.removeLayer(fallbackTiles);
-                    Settings.createTileLayer().addTo(groundMap);
-                    Settings.registerMap(groundMap);
-                } catch (e) {
-                    console.warn('Satellite: Settings init failed/timed out, using fallback tiles:', e);
-                }
-            }
+            upgradeGroundTilesFromSettings(fallbackTiles);
 
             const lat = parseFloat(document.getElementById('obsLat')?.value);
             const lon = parseFloat(document.getElementById('obsLon')?.value);
             if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
                 groundMap.setView([lat, lon], 3);
             }
+            requestAnimationFrame(() => groundMap?.invalidateSize(false));
+            setTimeout(() => groundMap?.invalidateSize(false), 250);
             updateMapModeButtons();
             updateMapTrackSummary();
         }
@@ -2246,8 +2303,7 @@
             const noteEl = document.getElementById('gsReceiverNote');
             if (!select) return;
             try {
-                const response = await fetch('/devices', { credentials: 'same-origin' });
-                const devices = await response.json();
+                const { data: devices } = await fetchJsonWithTimeout('/devices');
                 receiverDevices = Array.isArray(devices) ? devices : [];
                 if (!receiverDevices.length) {
                     select.innerHTML = '<option value="0">No SDRs detected</option>';
@@ -2270,9 +2326,18 @@
                 }
                 onReceiverSelectionChange();
             } catch (_) {
-                select.innerHTML = '<option value="0">Receiver detection failed</option>';
-                if (typeEl) typeEl.textContent = 'RTLSDR';
-                if (noteEl) noteEl.textContent = 'Device detection failed. Ground station will try receiver 0.';
+                const saved = localStorage.getItem(RECEIVER_STORAGE_KEY);
+                if (saved) {
+                    const [savedType, savedIndex] = saved.split(':');
+                    select.innerHTML = `<option value="${_esc(savedIndex || '0')}" data-sdr-type="${_esc(savedType || 'rtlsdr')}">Saved receiver ${_esc(savedIndex || '0')}</option>`;
+                    if (typeEl) typeEl.textContent = String(savedType || 'rtlsdr').toUpperCase();
+                    if (noteEl) noteEl.textContent = 'Live SDR detection is taking too long. Using the last saved receiver for now.';
+                } else {
+                    select.innerHTML = '<option value="0">Receiver detection timed out</option>';
+                    if (typeEl) typeEl.textContent = 'RTLSDR';
+                    if (noteEl) noteEl.textContent = 'Live SDR detection timed out. Ground station will try receiver 0 until the next refresh.';
+                }
+                setTimeout(loadReceiverDevices, 6000);
                 updateMissionDrawerInfo();
             }
         }
@@ -2300,12 +2365,21 @@
 
         async function loadTrackedSatelliteCatalog() {
             try {
-                const response = await fetch('/satellite/tracked', { credentials: 'same-origin' });
-                const data = await response.json();
+                const { data } = await fetchJsonWithTimeout('/satellite/tracked');
                 if (data.status === 'success' && Array.isArray(data.satellites)) {
                     trackedSatelliteCatalog = data.satellites;
                 }
-            } catch (_) {}
+            } catch (_) {
+                if (!trackedSatelliteCatalog.length) {
+                    trackedSatelliteCatalog = Object.entries(satellites).map(([norad, sat]) => ({
+                        norad_id: parseInt(norad, 10),
+                        name: sat.name,
+                        builtin: true,
+                        enabled: true,
+                    }));
+                }
+                setTimeout(loadTrackedSatelliteCatalog, 6000);
+            }
             renderTrackedSatelliteCatalog();
         }
 
