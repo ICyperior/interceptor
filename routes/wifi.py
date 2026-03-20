@@ -673,13 +673,6 @@ def start_wifi_scan():
                 os.remove(f)
 
         airodump_path = get_tool_path('airodump-ng')
-        cmd = [
-            airodump_path,
-            '-w', csv_path,
-            '--output-format', 'csv,pcap',
-            '--band', band,
-            interface
-        ]
 
         channel_list = None
         if channels:
@@ -688,10 +681,22 @@ def start_wifi_scan():
             except ValueError as e:
                 return api_error(str(e), 400)
 
+        cmd = [
+            airodump_path,
+            '-w', csv_path,
+            '--output-format', 'csv,pcap',
+        ]
+
+        # --band and -c are mutually exclusive: only add --band when not
+        # locking to specific channels, and always place the interface last.
         if channel_list:
             cmd.extend(['-c', ','.join(str(c) for c in channel_list)])
         elif channel:
             cmd.extend(['-c', str(channel)])
+        else:
+            cmd.extend(['--band', band])
+
+        cmd.append(interface)
 
         logger.info(f"Running: {' '.join(cmd)}")
 

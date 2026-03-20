@@ -34,6 +34,7 @@ from .constants import (
     SCAN_MODE_QUICK,
     TOOL_TIMEOUT_DETECT,
     WIFI_EMA_ALPHA,
+    get_band_from_channel,
     get_proximity_band,
     get_signal_band,
     get_vendor_from_mac,
@@ -821,6 +822,8 @@ class UnifiedWiFiScanner:
                 cmd.extend(['--band', 'bg'])
             elif band == '5':
                 cmd.extend(['--band', 'a'])
+            else:
+                cmd.extend(['--band', 'abg'])
 
             cmd.append(interface)
 
@@ -957,6 +960,12 @@ class UnifiedWiFiScanner:
         now = datetime.now()
         ap.last_seen = now
         ap.seen_count += 1
+
+        # Update channel/band if now known (airodump-ng may report -1 or 0 before resolving)
+        if obs.channel and not ap.channel:
+            ap.channel = obs.channel
+            ap.frequency_mhz = obs.frequency_mhz
+            ap.band = get_band_from_channel(obs.channel)
 
         # Update ESSID if revealed
         if obs.essid and ap.is_hidden:
