@@ -2389,7 +2389,8 @@ sudo make install</code>
                 const adsbDevice = parseInt(adsbDeviceIdx) || 0;
 
                 // Pre-flight: check if another mode is using this device and auto-stop it
-                if (!useAgent) {
+                // Skip when using a remote SBS feed — no local SDR is needed
+                if (!useAgent && !remoteConfig) {
                     try {
                         const devResp = await fetch('/devices/status');
                         if (devResp.ok) {
