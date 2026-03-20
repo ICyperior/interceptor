@@ -438,7 +438,11 @@ check_tools() {
   check_optional "dumpvdl2"    "VDL2 decoder" dumpvdl2
   check_required "AIS-catcher" "AIS vessel decoder" AIS-catcher aiscatcher
   check_optional "satdump" "Weather satellite decoder (NOAA/Meteor)" satdump
-  check_optional "auto_rx.py" "Radiosonde weather balloon decoder" auto_rx.py
+  if [[ -f /opt/radiosonde_auto_rx/auto_rx/auto_rx.py ]] && [[ -f /opt/radiosonde_auto_rx/auto_rx/dft_detect ]]; then
+    ok "auto_rx.py - Radiosonde weather balloon decoder"
+  else
+    warn "auto_rx.py - Radiosonde weather balloon decoder (missing, optional)"
+  fi
   echo
   info "GPS:"
   check_required "gpsd" "GPS daemon" gpsd
