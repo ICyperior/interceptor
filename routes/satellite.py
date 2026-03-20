@@ -12,7 +12,6 @@ import requests
 from flask import Blueprint, Response, jsonify, make_response, render_template, request
 
 from config import SHARED_OBSERVER_LOCATION_ENABLED
-from utils.sse import sse_stream_fanout
 from data.satellites import TLE_SATELLITES
 from utils.database import (
     add_tracked_satellite,
@@ -23,6 +22,7 @@ from utils.database import (
 )
 from utils.logging import satellite_logger as logger
 from utils.responses import api_error
+from utils.sse import sse_stream_fanout
 from utils.validation import validate_elevation, validate_hours, validate_latitude, validate_longitude
 
 satellite_bp = Blueprint('satellite', __name__, url_prefix='/satellite')
@@ -55,6 +55,7 @@ _TRACK_CACHE_TTL = 1800
 
 # Thread pool for background ground-track computation (non-blocking from 1Hz tracker loop)
 from concurrent.futures import ThreadPoolExecutor as _ThreadPoolExecutor
+
 _track_executor = _ThreadPoolExecutor(max_workers=2, thread_name_prefix='sat-track')
 _track_in_progress: set = set()  # cache keys currently being computed
 _pass_cache: dict = {}
@@ -726,6 +727,7 @@ def get_transmitters_endpoint(norad_id: int):
 def parse_packet():
     """Parse a raw satellite telemetry packet (base64-encoded)."""
     import base64
+
     from utils.satellite_telemetry import auto_parse
     data = request.json or {}
     try:

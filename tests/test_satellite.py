@@ -80,7 +80,6 @@ def test_tracker_position_has_no_observer_fields():
     receives the client's actual location, should emit elevation/azimuth/
     distance/visible.
     """
-    import sys
     from routes.satellite import _start_satellite_tracker
 
     ISS_TLE = (

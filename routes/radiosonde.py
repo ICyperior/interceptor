@@ -88,7 +88,7 @@ def find_auto_rx() -> str | None:
 def _resolve_shebang_interpreter(script_path: str) -> str | None:
     """Resolve a Python interpreter from a script shebang if possible."""
     try:
-        with open(script_path, 'r', encoding='utf-8', errors='ignore') as handle:
+        with open(script_path, encoding='utf-8', errors='ignore') as handle:
             first_line = handle.readline().strip()
     except OSError:
         return None

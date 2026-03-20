@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import queue
-import threading
 from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request, send_file
@@ -102,6 +101,8 @@ def update_profile(norad_id: int):
     data = request.get_json(force=True) or {}
     from utils.ground_station.observation_profile import (
         get_profile as _get,
+    )
+    from utils.ground_station.observation_profile import (
         legacy_decoder_to_tasks,
         normalize_tasks,
         save_profile,
@@ -443,7 +444,6 @@ def init_ground_station_websocket(app) -> None:
     @sock.route('/ws/satellite_waterfall')
     def satellite_waterfall_ws(ws):
         """Stream binary waterfall frames from the active ground station IQ bus."""
-        import app as _app_mod
         scheduler = _get_scheduler()
         wf_queue = scheduler.waterfall_queue
 

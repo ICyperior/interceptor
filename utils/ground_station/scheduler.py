@@ -22,7 +22,6 @@ from __future__ import annotations
 import json
 import queue
 import threading
-import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -283,6 +282,7 @@ class GroundStationScheduler:
     ) -> list[ScheduledObservation]:
         """Predict passes for each profile and return ScheduledObservation list."""
         from skyfield.api import load, wgs84
+
         from utils.satellite_predict import predict_passes as _predict_passes
 
         try:
@@ -525,8 +525,8 @@ class GroundStationScheduler:
 
     def _attach_sigmf_consumer(self, bus, profile, obs_db_id: int | None) -> None:
         """Attach a SigMFConsumer for raw IQ recording."""
-        from utils.sigmf import SigMFMetadata
         from utils.ground_station.consumers.sigmf_writer import SigMFConsumer
+        from utils.sigmf import SigMFMetadata
 
         meta = SigMFMetadata(
             sample_rate=profile.iq_sample_rate,
@@ -681,8 +681,9 @@ class GroundStationScheduler:
 
 def _insert_observation_record(obs: ScheduledObservation, profile) -> int | None:
     try:
-        from utils.database import get_db
         from datetime import datetime, timezone
+
+        from utils.database import get_db
         with get_db() as conn:
             cur = conn.execute('''
                 INSERT INTO ground_station_observations
@@ -719,8 +720,9 @@ def _insert_event_record(obs_db_id: int | None, event_type: str, payload: str) -
     if obs_db_id is None:
         return
     try:
-        from utils.database import get_db
         from datetime import datetime, timezone
+
+        from utils.database import get_db
         with get_db() as conn:
             conn.execute('''
                 INSERT INTO ground_station_events (observation_id, event_type, payload_json, timestamp)
@@ -768,8 +770,9 @@ def _build_packet_event(payload, source: str) -> dict[str, Any]:
 
     if parsed is None:
         try:
-            from utils.satellite_telemetry import auto_parse
             import base64
+
+            from utils.satellite_telemetry import auto_parse
 
             for token in text.replace(',', ' ').split():
                 cleaned = token.strip()
@@ -794,8 +797,9 @@ def _build_packet_event(payload, source: str) -> dict[str, Any]:
 
 def _insert_recording_record(obs_db_id: int | None, meta_path: Path, data_path: Path, profile) -> None:
     try:
-        from utils.database import get_db
         from datetime import datetime, timezone
+
+        from utils.database import get_db
         size = data_path.stat().st_size if data_path.exists() else 0
         with get_db() as conn:
             conn.execute('''
@@ -827,8 +831,9 @@ def _insert_output_record(
     metadata: dict[str, Any] | None = None,
 ) -> int | None:
     try:
-        from utils.database import get_db
         from datetime import datetime, timezone
+
+        from utils.database import get_db
 
         with get_db() as conn:
             cur = conn.execute(

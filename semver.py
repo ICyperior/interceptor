@@ -7,8 +7,8 @@ dependency is missing from the target Python environment.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import re
+from dataclasses import dataclass, replace
 from typing import Iterable
 
 _SEMVER_RE = re.compile(
@@ -56,7 +56,7 @@ class VersionInfo:
     build: str | None = None
 
     @classmethod
-    def parse(cls, version: str) -> "VersionInfo":
+    def parse(cls, version: str) -> VersionInfo:
         match = _SEMVER_RE.match(str(version))
         if not match:
             raise ValueError(f"{version!r} is not valid SemVer")
@@ -77,25 +77,25 @@ class VersionInfo:
     def is_valid(cls, version: str) -> bool:
         return cls.isvalid(version)
 
-    def compare(self, other: str | "VersionInfo") -> int:
+    def compare(self, other: str | VersionInfo) -> int:
         return compare(self, other)
 
     def match(self, expr: str) -> bool:
         return match(str(self), expr)
 
-    def bump_major(self) -> "VersionInfo":
+    def bump_major(self) -> VersionInfo:
         return VersionInfo(self.major + 1, 0, 0)
 
-    def bump_minor(self) -> "VersionInfo":
+    def bump_minor(self) -> VersionInfo:
         return VersionInfo(self.major, self.minor + 1, 0)
 
-    def bump_patch(self) -> "VersionInfo":
+    def bump_patch(self) -> VersionInfo:
         return VersionInfo(self.major, self.minor, self.patch + 1)
 
-    def finalize_version(self) -> "VersionInfo":
+    def finalize_version(self) -> VersionInfo:
         return VersionInfo(self.major, self.minor, self.patch)
 
-    def replace(self, **changes) -> "VersionInfo":
+    def replace(self, **changes) -> VersionInfo:
         return replace(self, **changes)
 
     def __str__(self) -> str:

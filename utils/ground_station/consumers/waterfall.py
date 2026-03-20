@@ -12,8 +12,6 @@ from __future__ import annotations
 import queue
 import time
 
-import numpy as np
-
 from utils.logging import get_logger
 from utils.waterfall_fft import (
     build_binary_frame,

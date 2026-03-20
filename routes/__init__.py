@@ -20,12 +20,12 @@ def register_blueprints(app):
     from .correlation import correlation_bp
     from .dsc import dsc_bp
     from .gps import gps_bp
+    from .ground_station import ground_station_bp
     from .listening_post import receiver_bp
     from .meshtastic import meshtastic_bp
     from .meteor_websocket import meteor_bp
     from .morse import morse_bp
     from .offline import offline_bp
-    from .ground_station import ground_station_bp
     from .ook import ook_bp
     from .pager import pager_bp
     from .radiosonde import radiosonde_bp

@@ -14,7 +14,7 @@ class SigMFConsumer:
     def __init__(
         self,
         metadata: SigMFMetadata,
-        on_complete: 'callable | None' = None,
+        on_complete: callable | None = None,
     ):
         """
         Args:

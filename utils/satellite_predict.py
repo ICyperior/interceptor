@@ -6,8 +6,6 @@ Uses Skyfield's find_events() for accurate AOS/TCA/LOS event detection.
 
 from __future__ import annotations
 
-import datetime
-import math
 from typing import Any
 
 from utils.logging import get_logger

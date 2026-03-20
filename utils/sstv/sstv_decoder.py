@@ -22,13 +22,12 @@ from typing import Callable
 
 import numpy as np
 
-from utils.logging import get_logger
-
 # DopplerTracker/DopplerInfo now live in the shared utils/doppler module.
 # Import them here so existing code that does
 #   ``from utils.sstv.sstv_decoder import DopplerTracker``
 # continues to work unchanged.
 from utils.doppler import DopplerInfo, DopplerTracker  # noqa: F401
+from utils.logging import get_logger
 
 from .constants import ISS_SSTV_FREQ, SAMPLE_RATE
 from .dsp import goertzel_mag, normalize_audio

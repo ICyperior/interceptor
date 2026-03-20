@@ -12,10 +12,9 @@ views of raw binary data (hex dump, float32, uint16/32, strings).
 from __future__ import annotations
 
 import math
-import struct
 import string
+import struct
 from datetime import datetime
-
 
 # ---------------------------------------------------------------------------
 # AX.25 parser
