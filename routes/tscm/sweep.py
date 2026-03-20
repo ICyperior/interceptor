@@ -36,7 +36,8 @@ logger = logging.getLogger('intercept.tscm')
 @tscm_bp.route('/status')
 def tscm_status():
     """Check if any TSCM operation is currently running."""
-    return jsonify({'running': _sweep_running})
+    import routes.tscm as _tscm_pkg
+    return jsonify({'running': _tscm_pkg._sweep_running})
 
 
 @tscm_bp.route('/sweep/start', methods=['POST'])
@@ -95,14 +96,15 @@ def stop_sweep():
 @tscm_bp.route('/sweep/status')
 def sweep_status():
     """Get current sweep status."""
+    import routes.tscm as _tscm_pkg
 
     status = {
-        'running': _sweep_running,
-        'sweep_id': _current_sweep_id,
+        'running': _tscm_pkg._sweep_running,
+        'sweep_id': _tscm_pkg._current_sweep_id,
     }
 
-    if _current_sweep_id:
-        sweep = get_tscm_sweep(_current_sweep_id)
+    if _tscm_pkg._current_sweep_id:
+        sweep = get_tscm_sweep(_tscm_pkg._current_sweep_id)
         if sweep:
             status['sweep'] = sweep
 
@@ -113,12 +115,14 @@ def sweep_status():
 def sweep_stream():
     """SSE stream for real-time sweep updates."""
 
+    import routes.tscm as _tscm_pkg
+
     def _on_msg(msg: dict[str, Any]) -> None:
         process_event('tscm', msg, msg.get('type'))
 
     return Response(
         sse_stream_fanout(
-            source_queue=tscm_queue,
+            source_queue=_tscm_pkg.tscm_queue,
             channel_key='tscm',
             timeout=1.0,
             keepalive_interval=30.0,
