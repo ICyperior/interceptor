@@ -7,10 +7,23 @@ import os
 import sys
 
 # Application version
-VERSION = "2.26.12"
+VERSION = "2.26.13"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.26.13",
+        "date": "March 2026",
+        "highlights": [
+            "Fix TSCM sweep module variable scoping and stale progress bar",
+            "Fix 5GHz WiFi scanning failures in deep scan and band detection",
+            "Fix ADS-B remote mode incorrectly stopping other SDR services",
+            "Fix radiosonde false 'missing' report at end of setup",
+            "Satellite tracker: TLE auto-refresh, polar plot fixes, pass calculation improvements",
+            "Fix weather satellite handoff (remove defunct METEOR-M2)",
+            "Add multi-arch Docker CI workflow (amd64 + arm64)",
+        ]
+    },
     {
         "version": "2.26.12",
         "date": "March 2026",
