@@ -1485,19 +1485,6 @@ const WiFiMode = (function() {
         });
 
         if (elements.openCount) elements.openCount.textContent = securityCounts.open;
-
-        // Update zone summary
-        const zoneCounts = { immediate: 0, near: 0, far: 0 };
-        networksList.forEach(n => {
-            const rssi = n.rssi_current;
-            if (rssi >= -50) zoneCounts.immediate++;
-            else if (rssi >= -70) zoneCounts.near++;
-            else zoneCounts.far++;
-        });
-
-        if (elements.zoneImmediate) elements.zoneImmediate.textContent = zoneCounts.immediate;
-        if (elements.zoneNear) elements.zoneNear.textContent = zoneCounts.near;
-        if (elements.zoneFar) elements.zoneFar.textContent = zoneCounts.far;
     }
 
     // ==========================================================================
