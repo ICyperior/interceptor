@@ -1170,6 +1170,8 @@ const WiFiMode = (function() {
                 ? 'No networks match current filters'
                 : (isScanning ? 'Scanning for networks...' : 'Start scanning to discover networks');
             elements.networkList.innerHTML = `<div class="wifi-network-placeholder"><p>${escapeHtml(message)}</p></div>`;
+            renderHeatmap();
+            renderSecurityRing(Array.from(networks.values()));
             return;
         }
 
