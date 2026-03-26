@@ -970,62 +970,70 @@
 
                             <!-- On network click: detail panel (wired in Task 5) -->
                             <div id="wifiDetailView" style="display:none; flex:1; overflow-y:auto;">
-                                <!-- populated in Task 5 -->
-                            </div>
-                        </div>
-                    </div>
+                                <div class="wifi-detail-inner">
+                                    <div class="wifi-detail-head">
+                                        <div class="wifi-detail-essid" id="wifiDetailEssid">—</div>
+                                        <div class="wifi-detail-bssid" id="wifiDetailBssid">—</div>
+                                    </div>
 
-                    <!-- Detail Drawer (slides up on network selection) -->
-                    <div class="wifi-detail-drawer" id="wifiDetailDrawer">
-                        <div class="wifi-detail-header">
-                            <div class="wifi-detail-title">
-                                <span class="wifi-detail-essid" id="wifiDetailEssid">Network Name</span>
-                                <span class="wifi-detail-bssid" id="wifiDetailBssid">00:00:00:00:00:00</span>
-                            </div>
-                            <button class="wfl-locate-btn" onclick="(function(){ var p={bssid: document.getElementById('wifiDetailBssid')?.textContent, ssid: document.getElementById('wifiDetailEssid')?.textContent}; if(typeof WiFiLocate!=='undefined'){WiFiLocate.handoff(p);return;} if(typeof switchMode==='function'){switchMode('wifi_locate').then(function(){if(typeof WiFiLocate!=='undefined')WiFiLocate.handoff(p);});} })()" title="Locate this AP">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>
-                                Locate
-                            </button>
-                            <button class="wifi-detail-close" onclick="WiFiMode.closeDetail()">&times;</button>
-                        </div>
-                        <div class="wifi-detail-content" id="wifiDetailContent">
-                            <div class="wifi-detail-grid">
-                                <div class="wifi-detail-stat">
-                                    <span class="label">Signal</span>
-                                    <span class="value" id="wifiDetailRssi">--</span>
+                                    <div class="wifi-detail-signal-bar">
+                                        <div class="wifi-detail-signal-labels">
+                                            <span>Signal</span>
+                                            <span id="wifiDetailRssi">—</span>
+                                        </div>
+                                        <div class="wifi-detail-signal-track">
+                                            <div class="wifi-detail-signal-fill" id="wifiDetailSignalFill" style="width:0%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="wifi-detail-grid">
+                                        <div class="wifi-detail-stat">
+                                            <span class="label">Channel</span>
+                                            <span class="value" id="wifiDetailChannel">—</span>
+                                        </div>
+                                        <div class="wifi-detail-stat">
+                                            <span class="label">Band</span>
+                                            <span class="value" id="wifiDetailBand">—</span>
+                                        </div>
+                                        <div class="wifi-detail-stat">
+                                            <span class="label">Security</span>
+                                            <span class="value" id="wifiDetailSecurity">—</span>
+                                        </div>
+                                        <div class="wifi-detail-stat">
+                                            <span class="label">Cipher</span>
+                                            <span class="value" id="wifiDetailCipher">—</span>
+                                        </div>
+                                        <div class="wifi-detail-stat">
+                                            <span class="label">Clients</span>
+                                            <span class="value" id="wifiDetailClients">—</span>
+                                        </div>
+                                        <div class="wifi-detail-stat">
+                                            <span class="label">First Seen</span>
+                                            <span class="value" id="wifiDetailFirstSeen">—</span>
+                                        </div>
+                                        <div class="wifi-detail-stat" style="grid-column: 1 / -1;">
+                                            <span class="label">Vendor</span>
+                                            <span class="value" id="wifiDetailVendor" style="font-size:11px;">—</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="wifi-detail-clients" id="wifiDetailClientList" style="display: none;">
+                                        <h6>Connected Clients <span class="wifi-client-count-badge" id="wifiClientCountBadge"></span></h6>
+                                        <div class="wifi-client-list"></div>
+                                    </div>
+
+                                    <div class="wifi-detail-actions">
+                                        <button class="wfl-locate-btn" title="Locate this AP"
+                                            onclick="(function(){ var p={bssid: document.getElementById('wifiDetailBssid')?.textContent, ssid: document.getElementById('wifiDetailEssid')?.textContent}; if(typeof WiFiLocate!=='undefined'){WiFiLocate.handoff(p);return;} if(typeof switchMode==='function'){switchMode('wifi_locate').then(function(){if(typeof WiFiLocate!=='undefined')WiFiLocate.handoff(p);});} })()">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="12" cy="10" r="3"/>
+                                                <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/>
+                                            </svg>
+                                            Locate
+                                        </button>
+                                        <button class="wifi-detail-close-btn" onclick="WiFiMode.closeDetail()">Close</button>
+                                    </div>
                                 </div>
-                                <div class="wifi-detail-stat">
-                                    <span class="label">Channel</span>
-                                    <span class="value" id="wifiDetailChannel">--</span>
-                                </div>
-                                <div class="wifi-detail-stat">
-                                    <span class="label">Band</span>
-                                    <span class="value" id="wifiDetailBand">--</span>
-                                </div>
-                                <div class="wifi-detail-stat">
-                                    <span class="label">Security</span>
-                                    <span class="value" id="wifiDetailSecurity">--</span>
-                                </div>
-                                <div class="wifi-detail-stat">
-                                    <span class="label">Cipher</span>
-                                    <span class="value" id="wifiDetailCipher">--</span>
-                                </div>
-                                <div class="wifi-detail-stat">
-                                    <span class="label">Vendor</span>
-                                    <span class="value" id="wifiDetailVendor">--</span>
-                                </div>
-                                <div class="wifi-detail-stat">
-                                    <span class="label">Clients</span>
-                                    <span class="value" id="wifiDetailClients">--</span>
-                                </div>
-                                <div class="wifi-detail-stat">
-                                    <span class="label">First Seen</span>
-                                    <span class="value" id="wifiDetailFirstSeen">--</span>
-                                </div>
-                            </div>
-                            <div class="wifi-detail-clients" id="wifiDetailClientList" style="display: none;">
-                                <h6>Connected Clients <span class="wifi-client-count-badge" id="wifiClientCountBadge"></span></h6>
-                                <div class="wifi-client-list"></div>
                             </div>
                         </div>
                     </div>

@@ -216,8 +216,8 @@ const WiFiMode = (function() {
             zoneNear: document.getElementById('wifiZoneNear'),
             zoneFar: document.getElementById('wifiZoneFar'),
 
-            // Detail drawer
-            detailDrawer: document.getElementById('wifiDetailDrawer'),
+            // Detail panel
+            detailSignalFill: document.getElementById('wifiDetailSignalFill'),
             detailEssid: document.getElementById('wifiDetailEssid'),
             detailBssid: document.getElementById('wifiDetailBssid'),
             detailRssi: document.getElementById('wifiDetailRssi'),
@@ -1252,12 +1252,17 @@ const WiFiMode = (function() {
     function selectNetwork(bssid) {
         selectedBssid = bssid;
 
-        // Update row selection
+        // Highlight selected row
         elements.networkList?.querySelectorAll('.network-row').forEach(row => {
             row.classList.toggle('selected', row.dataset.bssid === bssid);
         });
 
-        // Update detail panel
+        // Show detail in right panel
+        if (elements.heatmapView) elements.heatmapView.style.display = 'none';
+        if (elements.detailView)  elements.detailView.style.display  = 'flex';
+        if (elements.rightPanelTitle) elements.rightPanelTitle.textContent = 'Network Detail';
+        if (elements.detailBackBtn)   elements.detailBackBtn.style.display = 'inline-block';
+
         updateDetailPanel(bssid);
 
         // Highlight on radar
@@ -1272,7 +1277,6 @@ const WiFiMode = (function() {
 
     function updateDetailPanel(bssid, options = {}) {
         const { refreshClients = true } = options;
-        if (!elements.detailDrawer) return;
 
         const network = networks.get(bssid);
         if (!network) {
@@ -1280,7 +1284,7 @@ const WiFiMode = (function() {
             return;
         }
 
-        // Update drawer header
+        // Update detail header
         if (elements.detailEssid) {
             elements.detailEssid.textContent = network.display_name || network.essid || '[Hidden SSID]';
         }
@@ -1314,8 +1318,12 @@ const WiFiMode = (function() {
             elements.detailFirstSeen.textContent = formatTime(network.first_seen);
         }
 
-        // Show the drawer
-        elements.detailDrawer.classList.add('open');
+        // Update signal bar
+        if (elements.detailSignalFill) {
+            const rssi = network.rssi_current;
+            const pct = rssi != null ? Math.max(0, Math.min(100, (rssi + 100) / 80 * 100)) : 0;
+            elements.detailSignalFill.style.width = pct.toFixed(1) + '%';
+        }
 
         // Fetch and display clients for this network
         if (refreshClients) {
@@ -1325,12 +1333,17 @@ const WiFiMode = (function() {
 
     function closeDetail() {
         selectedBssid = null;
-        if (elements.detailDrawer) {
-            elements.detailDrawer.classList.remove('open');
-        }
+
+        // Deselect all rows
         elements.networkList?.querySelectorAll('.network-row').forEach(row => {
             row.classList.remove('selected');
         });
+
+        // Restore heatmap in right panel
+        if (elements.detailView)  elements.detailView.style.display  = 'none';
+        if (elements.heatmapView) elements.heatmapView.style.display = 'flex';
+        if (elements.rightPanelTitle) elements.rightPanelTitle.textContent = 'Channel Heatmap';
+        if (elements.detailBackBtn)   elements.detailBackBtn.style.display = 'none';
     }
 
     // ==========================================================================

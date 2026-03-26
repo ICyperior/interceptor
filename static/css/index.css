@@ -4018,86 +4018,109 @@ header h1 .tagline {
 .wifi-security-ring-name { color: var(--text-dim); flex: 1; }
 .wifi-security-ring-count { color: var(--text-primary); font-weight: 600; }
 
-/* WiFi Detail Drawer */
-.wifi-detail-drawer {
-    display: none;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.wifi-detail-drawer.open {
-    display: block;
-}
-
-.wifi-detail-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.wifi-detail-title {
+/* WiFi Detail Panel */
+.wifi-detail-inner {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 10px;
+    padding: 12px;
+    height: 100%;
 }
+
+.wifi-detail-head { display: flex; flex-direction: column; gap: 3px; }
 
 .wifi-detail-essid {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
+    word-break: break-word;
 }
 
 .wifi-detail-bssid {
-    font-size: 11px;
+    font-size: 10px;
     font-family: monospace;
     color: var(--text-dim);
 }
 
-.wifi-detail-close {
-    background: none;
-    border: none;
+.wifi-detail-signal-bar {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px 10px;
+}
+
+.wifi-detail-signal-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
     color: var(--text-dim);
-    font-size: 20px;
-    cursor: pointer;
-    padding: 0 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
 }
 
-.wifi-detail-close:hover {
-    color: var(--accent-red);
+.wifi-detail-signal-track {
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    overflow: hidden;
 }
 
-.wifi-detail-content {
-    padding: 15px;
+.wifi-detail-signal-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-orange));
+    transition: width 0.3s;
 }
 
 .wifi-detail-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 15px;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
 }
 
 .wifi-detail-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 8px;
 }
 
 .wifi-detail-stat .label {
-    font-size: 10px;
+    display: block;
+    font-size: 9px;
     color: var(--text-dim);
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
 }
 
 .wifi-detail-stat .value {
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 600;
     color: var(--text-primary);
 }
+
+.wifi-detail-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.wifi-detail-close-btn {
+    padding: 7px 12px;
+    font-family: inherit;
+    font-size: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-dim);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.wifi-detail-close-btn:hover { color: var(--text-primary); }
 
 .wifi-detail-clients {
     margin-top: 15px;
@@ -4225,9 +4248,6 @@ header h1 .tagline {
         grid-column: span 1;
     }
 
-    .wifi-detail-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 
 /* Bluetooth Layout Container */
