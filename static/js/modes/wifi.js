@@ -119,6 +119,7 @@ const WiFiMode = (function() {
     let probeRequests = [];
     let channelStats = [];
     let recommendations = [];
+    let channelHistory = []; // max 10 entries, each { timestamp, channels: {1:N,...,11:N} }
 
     // UI state
     let selectedBssid = null;
@@ -167,7 +168,7 @@ const WiFiMode = (function() {
         initScanModeTabs();
         initNetworkFilters();
         initSortControls();
-        initChannelChart();
+        initHeatmap();
         scheduleRender({ table: true, stats: true, radar: true, chart: true });
 
         // Check if already scanning
@@ -199,9 +200,16 @@ const WiFiMode = (function() {
             networkList: document.getElementById('wifiNetworkList'),
             networkFilters: document.getElementById('wifiNetworkFilters'),
 
-            // Visualizations
-            channelChart: document.getElementById('wifiChannelChart'),
-            channelBandTabs: document.getElementById('wifiChannelBandTabs'),
+            // Visualizations — heatmap & security ring
+            heatmapGrid: document.getElementById('wifiHeatmapGrid'),
+            heatmapChLabels: document.getElementById('wifiHeatmapChLabels'),
+            heatmapCount: document.getElementById('wifiHeatmapCount'),
+            securityRingSvg: document.getElementById('wifiSecurityRingSvg'),
+            securityRingLegend: document.getElementById('wifiSecurityRingLegend'),
+            heatmapView: document.getElementById('wifiHeatmapView'),
+            detailView: document.getElementById('wifiDetailView'),
+            rightPanelTitle: document.getElementById('wifiRightPanelTitle'),
+            detailBackBtn: document.getElementById('wifiDetailBackBtn'),
 
             // Zone summary
             zoneImmediate: document.getElementById('wifiZoneImmediate'),
@@ -1076,7 +1084,6 @@ const WiFiMode = (function() {
             if (pendingRender.table) renderNetworks();
             if (pendingRender.stats) updateStats();
             if (pendingRender.radar) renderRadar(Array.from(networks.values()));
-            if (pendingRender.chart) updateChannelChart();
             if (pendingRender.detail && selectedBssid) {
                 updateDetailPanel(selectedBssid, { refreshClients: false });
             }
@@ -1091,6 +1098,18 @@ const WiFiMode = (function() {
 
     function renderNetworks() {
         if (!elements.networkList) return;
+
+        // Snapshot 2.4 GHz channel utilisation (use all networks, not filtered)
+        const snapshot = { timestamp: Date.now(), channels: {} };
+        for (let ch = 1; ch <= 11; ch++) snapshot.channels[ch] = 0;
+        Array.from(networks.values())
+            .filter(n => n.band && n.band.startsWith('2.4'))
+            .forEach(n => {
+                const ch = parseInt(n.channel);
+                if (ch >= 1 && ch <= 11) snapshot.channels[ch]++;
+            });
+        channelHistory.unshift(snapshot);
+        if (channelHistory.length > 10) channelHistory.pop();
 
         // Filter networks
         let filtered = Array.from(networks.values());
@@ -1162,6 +1181,9 @@ const WiFiMode = (function() {
             const sel = elements.networkList.querySelector(`[data-bssid="${CSS.escape(selectedBssid)}"]`);
             if (sel) sel.classList.add('selected');
         }
+
+        renderHeatmap();
+        renderSecurityRing(Array.from(networks.values()));
     }
 
     function createNetworkRow(network) {
@@ -1549,81 +1571,101 @@ const WiFiMode = (function() {
     // Channel Chart
     // ==========================================================================
 
-    function initChannelChart() {
-        if (!elements.channelChart) return;
+    function initHeatmap() {
+        if (!elements.heatmapChLabels) return;
+        // Time-label placeholder + 11 channel labels
+        elements.heatmapChLabels.innerHTML =
+            '<div class="wifi-heatmap-ch-label"></div>' +
+            [1,2,3,4,5,6,7,8,9,10,11].map(ch =>
+                `<div class="wifi-heatmap-ch-label">${ch}</div>`
+            ).join('');
+    }
 
-        // Initialize channel chart component
-        if (typeof ChannelChart !== 'undefined') {
-            ChannelChart.init('wifiChannelChart');
+    function renderHeatmap() {
+        if (!elements.heatmapGrid) return;
+
+        if (channelHistory.length === 0) {
+            elements.heatmapGrid.innerHTML =
+                '<div class="wifi-heatmap-empty">Scan to populate channel history</div>';
+            if (elements.heatmapCount) elements.heatmapCount.textContent = '0';
+            return;
         }
 
-        // Band tabs
-        if (elements.channelBandTabs) {
-            elements.channelBandTabs.addEventListener('click', (e) => {
-                if (e.target.matches('.channel-band-tab')) {
-                    const band = e.target.dataset.band;
-                    elements.channelBandTabs.querySelectorAll('.channel-band-tab').forEach(t => {
-                        t.classList.toggle('active', t.dataset.band === band);
-                    });
-                    updateChannelChart(band);
-                }
+        if (elements.heatmapCount) elements.heatmapCount.textContent = channelHistory.length;
+
+        // Find max value for colour scale
+        let maxVal = 1;
+        channelHistory.forEach(snap => {
+            Object.values(snap.channels).forEach(v => { if (v > maxVal) maxVal = v; });
+        });
+
+        const rows = channelHistory.map((snap, i) => {
+            const timeLabel = i === 0 ? 'now' : '';
+            const cells = [1,2,3,4,5,6,7,8,9,10,11].map(ch => {
+                const v = snap.channels[ch] || 0;
+                return `<div class="wifi-heatmap-cell" style="background:${congestionColor(v, maxVal)}"></div>`;
             });
-        }
+            return `<div class="wifi-heatmap-time-label">${timeLabel}</div>${cells.join('')}`;
+        });
+
+        elements.heatmapGrid.innerHTML = rows.join('');
     }
 
-    function calculateChannelStats() {
-        // Calculate channel stats from current networks
-        const stats = {};
-        const networksList = Array.from(networks.values());
-
-        // Initialize all channels
-        // 2.4 GHz: channels 1-13
-        for (let ch = 1; ch <= 13; ch++) {
-            stats[ch] = { channel: ch, band: '2.4GHz', ap_count: 0, client_count: 0, utilization_score: 0 };
-        }
-        // 5 GHz: common channels
-        [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165].forEach(ch => {
-            stats[ch] = { channel: ch, band: '5GHz', ap_count: 0, client_count: 0, utilization_score: 0 };
-        });
-
-        // Count APs per channel
-        networksList.forEach(net => {
-            const ch = parseInt(net.channel);
-            if (stats[ch]) {
-                stats[ch].ap_count++;
-                stats[ch].client_count += (net.client_count || 0);
-            }
-        });
-
-        // Calculate utilization score (0-1)
-        const maxAPs = Math.max(1, ...Object.values(stats).map(s => s.ap_count));
-        Object.values(stats).forEach(s => {
-            s.utilization_score = s.ap_count / maxAPs;
-        });
-
-        return Object.values(stats).filter(s => s.ap_count > 0 || [1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161, 165].includes(s.channel));
+    function congestionColor(value, maxValue) {
+        if (value === 0 || maxValue === 0) return '#0d1117';
+        const ratio = value / maxValue;
+        if (ratio < 0.05)  return '#0d1117';
+        if (ratio < 0.25)  return `rgba(13,74,110,${(ratio * 4).toFixed(2)})`;
+        if (ratio < 0.5)   return `rgba(14,165,233,${ratio.toFixed(2)})`;
+        if (ratio < 0.75)  return `rgba(249,115,22,${ratio.toFixed(2)})`;
+        return                     `rgba(239,68,68,${ratio.toFixed(2)})`;
     }
 
-    function updateChannelChart(band) {
-        if (typeof ChannelChart === 'undefined') return;
+    function renderSecurityRing(networksList) {
+        const svg = elements.securityRingSvg;
+        const legend = elements.securityRingLegend;
+        if (!svg || !legend) return;
 
-        // Use the currently active band tab if no band specified
-        if (!band) {
-            const activeTab = elements.channelBandTabs && elements.channelBandTabs.querySelector('.channel-band-tab.active');
-            band = activeTab ? activeTab.dataset.band : '2.4';
-        }
+        const C = 2 * Math.PI * 15; // circumference ≈ 94.25
+        const sec = networksList.reduce((acc, n) => {
+            const s = (n.security || '').toLowerCase();
+            if (s.includes('wpa3'))       acc.wpa3++;
+            else if (s.includes('wpa'))   acc.wpa2++;
+            else if (s.includes('wep'))   acc.wep++;
+            else                          acc.open++;
+            return acc;
+        }, { wpa2: 0, open: 0, wpa3: 0, wep: 0 });
 
-        // Recalculate channel stats from networks if needed
-        if (channelStats.length === 0 && networks.size > 0) {
-            channelStats = calculateChannelStats();
-        }
+        const total = networksList.length || 1;
+        const segments = [
+            { label: 'WPA2', color: '#38c180', count: sec.wpa2 },
+            { label: 'Open', color: '#e25d5d', count: sec.open },
+            { label: 'WPA3', color: '#4aa3ff', count: sec.wpa3 },
+            { label: 'WEP',  color: '#d6a85e', count: sec.wep  },
+        ];
 
-        // Filter stats by band
-        const bandFilter = band === '2.4' ? '2.4GHz' : band === '5' ? '5GHz' : '6GHz';
-        const filteredStats = channelStats.filter(s => s.band === bandFilter);
-        const filteredRecs = recommendations.filter(r => r.band === bandFilter);
+        let offset = 0;
+        const arcs = segments.map(seg => {
+            const arcLen = (seg.count / total) * C;
+            const arc = `<circle cx="24" cy="24" r="15" fill="none"
+                stroke="${seg.color}" stroke-width="7"
+                stroke-dasharray="${arcLen.toFixed(2)} ${(C - arcLen).toFixed(2)}"
+                stroke-dashoffset="${(-offset).toFixed(2)}"
+                transform="rotate(-90 24 24)"/>`;
+            offset += arcLen;
+            return arc;
+        });
 
-        ChannelChart.update(filteredStats, filteredRecs);
+        svg.innerHTML = arcs.join('') +
+            '<circle cx="24" cy="24" r="9" fill="var(--bg-primary)"/>';
+
+        legend.innerHTML = segments.map(seg => `
+            <div class="wifi-security-ring-item">
+                <div class="wifi-security-ring-dot" style="background:${seg.color}"></div>
+                <span class="wifi-security-ring-name">${seg.label}</span>
+                <span class="wifi-security-ring-count">${seg.count}</span>
+            </div>
+        `).join('');
     }
 
     // ==========================================================================

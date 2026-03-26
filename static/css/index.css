@@ -3866,99 +3866,157 @@ header h1 .tagline {
     to   { transform: rotate(360deg); }
 }
 
-/* WiFi Analysis Panel (RIGHT) */
+/* WiFi Analysis Panel */
 .wifi-analysis-panel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.wifi-channel-section,
-.wifi-security-section {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    padding: 12px;
+    overflow: hidden;
 }
 
-.wifi-channel-section {
-    flex: 1;
-}
-
-.wifi-channel-section h5,
-.wifi-security-section h5 {
-    margin: 0 0 10px 0;
-    color: var(--accent-cyan);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.wifi-channel-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 10px;
-}
-
-.channel-band-tab {
-    flex: 1;
-    padding: 6px 10px;
-    font-size: 10px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-dim);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.channel-band-tab:hover {
-    background: var(--bg-secondary);
-}
-
-.channel-band-tab.active {
-    background: var(--accent-cyan);
-    color: var(--text-inverse);
-    border-color: var(--accent-cyan);
-}
-
-.wifi-channel-chart {
-    min-height: 120px;
-    overflow-x: auto;
-    overflow-y: hidden;
-}
-
-.wifi-security-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.wifi-security-item {
+.wifi-analysis-panel-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 11px;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
-.wifi-security-dot {
-    width: 10px;
-    height: 10px;
+.wifi-analysis-panel-header .panel-title {
+    color: var(--accent-cyan);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.wifi-detail-back-btn {
+    font-family: inherit;
+    font-size: 9px;
+    color: var(--text-dim);
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.wifi-detail-back-btn:hover { color: var(--text-primary); }
+
+/* Heatmap */
+.wifi-heatmap-wrap {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.wifi-heatmap-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.wifi-heatmap-ch-labels {
+    display: grid;
+    grid-template-columns: 26px repeat(11, 1fr);
+    gap: 2px;
+}
+
+.wifi-heatmap-ch-label {
+    text-align: center;
+    font-size: 8px;
+    color: var(--text-dim);
+}
+
+.wifi-heatmap-grid {
+    display: grid;
+    grid-template-columns: 26px repeat(11, 1fr);
+    gap: 2px;
+    flex: 1;
+    min-height: 0;
+}
+
+.wifi-heatmap-time-label {
+    font-size: 8px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 4px;
+}
+
+.wifi-heatmap-cell {
     border-radius: 2px;
+    min-height: 10px;
 }
 
-.wifi-security-item.wpa3 .wifi-security-dot { background: var(--accent-green); }
-.wifi-security-item.wpa2 .wifi-security-dot { background: var(--accent-cyan); }
-.wifi-security-item.wep .wifi-security-dot { background: var(--accent-orange); }
-.wifi-security-item.open .wifi-security-dot { background: var(--accent-red); }
-
-.wifi-security-count {
-    margin-left: auto;
-    font-weight: 600;
-    color: var(--text-primary);
+.wifi-heatmap-empty {
+    grid-column: 1 / -1;
+    padding: 16px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 10px;
 }
+
+.wifi-heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 2px;
+}
+
+.wifi-heatmap-legend-grad {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #0d1117 0%, #0d4a6e 30%, #0ea5e9 60%, #f97316 80%, #ef4444 100%);
+}
+
+/* Security ring */
+.wifi-security-ring-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.wifi-security-ring-legend {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wifi-security-ring-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+}
+
+.wifi-security-ring-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 1px;
+    flex-shrink: 0;
+}
+
+.wifi-security-ring-name { color: var(--text-dim); flex: 1; }
+.wifi-security-ring-count { color: var(--text-primary); font-weight: 600; }
 
 /* WiFi Detail Drawer */
 .wifi-detail-drawer {

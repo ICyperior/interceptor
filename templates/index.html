@@ -936,40 +936,41 @@
                             </div>
                         </div>
 
-                        <!-- RIGHT: Channel Analysis + Security -->
+                        <!-- RIGHT: Channel Heatmap + Security Ring -->
                         <div class="wifi-analysis-panel">
-                            <div class="wifi-channel-section">
-                                <h5>Channel Analysis</h5>
-                                <div class="wifi-channel-tabs" id="wifiChannelBandTabs">
-                                    <button class="channel-band-tab active" data-band="2.4">2.4 GHz</button>
-                                    <button class="channel-band-tab" data-band="5">5 GHz</button>
-                                </div>
-                                <div id="wifiChannelChart" class="wifi-channel-chart"></div>
+                            <div class="wifi-analysis-panel-header">
+                                <span class="panel-title" id="wifiRightPanelTitle">Channel Heatmap</span>
+                                <button class="wifi-detail-back-btn" id="wifiDetailBackBtn"
+                                        style="display:none" onclick="WiFiMode.closeDetail()">← Back</button>
                             </div>
-                            <div class="wifi-security-section">
-                                <h5>Security Overview</h5>
-                                <div class="wifi-security-stats">
-                                    <div class="wifi-security-item wpa3">
-                                        <span class="wifi-security-dot"></span>
-                                        <span>WPA3</span>
-                                        <span class="wifi-security-count" id="wpa3Count">0</span>
+
+                            <!-- Default: heatmap + security ring -->
+                            <div id="wifiHeatmapView" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+                                <div class="wifi-heatmap-wrap">
+                                    <div class="wifi-heatmap-label">
+                                        2.4 GHz · Last <span id="wifiHeatmapCount">0</span> scans
                                     </div>
-                                    <div class="wifi-security-item wpa2">
-                                        <span class="wifi-security-dot"></span>
-                                        <span>WPA2</span>
-                                        <span class="wifi-security-count" id="wpa2Count">0</span>
+                                    <div class="wifi-heatmap-ch-labels" id="wifiHeatmapChLabels">
+                                        <!-- 11 channel labels (1–11), generated once by JS -->
                                     </div>
-                                    <div class="wifi-security-item wep">
-                                        <span class="wifi-security-dot"></span>
-                                        <span>WEP</span>
-                                        <span class="wifi-security-count" id="wepCount">0</span>
-                                    </div>
-                                    <div class="wifi-security-item open">
-                                        <span class="wifi-security-dot"></span>
-                                        <span>Open</span>
-                                        <span class="wifi-security-count" id="openCount">0</span>
+                                    <div class="wifi-heatmap-grid" id="wifiHeatmapGrid"></div>
+                                    <div class="wifi-heatmap-legend">
+                                        <span>Low</span>
+                                        <div class="wifi-heatmap-legend-grad"></div>
+                                        <span>High</span>
                                     </div>
                                 </div>
+                                <div class="wifi-security-ring-wrap">
+                                    <svg id="wifiSecurityRingSvg" viewBox="0 0 48 48" width="48" height="48">
+                                        <circle cx="24" cy="24" r="9" fill="var(--bg-primary)"/>
+                                    </svg>
+                                    <div class="wifi-security-ring-legend" id="wifiSecurityRingLegend"></div>
+                                </div>
+                            </div>
+
+                            <!-- On network click: detail panel (wired in Task 5) -->
+                            <div id="wifiDetailView" style="display:none; flex:1; overflow-y:auto;">
+                                <!-- populated in Task 5 -->
                             </div>
                         </div>
                     </div>
