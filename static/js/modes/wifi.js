@@ -167,7 +167,6 @@ const WiFiMode = (function() {
         initScanModeTabs();
         initNetworkFilters();
         initSortControls();
-        initProximityRadar();
         initChannelChart();
         scheduleRender({ table: true, stats: true, radar: true, chart: true });
 
@@ -201,7 +200,6 @@ const WiFiMode = (function() {
             networkFilters: document.getElementById('wifiNetworkFilters'),
 
             // Visualizations
-            proximityRadar: document.getElementById('wifiProximityRadar'),
             channelChart: document.getElementById('wifiChannelChart'),
             channelBandTabs: document.getElementById('wifiChannelBandTabs'),
 
@@ -1077,7 +1075,7 @@ const WiFiMode = (function() {
 
             if (pendingRender.table) renderNetworks();
             if (pendingRender.stats) updateStats();
-            if (pendingRender.radar) updateProximityRadar();
+            if (pendingRender.radar) renderRadar(Array.from(networks.values()));
             if (pendingRender.chart) updateChannelChart();
             if (pendingRender.detail && selectedBssid) {
                 updateDetailPanel(selectedBssid, { refreshClients: false });
@@ -1506,36 +1504,58 @@ const WiFiMode = (function() {
     // Proximity Radar
     // ==========================================================================
 
-    function initProximityRadar() {
-        if (!elements.proximityRadar) return;
-
-        // Initialize radar component
-        if (typeof ProximityRadar !== 'undefined') {
-            ProximityRadar.init('wifiProximityRadar', {
-                mode: 'wifi',
-                size: 280,
-                onDeviceClick: (bssid) => selectNetwork(bssid),
-            });
+    // Simple hash of BSSID string → stable angle in radians
+    function bssidToAngle(bssid) {
+        let hash = 0;
+        for (let i = 0; i < bssid.length; i++) {
+            hash = (hash * 31 + bssid.charCodeAt(i)) & 0xffffffff;
         }
+        return (hash >>> 0) / 0xffffffff * 2 * Math.PI;
     }
 
-    function updateProximityRadar() {
-        if (typeof ProximityRadar === 'undefined') return;
+    function renderRadar(networksList) {
+        const dotsGroup = document.getElementById('wifiRadarDots');
+        if (!dotsGroup) return;
 
-        // Convert networks to radar-compatible format
-        const devices = Array.from(networks.values()).map(n => ({
-            device_key: n.bssid,
-            device_id: n.bssid,
-            name: n.essid || '[Hidden]',
-            rssi_current: n.rssi_current,
-            rssi_ema: n.rssi_ema,
-            proximity_band: n.proximity_band,
-            estimated_distance_m: n.estimated_distance_m,
-            is_new: n.is_new,
-            heuristic_flags: n.heuristic_flags || [],
-        }));
+        const dots = [];
+        const zoneCounts = { immediate: 0, near: 0, far: 0 };
 
-        ProximityRadar.updateDevices(devices);
+        networksList.forEach(network => {
+            const rssi = network.rssi_current ?? -100;
+            const strength = Math.max(0, Math.min(1, (rssi + 100) / 80));
+            const dotR = 5 + (1 - strength) * 90; // stronger = closer to centre
+            const angle = bssidToAngle(network.bssid);
+            const cx = 105 + dotR * Math.cos(angle);
+            const cy = 105 + dotR * Math.sin(angle);
+
+            // Zone counts
+            if (dotR < 35)       zoneCounts.immediate++;
+            else if (dotR < 70)  zoneCounts.near++;
+            else                  zoneCounts.far++;
+
+            // Visual radius by zone
+            const vr = dotR < 35 ? 6 : dotR < 70 ? 4.5 : 3;
+
+            // Colour by security
+            const sec = (network.security || '').toLowerCase();
+            const colour = sec === 'open' || sec === '' ? '#e25d5d'
+                         : sec.includes('wpa')         ? '#38c180'
+                         : sec.includes('wep')         ? '#d6a85e'
+                         : '#484f58';
+
+            dots.push(`
+            <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${vr * 1.5}"
+                    fill="${colour}" opacity="0.12"/>
+            <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${vr}"
+                    fill="${colour}" opacity="0.9" filter="url(#wifi-glow-sm)"/>
+        `);
+        });
+
+        dotsGroup.innerHTML = dots.join('');
+
+        if (elements.zoneImmediate) elements.zoneImmediate.textContent = zoneCounts.immediate;
+        if (elements.zoneNear)      elements.zoneNear.textContent      = zoneCounts.near;
+        if (elements.zoneFar)       elements.zoneFar.textContent       = zoneCounts.far;
     }
 
     // ==========================================================================

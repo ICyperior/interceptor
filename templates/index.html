@@ -876,7 +876,50 @@
                         <!-- CENTER: Proximity Radar -->
                         <div class="wifi-radar-panel">
                             <h5>Proximity Radar</h5>
-                            <div id="wifiProximityRadar" class="wifi-radar-container"></div>
+                            <div id="wifiProximityRadar" class="wifi-radar-container">
+                                <svg width="100%" viewBox="0 0 210 210" id="wifiRadarSvg">
+                                    <defs>
+                                        <clipPath id="wifi-radar-clip">
+                                            <circle cx="105" cy="105" r="100"/>
+                                        </clipPath>
+                                        <filter id="wifi-glow-sm">
+                                            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                        </filter>
+                                        <filter id="wifi-glow-md">
+                                            <feGaussianBlur stdDeviation="4" result="blur"/>
+                                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                        </filter>
+                                    </defs>
+
+                                    <!-- Background rings (static) -->
+                                    <circle cx="105" cy="105" r="100" fill="none" stroke="#00b4d8" stroke-width="0.5" opacity="0.12"/>
+                                    <circle cx="105" cy="105" r="70"  fill="none" stroke="#00b4d8" stroke-width="0.5" opacity="0.18"/>
+                                    <circle cx="105" cy="105" r="40"  fill="none" stroke="#00b4d8" stroke-width="0.5" opacity="0.25"/>
+                                    <circle cx="105" cy="105" r="15"  fill="none" stroke="#00b4d8" stroke-width="0.5" opacity="0.35"/>
+
+                                    <!-- Crosshairs -->
+                                    <line x1="5" y1="105" x2="205" y2="105" stroke="#00b4d8" stroke-width="0.3" opacity="0.1"/>
+                                    <line x1="105" y1="5" x2="105" y2="205" stroke="#00b4d8" stroke-width="0.3" opacity="0.1"/>
+
+                                    <!-- Rotating sweep group -->
+                                    <g class="wifi-radar-sweep" clip-path="url(#wifi-radar-clip)">
+                                        <!-- Primary trailing arc: 60° -->
+                                        <path d="M105,105 L105,5 A100,100 0 0,1 191.6,155 Z" fill="#00b4d8" opacity="0.08"/>
+                                        <!-- Secondary trailing arc: 90° -->
+                                        <path d="M105,105 L105,5 A100,100 0 0,1 205,105 Z" fill="#00b4d8" opacity="0.04"/>
+                                        <!-- Sweep line -->
+                                        <line x1="105" y1="105" x2="105" y2="5" stroke="#00b4d8" stroke-width="1.5" opacity="0.7"
+                                              filter="url(#wifi-glow-sm)"/>
+                                    </g>
+
+                                    <!-- Centre dot -->
+                                    <circle cx="105" cy="105" r="3" fill="#00b4d8" opacity="0.8"/>
+
+                                    <!-- Network dots (managed by renderRadar()) -->
+                                    <g id="wifiRadarDots"></g>
+                                </svg>
+                            </div>
                             <div class="wifi-zone-summary">
                                 <div class="wifi-zone near">
                                     <span class="wifi-zone-count" id="wifiZoneImmediate">0</span>

@@ -3855,6 +3855,16 @@ header h1 .tagline {
 .wifi-zone.mid .wifi-zone-count { color: var(--accent-yellow); }
 .wifi-zone.far .wifi-zone-count { color: var(--accent-red); }
 
+.wifi-radar-sweep {
+    transform-origin: 105px 105px;
+    animation: wifi-radar-rotate 3s linear infinite;
+}
+
+@keyframes wifi-radar-rotate {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
 /* WiFi Analysis Panel (RIGHT) */
 .wifi-analysis-panel {
     display: flex;
