@@ -3553,20 +3553,28 @@ header h1 .tagline {
     font-weight: 600;
 }
 
-.wifi-status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #666;
+.wifi-scan-indicator {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--accent-cyan);
+    letter-spacing: 0.5px;
 }
 
-.wifi-status-indicator.idle { background: #666; }
-.wifi-status-indicator.scanning { background: var(--accent-green); animation: pulse 1s infinite; }
-.wifi-status-indicator.error { background: var(--accent-red); }
+.wifi-scan-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    display: none;
+    animation: wifi-scan-pulse 1.2s ease-in-out infinite;
+}
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+@keyframes wifi-scan-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.7); }
 }
 
 /* WiFi Main Content - 3 columns */

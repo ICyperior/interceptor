@@ -190,7 +190,8 @@ const WiFiMode = (function() {
             scanModeDeep: document.getElementById('wifiScanModeDeep'),
 
             // Status bar
-            scanStatus: document.getElementById('wifiScanStatus'),
+            scanIndicator: document.getElementById('wifiScanIndicator'),
+            openCount: document.getElementById('wifiOpenCount'),
             networkCount: document.getElementById('wifiNetworkCount'),
             clientCount: document.getElementById('wifiClientCount'),
             hiddenCount: document.getElementById('wifiHiddenCount'),
@@ -209,12 +210,6 @@ const WiFiMode = (function() {
             zoneImmediate: document.getElementById('wifiZoneImmediate'),
             zoneNear: document.getElementById('wifiZoneNear'),
             zoneFar: document.getElementById('wifiZoneFar'),
-
-            // Security counts
-            wpa3Count: document.getElementById('wpa3Count'),
-            wpa2Count: document.getElementById('wpa2Count'),
-            wepCount: document.getElementById('wepCount'),
-            openCount: document.getElementById('openCount'),
 
             // Detail drawer
             detailDrawer: document.getElementById('wifiDetailDrawer'),
@@ -669,12 +664,12 @@ const WiFiMode = (function() {
         }
 
         // Update status
-        if (elements.scanStatus) {
-            elements.scanStatus.textContent = scanning
-                ? `Scanning (${scanMode === 'quick' ? 'Quick' : 'Deep'})...`
-                : 'Idle';
-            elements.scanStatus.className = scanning ? 'status-scanning' : 'status-idle';
-        }
+        const dot  = elements.scanIndicator?.querySelector('.wifi-scan-dot');
+        const text = elements.scanIndicator?.querySelector('.wifi-scan-text');
+        if (dot)  dot.style.display = scanning ? 'inline-block' : 'none';
+        if (text) text.textContent  = scanning
+            ? `SCANNING (${scanMode === 'quick' ? 'Quick' : 'Deep'})`
+            : 'IDLE';
     }
 
     async function checkScanStatus() {
@@ -1497,9 +1492,6 @@ const WiFiMode = (function() {
             else if (sec === 'open' || sec === '') securityCounts.open++;
         });
 
-        if (elements.wpa3Count) elements.wpa3Count.textContent = securityCounts.wpa3;
-        if (elements.wpa2Count) elements.wpa2Count.textContent = securityCounts.wpa2;
-        if (elements.wepCount) elements.wepCount.textContent = securityCounts.wep;
         if (elements.openCount) elements.openCount.textContent = securityCounts.open;
 
         // Update zone summary
