@@ -130,7 +130,6 @@ const WiFiMode = (function() {
         table: false,
         stats: false,
         radar: false,
-        chart: false,
         detail: false,
     };
     const listenersBound = {
@@ -169,7 +168,7 @@ const WiFiMode = (function() {
         initNetworkFilters();
         initSortControls();
         initHeatmap();
-        scheduleRender({ table: true, stats: true, radar: true, chart: true });
+        scheduleRender({ table: true, stats: true, radar: true });
 
         // Check if already scanning
         checkScanStatus();
@@ -761,7 +760,7 @@ const WiFiMode = (function() {
         }
 
         // Update UI
-        scheduleRender({ table: true, stats: true, radar: true, chart: true });
+        scheduleRender({ table: true, stats: true, radar: true });
 
         // Callbacks
         result.access_points.forEach(ap => {
@@ -976,7 +975,6 @@ const WiFiMode = (function() {
             table: true,
             stats: true,
             radar: true,
-            chart: true,
             detail: selectedBssid === network.bssid,
         });
 
@@ -1072,7 +1070,6 @@ const WiFiMode = (function() {
         pendingRender.table = pendingRender.table || Boolean(flags.table);
         pendingRender.stats = pendingRender.stats || Boolean(flags.stats);
         pendingRender.radar = pendingRender.radar || Boolean(flags.radar);
-        pendingRender.chart = pendingRender.chart || Boolean(flags.chart);
         pendingRender.detail = pendingRender.detail || Boolean(flags.detail);
 
         if (renderFramePending) return;
@@ -1091,7 +1088,6 @@ const WiFiMode = (function() {
             pendingRender.table = false;
             pendingRender.stats = false;
             pendingRender.radar = false;
-            pendingRender.chart = false;
             pendingRender.detail = false;
         });
     }
@@ -1264,11 +1260,6 @@ const WiFiMode = (function() {
         if (elements.detailBackBtn)   elements.detailBackBtn.style.display = 'inline-block';
 
         updateDetailPanel(bssid);
-
-        // Highlight on radar
-        if (typeof WiFiProximityRadar !== 'undefined') {
-            WiFiProximityRadar.highlightNetwork(bssid);
-        }
     }
 
     // ==========================================================================
@@ -1467,7 +1458,7 @@ const WiFiMode = (function() {
         const container = elements.detailClientList?.querySelector('.wifi-client-list');
         if (!container) return;
 
-        const existingCard = container.querySelector(`[data-mac="${client.mac}"]`);
+        const existingCard = container.querySelector(`[data-mac="${CSS.escape(client.mac)}"]`);
 
         if (existingCard) {
             // Update existing card's RSSI and last seen
@@ -1799,7 +1790,7 @@ const WiFiMode = (function() {
         if (selectedBssid) {
             closeDetail();
         }
-        scheduleRender({ table: true, stats: true, radar: true, chart: true });
+        scheduleRender({ table: true, stats: true, radar: true });
     }
 
     /**
@@ -1849,7 +1840,7 @@ const WiFiMode = (function() {
         if (selectedBssid && !networks.has(selectedBssid)) {
             closeDetail();
         }
-        scheduleRender({ table: true, stats: true, radar: true, chart: true });
+        scheduleRender({ table: true, stats: true, radar: true });
     }
 
     /**
