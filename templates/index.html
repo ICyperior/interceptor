@@ -846,7 +846,7 @@
 
                     <!-- Main Content: 3-column layout -->
                     <div class="wifi-main-content">
-                        <!-- LEFT: Networks Table -->
+                        <!-- LEFT: Networks List -->
                         <div class="wifi-networks-panel">
                             <div class="wifi-networks-header">
                                 <h5>Discovered Networks</h5>
@@ -857,28 +857,19 @@
                                     <button class="wifi-filter-btn" data-filter="open">Open</button>
                                     <button class="wifi-filter-btn" data-filter="hidden">Hidden</button>
                                 </div>
+                                <div class="wifi-sort-controls">
+                                    <span class="wifi-sort-label">Sort:</span>
+                                    <button class="wifi-sort-btn active" data-sort="rssi">Signal</button>
+                                    <button class="wifi-sort-btn" data-sort="essid">SSID</button>
+                                    <button class="wifi-sort-btn" data-sort="channel">Ch</button>
+                                </div>
                             </div>
                             <div class="wifi-networks-table-wrapper">
-                                <table class="wifi-networks-table" id="wifiNetworkTable">
-                                    <thead>
-                                        <tr>
-                                            <th class="sortable" data-sort="essid">SSID</th>
-                                            <th class="sortable" data-sort="bssid">BSSID</th>
-                                            <th class="sortable" data-sort="channel">Ch</th>
-                                            <th class="sortable" data-sort="rssi">Signal</th>
-                                            <th class="sortable" data-sort="security">Security</th>
-                                            <th class="sortable" data-sort="clients">Clients</th>
-                                            <th class="col-agent sortable" data-sort="agent">Source</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="wifiNetworkTableBody">
-                                        <tr class="wifi-network-placeholder">
-                                            <td colspan="7">
-                                                <div class="placeholder-text">Start scanning to discover networks</div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                <div id="wifiNetworkList" class="wifi-network-list">
+                                    <div class="wifi-network-placeholder">
+                                        <p>No networks detected.<br>Start a scan to begin.</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

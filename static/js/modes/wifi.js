@@ -121,7 +121,7 @@ const WiFiMode = (function() {
     let recommendations = [];
 
     // UI state
-    let selectedNetwork = null;
+    let selectedBssid = null;
     let currentFilter = 'all';
     let currentSort = { field: 'rssi', order: 'desc' };
     let renderFramePending = false;
@@ -196,9 +196,8 @@ const WiFiMode = (function() {
             clientCount: document.getElementById('wifiClientCount'),
             hiddenCount: document.getElementById('wifiHiddenCount'),
 
-            // Network table
-            networkTable: document.getElementById('wifiNetworkTable'),
-            networkTableBody: document.getElementById('wifiNetworkTableBody'),
+            // Network list
+            networkList: document.getElementById('wifiNetworkList'),
             networkFilters: document.getElementById('wifiNetworkFilters'),
 
             // Visualizations
@@ -972,7 +971,7 @@ const WiFiMode = (function() {
             stats: true,
             radar: true,
             chart: true,
-            detail: selectedNetwork === network.bssid,
+            detail: selectedBssid === network.bssid,
         });
 
         if (onNetworkUpdate) onNetworkUpdate(network);
@@ -1004,7 +1003,7 @@ const WiFiMode = (function() {
             network.display_name = `${revealedSsid} (revealed)`;
             scheduleRender({
                 table: true,
-                detail: selectedNetwork === bssid,
+                detail: selectedBssid === bssid,
             });
 
             // Show notification
@@ -1039,34 +1038,27 @@ const WiFiMode = (function() {
             });
         }
 
-        updateNetworkTable();
+        renderNetworks();
     }
 
     function initSortControls() {
         if (listenersBound.sort) return;
-        if (!elements.networkTable) return;
 
-        elements.networkTable.addEventListener('click', (e) => {
-            const th = e.target.closest('th[data-sort]');
-            if (th) {
-                const field = th.dataset.sort;
+        document.querySelectorAll('.wifi-sort-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const field = btn.dataset.sort;
                 if (currentSort.field === field) {
                     currentSort.order = currentSort.order === 'desc' ? 'asc' : 'desc';
                 } else {
                     currentSort.field = field;
                     currentSort.order = 'desc';
                 }
-                updateNetworkTable();
-            }
+                document.querySelectorAll('.wifi-sort-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                scheduleRender({ table: true });
+            });
         });
 
-        if (elements.networkTableBody) {
-            elements.networkTableBody.addEventListener('click', (e) => {
-                const row = e.target.closest('tr[data-bssid]');
-                if (!row) return;
-                selectNetwork(row.dataset.bssid);
-            });
-        }
         listenersBound.sort = true;
     }
 
@@ -1083,12 +1075,12 @@ const WiFiMode = (function() {
         requestAnimationFrame(() => {
             renderFramePending = false;
 
-            if (pendingRender.table) updateNetworkTable();
+            if (pendingRender.table) renderNetworks();
             if (pendingRender.stats) updateStats();
             if (pendingRender.radar) updateProximityRadar();
             if (pendingRender.chart) updateChannelChart();
-            if (pendingRender.detail && selectedNetwork) {
-                updateDetailPanel(selectedNetwork, { refreshClients: false });
+            if (pendingRender.detail && selectedBssid) {
+                updateDetailPanel(selectedBssid, { refreshClients: false });
             }
 
             pendingRender.table = false;
@@ -1099,8 +1091,8 @@ const WiFiMode = (function() {
         });
     }
 
-    function updateNetworkTable() {
-        if (!elements.networkTableBody) return;
+    function renderNetworks() {
+        if (!elements.networkList) return;
 
         // Filter networks
         let filtered = Array.from(networks.values());
@@ -1157,87 +1149,89 @@ const WiFiMode = (function() {
         });
 
         if (filtered.length === 0) {
-            let message = 'Start scanning to discover networks';
-            let type = 'empty';
-            if (isScanning) {
-                message = 'Scanning for networks...';
-                type = 'loading';
-            } else if (networks.size > 0) {
-                message = 'No networks match current filters';
-            }
-            if (typeof renderCollectionState === 'function') {
-                renderCollectionState(elements.networkTableBody, {
-                    type,
-                    message,
-                    columns: 7,
-                });
-            } else {
-                elements.networkTableBody.innerHTML = `<tr class="wifi-network-placeholder"><td colspan="7"><div class="placeholder-text">${escapeHtml(message)}</div></td></tr>`;
-            }
+            let message = networks.size > 0
+                ? 'No networks match current filters'
+                : (isScanning ? 'Scanning for networks...' : 'Start scanning to discover networks');
+            elements.networkList.innerHTML = `<div class="wifi-network-placeholder"><p>${escapeHtml(message)}</p></div>`;
             return;
         }
 
-        // Render table
-        elements.networkTableBody.innerHTML = filtered.map(n => createNetworkRow(n)).join('');
+        // Render list
+        elements.networkList.innerHTML = filtered.map(n => createNetworkRow(n)).join('');
+
+        // Re-apply selected state after re-render
+        if (selectedBssid) {
+            const sel = elements.networkList.querySelector(`[data-bssid="${CSS.escape(selectedBssid)}"]`);
+            if (sel) sel.classList.add('selected');
+        }
     }
 
     function createNetworkRow(network) {
         const rssi = network.rssi_current;
         const security = network.security || 'Unknown';
-        const signalClass = rssi >= -50 ? 'signal-strong' :
-                           rssi >= -70 ? 'signal-medium' :
-                           rssi >= -85 ? 'signal-weak' : 'signal-very-weak';
 
-        const securityClass = security === 'Open' ? 'security-open' :
-                              security === 'WEP' ? 'security-wep' :
-                              security.includes('WPA3') ? 'security-wpa3' : 'security-wpa';
+        // Badge class
+        const sec = security.toLowerCase();
+        const badgeClass = sec === 'open' || sec === ''   ? 'open'
+                         : sec.includes('wpa3')            ? 'wpa3'
+                         : sec.includes('wpa')             ? 'wpa2'
+                         : sec.includes('wep')             ? 'wep'
+                         : 'wpa2';
 
-        const hiddenBadge = network.is_hidden ? '<span class="badge badge-hidden">Hidden</span>' : '';
-        const newBadge = network.is_new ? '<span class="badge badge-new">New</span>' : '';
+        // Threat class (left border)
+        const threatClass = badgeClass === 'open' ? 'threat-open'
+                          : badgeClass === 'wpa2' || badgeClass === 'wpa3' ? 'threat-safe'
+                          : 'threat-hidden';
 
-        // Agent source badge
-        const agentName = network._agent || 'Local';
-        const agentClass = agentName === 'Local' ? 'agent-local' : 'agent-remote';
+        // Signal bar width + class
+        const pct = rssi != null ? Math.max(0, Math.min(100, (rssi + 100) / 80 * 100)) : 0;
+        const fillClass = rssi > -55 ? 'strong' : rssi > -70 ? 'medium' : 'weak';
+
+        const displayName = escapeHtml(network.display_name || network.essid || '[Hidden]');
+        const isHidden = network.is_hidden;
+        const hiddenTag = isHidden ? '<span class="badge hidden-tag">HIDDEN</span>' : '';
 
         return `
-            <tr class="wifi-network-row ${network.bssid === selectedNetwork ? 'selected' : ''}"
-                data-bssid="${escapeHtml(network.bssid)}"
-                role="button"
-                tabindex="0"
-                data-keyboard-activate="true"
-                aria-label="Select network ${escapeHtml(network.display_name || network.essid || '[Hidden]')}">
-                <td class="col-essid">
-                    <span class="essid">${escapeHtml(network.display_name || network.essid || '[Hidden]')}</span>
-                    ${hiddenBadge}${newBadge}
-                </td>
-                <td class="col-bssid"><code>${escapeHtml(network.bssid)}</code></td>
-                <td class="col-channel">${network.channel || '-'}</td>
-                <td class="col-rssi">
-                    <span class="rssi-value ${signalClass}">${rssi != null ? rssi : '-'}</span>
-                </td>
-                <td class="col-security">
-                    <span class="security-badge ${securityClass}">${escapeHtml(security)}</span>
-                </td>
-                <td class="col-clients">${network.client_count || 0}</td>
-                <td class="col-agent">
-                    <span class="agent-badge ${agentClass}">${escapeHtml(agentName)}</span>
-                </td>
-            </tr>
+            <div class="network-row ${threatClass}"
+                 data-bssid="${escapeHtml(network.bssid)}"
+                 data-band="${escapeHtml(network.band || '')}"
+                 data-security="${escapeHtml(security)}"
+                 onclick="WiFiMode.selectNetwork('${escapeHtml(network.bssid)}')">
+                <div class="row-top">
+                    <span class="row-ssid${isHidden ? ' hidden-net' : ''}">${displayName}</span>
+                    <div class="row-badges">
+                        <span class="badge ${badgeClass}">${escapeHtml(security)}</span>
+                        ${hiddenTag}
+                    </div>
+                </div>
+                <div class="row-bottom">
+                    <div class="signal-bar-wrap">
+                        <div class="signal-track">
+                            <div class="signal-fill ${fillClass}" style="width:${pct.toFixed(1)}%"></div>
+                        </div>
+                    </div>
+                    <div class="row-meta">
+                        <span>ch ${network.channel || '?'}</span>
+                        <span>${network.client_count || 0} ↔</span>
+                        <span class="row-rssi">${rssi != null ? rssi : '?'}</span>
+                    </div>
+                </div>
+            </div>
         `;
     }
 
     function updateNetworkRow(network) {
         scheduleRender({
             table: true,
-            detail: selectedNetwork === network.bssid,
+            detail: selectedBssid === network.bssid,
         });
     }
 
     function selectNetwork(bssid) {
-        selectedNetwork = bssid;
+        selectedBssid = bssid;
 
         // Update row selection
-        elements.networkTableBody?.querySelectorAll('.wifi-network-row').forEach(row => {
+        elements.networkList?.querySelectorAll('.network-row').forEach(row => {
             row.classList.toggle('selected', row.dataset.bssid === bssid);
         });
 
@@ -1308,11 +1302,11 @@ const WiFiMode = (function() {
     }
 
     function closeDetail() {
-        selectedNetwork = null;
+        selectedBssid = null;
         if (elements.detailDrawer) {
             elements.detailDrawer.classList.remove('open');
         }
-        elements.networkTableBody?.querySelectorAll('.wifi-network-row').forEach(row => {
+        elements.networkList?.querySelectorAll('.network-row').forEach(row => {
             row.classList.remove('selected');
         });
     }
@@ -1431,7 +1425,7 @@ const WiFiMode = (function() {
 
     function updateClientInList(client) {
         // Check if this client belongs to the currently selected network
-        if (!selectedNetwork || client.associated_bssid !== selectedNetwork) {
+        if (!selectedBssid || client.associated_bssid !== selectedBssid) {
             return;
         }
 
@@ -1459,7 +1453,7 @@ const WiFiMode = (function() {
             }
         } else {
             // New client for this network - re-fetch the full list
-            fetchClientsForNetwork(selectedNetwork);
+            fetchClientsForNetwork(selectedBssid);
         }
     }
 
@@ -1738,7 +1732,7 @@ const WiFiMode = (function() {
         probeRequests = [];
         channelStats = [];
         recommendations = [];
-        if (selectedNetwork) {
+        if (selectedBssid) {
             closeDetail();
         }
         scheduleRender({ table: true, stats: true, radar: true, chart: true });
@@ -1788,7 +1782,7 @@ const WiFiMode = (function() {
             }
         });
         clientsToRemove.forEach(mac => clients.delete(mac));
-        if (selectedNetwork && !networks.has(selectedNetwork)) {
+        if (selectedBssid && !networks.has(selectedBssid)) {
             closeDetail();
         }
         scheduleRender({ table: true, stats: true, radar: true, chart: true });
