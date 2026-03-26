@@ -3851,9 +3851,9 @@ header h1 .tagline {
     color: var(--text-dim);
 }
 
-.wifi-zone.near .wifi-zone-count { color: var(--accent-green); }
-.wifi-zone.mid .wifi-zone-count { color: var(--accent-yellow); }
-.wifi-zone.far .wifi-zone-count { color: var(--accent-red); }
+.wifi-zone.near .wifi-zone-count { color: var(--accent-red); }
+.wifi-zone.mid .wifi-zone-count { color: var(--accent-amber); }
+.wifi-zone.far .wifi-zone-count { color: var(--accent-green); }
 
 .wifi-radar-sweep {
     transform-box: view-box;
