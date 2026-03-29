@@ -36,6 +36,7 @@ const BluetoothMode = (function() {
 
     // Device list filter
     let currentDeviceFilter = 'all';
+    let sortBy = 'rssi';
     let currentSearchTerm = '';
     let visibleDeviceCount = 0;
     let pendingDeviceFlush = false;
@@ -118,6 +119,7 @@ const BluetoothMode = (function() {
 
         // Initialize device list filters
         initDeviceFilters();
+        initSortControls();
         initListInteractions();
 
         // Set initial panel states
@@ -158,17 +160,25 @@ const BluetoothMode = (function() {
         filterListenersBound = true;
     }
 
+    function initSortControls() {
+        const sortGroup = document.getElementById('btSortGroup');
+        if (!sortGroup) return;
+        sortGroup.addEventListener('click', (e) => {
+            const btn = e.target.closest('.bt-sort-btn');
+            if (!btn) return;
+            const sort = btn.dataset.sort;
+            if (!sort) return;
+            sortBy = sort;
+            sortGroup.querySelectorAll('.bt-sort-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderAllDevices();
+        });
+    }
+
     function initListInteractions() {
         if (listListenersBound) return;
         if (deviceContainer) {
             deviceContainer.addEventListener('click', (event) => {
-                const locateBtn = event.target.closest('.bt-locate-btn[data-locate-id]');
-                if (locateBtn) {
-                    event.preventDefault();
-                    locateById(locateBtn.dataset.locateId);
-                    return;
-                }
-
                 const row = event.target.closest('.bt-device-row[data-bt-device-id]');
                 if (!row) return;
                 selectDevice(row.dataset.btDeviceId);
@@ -1008,6 +1018,15 @@ const BluetoothMode = (function() {
         const statusText = document.getElementById('statusText');
         if (statusDot) statusDot.classList.toggle('running', scanning);
         if (statusText) statusText.textContent = scanning ? 'Scanning...' : 'Idle';
+
+        // Drive the per-panel scan indicator
+        const scanDot  = document.getElementById('btScanIndicator')?.querySelector('.bt-scan-dot');
+        const scanText = document.getElementById('btScanIndicator')?.querySelector('.bt-scan-text');
+        if (scanDot)  scanDot.style.display  = scanning ? 'inline-block' : 'none';
+        if (scanText) {
+            scanText.textContent = scanning ? 'SCANNING' : 'IDLE';
+            scanText.classList.toggle('active', scanning);
+        }
     }
 
     function resetStats() {
@@ -1364,6 +1383,26 @@ const BluetoothMode = (function() {
         if (reapplyFilter) {
             applyDeviceFilter();
         }
+    }
+
+    /**
+     * Re-render all devices in the current sort order, then re-apply the active filter.
+     */
+    function renderAllDevices() {
+        if (!deviceContainer) return;
+        deviceContainer.innerHTML = '';
+
+        const sorted = [...devices.values()].sort((a, b) => {
+            if (sortBy === 'rssi')     return (b.rssi_current ?? -100) - (a.rssi_current ?? -100);
+            if (sortBy === 'name')     return (a.name || '\uFFFF').localeCompare(b.name || '\uFFFF');
+            if (sortBy === 'seen')     return (b.seen_count || 0) - (a.seen_count || 0);
+            if (sortBy === 'distance') return (a.estimated_distance_m ?? 9999) - (b.estimated_distance_m ?? 9999);
+            return 0;
+        });
+
+        sorted.forEach(device => renderDevice(device, false));
+        applyDeviceFilter();
+        if (selectedDeviceId) highlightSelectedDevice(selectedDeviceId);
     }
 
     function createSimpleDeviceCard(device) {
