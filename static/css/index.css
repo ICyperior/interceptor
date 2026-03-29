@@ -4799,8 +4799,8 @@ header h1 .tagline {
 
 /* Selected device highlight */
 .bt-device-row.selected {
-    background: rgba(0, 212, 255, 0.1);
-    border-color: var(--accent-cyan);
+    background: rgba(74, 163, 255, 0.07);
+    border-left-color: var(--accent-cyan) !important;
 }
 
 .bt-device-list {
@@ -5212,56 +5212,106 @@ header h1 .tagline {
     background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
-/* Bluetooth Device Row - Compact Design */
+/* Bluetooth Device Row - WiFi-style 2-line layout */
 .bt-device-row {
     display: flex;
     flex-direction: column;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    border-left: 4px solid #666;
-    border-radius: 6px;
-    padding: 10px 12px;
-    margin-bottom: 6px;
+    border-left: 3px solid transparent;
+    padding: 9px 12px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.12s;
 }
 
 .bt-device-row:last-child {
-    margin-bottom: 0;
+    border-bottom: none;
 }
 
-.bt-device-row:hover {
-    background: rgba(0, 212, 255, 0.05);
-    border-color: var(--accent-cyan);
-}
+.bt-device-row:hover { background: var(--bg-tertiary); }
 
 .bt-device-row:focus-visible {
     outline: 1px solid var(--accent-cyan);
-    outline-offset: 1px;
+    outline-offset: -1px;
 }
 
-.bt-row-main {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.bt-row-left {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    min-width: 0;
-    flex: 1;
-}
-
-.bt-row-right {
+/* Bluetooth device row — 2-line WiFi-style layout */
+.bt-row-top {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 7px;
+}
+
+.bt-row-top-left {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.bt-row-top-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     flex-shrink: 0;
 }
+
+.bt-row-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bt-row-name.bt-unnamed {
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.bt-row-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bt-signal-bar-wrap { flex: 1; }
+
+.bt-signal-track {
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.bt-signal-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+}
+
+.bt-signal-fill.strong { background: linear-gradient(90deg, var(--accent-green), #88d49b); }
+.bt-signal-fill.medium { background: linear-gradient(90deg, var(--accent-green), var(--accent-orange)); }
+.bt-signal-fill.weak   { background: linear-gradient(90deg, var(--accent-orange), var(--accent-red)); }
+
+.bt-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.bt-row-rssi { font-family: var(--font-mono); font-size: 10px; }
+.bt-row-rssi.strong { color: var(--accent-green); }
+.bt-row-rssi.medium { color: var(--accent-amber, #eab308); }
+.bt-row-rssi.weak   { color: var(--accent-red); }
 
 .bt-proto-badge {
     display: inline-block;
@@ -5308,43 +5358,6 @@ header h1 .tagline {
     border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
-.bt-device-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    overflow-wrap: break-word;
-    word-break: break-word;
-    min-width: 0;
-}
-
-.bt-rssi-container {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.bt-rssi-bar-bg {
-    width: 50px;
-    height: 8px;
-    background: var(--bg-secondary);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.bt-rssi-bar {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.3s ease;
-}
-
-.bt-rssi-value {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    min-width: 28px;
-    text-align: right;
-}
-
 .bt-status-dot {
     width: 8px;
     height: 8px;
@@ -5358,63 +5371,7 @@ header h1 .tagline {
 }
 
 .bt-status-dot.known {
-    background: #22c55e;
-}
-
-.bt-row-secondary {
-    font-size: 10px;
-    color: var(--text-dim);
-    margin-top: 4px;
-    padding-left: 42px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.bt-row-actions {
-    display: flex;
-    justify-content: flex-end;
-    padding: 4px 4px 0 42px;
-}
-
-/* Locate action on Bluetooth device rows (must be in index.css so it styles in scanner mode) */
-.bt-row-actions .bt-locate-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 28px;
-    padding: 5px 10px;
-    font-size: 10px;
-    line-height: 1;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--accent-green, #38c180);
-    background: linear-gradient(180deg, rgba(56, 193, 128, 0.2), rgba(56, 193, 128, 0.12));
-    border: 1px solid rgba(56, 193, 128, 0.42);
-    border-radius: 999px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.bt-row-actions .bt-locate-btn:hover {
-    background: linear-gradient(180deg, rgba(56, 193, 128, 0.28), rgba(56, 193, 128, 0.18));
-    border-color: rgba(56, 193, 128, 0.72);
-    box-shadow: 0 0 0 1px rgba(56, 193, 128, 0.2), 0 6px 16px rgba(20, 80, 54, 0.35);
-    transform: translateY(-1px);
-}
-
-.bt-row-actions .bt-locate-btn:active {
-    transform: translateY(0);
-}
-
-.bt-row-actions .bt-locate-btn svg {
-    width: 12px;
-    height: 12px;
-    stroke: currentColor;
-    flex-shrink: 0;
+    background: #484f58;
 }
 
 .bt-device-filter-state {

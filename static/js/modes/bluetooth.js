@@ -37,6 +37,7 @@ const BluetoothMode = (function() {
     // Device list filter
     let currentDeviceFilter = 'all';
     let sortBy = 'rssi';
+    let sortListenersBound = false;
     let currentSearchTerm = '';
     let visibleDeviceCount = 0;
     let pendingDeviceFlush = false;
@@ -161,6 +162,8 @@ const BluetoothMode = (function() {
     }
 
     function initSortControls() {
+        if (sortListenersBound) return;
+        sortListenersBound = true;
         const sortGroup = document.getElementById('btSortGroup');
         if (!sortGroup) return;
         sortGroup.addEventListener('click', (e) => {
@@ -1390,6 +1393,7 @@ const BluetoothMode = (function() {
      */
     function renderAllDevices() {
         if (!deviceContainer) return;
+        if (devices.size === 0) return;
         deviceContainer.innerHTML = '';
 
         const sorted = [...devices.values()].sort((a, b) => {
@@ -1408,7 +1412,6 @@ const BluetoothMode = (function() {
     function createSimpleDeviceCard(device) {
         const protocol = device.protocol || 'ble';
         const rssi = device.rssi_current;
-        const rssiColor = getRssiColor(rssi);
         const inBaseline = device.in_baseline || false;
         const isNew = !inBaseline;
         const hasName = !!device.name;
@@ -1419,58 +1422,69 @@ const BluetoothMode = (function() {
         const agentName = device._agent || 'Local';
         const seenBefore = device.seen_before === true;
 
-        // Calculate RSSI bar width (0-100%)
-        // RSSI typically ranges from -100 (weak) to -30 (very strong)
+        // Signal bar
         const rssiPercent = rssi != null ? Math.max(0, Math.min(100, ((rssi + 100) / 70) * 100)) : 0;
+        const fillClass = rssi == null ? 'weak'
+                        : rssi >= -60 ? 'strong'
+                        : rssi >= -75 ? 'medium' : 'weak';
 
         const displayName = device.name || formatDeviceId(device.address);
         const name = escapeHtml(displayName);
         const addr = escapeHtml(isUuidAddress(device) ? formatAddress(device) : (device.address || 'Unknown'));
         const mfr = device.manufacturer_name ? escapeHtml(device.manufacturer_name) : '';
-        const seenCount = device.seen_count || 0;
         const searchIndex = [
-            displayName,
-            device.address,
-            device.manufacturer_name,
-            device.tracker_name,
-            device.tracker_type,
-            agentName
+            displayName, device.address, device.manufacturer_name,
+            device.tracker_name, device.tracker_type, agentName
         ].filter(Boolean).join(' ').toLowerCase();
 
-        // Protocol badge - compact
+        // Protocol badge
         const protoBadge = protocol === 'ble'
             ? '<span class="bt-proto-badge ble">BLE</span>'
             : '<span class="bt-proto-badge classic">CLASSIC</span>';
 
-        // Tracker badge - show if device is detected as tracker
+        // Tracker badge
         let trackerBadge = '';
         if (isTracker) {
-            const confColor = trackerConfidence === 'high' ? '#ef4444' :
-                             trackerConfidence === 'medium' ? '#f97316' : '#eab308';
-            const confBg = trackerConfidence === 'high' ? 'rgba(239,68,68,0.15)' :
-                          trackerConfidence === 'medium' ? 'rgba(249,115,22,0.15)' : 'rgba(234,179,8,0.15)';
-            const typeLabel = trackerType === 'airtag' ? 'AirTag' :
-                             trackerType === 'tile' ? 'Tile' :
-                             trackerType === 'samsung_smarttag' ? 'SmartTag' :
-                             trackerType === 'findmy_accessory' ? 'FindMy' :
-                             trackerType === 'chipolo' ? 'Chipolo' : 'TRACKER';
-            trackerBadge = '<span class="bt-tracker-badge" style="background:' + confBg + ';color:' + confColor + ';font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:600;">' + typeLabel + '</span>';
+            const confColor = trackerConfidence === 'high' ? '#ef4444'
+                            : trackerConfidence === 'medium' ? '#f97316' : '#eab308';
+            const confBg = trackerConfidence === 'high' ? 'rgba(239,68,68,0.15)'
+                         : trackerConfidence === 'medium' ? 'rgba(249,115,22,0.15)' : 'rgba(234,179,8,0.15)';
+            const typeLabel = trackerType === 'airtag' ? 'AirTag'
+                            : trackerType === 'tile' ? 'Tile'
+                            : trackerType === 'samsung_smarttag' ? 'SmartTag'
+                            : trackerType === 'findmy_accessory' ? 'FindMy'
+                            : trackerType === 'chipolo' ? 'Chipolo' : 'TRACKER';
+            trackerBadge = '<span class="bt-tracker-badge" style="background:' + confBg + ';color:' + confColor
+                + ';font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;">' + typeLabel + '</span>';
         }
 
-        // IRK badge - show if paired IRK is available
-        let irkBadge = '';
-        if (device.has_irk) {
-            irkBadge = '<span class="bt-irk-badge">IRK</span>';
-        }
+        // IRK badge
+        const irkBadge = device.has_irk ? '<span class="bt-irk-badge">IRK</span>' : '';
 
-        // Risk badge - show if risk score is significant
+        // Risk badge
         let riskBadge = '';
         if (riskScore >= 0.3) {
             const riskColor = riskScore >= 0.5 ? '#ef4444' : '#f97316';
-            riskBadge = '<span class="bt-risk-badge" style="color:' + riskColor + ';font-size:8px;margin-left:4px;font-weight:600;">' + Math.round(riskScore * 100) + '% RISK</span>';
+            riskBadge = '<span class="bt-risk-badge" style="color:' + riskColor
+                + ';font-size:8px;font-weight:600;">' + Math.round(riskScore * 100) + '% RISK</span>';
         }
 
-        // Status indicator
+        // MAC cluster badge
+        const clusterBadge = device.mac_cluster_count > 1
+            ? '<span class="bt-mac-cluster-badge">' + device.mac_cluster_count + ' MACs</span>'
+            : '';
+
+        // Flag badges (top-right, before status dot)
+        const hFlags = device.heuristic_flags || [];
+        let flagBadges = '';
+        if (device.is_persistent || hFlags.includes('persistent'))
+            flagBadges += '<span class="bt-flag-badge persistent">PERSIST</span>';
+        if (device.is_beacon_like || hFlags.includes('beacon_like'))
+            flagBadges += '<span class="bt-flag-badge beacon-like">BEACON</span>';
+        if (device.is_strong_stable || hFlags.includes('strong_stable'))
+            flagBadges += '<span class="bt-flag-badge strong-stable">STABLE</span>';
+
+        // Status dot
         let statusDot;
         if (isTracker && trackerConfidence === 'high') {
             statusDot = '<span class="bt-status-dot tracker" style="background:#ef4444;"></span>';
@@ -1480,74 +1494,55 @@ const BluetoothMode = (function() {
             statusDot = '<span class="bt-status-dot known"></span>';
         }
 
-        // Distance display
+        // Bottom meta
+        const metaLabel = mfr || addr;  // already HTML-escaped
         const distM = device.estimated_distance_m;
-        let distStr = '';
-        if (distM != null) {
-            distStr = '~' + distM.toFixed(1) + 'm';
-        }
+        const distStr = distM != null ? '~' + distM.toFixed(1) + 'm' : '';
+        let metaHtml = '<span>' + metaLabel + '</span>';
+        if (distStr) metaHtml += '<span>' + distStr + '</span>';
+        metaHtml += '<span class="bt-row-rssi ' + fillClass + '">' + (rssi != null ? rssi : '—') + '</span>';
+        if (seenBefore) metaHtml += '<span class="bt-history-badge">SEEN</span>';
+        if (agentName !== 'Local')
+            metaHtml += '<span class="agent-badge agent-remote" style="font-size:8px;padding:1px 4px;">'
+                + escapeHtml(agentName) + '</span>';
 
-        // Behavioral flag badges
-        const hFlags = device.heuristic_flags || [];
-        let flagBadges = '';
-        if (device.is_persistent || hFlags.includes('persistent')) {
-            flagBadges += '<span class="bt-flag-badge persistent">PERSIST</span>';
-        }
-        if (device.is_beacon_like || hFlags.includes('beacon_like')) {
-            flagBadges += '<span class="bt-flag-badge beacon-like">BEACON</span>';
-        }
-        if (device.is_strong_stable || hFlags.includes('strong_stable')) {
-            flagBadges += '<span class="bt-flag-badge strong-stable">STABLE</span>';
-        }
+        // Left border colour
+        const borderColor = isTracker && trackerConfidence === 'high' ? '#ef4444'
+                          : isTracker ? '#f97316'
+                          : rssi != null && rssi >= -60 ? 'var(--accent-green)'
+                          : rssi != null && rssi >= -75 ? 'var(--accent-amber, #eab308)'
+                          : 'var(--accent-red)';
 
-        // MAC cluster badge
-        let clusterBadge = '';
-        if (device.mac_cluster_count > 1) {
-            clusterBadge = '<span class="bt-mac-cluster-badge">' + device.mac_cluster_count + ' MACs</span>';
-        }
-
-        // Build secondary info line
-        let secondaryParts = [addr];
-        if (mfr) secondaryParts.push(mfr);
-        if (distStr) secondaryParts.push(distStr);
-        secondaryParts.push('Seen ' + seenCount + '×');
-        if (seenBefore) secondaryParts.push('<span class="bt-history-badge">SEEN BEFORE</span>');
-        // Add agent name if not Local
-        if (agentName !== 'Local') {
-            secondaryParts.push('<span class="agent-badge agent-remote" style="font-size:8px;padding:1px 4px;">' + escapeHtml(agentName) + '</span>');
-        }
-        const secondaryInfo = secondaryParts.join(' · ');
-
-        // Row border color - highlight trackers in red/orange
-        const borderColor = isTracker && trackerConfidence === 'high' ? '#ef4444' :
-                           isTracker ? '#f97316' : rssiColor;
-
-        return '<div class="bt-device-row' + (isTracker ? ' is-tracker' : '') + '" data-bt-device-id="' + escapeAttr(device.device_id) + '" data-is-new="' + isNew + '" data-has-name="' + hasName + '" data-rssi="' + (rssi || -100) + '" data-is-tracker="' + isTracker + '" data-search="' + escapeAttr(searchIndex) + '" role="button" tabindex="0" data-keyboard-activate="true" style="border-left-color:' + borderColor + ';">' +
-            '<div class="bt-row-main">' +
-                '<div class="bt-row-left">' +
-                    protoBadge +
-                    '<span class="bt-device-name">' + name + '</span>' +
-                    trackerBadge +
-                    irkBadge +
-                    riskBadge +
-                    flagBadges +
-                    clusterBadge +
-                '</div>' +
-                '<div class="bt-row-right">' +
-                    '<div class="bt-rssi-container">' +
-                        '<div class="bt-rssi-bar-bg"><div class="bt-rssi-bar" style="width:' + rssiPercent + '%;background:' + rssiColor + ';"></div></div>' +
-                        '<span class="bt-rssi-value" style="color:' + rssiColor + ';">' + (rssi != null ? rssi : '--') + '</span>' +
-                    '</div>' +
-                    statusDot +
-                '</div>' +
-            '</div>' +
-            '<div class="bt-row-secondary">' + secondaryInfo + '</div>' +
-            '<div class="bt-row-actions">' +
-                '<button type="button" class="bt-locate-btn" data-locate-id="' + escapeAttr(device.device_id) + '">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>' +
-                    'Locate</button>' +
-            '</div>' +
-        '</div>';
+        return '<div class="bt-device-row' + (isTracker ? ' is-tracker' : '') + '"'
+            + ' data-bt-device-id="' + escapeAttr(device.device_id) + '"'
+            + ' data-is-new="' + isNew + '"'
+            + ' data-has-name="' + hasName + '"'
+            + ' data-rssi="' + (rssi ?? -100) + '"'
+            + ' data-is-tracker="' + isTracker + '"'
+            + ' data-search="' + escapeAttr(searchIndex) + '"'
+            + ' role="button" tabindex="0" data-keyboard-activate="true"'
+            + ' style="border-left-color:' + borderColor + ';">'
+            // Top line
+            + '<div class="bt-row-top">'
+                + '<div class="bt-row-top-left">'
+                    + protoBadge
+                    + '<span class="bt-row-name' + (hasName ? '' : ' bt-unnamed') + '">' + name + '</span>'
+                    + trackerBadge + irkBadge + riskBadge + clusterBadge
+                + '</div>'
+                + '<div class="bt-row-top-right">'
+                    + flagBadges + statusDot
+                + '</div>'
+            + '</div>'
+            // Bottom line
+            + '<div class="bt-row-bottom">'
+                + '<div class="bt-signal-bar-wrap">'
+                    + '<div class="bt-signal-track">'
+                        + '<div class="bt-signal-fill ' + fillClass + '" style="width:' + rssiPercent.toFixed(1) + '%"></div>'
+                    + '</div>'
+                + '</div>'
+                + '<div class="bt-row-meta">' + metaHtml + '</div>'
+            + '</div>'
+        + '</div>';
     }
 
     function getRssiColor(rssi) {
