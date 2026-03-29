@@ -4983,6 +4983,7 @@ header h1 .tagline {
     background: var(--bg-primary);
     flex-shrink: 0;
     position: sticky;
+    /* 44px = height of the sticky .wifi-device-list-header above this row */
     top: 44px;
     z-index: 3;
 }

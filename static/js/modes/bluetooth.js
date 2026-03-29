@@ -129,7 +129,7 @@ const BluetoothMode = (function() {
      */
     function initDeviceFilters() {
         if (filterListenersBound) return;
-        const filterContainer = document.getElementById('btDeviceFilters');
+        const filterContainer = document.getElementById('btFilterGroup');
         if (filterContainer) {
             filterContainer.addEventListener('click', (e) => {
                 const btn = e.target.closest('.bt-filter-btn');
