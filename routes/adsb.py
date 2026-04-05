@@ -803,6 +803,41 @@ def adsb_status():
     })
 
 
+@adsb_bp.route('/aircraft')
+def adsb_aircraft_export():
+    """Export current ADS-B aircraft data as JSON.
+
+    Returns a snapshot of all tracked aircraft suitable for integration
+    with external tools. For SBS (BaseStation) format, connect directly
+    to port 30003 which dump1090 exposes natively.
+
+    Query parameters:
+        icao: Filter to a specific ICAO hex code (optional)
+        military: 'true' to return only military aircraft (optional)
+
+    Returns:
+        JSON with aircraft list and metadata.
+    """
+    aircraft = dict(app_module.adsb_aircraft)
+
+    icao_filter = request.args.get('icao', '').upper()
+    if icao_filter:
+        aircraft = {k: v for k, v in aircraft.items() if k.upper() == icao_filter}
+
+    if request.args.get('military') == 'true':
+        try:
+            from utils.military_icao import is_military_icao
+            aircraft = {k: v for k, v in aircraft.items() if is_military_icao(k)}
+        except ImportError:
+            pass
+
+    return jsonify({
+        'count': len(aircraft),
+        'aircraft': list(aircraft.values()),
+        'sbs_port': 30003,  # dump1090 SBS stream for tools like Virtual Radar Server
+    })
+
+
 @adsb_bp.route('/session')
 def adsb_session():
     """Get ADS-B session status and uptime."""
