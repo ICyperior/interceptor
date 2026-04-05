@@ -1790,14 +1790,8 @@ const BluetoothMode = (function() {
             mac_cluster_count: device.mac_cluster_count || 0
         };
 
-        // If BtLocate is already loaded, hand off directly
-        if (typeof BtLocate !== 'undefined') {
-            BtLocate.handoff(payload);
-            return;
-        }
-
-        // Switch to bt_locate mode first — this loads the script, styles,
-        // and initializes the module. Then hand off the device data.
+        // Always switch to bt_locate mode first (loads script + styles if needed,
+        // initializes the module), then hand off device data.
         if (typeof switchMode === 'function') {
             switchMode('bt_locate').then(function() {
                 if (typeof BtLocate !== 'undefined') {
