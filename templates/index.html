@@ -6095,8 +6095,8 @@
             'rtlsdr': { name: 'RTL-SDR', freq_min: 24, freq_max: 1766, gain_min: 0, gain_max: 50 },
             'sdrplay': { name: 'SDRplay', freq_min: 0.001, freq_max: 2000, gain_min: 0, gain_max: 59 },
             'limesdr': { name: 'LimeSDR', freq_min: 0.1, freq_max: 3800, gain_min: 0, gain_max: 73 },
-            'hackrf': { name: 'HackRF', freq_min: 1, freq_max: 6000, gain_min: 0, gain_max: 62 },
-            'airspy': { name: 'Airspy', freq_min: 24, freq_max: 1800, gain_min: 0, gain_max: 21 }
+            'hackrf': { name: 'HackRF', freq_min: 1, freq_max: 6000, gain_min: 0, gain_max: 102 }, // LNA(40)+VGA(62)
+            'airspy': { name: 'Airspy', freq_min: 24, freq_max: 1800, gain_min: 0, gain_max: 45 }  // LNA(15)+Mix(15)+VGA(15)
         };
 
         // Current device list with SDR type info
@@ -6225,6 +6225,12 @@
             if (caps) {
                 document.getElementById('capFreqRange').textContent = `${caps.freq_min}-${caps.freq_max} MHz`;
                 document.getElementById('capGainRange').textContent = `${caps.gain_min}-${caps.gain_max} dB`;
+                // Update max attribute on all mode gain inputs so constraints match the SDR
+                const gainMax = caps.gain_max;
+                ['gain', 'sensorGain', 'aisGainInput', 'acarsGainInput', 'aprsStripGain', 'weatherSatGain'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.max = gainMax;
+                });
             }
         }
 

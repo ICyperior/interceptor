@@ -339,6 +339,9 @@
                     <select id="adsbDeviceSelect" title="SDR device for ADS-B (1090 MHz)">
                         <option value="0">SDR 0</option>
                     </select>
+                    <label title="SDR gain in dB (0 = auto)" style="display:flex;align-items:center;gap:3px;font-size:11px;">
+                        Gain <input type="number" id="adsbGainInput" value="40" min="0" max="50" step="1" style="width:46px;" title="SDR gain in dB">
+                    </label>
                     <label class="bias-t-label" title="Enable Bias-T power for external LNA/preamp"><input type="checkbox" id="adsbBiasT" onchange="saveAdsbBiasTSetting()"> Bias-T</label>
                     <button class="start-btn" id="startBtn" onclick="toggleTracking()">START</button>
                 </div>
@@ -2444,6 +2447,7 @@ sudo make install</code>
                 const requestBody = {
                     device: adsbDevice,
                     sdr_type: adsbSdrType,
+                    gain: parseInt(document.getElementById('adsbGainInput')?.value || '40'),
                     bias_t: getBiasTEnabled()
                 };
                 if (remoteConfig) {
