@@ -12082,6 +12082,12 @@
         async function startTscmSweep() {
             const sweepType = document.getElementById('tscmSweepType').value;
             const baselineId = document.getElementById('tscmBaselineSelect').value || null;
+            const customRanges = sweepType === 'custom' ? [{
+                start: parseFloat(document.getElementById('tscmCustomStartMhz').value),
+                end: parseFloat(document.getElementById('tscmCustomEndMhz').value),
+                step: 0.1,
+                name: `Custom ${document.getElementById('tscmCustomStartMhz').value}–${document.getElementById('tscmCustomEndMhz').value} MHz`
+            }] : null;
             const wifiEnabled = document.getElementById('tscmWifiEnabled').checked;
             const btEnabled = document.getElementById('tscmBtEnabled').checked;
             const rfEnabled = document.getElementById('tscmRfEnabled').checked;
@@ -12122,7 +12128,8 @@
                         wifi_interface: wifiInterface,
                         bt_interface: btInterface,
                         sdr_device: sdrDevice ? parseInt(sdrDevice) : null,
-                        verbose_results: verboseResults
+                        verbose_results: verboseResults,
+                        custom_ranges: customRanges
                     })
                 });
 
@@ -12891,7 +12898,7 @@
                     if (tscmSweepStartTime) {
                         const elapsed = (Date.now() - tscmSweepStartTime) / 1000;
                         const sweepType = document.getElementById('tscmSweepType')?.value || 'standard';
-                        const durations = { quick: 120, standard: 300, full: 900 };
+                        const durations = { quick: 120, standard: 300, full: 900, custom: 300 };
                         const maxDuration = durations[sweepType] || 300;
                         const progress = Math.min(95, (elapsed / maxDuration) * 100);
                         updateTscmProgress({ progress: Math.round(progress), phase: 'Scanning' });
