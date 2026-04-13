@@ -2234,15 +2234,9 @@ sudo make install</code>
             setTimeout(() => { if (radarMap) radarMap.invalidateSize(); }, 200);
             setTimeout(() => { if (radarMap) radarMap.invalidateSize(); }, 500);
 
-            // Tactical overlays: range rings + observer reticle + HUD panels
-            const intervals = [maxRange * 0.25, maxRange * 0.5, maxRange * 0.75, maxRange]
-                .map(n => Math.round(n));
+            // Tactical overlays: observer reticle + HUD panels + scale bar
+            // Range rings are managed by drawRangeRings() which handles toggle, range changes, and observer moves
             mapOverlays = MapUtils.addTacticalOverlays(radarMap, {
-                rangeRings: {
-                    center: [observerLocation.lat, observerLocation.lon],
-                    intervals,
-                    unit: 'nm',
-                },
                 observerReticle: { latlng: [observerLocation.lat, observerLocation.lon] },
                 hudPanels: {
                     modeName: 'ADS-B',

@@ -10177,10 +10177,6 @@
             window.aprsMap = aprsMap;
 
             aprsMapOverlays = MapUtils.addTacticalOverlays(aprsMap, {
-                hudPanels: {
-                    modeName: 'APRS',
-                    getContactCount: () => Object.keys(aprsMarkers).length,
-                },
                 scaleBar: true,
             });
 
@@ -11305,10 +11301,6 @@
             window.groundTrackMap = groundTrackMap;
 
             gpsMapOverlays = MapUtils.addTacticalOverlays(groundTrackMap, {
-                hudPanels: {
-                    modeName: 'GPS',
-                    getContactCount: () => 0,
-                },
                 scaleBar: true,
             });
 
