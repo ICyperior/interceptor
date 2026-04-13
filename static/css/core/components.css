@@ -233,9 +233,27 @@
     background: var(--status-offline);
 }
 
+@keyframes panel-pulse {
+    0%, 100% {
+        box-shadow: 0 0 4px var(--status-online), 0 0 8px rgba(56, 193, 128, 0.4);
+        opacity: 1;
+    }
+    50% {
+        box-shadow: 0 0 8px var(--status-online), 0 0 16px rgba(56, 193, 128, 0.6);
+        opacity: 0.85;
+    }
+}
+
 .panel-indicator.active {
     background: var(--status-online);
     box-shadow: 0 0 8px var(--status-online);
+    animation: panel-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .panel-indicator.active {
+        animation: none;
+    }
 }
 
 .panel-content {
