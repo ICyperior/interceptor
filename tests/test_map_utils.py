@@ -29,3 +29,14 @@ def test_adsb_dashboard_includes_map_utils(client):
     assert "map-utils.js" in html
     assert "map-utils.css" in html
     assert "MapUtils.init" in html
+
+
+def test_ais_dashboard_includes_map_utils(client):
+    """AIS dashboard loads map-utils.js."""
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+    resp = client.get("/ais/dashboard")
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert "map-utils.js" in html
+    assert "MapUtils.init" in html
