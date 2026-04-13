@@ -34,8 +34,8 @@ def test_stadia_key_can_be_saved(auth_client):
     assert data["value"] == "test-key-123"
 
 
-def test_stadia_key_rejects_non_string(auth_client):
-    """POST /offline/settings rejects non-string stadia_key."""
+def test_stadia_key_coerces_non_string(auth_client):
+    """POST /offline/settings coerces non-string stadia_key to string."""
     resp = auth_client.post("/offline/settings", json={"key": "offline.stadia_key", "value": 42})
     # Should coerce to string '42' (type matches str default) — not 400
     assert resp.status_code == 200

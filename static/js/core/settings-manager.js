@@ -226,8 +226,12 @@ const Settings = {
     async _save(key, value) {
         this._cache[key] = value;
 
-        // Save to localStorage as backup
-        localStorage.setItem('intercept_settings', JSON.stringify(this._cache));
+        // Save to localStorage as backup (exclude sensitive keys)
+        const SENSITIVE_KEYS = ['offline.stadia_key'];
+        const toStore = Object.fromEntries(
+            Object.entries(this._cache).filter(([k]) => !SENSITIVE_KEYS.includes(k))
+        );
+        localStorage.setItem('intercept_settings', JSON.stringify(toStore));
 
         // Save to server
         try {
