@@ -66,6 +66,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/ux-platform.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-waveform.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/map-utils.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modes/waterfall.css') }}?v={{ version }}&r=wfdeck19">
     <!-- Deferred scripts - Leaflet, Chart.js, observer-location -->
     <script defer src="{{ url_for('static', filename='js/core/observer-location.js') }}"></script>
@@ -9986,6 +9987,7 @@
         // APRS Functions
         // ============================================
         let aprsMap = null;
+        let aprsMapOverlays = null;
         let aprsMarkers = {};
         let aprsEventSource = null;
         let isAprsRunning = false;
@@ -10137,47 +10139,6 @@
                 });
         }
 
-        function createAprsFallbackGridLayer() {
-            const layer = L.gridLayer({
-                tileSize: 256,
-                updateWhenIdle: true,
-                attribution: 'Local fallback grid'
-            });
-            layer.createTile = function(coords) {
-                const tile = document.createElement('canvas');
-                tile.width = 256;
-                tile.height = 256;
-                const ctx = tile.getContext('2d');
-
-                ctx.fillStyle = '#08121c';
-                ctx.fillRect(0, 0, 256, 256);
-
-                ctx.strokeStyle = 'rgba(0, 212, 255, 0.12)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(256, 0);
-                ctx.moveTo(0, 0);
-                ctx.lineTo(0, 256);
-                ctx.stroke();
-
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-                ctx.beginPath();
-                ctx.moveTo(128, 0);
-                ctx.lineTo(128, 256);
-                ctx.moveTo(0, 128);
-                ctx.lineTo(256, 128);
-                ctx.stroke();
-
-                ctx.fillStyle = 'rgba(160, 220, 255, 0.28)';
-                ctx.font = '11px "JetBrains Mono", monospace';
-                ctx.fillText(`Z${coords.z} X${coords.x} Y${coords.y}`, 12, 22);
-
-                return tile;
-            };
-            return layer;
-        }
-
         async function initAprsMap() {
             if (aprsMap) return;
 
@@ -10206,26 +10167,22 @@
             const initialLon = hasUserLocation ? aprsUserLocation.lon : (hasGpsLocation ? gpsLon : -98.5795);
             const initialZoom = (hasUserLocation || hasGpsLocation) ? 8 : 4;
 
-            aprsMap = L.map('aprsMap').setView([initialLat, initialLon], initialZoom);
+            aprsMap = MapUtils.init('aprsMap', {
+                center: [initialLat, initialLon],
+                zoom: initialZoom,
+                minZoom: 2,
+                maxZoom: 18,
+            });
+            if (!aprsMap) return;
             window.aprsMap = aprsMap;
 
-            // Zero-network fallback so mode switches never block on external tiles.
-            const fallbackTiles = createAprsFallbackGridLayer().addTo(aprsMap);
-
-            // Upgrade tiles in background via Settings (with timeout fallback)
-            if (typeof Settings !== 'undefined') {
-                try {
-                    await Promise.race([
-                        Settings.init(),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('Settings timeout')), 5000))
-                    ]);
-                    aprsMap.removeLayer(fallbackTiles);
-                    Settings.createTileLayer().addTo(aprsMap);
-                    Settings.registerMap(aprsMap);
-                } catch (e) {
-                    console.warn('APRS: Settings init failed/timed out, using fallback tiles:', e);
-                }
-            }
+            aprsMapOverlays = MapUtils.addTacticalOverlays(aprsMap, {
+                hudPanels: {
+                    modeName: 'APRS',
+                    getContactCount: () => Object.keys(aprsStations).length,
+                },
+                scaleBar: true,
+            });
 
             // Add user marker if GPS position is already available
             if (gpsConnected && hasGpsLocation) {
@@ -11327,6 +11284,7 @@
 
         // Ground Track Map
         let groundTrackMap = null;
+        let gpsMapOverlays = null;
         let groundTrackLine = null;
         let satMarker = null;
         let observerMarker = null;
@@ -11336,47 +11294,28 @@
             const mapContainer = document.getElementById('groundTrackMap');
             if (!mapContainer || groundTrackMap) return;
 
-            groundTrackMap = L.map('groundTrackMap', {
+            groundTrackMap = MapUtils.init('groundTrackMap', {
                 center: [20, 0],
                 zoom: 1,
                 zoomControl: true,
-                attributionControl: false
+                attributionControl: false,
             });
+            if (!groundTrackMap) return;
             window.groundTrackMap = groundTrackMap;
 
-            // Add fallback tiles immediately so the map is visible instantly
-            const fallbackTiles = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-                maxZoom: 19,
-                subdomains: 'abcd',
-                className: 'tile-layer-cyan'
-            }).addTo(groundTrackMap);
+            gpsMapOverlays = MapUtils.addTacticalOverlays(groundTrackMap, {
+                hudPanels: {
+                    modeName: 'GPS',
+                    getContactCount: () => 0,
+                },
+                scaleBar: true,
+            });
 
-            // Upgrade tiles in background via Settings (with timeout fallback)
-            if (typeof Settings !== 'undefined') {
-                try {
-                    await Promise.race([
-                        Settings.init(),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('Settings timeout')), 5000))
-                    ]);
-                    groundTrackMap.removeLayer(fallbackTiles);
-                    Settings.createTileLayer().addTo(groundTrackMap);
-                    Settings.registerMap(groundTrackMap);
-                } catch (e) {
-                    console.warn('Ground track: Settings init failed/timed out, using fallback tiles:', e);
-                }
-            }
-
-            // Add observer marker
-            const lat = parseFloat(document.getElementById('obsLat').value) || 51.5;
-            const lon = parseFloat(document.getElementById('obsLon').value) || -0.1;
-            observerMarker = L.circleMarker([lat, lon], {
-                radius: 8,
-                fillColor: '#ff6600',
-                color: '#fff',
-                weight: 2,
-                fillOpacity: 1
-            }).addTo(groundTrackMap).bindPopup('Observer Location');
+            // Observer crosshair via MapUtils
+            const obsLat = parseFloat(document.getElementById('obsLat')?.value) || 51.5;
+            const obsLon = parseFloat(document.getElementById('obsLon')?.value) || -0.1;
+            observerMarker = MapUtils._buildReticle([obsLat, obsLon]);
+            observerMarker.addTo(groundTrackMap);
         }
 
         function updateGroundTrack(pass) {
@@ -16474,6 +16413,7 @@
     <script src="{{ url_for('static', filename='js/core/updater.js') }}"></script>
     <!-- Settings Manager -->
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}?v={{ version }}&r=maptheme17"></script>
+    <script defer src="{{ url_for('static', filename='js/map-utils.js') }}"></script>
     <!-- Alerts + Recording -->
     <script src="{{ url_for('static', filename='js/core/alerts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/recordings.js') }}"></script>

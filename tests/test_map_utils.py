@@ -51,3 +51,14 @@ def test_satellite_dashboard_includes_map_utils(client):
     html = resp.data.decode()
     assert "map-utils.js" in html
     assert "MapUtils.init" in html
+
+
+def test_index_includes_map_utils(client):
+    """Main SPA index.html loads map-utils.js and uses it for APRS and GPS maps."""
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert "map-utils.js" in html
+    assert "MapUtils.init" in html
