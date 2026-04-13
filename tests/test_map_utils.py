@@ -40,3 +40,14 @@ def test_ais_dashboard_includes_map_utils(client):
     html = resp.data.decode()
     assert "map-utils.js" in html
     assert "MapUtils.init" in html
+
+
+def test_satellite_dashboard_includes_map_utils(client):
+    """Satellite dashboard loads map-utils.js."""
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+    resp = client.get("/satellite/dashboard")
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert "map-utils.js" in html
+    assert "MapUtils.init" in html
