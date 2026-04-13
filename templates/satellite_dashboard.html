@@ -2384,16 +2384,9 @@
                 }
             }
 
-            const obsIcon = L.divIcon({
-                className: 'obs-marker',
-                html: `<div style="width: 12px; height: 12px; background: #ff9500; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 15px #ff9500;"></div>`,
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
-            });
-
-            observerMarker = L.marker([lat, lon], { icon: obsIcon })
-                .addTo(groundMap)
-                .bindPopup(`<b>${locationLabel}</b><br>${lat.toFixed(4)}°, ${lon.toFixed(4)}°`);
+            observerMarker = MapUtils._buildReticle([lat, lon]);
+            observerMarker.addTo(groundMap);
+            observerMarker.bindPopup(`<b>${locationLabel}</b><br>${lat.toFixed(4)}°, ${lon.toFixed(4)}°`);
         }
 
         function updateStats() {
