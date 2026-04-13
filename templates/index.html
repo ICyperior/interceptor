@@ -4162,6 +4162,9 @@
             // Initialize dropdown nav active state
             updateDropdownActiveState();
 
+            // Restore nav group open/closed state from localStorage
+            initNavGroupState();
+
             // Start SDR device status polling
             startSdrStatusPolling();
 
@@ -4189,6 +4192,45 @@
             if (!isOpen) {
                 dropdown.classList.add('open');
             }
+            saveNavGroupState();
+        }
+
+        function initNavGroupState() {
+            const NAV_STATE_KEY = 'intercept_nav_groups';
+            let savedState = {};
+            try {
+                savedState = JSON.parse(localStorage.getItem(NAV_STATE_KEY) || '{}');
+            } catch (e) {
+                savedState = {};
+            }
+
+            document.querySelectorAll('.mode-nav-dropdown[data-group]').forEach(dropdown => {
+                const group = dropdown.dataset.group;
+                // If saved state says closed AND this group has no active item, close it
+                if (savedState[group] === false) {
+                    const hasActive = dropdown.classList.contains('has-active');
+                    if (!hasActive) {
+                        dropdown.classList.remove('open');
+                        const btn = dropdown.querySelector('.mode-nav-dropdown-btn');
+                        if (btn) btn.setAttribute('aria-expanded', 'false');
+                    }
+                } else if (savedState[group] === true) {
+                    dropdown.classList.add('open');
+                    const btn = dropdown.querySelector('.mode-nav-dropdown-btn');
+                    if (btn) btn.setAttribute('aria-expanded', 'true');
+                }
+            });
+        }
+
+        function saveNavGroupState() {
+            const NAV_STATE_KEY = 'intercept_nav_groups';
+            const state = {};
+            document.querySelectorAll('.mode-nav-dropdown[data-group]').forEach(dropdown => {
+                state[dropdown.dataset.group] = dropdown.classList.contains('open');
+            });
+            try {
+                localStorage.setItem(NAV_STATE_KEY, JSON.stringify(state));
+            } catch (e) { /* storage full or unavailable */ }
         }
 
         function closeAllDropdowns() {
