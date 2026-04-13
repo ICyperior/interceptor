@@ -30,6 +30,7 @@
     --accent-cyan: #4aa3ff;
     --accent-cyan-dim: rgba(74, 163, 255, 0.16);
     --accent-cyan-hover: #6bb3ff;
+    --accent-cyan-glow: rgba(74, 163, 255, 0.12);
     --accent-green: #38c180;
     --accent-green-hover: #16a34a;
     --accent-green-dim: rgba(56, 193, 128, 0.18);
@@ -40,7 +41,6 @@
     --accent-orange-dim: rgba(214, 168, 94, 0.16);
     --accent-amber: #d6a85e;
     --accent-amber-dim: rgba(214, 168, 94, 0.18);
-    --accent-cyan-glow: rgba(74, 163, 255, 0.12);
     --accent-yellow: #e1c26b;
     --accent-purple: #8f7bd6;
 
