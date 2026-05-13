@@ -107,7 +107,20 @@ class AsyncWorker:
             self._mc = await MeshCore.create_tcp(host=cfg.host, port=cfg.port, debug=False)
             transport, device = "tcp", f"{cfg.host}:{cfg.port}"
         elif isinstance(cfg, BLEConfig):
-            self._mc = await MeshCore.create_ble(address=cfg.device_address, debug=False)
+            # Disconnect any existing BlueZ connection so bleak gets a clean slate
+            if cfg.device_address:
+                try:
+                    import subprocess
+
+                    subprocess.run(
+                        ["bluetoothctl", "disconnect", cfg.device_address],
+                        timeout=3,
+                        capture_output=True,
+                    )
+                    await asyncio.sleep(1.0)
+                except Exception:
+                    pass
+            self._mc = await MeshCore.create_ble(address=cfg.device_address, debug=True)
             transport, device = "ble", cfg.device_address or "auto"
         else:
             raise RuntimeError(f"Unknown connection config type: {type(cfg)}")
