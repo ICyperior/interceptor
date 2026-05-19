@@ -218,13 +218,13 @@
 
                 <div class="settings-row">
                     <div class="settings-label">
-                        <span class="settings-label-text">Animations</span>
-                        <span class="settings-label-desc">Enable visual effects and animations</span>
+                        <span class="settings-label-text">Display Mode</span>
+                        <span class="settings-label-desc">Lean — no effects (Pi / older hardware) · Enhanced — amber military console</span>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="animationsEnabled" checked onchange="setAnimationsEnabled(this.checked)">
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <select id="uiTierSelect" class="settings-select" onchange="setUiTierPreference(this.value)">
+                        <option value="enhanced">Enhanced</option>
+                        <option value="lean">Lean</option>
+                    </select>
                 </div>
             </div>
 
