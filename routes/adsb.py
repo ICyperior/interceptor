@@ -1281,15 +1281,14 @@ def stream_adsb():
     with _adsb_stream_subscribers_lock:
         _adsb_stream_subscribers.add(client_queue)
 
-    # Prime new clients with current known aircraft so they don't wait for the
-    # next positional update before rendering.
-    for snapshot in list(app_module.adsb_aircraft.values()):
-        try:
-            client_queue.put_nowait({"type": "aircraft", **snapshot})
-        except queue.Full:
-            break
-
     def generate():
+        # Prime with current aircraft snapshot before entering the live loop.
+        for snapshot in list(app_module.adsb_aircraft.values()):
+            try:
+                client_queue.put_nowait({"type": "aircraft", **snapshot})
+            except queue.Full:
+                break
+
         last_keepalive = time.time()
         # Send immediate keepalive so Werkzeug dev server flushes response
         # headers right away (it buffers until first body byte is written).
