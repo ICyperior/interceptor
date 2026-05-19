@@ -434,3 +434,35 @@ a:hover {
         --text-secondary: #d1d5db;
     }
 }
+
+/* ============================================
+   LEAN TIER — strip body background and animations
+   ============================================ */
+[data-ui-tier="lean"] body {
+    background-image: none;
+    background-attachment: unset;
+    background-size: unset;
+}
+
+[data-ui-tier="lean"] *,
+[data-ui-tier="lean"] *::before,
+[data-ui-tier="lean"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* ============================================
+   ENHANCED TIER — tighter grid background
+   ============================================ */
+[data-ui-tier="enhanced"] body {
+    background-image:
+        radial-gradient(1200px 620px at 8% -12%, var(--ambient-top-left), transparent 62%),
+        radial-gradient(980px 560px at 92% -16%, var(--ambient-top-right), transparent 64%),
+        radial-gradient(900px 520px at 50% 126%, var(--ambient-bottom), transparent 68%),
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: auto, auto, auto, 20px 20px, 20px 20px;
+    background-attachment: fixed;
+}
