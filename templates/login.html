@@ -2,12 +2,10 @@
 <html lang="en">
   <head>
     <script>
-      // Apply animations preference immediately to prevent flash
+      // Apply UI tier immediately to prevent flash
       (function() {
-        var animations = localStorage.getItem('intercept-animations');
-        if (animations === 'off') {
-          document.documentElement.setAttribute('data-animations', 'off');
-        }
+        var tier = localStorage.getItem('intercept-ui-tier') || 'enhanced';
+        document.documentElement.setAttribute('data-ui-tier', tier);
       })();
     </script>
     <meta charset="UTF-8" />

@@ -705,10 +705,9 @@ const Settings = {
             themeSelect.value = localStorage.getItem('intercept-theme') || 'dark';
         }
 
-        // Animations toggle
-        const animationsEnabled = document.getElementById('animationsEnabled');
-        if (animationsEnabled) {
-            animationsEnabled.checked = localStorage.getItem('intercept-animations') !== 'off';
+        const uiTierSelect = document.getElementById('uiTierSelect');
+        if (uiTierSelect) {
+            uiTierSelect.value = localStorage.getItem('intercept-ui-tier') || 'enhanced';
         }
     },
 
@@ -1486,15 +1485,11 @@ function setThemePreference(value) {
 }
 
 /**
- * Set animations preference from the Display settings tab
+ * Set UI tier preference from the Display settings tab
  */
-function setAnimationsEnabled(enabled) {
-    if (enabled) {
-        document.documentElement.removeAttribute('data-animations');
-    } else {
-        document.documentElement.setAttribute('data-animations', 'off');
-    }
-    localStorage.setItem('intercept-animations', enabled ? 'on' : 'off');
+function setUiTierPreference(tier) {
+    document.documentElement.setAttribute('data-ui-tier', tier);
+    localStorage.setItem('intercept-ui-tier', tier);
 }
 
 if (!window._settingsEscapeHandlerBound) {

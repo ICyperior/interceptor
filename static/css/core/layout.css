@@ -1041,19 +1041,6 @@
     transform: rotate(90deg);
 }
 
-/* Effects/animations toggle icon states */
-.nav-tool-btn .icon-effects-off {
-    display: none;
-}
-
-[data-animations="off"] .nav-tool-btn .icon-effects-on {
-    display: none;
-}
-
-[data-animations="off"] .nav-tool-btn .icon-effects-off {
-    display: flex;
-}
-
 /* Dashboard Button in Nav */
 a.nav-dashboard-btn,
 a.nav-dashboard-btn:link,
@@ -1171,4 +1158,92 @@ a.nav-dashboard-btn:hover {
 [data-theme="light"] a.nav-dashboard-btn:hover {
     background: rgba(220, 230, 244, 0.9);
     box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   LEAN TIER — flat nav and header
+   ============================================ */
+[data-ui-tier="lean"] .mode-nav {
+    background: #181818;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+[data-ui-tier="lean"] .mode-nav::after,
+[data-ui-tier="lean"] .app-header::after,
+[data-ui-tier="lean"] .mobile-nav::after,
+[data-ui-tier="lean"] .dashboard-header::after {
+    display: none;
+}
+
+[data-ui-tier="lean"] .app-header {
+    background: #181818;
+    box-shadow: none;
+}
+
+[data-ui-tier="lean"] .mode-nav-dropdown-menu {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: #202020;
+}
+
+/* ============================================
+   ENHANCED TIER — amber console nav framing
+   ============================================ */
+[data-ui-tier="enhanced"] .mode-nav {
+    background: linear-gradient(180deg, rgba(14, 11, 3, 0.95), rgba(8, 6, 0, 0.92));
+}
+
+[data-ui-tier="enhanced"] .mode-nav::after,
+[data-ui-tier="enhanced"] .app-header::after,
+[data-ui-tier="enhanced"] .dashboard-header::after {
+    background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+}
+
+[data-ui-tier="enhanced"] .mode-nav-btn.active {
+    background: rgba(200, 150, 40, 0.08);
+    color: var(--accent-cyan);
+    border-left: 2px solid var(--accent-cyan);
+    box-shadow: -2px 0 8px rgba(200, 150, 40, 0.15);
+    padding-left: 12px;
+}
+
+[data-ui-tier="enhanced"] .nav-clock .utc-time {
+    color: var(--accent-cyan);
+    text-shadow: 0 0 8px rgba(200, 150, 40, 0.3);
+    font-weight: 700;
+}
+
+[data-ui-tier="enhanced"] .mode-nav-btn .nav-label,
+[data-ui-tier="enhanced"] .mode-nav-label {
+    font-family: var(--font-mono);
+    letter-spacing: 2px;
+}
+
+/* Tier toggle button — label visibility */
+.nav-tier-btn .tier-label-lean { display: none; }
+.nav-tier-btn .tier-label-enhanced { display: none; }
+[data-ui-tier="lean"] .nav-tier-btn .tier-label-lean { display: inline; }
+[data-ui-tier="enhanced"] .nav-tier-btn .tier-label-enhanced { display: inline; }
+
+/* Tier toggle — icon visibility */
+.nav-tier-btn .icon-tier-lean { display: flex; }
+.nav-tier-btn .icon-tier-enhanced { display: none; }
+[data-ui-tier="lean"] .nav-tier-btn .icon-tier-lean { display: flex; }
+[data-ui-tier="lean"] .nav-tier-btn .icon-tier-enhanced { display: none; }
+[data-ui-tier="enhanced"] .nav-tier-btn .icon-tier-lean { display: none; }
+[data-ui-tier="enhanced"] .nav-tier-btn .icon-tier-enhanced { display: flex; }
+
+/* Enhanced tier toggle button styling */
+[data-ui-tier="enhanced"] .nav-tier-btn {
+    background: rgba(200, 150, 40, 0.10);
+    border-color: rgba(200, 150, 40, 0.4);
+    color: #c89628;
+    box-shadow: 0 0 8px rgba(200, 150, 40, 0.08);
+    text-shadow: 0 0 6px rgba(200, 150, 40, 0.3);
+}
+
+[data-ui-tier="enhanced"] .nav-tier-btn:hover {
+    background: rgba(200, 150, 40, 0.16);
+    border-color: rgba(200, 150, 40, 0.6);
 }

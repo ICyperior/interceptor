@@ -10,6 +10,7 @@ const FirstRunSetup = (function() {
     let notifyStatusEl = null;
     let modeStatusEl = null;
     let modeSelectEl = null;
+    let uiTierStatusEl = null;
 
     let dependencyReady = null;
 
@@ -168,10 +169,69 @@ const FirstRunSetup = (function() {
             }
         );
 
+        const tierStep = createStep(
+            'Display Mode',
+            'Choose how the interface looks. You can change this later with the toggle in the nav bar.',
+            (statusEl, actionsEl) => {
+                uiTierStatusEl = statusEl;
+
+                const btnWrap = document.createElement('div');
+                btnWrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;';
+
+                function makeTierBtn(tier, title, desc, previewFn) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'setup-btn';
+                    btn.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;height:auto;padding:10px;text-align:left;gap:4px;';
+
+                    const preview = document.createElement('div');
+                    preview.style.cssText = 'width:100%;height:48px;border-radius:3px;margin-bottom:4px;overflow:hidden;';
+                    previewFn(preview);
+
+                    const titleEl = document.createElement('strong');
+                    titleEl.style.cssText = 'font-size:12px;';
+                    titleEl.textContent = title;
+
+                    const descEl = document.createElement('span');
+                    descEl.style.cssText = 'font-size:10px;color:var(--text-dim);white-space:normal;line-height:1.3;';
+                    descEl.textContent = desc;
+
+                    btn.appendChild(preview);
+                    btn.appendChild(titleEl);
+                    btn.appendChild(descEl);
+
+                    btn.addEventListener('click', () => {
+                        document.documentElement.setAttribute('data-ui-tier', tier);
+                        localStorage.setItem('intercept-ui-tier', tier);
+                        refreshStatuses();
+                        if (typeof showAppToast === 'function') {
+                            showAppToast('Display Mode Set', `Switched to ${title} mode.`, 'info');
+                        }
+                    });
+                    return btn;
+                }
+
+                const leanBtn = makeTierBtn('lean', 'Lean', 'No effects — for Raspberry Pi or older hardware.', (el) => {
+                    el.style.cssText += 'background:#111;border:1px solid #222;display:flex;flex-direction:column;justify-content:center;padding:6px;gap:3px;';
+                    el.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:7px;color:#aaa;font-family:monospace;"><span>INTERCEPT</span><span style="color:#4a4;">● LIVE</span></div><div style="font-size:7px;color:#888;font-family:monospace;margin-top:2px;">ADS-B ........... 247<br>TSCM ............ 3 ⚠</div>';
+                });
+
+                const enhancedBtn = makeTierBtn('enhanced', 'Enhanced', 'Amber military console — for desktop or laptop.', (el) => {
+                    el.style.cssText += 'background:#080600;border:1px solid rgba(200,150,40,0.3);display:flex;flex-direction:column;justify-content:center;padding:6px;gap:3px;';
+                    el.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:7px;color:#c89628;font-family:monospace;letter-spacing:2px;"><span>INTERCEPT</span><span style="opacity:0.6;">14:27Z</span></div><div style="border-left:2px solid #c89628;padding-left:4px;margin-top:4px;font-size:8px;color:#c89628;font-family:monospace;font-weight:700;">247 ADS-B</div>';
+                });
+
+                btnWrap.appendChild(leanBtn);
+                btnWrap.appendChild(enhancedBtn);
+                actionsEl.appendChild(btnWrap);
+            }
+        );
+
         content.appendChild(depsStep);
         content.appendChild(locationStep);
         content.appendChild(notifyStep);
         content.appendChild(modeStep);
+        content.appendChild(tierStep);
 
         const footer = document.createElement('div');
         footer.className = 'setup-footer';
@@ -276,6 +336,8 @@ const FirstRunSetup = (function() {
         setStatus(locationStatusEl, hasLocation, hasLocation ? 'Configured' : 'Not set');
         setStatus(notifyStatusEl, notifications.ready, notifications.label);
         setStatus(modeStatusEl, hasDefaultMode, hasDefaultMode ? localStorage.getItem(DEFAULT_MODE_KEY) : 'Not set');
+        const hasTier = Boolean(localStorage.getItem('intercept-ui-tier'));
+        setStatus(uiTierStatusEl, hasTier, hasTier ? localStorage.getItem('intercept-ui-tier') : 'Not set');
 
         if (dependencyReady === null) {
             checkDependencies();
@@ -283,7 +345,7 @@ const FirstRunSetup = (function() {
         }
         setStatus(depsStatusEl, dependencyReady, dependencyReady ? 'Ready' : 'Missing tools');
 
-        const doneCount = Number(dependencyReady) + Number(hasLocation) + Number(notifications.ready) + Number(hasDefaultMode);
+        const doneCount = Number(dependencyReady) + Number(hasLocation) + Number(notifications.ready) + Number(hasDefaultMode) + Number(hasTier);
         const completeBtn = document.getElementById('setupCompleteBtn');
         if (completeBtn) {
             completeBtn.textContent = doneCount >= 3 ? 'Mark Setup Complete' : 'Complete Anyway';

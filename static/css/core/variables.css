@@ -265,3 +265,76 @@
         --transition-slow: 0ms;
     }
 }
+
+/* ============================================
+   LEAN TIER — flat dark, no GPU effects
+   ============================================ */
+[data-ui-tier="lean"] {
+    --bg-primary: #111111;
+    --bg-secondary: #181818;
+    --bg-tertiary: #1f1f1f;
+    --bg-card: #1a1a1a;
+    --bg-elevated: #202020;
+    --bg-overlay: rgba(17, 17, 17, 0.92);
+    --surface-glass: #181818;
+    --surface-panel-gradient: #181818;
+
+    --ambient-top-left: transparent;
+    --ambient-top-right: transparent;
+    --ambient-bottom: transparent;
+
+    --border-color: #2a2a2a;
+    --border-light: #333333;
+    --border-glow: transparent;
+
+    --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.3);
+    --shadow-glow: none;
+
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+    --transition-slow: 0ms;
+
+    --scanline: none;
+    --grid-line: transparent;
+    --noise-image: none;
+}
+
+/* ============================================
+   ENHANCED TIER — amber military console
+   ============================================ */
+[data-ui-tier="enhanced"] {
+    --bg-primary: #080600;
+    --bg-secondary: #0c0a04;
+    --bg-tertiary: #100d06;
+    --bg-card: #0e0b05;
+    --bg-elevated: #141008;
+    --bg-overlay: rgba(8, 6, 0, 0.82);
+    --surface-glass: rgba(14, 11, 5, 0.82);
+    --surface-panel-gradient: linear-gradient(160deg, rgba(20, 16, 8, 0.94) 0%, rgba(12, 10, 4, 0.96) 100%);
+
+    --accent-cyan: #c89628;
+    --accent-cyan-dim: rgba(200, 150, 40, 0.14);
+    --accent-cyan-hover: #e0aa30;
+    --accent-cyan-glow: rgba(200, 150, 40, 0.10);
+
+    --accent-green: #c89628;
+    --accent-green-hover: #e0aa30;
+    --accent-green-dim: rgba(200, 150, 40, 0.14);
+
+    /* red is intentionally unchanged — critical alerts only */
+
+    --ambient-top-left: rgba(200, 150, 40, 0.08);
+    --ambient-top-right: rgba(200, 150, 40, 0.05);
+    --ambient-bottom: rgba(200, 150, 40, 0.04);
+
+    --grid-line: rgba(200, 150, 40, 0.07);
+    --border-color: rgba(200, 150, 40, 0.2);
+    --border-light: rgba(200, 150, 40, 0.3);
+    --border-glow: rgba(200, 150, 40, 0.25);
+    --border-focus: #c89628;
+
+    --status-online: #c89628;
+    --status-info: #c89628;
+}

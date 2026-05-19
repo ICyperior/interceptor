@@ -11990,33 +11990,11 @@
             }).catch(err => console.warn('Failed to save theme to server:', err));
         }
 
-        // Animation toggle functions
-        function toggleAnimations() {
-            const html = document.documentElement;
-            const currentState = html.getAttribute('data-animations');
-            const newState = currentState === 'off' ? 'on' : 'off';
-
-            if (newState === 'on') {
-                html.removeAttribute('data-animations');
-            } else {
-                html.setAttribute('data-animations', newState);
-            }
-
-            // Save to localStorage for persistence
-            localStorage.setItem('intercept-animations', newState);
-        }
-
-        // Load saved theme and animations on page load
+        // Load saved theme on page load
         (function () {
             // First apply localStorage theme for instant load (no flash)
             const localTheme = localStorage.getItem('intercept-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', localTheme);
-
-            // Apply animations preference
-            const localAnimations = localStorage.getItem('intercept-animations');
-            if (localAnimations === 'off') {
-                document.documentElement.setAttribute('data-animations', 'off');
-            }
 
             // Then fetch from server to sync (in case changed on another device)
             fetch('/settings/theme')
