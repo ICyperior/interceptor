@@ -524,16 +524,17 @@ const SystemHealth = (function () {
                 container.style.background = 'radial-gradient(circle, rgba(10,20,40,0.9), rgba(2,4,8,0.98) 70%)';
 
                 try {
+                    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff';
                     globeInstance = window.Globe()(container)
                         .backgroundColor('rgba(0,0,0,0)')
                         .globeImageUrl(GLOBE_TEXTURE_URL)
                         .showAtmosphere(true)
-                        .atmosphereColor('#3bb9ff')
+                        .atmosphereColor(accentColor)
                         .atmosphereAltitude(0.12)
                         .pointsData([])
                         .pointRadius(0.8)
                         .pointAltitude(0.01)
-                        .pointColor(function () { return '#00d4ff'; });
+                        .pointColor(function () { return accentColor; });
 
                     var controls = globeInstance.controls();
                     if (controls) {
