@@ -7299,24 +7299,6 @@ body::before {
     transform: scale(0.98);
 }
 
-/* Animation toggle icon states in nav bar */
-.nav-tool-btn .icon-effects-on,
-.nav-tool-btn .icon-effects-off {
-    position: absolute;
-    transition: opacity 0.2s, transform 0.2s;
-    font-size: 14px;
-}
-
-.nav-tool-btn .icon-effects-on {
-    opacity: 1;
-    transform: rotate(0deg);
-}
-
-.nav-tool-btn .icon-effects-off {
-    opacity: 0;
-    transform: rotate(-90deg);
-}
-
 /* ============================================
    VISUAL REFRESH OVERRIDES
    ============================================ */
