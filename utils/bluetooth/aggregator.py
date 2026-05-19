@@ -334,6 +334,9 @@ class DeviceAggregator:
         # Record sighting for persistence tracking.
         self._tracker_engine.record_sighting(fingerprint.fingerprint_id)
 
+        # Always update stability (can change as device fields are filled in).
+        device.payload_fingerprint_stability = fingerprint.stability_confidence
+
         # Only re-run the expensive signature scan when the payload has changed.
         if fingerprint.fingerprint_id == device.payload_fingerprint_id:
             return
@@ -356,7 +359,6 @@ class DeviceAggregator:
         device.tracker_confidence_score = result.confidence_score
         device.tracker_evidence = result.evidence
         device.payload_fingerprint_id = fingerprint.fingerprint_id
-        device.payload_fingerprint_stability = fingerprint.stability_confidence
 
     def _update_risk_analysis(self, device: BTDeviceAggregate) -> None:
         """Evaluate suspicious presence heuristics for a device."""

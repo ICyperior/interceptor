@@ -568,10 +568,12 @@ class TestTrackerDetectionOptimization:
         with patch.object(
             aggregator._tracker_engine, "detect_tracker", wraps=aggregator._tracker_engine.detect_tracker
         ) as mock_detect:
-            aggregator.ingest(sample_observation)
+            device = aggregator.ingest(sample_observation)
             assert mock_detect.call_count == 0, (
                 "detect_tracker should not be called when the device payload fingerprint is unchanged"
             )
+            # Tracker fields from first ingest must be preserved on skip
+            assert device.payload_fingerprint_id is not None
 
     def test_tracker_detection_runs_when_payload_changes(self, aggregator, sample_observation):
         """detect_tracker must be called again when the device's manufacturer data changes."""
