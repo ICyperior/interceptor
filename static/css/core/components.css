@@ -248,10 +248,6 @@
     }
 }
 
-[data-animations="off"] .panel-indicator.active {
-    animation: none;
-}
-
 .panel-content {
     padding: var(--space-3);
 }
@@ -1180,4 +1176,44 @@ textarea:focus {
     pointer-events: none;
     z-index: 1;
     border-radius: inherit;
+}
+
+/* ============================================
+   LEAN TIER — flat cards, no shadows/glows
+   ============================================ */
+[data-ui-tier="lean"] .card,
+[data-ui-tier="lean"] .panel,
+[data-ui-tier="lean"] .stat-card,
+[data-ui-tier="lean"] .data-card {
+    box-shadow: none;
+    border-radius: 2px;
+}
+
+[data-ui-tier="lean"] .panel-indicator.active {
+    animation: none;
+    box-shadow: none;
+}
+
+/* ============================================
+   ENHANCED TIER — amber left-border card accents
+   ============================================ */
+[data-ui-tier="enhanced"] .stat-card,
+[data-ui-tier="enhanced"] .data-card {
+    border-left: 2px solid var(--accent-cyan);
+    background: rgba(200, 150, 40, 0.03);
+}
+
+[data-ui-tier="enhanced"] .stat-value,
+[data-ui-tier="enhanced"] .data-value {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+}
+
+[data-ui-tier="enhanced"] .stat-label,
+[data-ui-tier="enhanced"] .data-label {
+    font-family: var(--font-mono);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-size: var(--text-xs);
+    color: rgba(200, 150, 40, 0.5);
 }
