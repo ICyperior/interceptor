@@ -208,7 +208,9 @@ def get_networks():
                 return False
             if hidden == "false" and n.is_hidden:
                 return False
-            return not (min_rssi_val is not None and (not n.rssi_current or n.rssi_current < min_rssi_val))
+            if min_rssi_val is not None and (not n.rssi_current or n.rssi_current < min_rssi_val):  # noqa: SIM103
+                return False
+            return True
 
         networks = [n for n in networks if _matches(n)]
 
