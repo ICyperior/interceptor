@@ -12,6 +12,7 @@ import socket
 import subprocess
 import threading
 import time
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -83,8 +84,10 @@ adsb_active_sdr_type: str | None = None
 adsb_bias_t_active = False  # Track if bias-t was enabled at start (for cleanup on stop)
 _sbs_error_logged = False  # Suppress repeated connection error logs
 
-# Track ICAOs already looked up in aircraft database (avoid repeated lookups)
-_looked_up_icaos: set[str] = set()
+# Track ICAOs already looked up in aircraft database (avoid repeated lookups).
+# Bounded LRU: evicts oldest entry when full to prevent unbounded memory growth.
+_ICAO_CACHE_MAX = 50_000
+_looked_up_icaos: OrderedDict[str, None] = OrderedDict()
 
 # Per-client SSE queues for ADS-B stream fanout.
 _adsb_stream_subscribers: set[queue.Queue] = set()
@@ -727,7 +730,9 @@ def parse_sbs_stream(service_addr):
 
                         # Look up aircraft type from database (once per ICAO)
                         if icao not in _looked_up_icaos:
-                            _looked_up_icaos.add(icao)
+                            if len(_looked_up_icaos) >= _ICAO_CACHE_MAX:
+                                _looked_up_icaos.popitem(last=False)
+                            _looked_up_icaos[icao] = None
                             db_info = aircraft_db.lookup(icao)
                             if db_info:
                                 if db_info["registration"]:
