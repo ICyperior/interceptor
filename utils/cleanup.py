@@ -7,13 +7,13 @@ import threading
 import time
 from typing import Any
 
-logger = logging.getLogger('intercept.cleanup')
+logger = logging.getLogger("intercept.cleanup")
 
 
 class DataStore:
     """Thread-safe data store with automatic cleanup of stale entries."""
 
-    def __init__(self, max_age_seconds: float = 300.0, name: str = 'data'):
+    def __init__(self, max_age_seconds: float = 300.0, name: str = "data"):
         """
         Initialize data store.
 
@@ -124,21 +124,27 @@ class DataStore:
             Number of entries removed
         """
         now = time.time()
-        expired = []
 
         with self._lock:
-            for key, timestamp in self.timestamps.items():
-                if now - timestamp > self.max_age:
-                    expired.append(key)
+            timestamps_snapshot = list(self.timestamps.items())
 
+        expired = [k for k, t in timestamps_snapshot if now - t > self.max_age]
+
+        if not expired:
+            return 0
+
+        deleted = 0
+        with self._lock:
             for key in expired:
-                del self.data[key]
-                del self.timestamps[key]
+                if key in self.timestamps and now - self.timestamps[key] > self.max_age:
+                    del self.data[key]
+                    del self.timestamps[key]
+                    deleted += 1
 
-        if expired:
-            logger.debug(f"{self.name}: Cleaned up {len(expired)} stale entries")
+        if deleted:
+            logger.debug(f"{self.name}: Cleaned up {deleted} stale entries")
 
-        return len(expired)
+        return deleted
 
 
 class CleanupManager:
@@ -256,11 +262,7 @@ class CleanupManager:
 cleanup_manager = CleanupManager(interval=60.0)
 
 
-def cleanup_dict(
-    data: dict[str, Any],
-    timestamps: dict[str, float],
-    max_age_seconds: float = 300.0
-) -> list[str]:
+def cleanup_dict(data: dict[str, Any], timestamps: dict[str, float], max_age_seconds: float = 300.0) -> list[str]:
     """
     Clean up stale entries from a dictionary.
 
