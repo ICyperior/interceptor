@@ -387,6 +387,7 @@ const SpaceWeather = (function () {
         }
 
         if (_windChart) { _windChart.destroy(); _windChart = null; }
+        const _accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00ccff';
         _windChart = new Chart(canvas, {
             type: 'line',
             data: {
@@ -395,8 +396,8 @@ const SpaceWeather = (function () {
                     {
                         label: 'Speed (km/s)',
                         data: speedData,
-                        borderColor: '#00ccff',
-                        backgroundColor: '#00ccff22',
+                        borderColor: _accentCyan,
+                        backgroundColor: _accentCyan + '22',
                         borderWidth: 1.5,
                         pointRadius: 0,
                         fill: true,
@@ -423,7 +424,7 @@ const SpaceWeather = (function () {
                 },
                 scales: {
                     x: { display: true, ticks: { color: '#555', font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: '#ffffff08' } },
-                    y: { display: true, position: 'left', ticks: { color: '#00ccff', font: { size: 9 } }, grid: { color: '#ffffff08' }, title: { display: false } },
+                    y: { display: true, position: 'left', ticks: { color: _accentCyan, font: { size: 9 } }, grid: { color: '#ffffff08' }, title: { display: false } },
                     y1: { display: true, position: 'right', ticks: { color: '#ff8800', font: { size: 9 } }, grid: { drawOnChartArea: false } }
                 },
                 interaction: { mode: 'index', intersect: false }

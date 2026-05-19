@@ -982,7 +982,7 @@ const WeatherSat = (function() {
         const trajectory = pass?.trajectory;
         if (!trajectory || trajectory.length === 0) return;
 
-        const color = pass.mode === 'LRPT' ? '#00ff88' : '#00d4ff';
+        const color = pass.mode === 'LRPT' ? '#00ff88' : (getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff');
 
         ctx.beginPath();
         ctx.strokeStyle = color;

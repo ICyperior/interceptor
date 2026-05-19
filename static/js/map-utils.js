@@ -231,7 +231,7 @@ const MapUtils = {
             const meters = dist * metersPerUnit;
             L.circle(center, {
                 radius: meters,
-                color: '#4aa3ff',
+                color: getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#4aa3ff',
                 fillColor: 'transparent',
                 fillOpacity: 0,
                 weight: 1,
@@ -265,11 +265,11 @@ const MapUtils = {
         const icon = L.divIcon({
             className: 'map-reticle',
             html: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="14" cy="14" r="4" stroke="#4aa3ff" stroke-width="1.5"/>
-                <line x1="14" y1="2"  x2="14" y2="9"  stroke="#4aa3ff" stroke-width="1.5"/>
-                <line x1="14" y1="19" x2="14" y2="26" stroke="#4aa3ff" stroke-width="1.5"/>
-                <line x1="2"  y1="14" x2="9"  y2="14" stroke="#4aa3ff" stroke-width="1.5"/>
-                <line x1="19" y1="14" x2="26" y2="14" stroke="#4aa3ff" stroke-width="1.5"/>
+                <circle cx="14" cy="14" r="4" style="stroke:var(--accent-cyan)" stroke-width="1.5"/>
+                <line x1="14" y1="2"  x2="14" y2="9"  style="stroke:var(--accent-cyan)" stroke-width="1.5"/>
+                <line x1="14" y1="19" x2="14" y2="26" style="stroke:var(--accent-cyan)" stroke-width="1.5"/>
+                <line x1="2"  y1="14" x2="9"  y2="14" style="stroke:var(--accent-cyan)" stroke-width="1.5"/>
+                <line x1="19" y1="14" x2="26" y2="14" style="stroke:var(--accent-cyan)" stroke-width="1.5"/>
             </svg>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],

@@ -137,7 +137,7 @@ var DroneMode = (function () {
             _trails[contact.id].setLatLngs(trailPoints);
         } else if (trailPoints.length > 1) {
             _trails[contact.id] = L.polyline(trailPoints, {
-                color: contact.risk_level === 'high' ? '#ff4444' : '#00ccff',
+                color: contact.risk_level === 'high' ? '#ff4444' : (getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00ccff'),
                 weight: 1.5,
                 opacity: 0.6,
             }).addTo(_map);
