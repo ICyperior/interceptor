@@ -7317,39 +7317,6 @@ body::before {
     transform: rotate(-90deg);
 }
 
-[data-animations="off"] .nav-tool-btn .icon-effects-on {
-    opacity: 0;
-    transform: rotate(90deg);
-}
-
-[data-animations="off"] .nav-tool-btn .icon-effects-off {
-    opacity: 1;
-    transform: rotate(0deg);
-}
-
-/* Disable cosmetic animations when toggled off */
-[data-animations="off"] .globe-svg,
-[data-animations="off"] .rotating-meridians,
-[data-animations="off"] .meridian-1,
-[data-animations="off"] .meridian-2,
-[data-animations="off"] .meridian-3,
-[data-animations="off"] .welcome-scanline,
-[data-animations="off"] .landing-scanline,
-[data-animations="off"] .scanline,
-[data-animations="off"] .signal-wave,
-[data-animations="off"] .signal-wave-1,
-[data-animations="off"] .signal-wave-2,
-[data-animations="off"] .signal-wave-3,
-[data-animations="off"] .logo-dot,
-[data-animations="off"] .welcome-logo {
-    animation: none !important;
-}
-
-[data-animations="off"] body::before,
-[data-animations="off"] .visuals-container::after {
-    display: none;
-}
-
 /* ============================================
    VISUAL REFRESH OVERRIDES
    ============================================ */
@@ -7685,10 +7652,6 @@ body[data-mode="tscm"] {
     border-color: rgba(31, 95, 168, 0.16);
     background: linear-gradient(180deg, rgba(245, 248, 253, 0.82) 0%, rgba(240, 244, 250, 0.85) 100%);
     box-shadow: 0 10px 24px rgba(18, 40, 66, 0.08);
-}
-
-[data-animations="off"] .mode-content.active {
-    animation: none !important;
 }
 
 @media (max-width: 1023px) {
