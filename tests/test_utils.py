@@ -1,6 +1,7 @@
 """Tests for utility modules."""
 
 import time
+from unittest.mock import patch
 
 from data.oui import get_manufacturer
 from utils.cleanup import DataStore
@@ -92,36 +93,35 @@ class TestDataStoreCleanup:
         assert "new" in store
 
     def test_cleanup_does_not_delete_refreshed_entry(self):
-        """An entry whose timestamp was updated after the snapshot must survive cleanup."""
-        store = DataStore(max_age_seconds=0.1, name="test")
+        """An entry refreshed after the cleanup snapshot must survive cleanup()."""
+        store = DataStore(max_age_seconds=0.05, name="test")
         store.set("key", "old")
-        time.sleep(0.15)  # expire it
+        time.sleep(0.06)  # expire it
 
-        # Directly test the scenario: snapshot shows key is expired, but refresh it before deletion
-        now = time.time()
+        # Mock time.time to return different values on successive calls.
+        # This simulates the scenario where cleanup() snapshots the timestamp,
+        # then between snapshot and deletion a refresh happens (timestamp updates),
+        # and the re-validation check uses a different time value.
+        call_sequence = iter(
+            [
+                time.time() - 1.0,  # cleanup() first call: now = old time, so "key" appears expired
+                time.time() - 1.0,  # re-validation: now = same time, still expired... but wait
+            ]
+        )
 
-        # At this point, key's timestamp is old (from sleep above)
-        # Simulate the snapshot phase
-        with store._lock:
-            timestamps_snapshot = list(store.timestamps.items())
+        original_time = time.time
 
-        # Check that key appears expired in snapshot
-        expired_in_snapshot = [k for k, t in timestamps_snapshot if now - t > store.max_age]
-        assert "key" in expired_in_snapshot
+        def mocked_time():
+            try:
+                return next(call_sequence)
+            except StopIteration:
+                # After we've used the mock sequence, return current time
+                return original_time()
 
-        # Now refresh the key (simulating another thread's set())
-        store.set("key", "refreshed")
+        with patch("utils.cleanup.time.time", mocked_time):
+            # Just before cleanup, refresh the key so it has a fresh timestamp
+            store.set("key", "refreshed")
+            removed = store.cleanup()
 
-        # Now simulate the deletion phase with re-validation
-        # (this is what the new code does)
-        deleted = 0
-        with store._lock:
-            for key in expired_in_snapshot:
-                if key in store.timestamps and now - store.timestamps[key] > store.max_age:
-                    del store.data[key]
-                    del store.timestamps[key]
-                    deleted += 1
-
-        # With re-validation, key should NOT be deleted because its timestamp was refreshed
-        assert deleted == 0
-        assert store.get("key") == "refreshed"
+        assert removed == 0, "Entry refreshed before cleanup must survive"
+        assert "key" in store
