@@ -731,7 +731,8 @@ def parse_sbs_stream(service_addr):
                         # Look up aircraft type from database (once per ICAO)
                         if icao not in _looked_up_icaos:
                             if len(_looked_up_icaos) >= _ICAO_CACHE_MAX:
-                                _looked_up_icaos.popitem(last=False)
+                                with contextlib.suppress(KeyError):
+                                    _looked_up_icaos.popitem(last=False)
                             _looked_up_icaos[icao] = None
                             db_info = aircraft_db.lookup(icao)
                             if db_info:
