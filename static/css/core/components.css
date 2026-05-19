@@ -1194,6 +1194,17 @@ textarea:focus {
     box-shadow: none;
 }
 
+[data-ui-tier="lean"] .scanline,
+[data-ui-tier="lean"] .landing-scanline,
+[data-ui-tier="lean"] .welcome-scanline,
+[data-ui-tier="lean"] .radar-bg,
+[data-ui-tier="lean"] .grid-bg,
+[data-ui-tier="lean"] .globe-background,
+[data-ui-tier="lean"] .signal-wave,
+[data-ui-tier="lean"] .visuals-container::after {
+    display: none;
+}
+
 /* ============================================
    ENHANCED TIER — amber left-border card accents
    ============================================ */
