@@ -809,8 +809,8 @@ const SignalGuess = (function() {
                 transition: all 0.15s ease;
             }
             .signal-guess-why:hover {
-                border-color: #00d4ff;
-                color: #00d4ff;
+                border-color: var(--accent-cyan);
+                color: var(--accent-cyan);
             }
             .signal-guess-tags {
                 display: flex;
