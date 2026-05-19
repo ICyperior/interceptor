@@ -4489,7 +4489,7 @@ header h1 .tagline {
 .bt-detail-address {
     font-family: var(--font-mono);
     font-size: 10px;
-    color: #00d4ff;
+    color: var(--accent-cyan);
 }
 
 .bt-detail-rssi-display {
@@ -7673,4 +7673,21 @@ body[data-mode="tscm"] {
         linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: auto, auto, auto, 20px 20px, 20px 20px;
     background-attachment: fixed;
+}
+
+/* ============================================
+   BRAND SVG LOGO — follow accent color
+   ============================================ */
+.logo svg path,
+.welcome-logo svg path { stroke: var(--accent-cyan); }
+.logo svg rect,
+.welcome-logo svg rect,
+.brand-i svg rect { fill: var(--accent-cyan); }
+
+/* ============================================
+   ENHANCED TIER — visual edge/glow overrides
+   ============================================ */
+html[data-ui-tier="enhanced"] {
+    --visual-edge-cyan: rgba(200, 150, 40, 0.34);
+    --visual-glow-cyan: 0 0 24px rgba(200, 150, 40, 0.16);
 }

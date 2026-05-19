@@ -25,6 +25,10 @@ const ProximityRadar = (function() {
         newDeviceThreshold: 30, // seconds
     };
 
+    function _accent() {
+        return getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff';
+    }
+
     // State
     let container = null;
     let svg = null;
@@ -63,8 +67,8 @@ const ProximityRadar = (function() {
             <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="proximity-radar-svg">
                 <defs>
                     <radialGradient id="radarGradient" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stop-color="rgba(0, 212, 255, 0.1)" />
-                        <stop offset="100%" stop-color="rgba(0, 212, 255, 0)" />
+                        <stop offset="0%" style="stop-color:var(--accent-cyan);stop-opacity:0.1" />
+                        <stop offset="100%" style="stop-color:var(--accent-cyan);stop-opacity:0" />
                     </radialGradient>
                     <filter id="glow">
                         <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -100,16 +104,16 @@ const ProximityRadar = (function() {
                 <!-- CSS-animated sweep group: trailing arcs + sweep line -->
                 <g class="bt-radar-sweep" clip-path="url(#radarClip)">
                     <path d="M${center},${center} L${center},${CONFIG.padding} A${center - CONFIG.padding},${center - CONFIG.padding} 0 0,1 ${center + (center - CONFIG.padding)},${center} Z"
-                          fill="#00b4d8" opacity="0.035"/>
+                          style="fill:var(--accent-cyan)" opacity="0.035"/>
                     <path d="M${center},${center} L${center},${CONFIG.padding} A${center - CONFIG.padding},${center - CONFIG.padding} 0 0,1 ${Math.round(center + (center - CONFIG.padding) * Math.sin(Math.PI / 3))},${Math.round(center + (center - CONFIG.padding) * (1 - Math.cos(Math.PI / 3)))} Z"
-                          fill="#00b4d8" opacity="0.07"/>
+                          style="fill:var(--accent-cyan)" opacity="0.07"/>
                     <line x1="${center}" y1="${center}" x2="${center}" y2="${CONFIG.padding}"
-                          stroke="#00b4d8" stroke-width="1.5" opacity="0.75"/>
+                          style="stroke:var(--accent-cyan)" stroke-width="1.5" opacity="0.75"/>
                 </g>
 
                 <!-- Center point -->
                 <circle cx="${center}" cy="${center}" r="${CONFIG.centerRadius}"
-                        fill="#00d4ff" filter="url(#glow)" />
+                        style="fill:var(--accent-cyan)" filter="url(#glow)" />
 
                 <!-- Device dots container -->
                 <g class="radar-devices"></g>
@@ -238,7 +242,7 @@ const ProximityRadar = (function() {
                         dot.setAttribute('r', dotSize);
                         dot.setAttribute('fill', color);
                         dot.setAttribute('fill-opacity', isSelected ? 1 : 0.4 + confidence * 0.5);
-                        dot.setAttribute('stroke', isSelected ? '#00d4ff' : color);
+                        dot.setAttribute('stroke', isSelected ? _accent() : color);
                         dot.setAttribute('stroke-width', isSelected ? 2 : 1);
                     }
 
@@ -338,7 +342,7 @@ const ProximityRadar = (function() {
         ring.classList.add('radar-select-ring');
         ring.setAttribute('r', dotSize + 8);
         ring.setAttribute('fill', 'none');
-        ring.setAttribute('stroke', '#00d4ff');
+        ring.setAttribute('stroke', _accent());
         ring.setAttribute('stroke-width', '2');
         ring.setAttribute('stroke-opacity', '0.8');
 
@@ -537,7 +541,7 @@ const ProximityRadar = (function() {
         const dot = el.querySelector('circle:not(.radar-device-hitarea):not(.radar-select-ring)');
         if (dot && dot.getAttribute('fill') !== 'none' && dot.getAttribute('fill') !== 'transparent') {
             dot.setAttribute('fill-opacity', '1');
-            dot.setAttribute('stroke', '#00d4ff');
+            dot.setAttribute('stroke', _accent());
             dot.setAttribute('stroke-width', '2');
         }
 
@@ -548,7 +552,7 @@ const ProximityRadar = (function() {
             ring.classList.add('radar-select-ring');
             ring.setAttribute('r', dotSize + 8);
             ring.setAttribute('fill', 'none');
-            ring.setAttribute('stroke', '#00d4ff');
+            ring.setAttribute('stroke', _accent());
             ring.setAttribute('stroke-width', '2');
             ring.setAttribute('stroke-opacity', '0.8');
 

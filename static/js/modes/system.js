@@ -567,7 +567,7 @@ const SystemHealth = (function () {
             lat: locationData.lat,
             lng: locationData.lon,
             size: 0.8,
-            color: '#00d4ff',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff',
         }]);
 
         // Snap view
