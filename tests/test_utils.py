@@ -81,9 +81,9 @@ class TestDataStoreCleanup:
 
     def test_cleanup_removes_expired_keeps_fresh(self):
         """Test that cleanup removes expired entries and keeps fresh ones."""
-        store = DataStore(max_age_seconds=0.001, name="test")
+        store = DataStore(max_age_seconds=0.05, name="test")
         store.set("old", 1)
-        time.sleep(0.01)
+        time.sleep(0.06)
         store.set("new", 2)
 
         removed = store.cleanup()

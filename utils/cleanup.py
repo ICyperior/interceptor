@@ -123,6 +123,7 @@ class DataStore:
         Returns:
             Number of entries removed
         """
+        # Capture now once so both the scan and re-validation use the same cutoff.
         now = time.time()
 
         with self._lock:
