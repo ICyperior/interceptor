@@ -114,7 +114,7 @@ class DeviceAggregator:
                 device.rssi_samples.append((observation.timestamp, observation.rssi))
                 # Prune old samples
                 if len(device.rssi_samples) > self._max_rssi_samples:
-                    device.rssi_samples = device.rssi_samples[-self._max_rssi_samples:]
+                    device.rssi_samples = device.rssi_samples[-self._max_rssi_samples :]
 
                 # Recalculate RSSI statistics
                 self._update_rssi_stats(device)
@@ -189,7 +189,7 @@ class DeviceAggregator:
             return PROTOCOL_CLASSIC
 
         # If address type is anything other than public, likely BLE
-        if observation.address_type != 'public':
+        if observation.address_type != "public":
             return PROTOCOL_BLE
 
         # If service UUIDs are present with 16-bit format, likely BLE
@@ -283,7 +283,7 @@ class DeviceAggregator:
     def _update_proximity(self, device: BTDeviceAggregate) -> None:
         """Update proximity estimation for a device."""
         if device.rssi_ema is None:
-            device.proximity_band = 'unknown'
+            device.proximity_band = "unknown"
             device.estimated_distance_m = None
             device.distance_confidence = 0.0
             return
@@ -311,14 +311,33 @@ class DeviceAggregator:
         observation: BTObservation,
     ) -> None:
         """Run tracker signature detection on a device."""
-        # Prepare service data from observation if available
         service_data = observation.service_data if observation.service_data else {}
 
-        # Store service data on device for investigation
         for uuid, data in service_data.items():
             device.service_data[uuid] = data
 
-        # Run tracker detection
+        # Generate fingerprint first — cheap hash of stable payload features.
+        fingerprint = self._tracker_engine.generate_device_fingerprint(
+            manufacturer_id=device.manufacturer_id,
+            manufacturer_data=device.manufacturer_bytes,
+            service_uuids=device.service_uuids,
+            service_data=service_data,
+            tx_power=device.tx_power,
+            name=device.name,
+        )
+
+        # Track fingerprint → device mapping regardless of whether we re-scan.
+        if fingerprint.fingerprint_id not in self._fingerprint_to_devices:
+            self._fingerprint_to_devices[fingerprint.fingerprint_id] = set()
+        self._fingerprint_to_devices[fingerprint.fingerprint_id].add(device.device_id)
+
+        # Record sighting for persistence tracking.
+        self._tracker_engine.record_sighting(fingerprint.fingerprint_id)
+
+        # Only re-run the expensive signature scan when the payload has changed.
+        if fingerprint.fingerprint_id == device.payload_fingerprint_id:
+            return
+
         result = self._tracker_engine.detect_tracker(
             address=device.address,
             address_type=device.address_type,
@@ -330,33 +349,14 @@ class DeviceAggregator:
             tx_power=device.tx_power,
         )
 
-        # Update device with detection results
         device.is_tracker = result.is_tracker
         device.tracker_type = result.tracker_type.value if result.tracker_type else None
         device.tracker_name = result.tracker_name
         device.tracker_confidence = result.confidence.value if result.confidence else None
         device.tracker_confidence_score = result.confidence_score
         device.tracker_evidence = result.evidence
-
-        # Generate and store payload fingerprint
-        fingerprint = self._tracker_engine.generate_device_fingerprint(
-            manufacturer_id=device.manufacturer_id,
-            manufacturer_data=device.manufacturer_bytes,
-            service_uuids=device.service_uuids,
-            service_data=service_data,
-            tx_power=device.tx_power,
-            name=device.name,
-        )
         device.payload_fingerprint_id = fingerprint.fingerprint_id
         device.payload_fingerprint_stability = fingerprint.stability_confidence
-
-        # Track fingerprint to device mapping
-        if fingerprint.fingerprint_id not in self._fingerprint_to_devices:
-            self._fingerprint_to_devices[fingerprint.fingerprint_id] = set()
-        self._fingerprint_to_devices[fingerprint.fingerprint_id].add(device.device_id)
-
-        # Record sighting for persistence tracking
-        self._tracker_engine.record_sighting(fingerprint.fingerprint_id)
 
     def _update_risk_analysis(self, device: BTDeviceAggregate) -> None:
         """Evaluate suspicious presence heuristics for a device."""
@@ -386,8 +386,7 @@ class DeviceAggregator:
         if observation.manufacturer_id is not None:
             device.manufacturer_id = observation.manufacturer_id
             device.manufacturer_name = MANUFACTURER_NAMES.get(
-                observation.manufacturer_id,
-                f"Unknown (0x{observation.manufacturer_id:04X})"
+                observation.manufacturer_id, f"Unknown (0x{observation.manufacturer_id:04X})"
             )
         if observation.manufacturer_data:
             device.manufacturer_bytes = observation.manufacturer_data
@@ -437,10 +436,7 @@ class DeviceAggregator:
         """
         cutoff = datetime.now() - timedelta(seconds=max_age_seconds)
         with self._lock:
-            stale_ids = [
-                device_id for device_id, device in self._devices.items()
-                if device.last_seen < cutoff
-            ]
+            stale_ids = [device_id for device_id, device in self._devices.items() if device.last_seen < cutoff]
             for device_id in stale_ids:
                 del self._devices[device_id]
             return len(stale_ids)
@@ -544,7 +540,7 @@ class DeviceAggregator:
         top_n: int = 20,
         window_minutes: int = 10,
         bucket_seconds: int = 10,
-        sort_by: str = 'recency',
+        sort_by: str = "recency",
     ) -> dict:
         """
         Get heatmap data for visualization.
@@ -568,37 +564,41 @@ class DeviceAggregator:
 
         # Enrich with device metadata
         result = {
-            'window_minutes': window_minutes,
-            'bucket_seconds': bucket_seconds,
-            'devices': [],
+            "window_minutes": window_minutes,
+            "bucket_seconds": bucket_seconds,
+            "devices": [],
         }
 
         with self._lock:
             for device_key, ts_data in timeseries.items():
                 device = self.get_device_by_key(device_key)
                 device_info = {
-                    'device_key': device_key,
-                    'timeseries': ts_data,
+                    "device_key": device_key,
+                    "timeseries": ts_data,
                 }
 
                 if device:
-                    device_info.update({
-                        'name': device.name,
-                        'address': device.address,
-                        'rssi_current': device.rssi_current,
-                        'rssi_ema': round(device.rssi_ema, 1) if device.rssi_ema else None,
-                        'proximity_band': device.proximity_band,
-                    })
+                    device_info.update(
+                        {
+                            "name": device.name,
+                            "address": device.address,
+                            "rssi_current": device.rssi_current,
+                            "rssi_ema": round(device.rssi_ema, 1) if device.rssi_ema else None,
+                            "proximity_band": device.proximity_band,
+                        }
+                    )
                 else:
-                    device_info.update({
-                        'name': None,
-                        'address': None,
-                        'rssi_current': None,
-                        'rssi_ema': None,
-                        'proximity_band': 'unknown',
-                    })
+                    device_info.update(
+                        {
+                            "name": None,
+                            "address": None,
+                            "rssi_current": None,
+                            "rssi_ema": None,
+                            "proximity_band": "unknown",
+                        }
+                    )
 
-                result['devices'].append(device_info)
+                result["devices"].append(device_info)
 
         return result
 

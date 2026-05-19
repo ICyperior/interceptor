@@ -1,6 +1,8 @@
 """Unit tests for Bluetooth device aggregation."""
 
+import dataclasses
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 
@@ -554,3 +556,34 @@ class TestDeviceFiltering:
         devices = aggregator.get_all_devices(sort_by="rssi")
         rssi_values = [d.rssi_current for d in devices]
         assert rssi_values == [-50, -60, -70, -90]
+
+
+class TestTrackerDetectionOptimization:
+    """Tests for tracker detection payload fingerprint optimization."""
+
+    def test_tracker_detection_skipped_when_payload_unchanged(self, aggregator, sample_observation):
+        """detect_tracker must not be called on the second observation if payload is identical."""
+        aggregator.ingest(sample_observation)
+
+        with patch.object(
+            aggregator._tracker_engine, "detect_tracker", wraps=aggregator._tracker_engine.detect_tracker
+        ) as mock_detect:
+            aggregator.ingest(sample_observation)
+            assert mock_detect.call_count == 0, (
+                "detect_tracker should not be called when the device payload fingerprint is unchanged"
+            )
+
+    def test_tracker_detection_runs_when_payload_changes(self, aggregator, sample_observation):
+        """detect_tracker must be called again when the device's manufacturer data changes."""
+        aggregator.ingest(sample_observation)
+
+        changed = dataclasses.replace(
+            sample_observation,
+            manufacturer_data=bytes([0xDE, 0xAD, 0xBE, 0xEF]),
+        )
+
+        with patch.object(
+            aggregator._tracker_engine, "detect_tracker", wraps=aggregator._tracker_engine.detect_tracker
+        ) as mock_detect:
+            aggregator.ingest(changed)
+            assert mock_detect.call_count == 1, "detect_tracker must be called when manufacturer data changes"
