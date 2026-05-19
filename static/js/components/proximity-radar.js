@@ -308,7 +308,7 @@ const ProximityRadar = (function() {
                 dot.setAttribute('r', dotSize);
                 dot.setAttribute('fill', color);
                 dot.setAttribute('fill-opacity', isSelected ? 1 : 0.4 + confidence * 0.5);
-                dot.setAttribute('stroke', isSelected ? '#00d4ff' : color);
+                dot.setAttribute('stroke', isSelected ? _accent() : color);
                 dot.setAttribute('stroke-width', isSelected ? 2 : 1);
                 innerG.appendChild(dot);
 

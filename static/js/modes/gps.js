@@ -17,7 +17,7 @@ const GPS = (function() {
 
     // Constellation color map
     const CONST_COLORS = {
-        'GPS':     '#00d4ff',
+        get GPS() { return getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff'; },
         'GLONASS': '#00ff88',
         'Galileo': '#ff8800',
         'BeiDou':  '#ff4466',
@@ -266,7 +266,7 @@ const GPS = (function() {
             .backgroundColor('rgba(0,0,0,0)')
             .globeImageUrl(GPS_GLOBE_TEXTURE_URL)
             .showAtmosphere(true)
-            .atmosphereColor('#3bb9ff')
+            .atmosphereColor(getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#3bb9ff')
             .atmosphereAltitude(0.17)
             .pointRadius('radius')
             .pointAltitude('altitude')

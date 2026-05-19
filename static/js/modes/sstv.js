@@ -254,14 +254,14 @@ const SSTV = (function() {
 
         // Past track (dimmer, solid)
         issTrackPast = L.polyline([], {
-            color: '#00d4ff',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff',
             weight: 1.5,
             opacity: 0.3,
         }).addTo(issMap);
 
         // Future track (brighter, dashed)
         issTrackLine = L.polyline([], {
-            color: '#00d4ff',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff',
             weight: 2,
             opacity: 0.7,
             dashArray: '6, 4'
