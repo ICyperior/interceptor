@@ -269,7 +269,7 @@
 /* ============================================
    LEAN TIER — flat dark, no GPU effects
    ============================================ */
-[data-ui-tier="lean"] {
+html[data-ui-tier="lean"] {
     --bg-primary: #111111;
     --bg-secondary: #181818;
     --bg-tertiary: #1f1f1f;
@@ -304,7 +304,7 @@
 /* ============================================
    ENHANCED TIER — amber military console
    ============================================ */
-[data-ui-tier="enhanced"] {
+html[data-ui-tier="enhanced"] {
     --bg-primary: #080600;
     --bg-secondary: #0c0a04;
     --bg-tertiary: #100d06;
