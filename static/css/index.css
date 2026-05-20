@@ -7675,14 +7675,6 @@ body[data-mode="tscm"] {
     background-attachment: fixed;
 }
 
-/* ============================================
-   BRAND SVG LOGO — follow accent color
-   ============================================ */
-.logo svg path,
-.welcome-logo svg path { stroke: var(--accent-cyan); }
-.logo svg rect,
-.welcome-logo svg rect,
-.brand-i svg rect { fill: var(--accent-cyan); }
 
 /* ============================================
    ENHANCED TIER — visual edge/glow overrides
