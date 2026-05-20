@@ -2,6 +2,28 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.27.0] - 2026-05-20
+
+### Fixed
+- **Two-window hang** — Opening the app in two browser tabs/windows caused it to become completely unresponsive. Root cause: HTTP/1.1 limits browsers to 6 connections per origin (shared across all tabs). VoiceAlerts was automatically opening 3 SSE streams per window on page load, so two windows produced 8 persistent connections and permanently blocked all regular HTTP requests. VoiceAlerts streams are now opt-in (disabled by default); users can enable them in settings.
+- **Alert messages split between windows** — The `/alerts/stream` SSE endpoint read from a single queue, so two windows would each receive only half the alerts. Now uses `sse_stream_fanout` so every window gets every alert.
+- **Bluetooth v2 stream split between windows** — Same single-queue issue in `/api/bluetooth/stream`. Fixed with fanout via `subscribe_fanout_queue`, preserving named SSE events (`device_update`, `scan_started`, etc.).
+- **ICAO lookup cache unbounded growth** — `_looked_up_icaos` set was never evicted; capped at 50 000 entries with LRU eviction to prevent memory growth under sustained ADS-B load.
+- **Concurrent ICAO clear race** — `popitem()` on the ICAO dict could raise `RuntimeError` if a clear happened concurrently; guarded with try/except.
+- **Bluetooth tracker fingerprint stability** — Tracker signature scan was incorrectly resetting stability counters on unchanged payloads; now skips the scan when the BLE payload fingerprint is unchanged.
+
+### Added
+- **UI Tier system** — Three display modes selectable from the nav bar: *Lean* (minimal, no decorative elements), *Standard* (default), and *Enhanced* (full animations and ambient effects). Replaces the old animations toggle.
+- **Display mode in first-run setup** — The first-run modal now includes a display mode selection step so new users can pick their preferred visual style during initial setup.
+
+### Performance
+- ADS-B SSE snapshot priming moved inside the response generator (avoids blocking before headers are sent).
+- WiFi network filter combined into a single list pass instead of chained filters.
+- Bluetooth tracker signature scan skips processing when the BLE payload fingerprint is unchanged.
+- `DataStore` cleanup minimises lock hold time by collecting expired keys before acquiring the write lock.
+
+---
+
 ## [2.26.11] - 2026-03-14
 
 ### Fixed
