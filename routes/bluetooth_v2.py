@@ -187,6 +187,19 @@ def load_seen_device_ids() -> set[str]:
 
 
 # =============================================================================
+# HELPERS
+# =============================================================================
+
+
+def device_to_dict(device: BTDeviceAggregate) -> dict:
+    """Serialize a BTDeviceAggregate to a JSON-safe dict with heuristics flattened to top level."""
+    d = device.to_dict()
+    heuristics = d.pop("heuristics", {})
+    d.update(heuristics)
+    return d
+
+
+# =============================================================================
 # API ENDPOINTS
 # =============================================================================
 

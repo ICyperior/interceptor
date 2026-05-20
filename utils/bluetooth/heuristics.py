@@ -30,12 +30,15 @@ class HeuristicsEngine:
     - has_random_address: Uses privacy-preserving random address
     """
 
-    def evaluate(self, device: BTDeviceAggregate) -> None:
+    def evaluate(self, device: BTDeviceAggregate) -> BTDeviceAggregate:
         """
         Evaluate all heuristics for a device and update its flags.
 
         Args:
             device: The BTDeviceAggregate to evaluate.
+
+        Returns:
+            The same device instance with updated heuristic flags.
         """
         # Note: is_new and has_random_address are set by the aggregator
         # Here we evaluate the behavioral heuristics
@@ -43,6 +46,7 @@ class HeuristicsEngine:
         device.is_persistent = self._check_persistent(device)
         device.is_beacon_like = self._check_beacon_like(device)
         device.is_strong_stable = self._check_strong_stable(device)
+        return device
 
     def _check_persistent(self, device: BTDeviceAggregate) -> bool:
         """
@@ -134,45 +138,36 @@ class HeuristicsEngine:
         Returns:
             Dictionary with heuristic flags and explanations.
         """
-        summary = {
-            'flags': [],
-            'details': {}
-        }
+        summary = {"flags": [], "details": {}}
 
         if device.is_new:
-            summary['flags'].append('new')
-            summary['details']['new'] = 'Device appeared after baseline was set'
+            summary["flags"].append("new")
+            summary["details"]["new"] = "Device appeared after baseline was set"
 
         if device.is_persistent:
-            summary['flags'].append('persistent')
-            summary['details']['persistent'] = (
-                f'Seen {device.seen_count} times over '
-                f'{device.duration_seconds:.0f}s ({device.seen_rate:.1f}/min)'
+            summary["flags"].append("persistent")
+            summary["details"]["persistent"] = (
+                f"Seen {device.seen_count} times over {device.duration_seconds:.0f}s ({device.seen_rate:.1f}/min)"
             )
 
         if device.is_beacon_like:
-            summary['flags'].append('beacon_like')
+            summary["flags"].append("beacon_like")
             intervals = self._calculate_intervals(device)
             if intervals:
                 mean_int = statistics.mean(intervals)
-                summary['details']['beacon_like'] = (
-                    f'Regular advertising interval (~{mean_int:.1f}s)'
-                )
+                summary["details"]["beacon_like"] = f"Regular advertising interval (~{mean_int:.1f}s)"
             else:
-                summary['details']['beacon_like'] = 'Regular advertising pattern'
+                summary["details"]["beacon_like"] = "Regular advertising pattern"
 
         if device.is_strong_stable:
-            summary['flags'].append('strong_stable')
-            summary['details']['strong_stable'] = (
-                f'Strong signal ({device.rssi_median:.0f} dBm) '
-                f'with low variance ({device.rssi_variance:.1f})'
+            summary["flags"].append("strong_stable")
+            summary["details"]["strong_stable"] = (
+                f"Strong signal ({device.rssi_median:.0f} dBm) with low variance ({device.rssi_variance:.1f})"
             )
 
         if device.has_random_address:
-            summary['flags'].append('random_address')
-            summary['details']['random_address'] = (
-                f'Uses {device.address_type} address (privacy-preserving)'
-            )
+            summary["flags"].append("random_address")
+            summary["details"]["random_address"] = f"Uses {device.address_type} address (privacy-preserving)"
 
         return summary
 

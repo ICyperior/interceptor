@@ -27,13 +27,16 @@ classifiers = [
 ]
 dependencies = [
     "flask>=3.0.0",
+    "flask-wtf>=1.2.0",
+    "flask-compress>=1.15",
+    "flask-limiter>=2.5.4",
+    "flask-sock",
+    "simple-websocket>=0.5.1",
+    "websocket-client>=1.6.0",
     "skyfield>=1.45",
     "pyserial>=3.5",
     "Werkzeug>=3.1.5",
-    "flask-limiter>=2.5.4",
     "bleak>=0.21.0",
-    "flask-sock",
-    "websocket-client>=1.6.0",
     "requests>=2.28.0",
 ]
 
@@ -51,6 +54,7 @@ dev = [
     "black>=23.0.0",
     "mypy>=1.0.0",
     "types-flask>=1.1.0",
+    "pre-commit>=3.0.0",
 ]
 
 optionals = [
@@ -59,8 +63,13 @@ optionals = [
     "numpy>=1.24.0",
     "Pillow>=9.0.0",
     "meshtastic>=2.0.0",
+    "meshcore>=1.0.0",
     "psycopg2-binary>=2.9.9",
     "scapy>=2.4.5",
+    "cryptography>=41.0.0",
+    "psutil>=5.9.0",
+    "gunicorn>=21.2.0",
+    "gevent>=23.9.0",
 ]
 
 [project.scripts]
