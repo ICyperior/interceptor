@@ -11,14 +11,14 @@
     --bg-panel: #101823;
     --bg-card: #151f2b;
     --border-color: #263246;
-    --border-glow: rgba(74, 163, 255, 0.4);
+    --border-glow: rgba(var(--accent-cyan-rgb), 0.4);
     --text-primary: #d7e0ee;
     --text-secondary: #9fb0c7;
     --text-dim: #6f7f94;
     --accent-cyan: #4aa3ff;
     --accent-green: #38c180;
     --accent-amber: #d6a85e;
-    --grid-line: rgba(74, 163, 255, 0.1);
+    --grid-line: rgba(var(--accent-cyan-rgb), 0.1);
     --noise-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='40'%20height='40'%20viewBox='0%200%2040%2040'%3E%3Cg%20fill='%23ffffff'%20fill-opacity='0.05'%3E%3Ccircle%20cx='3'%20cy='5'%20r='1'/%3E%3Ccircle%20cx='11'%20cy='9'%20r='1'/%3E%3Ccircle%20cx='18'%20cy='3'%20r='1'/%3E%3Ccircle%20cx='26'%20cy='12'%20r='1'/%3E%3Ccircle%20cx='34'%20cy='6'%20r='1'/%3E%3Ccircle%20cx='7'%20cy='19'%20r='1'/%3E%3Ccircle%20cx='15'%20cy='24'%20r='1'/%3E%3Ccircle%20cx='28'%20cy='22'%20r='1'/%3E%3Ccircle%20cx='36'%20cy='18'%20r='1'/%3E%3Ccircle%20cx='5'%20cy='33'%20r='1'/%3E%3Ccircle%20cx='19'%20cy='32'%20r='1'/%3E%3Ccircle%20cx='31'%20cy='34'%20r='1'/%3E%3C/g%3E%3C/svg%3E");
 }
 
@@ -297,7 +297,7 @@ body {
 
 .primary-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 14px rgba(74, 158, 255, 0.3);
+    box-shadow: 0 6px 14px rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .primary-btn:disabled {
@@ -411,7 +411,7 @@ body {
 }
 
 .aircraft-row:hover {
-    background: rgba(74, 158, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
 }
 
 .aircraft-row.military {
@@ -440,9 +440,9 @@ body {
 }
 
 .civ-badge {
-    background: rgba(74, 158, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.15);
     color: var(--text-dim);
-    border: 1px solid rgba(74, 158, 255, 0.25);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.25);
 }
 
 .mono {
@@ -602,8 +602,8 @@ body {
 }
 
 .nav-btn {
-    background: rgba(74, 158, 255, 0.15);
-    border: 1px solid rgba(74, 158, 255, 0.4);
+    background: rgba(var(--accent-cyan-rgb), 0.15);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.4);
     color: var(--accent-cyan);
     padding: 6px 10px;
     border-radius: 6px;

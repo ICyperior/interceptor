@@ -18,7 +18,7 @@
     --bg-overlay: rgba(8, 13, 20, 0.75);
     --surface-glass: rgba(16, 25, 37, 0.82);
     --surface-panel-gradient: linear-gradient(160deg, rgba(20, 32, 47, 0.94) 0%, rgba(11, 18, 27, 0.96) 100%);
-    --ambient-top-left: rgba(74, 163, 255, 0.14);
+    --ambient-top-left: rgba(var(--accent-cyan-rgb), 0.14);
     --ambient-top-right: rgba(56, 193, 128, 0.09);
     --ambient-bottom: rgba(214, 168, 94, 0.06);
 
@@ -28,9 +28,10 @@
 
     /* Accent colors */
     --accent-cyan: #4aa3ff;
-    --accent-cyan-dim: rgba(74, 163, 255, 0.16);
+    --accent-cyan-rgb: 74, 163, 255;
+    --accent-cyan-dim: rgba(var(--accent-cyan-rgb), 0.16);
     --accent-cyan-hover: #6bb3ff;
-    --accent-cyan-glow: rgba(74, 163, 255, 0.12);
+    --accent-cyan-glow: rgba(var(--accent-cyan-rgb), 0.12);
     --accent-green: #38c180;
     --accent-green-hover: #16a34a;
     --accent-green-dim: rgba(56, 193, 128, 0.18);
@@ -54,7 +55,7 @@
     /* Borders */
     --border-color: #263246;
     --border-light: #354458;
-    --border-glow: rgba(74, 163, 255, 0.25);
+    --border-glow: rgba(var(--accent-cyan-rgb), 0.25);
     --border-focus: var(--accent-cyan);
 
     /* Status colors */
@@ -77,7 +78,7 @@
     --neon-red: #ff3366;
 
     /* Subtle grid/pattern */
-    --grid-line: rgba(74, 163, 255, 0.1);
+    --grid-line: rgba(var(--accent-cyan-rgb), 0.1);
     --grid-dot: rgba(255, 255, 255, 0.03);
     --noise-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='40'%20height='40'%20viewBox='0%200%2040%2040'%3E%3Cg%20fill='%23ffffff'%20fill-opacity='0.05'%3E%3Ccircle%20cx='3'%20cy='5'%20r='1'/%3E%3Ccircle%20cx='11'%20cy='9'%20r='1'/%3E%3Ccircle%20cx='18'%20cy='3'%20r='1'/%3E%3Ccircle%20cx='26'%20cy='12'%20r='1'/%3E%3Ccircle%20cx='34'%20cy='6'%20r='1'/%3E%3Ccircle%20cx='7'%20cy='19'%20r='1'/%3E%3Ccircle%20cx='15'%20cy='24'%20r='1'/%3E%3Ccircle%20cx='28'%20cy='22'%20r='1'/%3E%3Ccircle%20cx='36'%20cy='18'%20r='1'/%3E%3Ccircle%20cx='5'%20cy='33'%20r='1'/%3E%3Ccircle%20cx='19'%20cy='32'%20r='1'/%3E%3Ccircle%20cx='31'%20cy='34'%20r='1'/%3E%3C/g%3E%3C/svg%3E");
 
@@ -146,7 +147,7 @@
     --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.35);
     --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 12px 18px rgba(0, 0, 0, 0.45);
-    --shadow-glow: 0 0 18px rgba(74, 163, 255, 0.16);
+    --shadow-glow: 0 0 18px rgba(var(--accent-cyan-rgb), 0.16);
 
     /* ============================================
        TRANSITIONS
@@ -198,6 +199,7 @@
     --bg-panel: var(--bg-secondary);
 
     --accent-cyan: #1f5fa8;
+    --accent-cyan-rgb: 31, 95, 168;
     --accent-cyan-dim: rgba(31, 95, 168, 0.12);
     --accent-cyan-hover: #2c73bf;
     --accent-green: #1f8a57;
@@ -315,6 +317,7 @@ html[data-ui-tier="enhanced"] {
     --surface-panel-gradient: linear-gradient(160deg, rgba(20, 16, 8, 0.94) 0%, rgba(12, 10, 4, 0.96) 100%);
 
     --accent-cyan: #c89628;
+    --accent-cyan-rgb: 200, 150, 40;
     --accent-cyan-dim: rgba(200, 150, 40, 0.14);
     --accent-cyan-hover: #e0aa30;
     --accent-cyan-glow: rgba(200, 150, 40, 0.10);

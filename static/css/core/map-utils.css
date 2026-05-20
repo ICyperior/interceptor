@@ -14,7 +14,7 @@
     background: rgba(7, 9, 14, 0.72);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(74, 163, 255, 0.18);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.18);
     border-radius: 4px;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
     font-size: 11px;
@@ -98,7 +98,7 @@
 .map-range-label span {
     display: inline-block;
     background: rgba(7, 9, 14, 0.7);
-    color: rgba(74, 163, 255, 0.7);
+    color: rgba(var(--accent-cyan-rgb), 0.7);
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
     font-size: 9px;
     padding: 1px 4px;
@@ -111,7 +111,7 @@
 
 .map-glass-popup .leaflet-popup-content-wrapper {
     background: var(--bg-elevated, #161d28) !important;
-    border: 1px solid var(--border-color, rgba(74,163,255,0.15)) !important;
+    border: 1px solid var(--border-color, rgba(var(--accent-cyan-rgb),0.15)) !important;
     border-radius: 6px !important;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);

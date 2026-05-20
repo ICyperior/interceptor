@@ -650,9 +650,9 @@
 }
 
 .mesh-badge-primary {
-    background: rgba(74, 158, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.15);
     color: var(--accent-cyan);
-    border: 1px solid rgba(74, 158, 255, 0.3);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .mesh-badge-secondary {
@@ -1349,7 +1349,7 @@
 }
 
 .mesh-traceroute-snr.snr-ok {
-    background: rgba(74, 158, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.15);
     color: var(--accent-cyan);
 }
 
@@ -1572,7 +1572,7 @@
 }
 
 .mesh-network-neighbor-snr.snr-ok {
-    background: rgba(74, 158, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.15);
     color: var(--accent-cyan);
 }
 

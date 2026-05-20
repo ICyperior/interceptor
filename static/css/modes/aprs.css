@@ -18,14 +18,14 @@
     flex-direction: column;
     align-items: center;
     padding: 4px 10px;
-    background: rgba(74, 158, 255, 0.05);
-    border: 1px solid rgba(74, 158, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.15);
     border-radius: 4px;
     min-width: 55px;
 }
 .aprs-strip .strip-stat:hover {
-    background: rgba(74, 158, 255, 0.1);
-    border-color: rgba(74, 158, 255, 0.3);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
+    border-color: rgba(var(--accent-cyan-rgb), 0.3);
 }
 .aprs-strip .strip-value {
     font-family: var(--font-mono);
@@ -114,8 +114,8 @@
 
 /* Buttons */
 .aprs-strip .strip-btn {
-    background: rgba(74, 158, 255, 0.1);
-    border: 1px solid rgba(74, 158, 255, 0.2);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.2);
     color: var(--text-primary);
     padding: 6px 12px;
     border-radius: 4px;
@@ -126,8 +126,8 @@
     white-space: nowrap;
 }
 .aprs-strip .strip-btn:hover:not(:disabled) {
-    background: rgba(74, 158, 255, 0.2);
-    border-color: rgba(74, 158, 255, 0.4);
+    background: rgba(var(--accent-cyan-rgb), 0.2);
+    border-color: rgba(var(--accent-cyan-rgb), 0.4);
 }
 .aprs-strip .strip-btn.primary {
     background: linear-gradient(135deg, var(--accent-green) 0%, #10b981 100%);
@@ -223,8 +223,8 @@
 .aprs-status-dot.tracking { background: var(--accent-green); }
 .aprs-status-dot.error { background: var(--accent-red); }
 @keyframes aprs-pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 158, 255, 0.7); }
-    50% { opacity: 0.6; box-shadow: 0 0 8px 4px rgba(74, 158, 255, 0.3); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(var(--accent-cyan-rgb), 0.7); }
+    50% { opacity: 0.6; box-shadow: 0 0 8px 4px rgba(var(--accent-cyan-rgb), 0.3); }
 }
 .aprs-status-text {
     font-size: 10px;
@@ -339,7 +339,7 @@
     gap: 5px;
     padding: 2px 7px 2px 5px;
     border-radius: 999px;
-    border: 1px solid rgba(74, 158, 255, 0.35);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.35);
     background: rgba(10, 18, 28, 0.88);
     color: var(--text-primary);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);

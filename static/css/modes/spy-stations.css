@@ -128,9 +128,9 @@
 }
 
 .spy-badge-number {
-    background: rgba(74, 158, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.15);
     color: var(--accent-cyan);
-    border: 1px solid rgba(74, 158, 255, 0.3);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .spy-badge-diplomatic {

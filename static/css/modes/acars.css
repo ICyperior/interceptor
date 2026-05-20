@@ -28,7 +28,7 @@
     transition: background 0.2s;
 }
 .main-acars-collapse-btn:hover {
-    background: rgba(74, 158, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.15);
 }
 .main-acars-collapse-label {
     writing-mode: vertical-rl;
@@ -67,7 +67,7 @@
     animation: fadeInMsg 0.3s ease;
 }
 .main-acars-msg:hover {
-    background: rgba(74, 158, 255, 0.05);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
 }
 @keyframes fadeInMsg {
     from { opacity: 0; transform: translateY(-3px); }
@@ -86,8 +86,8 @@
     background: var(--accent-red) !important;
 }
 @keyframes acars-pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 158, 255, 0.7); }
-    50% { opacity: 0.6; box-shadow: 0 0 6px 3px rgba(74, 158, 255, 0.3); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(var(--accent-cyan-rgb), 0.7); }
+    50% { opacity: 0.6; box-shadow: 0 0 6px 3px rgba(var(--accent-cyan-rgb), 0.3); }
 }
 
 /* ACARS Standalone Message Feed */
@@ -106,10 +106,10 @@
     transition: background 0.15s;
 }
 .acars-feed-card:hover {
-    background: rgba(74, 158, 255, 0.05);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
 }
 
 /* Clickable ACARS sidebar messages (linked to tracked aircraft) */
 .acars-message-item[style*="cursor: pointer"]:hover {
-    background: rgba(74, 158, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
 }

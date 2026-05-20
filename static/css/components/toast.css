@@ -501,8 +501,8 @@
 }
 
 .update-result-info {
-    background: rgba(74, 158, 255, 0.1);
-    border: 1px solid rgba(74, 158, 255, 0.3);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .update-result-info .update-result-icon {
