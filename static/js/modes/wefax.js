@@ -58,6 +58,9 @@ var WeFax = (function () {
 
     function destroy() {
         closeImage();
+        if (state.running) {
+            stop();
+        }
         disconnectSSE();
         stopScope();
         stopCountdownTimer();

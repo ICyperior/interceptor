@@ -16,17 +16,18 @@ const VoiceAlerts = (function () {
     const PITCH_MIN = 0.5;
     const PITCH_MAX = 2.0;
 
-    // Default config
+    // Default config — streams are opt-in to avoid saturating the browser's
+    // HTTP/1.1 per-origin connection limit (6) when multiple tabs are open.
     let _config = {
         rate: 1.1,
         pitch: 0.9,
         voiceName: '',
         streams: {
-            pager: true,
-            tscm: true,
-            bluetooth: true,
-            adsb_military: true,
-            squawks: true,
+            pager: false,
+            tscm: false,
+            bluetooth: false,
+            adsb_military: false,
+            squawks: false,
         },
     };
 

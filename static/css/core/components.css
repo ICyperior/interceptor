@@ -1206,12 +1206,12 @@ textarea:focus {
 }
 
 /* ============================================
-   ENHANCED TIER — amber left-border card accents
+   ENHANCED TIER — signals teal card accents
    ============================================ */
 [data-ui-tier="enhanced"] .stat-card,
 [data-ui-tier="enhanced"] .data-card {
     border-left: 2px solid var(--accent-cyan);
-    background: rgba(200, 150, 40, 0.03);
+    background: rgba(46, 125, 138, 0.03);
 }
 
 [data-ui-tier="enhanced"] .stat-value,
@@ -1226,5 +1226,10 @@ textarea:focus {
     letter-spacing: 2px;
     text-transform: uppercase;
     font-size: var(--text-xs);
-    color: rgba(200, 150, 40, 0.5);
+    color: rgba(46, 125, 138, 0.55);
+}
+
+html[data-ui-tier="enhanced"] .card-header,
+html[data-ui-tier="enhanced"] .panel-header {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.88) 0%, rgba(2, 4, 4, 0.9) 100%);
 }

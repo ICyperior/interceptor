@@ -1375,19 +1375,18 @@ body {
 }
 
 /* ============================================
-   ENHANCED TIER — amber military console
+   ENHANCED TIER — signals teal console
    ============================================ */
 html[data-ui-tier="enhanced"] {
-    --bg-dark: #080600;
-    --bg-panel: #0c0a04;
-    --bg-card: #0e0b05;
-    --radar-bg: #0c0a04;
-    --radar-cyan: #c89628;
-    --border-glow: rgba(200, 150, 40, 0.25);
-    --border-color: rgba(200, 150, 40, 0.2);
-    --grid-line: rgba(200, 150, 40, 0.07);
-    --accent-cyan: #c89628;
-    --accent-green: #c89628;
+    --bg-dark: #000000;
+    --bg-panel: #020404;
+    --bg-card: #020404;
+    --radar-bg: #020404;
+    --radar-cyan: #2e7d8a;
+    --border-glow: rgba(46, 125, 138, 0.20);
+    --border-color: rgba(46, 125, 138, 0.18);
+    --grid-line: rgba(46, 125, 138, 0.07);
+    --accent-cyan: #2e7d8a;
 }
 
 /* ============================================

@@ -563,7 +563,7 @@
         }
         .location-select:focus {
             outline: none;
-            border-color: #00d4ff;
+            border-color: var(--accent-cyan);
         }
         .location-status-dot {
             width: 8px;
@@ -823,14 +823,16 @@
             ]
         };
 
+        const _satAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00ffff';
+
         let satellites = {
-            25544: { name: 'ISS (ZARYA)', color: '#00ffff' },
+            25544: { name: 'ISS (ZARYA)', color: _satAccent },
             40069: { name: 'METEOR-M2', color: '#9370DB' },
             57166: { name: 'METEOR-M2-3', color: '#ff00ff' },
             59051: { name: 'METEOR-M2-4', color: '#00ff88' }
         };
 
-        const satColors = ['#00ffff', '#9370DB', '#ff00ff', '#00ff00', '#ff6600', '#ffff00', '#ff69b4', '#7b68ee'];
+        const satColors = [_satAccent, '#9370DB', '#ff00ff', '#00ff00', '#ff6600', '#ffff00', '#ff69b4', '#7b68ee'];
 
         async function fetchJsonWithTimeout(url, options = {}, timeoutMs = SAT_DRAWER_FETCH_TIMEOUT_MS) {
             const controller = new AbortController();
@@ -1102,7 +1104,7 @@
                 drawPolarPlotWithPosition(
                     normalized.azimuth ?? normalized.az,
                     normalized.elevation ?? normalized.el,
-                    satellites[selectedSatellite]?.color || '#00d4ff'
+                    satellites[selectedSatellite]?.color || _satAccent
                 );
             }
             renderMapTrackOverlays({ refreshPass: false, refreshLive: true });
@@ -1547,7 +1549,7 @@
             const track = Array.isArray(pass?.groundTrack) ? pass.groundTrack : [];
             if (!track.length) return null;
 
-            const color = pass.color || satellites[selectedSatellite]?.color || '#00d4ff';
+            const color = pass.color || satellites[selectedSatellite]?.color || _satAccent;
             const layer = L.layerGroup();
             const segments = splitAtAntimeridian(track);
             const bounds = [];
@@ -1687,7 +1689,7 @@
                 bounds.push(...liveTrack.map(p => [p.lat, p.lon]));
             }
 
-            const satColor = satellites[selectedSatellite]?.color || '#00d4ff';
+            const satColor = satellites[selectedSatellite]?.color || _satAccent;
             const currentPos = latestLivePosition?.lat != null && latestLivePosition?.lon != null
                 ? { lat: latestLivePosition.lat, lon: latestLivePosition.lon }
                 : (pass?.currentPos?.lat != null && pass?.currentPos?.lon != null
@@ -2328,7 +2330,7 @@
 
             // Pass trajectory
             if (pass && pass.trajectory) {
-                ctx.strokeStyle = pass.color || '#00d4ff';
+                ctx.strokeStyle = pass.color || _satAccent;
                 ctx.lineWidth = 3;
                 ctx.setLineDash([8, 4]);
                 ctx.beginPath();
@@ -2356,7 +2358,7 @@
                 if (maxElPoint) {
                     ctx.beginPath();
                     ctx.arc(maxElPoint.x, maxElPoint.y, 8, 0, Math.PI * 2);
-                    ctx.fillStyle = pass.color || '#00d4ff';
+                    ctx.fillStyle = pass.color || _satAccent;
                     ctx.fill();
                     ctx.strokeStyle = '#fff';
                     ctx.lineWidth = 2;

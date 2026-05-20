@@ -342,7 +342,7 @@
 .sstv-general-image-card:hover {
     border-color: var(--accent-cyan);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(var(--accent-cyan-rgb), 0.2);
 }
 
 .sstv-general-image-card-inner {

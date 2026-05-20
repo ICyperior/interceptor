@@ -43,6 +43,9 @@ var OokMode = (function () {
     }
 
     function destroy() {
+        if (state.running) {
+            stop();
+        }
         disconnectSSE();
     }
 

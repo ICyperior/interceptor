@@ -262,10 +262,10 @@ body {
 
 @keyframes logoPulse {
     0%, 100% {
-        filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.3));
+        filter: drop-shadow(0 0 15px rgba(var(--accent-cyan-rgb), 0.3));
     }
     50% {
-        filter: drop-shadow(0 0 30px rgba(0, 212, 255, 0.6));
+        filter: drop-shadow(0 0 30px rgba(var(--accent-cyan-rgb), 0.6));
     }
 }
 
@@ -304,7 +304,7 @@ body {
     color: var(--text-primary);
     letter-spacing: 0.2em;
     margin: 0;
-    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    text-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.3);
     white-space: nowrap;
 }
 
@@ -453,7 +453,7 @@ body {
     background: var(--bg-elevated);
     border-color: var(--accent-cyan);
     transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.15);
+    box-shadow: 0 4px 20px rgba(var(--accent-cyan-rgb), 0.15);
 }
 
 .mode-card:hover .mode-icon {
@@ -2529,7 +2529,7 @@ header h1 .tagline {
     border: 1px solid var(--accent-cyan);
     border-radius: 4px;
     overflow: hidden;
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.2);
 }
 
 #aircraftMap {
@@ -2863,7 +2863,7 @@ header h1 .tagline {
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 15px;
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+    box-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.1);
 }
 
 .countdown-satellite-name {
@@ -5879,7 +5879,7 @@ body::before {
     max-width: 550px;
     padding: 30px;
     text-align: center;
-    box-shadow: 0 0 50px rgba(0, 212, 255, 0.3);
+    box-shadow: 0 0 50px rgba(var(--accent-cyan-rgb), 0.3);
     pointer-events: auto;
     position: relative;
     z-index: 100000;
@@ -5939,7 +5939,7 @@ body::before {
 
 .disclaimer-modal .accept-btn:hover {
     background: #fff;
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    box-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.5);
 }
 
 .disclaimer-hidden {
@@ -6190,7 +6190,7 @@ body::before {
 
 /* Map Clustering */
 .marker-cluster {
-    background: rgba(0, 212, 255, 0.6);
+    background: rgba(var(--accent-cyan-rgb), 0.6);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -7045,7 +7045,7 @@ body::before {
 .radio-module-box.scanner-main {
     background: linear-gradient(180deg, var(--bg-secondary) 0%, rgba(0,20,30,0.95) 100%);
     border: 1px solid var(--accent-cyan-dim);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.1), inset 0 0 40px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.1), inset 0 0 40px rgba(0, 0, 0, 0.3);
 }
 
 .radio-module-box.scanner-main::before {
@@ -7224,7 +7224,7 @@ body::before {
 }
 
 .radio-module-box table tbody tr:hover {
-    background: rgba(0, 212, 255, 0.05);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
 }
 
 /* Log Content Compact */
@@ -7257,14 +7257,14 @@ body::before {
 .radio-mode-btn:hover {
     border-color: var(--accent-cyan);
     color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.05);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
 }
 
 .radio-mode-btn.active {
-    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 255, 136, 0.1));
+    background: linear-gradient(135deg, rgba(var(--accent-cyan-rgb), 0.2), rgba(0, 255, 136, 0.1));
     border-color: var(--accent-cyan);
     color: var(--accent-cyan);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2), inset 0 0 20px rgba(0, 212, 255, 0.05);
+    box-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.2), inset 0 0 20px rgba(var(--accent-cyan-rgb), 0.05);
 }
 
 /* Listening Mode Panels */
@@ -7292,7 +7292,7 @@ body::before {
 .preset-freq-btn:hover {
     border-color: var(--accent-cyan);
     color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
 }
 
 .preset-freq-btn:active {
@@ -7652,6 +7652,11 @@ body[data-mode="tscm"] {
     background-size: unset;
 }
 
+html[data-ui-tier="lean"][data-theme="light"] body {
+    background-color: var(--bg-primary);
+    background-image: none;
+}
+
 [data-ui-tier="lean"] *,
 [data-ui-tier="lean"] *::before,
 [data-ui-tier="lean"] *::after {
@@ -7677,9 +7682,75 @@ body[data-mode="tscm"] {
 
 
 /* ============================================
-   ENHANCED TIER — visual edge/glow overrides
+   ENHANCED TIER — panel surface overrides
+   Replaces hardcoded cool-dark navy gradients
+   with warm near-black amber equivalents.
    ============================================ */
 html[data-ui-tier="enhanced"] {
-    --visual-edge-cyan: rgba(200, 150, 40, 0.34);
-    --visual-glow-cyan: 0 0 24px rgba(200, 150, 40, 0.16);
+    --visual-edge-cyan: rgba(46, 125, 138, 0.30);
+    --visual-glow-cyan: 0 0 24px rgba(46, 125, 138, 0.12);
+    --visual-surface-soft: linear-gradient(180deg, rgba(6, 10, 10, 0.9) 0%, rgba(3, 5, 5, 0.95) 100%);
+    --visual-surface-panel: linear-gradient(160deg, rgba(6, 10, 10, 0.95) 0%, rgba(2, 4, 4, 0.96) 100%);
+}
+
+html[data-ui-tier="enhanced"] .mode-nav {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.96) 0%, rgba(2, 4, 4, 0.98) 100%);
+}
+
+html[data-ui-tier="enhanced"] .mode-nav-dropdown-menu {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.98) 0%, rgba(2, 4, 4, 0.99) 100%);
+    border-color: rgba(46, 125, 138, 0.20);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(46, 125, 138, 0.09);
+}
+
+html[data-ui-tier="enhanced"] .run-state-strip {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.96) 0%, rgba(2, 4, 4, 0.97) 100%);
+}
+
+html[data-ui-tier="enhanced"] .section h3 {
+    background: linear-gradient(180deg, rgba(6, 10, 10, 1) 0%, rgba(4, 8, 8, 1) 100%);
+}
+
+html[data-ui-tier="enhanced"] .section h3::after {
+    background: rgba(2, 4, 4, 0.9);
+}
+
+html[data-ui-tier="enhanced"] .form-group input,
+html[data-ui-tier="enhanced"] .form-group select {
+    background: rgba(2, 4, 4, 0.72);
+}
+
+html[data-ui-tier="enhanced"] .preset-btn,
+html[data-ui-tier="enhanced"] .control-btn,
+html[data-ui-tier="enhanced"] .clear-btn {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.88) 0%, rgba(2, 4, 4, 0.9) 100%);
+}
+
+html[data-ui-tier="enhanced"] .output-panel {
+    background: linear-gradient(180deg, rgba(2, 4, 4, 0.98) 0%, rgba(1, 2, 2, 0.99) 100%);
+}
+
+html[data-ui-tier="enhanced"] .output-header {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.95) 0%, rgba(2, 4, 4, 0.98) 100%);
+}
+
+html[data-ui-tier="enhanced"] .output-content {
+    background: linear-gradient(180deg, rgba(2, 4, 4, 0.6) 0%, rgba(2, 4, 4, 0.9) 100%);
+}
+
+html[data-ui-tier="enhanced"] .stats > div {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.8) 0%, rgba(2, 4, 4, 0.82) 100%);
+}
+
+html[data-ui-tier="enhanced"] .message {
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.8) 0%, rgba(2, 4, 4, 0.82) 100%);
+}
+
+html[data-ui-tier="enhanced"] .status-bar {
+    background: linear-gradient(180deg, rgba(3, 6, 6, 0.96) 0%, rgba(2, 4, 4, 0.97) 100%);
+}
+
+html[data-ui-tier="enhanced"] .status-indicator,
+html[data-ui-tier="enhanced"] .control-group {
+    background: linear-gradient(180deg, rgba(3, 6, 6, 0.78) 0%, rgba(2, 4, 4, 0.8) 100%);
 }

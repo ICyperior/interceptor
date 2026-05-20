@@ -155,25 +155,22 @@ const WiFiMode = (function() {
     // ==========================================================================
 
     function init() {
-        console.log('[WiFiMode] Initializing...');
+        // Capabilities and one-time component setup only on first call.
+        // Subsequent visits refresh scan state and re-render without redundant fetches.
+        const firstInit = capabilities === null;
 
-        // Cache DOM elements
         cacheDOM();
 
-        // Check capabilities
-        checkCapabilities();
+        if (firstInit) {
+            checkCapabilities();
+            initScanModeTabs();
+            initNetworkFilters();
+            initSortControls();
+            initHeatmap();
+        }
 
-        // Initialize components
-        initScanModeTabs();
-        initNetworkFilters();
-        initSortControls();
-        initHeatmap();
         scheduleRender({ table: true, stats: true, radar: true });
-
-        // Check if already scanning
         checkScanStatus();
-
-        console.log('[WiFiMode] Initialized');
     }
 
     // DOM element cache

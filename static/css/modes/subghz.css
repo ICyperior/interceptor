@@ -300,7 +300,7 @@
 }
 
 .subghz-btn.active {
-    background: rgba(0, 212, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
     border-color: var(--accent-cyan, var(--accent-cyan));
     color: var(--accent-cyan, var(--accent-cyan));
 }
@@ -384,9 +384,9 @@
 }
 
 .subghz-capture-card.selected {
-    border-color: rgba(0, 212, 255, 0.85);
-    box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.3);
-    background: rgba(0, 212, 255, 0.06);
+    border-color: rgba(var(--accent-cyan-rgb), 0.85);
+    box-shadow: 0 0 0 1px rgba(var(--accent-cyan-rgb), 0.3);
+    background: rgba(var(--accent-cyan-rgb), 0.06);
 }
 
 .subghz-capture-header {
@@ -455,9 +455,9 @@
 }
 
 .subghz-capture-tag.auto {
-    border-color: rgba(0, 212, 255, 0.55);
+    border-color: rgba(var(--accent-cyan-rgb), 0.55);
     color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.12);
+    background: rgba(var(--accent-cyan-rgb), 0.12);
 }
 
 .subghz-capture-tag.hint {
@@ -536,13 +536,13 @@
 }
 
 .subghz-capture-actions button.select-btn {
-    border-color: rgba(0, 212, 255, 0.5);
+    border-color: rgba(var(--accent-cyan-rgb), 0.5);
     color: var(--accent-cyan);
 }
 
 .subghz-capture-actions button.select-btn.selected {
-    border-color: rgba(0, 212, 255, 0.9);
-    background: rgba(0, 212, 255, 0.18);
+    border-color: rgba(var(--accent-cyan-rgb), 0.9);
+    background: rgba(var(--accent-cyan-rgb), 0.18);
     color: #7beeff;
 }
 
@@ -781,14 +781,14 @@
     height: 26px;
     border: 1px solid var(--border-color, #2a3040);
     border-radius: 4px;
-    background: linear-gradient(90deg, rgba(0, 212, 255, 0.07), rgba(255, 170, 0, 0.07));
+    background: linear-gradient(90deg, rgba(var(--accent-cyan-rgb), 0.07), rgba(255, 170, 0, 0.07));
     margin-bottom: 8px;
     overflow: hidden;
 }
 
 .subghz-tx-burst-timeline.dragging {
-    border-color: rgba(0, 212, 255, 0.65);
-    box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.25) inset;
+    border-color: rgba(var(--accent-cyan-rgb), 0.65);
+    box-shadow: 0 0 0 1px rgba(var(--accent-cyan-rgb), 0.25) inset;
 }
 
 .subghz-tx-burst-selection {
@@ -796,8 +796,8 @@
     top: 3px;
     bottom: 3px;
     border-radius: 3px;
-    border: 1px solid rgba(0, 212, 255, 0.95);
-    background: rgba(0, 212, 255, 0.22);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.95);
+    background: rgba(var(--accent-cyan-rgb), 0.22);
     pointer-events: none;
     display: none;
     z-index: 2;
@@ -823,8 +823,8 @@
 }
 
 .subghz-tx-burst-marker:hover {
-    background: rgba(0, 212, 255, 0.85);
-    border-color: rgba(0, 212, 255, 1);
+    background: rgba(var(--accent-cyan-rgb), 0.85);
+    border-color: rgba(var(--accent-cyan-rgb), 1);
 }
 
 .subghz-tx-burst-list {
@@ -861,7 +861,7 @@
 
 .subghz-tx-burst-item button {
     padding: 2px 8px;
-    border: 1px solid rgba(0, 212, 255, 0.5);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.5);
     border-radius: 3px;
     background: transparent;
     color: var(--accent-cyan);
@@ -871,7 +871,7 @@
 }
 
 .subghz-tx-burst-item button:hover {
-    background: rgba(0, 212, 255, 0.12);
+    background: rgba(var(--accent-cyan-rgb), 0.12);
 }
 
 .subghz-tx-modal-actions {
@@ -901,13 +901,13 @@
 }
 
 .subghz-tx-trim-btn {
-    background: rgba(0, 212, 255, 0.14);
+    background: rgba(var(--accent-cyan-rgb), 0.14);
     color: var(--accent-cyan);
-    border-color: rgba(0, 212, 255, 0.55) !important;
+    border-color: rgba(var(--accent-cyan-rgb), 0.55) !important;
 }
 
 .subghz-tx-trim-btn:hover {
-    background: rgba(0, 212, 255, 0.26);
+    background: rgba(var(--accent-cyan-rgb), 0.26);
 }
 
 .subghz-tx-cancel-btn {
@@ -1043,7 +1043,7 @@
 }
 
 .subghz-action-btn.decode:hover {
-    background: rgba(0, 212, 255, 0.12);
+    background: rgba(var(--accent-cyan-rgb), 0.12);
     border-color: var(--accent-cyan, var(--accent-cyan));
     color: var(--accent-cyan, var(--accent-cyan));
 }
@@ -1275,7 +1275,7 @@
 
 .subghz-phase-step.active {
     color: var(--accent-cyan, var(--accent-cyan));
-    text-shadow: 0 0 6px rgba(0, 212, 255, 0.3);
+    text-shadow: 0 0 6px rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .subghz-phase-step.completed {
@@ -1328,9 +1328,9 @@
 }
 
 .subghz-burst-indicator.recent {
-    border-color: rgba(0, 212, 255, 0.45);
+    border-color: rgba(var(--accent-cyan-rgb), 0.45);
     color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
 }
 
 .subghz-burst-indicator.recent .subghz-burst-dot {
@@ -1445,8 +1445,8 @@
     transform: translateY(0);
 }
 
-.subghz-hub-card--cyan { border-color: rgba(0, 212, 255, 0.2); }
-.subghz-hub-card--cyan:hover { border-color: var(--accent-cyan, var(--accent-cyan)); background: rgba(0, 212, 255, 0.05); }
+.subghz-hub-card--cyan { border-color: rgba(var(--accent-cyan-rgb), 0.2); }
+.subghz-hub-card--cyan:hover { border-color: var(--accent-cyan, var(--accent-cyan)); background: rgba(var(--accent-cyan-rgb), 0.05); }
 .subghz-hub-card--cyan .subghz-hub-icon { color: var(--accent-cyan, var(--accent-cyan)); }
 
 .subghz-hub-card--green { border-color: rgba(0, 255, 136, 0.2); }
@@ -1736,8 +1736,8 @@
 
 .subghz-rx-burst-pill.recent {
     color: var(--accent-cyan);
-    border-color: rgba(0, 212, 255, 0.65);
-    background: rgba(0, 212, 255, 0.12);
+    border-color: rgba(var(--accent-cyan-rgb), 0.65);
+    background: rgba(var(--accent-cyan-rgb), 0.12);
 }
 
 .subghz-rx-level-label {

@@ -1428,9 +1428,13 @@ const SSTV = (function() {
      * Destroy — close SSE stream and clear ISS tracking/countdown timers for clean mode switching.
      */
     function destroy() {
-        if (eventSource) {
-            eventSource.close();
-            eventSource = null;
+        if (isRunning) {
+            stop().catch(() => {});
+        } else {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
         }
         stopIssTracking();
         stopCountdown();

@@ -216,9 +216,9 @@ const FirstRunSetup = (function() {
                     el.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:7px;color:#aaa;font-family:monospace;"><span>INTERCEPT</span><span style="color:#4a4;">● LIVE</span></div><div style="font-size:7px;color:#888;font-family:monospace;margin-top:2px;">ADS-B ........... 247<br>TSCM ............ 3 ⚠</div>';
                 });
 
-                const enhancedBtn = makeTierBtn('enhanced', 'Enhanced', 'Amber military console — for desktop or laptop.', (el) => {
-                    el.style.cssText += 'background:#080600;border:1px solid rgba(200,150,40,0.3);display:flex;flex-direction:column;justify-content:center;padding:6px;gap:3px;';
-                    el.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:7px;color:#c89628;font-family:monospace;letter-spacing:2px;"><span>INTERCEPT</span><span style="opacity:0.6;">14:27Z</span></div><div style="border-left:2px solid #c89628;padding-left:4px;margin-top:4px;font-size:8px;color:#c89628;font-family:monospace;font-weight:700;">247 ADS-B</div>';
+                const enhancedBtn = makeTierBtn('enhanced', 'Enhanced', 'Signals teal console — for desktop or laptop.', (el) => {
+                    el.style.cssText += 'background:#000202;border:1px solid rgba(46,125,138,0.3);display:flex;flex-direction:column;justify-content:center;padding:6px;gap:3px;';
+                    el.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:7px;color:#2e7d8a;font-family:monospace;letter-spacing:2px;"><span>INTERCEPT</span><span style="opacity:0.6;">14:27Z</span></div><div style="border-left:2px solid #2e7d8a;padding-left:4px;margin-top:4px;font-size:8px;color:#2e7d8a;font-family:monospace;font-weight:700;">247 ADS-B</div>';
                 });
 
                 btnWrap.appendChild(leanBtn);

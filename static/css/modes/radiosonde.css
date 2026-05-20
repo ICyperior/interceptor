@@ -160,14 +160,14 @@
     flex-direction: column;
     align-items: center;
     padding: 4px 10px;
-    background: rgba(0, 229, 255, 0.05);
-    border: 1px solid rgba(0, 229, 255, 0.15);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.15);
     border-radius: 4px;
     min-width: 55px;
 }
 .radiosonde-strip .strip-stat:hover {
-    background: rgba(0, 229, 255, 0.1);
-    border-color: rgba(0, 229, 255, 0.3);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
+    border-color: rgba(var(--accent-cyan-rgb), 0.3);
 }
 .radiosonde-strip .strip-value {
     font-family: var(--font-mono);

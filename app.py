@@ -209,7 +209,7 @@ def inject_offline_settings():
             "enabled": get_setting("offline.enabled", False),
             "assets_source": assets_source,
             "fonts_source": fonts_source,
-            "tile_provider": get_setting("offline.tile_provider", "cartodb_dark_cyan"),
+            "tile_provider": get_setting("offline.tile_provider", "cartodb_dark_nolabels"),
             "tile_server_url": get_setting("offline.tile_server_url", ""),
         }
     }
@@ -440,8 +440,8 @@ def get_sdr_device_status() -> dict[str, str]:
 @app.before_request
 def require_login():
     # Skip auth entirely when INTERCEPT_DISABLE_AUTH is set
-    if os.environ.get('INTERCEPT_DISABLE_AUTH', '').lower() in ('1', 'true', 'yes'):
-        session['logged_in'] = True
+    if os.environ.get("INTERCEPT_DISABLE_AUTH", "").lower() in ("1", "true", "yes"):
+        session["logged_in"] = True
         return None
 
     # Routes that don't require login (to avoid infinite redirect loop)

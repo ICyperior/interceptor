@@ -157,7 +157,7 @@ body {
 
 .stat-badge {
     background: var(--bg-card);
-    border: 1px solid rgba(0, 212, 255, 0.3);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.3);
     border-radius: 4px;
     padding: 4px 10px;
     font-family: var(--font-mono);
@@ -309,7 +309,7 @@ body {
 /* Panels */
 .panel {
     background: var(--bg-panel);
-    border: 1px solid rgba(0, 212, 255, 0.2);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.2);
     overflow: hidden;
     position: relative;
 }
@@ -326,8 +326,8 @@ body {
 
 .panel-header {
     padding: 10px 15px;
-    background: rgba(0, 212, 255, 0.05);
-    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
+    border-bottom: 1px solid rgba(var(--accent-cyan-rgb), 0.1);
     font-family: 'Orbitron', monospace;
     font-size: 11px;
     font-weight: 500;
@@ -955,7 +955,7 @@ body {
 
 .packet-entry {
     padding: 7px 10px;
-    border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+    border-bottom: 1px solid rgba(var(--accent-cyan-rgb), 0.08);
     font-size: 10px;
     font-family: var(--font-mono);
     word-break: break-word;
@@ -1010,7 +1010,7 @@ body {
 .packet-modal {
     position: fixed;
     inset: 0;
-    z-index: 2000;
+    z-index: 5000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1140,7 +1140,7 @@ body {
     gap: 10px;
     padding: 10px;
     background: var(--bg-panel);
-    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+    border-bottom: 1px solid rgba(var(--accent-cyan-rgb), 0.2);
 }
 
 .satellite-selector label {
@@ -1153,7 +1153,7 @@ body {
 
 .satellite-selector select {
     flex: 1;
-    background: rgba(0, 212, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
     border: 1px solid var(--accent-cyan);
     border-radius: 4px;
     padding: 8px 12px;
@@ -1166,12 +1166,12 @@ body {
 
 .satellite-selector select:focus {
     outline: none;
-    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+    box-shadow: 0 0 15px rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 #satRefreshBtn {
     background: transparent;
-    border: 1px solid rgba(0, 212, 255, 0.4);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.4);
     border-radius: 4px;
     color: var(--text-secondary);
     cursor: pointer;
@@ -1199,7 +1199,7 @@ body {
 /* Countdown panel */
 .countdown-panel {
     flex-shrink: 0;
-    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(0, 255, 136, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(var(--accent-cyan-rgb), 0.1) 0%, rgba(0, 255, 136, 0.05) 100%);
 }
 
 .countdown-display {
@@ -1232,7 +1232,7 @@ body {
 
 .countdown-block {
     background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 212, 255, 0.2);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.2);
     border-radius: 4px;
     padding: 8px 4px;
     text-align: center;
@@ -1359,7 +1359,7 @@ body {
 
 .pass-item {
     background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 212, 255, 0.15);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.15);
     border-radius: 4px;
     padding: 8px 10px;
     margin-bottom: 6px;
@@ -1369,13 +1369,13 @@ body {
 
 .pass-item:hover {
     border-color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.05);
+    background: rgba(var(--accent-cyan-rgb), 0.05);
 }
 
 .pass-item.active {
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
-    background: rgba(0, 212, 255, 0.1);
+    box-shadow: 0 0 15px rgba(var(--accent-cyan-rgb), 0.2);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
 }
 
 .pass-item-header {
@@ -1407,7 +1407,7 @@ body {
 }
 
 .pass-quality.good {
-    background: rgba(0, 212, 255, 0.2);
+    background: rgba(var(--accent-cyan-rgb), 0.2);
     color: var(--accent-cyan);
 }
 
@@ -1434,7 +1434,7 @@ body {
     gap: 20px;
     padding: 10px 20px;
     background: var(--bg-panel);
-    border-top: 1px solid rgba(0, 212, 255, 0.3);
+    border-top: 1px solid rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .control-group {
@@ -1455,7 +1455,7 @@ body {
     width: 90px;
     padding: 6px 8px;
     background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 212, 255, 0.3);
+    border: 1px solid rgba(var(--accent-cyan-rgb), 0.3);
     border-radius: 4px;
     color: var(--accent-cyan);
     font-family: var(--font-mono);
@@ -1465,13 +1465,13 @@ body {
 .control-group input:focus {
     outline: none;
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 10px rgba(var(--accent-cyan-rgb), 0.2);
 }
 
 .btn {
     padding: 8px 16px;
     border: 1px solid var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.1);
+    background: rgba(var(--accent-cyan-rgb), 0.1);
     color: var(--accent-cyan);
     font-family: 'Orbitron', monospace;
     font-size: 11px;
@@ -1486,7 +1486,7 @@ body {
 .btn:hover {
     background: var(--accent-cyan);
     color: var(--bg-dark);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    box-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .btn.primary {
@@ -1780,17 +1780,16 @@ body.embedded .controls-bar {
 }
 
 /* ============================================
-   ENHANCED TIER — amber military console
+   ENHANCED TIER — signals teal console
    ============================================ */
 html[data-ui-tier="enhanced"] {
-    --bg-dark: #080600;
-    --bg-panel: #0c0a04;
-    --bg-card: #0e0b05;
-    --border-glow: rgba(200, 150, 40, 0.25);
-    --border-color: rgba(200, 150, 40, 0.2);
-    --grid-line: rgba(200, 150, 40, 0.07);
-    --accent-cyan: #c89628;
-    --accent-green: #c89628;
+    --bg-dark: #000000;
+    --bg-panel: #020404;
+    --bg-card: #020404;
+    --border-glow: rgba(46, 125, 138, 0.20);
+    --border-color: rgba(46, 125, 138, 0.18);
+    --grid-line: rgba(46, 125, 138, 0.07);
+    --accent-cyan: #2e7d8a;
 }
 
 /* ============================================

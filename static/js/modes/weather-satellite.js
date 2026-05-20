@@ -2344,7 +2344,11 @@ const WeatherSat = (function() {
             clearInterval(countdownInterval);
             countdownInterval = null;
         }
-        stopStream();
+        if (isRunning) {
+            stop().catch(() => {});
+        } else {
+            stopStream();
+        }
     }
 
     /**

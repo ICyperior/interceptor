@@ -260,7 +260,10 @@ function initWebsdrGlobe(mapEl) {
     if (typeof window.Globe !== 'function' || !isWebglSupported()) return false;
 
     mapEl.innerHTML = '';
-    mapEl.style.background = 'radial-gradient(circle at 30% 20%, rgba(14, 42, 68, 0.9), rgba(4, 9, 16, 0.95) 58%, rgba(2, 4, 9, 0.98) 100%)';
+    const _wsdrTier = document.documentElement.getAttribute('data-ui-tier') || 'enhanced';
+    mapEl.style.background = _wsdrTier === 'enhanced'
+        ? 'radial-gradient(circle at 30% 20%, rgba(4, 18, 22, 0.92), rgba(2, 8, 10, 0.96) 58%, rgba(0, 2, 2, 0.99) 100%)'
+        : 'radial-gradient(circle at 30% 20%, rgba(14, 42, 68, 0.9), rgba(4, 9, 16, 0.95) 58%, rgba(2, 4, 9, 0.98) 100%)';
     mapEl.style.cursor = 'grab';
 
     const _wsdrAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#3bb9ff';
@@ -296,6 +299,8 @@ function initWebsdrGlobe(mapEl) {
 
     ensureWebsdrGlobePopup(mapEl);
     resizeWebsdrGlobe();
+    // Grid layout may not have settled on the first rAF; re-sync after one frame.
+    requestAnimationFrame(() => resizeWebsdrGlobe());
     return true;
 }
 
@@ -475,8 +480,10 @@ function ensureWebsdrGlobePopup(mapEl) {
     websdrGlobePopup.style.maxWidth = '260px';
     websdrGlobePopup.style.padding = '10px';
     websdrGlobePopup.style.borderRadius = '8px';
-    websdrGlobePopup.style.border = '1px solid rgba(0, 212, 255, 0.35)';
-    websdrGlobePopup.style.background = 'rgba(5, 13, 20, 0.92)';
+    const _wsdrPopupRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan-rgb').trim() || '0, 212, 255';
+    const _wsdrPopupTier = document.documentElement.getAttribute('data-ui-tier') || 'enhanced';
+    websdrGlobePopup.style.border = `1px solid rgba(${_wsdrPopupRgb}, 0.35)`;
+    websdrGlobePopup.style.background = _wsdrPopupTier === 'enhanced' ? 'rgba(2, 8, 10, 0.94)' : 'rgba(5, 13, 20, 0.92)';
     websdrGlobePopup.style.backdropFilter = 'blur(4px)';
     websdrGlobePopup.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.4)';
     websdrGlobePopup.style.color = 'var(--text-primary)';
@@ -574,8 +581,9 @@ function renderReceiverList(receivers) {
 
     container.innerHTML = receivers.slice(0, 50).map((rx, idx) => {
         const selected = idx === websdrSelectedReceiverIndex;
-        const baseBg = selected ? 'rgba(0,212,255,0.14)' : 'transparent';
-        const hoverBg = selected ? 'rgba(0,212,255,0.18)' : 'rgba(0,212,255,0.05)';
+        const _wsdrRxRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan-rgb').trim() || '0, 212, 255';
+        const baseBg = selected ? `rgba(${_wsdrRxRgb},0.14)` : 'transparent';
+        const hoverBg = selected ? `rgba(${_wsdrRxRgb},0.18)` : `rgba(${_wsdrRxRgb},0.05)`;
         return `
         <div style="padding: 8px 8px 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; border-left: 2px solid ${selected ? 'var(--accent-cyan)' : 'transparent'}; background: ${baseBg};"
              onmouseover="this.style.background='${hoverBg}'" onmouseout="this.style.background='${baseBg}'"
@@ -951,13 +959,14 @@ function loadSpyStationPresets() {
                 return;
             }
 
+            const _wsdrSpyRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan-rgb').trim() || '0, 212, 255';
             container.innerHTML = stations.slice(0, 30).map(s => {
                 const primaryFreq = s.frequencies?.find(f => f.primary) || s.frequencies?.[0];
                 const freqKhz = primaryFreq?.freq_khz || 0;
                 return `
                     <div style="padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
                          onclick="tuneToSpyStation('${escapeHtmlWebsdr(s.id)}', ${freqKhz})"
-                         onmouseover="this.style.background='rgba(0,212,255,0.05)'" onmouseout="this.style.background='transparent'">
+                         onmouseover="this.style.background='rgba(${_wsdrSpyRgb},0.05)'" onmouseout="this.style.background='transparent'">
                         <div>
                             <span style="color: var(--accent-cyan); font-weight: bold;">${escapeHtmlWebsdr(s.name)}</span>
                             <span style="color: var(--text-muted); font-size: 9px; margin-left: 4px;">${escapeHtmlWebsdr(s.nickname || '')}</span>

@@ -1645,7 +1645,7 @@
 
 .signal-card.signal-card-clickable:hover {
     border-color: var(--accent-cyan, #00d4ff);
-    box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 0 1px rgba(var(--accent-cyan-rgb), 0.2);
 }
 
 .signal-card.signal-card-clickable:active {

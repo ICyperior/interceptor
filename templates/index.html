@@ -42,7 +42,7 @@
     {% if offline_settings.fonts_source == 'local' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
     {% else %}
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
     <!-- Leaflet CSS -->
     {% if offline_settings.assets_source == 'local' %}
@@ -1478,7 +1478,7 @@
                 <div id="tscmVisuals" class="tscm-dashboard" style="display: none; padding: 16px;">
                     <!-- Legal Disclaimer Banner -->
                     <div class="tscm-legal-banner"
-                        style="margin-bottom: 12px; padding: 8px 12px; background: rgba(74, 158, 255, 0.1); border: 1px solid rgba(74, 158, 255, 0.3); border-radius: 4px; font-size: 10px; color: #ffffff;">
+                        style="margin-bottom: 12px; padding: 8px 12px; background: rgba(var(--accent-cyan-rgb), 0.1); border: 1px solid rgba(var(--accent-cyan-rgb), 0.3); border-radius: 4px; font-size: 10px; color: #ffffff;">
                         <strong>TSCM Screening Tool:</strong> This system identifies wireless and RF anomalies.
                         Findings are indicators, NOT confirmed surveillance devices.
                         No content is intercepted or decoded. Professional verification required.
@@ -2172,7 +2172,7 @@
                     <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 12px; flex: 1; min-height: 0; overflow: hidden;">
                         <!-- Map -->
                         <div class="radio-module-box" style="padding: 0; overflow: hidden; position: relative; min-height: 0;">
-                            <div id="websdrMap" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></div>
+                            <div id="websdrMap" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;"></div>
                         </div>
                         <!-- Receiver List -->
                         <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; overflow: hidden;">
@@ -4639,15 +4639,17 @@
                 return;
             }
             if (!validModes.has(mode)) mode = 'pager';
+            const _modeAssetTimeout = (p) =>
+                Promise.race([p, new Promise((r) => setTimeout(r, 5000))]);
             const styleReadyPromise = (typeof window.ensureModeStyles === 'function')
-                ? Promise.resolve(window.ensureModeStyles(mode)).catch((err) => {
+                ? _modeAssetTimeout(Promise.resolve(window.ensureModeStyles(mode)).catch((err) => {
                     console.warn(`[ModeSwitch] style load failed for ${mode}: ${err?.message || err}`);
-                })
+                }))
                 : Promise.resolve();
             const scriptReadyPromise = (typeof window.ensureModeScript === 'function')
-                ? Promise.resolve(window.ensureModeScript(mode)).catch((err) => {
+                ? _modeAssetTimeout(Promise.resolve(window.ensureModeScript(mode)).catch((err) => {
                     console.warn(`[ModeSwitch] script load failed for ${mode}: ${err?.message || err}`);
-                })
+                }))
                 : Promise.resolve();
             // Only stop local scans if in local mode (not agent mode)
             const isAgentMode = typeof currentAgent !== 'undefined' && currentAgent !== 'local';
@@ -4696,6 +4698,9 @@
                 }
                 if (isDroneRunning) {
                     stopTasks.push(awaitStopAction('drone', () => fetch('/drone/stop', { method: 'POST' }), LOCAL_STOP_TIMEOUT_MS));
+                }
+                if (isRtlamrRunning) {
+                    stopTasks.push(awaitStopAction('rtlamr', () => stopRtlamrDecoding(), LOCAL_STOP_TIMEOUT_MS));
                 }
 
                 if (stopTasks.length) {
@@ -16616,7 +16621,7 @@
 
     <!-- Cheat Sheet Modal -->
     <div id="cheatSheetModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this)CheatSheets.hide()">
-        <div style="background:var(--bg-card, #1a1f2e); border:1px solid rgba(255,255,255,0.15); border-radius:12px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto; padding:20px; position:relative;">
+        <div style="background:var(--bg-card, #1a1f2e); border:1px solid var(--border-color); border-radius:12px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto; padding:20px; position:relative;">
             <button onclick="CheatSheets.hide()" style="position:absolute; top:12px; right:12px; background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:18px; line-height:1;">✕</button>
             <div id="cheatSheetContent"></div>
         </div>
@@ -16624,7 +16629,7 @@
 
     <!-- Keyboard Shortcuts Modal -->
     <div id="kbShortcutsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this)KeyboardShortcuts.hideHelp()">
-        <div style="background:var(--bg-card, #1a1f2e); border:1px solid rgba(255,255,255,0.15); border-radius:12px; max-width:520px; width:100%; max-height:80vh; overflow-y:auto; padding:20px; position:relative;">
+        <div style="background:var(--bg-card, #1a1f2e); border:1px solid var(--border-color); border-radius:12px; max-width:520px; width:100%; max-height:80vh; overflow-y:auto; padding:20px; position:relative;">
             <button onclick="KeyboardShortcuts.hideHelp()" style="position:absolute; top:12px; right:12px; background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:18px; line-height:1;">✕</button>
             <h2 style="margin:0 0 16px; font-size:16px; color:var(--accent-cyan, #4aa3ff); font-family:var(--font-mono);">Keyboard Shortcuts</h2>
             <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12px;">

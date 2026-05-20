@@ -197,30 +197,11 @@ const BtLocate = (function() {
 
         // Init map
         const mapEl = document.getElementById('btLocateMap');
-        if (mapEl && typeof L !== 'undefined') {
-            map = L.map('btLocateMap', {
+        if (mapEl && typeof L !== 'undefined' && typeof MapUtils !== 'undefined') {
+            map = MapUtils.init('btLocateMap', {
                 center: [0, 0],
                 zoom: 2,
-                zoomControl: true,
             });
-            let tileLayer = null;
-            // Use tile provider from user settings
-            if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
-                tileLayer = Settings.createTileLayer();
-                tileLayer.addTo(map);
-                Settings.registerMap(map);
-            } else {
-                tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    maxZoom: 19,
-                    attribution: '&copy; OSM &copy; CARTO'
-                });
-                tileLayer.addTo(map);
-            }
-            if (tileLayer && typeof tileLayer.on === 'function') {
-                tileLayer.on('load', () => {
-                    scheduleMapStabilization(8);
-                });
-            }
             ensureHeatLayer();
             syncMovementLayer();
             syncHeatLayer();

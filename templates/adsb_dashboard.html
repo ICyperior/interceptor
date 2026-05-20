@@ -2094,13 +2094,25 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             const existing = document.getElementById('aircraftDbBanner');
             if (existing) existing.remove();
 
+            const _dbTier = document.documentElement.getAttribute('data-ui-tier') || 'enhanced';
+            const _dbBg = _dbTier === 'enhanced'
+                ? (type === 'not_installed' ? 'rgba(4, 22, 26, 0.97)' : 'rgba(4, 22, 26, 0.97)')
+                : (type === 'not_installed' ? 'rgba(59, 130, 246, 0.95)' : 'rgba(34, 197, 94, 0.95)');
+            const _dbBorder = _dbTier === 'enhanced'
+                ? (type === 'not_installed' ? '1px solid rgba(46, 125, 138, 0.45)' : '1px solid rgba(46, 125, 138, 0.45)')
+                : 'none';
+            const _dbBtnColor = _dbTier === 'enhanced'
+                ? (type === 'not_installed' ? '#2e7d8a' : '#38c180')
+                : (type === 'not_installed' ? '#3b82f6' : '#22c55e');
+
             const banner = document.createElement('div');
             banner.id = 'aircraftDbBanner';
             banner.style.cssText = `
                 position: fixed;
                 top: 70px;
                 right: 20px;
-                background: ${type === 'not_installed' ? 'rgba(59, 130, 246, 0.95)' : 'rgba(34, 197, 94, 0.95)'};
+                background: ${_dbBg};
+                border: ${_dbBorder};
                 color: white;
                 padding: 12px 16px;
                 border-radius: 8px;
@@ -2115,14 +2127,14 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 banner.innerHTML = `
                     <div style="font-weight: bold; margin-bottom: 6px;">Aircraft Database Not Installed</div>
                     <div style="margin-bottom: 10px; font-size: 11px; opacity: 0.9;">Download to see aircraft types, registrations, and model info.</div>
-                    <button onclick="downloadAircraftDb()" style="background: white; color: #3b82f6; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 11px;">Download Database</button>
+                    <button onclick="downloadAircraftDb()" style="background: rgba(0,0,0,0.35); color: ${_dbBtnColor}; border: 1px solid ${_dbBtnColor}; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 11px;">Download Database</button>
                     <button onclick="this.parentElement.remove()" style="position: absolute; top: 6px; right: 8px; background: none; border: none; color: white; cursor: pointer; font-size: 14px;">×</button>
                 `;
             } else {
                 banner.innerHTML = `
                     <div style="font-weight: bold; margin-bottom: 6px;">Database Update Available</div>
                     <div style="margin-bottom: 10px; font-size: 11px; opacity: 0.9;">New version: ${version || 'latest'}</div>
-                    <button onclick="downloadAircraftDb()" style="background: white; color: #22c55e; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 11px;">Update Now</button>
+                    <button onclick="downloadAircraftDb()" style="background: rgba(0,0,0,0.35); color: ${_dbBtnColor}; border: 1px solid ${_dbBtnColor}; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 11px;">Update Now</button>
                     <button onclick="this.parentElement.remove()" style="position: absolute; top: 6px; right: 8px; background: none; border: none; color: white; cursor: pointer; font-size: 14px;">×</button>
                 `;
             }

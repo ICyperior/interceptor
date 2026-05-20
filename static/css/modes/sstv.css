@@ -401,7 +401,7 @@
 .sstv-image-card:hover {
     border-color: var(--accent-cyan);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(var(--accent-cyan-rgb), 0.2);
 }
 
 .sstv-image-card-inner {
@@ -688,7 +688,7 @@
     font-weight: 700;
     color: var(--accent-cyan);
     letter-spacing: 2px;
-    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    text-shadow: 0 0 20px rgba(var(--accent-cyan-rgb), 0.3);
 }
 
 .sstv-countdown-value.imminent {

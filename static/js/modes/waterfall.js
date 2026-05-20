@@ -3014,10 +3014,14 @@ const Waterfall = (function () {
         }
 
         // Backend stop is fire-and-forget; UI is already updated above.
+        const _audioStopCtrl = new AbortController();
+        const _audioStopTid = setTimeout(() => _audioStopCtrl.abort(), 3000);
         try {
-            await fetch('/receiver/audio/stop', { method: 'POST' });
+            await fetch('/receiver/audio/stop', { method: 'POST', signal: _audioStopCtrl.signal });
         } catch (_) {
             // Ignore backend stop errors
+        } finally {
+            clearTimeout(_audioStopTid);
         }
 
         if (resumeWaterfall && _active) {
@@ -3222,10 +3226,14 @@ const Waterfall = (function () {
 
         if (_es) {
             _closeSseStream();
+            const _wfStopCtrl = new AbortController();
+            const _wfStopTid = setTimeout(() => _wfStopCtrl.abort(), 3000);
             try {
-                await fetch('/receiver/waterfall/stop', { method: 'POST' });
+                await fetch('/receiver/waterfall/stop', { method: 'POST', signal: _wfStopCtrl.signal });
             } catch (_) {
                 // Ignore fallback stop errors.
+            } finally {
+                clearTimeout(_wfStopTid);
             }
         }
 

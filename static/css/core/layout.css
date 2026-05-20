@@ -1188,10 +1188,10 @@ a.nav-dashboard-btn:hover {
 }
 
 /* ============================================
-   ENHANCED TIER — amber console nav framing
+   ENHANCED TIER — signals teal console nav framing
    ============================================ */
 [data-ui-tier="enhanced"] .mode-nav {
-    background: linear-gradient(180deg, rgba(14, 11, 3, 0.95), rgba(8, 6, 0, 0.92));
+    background: linear-gradient(180deg, rgba(4, 8, 8, 0.95), rgba(2, 4, 4, 0.92));
 }
 
 [data-ui-tier="enhanced"] .mode-nav::after,
@@ -1201,16 +1201,16 @@ a.nav-dashboard-btn:hover {
 }
 
 [data-ui-tier="enhanced"] .mode-nav-btn.active {
-    background: rgba(200, 150, 40, 0.08);
+    background: rgba(46, 125, 138, 0.08);
     color: var(--accent-cyan);
     border-left: 2px solid var(--accent-cyan);
-    box-shadow: -2px 0 8px rgba(200, 150, 40, 0.15);
+    box-shadow: -2px 0 8px rgba(46, 125, 138, 0.15);
     padding-left: 12px;
 }
 
 [data-ui-tier="enhanced"] .nav-clock .utc-time {
     color: var(--accent-cyan);
-    text-shadow: 0 0 8px rgba(200, 150, 40, 0.3);
+    text-shadow: 0 0 8px rgba(46, 125, 138, 0.28);
     font-weight: 700;
 }
 
@@ -1236,14 +1236,14 @@ a.nav-dashboard-btn:hover {
 
 /* Enhanced tier toggle button styling */
 [data-ui-tier="enhanced"] .nav-tier-btn {
-    background: rgba(200, 150, 40, 0.10);
-    border-color: rgba(200, 150, 40, 0.4);
-    color: #c89628;
-    box-shadow: 0 0 8px rgba(200, 150, 40, 0.08);
-    text-shadow: 0 0 6px rgba(200, 150, 40, 0.3);
+    background: rgba(46, 125, 138, 0.10);
+    border-color: rgba(46, 125, 138, 0.38);
+    color: #2e7d8a;
+    box-shadow: 0 0 8px rgba(46, 125, 138, 0.07);
+    text-shadow: 0 0 6px rgba(46, 125, 138, 0.25);
 }
 
 [data-ui-tier="enhanced"] .nav-tier-btn:hover {
-    background: rgba(200, 150, 40, 0.16);
-    border-color: rgba(200, 150, 40, 0.6);
+    background: rgba(46, 125, 138, 0.16);
+    border-color: rgba(46, 125, 138, 0.55);
 }

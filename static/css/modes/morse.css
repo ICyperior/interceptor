@@ -199,3 +199,17 @@
         align-items: stretch;
     }
 }
+
+html[data-ui-tier="enhanced"] .morse-raw-panel {
+    border-color: rgba(46, 125, 138, 0.18);
+    background: rgba(1, 4, 4, 0.9);
+}
+
+html[data-ui-tier="enhanced"] .morse-raw-text {
+    color: rgba(70, 180, 200, 0.90);
+}
+
+html[data-ui-tier="enhanced"] .morse-metrics-panel span {
+    border-color: rgba(46, 125, 138, 0.18);
+    background: rgba(1, 4, 4, 0.88);
+}
