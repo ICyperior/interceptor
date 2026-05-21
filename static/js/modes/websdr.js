@@ -343,6 +343,7 @@ async function initWebsdrLeaflet(mapEl) {
         }
     }
 
+    if (typeof MapUtils !== 'undefined') MapUtils.addGraticuleControl(websdrMap);
     mapEl.style.background = '#1a1d29';
     return true;
 }

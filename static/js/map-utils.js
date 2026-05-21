@@ -119,6 +119,72 @@ const MapUtils = {
     },
 
     /**
+     * Add a graticule (lat/lon grid) toggle button control to any Leaflet map.
+     *
+     * @param {L.Map} map
+     * @param {Object} [options]
+     * @param {boolean} [options.defaultVisible=true]  Show grid on init.
+     * @param {string}  [options.position='bottomleft'] Leaflet control position.
+     * @returns {{ control: L.Control, show: Function, hide: Function }}
+     */
+    addGraticuleControl(map, options = {}) {
+        const defaultVisible = options.defaultVisible !== false;
+        const self = this;
+        let graticuleLayer = null;
+        let visible = false;
+        let btnEl = null;
+        let _onZoom = null;
+
+        const _build = () => {
+            if (graticuleLayer) map.removeLayer(graticuleLayer);
+            graticuleLayer = self._buildGraticule(map);
+            graticuleLayer.addTo(map);
+        };
+        const show = () => {
+            visible = true;
+            _build();
+            _onZoom = _build;
+            map.on('zoomend', _onZoom);
+            if (btnEl) btnEl.classList.add('active');
+        };
+        const hide = () => {
+            visible = false;
+            if (_onZoom) { map.off('zoomend', _onZoom); _onZoom = null; }
+            if (graticuleLayer) { map.removeLayer(graticuleLayer); graticuleLayer = null; }
+            if (btnEl) btnEl.classList.remove('active');
+        };
+
+        const GraticuleControl = L.Control.extend({
+            options: { position: options.position || 'bottomleft' },
+            onAdd() {
+                const btn = L.DomUtil.create('button', 'map-graticule-btn');
+                btn.type = 'button';
+                btn.title = 'Toggle coordinate grid';
+                btn.setAttribute('aria-label', 'Toggle coordinate grid');
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <line x1="0" y1="4.67" x2="14" y2="4.67" stroke="currentColor" stroke-width="1"/>
+                    <line x1="0" y1="9.33" x2="14" y2="9.33" stroke="currentColor" stroke-width="1"/>
+                    <line x1="4.67" y1="0" x2="4.67" y2="14" stroke="currentColor" stroke-width="1"/>
+                    <line x1="9.33" y1="0" x2="9.33" y2="14" stroke="currentColor" stroke-width="1"/>
+                </svg>`;
+                btnEl = btn;
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', () => { if (visible) hide(); else show(); });
+                return btn;
+            },
+            onRemove() {
+                hide();
+                btnEl = null;
+            },
+        });
+
+        const control = new GraticuleControl();
+        control.addTo(map);
+        if (defaultVisible) show();
+        return { control, show, hide };
+    },
+
+    /**
      * Add tactical overlays to a map.
      *
      * @param {L.Map} map
@@ -129,7 +195,7 @@ const MapUtils = {
      *   { latlng: [lat,lng] }
      * @param {Object} [options.hudPanels]
      *   { modeName: string, getContactCount: ()=>number, getSdrStatus: ()=>boolean }
-     * @param {boolean} [options.graticule]
+     * @param {boolean} [options.graticule=true]  Pass false to start with grid hidden.
      * @param {boolean} [options.scaleBar]
      *
      * @returns {Object} handles
@@ -174,32 +240,13 @@ const MapUtils = {
         handles.updateCount  = hudHandles.updateCount;
         handles.updateStatus = hudHandles.updateStatus;
 
-        // --- Graticule ---
-        let graticuleLayer = null;
-        const buildGraticule = () => {
-            if (graticuleLayer) map.removeLayer(graticuleLayer);
-            graticuleLayer = this._buildGraticule(map);
-            graticuleLayer.addTo(map);
-        };
-        const removeGraticule = () => {
-            if (graticuleLayer) { map.removeLayer(graticuleLayer); graticuleLayer = null; }
-        };
-        if (options.graticule) {
-            buildGraticule();
-            map.on('zoomend', buildGraticule);
-            cleanupFns.push(() => {
-                map.off('zoomend', buildGraticule);
-                removeGraticule();
-            });
-        }
-        handles.showGraticule = () => {
-            buildGraticule();
-            map.on('zoomend', buildGraticule);
-        };
-        handles.hideGraticule = () => {
-            map.off('zoomend', buildGraticule);
-            removeGraticule();
-        };
+        // --- Graticule toggle control (always added; defaultVisible via options.graticule) ---
+        const grat = this.addGraticuleControl(map, {
+            defaultVisible: options.graticule !== false,
+        });
+        handles.showGraticule = grat.show;
+        handles.hideGraticule = grat.hide;
+        cleanupFns.push(() => grat.control.remove());
 
         handles.removeAll = () => cleanupFns.forEach(fn => fn());
 

@@ -241,6 +241,8 @@ const SSTV = (function() {
             }
         }
 
+        if (typeof MapUtils !== 'undefined') MapUtils.addGraticuleControl(issMap);
+
         // Create ISS icon
         const issIcon = L.divIcon({
             className: 'sstv-iss-marker',

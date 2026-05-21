@@ -213,6 +213,7 @@ const BtLocate = (function() {
                 flushPendingHeatSync();
                 scheduleMapStabilization();
             });
+            if (typeof MapUtils !== 'undefined') MapUtils.addGraticuleControl(map);
         }
 
         // Init RSSI chart canvas

@@ -330,6 +330,8 @@ const MeshCore = (function () {
                 Settings.registerMap(_map);
             }).catch(e => console.warn('MeshCore: Settings init failed, using fallback tiles:', e));
         }
+
+        if (typeof MapUtils !== 'undefined') MapUtils.addGraticuleControl(_map);
     }
 
     function _updateMapMarker(node) {

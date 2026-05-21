@@ -50,6 +50,7 @@ var DroneMode = (function () {
                 maxZoom: 19,
             }).addTo(_map);
         }
+        if (typeof MapUtils !== 'undefined') MapUtils.addGraticuleControl(_map);
     }
 
     function _connectSSE() {

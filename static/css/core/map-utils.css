@@ -106,6 +106,36 @@
     white-space: nowrap;
 }
 
+/* --- Graticule toggle button ---
+   Rendered as a Leaflet control (bottomleft by default).                       */
+
+.map-graticule-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: rgba(7, 9, 14, 0.82);
+    border: 1px solid rgba(var(--accent-cyan-rgb, 74 163 255), 0.2);
+    border-radius: 4px;
+    color: rgba(var(--accent-cyan-rgb, 74 163 255), 0.45);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.map-graticule-btn:hover {
+    background: rgba(7, 9, 14, 0.95);
+    border-color: rgba(var(--accent-cyan-rgb, 74 163 255), 0.5);
+    color: rgba(var(--accent-cyan-rgb, 74 163 255), 0.8);
+}
+
+.map-graticule-btn.active {
+    background: rgba(var(--accent-cyan-rgb, 74 163 255), 0.12);
+    border-color: rgba(var(--accent-cyan-rgb, 74 163 255), 0.55);
+    color: var(--accent-cyan, #4aa3ff);
+}
+
 /* --- Dark glass popup ---
    Applied via MapUtils.glassPopupOptions() className.                        */
 

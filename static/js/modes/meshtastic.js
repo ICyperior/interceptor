@@ -137,6 +137,8 @@ const Meshtastic = (function() {
             }
         }
 
+        if (typeof MapUtils !== 'undefined') MapUtils.addGraticuleControl(meshMap);
+
         // Handle resize
         setTimeout(() => {
             if (meshMap) meshMap.invalidateSize();

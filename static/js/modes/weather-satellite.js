@@ -23,7 +23,6 @@ const WeatherSat = (function() {
     let groundMap = null;
     let groundTrackLayer = null;
     let groundOverlayLayer = null;
-    let groundGridLayer = null;
     let satCrosshairMarker = null;
     let observerMarker = null;
     let consoleEntries = [];
@@ -1086,8 +1085,7 @@ const WeatherSat = (function() {
                 }
             }
 
-            groundGridLayer = L.layerGroup().addTo(groundMap);
-            addStyledGridOverlay(groundGridLayer);
+            if (typeof MapUtils !== 'undefined') MapUtils.addGraticuleControl(groundMap);
 
             groundTrackLayer = L.layerGroup().addTo(groundMap);
             groundOverlayLayer = L.layerGroup().addTo(groundMap);
@@ -1143,38 +1141,6 @@ const WeatherSat = (function() {
 
         if (currentSegment.length > 1) segments.push(currentSegment);
         return segments;
-    }
-
-    /**
-     * Draw a subtle graticule over the base map for a cyber/wireframe look.
-     */
-    function addStyledGridOverlay(layer) {
-        if (!layer || typeof L === 'undefined') return;
-        layer.clearLayers();
-
-        for (let lon = -180; lon <= 180; lon += 30) {
-            const line = [];
-            for (let lat = -85; lat <= 85; lat += 5) line.push([lat, lon]);
-            L.polyline(line, {
-                color: '#4ed2ff',
-                weight: lon % 60 === 0 ? 1.1 : 0.8,
-                opacity: lon % 60 === 0 ? 0.2 : 0.12,
-                interactive: false,
-                lineCap: 'round',
-            }).addTo(layer);
-        }
-
-        for (let lat = -75; lat <= 75; lat += 15) {
-            const line = [];
-            for (let lon = -180; lon <= 180; lon += 5) line.push([lat, lon]);
-            L.polyline(line, {
-                color: '#5be7ff',
-                weight: lat % 30 === 0 ? 1.1 : 0.8,
-                opacity: lat % 30 === 0 ? 0.2 : 0.12,
-                interactive: false,
-                lineCap: 'round',
-            }).addTo(layer);
-        }
     }
 
     function clearSatelliteCrosshair() {
