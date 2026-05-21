@@ -4813,8 +4813,6 @@
 
             document.getElementById('pagerStats')?.classList.toggle('active', mode === 'pager');
             document.getElementById('sensorStats')?.classList.toggle('active', mode === 'sensor');
-            if (typeof PagerDirectory  !== 'undefined') PagerDirectory.applyViewState(mode);
-            if (typeof SensorDashboard !== 'undefined') SensorDashboard.applyViewState(mode);
             document.getElementById('satelliteStats')?.classList.toggle('active', mode === 'satellite');
             document.getElementById('wifiStats')?.classList.toggle('active', mode === 'wifi');
 
@@ -4904,6 +4902,8 @@
             const outputEl = document.getElementById('output');
             const modesWithVisuals = ['satellite', 'sstv', 'weathersat', 'sstv_general', 'wefax', 'aprs', 'wifi', 'bluetooth', 'tscm', 'spystations', 'meshtastic', 'meshcore', 'websdr', 'subghz', 'spaceweather', 'bt_locate', 'wifi_locate', 'waterfall', 'morse', 'meteor', 'system', 'ook', 'radiosonde', 'gps', 'drone'];
             if (outputEl) outputEl.style.display = modesWithVisuals.includes(mode) ? 'none' : 'block';
+            if (typeof PagerDirectory  !== 'undefined') PagerDirectory.applyViewState(mode);
+            if (typeof SensorDashboard !== 'undefined') SensorDashboard.applyViewState(mode);
 
             // Prevent Leaflet heatmap redraws on hidden BT Locate map containers.
             if (typeof BtLocate !== 'undefined' && BtLocate.setActiveMode) {
