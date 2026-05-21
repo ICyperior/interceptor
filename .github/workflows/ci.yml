@@ -15,12 +15,21 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ["a-l", "m-z"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - run: pip install -r requirements-dev.txt
-      - name: Run tests
-        run: pytest --tb=short -q
+      - name: Run tests (${{ matrix.group }})
+        run: |
+          if [ "${{ matrix.group }}" = "a-l" ]; then
+            pytest tests/test_[a-l]*.py --tb=short -q
+          else
+            pytest tests/test_[m-z]*.py --tb=short -q
+          fi
         continue-on-error: true
