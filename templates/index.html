@@ -4900,8 +4900,15 @@
 
             // Hide the signal feed output for modes that have their own visuals
             const outputEl = document.getElementById('output');
+            const signalViewWrapEl = document.getElementById('signalViewWrap');
             const modesWithVisuals = ['satellite', 'sstv', 'weathersat', 'sstv_general', 'wefax', 'aprs', 'wifi', 'bluetooth', 'tscm', 'spystations', 'meshtastic', 'meshcore', 'websdr', 'subghz', 'spaceweather', 'bt_locate', 'wifi_locate', 'waterfall', 'morse', 'meteor', 'system', 'ook', 'radiosonde', 'gps', 'drone'];
-            if (outputEl) outputEl.style.display = modesWithVisuals.includes(mode) ? 'none' : 'block';
+            if (modesWithVisuals.includes(mode)) {
+                if (signalViewWrapEl) signalViewWrapEl.style.display = 'none';
+                if (outputEl) outputEl.style.display = 'none';
+            } else {
+                if (signalViewWrapEl) signalViewWrapEl.style.display = '';
+                if (outputEl) outputEl.style.display = 'block';
+            }
             if (typeof PagerDirectory  !== 'undefined') PagerDirectory.applyViewState(mode);
             if (typeof SensorDashboard !== 'undefined') SensorDashboard.applyViewState(mode);
 
