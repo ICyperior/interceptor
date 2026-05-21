@@ -172,8 +172,7 @@ const SensorDashboard = (function () {
             if (output) output.style.display = isDash ? 'none'  : '';
             _updateToggle(isDash);
         } else {
-            if (view)   view.style.display   = 'none';
-            if (output) output.style.display = '';
+            if (view) view.style.display = 'none';
         }
     }
 
