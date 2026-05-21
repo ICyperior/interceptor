@@ -4813,6 +4813,8 @@
 
             document.getElementById('pagerStats')?.classList.toggle('active', mode === 'pager');
             document.getElementById('sensorStats')?.classList.toggle('active', mode === 'sensor');
+            if (typeof PagerDirectory  !== 'undefined') PagerDirectory.applyViewState(mode);
+            if (typeof SensorDashboard !== 'undefined') SensorDashboard.applyViewState(mode);
             document.getElementById('satelliteStats')?.classList.toggle('active', mode === 'satellite');
             document.getElementById('wifiStats')?.classList.toggle('active', mode === 'wifi');
 
@@ -5794,8 +5796,11 @@
                 msg.rain_unit = 'mm';
             }
 
+            if (data.snr  !== undefined) msg.snr  = data.snr;
+            if (data.rssi !== undefined) msg.rssi = data.rssi;
             // Create card using SignalCards component
             const card = SignalCards.createSensorCard(msg);
+            if (typeof SensorDashboard !== 'undefined') SensorDashboard.addReading(msg);
             output.insertBefore(card, output.firstChild);
 
             // Add to activity timeline
@@ -7273,6 +7278,7 @@
             // Use SignalCards component to create the message card (auto-detects status)
             const msgEl = SignalCards.createPagerCard(msg);
 
+            if (typeof PagerDirectory !== 'undefined') PagerDirectory.addMessage(msg);
             output.insertBefore(msgEl, output.firstChild);
 
             // Add to activity timeline
@@ -7370,6 +7376,8 @@
                     Messages cleared. ${isRunning || isSensorRunning ? 'Waiting for new messages...' : 'Start decoding to receive messages.'}
                 </div>
             `;
+            if (typeof PagerDirectory  !== 'undefined') PagerDirectory.reset();
+            if (typeof SensorDashboard !== 'undefined') SensorDashboard.reset();
             msgCount = 0;
             pocsagCount = 0;
             flexCount = 0;
