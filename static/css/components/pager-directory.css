@@ -46,6 +46,7 @@
 
 /* ---- Directory panel (left side of split) ---- */
 .pdir-panel {
+    display: flex;
     width: 200px;
     flex-shrink: 0;
     border-right: 1px solid var(--border-color);
@@ -102,7 +103,7 @@
     flex-shrink: 0;
 }
 .pdir-proto--p { background: rgba(var(--accent-cyan-rgb), 0.15); color: var(--accent-cyan); }
-.pdir-proto--f { background: rgba(143, 123, 214, 0.15); color: var(--accent-purple); }
+.pdir-proto--f { background: rgba(var(--accent-purple-rgb), 0.15); color: var(--accent-purple); }
 
 .pdir-addr {
     font-size: var(--text-xs);

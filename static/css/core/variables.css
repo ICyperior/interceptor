@@ -45,6 +45,7 @@
     --accent-amber-dim: rgba(214, 168, 94, 0.18);
     --accent-yellow: #e1c26b;
     --accent-purple: #8f7bd6;
+    --accent-purple-rgb: 143, 123, 214;
 
     /* Text hierarchy */
     --text-primary: #d7e0ee;
