@@ -1786,7 +1786,9 @@ def aircraft_photo(registration: str):
     try:
         # Planespotters.net public API
         url = f"https://api.planespotters.net/pub/photos/reg/{registration}"
-        resp = requests.get(url, timeout=5, headers={"User-Agent": "INTERCEPT-ADS-B/1.0"})
+        resp = requests.get(
+            url, timeout=5, headers={"User-Agent": "INTERCEPT-ADS-B/2.27 (+https://github.com/smittix/intercept)"}
+        )
 
         if resp.status_code == 200:
             data = resp.json()
