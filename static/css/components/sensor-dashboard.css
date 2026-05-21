@@ -1,0 +1,124 @@
+/* ============================================================
+   Sensor Dashboard View
+   ============================================================ */
+.sdb-view {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    background: var(--bg-primary);
+}
+
+.sdb-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    padding: 10px;
+}
+
+/* ---- Station card ---- */
+.sdb-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 10px;
+    font-family: var(--font-mono);
+    overflow: hidden;
+}
+
+.sdb-card--new {
+    border-color: rgba(56, 193, 128, 0.3);
+    animation: sdb-slide-in 0.4s ease-out;
+}
+@keyframes sdb-slide-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.sdb-card--flash-blue {
+    animation: sdb-flash-blue 0.8s ease-out;
+}
+@keyframes sdb-flash-blue {
+    0%   { background: rgba(var(--accent-cyan-rgb), 0.10); border-color: rgba(var(--accent-cyan-rgb), 0.30); }
+    100% { background: var(--bg-card); border-color: var(--border-color); }
+}
+
+.sdb-card--flash-purple {
+    animation: sdb-flash-purple 0.8s ease-out;
+}
+@keyframes sdb-flash-purple {
+    0%   { background: rgba(143, 123, 214, 0.10); border-color: rgba(143, 123, 214, 0.30); }
+    100% { background: var(--bg-card); border-color: var(--border-color); }
+}
+
+/* ---- Card header ---- */
+.sdb-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+.sdb-name {
+    font-size: var(--text-xs);
+    color: var(--accent-cyan);
+    font-weight: var(--font-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+.sdb-id     { font-size: 8px; color: var(--text-muted); margin-top: 1px; }
+.sdb-age    { font-size: 8px; color: var(--text-muted); white-space: nowrap; }
+.sdb-age--fresh { color: var(--accent-green); }
+
+/* ---- Readings grid ---- */
+.sdb-readings {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+    min-height: 36px;
+    align-items: flex-end;
+}
+.sdb-reading     { text-align: center; min-width: 34px; }
+.sdb-reading-val { font-size: 15px; font-weight: var(--font-bold); line-height: 1; }
+.sdb-reading-unit  { font-size: 8px; color: var(--text-muted); }
+.sdb-reading-label { font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+.sdb-no-readings   { font-size: 9px; color: var(--text-muted); align-self: center; }
+
+/* ---- State-only device ---- */
+.sdb-state { display: flex; align-items: center; gap: 6px; min-height: 36px; }
+.sdb-state-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sdb-state-dot--on  { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
+.sdb-state-dot--off { background: var(--text-muted); }
+.sdb-state-label    { font-size: 9px; color: var(--text-secondary); }
+
+/* ---- Sparkline ---- */
+.sdb-spark { margin-bottom: 6px; }
+.sdb-spark svg { width: 100%; height: 22px; display: block; }
+.sdb-spark-placeholder {
+    height: 22px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 8px;
+    color: var(--text-muted);
+}
+
+/* ---- Card footer ---- */
+.sdb-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8px;
+}
+.sdb-bat--ok  { color: var(--accent-green); }
+.sdb-bat--low { color: var(--accent-red); }
+.sdb-snr      { color: var(--text-muted); }
+.sdb-freq {
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+}
