@@ -77,7 +77,7 @@ const SensorDashboard = (function () {
 
         return parts.map(p => `
             <div class="sdb-reading">
-                <div class="sdb-reading-val" style="color:${p.color}">${p.val}</div>
+                <div class="sdb-reading-val" style="color:${p.color}">${esc(String(p.val))}</div>
                 <div class="sdb-reading-unit">${esc(p.unit)}</div>
                 <div class="sdb-reading-label">${p.label}</div>
             </div>`).join('');
@@ -107,7 +107,6 @@ const SensorDashboard = (function () {
     function buildCardHTML(msg, history, primaryColor) {
         const age     = formatAge(msg.timestamp);
         const fresh   = isRecent(msg.timestamp);
-        const batOk   = msg.battery === 'OK';
         const batLow  = msg.battery === 'LOW';
         const sparkHTML = history.length > 0
             ? buildSparklineHTML(history, primaryColor || '#4aa3ff')
@@ -117,7 +116,7 @@ const SensorDashboard = (function () {
             <div class="sdb-card-header">
                 <div>
                     <div class="sdb-name">${esc(msg.model || 'Unknown')}</div>
-                    <div class="sdb-id">ID ${esc(String(msg.id || 'N/A'))}${msg.channel ? ` · Ch ${msg.channel}` : ''}</div>
+                    <div class="sdb-id">ID ${esc(String(msg.id || 'N/A'))}${msg.channel ? ` · Ch ${esc(String(msg.channel))}` : ''}</div>
                 </div>
                 <div class="sdb-age${fresh ? ' sdb-age--fresh' : ''}">${age}</div>
             </div>
@@ -125,7 +124,7 @@ const SensorDashboard = (function () {
             <div class="sdb-spark">${sparkHTML}</div>
             <div class="sdb-footer">
                 ${msg.battery ? `<span class="sdb-bat ${batLow ? 'sdb-bat--low' : 'sdb-bat--ok'}">● BAT ${esc(msg.battery)}</span>` : '<span></span>'}
-                ${msg.snr !== undefined ? `<span class="sdb-snr">SNR ${msg.snr} dB</span>` : '<span></span>'}
+                ${msg.snr !== undefined ? `<span class="sdb-snr">SNR ${esc(String(msg.snr))} dB</span>` : '<span></span>'}
                 ${msg.frequency ? `<span class="sdb-freq">${esc(String(msg.frequency))}</span>` : '<span></span>'}
             </div>`;
     }
