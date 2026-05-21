@@ -56,6 +56,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/layout.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-cards.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pager-directory.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/sensor-dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/signal-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/activity-timeline.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/device-cards.css') }}">
@@ -809,10 +811,18 @@
                             <div title="Total Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span> <span id="msgCount">0</span></div>
                             <div title="POCSAG Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> <span id="pocsagCount">0</span></div>
                             <div title="FLEX Messages"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="14" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg></span> <span id="flexCount">0</span></div>
+                            <div class="view-toggle-group">
+                                <button class="view-toggle-btn view-toggle-btn--active" id="pagerToggleDir" onclick="PagerDirectory.show()">Directory</button>
+                                <button class="view-toggle-btn" id="pagerToggleFeed" onclick="PagerDirectory.hide()">Feed</button>
+                            </div>
                         </div>
                         <div class="stats" id="sensorStats">
                             <div title="Unique Sensors"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/></svg></span> <span id="sensorCount">0</span></div>
                             <div title="Device Types"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> <span id="deviceCount">0</span></div>
+                            <div class="view-toggle-group">
+                                <button class="view-toggle-btn view-toggle-btn--active" id="sensorToggleDash" onclick="SensorDashboard.show()">Dashboard</button>
+                                <button class="view-toggle-btn" id="sensorToggleFeed" onclick="SensorDashboard.hide()">Feed</button>
+                            </div>
                         </div>
                         <div class="stats" id="wifiStats">
                             <div title="Access Points"><span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span> <span id="apCount">0</span></div>
@@ -3597,6 +3607,19 @@
                     </div>
                 </div>
 
+                <div id="signalViewWrap">
+                <div id="pagerDirectoryView" class="pdir-panel" style="display:none;">
+                    <div class="pdir-header">Sources — <span id="pagerDirCount">0</span> active</div>
+                    <div id="pagerDirEntries" class="pdir-entries"></div>
+                </div>
+                <div id="sensorDashboardView" class="sdb-view" style="display:none;">
+                    <div id="sensorDashboardGrid" class="sdb-grid"></div>
+                </div>
+                <div class="pdir-feed-col">
+                <div class="pdir-feed-header" id="pagerFeedHeader" style="display:none;">
+                    <span id="pagerFeedLabel">All messages</span>
+                    <button id="pagerClearHighlight" class="pdir-clear-btn" onclick="PagerDirectory.clearHighlight()" style="display:none;">clear highlight</button>
+                </div>
                 <div class="output-content signal-feed" id="output">
                     <div class="placeholder signal-empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -3605,6 +3628,8 @@
                         <p>Configure settings and click "Start Decoding" to begin.</p>
                     </div>
                 </div>
+                </div><!-- .pdir-feed-col -->
+                </div><!-- #signalViewWrap -->
 
                 <div class="status-bar">
                     <div class="status-indicator">
@@ -3639,6 +3664,8 @@
     <script src="{{ url_for('static', filename='js/components/radio-knob.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-guess.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-cards.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/pager-directory.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/sensor-dashboard.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/signal-timeline.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/activity-timeline.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/timeline-adapters/rf-adapter.js') }}"></script>
