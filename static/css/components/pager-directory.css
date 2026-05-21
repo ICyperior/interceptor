@@ -1,0 +1,178 @@
+/* ============================================================
+   Signal View Wrap — flex container for split-panel layouts
+   ============================================================ */
+#signalViewWrap {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Feed column — wraps feed header + #output, fills remaining space */
+.pdir-feed-col {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Feed header strip — shown in directory mode above the message list */
+.pdir-feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 10px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.pdir-clear-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast);
+}
+.pdir-clear-btn:hover { color: var(--text-dim); }
+
+/* ---- Directory panel (left side of split) ---- */
+.pdir-panel {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border-color);
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-secondary);
+    font-family: var(--font-mono);
+}
+
+.pdir-header {
+    padding: 6px 10px;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-card);
+    flex-shrink: 0;
+}
+
+.pdir-entries {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ---- Individual address entry ---- */
+.pdir-entry {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(var(--accent-cyan-rgb), 0.04);
+    cursor: pointer;
+    position: relative;
+    transition: background var(--transition-fast);
+}
+.pdir-entry:hover { background: var(--bg-tertiary); }
+.pdir-entry--active {
+    background: rgba(var(--accent-cyan-rgb), 0.06);
+    border-left: 2px solid var(--accent-cyan);
+    padding-left: 8px;
+}
+
+.pdir-entry-top {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+
+.pdir-proto {
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    font-weight: var(--font-bold);
+    flex-shrink: 0;
+}
+.pdir-proto--p { background: rgba(var(--accent-cyan-rgb), 0.15); color: var(--accent-cyan); }
+.pdir-proto--f { background: rgba(143, 123, 214, 0.15); color: var(--accent-purple); }
+
+.pdir-addr {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdir-new-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    flex-shrink: 0;
+    opacity: 0;
+}
+.pdir-new-dot--active {
+    animation: pdir-dot-fade 3s ease-out forwards;
+}
+@keyframes pdir-dot-fade {
+    0%   { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.pdir-count { font-size: 9px; color: var(--text-muted); flex-shrink: 0; }
+
+.pdir-bar-wrap { height: 2px; background: var(--bg-tertiary); border-radius: 1px; margin-bottom: 2px; }
+.pdir-bar { height: 2px; background: var(--accent-cyan); border-radius: 1px; transition: width var(--transition-slow); }
+.pdir-bar--flex { background: var(--accent-purple); }
+
+.pdir-age { font-size: 8px; color: var(--text-muted); }
+
+/* ---- Highlight applied to signal-cards in #output ---- */
+.signal-card.pdir-hl {
+    border-left: 2px solid var(--accent-cyan) !important;
+    background: rgba(var(--accent-cyan-rgb), 0.04) !important;
+}
+
+/* ---- View toggle button group (inside .stats) ---- */
+.stats .view-toggle-group { display: none; }
+.stats.active .view-toggle-group { display: flex; }
+
+.view-toggle-group {
+    gap: 2px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    margin-left: 6px;
+}
+
+.view-toggle-btn {
+    padding: 2px 8px;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+.view-toggle-btn:hover { color: var(--text-dim); }
+.view-toggle-btn--active {
+    background: var(--accent-cyan-dim);
+    color: var(--accent-cyan);
+}
