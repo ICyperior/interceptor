@@ -161,6 +161,7 @@ const PagerDirectory = (function () {
             if (dirPanel)   dirPanel.style.display   = isDir ? 'flex' : 'none';
             if (feedHeader) feedHeader.style.display  = isDir ? 'flex' : 'none';
             _updateToggle(isDir);
+            renderDirectory();
         } else {
             if (dirPanel)   dirPanel.style.display   = 'none';
             if (feedHeader) feedHeader.style.display = 'none';
