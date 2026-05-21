@@ -26,7 +26,7 @@
 }
 
 .sdb-card--new {
-    border-color: rgba(56, 193, 128, 0.3);
+    border-color: rgba(var(--accent-green-rgb), 0.3);
     animation: sdb-slide-in 0.4s ease-out;
 }
 @keyframes sdb-slide-in {
@@ -46,7 +46,7 @@
     animation: sdb-flash-purple 0.8s ease-out;
 }
 @keyframes sdb-flash-purple {
-    0%   { background: rgba(143, 123, 214, 0.10); border-color: rgba(143, 123, 214, 0.30); }
+    0%   { background: rgba(var(--accent-purple-rgb), 0.10); border-color: rgba(var(--accent-purple-rgb), 0.30); }
     100% { background: var(--bg-card); border-color: var(--border-color); }
 }
 
