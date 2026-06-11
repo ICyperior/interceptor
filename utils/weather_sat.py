@@ -29,77 +29,78 @@ from typing import Callable
 from utils.logging import get_logger
 from utils.process import register_process, safe_terminate
 
-logger = get_logger('intercept.weather_sat')
+logger = get_logger("intercept.weather_sat")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ALLOWED_OFFLINE_INPUT_DIRS = (
-    PROJECT_ROOT / 'data',
-    PROJECT_ROOT / 'instance' / 'ground_station' / 'recordings',
+    PROJECT_ROOT / "data",
+    PROJECT_ROOT / "instance" / "ground_station" / "recordings",
 )
 
 
 # Weather satellite definitions.
 # NOAA APT entries are retained as inactive compatibility metadata.
 WEATHER_SATELLITES = {
-    'NOAA-15': {
-        'name': 'NOAA 15',
-        'frequency': 137.620,
-        'mode': 'APT',
-        'pipeline': 'noaa_apt',
-        'tle_key': 'NOAA-15',
-        'description': 'NOAA-15 APT (decommissioned Aug 2025)',
-        'active': False,
+    "NOAA-15": {
+        "name": "NOAA 15",
+        "frequency": 137.620,
+        "mode": "APT",
+        "pipeline": "noaa_apt",
+        "tle_key": "NOAA-15",
+        "description": "NOAA-15 APT (decommissioned Aug 2025)",
+        "active": False,
     },
-    'NOAA-18': {
-        'name': 'NOAA 18',
-        'frequency': 137.9125,
-        'mode': 'APT',
-        'pipeline': 'noaa_apt',
-        'tle_key': 'NOAA-18',
-        'description': 'NOAA-18 APT (decommissioned Jun 2025)',
-        'active': False,
+    "NOAA-18": {
+        "name": "NOAA 18",
+        "frequency": 137.9125,
+        "mode": "APT",
+        "pipeline": "noaa_apt",
+        "tle_key": "NOAA-18",
+        "description": "NOAA-18 APT (decommissioned Jun 2025)",
+        "active": False,
     },
-    'NOAA-19': {
-        'name': 'NOAA 19',
-        'frequency': 137.100,
-        'mode': 'APT',
-        'pipeline': 'noaa_apt',
-        'tle_key': 'NOAA-19',
-        'description': 'NOAA-19 APT (decommissioned Aug 2025)',
-        'active': False,
+    "NOAA-19": {
+        "name": "NOAA 19",
+        "frequency": 137.100,
+        "mode": "APT",
+        "pipeline": "noaa_apt",
+        "tle_key": "NOAA-19",
+        "description": "NOAA-19 APT (decommissioned Aug 2025)",
+        "active": False,
     },
-    'METEOR-M2-3': {
-        'name': 'Meteor-M2-3',
-        'frequency': 137.900,
-        'mode': 'LRPT',
-        'pipeline': 'meteor_m2-x_lrpt',
-        'tle_key': 'METEOR-M2-3',
-        'description': 'Meteor-M2-3 LRPT (digital color imagery)',
-        'active': True,
+    "METEOR-M2-3": {
+        "name": "Meteor-M2-3",
+        "frequency": 137.900,
+        "mode": "LRPT",
+        "pipeline": "meteor_m2-x_lrpt",
+        "tle_key": "METEOR-M2-3",
+        "description": "Meteor-M2-3 LRPT (digital color imagery)",
+        "active": True,
     },
-    'METEOR-M2-4': {
-        'name': 'Meteor-M2-4',
-        'frequency': 137.900,
-        'mode': 'LRPT',
-        'pipeline': 'meteor_m2-x_lrpt',
-        'tle_key': 'METEOR-M2-4',
-        'description': 'Meteor-M2-4 LRPT (digital color imagery)',
-        'active': True,
+    "METEOR-M2-4": {
+        "name": "Meteor-M2-4",
+        "frequency": 137.900,
+        "mode": "LRPT",
+        "pipeline": "meteor_m2-x_lrpt",
+        "tle_key": "METEOR-M2-4",
+        "description": "Meteor-M2-4 LRPT (digital color imagery)",
+        "active": True,
     },
-    'METEOR-M2-4-80K': {
-        'name': 'Meteor-M2-4 (80k)',
-        'frequency': 137.900,
-        'mode': 'LRPT',
-        'pipeline': 'meteor_m2-x_lrpt_80k',
-        'tle_key': 'METEOR-M2-4',
-        'description': 'Meteor-M2-4 LRPT 80k baud (fallback symbol rate)',
-        'active': True,
+    "METEOR-M2-4-80K": {
+        "name": "Meteor-M2-4 (80k)",
+        "frequency": 137.900,
+        "mode": "LRPT",
+        "pipeline": "meteor_m2-x_lrpt_80k",
+        "tle_key": "METEOR-M2-4",
+        "description": "Meteor-M2-4 LRPT 80k baud (fallback symbol rate)",
+        "active": True,
     },
 }
 
 # Default sample rate for weather satellite reception
 try:
     from config import WEATHER_SAT_SAMPLE_RATE as _configured_rate
+
     DEFAULT_SAMPLE_RATE = _configured_rate
 except ImportError:
     DEFAULT_SAMPLE_RATE = 2400000  # 2.4 MHz — minimum for Meteor LRPT
@@ -108,6 +109,7 @@ except ImportError:
 @dataclass
 class WeatherSatImage:
     """Decoded weather satellite image."""
+
     filename: str
     path: Path
     satellite: str
@@ -115,50 +117,51 @@ class WeatherSatImage:
     timestamp: datetime
     frequency: float
     size_bytes: int = 0
-    product: str = ''  # e.g. 'RGB', 'Thermal', 'Channel 1'
+    product: str = ""  # e.g. 'RGB', 'Thermal', 'Channel 1'
 
     def to_dict(self) -> dict:
         return {
-            'filename': self.filename,
-            'satellite': self.satellite,
-            'mode': self.mode,
-            'timestamp': self.timestamp.isoformat(),
-            'frequency': self.frequency,
-            'size_bytes': self.size_bytes,
-            'product': self.product,
-            'url': f'/weather-sat/images/{self.filename}',
+            "filename": self.filename,
+            "satellite": self.satellite,
+            "mode": self.mode,
+            "timestamp": self.timestamp.isoformat(),
+            "frequency": self.frequency,
+            "size_bytes": self.size_bytes,
+            "product": self.product,
+            "url": f"/weather-sat/images/{self.filename}",
         }
 
 
 @dataclass
 class CaptureProgress:
     """Weather satellite capture/decode progress update."""
+
     status: str  # 'idle', 'capturing', 'decoding', 'complete', 'error'
-    satellite: str = ''
+    satellite: str = ""
     frequency: float = 0.0
-    mode: str = ''
-    message: str = ''
+    mode: str = ""
+    message: str = ""
     progress_percent: int = 0
     elapsed_seconds: int = 0
     image: WeatherSatImage | None = None
-    log_type: str = ''       # 'info', 'debug', 'progress', 'error', 'signal', 'save', 'warning'
-    capture_phase: str = ''  # 'tuning', 'listening', 'signal_detected', 'decoding', 'complete', 'error'
+    log_type: str = ""  # 'info', 'debug', 'progress', 'error', 'signal', 'save', 'warning'
+    capture_phase: str = ""  # 'tuning', 'listening', 'signal_detected', 'decoding', 'complete', 'error'
 
     def to_dict(self) -> dict:
         result = {
-            'type': 'weather_sat_progress',
-            'status': self.status,
-            'satellite': self.satellite,
-            'frequency': self.frequency,
-            'mode': self.mode,
-            'message': self.message,
-            'progress': self.progress_percent,
-            'elapsed_seconds': self.elapsed_seconds,
-            'log_type': self.log_type,
-            'capture_phase': self.capture_phase,
+            "type": "weather_sat_progress",
+            "status": self.status,
+            "satellite": self.satellite,
+            "frequency": self.frequency,
+            "mode": self.mode,
+            "message": self.message,
+            "progress": self.progress_percent,
+            "elapsed_seconds": self.elapsed_seconds,
+            "log_type": self.log_type,
+            "capture_phase": self.capture_phase,
         }
         if self.image:
-            result['image'] = self.image.to_dict()
+            result["image"] = self.image.to_dict()
         return result
 
 
@@ -177,20 +180,20 @@ class WeatherSatDecoder:
         self._images_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._callback: Callable[[CaptureProgress], None] | None = None
-        self._output_dir = Path(output_dir) if output_dir else Path('data/weather_sat')
+        self._output_dir = Path(output_dir) if output_dir else Path("data/weather_sat")
         self._images: list[WeatherSatImage] = []
         self._reader_thread: threading.Thread | None = None
         self._watcher_thread: threading.Thread | None = None
         self._pty_master_fd: int | None = None
-        self._current_satellite: str = ''
+        self._current_satellite: str = ""
         self._current_frequency: float = 0.0
-        self._current_mode: str = ''
+        self._current_mode: str = ""
         self._capture_start_time: float = 0
         self._device_index: int = -1
         self._capture_output_dir: Path | None = None
         self._on_complete_callback: Callable[[], None] | None = None
-        self._capture_phase: str = 'idle'
-        self._last_error_message: str = ''
+        self._capture_phase: str = "idle"
+        self._last_error_message: str = ""
         self._last_process_returncode: int | None = None
 
         # Ensure output directory exists
@@ -217,19 +220,22 @@ class WeatherSatDecoder:
         return self._current_frequency
 
     @property
+    def current_mode(self) -> str:
+        return self._current_mode
+
+    @property
     def device_index(self) -> int:
         """Return current device index."""
         return self._device_index
 
     def _detect_decoder(self) -> str | None:
         """Detect which weather satellite decoder is available."""
-        if shutil.which('satdump'):
+        if shutil.which("satdump"):
             logger.info("SatDump decoder detected")
-            return 'satdump'
+            return "satdump"
 
         logger.warning(
-            "SatDump not found. Install SatDump for weather satellite decoding. "
-            "See: https://github.com/SatDump/SatDump"
+            "SatDump not found. Install SatDump for weather satellite decoding. See: https://github.com/SatDump/SatDump"
         )
         return None
 
@@ -273,21 +279,25 @@ class WeatherSatDecoder:
 
             if not self._decoder:
                 logger.error("No weather satellite decoder available")
-                msg = 'SatDump not installed. Build from source or install via package manager.'
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    message=msg,
-                ))
+                msg = "SatDump not installed. Build from source or install via package manager."
+                self._emit_progress(
+                    CaptureProgress(
+                        status="error",
+                        message=msg,
+                    )
+                )
                 return False, msg
 
             sat_info = WEATHER_SATELLITES.get(satellite)
             if not sat_info:
                 logger.error(f"Unknown satellite: {satellite}")
-                msg = f'Unknown satellite: {satellite}'
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    message=msg,
-                ))
+                msg = f"Unknown satellite: {satellite}"
+                self._emit_progress(
+                    CaptureProgress(
+                        status="error",
+                        message=msg,
+                    )
+                )
                 return False, msg
 
             input_path = Path(input_file)
@@ -298,58 +308,67 @@ class WeatherSatDecoder:
                 resolved = input_path.resolve()
                 if not any(resolved.is_relative_to(base) for base in ALLOWED_OFFLINE_INPUT_DIRS):
                     logger.warning(f"Path traversal blocked in start_from_file: {input_file}")
-                    msg = 'Input file must be under INTERCEPT data or ground-station recordings'
-                    self._emit_progress(CaptureProgress(
-                        status='error',
-                        message=msg,
-                    ))
+                    msg = "Input file must be under INTERCEPT data or ground-station recordings"
+                    self._emit_progress(
+                        CaptureProgress(
+                            status="error",
+                            message=msg,
+                        )
+                    )
                     return False, msg
             except (OSError, ValueError):
-                msg = 'Invalid file path'
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    message=msg,
-                ))
+                msg = "Invalid file path"
+                self._emit_progress(
+                    CaptureProgress(
+                        status="error",
+                        message=msg,
+                    )
+                )
                 return False, msg
 
             if not input_path.is_file():
                 logger.error(f"Input file not found: {input_file}")
-                msg = 'Input file not found'
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    message=msg,
-                ))
+                msg = "Input file not found"
+                self._emit_progress(
+                    CaptureProgress(
+                        status="error",
+                        message=msg,
+                    )
+                )
                 return False, msg
 
             self._current_satellite = satellite
-            self._current_frequency = sat_info['frequency']
-            self._current_mode = sat_info['mode']
+            self._current_frequency = sat_info["frequency"]
+            self._current_mode = sat_info["mode"]
             self._device_index = -1  # Offline decode does not claim an SDR device
             self._capture_start_time = time.time()
-            self._capture_phase = 'decoding'
-            self._last_error_message = ''
+            self._capture_phase = "decoding"
+            self._last_error_message = ""
             self._last_process_returncode = None
             self._stop_event.clear()
 
             try:
                 self._running = True
                 self._start_satdump_offline(
-                    sat_info, input_path, sample_rate,
+                    sat_info,
+                    input_path,
+                    sample_rate,
                 )
 
                 logger.info(
-                    f"Weather satellite file decode started: {satellite} "
-                    f"({sat_info['mode']}) from {input_file}"
+                    f"Weather satellite file decode started: {satellite} ({sat_info['mode']}) from {input_file}"
                 )
-                self._emit_progress(CaptureProgress(
-                    status='decoding',
-                    satellite=satellite,
-                    frequency=sat_info['frequency'],
-                    mode=sat_info['mode'],
-                    message=f"Decoding {sat_info['name']} from file ({sat_info['mode']})...",
-                    log_type='info',
-                    capture_phase='decoding',
-                ))
+                self._emit_progress(
+                    CaptureProgress(
+                        status="decoding",
+                        satellite=satellite,
+                        frequency=sat_info["frequency"],
+                        mode=sat_info["mode"],
+                        message=f"Decoding {sat_info['name']} from file ({sat_info['mode']})...",
+                        log_type="info",
+                        capture_phase="decoding",
+                    )
+                )
 
                 return True, None
 
@@ -357,11 +376,13 @@ class WeatherSatDecoder:
                 self._running = False
                 error_msg = str(e)
                 logger.error(f"Failed to start file decode: {e}")
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    satellite=satellite,
-                    message=error_msg,
-                ))
+                self._emit_progress(
+                    CaptureProgress(
+                        status="error",
+                        satellite=satellite,
+                        message=error_msg,
+                    )
+                )
                 return False, error_msg
 
     def start(
@@ -392,11 +413,13 @@ class WeatherSatDecoder:
         sat_info = WEATHER_SATELLITES.get(satellite)
         if not sat_info:
             logger.error(f"Unknown satellite: {satellite}")
-            msg = f'Unknown satellite: {satellite}'
-            self._emit_progress(CaptureProgress(
-                status='error',
-                message=msg,
-            ))
+            msg = f"Unknown satellite: {satellite}"
+            self._emit_progress(
+                CaptureProgress(
+                    status="error",
+                    message=msg,
+                )
+            )
             return False, msg
 
         # Resolve device ID BEFORE lock — this runs rtl_test which can
@@ -410,41 +433,52 @@ class WeatherSatDecoder:
 
             if not self._decoder:
                 logger.error("No weather satellite decoder available")
-                msg = 'SatDump not installed. Build from source or install via package manager.'
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    message=msg,
-                ))
+                msg = "SatDump not installed. Build from source or install via package manager."
+                self._emit_progress(
+                    CaptureProgress(
+                        status="error",
+                        message=msg,
+                    )
+                )
                 return False, msg
 
             self._current_satellite = satellite
-            self._current_frequency = sat_info['frequency']
-            self._current_mode = sat_info['mode']
+            self._current_frequency = sat_info["frequency"]
+            self._current_mode = sat_info["mode"]
             self._device_index = device_index
             self._capture_start_time = time.time()
-            self._capture_phase = 'tuning'
-            self._last_error_message = ''
+            self._capture_phase = "tuning"
+            self._last_error_message = ""
             self._last_process_returncode = None
             self._stop_event.clear()
 
             try:
                 self._running = True
-                self._start_satdump(sat_info, device_index, gain, sample_rate, bias_t, source_id,
-                                    rtl_tcp_host=rtl_tcp_host, rtl_tcp_port=rtl_tcp_port)
+                self._start_satdump(
+                    sat_info,
+                    device_index,
+                    gain,
+                    sample_rate,
+                    bias_t,
+                    source_id,
+                    rtl_tcp_host=rtl_tcp_host,
+                    rtl_tcp_port=rtl_tcp_port,
+                )
 
                 logger.info(
-                    f"Weather satellite capture started: {satellite} "
-                    f"({sat_info['frequency']} MHz, {sat_info['mode']})"
+                    f"Weather satellite capture started: {satellite} ({sat_info['frequency']} MHz, {sat_info['mode']})"
                 )
-                self._emit_progress(CaptureProgress(
-                    status='capturing',
-                    satellite=satellite,
-                    frequency=sat_info['frequency'],
-                    mode=sat_info['mode'],
-                    message=f"Capturing {sat_info['name']} on {sat_info['frequency']} MHz ({sat_info['mode']})...",
-                    log_type='info',
-                    capture_phase=self._capture_phase,
-                ))
+                self._emit_progress(
+                    CaptureProgress(
+                        status="capturing",
+                        satellite=satellite,
+                        frequency=sat_info["frequency"],
+                        mode=sat_info["mode"],
+                        message=f"Capturing {sat_info['name']} on {sat_info['frequency']} MHz ({sat_info['mode']})...",
+                        log_type="info",
+                        capture_phase=self._capture_phase,
+                    )
+                )
 
                 return True, None
 
@@ -452,11 +486,13 @@ class WeatherSatDecoder:
                 self._running = False
                 error_msg = str(e)
                 logger.error(f"Failed to start weather satellite capture: {e}")
-                self._emit_progress(CaptureProgress(
-                    status='error',
-                    satellite=satellite,
-                    message=error_msg,
-                ))
+                self._emit_progress(
+                    CaptureProgress(
+                        status="error",
+                        satellite=satellite,
+                        message=error_msg,
+                    )
+                )
                 return False, error_msg
 
     def _start_satdump(
@@ -472,25 +508,32 @@ class WeatherSatDecoder:
     ) -> None:
         """Start SatDump live capture and decode."""
         # Create timestamped output directory for this capture
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        sat_name = sat_info['tle_key'].replace(' ', '_')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        sat_name = sat_info["tle_key"].replace(" ", "_")
         self._capture_output_dir = self._output_dir / f"{sat_name}_{timestamp}"
         self._capture_output_dir.mkdir(parents=True, exist_ok=True)
 
-        freq_hz = int(sat_info['frequency'] * 1_000_000)
+        freq_hz = int(sat_info["frequency"] * 1_000_000)
 
         if rtl_tcp_host:
             # Remote SDR via rtl_tcp
             cmd = [
-                'satdump', 'live',
-                sat_info['pipeline'],
+                "satdump",
+                "live",
+                sat_info["pipeline"],
                 str(self._capture_output_dir),
-                '--source', 'rtltcp',
-                '--ip_address', rtl_tcp_host,
-                '--port', str(rtl_tcp_port),
-                '--samplerate', str(sample_rate),
-                '--frequency', str(freq_hz),
-                '--gain', str(int(gain)),
+                "--source",
+                "rtltcp",
+                "--ip_address",
+                rtl_tcp_host,
+                "--port",
+                str(rtl_tcp_port),
+                "--samplerate",
+                str(sample_rate),
+                "--frequency",
+                str(freq_hz),
+                "--gain",
+                str(int(gain)),
             ]
             logger.info(f"Using remote SDR: rtl_tcp://{rtl_tcp_host}:{rtl_tcp_port}")
         else:
@@ -500,23 +543,28 @@ class WeatherSatDecoder:
                 source_id = self._resolve_device_id(device_index)
 
             cmd = [
-                'satdump', 'live',
-                sat_info['pipeline'],
+                "satdump",
+                "live",
+                sat_info["pipeline"],
                 str(self._capture_output_dir),
-                '--source', 'rtlsdr',
-                '--samplerate', str(sample_rate),
-                '--frequency', str(freq_hz),
-                '--gain', str(int(gain)),
+                "--source",
+                "rtlsdr",
+                "--samplerate",
+                str(sample_rate),
+                "--frequency",
+                str(freq_hz),
+                "--gain",
+                str(int(gain)),
             ]
 
             # Only pass --source_id if we have a real serial number.
             # When _resolve_device_id returns None (no serial found),
             # omit the flag so SatDump uses the first available device.
             if source_id is not None:
-                cmd.extend(['--source_id', source_id])
+                cmd.extend(["--source_id", source_id])
 
         if bias_t:
-            cmd.append('--bias')
+            cmd.append("--bias")
 
         logger.info(f"Starting SatDump: {' '.join(cmd)}")
 
@@ -561,28 +609,26 @@ class WeatherSatDecoder:
             if error_output:
                 logger.error(f"SatDump output:\n{error_output}")
             error_msg = self._extract_error(error_output, process.returncode)
-            self._emit_progress(CaptureProgress(
-                status='error',
-                satellite=self._current_satellite,
-                frequency=self._current_frequency,
-                mode=self._current_mode,
-                message=error_msg,
-                log_type='error',
-                capture_phase='error',
-            ))
+            self._emit_progress(
+                CaptureProgress(
+                    status="error",
+                    satellite=self._current_satellite,
+                    frequency=self._current_frequency,
+                    mode=self._current_mode,
+                    message=error_msg,
+                    log_type="error",
+                    capture_phase="error",
+                )
+            )
 
         threading.Thread(target=_check_early_exit, daemon=True).start()
 
         # Start reader thread to monitor output
-        self._reader_thread = threading.Thread(
-            target=self._read_satdump_output, daemon=True
-        )
+        self._reader_thread = threading.Thread(target=self._read_satdump_output, daemon=True)
         self._reader_thread.start()
 
         # Start image watcher thread
-        self._watcher_thread = threading.Thread(
-            target=self._watch_images, daemon=True
-        )
+        self._watcher_thread = threading.Thread(target=self._watch_images, daemon=True)
         self._watcher_thread.start()
 
     def _start_satdump_offline(
@@ -593,8 +639,8 @@ class WeatherSatDecoder:
     ) -> None:
         """Start SatDump offline decode from a recorded file."""
         # Create timestamped output directory for this decode
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        sat_name = sat_info['tle_key'].replace(' ', '_')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        sat_name = sat_info["tle_key"].replace(" ", "_")
         self._capture_output_dir = self._output_dir / f"{sat_name}_{timestamp}"
         self._capture_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -602,18 +648,19 @@ class WeatherSatDecoder:
         # WAV audio files (FM-demodulated) use 'audio_wav' level.
         # Raw IQ baseband files use 'baseband' level.
         suffix = input_file.suffix.lower()
-        if suffix in ('.wav', '.wave'):
-            input_level = 'audio_wav'
+        if suffix in (".wav", ".wave"):
+            input_level = "audio_wav"
         else:
-            input_level = 'baseband'
+            input_level = "baseband"
 
         cmd = [
-            'satdump',
-            sat_info['pipeline'],
+            "satdump",
+            sat_info["pipeline"],
             input_level,
             str(input_file),
             str(self._capture_output_dir),
-            '--samplerate', str(sample_rate),
+            "--samplerate",
+            str(sample_rate),
         ]
 
         logger.info(f"Starting SatDump offline: {' '.join(cmd)}")
@@ -648,34 +695,30 @@ class WeatherSatDecoder:
             raise RuntimeError(error_msg)
 
         # Start reader thread to monitor output
-        self._reader_thread = threading.Thread(
-            target=self._read_satdump_output, daemon=True
-        )
+        self._reader_thread = threading.Thread(target=self._read_satdump_output, daemon=True)
         self._reader_thread.start()
 
         # Start image watcher thread
-        self._watcher_thread = threading.Thread(
-            target=self._watch_images, daemon=True
-        )
+        self._watcher_thread = threading.Thread(target=self._watch_images, daemon=True)
         self._watcher_thread.start()
 
     @staticmethod
     def _classify_log_type(line: str) -> str:
         """Classify a SatDump output line into a log type."""
         lower = line.lower()
-        if '(e)' in lower or 'error' in lower or 'fail' in lower:
-            return 'error'
-        if 'progress' in lower and '%' in line:
-            return 'progress'
-        if 'saved' in lower or 'writing' in lower:
-            return 'save'
-        if 'detected' in lower or 'lock' in lower or 'sync' in lower:
-            return 'signal'
-        if '(w)' in lower:
-            return 'warning'
-        if '(d)' in lower:
-            return 'debug'
-        return 'info'
+        if "(e)" in lower or "error" in lower or "fail" in lower:
+            return "error"
+        if "progress" in lower and "%" in line:
+            return "progress"
+        if "saved" in lower or "writing" in lower:
+            return "save"
+        if "detected" in lower or "lock" in lower or "sync" in lower:
+            return "signal"
+        if "(w)" in lower:
+            return "warning"
+        if "(d)" in lower:
+            return "debug"
+        return "info"
 
     @staticmethod
     def _resolve_device_id(device_index: int) -> str | None:
@@ -687,21 +730,23 @@ class WeatherSatDecoder:
         """
         try:
             result = subprocess.run(
-                ['rtl_test', '-d', str(device_index), '-t'],
-                capture_output=True, text=True, timeout=5,
+                ["rtl_test", "-d", str(device_index), "-t"],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             # rtl_test outputs: "Found 2 device(s):" then
             # "  0:  RTLSDRBlog, Blog V4, SN: 00004000"
             output = result.stdout + result.stderr
             for line in output.splitlines():
                 # Match SN: <serial> pattern
-                match = re.search(r'SN:\s*(\S+)', line)
+                match = re.search(r"SN:\s*(\S+)", line)
                 if match:
                     serial = match.group(1)
                     logger.info(f"RTL-SDR device {device_index} serial: {serial}")
                     return serial
                 # Also match "Using device #N: ..." then "Serial number is <serial>"
-                match = re.search(r'Serial number is\s+(\S+)', line)
+                match = re.search(r"Serial number is\s+(\S+)", line)
                 if match:
                     serial = match.group(1)
                     logger.info(f"RTL-SDR device {device_index} serial: {serial}")
@@ -715,7 +760,7 @@ class WeatherSatDecoder:
     @staticmethod
     def _drain_pty_output(master_fd: int) -> str:
         """Read all available output from a PTY master fd."""
-        output = b''
+        output = b""
         try:
             while True:
                 r, _, _ = select.select([master_fd], [], [], 0.1)
@@ -727,7 +772,7 @@ class WeatherSatDecoder:
                 output += chunk
         except OSError:
             pass
-        return output.decode('utf-8', errors='replace')
+        return output.decode("utf-8", errors="replace")
 
     @staticmethod
     def _extract_error(output: str, returncode: int) -> str:
@@ -735,7 +780,7 @@ class WeatherSatDecoder:
         if output:
             for line in output.strip().splitlines():
                 lower = line.lower()
-                if 'error' in lower or 'could not' in lower or 'cannot' in lower or 'failed' in lower:
+                if "error" in lower or "could not" in lower or "cannot" in lower or "failed" in lower:
                     return line.strip()
         return f"SatDump exited immediately (code {returncode})"
 
@@ -750,7 +795,7 @@ class WeatherSatDecoder:
         if master_fd is None:
             return
 
-        buf = b''
+        buf = b""
         while self._running:
             try:
                 r, _, _ = select.select([master_fd], [], [], 1.0)
@@ -764,10 +809,10 @@ class WeatherSatDecoder:
                     break
                 buf += chunk
                 # Split on \r and \n
-                while b'\n' in buf or b'\r' in buf:
+                while b"\n" in buf or b"\r" in buf:
                     # Find earliest delimiter
-                    idx_n = buf.find(b'\n')
-                    idx_r = buf.find(b'\r')
+                    idx_n = buf.find(b"\n")
+                    idx_r = buf.find(b"\r")
                     if idx_n == -1:
                         idx = idx_r
                     elif idx_r == -1:
@@ -775,19 +820,19 @@ class WeatherSatDecoder:
                     else:
                         idx = min(idx_n, idx_r)
                     line = buf[:idx]
-                    buf = buf[idx + 1:]
+                    buf = buf[idx + 1 :]
                     # Skip empty lines
-                    text = line.decode('utf-8', errors='replace').strip()
+                    text = line.decode("utf-8", errors="replace").strip()
                     # Strip ANSI escape codes that terminals produce
-                    text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+                    text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
                     if text:
                         yield text
             except OSError:
                 break
         # Drain remaining buffer
-        text = buf.decode('utf-8', errors='replace').strip()
+        text = buf.decode("utf-8", errors="replace").strip()
         if text:
-            text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+            text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
             if text:
                 yield text
 
@@ -815,61 +860,37 @@ class WeatherSatDecoder:
 
                 # Track phase transitions
                 lower = line.lower()
-                if log_type == 'signal':
-                    self._capture_phase = 'signal_detected'
-                elif log_type == 'progress':
-                    self._capture_phase = 'decoding'
-                elif self._capture_phase == 'tuning' and (
-                    'freq' in lower or 'processing' in lower
-                    or 'starting' in lower or 'source' in lower
+                if log_type == "signal":
+                    self._capture_phase = "signal_detected"
+                elif log_type == "progress":
+                    self._capture_phase = "decoding"
+                elif self._capture_phase == "tuning" and (
+                    "freq" in lower or "processing" in lower or "starting" in lower or "source" in lower
                 ):
-                    self._capture_phase = 'listening'
+                    self._capture_phase = "listening"
 
                 # Parse progress from SatDump output
-                if log_type == 'progress':
-                    match = re.search(r'(\d+(?:\.\d+)?)\s*%', line)
+                if log_type == "progress":
+                    match = re.search(r"(\d+(?:\.\d+)?)\s*%", line)
                     pct = int(float(match.group(1))) if match else 0
-                    self._emit_progress(CaptureProgress(
-                        status='decoding',
-                        satellite=self._current_satellite,
-                        frequency=self._current_frequency,
-                        mode=self._current_mode,
-                        message=line,
-                        progress_percent=pct,
-                        elapsed_seconds=elapsed,
-                        log_type=log_type,
-                        capture_phase=self._capture_phase,
-                    ))
+                    self._emit_progress(
+                        CaptureProgress(
+                            status="decoding",
+                            satellite=self._current_satellite,
+                            frequency=self._current_frequency,
+                            mode=self._current_mode,
+                            message=line,
+                            progress_percent=pct,
+                            elapsed_seconds=elapsed,
+                            log_type=log_type,
+                            capture_phase=self._capture_phase,
+                        )
+                    )
                     last_emit_time = now
-                elif log_type == 'save':
-                    self._emit_progress(CaptureProgress(
-                        status='decoding',
-                        satellite=self._current_satellite,
-                        frequency=self._current_frequency,
-                        mode=self._current_mode,
-                        message=line,
-                        elapsed_seconds=elapsed,
-                        log_type=log_type,
-                        capture_phase=self._capture_phase,
-                    ))
-                    last_emit_time = now
-                elif log_type == 'error' or log_type == 'signal':
-                    self._emit_progress(CaptureProgress(
-                        status='capturing',
-                        satellite=self._current_satellite,
-                        frequency=self._current_frequency,
-                        mode=self._current_mode,
-                        message=line,
-                        elapsed_seconds=elapsed,
-                        log_type=log_type,
-                        capture_phase=self._capture_phase,
-                    ))
-                    last_emit_time = now
-                else:
-                    # Emit other lines, throttled to every 0.5 seconds
-                    if now - last_emit_time >= 0.5:
-                        self._emit_progress(CaptureProgress(
-                            status='capturing',
+                elif log_type == "save":
+                    self._emit_progress(
+                        CaptureProgress(
+                            status="decoding",
                             satellite=self._current_satellite,
                             frequency=self._current_frequency,
                             mode=self._current_mode,
@@ -877,7 +898,38 @@ class WeatherSatDecoder:
                             elapsed_seconds=elapsed,
                             log_type=log_type,
                             capture_phase=self._capture_phase,
-                        ))
+                        )
+                    )
+                    last_emit_time = now
+                elif log_type == "error" or log_type == "signal":
+                    self._emit_progress(
+                        CaptureProgress(
+                            status="capturing",
+                            satellite=self._current_satellite,
+                            frequency=self._current_frequency,
+                            mode=self._current_mode,
+                            message=line,
+                            elapsed_seconds=elapsed,
+                            log_type=log_type,
+                            capture_phase=self._capture_phase,
+                        )
+                    )
+                    last_emit_time = now
+                else:
+                    # Emit other lines, throttled to every 0.5 seconds
+                    if now - last_emit_time >= 0.5:
+                        self._emit_progress(
+                            CaptureProgress(
+                                status="capturing",
+                                satellite=self._current_satellite,
+                                frequency=self._current_frequency,
+                                mode=self._current_mode,
+                                message=line,
+                                elapsed_seconds=elapsed,
+                                log_type=log_type,
+                                capture_phase=self._capture_phase,
+                            )
+                        )
                         last_emit_time = now
 
         except Exception as e:
@@ -908,29 +960,33 @@ class WeatherSatDecoder:
                 retcode = process.returncode if process else None
                 self._last_process_returncode = retcode
                 if retcode and retcode != 0:
-                    self._capture_phase = 'error'
-                    self._emit_progress(CaptureProgress(
-                        status='error',
-                        satellite=self._current_satellite,
-                        frequency=self._current_frequency,
-                        mode=self._current_mode,
-                        message=f"SatDump crashed (exit code {retcode}). Check SatDump installation and SDR device.",
-                        elapsed_seconds=elapsed,
-                        log_type='error',
-                        capture_phase='error',
-                    ))
+                    self._capture_phase = "error"
+                    self._emit_progress(
+                        CaptureProgress(
+                            status="error",
+                            satellite=self._current_satellite,
+                            frequency=self._current_frequency,
+                            mode=self._current_mode,
+                            message=f"SatDump crashed (exit code {retcode}). Check SatDump installation and SDR device.",
+                            elapsed_seconds=elapsed,
+                            log_type="error",
+                            capture_phase="error",
+                        )
+                    )
                 else:
-                    self._capture_phase = 'complete'
-                    self._emit_progress(CaptureProgress(
-                        status='complete',
-                        satellite=self._current_satellite,
-                        frequency=self._current_frequency,
-                        mode=self._current_mode,
-                        message=f"Capture complete ({elapsed}s)",
-                        elapsed_seconds=elapsed,
-                        log_type='info',
-                        capture_phase='complete',
-                    ))
+                    self._capture_phase = "complete"
+                    self._emit_progress(
+                        CaptureProgress(
+                            status="complete",
+                            satellite=self._current_satellite,
+                            frequency=self._current_frequency,
+                            mode=self._current_mode,
+                            message=f"Capture complete ({elapsed}s)",
+                            elapsed_seconds=elapsed,
+                            log_type="info",
+                            capture_phase="complete",
+                        )
+                    )
 
             # Notify route layer to release SDR device
             if self._on_complete_callback:
@@ -966,7 +1022,7 @@ class WeatherSatDecoder:
 
         try:
             # Recursively scan for image files
-            for ext in ('*.png', '*.jpg', '*.jpeg'):
+            for ext in ("*.png", "*.jpg", "*.jpeg"):
                 for filepath in self._capture_output_dir.rglob(ext):
                     file_key = str(filepath)
                     if file_key in known_files:
@@ -984,15 +1040,12 @@ class WeatherSatDecoder:
                     product = self._parse_product_name(filepath)
 
                     # Copy image to main output dir for serving
-                    safe_sat = re.sub(r'[^A-Za-z0-9_-]+', '_', self._current_satellite).strip('_') or 'satellite'
-                    safe_stem = re.sub(r'[^A-Za-z0-9_-]+', '_', filepath.stem).strip('_') or 'image'
+                    safe_sat = re.sub(r"[^A-Za-z0-9_-]+", "_", self._current_satellite).strip("_") or "satellite"
+                    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "_", filepath.stem).strip("_") or "image"
                     suffix = filepath.suffix.lower()
-                    if suffix not in ('.png', '.jpg', '.jpeg'):
-                        suffix = '.png'
-                    serve_name = (
-                        f"{safe_sat}_{safe_stem}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
-                        f"{suffix}"
-                    )
+                    if suffix not in (".png", ".jpg", ".jpeg"):
+                        suffix = ".png"
+                    serve_name = f"{safe_sat}_{safe_stem}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}{suffix}"
                     serve_path = self._output_dir / serve_name
                     try:
                         shutil.copy2(filepath, serve_path)
@@ -1017,14 +1070,16 @@ class WeatherSatDecoder:
                         self._images.append(image)
 
                     logger.info(f"New weather satellite image: {serve_name} ({product})")
-                    self._emit_progress(CaptureProgress(
-                        status='complete',
-                        satellite=self._current_satellite,
-                        frequency=self._current_frequency,
-                        mode=self._current_mode,
-                        message=f'Image decoded: {product}',
-                        image=image,
-                    ))
+                    self._emit_progress(
+                        CaptureProgress(
+                            status="complete",
+                            satellite=self._current_satellite,
+                            frequency=self._current_frequency,
+                            mode=self._current_mode,
+                            message=f"Image decoded: {product}",
+                            image=image,
+                        )
+                    )
 
         except Exception as e:
             logger.error(f"Error scanning for images: {e}")
@@ -1035,29 +1090,29 @@ class WeatherSatDecoder:
         parts = filepath.parts
 
         # Common SatDump product names
-        if 'rgb' in name:
-            return 'RGB Composite'
-        if 'msa' in name or 'multispectral' in name:
-            return 'Multispectral Analysis'
-        if 'thermal' in name or 'temp' in name:
-            return 'Thermal'
-        if 'ndvi' in name:
-            return 'NDVI Vegetation'
-        if 'channel' in name or 'ch' in name:
-            match = re.search(r'(?:channel|ch)[\s_-]*(\d+)', name)
+        if "rgb" in name:
+            return "RGB Composite"
+        if "msa" in name or "multispectral" in name:
+            return "Multispectral Analysis"
+        if "thermal" in name or "temp" in name:
+            return "Thermal"
+        if "ndvi" in name:
+            return "NDVI Vegetation"
+        if "channel" in name or "ch" in name:
+            match = re.search(r"(?:channel|ch)[\s_-]*(\d+)", name)
             if match:
-                return f'Channel {match.group(1)}'
-        if 'avhrr' in name:
-            return 'AVHRR'
-        if 'msu' in name or 'mtvza' in name:
-            return 'MSU-MR'
+                return f"Channel {match.group(1)}"
+        if "avhrr" in name:
+            return "AVHRR"
+        if "msu" in name or "mtvza" in name:
+            return "MSU-MR"
 
         # Check parent directories for clues
         for part in parts:
-            if 'rgb' in part.lower():
-                return 'RGB Composite'
-            if 'channel' in part.lower():
-                return 'Channel Data'
+            if "rgb" in part.lower():
+                return "RGB Composite"
+            if "channel" in part.lower():
+                return "Channel Data"
 
         return filepath.stem
 
@@ -1091,7 +1146,7 @@ class WeatherSatDecoder:
         """
         known_filenames = {img.filename for img in self._images}
 
-        for ext in ('*.png', '*.jpg', '*.jpeg'):
+        for ext in ("*.png", "*.jpg", "*.jpeg"):
             for filepath in self._output_dir.glob(ext):
                 if filepath.name in known_filenames:
                     continue
@@ -1104,7 +1159,7 @@ class WeatherSatDecoder:
                     continue
 
                 # Parse satellite name from filename
-                satellite = 'Unknown'
+                satellite = "Unknown"
                 for sat_key in WEATHER_SATELLITES:
                     if sat_key in filepath.name:
                         satellite = sat_key
@@ -1116,9 +1171,9 @@ class WeatherSatDecoder:
                     filename=filepath.name,
                     path=filepath,
                     satellite=satellite,
-                    mode=sat_info.get('mode', 'Unknown'),
+                    mode=sat_info.get("mode", "Unknown"),
                     timestamp=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
-                    frequency=sat_info.get('frequency', 0.0),
+                    frequency=sat_info.get("frequency", 0.0),
                     size_bytes=stat.st_size,
                     product=self._parse_product_name(filepath),
                 )
@@ -1141,7 +1196,7 @@ class WeatherSatDecoder:
     def delete_all_images(self) -> int:
         """Delete all decoded images."""
         count = 0
-        for ext in ('*.png', '*.jpg', '*.jpeg'):
+        for ext in ("*.png", "*.jpg", "*.jpeg"):
             for filepath in self._output_dir.glob(ext):
                 try:
                     filepath.unlink()
@@ -1154,7 +1209,7 @@ class WeatherSatDecoder:
 
     def _emit_progress(self, progress: CaptureProgress) -> None:
         """Emit progress update to callback."""
-        if progress.status == 'error' and progress.message:
+        if progress.status == "error" and progress.message:
             self._last_error_message = str(progress.message)
         if self._callback:
             try:
@@ -1169,17 +1224,17 @@ class WeatherSatDecoder:
             elapsed = int(time.time() - self._capture_start_time)
 
         return {
-            'available': self._decoder is not None,
-            'decoder': self._decoder,
-            'running': self._running,
-            'satellite': self._current_satellite,
-            'frequency': self._current_frequency,
-            'mode': self._current_mode,
-            'capture_phase': self._capture_phase,
-            'elapsed_seconds': elapsed,
-            'image_count': len(self._images),
-            'last_error': self._last_error_message,
-            'last_returncode': self._last_process_returncode,
+            "available": self._decoder is not None,
+            "decoder": self._decoder,
+            "running": self._running,
+            "satellite": self._current_satellite,
+            "frequency": self._current_frequency,
+            "mode": self._current_mode,
+            "capture_phase": self._capture_phase,
+            "elapsed_seconds": elapsed,
+            "image_count": len(self._images),
+            "last_error": self._last_error_message,
+            "last_returncode": self._last_process_returncode,
         }
 
 

@@ -1293,6 +1293,11 @@ def _init_app() -> None:
         except Exception as e:
             logger.warning(f"Ground station scheduler init failed: {e}")
 
+    # Skip background init when disabled (set by tests — the deferred thread
+    # fires mid-session and its subprocess/DB cleanup races with test mocks)
+    if os.environ.get("INTERCEPT_SKIP_DEFERRED_INIT") == "1":
+        return
+
     threading.Thread(target=_deferred_init, daemon=True).start()
 
 

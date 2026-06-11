@@ -8,6 +8,23 @@ from flask import Flask
 from routes.satellite import satellite_bp
 
 
+@pytest.fixture(autouse=True)
+def _isolate_tle_state(monkeypatch):
+    """Keep TLE updates off the real data/satellites.py and reset the cache.
+
+    Without this, the update-tle test rewrites the tracked data file on
+    every run and leaks 'ISS' into the module-global cache, breaking
+    later tests that depend on cache contents.
+    """
+    import routes.satellite as sat
+
+    monkeypatch.setattr(sat, "_persist_tle_cache", lambda: None)
+    saved = dict(sat._tle_cache)
+    yield
+    sat._tle_cache.clear()
+    sat._tle_cache.update(saved)
+
+
 @pytest.fixture
 def app():
     app = Flask(__name__)

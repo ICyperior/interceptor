@@ -25,7 +25,7 @@ def client(app):
 @pytest.fixture(autouse=True)
 def mock_meshcore_client():
     mc = MagicMock()
-    mc.get_state.return_value = MagicMock(value="disconnected")
+    mc.get_state.return_value = (MagicMock(value="disconnected"), None)
     mc.get_messages.return_value = []
     mc.get_nodes.return_value = []
     mc.get_repeaters.return_value = []

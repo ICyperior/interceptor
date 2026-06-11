@@ -7,6 +7,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Must be set before importing app: stops the deferred background-init
+# thread, whose subprocess/DB cleanup fires mid-session and races with
+# test mocks (e.g. a patched subprocess.Popen catching its pkill call)
+os.environ.setdefault("INTERCEPT_SKIP_DEFERRED_INIT", "1")
+
 from app import app as flask_app
 from routes import register_blueprints
 

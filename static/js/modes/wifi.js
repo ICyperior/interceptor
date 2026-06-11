@@ -1371,7 +1371,8 @@ const WiFiMode = (function() {
             const data = await response.json();
             // Handle agent response format (may be nested in 'result')
             const result = isAgentMode && data.result ? data.result : data;
-            const clientList = result.clients || [];
+            // /wifi/v2/clients returns a bare array; tolerate {clients: [...]} too
+            const clientList = Array.isArray(result) ? result : (result.clients || []);
 
             if (clientList.length > 0) {
                 renderClientList(clientList, bssid);

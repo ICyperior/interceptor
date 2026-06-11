@@ -126,7 +126,7 @@ class TestMeshcoreClientStateMachine:
             client.get_queue().get_nowait()
         # Call on_connected directly (simulating what AsyncWorker would call)
         client.on_connected(transport="serial", device="/dev/ttyUSB0")
-        assert client.get_state() == ConnectionState.CONNECTED
+        assert client.get_state()[0] == ConnectionState.CONNECTED
         event = client.get_queue().get_nowait()
         assert event["type"] == "status"
         assert event["data"]["state"] == "connected"

@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Import dependency checking from Intercept utils
 try:
     from utils.dependencies import TOOL_DEPENDENCIES, check_all_dependencies, check_tool
+
     HAS_DEPENDENCIES_MODULE = True
 except ImportError:
     HAS_DEPENDENCIES_MODULE = False
@@ -45,6 +46,7 @@ except ImportError:
 try:
     from utils.tscm.correlation import CorrelationEngine
     from utils.tscm.detector import ThreatDetector
+
     HAS_TSCM_MODULES = True
 except ImportError:
     HAS_TSCM_MODULES = False
@@ -54,6 +56,7 @@ except ImportError:
 # Import database functions for baseline support (same as local mode)
 try:
     from utils.database import get_active_tscm_baseline, get_tscm_baseline
+
     HAS_BASELINE_DB = True
 except ImportError:
     HAS_BASELINE_DB = False
@@ -61,18 +64,16 @@ except ImportError:
     get_active_tscm_baseline = None
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-)
-logger = logging.getLogger('intercept.agent')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("intercept.agent")
 
 # Version
-AGENT_VERSION = '1.0.0'
+AGENT_VERSION = "1.0.0"
 
 # =============================================================================
 # Configuration
 # =============================================================================
+
 
 class AgentConfig:
     """Agent configuration loaded from INI file or defaults."""
@@ -85,26 +86,26 @@ class AgentConfig:
         self.allow_cors: bool = False
 
         # Controller settings
-        self.controller_url: str = ''
-        self.controller_api_key: str = ''
+        self.controller_url: str = ""
+        self.controller_api_key: str = ""
         self.push_enabled: bool = False
         self.push_interval: int = 5
 
         # Mode settings (all enabled by default)
         self.modes_enabled: dict[str, bool] = {
-            'pager': True,
-            'sensor': True,
-            'adsb': True,
-            'ais': True,
-            'acars': True,
-            'aprs': True,
-            'wifi': True,
-            'bluetooth': True,
-            'dsc': True,
-            'rtlamr': True,
-            'tscm': True,
-            'satellite': True,
-            'listening_post': True,
+            "pager": True,
+            "sensor": True,
+            "adsb": True,
+            "ais": True,
+            "acars": True,
+            "aprs": True,
+            "wifi": True,
+            "bluetooth": True,
+            "dsc": True,
+            "rtlamr": True,
+            "tscm": True,
+            "satellite": True,
+            "listening_post": True,
         }
 
     def load_from_file(self, filepath: str) -> bool:
@@ -118,34 +119,34 @@ class AgentConfig:
             parser.read(filepath)
 
             # Agent section
-            if parser.has_section('agent'):
-                if parser.has_option('agent', 'name'):
-                    self.name = parser.get('agent', 'name')
-                if parser.has_option('agent', 'port'):
-                    self.port = parser.getint('agent', 'port')
-                if parser.has_option('agent', 'allowed_ips'):
-                    ips = parser.get('agent', 'allowed_ips')
+            if parser.has_section("agent"):
+                if parser.has_option("agent", "name"):
+                    self.name = parser.get("agent", "name")
+                if parser.has_option("agent", "port"):
+                    self.port = parser.getint("agent", "port")
+                if parser.has_option("agent", "allowed_ips"):
+                    ips = parser.get("agent", "allowed_ips")
                     if ips.strip():
-                        self.allowed_ips = [ip.strip() for ip in ips.split(',')]
-                if parser.has_option('agent', 'allow_cors'):
-                    self.allow_cors = parser.getboolean('agent', 'allow_cors')
+                        self.allowed_ips = [ip.strip() for ip in ips.split(",")]
+                if parser.has_option("agent", "allow_cors"):
+                    self.allow_cors = parser.getboolean("agent", "allow_cors")
 
             # Controller section
-            if parser.has_section('controller'):
-                if parser.has_option('controller', 'url'):
-                    self.controller_url = parser.get('controller', 'url').rstrip('/')
-                if parser.has_option('controller', 'api_key'):
-                    self.controller_api_key = parser.get('controller', 'api_key')
-                if parser.has_option('controller', 'push_enabled'):
-                    self.push_enabled = parser.getboolean('controller', 'push_enabled')
-                if parser.has_option('controller', 'push_interval'):
-                    self.push_interval = parser.getint('controller', 'push_interval')
+            if parser.has_section("controller"):
+                if parser.has_option("controller", "url"):
+                    self.controller_url = parser.get("controller", "url").rstrip("/")
+                if parser.has_option("controller", "api_key"):
+                    self.controller_api_key = parser.get("controller", "api_key")
+                if parser.has_option("controller", "push_enabled"):
+                    self.push_enabled = parser.getboolean("controller", "push_enabled")
+                if parser.has_option("controller", "push_interval"):
+                    self.push_interval = parser.getint("controller", "push_interval")
 
             # Modes section
-            if parser.has_section('modes'):
+            if parser.has_section("modes"):
                 for mode in self.modes_enabled:
-                    if parser.has_option('modes', mode):
-                        self.modes_enabled[mode] = parser.getboolean('modes', mode)
+                    if parser.has_option("modes", mode):
+                        self.modes_enabled[mode] = parser.getboolean("modes", mode)
 
             logger.info(f"Loaded configuration from {filepath}")
             return True
@@ -157,14 +158,14 @@ class AgentConfig:
     def to_dict(self) -> dict:
         """Convert config to dictionary."""
         return {
-            'name': self.name,
-            'port': self.port,
-            'allowed_ips': self.allowed_ips,
-            'allow_cors': self.allow_cors,
-            'controller_url': self.controller_url,
-            'push_enabled': self.push_enabled,
-            'push_interval': self.push_interval,
-            'modes_enabled': self.modes_enabled,
+            "name": self.name,
+            "port": self.port,
+            "allowed_ips": self.allowed_ips,
+            "allow_cors": self.allow_cors,
+            "controller_url": self.controller_url,
+            "push_enabled": self.push_enabled,
+            "push_interval": self.push_interval,
+            "modes_enabled": self.modes_enabled,
         }
 
 
@@ -175,6 +176,7 @@ config = AgentConfig()
 # =============================================================================
 # GPS Integration
 # =============================================================================
+
 
 class GPSManager:
     """Manages GPS position via gpsd."""
@@ -191,19 +193,20 @@ class GPSManager:
         with self._lock:
             if self._position:
                 return {
-                    'lat': self._position.latitude,
-                    'lon': self._position.longitude,
-                    'altitude': self._position.altitude,
-                    'speed': self._position.speed,
-                    'heading': self._position.heading,
-                    'fix_quality': self._position.fix_quality,
+                    "lat": self._position.latitude,
+                    "lon": self._position.longitude,
+                    "altitude": self._position.altitude,
+                    "speed": self._position.speed,
+                    "heading": self._position.heading,
+                    "fix_quality": self._position.fix_quality,
                 }
             return None
 
-    def start(self, host: str = 'localhost', port: int = 2947) -> bool:
+    def start(self, host: str = "localhost", port: int = 2947) -> bool:
         """Start GPS client connection to gpsd."""
         try:
             from utils.gps import GPSDClient
+
             self._client = GPSDClient(host, port)
             self._client.add_callback(self._on_position_update)
             success = self._client.start()
@@ -243,6 +246,7 @@ gps_manager = GPSManager()
 # Controller Push Client
 # =============================================================================
 
+
 class ControllerPushClient(threading.Thread):
     """Daemon thread that pushes scan data to the controller."""
 
@@ -260,12 +264,12 @@ class ControllerPushClient(threading.Thread):
             return
 
         item = {
-            'agent_name': self.cfg.name,
-            'scan_type': scan_type,
-            'interface': interface,
-            'payload': payload,
-            'received_at': datetime.now(timezone.utc).isoformat(),
-            'attempts': 0,
+            "agent_name": self.cfg.name,
+            "scan_type": scan_type,
+            "interface": interface,
+            "payload": payload,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "attempts": 0,
         }
 
         try:
@@ -290,16 +294,16 @@ class ControllerPushClient(threading.Thread):
                 continue
 
             endpoint = f"{self.cfg.controller_url}/controller/api/ingest"
-            headers = {'Content-Type': 'application/json'}
+            headers = {"Content-Type": "application/json"}
             if self.cfg.controller_api_key:
-                headers['X-API-Key'] = self.cfg.controller_api_key
+                headers["X-API-Key"] = self.cfg.controller_api_key
 
             body = {
-                'agent_name': item['agent_name'],
-                'scan_type': item['scan_type'],
-                'interface': item['interface'],
-                'payload': item['payload'],
-                'received_at': item['received_at'],
+                "agent_name": item["agent_name"],
+                "scan_type": item["scan_type"],
+                "interface": item["interface"],
+                "payload": item["payload"],
+                "received_at": item["received_at"],
             }
 
             try:
@@ -308,8 +312,8 @@ class ControllerPushClient(threading.Thread):
                     raise RuntimeError(f"HTTP {response.status_code}")
                 logger.debug(f"Pushed {item['scan_type']} data to controller")
             except Exception as e:
-                item['attempts'] += 1
-                if item['attempts'] < 3 and not self.stop_event.is_set():
+                item["attempts"] += 1
+                if item["attempts"] < 3 and not self.stop_event.is_set():
                     with contextlib.suppress(queue.Full):
                         self.queue.put_nowait(item)
                 else:
@@ -332,6 +336,7 @@ push_client: ControllerPushClient | None = None
 # =============================================================================
 # Mode Manager - Uses Intercept's existing utilities and tools
 # =============================================================================
+
 
 class ModeManager:
     """
@@ -369,6 +374,7 @@ class ModeManager:
         if self._sdr_factory is None:
             try:
                 from utils.sdr import SDRFactory
+
                 self._sdr_factory = SDRFactory
             except ImportError:
                 logger.warning("SDRFactory not available - SDR features disabled")
@@ -379,6 +385,7 @@ class ModeManager:
         if self._dependencies is None:
             try:
                 from utils import dependencies
+
                 self._dependencies = dependencies
             except ImportError:
                 logger.warning("Dependencies module not available")
@@ -387,7 +394,7 @@ class ModeManager:
     def _check_tool(self, tool_name: str) -> bool:
         """Check if a tool is available using Intercept's dependency checker."""
         deps = self._get_dependencies()
-        if deps and hasattr(deps, 'check_tool'):
+        if deps and hasattr(deps, "check_tool"):
             return deps.check_tool(tool_name)
         # Fallback to simple which check
         return shutil.which(tool_name) is not None
@@ -395,7 +402,7 @@ class ModeManager:
     def _get_tool_path(self, tool_name: str) -> str | None:
         """Get tool path using Intercept's dependency module."""
         deps = self._get_dependencies()
-        if deps and hasattr(deps, 'get_tool_path'):
+        if deps and hasattr(deps, "get_tool_path"):
             return deps.get_tool_path(tool_name)
         return shutil.which(tool_name)
 
@@ -405,17 +412,17 @@ class ModeManager:
             return self._capabilities
 
         capabilities = {
-            'modes': {},
-            'devices': [],
-            'interfaces': {
-                'wifi_interfaces': [],
-                'bt_adapters': [],
-                'sdr_devices': [],
+            "modes": {},
+            "devices": [],
+            "interfaces": {
+                "wifi_interfaces": [],
+                "bt_adapters": [],
+                "sdr_devices": [],
             },
-            'agent_version': AGENT_VERSION,
-            'gps': gps_manager.is_running,
-            'gps_position': gps_manager.position,
-            'tool_details': {},  # Detailed tool status
+            "agent_version": AGENT_VERSION,
+            "gps": gps_manager.is_running,
+            "gps_position": gps_manager.position,
+            "tool_details": {},  # Detailed tool status
         }
 
         # Detect interfaces using Intercept's TSCM device detection
@@ -427,47 +434,45 @@ class ModeManager:
                 dep_status = check_all_dependencies()
                 # Map dependency status to mode availability
                 mode_mapping = {
-                    'pager': 'pager',
-                    'sensor': 'sensor',
-                    'aircraft': 'adsb',
-                    'ais': 'ais',
-                    'acars': 'acars',
-                    'aprs': 'aprs',
-                    'wifi': 'wifi',
-                    'bluetooth': 'bluetooth',
-                    'tscm': 'tscm',
-                    'satellite': 'satellite',
+                    "pager": "pager",
+                    "sensor": "sensor",
+                    "aircraft": "adsb",
+                    "ais": "ais",
+                    "acars": "acars",
+                    "aprs": "aprs",
+                    "wifi": "wifi",
+                    "bluetooth": "bluetooth",
+                    "tscm": "tscm",
+                    "satellite": "satellite",
                 }
                 for dep_mode, cap_mode in mode_mapping.items():
                     if dep_mode in dep_status:
                         mode_info = dep_status[dep_mode]
                         # Check if mode is enabled in config
                         if not config.modes_enabled.get(cap_mode, True):
-                            capabilities['modes'][cap_mode] = False
+                            capabilities["modes"][cap_mode] = False
                         else:
-                            capabilities['modes'][cap_mode] = mode_info['ready']
+                            capabilities["modes"][cap_mode] = mode_info["ready"]
                         # Store detailed tool info
-                        capabilities['tool_details'][cap_mode] = {
-                            'name': mode_info['name'],
-                            'ready': mode_info['ready'],
-                            'missing_required': mode_info['missing_required'],
-                            'tools': mode_info['tools'],
+                        capabilities["tool_details"][cap_mode] = {
+                            "name": mode_info["name"],
+                            "ready": mode_info["ready"],
+                            "missing_required": mode_info["missing_required"],
+                            "tools": mode_info["tools"],
                         }
                 # Handle modes not in dependencies.py
-                extra_modes = ['dsc', 'rtlamr', 'listening_post']
+                extra_modes = ["dsc", "rtlamr", "listening_post"]
                 extra_tools = {
-                    'dsc': ['rtl_fm'],
-                    'rtlamr': ['rtlamr'],
-                    'listening_post': ['rtl_fm'],
+                    "dsc": ["rtl_fm"],
+                    "rtlamr": ["rtlamr"],
+                    "listening_post": ["rtl_fm"],
                 }
                 for mode in extra_modes:
                     if not config.modes_enabled.get(mode, True):
-                        capabilities['modes'][mode] = False
+                        capabilities["modes"][mode] = False
                     else:
                         tools = extra_tools.get(mode, [])
-                        capabilities['modes'][mode] = all(
-                            check_tool(tool) for tool in tools
-                        ) if tools else True
+                        capabilities["modes"][mode] = all(check_tool(tool) for tool in tools) if tools else True
             except Exception as e:
                 logger.warning(f"Dependency check failed, using fallback: {e}")
                 self._detect_capabilities_fallback(capabilities)
@@ -484,12 +489,12 @@ class ModeManager:
                     sdr_dict = sdr.to_dict()
                     # Create friendly display name
                     display_name = sdr.name
-                    if sdr.serial and sdr.serial not in ('N/A', 'Unknown'):
-                        display_name = f'{sdr.name} (SN: {sdr.serial[-8:]})'
-                    sdr_dict['display_name'] = display_name
+                    if sdr.serial and sdr.serial not in ("N/A", "Unknown"):
+                        display_name = f"{sdr.name} (SN: {sdr.serial[-8:]})"
+                    sdr_dict["display_name"] = display_name
                     sdr_list.append(sdr_dict)
-                capabilities['devices'] = sdr_list
-                capabilities['interfaces']['sdr_devices'] = sdr_list
+                capabilities["devices"] = sdr_list
+                capabilities["interfaces"]["sdr_devices"] = sdr_list
             except Exception as e:
                 logger.warning(f"SDR device detection failed: {e}")
 
@@ -500,201 +505,192 @@ class ModeManager:
         """Detect WiFi interfaces and Bluetooth adapters."""
         import platform
 
-        interfaces = capabilities.get('interfaces', {})
+        interfaces = capabilities.get("interfaces", {})
 
         # Detect WiFi interfaces
-        if platform.system() == 'Darwin':  # macOS
+        if platform.system() == "Darwin":  # macOS
             try:
                 result = subprocess.run(
-                    ['networksetup', '-listallhardwareports'],
-                    capture_output=True, text=True, timeout=5
+                    ["networksetup", "-listallhardwareports"], capture_output=True, text=True, timeout=5
                 )
-                lines = result.stdout.split('\n')
+                lines = result.stdout.split("\n")
                 for i, line in enumerate(lines):
-                    if 'Wi-Fi' in line or 'AirPort' in line:
-                        port_name = line.replace('Hardware Port:', '').strip()
+                    if "Wi-Fi" in line or "AirPort" in line:
+                        port_name = line.replace("Hardware Port:", "").strip()
                         for j in range(i + 1, min(i + 3, len(lines))):
-                            if 'Device:' in lines[j]:
-                                device = lines[j].split('Device:')[1].strip()
-                                interfaces['wifi_interfaces'].append({
-                                    'name': device,
-                                    'display_name': f'{port_name} ({device})',
-                                    'type': 'internal',
-                                    'monitor_capable': False
-                                })
+                            if "Device:" in lines[j]:
+                                device = lines[j].split("Device:")[1].strip()
+                                interfaces["wifi_interfaces"].append(
+                                    {
+                                        "name": device,
+                                        "display_name": f"{port_name} ({device})",
+                                        "type": "internal",
+                                        "monitor_capable": False,
+                                    }
+                                )
                                 break
             except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
                 pass
         else:  # Linux
             try:
-                result = subprocess.run(
-                    ['iw', 'dev'],
-                    capture_output=True, text=True, timeout=5
-                )
+                result = subprocess.run(["iw", "dev"], capture_output=True, text=True, timeout=5)
                 current_iface = None
-                for line in result.stdout.split('\n'):
+                for line in result.stdout.split("\n"):
                     line = line.strip()
-                    if line.startswith('Interface'):
+                    if line.startswith("Interface"):
                         current_iface = line.split()[1]
-                    elif current_iface and 'type' in line:
+                    elif current_iface and "type" in line:
                         iface_type = line.split()[-1]
-                        interfaces['wifi_interfaces'].append({
-                            'name': current_iface,
-                            'display_name': f'Wireless ({current_iface}) - {iface_type}',
-                            'type': iface_type,
-                            'monitor_capable': True
-                        })
+                        interfaces["wifi_interfaces"].append(
+                            {
+                                "name": current_iface,
+                                "display_name": f"Wireless ({current_iface}) - {iface_type}",
+                                "type": iface_type,
+                                "monitor_capable": True,
+                            }
+                        )
                         current_iface = None
             except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
                 # Fall back to iwconfig
                 try:
-                    result = subprocess.run(
-                        ['iwconfig'],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    for line in result.stdout.split('\n'):
-                        if 'IEEE 802.11' in line:
+                    result = subprocess.run(["iwconfig"], capture_output=True, text=True, timeout=5)
+                    for line in result.stdout.split("\n"):
+                        if "IEEE 802.11" in line:
                             iface = line.split()[0]
-                            interfaces['wifi_interfaces'].append({
-                                'name': iface,
-                                'display_name': f'Wireless ({iface})',
-                                'type': 'managed',
-                                'monitor_capable': True
-                            })
+                            interfaces["wifi_interfaces"].append(
+                                {
+                                    "name": iface,
+                                    "display_name": f"Wireless ({iface})",
+                                    "type": "managed",
+                                    "monitor_capable": True,
+                                }
+                            )
                 except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
                     pass
 
         # Detect Bluetooth adapters
-        if platform.system() == 'Linux':
+        if platform.system() == "Linux":
             try:
-                result = subprocess.run(
-                    ['hciconfig'],
-                    capture_output=True, text=True, timeout=5
-                )
-                blocks = re.split(r'(?=^hci\d+:)', result.stdout, flags=re.MULTILINE)
+                result = subprocess.run(["hciconfig"], capture_output=True, text=True, timeout=5)
+                blocks = re.split(r"(?=^hci\d+:)", result.stdout, flags=re.MULTILINE)
                 for block in blocks:
                     if block.strip():
-                        first_line = block.split('\n')[0]
-                        match = re.match(r'(hci\d+):', first_line)
+                        first_line = block.split("\n")[0]
+                        match = re.match(r"(hci\d+):", first_line)
                         if match:
                             iface_name = match.group(1)
-                            is_up = 'UP RUNNING' in block or '\tUP ' in block
-                            interfaces['bt_adapters'].append({
-                                'name': iface_name,
-                                'display_name': f'Bluetooth Adapter ({iface_name})',
-                                'type': 'hci',
-                                'status': 'up' if is_up else 'down'
-                            })
+                            is_up = "UP RUNNING" in block or "\tUP " in block
+                            interfaces["bt_adapters"].append(
+                                {
+                                    "name": iface_name,
+                                    "display_name": f"Bluetooth Adapter ({iface_name})",
+                                    "type": "hci",
+                                    "status": "up" if is_up else "down",
+                                }
+                            )
             except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
                 # Try bluetoothctl as fallback
                 try:
-                    result = subprocess.run(
-                        ['bluetoothctl', 'list'],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    for line in result.stdout.split('\n'):
-                        if 'Controller' in line:
+                    result = subprocess.run(["bluetoothctl", "list"], capture_output=True, text=True, timeout=5)
+                    for line in result.stdout.split("\n"):
+                        if "Controller" in line:
                             parts = line.split()
                             if len(parts) >= 3:
                                 addr = parts[1]
-                                name = ' '.join(parts[2:]) if len(parts) > 2 else 'Bluetooth'
-                                interfaces['bt_adapters'].append({
-                                    'name': addr,
-                                    'display_name': f'{name} ({addr[-8:]})',
-                                    'type': 'controller',
-                                    'status': 'available'
-                                })
+                                name = " ".join(parts[2:]) if len(parts) > 2 else "Bluetooth"
+                                interfaces["bt_adapters"].append(
+                                    {
+                                        "name": addr,
+                                        "display_name": f"{name} ({addr[-8:]})",
+                                        "type": "controller",
+                                        "status": "available",
+                                    }
+                                )
                 except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
                     pass
-        elif platform.system() == 'Darwin':
+        elif platform.system() == "Darwin":
             try:
                 result = subprocess.run(
-                    ['system_profiler', 'SPBluetoothDataType'],
-                    capture_output=True, text=True, timeout=10
+                    ["system_profiler", "SPBluetoothDataType"], capture_output=True, text=True, timeout=10
                 )
-                bt_name = 'Built-in Bluetooth'
-                bt_addr = ''
-                for line in result.stdout.split('\n'):
-                    if 'Address:' in line:
-                        bt_addr = line.split('Address:')[1].strip()
+                bt_name = "Built-in Bluetooth"
+                bt_addr = ""
+                for line in result.stdout.split("\n"):
+                    if "Address:" in line:
+                        bt_addr = line.split("Address:")[1].strip()
                         break
-                interfaces['bt_adapters'].append({
-                    'name': 'default',
-                    'display_name': f'{bt_name}' + (f' ({bt_addr[-8:]})' if bt_addr else ''),
-                    'type': 'macos',
-                    'status': 'available'
-                })
+                interfaces["bt_adapters"].append(
+                    {
+                        "name": "default",
+                        "display_name": f"{bt_name}" + (f" ({bt_addr[-8:]})" if bt_addr else ""),
+                        "type": "macos",
+                        "status": "available",
+                    }
+                )
             except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
-                interfaces['bt_adapters'].append({
-                    'name': 'default',
-                    'display_name': 'Built-in Bluetooth',
-                    'type': 'macos',
-                    'status': 'available'
-                })
+                interfaces["bt_adapters"].append(
+                    {"name": "default", "display_name": "Built-in Bluetooth", "type": "macos", "status": "available"}
+                )
 
     def _detect_capabilities_fallback(self, capabilities: dict):
         """Fallback capability detection when dependencies module unavailable."""
         tool_checks = {
-            'pager': ['rtl_fm', 'multimon-ng'],
-            'sensor': ['rtl_433'],
-            'adsb': ['dump1090'],
-            'ais': ['AIS-catcher'],
-            'acars': ['acarsdec'],
-            'aprs': ['rtl_fm', 'direwolf'],
-            'wifi': ['airmon-ng', 'airodump-ng'],
-            'bluetooth': ['bluetoothctl'],
-            'dsc': ['rtl_fm'],
-            'rtlamr': ['rtlamr'],
-            'satellite': [],
-            'listening_post': ['rtl_fm'],
-            'tscm': ['rtl_fm'],
+            "pager": ["rtl_fm", "multimon-ng"],
+            "sensor": ["rtl_433"],
+            "adsb": ["dump1090"],
+            "ais": ["AIS-catcher"],
+            "acars": ["acarsdec"],
+            "aprs": ["rtl_fm", "direwolf"],
+            "wifi": ["airmon-ng", "airodump-ng"],
+            "bluetooth": ["bluetoothctl"],
+            "dsc": ["rtl_fm"],
+            "rtlamr": ["rtlamr"],
+            "satellite": [],
+            "listening_post": ["rtl_fm"],
+            "tscm": ["rtl_fm"],
         }
 
         for mode, tools in tool_checks.items():
             if not config.modes_enabled.get(mode, True):
-                capabilities['modes'][mode] = False
+                capabilities["modes"][mode] = False
                 continue
             if not tools:
-                capabilities['modes'][mode] = True
+                capabilities["modes"][mode] = True
                 continue
-            if mode == 'adsb':
-                capabilities['modes'][mode] = (
-                    self._check_tool('dump1090') or
-                    self._check_tool('dump1090-fa') or
-                    self._check_tool('readsb')
+            if mode == "adsb":
+                capabilities["modes"][mode] = (
+                    self._check_tool("dump1090") or self._check_tool("dump1090-fa") or self._check_tool("readsb")
                 )
             else:
-                capabilities['modes'][mode] = all(
-                    self._check_tool(tool) for tool in tools
-                )
+                capabilities["modes"][mode] = all(self._check_tool(tool) for tool in tools)
 
     def get_status(self) -> dict:
         """Get overall agent status."""
         # Build running modes with device info for multi-SDR tracking
         running_modes_detail = {}
         for mode, info in self.running_modes.items():
-            params = info.get('params', {})
+            params = info.get("params", {})
             running_modes_detail[mode] = {
-                'started_at': info.get('started_at'),
-                'device': params.get('device', params.get('device_index', 0)),
+                "started_at": info.get("started_at"),
+                "device": params.get("device", params.get("device_index", 0)),
             }
 
         status = {
-            'running_modes': list(self.running_modes.keys()),
-            'running_modes_detail': running_modes_detail,  # Include device info per mode
-            'uptime': time.time() - _start_time,
-            'push_enabled': config.push_enabled,
-            'push_connected': push_client is not None and push_client.running,
-            'gps': gps_manager.is_running,
+            "running_modes": list(self.running_modes.keys()),
+            "running_modes_detail": running_modes_detail,  # Include device info per mode
+            "uptime": time.time() - _start_time,
+            "push_enabled": config.push_enabled,
+            "push_connected": push_client is not None and push_client.running,
+            "gps": gps_manager.is_running,
         }
         # Include GPS position if available
         gps_pos = gps_manager.position
         if gps_pos:
-            status['gps_position'] = gps_pos
+            status["gps_position"] = gps_pos
         return status
 
     # Modes that use RTL-SDR devices
-    SDR_MODES = {'adsb', 'sensor', 'pager', 'ais', 'acars', 'dsc', 'rtlamr', 'listening_post'}
+    SDR_MODES = {"adsb", "sensor", "pager", "ais", "acars", "dsc", "rtlamr", "listening_post"}
 
     def get_sdr_in_use(self, device: int = 0) -> str | None:
         """Check if an SDR device is in use by another mode.
@@ -703,7 +699,7 @@ class ModeManager:
         """
         for mode, info in self.running_modes.items():
             if mode in self.SDR_MODES:
-                mode_device = info.get('params', {}).get('device', 0)
+                mode_device = info.get("params", {}).get("device", 0)
                 # Normalize to int for comparison
                 try:
                     mode_device = int(mode_device)
@@ -716,15 +712,15 @@ class ModeManager:
     def start_mode(self, mode: str, params: dict) -> dict:
         """Start a mode with given parameters."""
         if mode in self.running_modes:
-            return {'status': 'error', 'message': f'{mode} already running'}
+            return {"status": "error", "message": f"{mode} already running"}
 
         caps = self.detect_capabilities()
-        if not caps['modes'].get(mode, False):
-            return {'status': 'error', 'message': f'{mode} not available (missing tools)'}
+        if not caps["modes"].get(mode, False):
+            return {"status": "error", "message": f"{mode} not available (missing tools)"}
 
         # Check SDR device conflicts for SDR-based modes
         if mode in self.SDR_MODES:
-            device = params.get('device', 0)
+            device = params.get("device", 0)
             try:
                 device = int(device)
             except (ValueError, TypeError):
@@ -732,8 +728,8 @@ class ModeManager:
             in_use_by = self.get_sdr_in_use(device)
             if in_use_by:
                 return {
-                    'status': 'error',
-                    'message': f'SDR device {device} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.'
+                    "status": "error",
+                    "message": f"SDR device {device} is in use by {in_use_by}. Stop {in_use_by} first or use a different device.",
                 }
 
         # Initialize lock if needed
@@ -744,20 +740,20 @@ class ModeManager:
             try:
                 # Mode-specific start logic
                 result = self._start_mode_internal(mode, params)
-                if result.get('status') == 'started':
+                if result.get("status") == "started":
                     self.running_modes[mode] = {
-                        'started_at': datetime.now(timezone.utc).isoformat(),
-                        'params': params,
+                        "started_at": datetime.now(timezone.utc).isoformat(),
+                        "params": params,
                     }
                 return result
             except Exception as e:
                 logger.exception(f"Error starting {mode}")
-                return {'status': 'error', 'message': str(e)}
+                return {"status": "error", "message": str(e)}
 
     def stop_mode(self, mode: str) -> dict:
         """Stop a running mode."""
         if mode not in self.running_modes:
-            return {'status': 'not_running'}
+            return {"status": "not_running"}
 
         if mode not in self.locks:
             self.locks[mode] = threading.Lock()
@@ -770,102 +766,99 @@ class ModeManager:
                 return result
             except Exception as e:
                 logger.exception(f"Error stopping {mode}")
-                return {'status': 'error', 'message': str(e)}
+                return {"status": "error", "message": str(e)}
 
     def get_mode_status(self, mode: str) -> dict:
         """Get status of a specific mode."""
         if mode in self.running_modes:
-            info = {
-                'running': True,
-                **self.running_modes[mode]
-            }
+            info = {"running": True, **self.running_modes[mode]}
             # Add mode-specific stats
-            if mode == 'adsb':
-                info['aircraft_count'] = len(self.adsb_aircraft)
-            elif mode == 'wifi':
-                info['network_count'] = len(self.wifi_networks)
-                info['client_count'] = len(self.wifi_clients)
-            elif mode == 'bluetooth':
-                info['device_count'] = len(self.bluetooth_devices)
-            elif mode == 'sensor':
-                info['reading_count'] = len(self.data_snapshots.get(mode, []))
-            elif mode == 'ais':
-                info['vessel_count'] = len(getattr(self, 'ais_vessels', {}))
-            elif mode == 'aprs':
-                info['station_count'] = len(getattr(self, 'aprs_stations', {}))
-            elif mode == 'pager' or mode == 'acars':
-                info['message_count'] = len(self.data_snapshots.get(mode, []))
-            elif mode == 'rtlamr':
-                info['reading_count'] = len(self.data_snapshots.get(mode, []))
-            elif mode == 'tscm':
-                info['anomaly_count'] = len(getattr(self, 'tscm_anomalies', []))
-            elif mode == 'satellite':
-                info['pass_count'] = len(self.data_snapshots.get(mode, []))
-            elif mode == 'listening_post':
-                info['signal_count'] = len(getattr(self, 'listening_post_activity', []))
-                info['current_freq'] = getattr(self, 'listening_post_current_freq', 0)
-                info['freqs_scanned'] = getattr(self, 'listening_post_freqs_scanned', 0)
+            if mode == "adsb":
+                info["aircraft_count"] = len(self.adsb_aircraft)
+            elif mode == "wifi":
+                info["network_count"] = len(self.wifi_networks)
+                info["client_count"] = len(self.wifi_clients)
+            elif mode == "bluetooth":
+                info["device_count"] = len(self.bluetooth_devices)
+            elif mode == "sensor":
+                info["reading_count"] = len(self.data_snapshots.get(mode, []))
+            elif mode == "ais":
+                info["vessel_count"] = len(getattr(self, "ais_vessels", {}))
+            elif mode == "aprs":
+                info["station_count"] = len(getattr(self, "aprs_stations", {}))
+            elif mode == "pager" or mode == "acars":
+                info["message_count"] = len(self.data_snapshots.get(mode, []))
+            elif mode == "rtlamr":
+                info["reading_count"] = len(self.data_snapshots.get(mode, []))
+            elif mode == "tscm":
+                info["anomaly_count"] = len(getattr(self, "tscm_anomalies", []))
+            elif mode == "satellite":
+                info["pass_count"] = len(self.data_snapshots.get(mode, []))
+            elif mode == "listening_post":
+                info["signal_count"] = len(getattr(self, "listening_post_activity", []))
+                info["current_freq"] = getattr(self, "listening_post_current_freq", 0)
+                info["freqs_scanned"] = getattr(self, "listening_post_freqs_scanned", 0)
             return info
-        return {'running': False}
+        return {"running": False}
 
     def get_mode_data(self, mode: str) -> dict:
         """Get current data snapshot for a mode."""
         data = {
-            'mode': mode,
-            'timestamp': datetime.now(timezone.utc).isoformat(),
+            "mode": mode,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Add GPS position
         gps_pos = gps_manager.position
         if gps_pos:
-            data['agent_gps'] = gps_pos
+            data["agent_gps"] = gps_pos
 
         # Mode-specific data
-        if mode == 'adsb':
-            data['data'] = list(self.adsb_aircraft.values())
-        elif mode == 'wifi':
-            data['data'] = {
-                'networks': list(self.wifi_networks.values()),
-                'clients': list(self.wifi_clients.values()),
+        if mode == "adsb":
+            data["data"] = list(self.adsb_aircraft.values())
+        elif mode == "wifi":
+            data["data"] = {
+                "networks": list(self.wifi_networks.values()),
+                "clients": list(self.wifi_clients.values()),
             }
-        elif mode == 'bluetooth':
-            data['data'] = list(self.bluetooth_devices.values())
-        elif mode == 'ais':
-            data['data'] = list(getattr(self, 'ais_vessels', {}).values())
-        elif mode == 'aprs':
-            data['data'] = list(getattr(self, 'aprs_stations', {}).values())
-        elif mode == 'tscm':
-            data['data'] = {
-                'anomalies': getattr(self, 'tscm_anomalies', []),
-                'baseline': getattr(self, 'tscm_baseline', {}),
-                'wifi_devices': list(self.wifi_networks.values()),
-                'wifi_clients': list(getattr(self, 'tscm_wifi_clients', {}).values()),
-                'bt_devices': list(self.bluetooth_devices.values()),
-                'rf_signals': getattr(self, 'tscm_rf_signals', []),
+        elif mode == "bluetooth":
+            data["data"] = list(self.bluetooth_devices.values())
+        elif mode == "ais":
+            data["data"] = list(getattr(self, "ais_vessels", {}).values())
+        elif mode == "aprs":
+            data["data"] = list(getattr(self, "aprs_stations", {}).values())
+        elif mode == "tscm":
+            data["data"] = {
+                "anomalies": getattr(self, "tscm_anomalies", []),
+                "baseline": getattr(self, "tscm_baseline", {}),
+                "wifi_devices": list(self.wifi_networks.values()),
+                "wifi_clients": list(getattr(self, "tscm_wifi_clients", {}).values()),
+                "bt_devices": list(self.bluetooth_devices.values()),
+                "rf_signals": getattr(self, "tscm_rf_signals", []),
             }
-        elif mode == 'listening_post':
-            data['data'] = {
-                'activity': getattr(self, 'listening_post_activity', []),
-                'current_freq': getattr(self, 'listening_post_current_freq', 0),
-                'freqs_scanned': getattr(self, 'listening_post_freqs_scanned', 0),
-                'signal_count': len(getattr(self, 'listening_post_activity', [])),
+        elif mode == "listening_post":
+            data["data"] = {
+                "activity": getattr(self, "listening_post_activity", []),
+                "current_freq": getattr(self, "listening_post_current_freq", 0),
+                "freqs_scanned": getattr(self, "listening_post_freqs_scanned", 0),
+                "signal_count": len(getattr(self, "listening_post_activity", [])),
             }
-        elif mode == 'pager':
+        elif mode == "pager":
             # Return recent pager messages
             messages = self.data_snapshots.get(mode, [])
-            data['data'] = {
-                'messages': messages[-50:] if len(messages) > 50 else messages,
-                'total_count': len(messages),
+            data["data"] = {
+                "messages": messages[-50:] if len(messages) > 50 else messages,
+                "total_count": len(messages),
             }
-        elif mode == 'dsc':
+        elif mode == "dsc":
             # Return DSC messages
-            messages = getattr(self, 'dsc_messages', [])
-            data['data'] = {
-                'messages': messages[-50:] if len(messages) > 50 else messages,
-                'total_count': len(messages),
+            messages = getattr(self, "dsc_messages", [])
+            data["data"] = {
+                "messages": messages[-50:] if len(messages) > 50 else messages,
+                "total_count": len(messages),
             }
         else:
-            data['data'] = self.data_snapshots.get(mode, [])
+            data["data"] = self.data_snapshots.get(mode, [])
 
         return data
 
@@ -877,26 +870,26 @@ class ModeManager:
         """Enable or disable monitor mode on a WiFi interface."""
         import re
 
-        action = params.get('action', 'start')
-        interface = params.get('interface', '')
-        kill_processes = params.get('kill_processes', False)
+        action = params.get("action", "start")
+        interface = params.get("interface", "")
+        kill_processes = params.get("kill_processes", False)
 
         # Validate interface name (alphanumeric, underscore, dash only)
-        if not interface or not re.match(r'^[a-zA-Z][a-zA-Z0-9_-]*$', interface):
-            return {'status': 'error', 'message': 'Invalid interface name'}
+        if not interface or not re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", interface):
+            return {"status": "error", "message": "Invalid interface name"}
 
-        airmon_path = self._get_tool_path('airmon-ng')
-        iw_path = self._get_tool_path('iw')
+        airmon_path = self._get_tool_path("airmon-ng")
+        iw_path = self._get_tool_path("iw")
 
-        if action == 'start':
+        if action == "start":
             if airmon_path:
                 try:
                     # Get interfaces before
                     def get_wireless_interfaces():
                         interfaces = set()
                         try:
-                            for iface in os.listdir('/sys/class/net'):
-                                if os.path.exists(f'/sys/class/net/{iface}/wireless') or 'mon' in iface:
+                            for iface in os.listdir("/sys/class/net"):
+                                if os.path.exists(f"/sys/class/net/{iface}/wireless") or "mon" in iface:
                                     interfaces.add(iface)
                         except OSError:
                             pass
@@ -906,12 +899,12 @@ class ModeManager:
 
                     # Kill interfering processes if requested
                     if kill_processes:
-                        subprocess.run([airmon_path, 'check', 'kill'],
-                                      capture_output=True, timeout=10)
+                        subprocess.run([airmon_path, "check", "kill"], capture_output=True, timeout=10)
 
                     # Start monitor mode
-                    result = subprocess.run([airmon_path, 'start', interface],
-                                          capture_output=True, text=True, timeout=15)
+                    result = subprocess.run(
+                        [airmon_path, "start", interface], capture_output=True, text=True, timeout=15
+                    )
                     output = result.stdout + result.stderr
 
                     time.sleep(1)
@@ -923,7 +916,7 @@ class ModeManager:
 
                     if new_interfaces:
                         for iface in new_interfaces:
-                            if 'mon' in iface:
+                            if "mon" in iface:
                                 monitor_iface = iface
                                 break
                         if not monitor_iface:
@@ -932,9 +925,9 @@ class ModeManager:
                     # Try to parse from airmon-ng output
                     if not monitor_iface:
                         patterns = [
-                            r'\b([a-zA-Z][a-zA-Z0-9_-]*mon)\b',
-                            r'\[phy\d+\]([a-zA-Z][a-zA-Z0-9_-]*mon)',
-                            r'enabled.*?\[phy\d+\]([a-zA-Z][a-zA-Z0-9_-]*)',
+                            r"\b([a-zA-Z][a-zA-Z0-9_-]*mon)\b",
+                            r"\[phy\d+\]([a-zA-Z][a-zA-Z0-9_-]*mon)",
+                            r"enabled.*?\[phy\d+\]([a-zA-Z][a-zA-Z0-9_-]*)",
                         ]
                         for pattern in patterns:
                             match = re.search(pattern, output, re.IGNORECASE)
@@ -947,71 +940,69 @@ class ModeManager:
                     # Fallback: check if original interface is in monitor mode
                     if not monitor_iface:
                         try:
-                            result = subprocess.run(['iwconfig', interface],
-                                                  capture_output=True, text=True, timeout=5)
-                            if 'Mode:Monitor' in result.stdout:
+                            result = subprocess.run(["iwconfig", interface], capture_output=True, text=True, timeout=5)
+                            if "Mode:Monitor" in result.stdout:
                                 monitor_iface = interface
                         except (subprocess.SubprocessError, OSError):
                             pass
 
                     # Last resort: try common naming
                     if not monitor_iface:
-                        potential = interface + 'mon'
-                        if os.path.exists(f'/sys/class/net/{potential}'):
+                        potential = interface + "mon"
+                        if os.path.exists(f"/sys/class/net/{potential}"):
                             monitor_iface = potential
 
-                    if not monitor_iface or not os.path.exists(f'/sys/class/net/{monitor_iface}'):
+                    if not monitor_iface or not os.path.exists(f"/sys/class/net/{monitor_iface}"):
                         all_wireless = list(get_wireless_interfaces())
                         return {
-                            'status': 'error',
-                            'message': f'Monitor interface not created. airmon-ng output: {output[:500]}. Available interfaces: {all_wireless}'
+                            "status": "error",
+                            "message": f"Monitor interface not created. airmon-ng output: {output[:500]}. Available interfaces: {all_wireless}",
                         }
 
                     self.wifi_monitor_interface = monitor_iface
                     self._capabilities = None  # Invalidate cache so interfaces refresh
                     logger.info(f"Monitor mode enabled on {monitor_iface}")
-                    return {'status': 'success', 'monitor_interface': monitor_iface}
+                    return {"status": "success", "monitor_interface": monitor_iface}
 
                 except Exception as e:
                     logger.error(f"Error enabling monitor mode: {e}")
-                    return {'status': 'error', 'message': str(e)}
+                    return {"status": "error", "message": str(e)}
 
             elif iw_path:
                 try:
-                    subprocess.run(['ip', 'link', 'set', interface, 'down'], capture_output=True)
-                    subprocess.run([iw_path, interface, 'set', 'monitor', 'control'], capture_output=True)
-                    subprocess.run(['ip', 'link', 'set', interface, 'up'], capture_output=True)
+                    subprocess.run(["ip", "link", "set", interface, "down"], capture_output=True)
+                    subprocess.run([iw_path, interface, "set", "monitor", "control"], capture_output=True)
+                    subprocess.run(["ip", "link", "set", interface, "up"], capture_output=True)
                     self.wifi_monitor_interface = interface
                     self._capabilities = None  # Invalidate cache
-                    return {'status': 'success', 'monitor_interface': interface}
+                    return {"status": "success", "monitor_interface": interface}
                 except Exception as e:
-                    return {'status': 'error', 'message': str(e)}
+                    return {"status": "error", "message": str(e)}
             else:
-                return {'status': 'error', 'message': 'No monitor mode tools available (airmon-ng or iw)'}
+                return {"status": "error", "message": "No monitor mode tools available (airmon-ng or iw)"}
 
         else:  # stop
-            current_iface = getattr(self, 'wifi_monitor_interface', None) or interface
+            current_iface = getattr(self, "wifi_monitor_interface", None) or interface
             if airmon_path:
                 try:
-                    subprocess.run([airmon_path, 'stop', current_iface],
-                                  capture_output=True, text=True, timeout=15)
+                    subprocess.run([airmon_path, "stop", current_iface], capture_output=True, text=True, timeout=15)
                     self.wifi_monitor_interface = None
                     self._capabilities = None  # Invalidate cache
-                    return {'status': 'success', 'message': 'Monitor mode disabled'}
+                    return {"status": "success", "message": "Monitor mode disabled"}
                 except Exception as e:
-                    return {'status': 'error', 'message': str(e)}
+                    return {"status": "error", "message": str(e)}
             elif iw_path:
                 try:
-                    subprocess.run(['ip', 'link', 'set', current_iface, 'down'], capture_output=True)
-                    subprocess.run([iw_path, current_iface, 'set', 'type', 'managed'], capture_output=True)
-                    subprocess.run(['ip', 'link', 'set', current_iface, 'up'], capture_output=True)
+                    subprocess.run(["ip", "link", "set", current_iface, "down"], capture_output=True)
+                    subprocess.run([iw_path, current_iface, "set", "type", "managed"], capture_output=True)
+                    subprocess.run(["ip", "link", "set", current_iface, "up"], capture_output=True)
                     self.wifi_monitor_interface = None
                     self._capabilities = None  # Invalidate cache
-                    return {'status': 'success', 'message': 'Monitor mode disabled'}
+                    return {"status": "success", "message": "Monitor mode disabled"}
                 except Exception as e:
-                    return {'status': 'error', 'message': str(e)}
+                    return {"status": "error", "message": str(e)}
 
-        return {'status': 'error', 'message': 'Unknown action'}
+        return {"status": "error", "message": "Unknown action"}
 
     # =========================================================================
     # Mode-specific implementations
@@ -1028,19 +1019,19 @@ class ModeManager:
 
         # Dispatch to mode-specific handler
         handlers = {
-            'sensor': self._start_sensor,
-            'adsb': self._start_adsb,
-            'wifi': self._start_wifi,
-            'bluetooth': self._start_bluetooth,
-            'pager': self._start_pager,
-            'ais': self._start_ais,
-            'acars': self._start_acars,
-            'aprs': self._start_aprs,
-            'rtlamr': self._start_rtlamr,
-            'dsc': self._start_dsc,
-            'tscm': self._start_tscm,
-            'satellite': self._start_satellite,
-            'listening_post': self._start_listening_post,
+            "sensor": self._start_sensor,
+            "adsb": self._start_adsb,
+            "wifi": self._start_wifi,
+            "bluetooth": self._start_bluetooth,
+            "pager": self._start_pager,
+            "ais": self._start_ais,
+            "acars": self._start_acars,
+            "aprs": self._start_aprs,
+            "rtlamr": self._start_rtlamr,
+            "dsc": self._start_dsc,
+            "tscm": self._start_tscm,
+            "satellite": self._start_satellite,
+            "listening_post": self._start_listening_post,
         }
 
         handler = handlers.get(mode)
@@ -1049,7 +1040,7 @@ class ModeManager:
 
         # Unknown mode
         logger.warning(f"Unknown mode: {mode}")
-        return {'status': 'error', 'message': f'Unknown mode: {mode}'}
+        return {"status": "error", "message": f"Unknown mode: {mode}"}
 
     def _stop_mode_internal(self, mode: str) -> dict:
         """Internal mode stop - terminates processes and cleans up."""
@@ -1092,16 +1083,16 @@ class ModeManager:
             del self.data_snapshots[mode]
 
         # Mode-specific cleanup
-        if mode == 'adsb':
+        if mode == "adsb":
             self.adsb_aircraft.clear()
-        elif mode == 'wifi':
+        elif mode == "wifi":
             self.wifi_networks.clear()
             self.wifi_clients.clear()
-        elif mode == 'bluetooth':
+        elif mode == "bluetooth":
             self.bluetooth_devices.clear()
-        elif mode == 'tscm':
+        elif mode == "tscm":
             # Clean up TSCM sub-threads
-            for sub_thread_name in ['tscm_wifi', 'tscm_bt', 'tscm_rf']:
+            for sub_thread_name in ["tscm_wifi", "tscm_bt", "tscm_rf"]:
                 if sub_thread_name in self.output_threads:
                     thread = self.output_threads[sub_thread_name]
                     if thread and thread.is_alive():
@@ -1113,53 +1104,53 @@ class ModeManager:
             self.tscm_rf_signals = []
             self.tscm_wifi_clients = {}
             # Clear reported threat tracking sets
-            if hasattr(self, '_tscm_reported_wifi'):
+            if hasattr(self, "_tscm_reported_wifi"):
                 self._tscm_reported_wifi.clear()
-            if hasattr(self, '_tscm_reported_bt'):
+            if hasattr(self, "_tscm_reported_bt"):
                 self._tscm_reported_bt.clear()
-        elif mode == 'dsc':
+        elif mode == "dsc":
             # Clear DSC data
-            if hasattr(self, 'dsc_messages'):
+            if hasattr(self, "dsc_messages"):
                 self.dsc_messages = []
-        elif mode == 'pager':
+        elif mode == "pager":
             # Pager uses two processes: multimon-ng (pager) and rtl_fm (pager_rtl)
             # Kill the rtl_fm process as well
-            if 'pager_rtl' in self.processes:
-                rtl_proc = self.processes['pager_rtl']
+            if "pager_rtl" in self.processes:
+                rtl_proc = self.processes["pager_rtl"]
                 if rtl_proc and rtl_proc.poll() is None:
                     rtl_proc.terminate()
                     try:
                         rtl_proc.wait(timeout=3)
                     except subprocess.TimeoutExpired:
                         rtl_proc.kill()
-                del self.processes['pager_rtl']
+                del self.processes["pager_rtl"]
             # Clear pager data
-            if hasattr(self, 'pager_messages'):
+            if hasattr(self, "pager_messages"):
                 self.pager_messages = []
-        elif mode == 'aprs':
+        elif mode == "aprs":
             # APRS uses two processes: decoder (aprs) and rtl_fm (aprs_rtl)
-            if 'aprs_rtl' in self.processes:
-                rtl_proc = self.processes['aprs_rtl']
+            if "aprs_rtl" in self.processes:
+                rtl_proc = self.processes["aprs_rtl"]
                 if rtl_proc and rtl_proc.poll() is None:
                     rtl_proc.terminate()
                     try:
                         rtl_proc.wait(timeout=3)
                     except subprocess.TimeoutExpired:
                         rtl_proc.kill()
-                del self.processes['aprs_rtl']
-        elif mode == 'rtlamr':
+                del self.processes["aprs_rtl"]
+        elif mode == "rtlamr":
             # RTLAMR uses two processes: rtlamr and rtl_tcp (rtlamr_tcp)
-            if 'rtlamr_tcp' in self.processes:
-                tcp_proc = self.processes['rtlamr_tcp']
+            if "rtlamr_tcp" in self.processes:
+                tcp_proc = self.processes["rtlamr_tcp"]
                 if tcp_proc and tcp_proc.poll() is None:
                     tcp_proc.terminate()
                     try:
                         tcp_proc.wait(timeout=3)
                     except subprocess.TimeoutExpired:
                         tcp_proc.kill()
-                del self.processes['rtlamr_tcp']
+                del self.processes["rtlamr_tcp"]
 
-        return {'status': 'stopped', 'mode': mode}
+        return {"status": "stopped", "mode": mode}
 
     # -------------------------------------------------------------------------
     # SENSOR MODE (rtl_433) - Uses Intercept's SDR abstraction
@@ -1167,18 +1158,19 @@ class ModeManager:
 
     def _start_sensor(self, params: dict) -> dict:
         """Start rtl_433 sensor mode using Intercept's SDR utilities."""
-        freq = params.get('frequency', '433.92')
-        gain = params.get('gain')
-        device = params.get('device', '0')
-        ppm = params.get('ppm')
-        bias_t = params.get('bias_t', False)
-        sdr_type_str = params.get('sdr_type', 'rtlsdr')
+        freq = params.get("frequency", "433.92")
+        gain = params.get("gain")
+        device = params.get("device", "0")
+        ppm = params.get("ppm")
+        bias_t = params.get("bias_t", False)
+        sdr_type_str = params.get("sdr_type", "rtlsdr")
 
         # Try to use Intercept's SDR abstraction layer
         sdr_factory = self._get_sdr_factory()
         if sdr_factory:
             try:
                 from utils.sdr import SDRType
+
                 sdr_type = SDRType(sdr_type_str)
                 sdr_device = sdr_factory.create_default_device(sdr_type, index=int(device))
                 builder = sdr_factory.get_builder(sdr_type)
@@ -1189,7 +1181,7 @@ class ModeManager:
                     frequency_mhz=float(freq),
                     gain=float(gain) if gain else None,
                     ppm=int(ppm) if ppm else None,
-                    bias_t=bias_t
+                    bias_t=bias_t,
                 )
                 logger.info(f"Starting sensor (via SDR abstraction): {' '.join(cmd)}")
 
@@ -1206,72 +1198,68 @@ class ModeManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            self.processes['sensor'] = proc
+            self.processes["sensor"] = proc
 
             # Wait briefly to verify process started successfully
             time.sleep(0.5)
             if proc.poll() is not None:
-                stderr_output = proc.stderr.read().decode('utf-8', errors='replace')
-                del self.processes['sensor']
-                return {'status': 'error', 'message': f'rtl_433 failed to start: {stderr_output[:200]}'}
+                stderr_output = proc.stderr.read().decode("utf-8", errors="replace")
+                del self.processes["sensor"]
+                return {"status": "error", "message": f"rtl_433 failed to start: {stderr_output[:200]}"}
 
             # Start output reader thread
-            thread = threading.Thread(
-                target=self._sensor_output_reader,
-                args=(proc,),
-                daemon=True
-            )
+            thread = threading.Thread(target=self._sensor_output_reader, args=(proc,), daemon=True)
             thread.start()
-            self.output_threads['sensor'] = thread
+            self.output_threads["sensor"] = thread
 
             return {
-                'status': 'started',
-                'mode': 'sensor',
-                'command': ' '.join(cmd),
-                'gps_enabled': gps_manager.is_running
+                "status": "started",
+                "mode": "sensor",
+                "command": " ".join(cmd),
+                "gps_enabled": gps_manager.is_running,
             }
 
         except FileNotFoundError:
-            return {'status': 'error', 'message': 'rtl_433 not found. Install via: apt install rtl-433'}
+            return {"status": "error", "message": "rtl_433 not found. Install via: apt install rtl-433"}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _build_sensor_command_fallback(self, freq, gain, device, ppm) -> list:
         """Build rtl_433 command without SDR abstraction."""
-        cmd = ['rtl_433', '-F', 'json']
+        cmd = ["rtl_433", "-F", "json"]
         if freq:
-            cmd.extend(['-f', f'{freq}M'])
-        if gain and str(gain) != '0':
-            cmd.extend(['-g', str(gain)])
-        if device and str(device) != '0':
-            cmd.extend(['-d', str(device)])
-        if ppm and str(ppm) != '0':
-            cmd.extend(['-p', str(ppm)])
+            cmd.extend(["-f", f"{freq}M"])
+        if gain and str(gain) != "0":
+            cmd.extend(["-g", str(gain)])
+        if device and str(device) != "0":
+            cmd.extend(["-d", str(device)])
+        if ppm and str(ppm) != "0":
+            cmd.extend(["-p", str(ppm)])
         return cmd
 
     def _sensor_output_reader(self, proc: subprocess.Popen):
         """Read rtl_433 JSON output and collect data."""
-        mode = 'sensor'
+        mode = "sensor"
         stop_event = self.stop_events.get(mode)
 
         try:
-            for line in iter(proc.stdout.readline, b''):
+            for line in iter(proc.stdout.readline, b""):
                 if stop_event and stop_event.is_set():
                     break
 
-                line = line.decode('utf-8', errors='replace').strip()
+                line = line.decode("utf-8", errors="replace").strip()
                 if not line:
                     continue
 
                 try:
                     data = json.loads(line)
-                    data['type'] = 'sensor'
-                    data['received_at'] = datetime.now(timezone.utc).isoformat()
+                    data["type"] = "sensor"
+                    data["received_at"] = datetime.now(timezone.utc).isoformat()
 
                     # Add GPS if available
                     gps_pos = gps_manager.position
                     if gps_pos:
-                        data['agent_gps'] = gps_pos
+                        data["agent_gps"] = gps_pos
 
                     # Store in snapshot (keep last 100)
                     snapshots = self.data_snapshots.get(mode, [])
@@ -1301,12 +1289,12 @@ class ModeManager:
 
     def _start_adsb(self, params: dict) -> dict:
         """Start dump1090 ADS-B mode using Intercept's utilities."""
-        gain = params.get('gain', '40')
-        device = params.get('device', '0')
-        bias_t = params.get('bias_t', False)
-        sdr_type_str = params.get('sdr_type', 'rtlsdr')
-        remote_sbs_host = params.get('remote_sbs_host')
-        remote_sbs_port = params.get('remote_sbs_port', 30003)
+        gain = params.get("gain", "40")
+        device = params.get("device", "0")
+        bias_t = params.get("bias_t", False)
+        sdr_type_str = params.get("sdr_type", "rtlsdr")
+        remote_sbs_host = params.get("remote_sbs_host")
+        remote_sbs_port = params.get("remote_sbs_port", 30003)
 
         # If remote SBS host provided, just connect to it
         if remote_sbs_host:
@@ -1316,11 +1304,11 @@ class ModeManager:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(1.0)
-            result = sock.connect_ex(('localhost', 30003))
+            result = sock.connect_ex(("localhost", 30003))
             sock.close()
             if result == 0:
                 logger.info("dump1090 already running, connecting to SBS port")
-                return self._start_adsb_sbs_connection('localhost', 30003)
+                return self._start_adsb_sbs_connection("localhost", 30003)
         except Exception:
             pass
 
@@ -1331,16 +1319,13 @@ class ModeManager:
         if sdr_factory:
             try:
                 from utils.sdr import SDRType
+
                 sdr_type = SDRType(sdr_type_str)
                 sdr_device = sdr_factory.create_default_device(sdr_type, index=int(device))
                 builder = sdr_factory.get_builder(sdr_type)
 
                 # Use the builder to construct dump1090 command
-                cmd = builder.build_adsb_command(
-                    device=sdr_device,
-                    gain=float(gain) if gain else None,
-                    bias_t=bias_t
-                )
+                cmd = builder.build_adsb_command(device=sdr_device, gain=float(gain) if gain else None, bias_t=bias_t)
                 logger.info(f"Starting ADS-B (via SDR abstraction): {' '.join(cmd)}")
 
             except Exception as e:
@@ -1350,56 +1335,51 @@ class ModeManager:
             # Fallback: find dump1090 manually and build command
             dump1090_path = self._find_dump1090()
             if not dump1090_path:
-                return {'status': 'error', 'message': 'dump1090 not found. Install via: apt install dump1090-fa'}
+                return {"status": "error", "message": "dump1090 not found. Install via: apt install dump1090-fa"}
 
-            cmd = [dump1090_path, '--net', '--quiet']
+            cmd = [dump1090_path, "--net", "--quiet"]
             if gain:
-                cmd.extend(['--gain', str(gain)])
-            if device and str(device) != '0':
-                cmd.extend(['--device-index', str(device)])
+                cmd.extend(["--gain", str(gain)])
+            if device and str(device) != "0":
+                cmd.extend(["--device-index", str(device)])
 
         logger.info(f"Starting dump1090: {' '.join(cmd)}")
 
         try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                start_new_session=True
-            )
-            self.processes['adsb'] = proc
+            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, start_new_session=True)
+            self.processes["adsb"] = proc
 
             # Wait for dump1090 to start
             time.sleep(2)
 
             if proc.poll() is not None:
-                stderr = proc.stderr.read().decode('utf-8', errors='ignore')
-                return {'status': 'error', 'message': f'dump1090 failed to start: {stderr[:200]}'}
+                stderr = proc.stderr.read().decode("utf-8", errors="ignore")
+                return {"status": "error", "message": f"dump1090 failed to start: {stderr[:200]}"}
 
             # Connect to SBS port
-            return self._start_adsb_sbs_connection('localhost', 30003)
+            return self._start_adsb_sbs_connection("localhost", 30003)
 
         except FileNotFoundError:
-            return {'status': 'error', 'message': 'dump1090 not found'}
+            return {"status": "error", "message": "dump1090 not found"}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _find_dump1090(self) -> str | None:
         """Find dump1090 binary using Intercept's dependency module or fallback."""
         # Try Intercept's tool path finder first
-        for name in ['dump1090', 'dump1090-fa', 'dump1090-mutability', 'readsb']:
+        for name in ["dump1090", "dump1090-fa", "dump1090-mutability", "readsb"]:
             path = self._get_tool_path(name)
             if path:
                 return path
 
         # Fallback: check common installation paths
         common_paths = [
-            '/opt/homebrew/bin/dump1090',
-            '/opt/homebrew/bin/dump1090-fa',
-            '/usr/local/bin/dump1090',
-            '/usr/local/bin/dump1090-fa',
-            '/usr/bin/dump1090',
-            '/usr/bin/dump1090-fa',
+            "/opt/homebrew/bin/dump1090",
+            "/opt/homebrew/bin/dump1090-fa",
+            "/usr/local/bin/dump1090",
+            "/usr/local/bin/dump1090-fa",
+            "/usr/bin/dump1090",
+            "/usr/bin/dump1090-fa",
         ]
         for path in common_paths:
             if os.path.isfile(path) and os.access(path, os.X_OK):
@@ -1408,24 +1388,20 @@ class ModeManager:
 
     def _start_adsb_sbs_connection(self, host: str, port: int) -> dict:
         """Connect to SBS port and start parsing."""
-        thread = threading.Thread(
-            target=self._adsb_sbs_reader,
-            args=(host, port),
-            daemon=True
-        )
+        thread = threading.Thread(target=self._adsb_sbs_reader, args=(host, port), daemon=True)
         thread.start()
-        self.output_threads['adsb'] = thread
+        self.output_threads["adsb"] = thread
 
         return {
-            'status': 'started',
-            'mode': 'adsb',
-            'sbs_source': f'{host}:{port}',
-            'gps_enabled': gps_manager.is_running
+            "status": "started",
+            "mode": "adsb",
+            "sbs_source": f"{host}:{port}",
+            "gps_enabled": gps_manager.is_running,
         }
 
     def _adsb_sbs_reader(self, host: str, port: int):
         """Read and parse SBS data from dump1090."""
-        mode = 'adsb'
+        mode = "adsb"
         stop_event = self.stop_events.get(mode)
         retry_count = 0
         max_retries = 5
@@ -1443,13 +1419,13 @@ class ModeManager:
 
                 while not (stop_event and stop_event.is_set()):
                     try:
-                        data = sock.recv(4096).decode('utf-8', errors='ignore')
+                        data = sock.recv(4096).decode("utf-8", errors="ignore")
                         if not data:
                             break
                         buffer += data
 
-                        while '\n' in buffer:
-                            line, buffer = buffer.split('\n', 1)
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
                             self._parse_sbs_line(line.strip())
 
                     except socket.timeout:
@@ -1472,8 +1448,8 @@ class ModeManager:
         if not line:
             return
 
-        parts = line.split(',')
-        if len(parts) < 11 or parts[0] != 'MSG':
+        parts = line.split(",")
+        if len(parts) < 11 or parts[0] != "MSG":
             return
 
         msg_type = parts[1]
@@ -1481,46 +1457,46 @@ class ModeManager:
         if not icao:
             return
 
-        aircraft = self.adsb_aircraft.get(icao) or {'icao': icao}
-        aircraft['last_seen'] = datetime.now(timezone.utc).isoformat()
+        aircraft = self.adsb_aircraft.get(icao) or {"icao": icao}
+        aircraft["last_seen"] = datetime.now(timezone.utc).isoformat()
 
         # Add GPS
         gps_pos = gps_manager.position
         if gps_pos:
-            aircraft['agent_gps'] = gps_pos
+            aircraft["agent_gps"] = gps_pos
 
         try:
-            if msg_type == '1' and len(parts) > 10:
+            if msg_type == "1" and len(parts) > 10:
                 callsign = parts[10].strip()
                 if callsign:
-                    aircraft['callsign'] = callsign
+                    aircraft["callsign"] = callsign
 
-            elif msg_type == '3' and len(parts) > 15:
+            elif msg_type == "3" and len(parts) > 15:
                 if parts[11]:
-                    aircraft['altitude'] = int(float(parts[11]))
+                    aircraft["altitude"] = int(float(parts[11]))
                 if parts[14] and parts[15]:
-                    aircraft['lat'] = float(parts[14])
-                    aircraft['lon'] = float(parts[15])
+                    aircraft["lat"] = float(parts[14])
+                    aircraft["lon"] = float(parts[15])
 
-            elif msg_type == '4' and len(parts) > 16:
+            elif msg_type == "4" and len(parts) > 16:
                 if parts[12]:
-                    aircraft['speed'] = int(float(parts[12]))
+                    aircraft["speed"] = int(float(parts[12]))
                 if parts[13]:
-                    aircraft['heading'] = int(float(parts[13]))
+                    aircraft["heading"] = int(float(parts[13]))
                 if parts[16]:
-                    aircraft['vertical_rate'] = int(float(parts[16]))
+                    aircraft["vertical_rate"] = int(float(parts[16]))
 
-            elif msg_type == '5' and len(parts) > 11:
+            elif msg_type == "5" and len(parts) > 11:
                 if parts[10]:
                     callsign = parts[10].strip()
                     if callsign:
-                        aircraft['callsign'] = callsign
+                        aircraft["callsign"] = callsign
                 if parts[11]:
-                    aircraft['altitude'] = int(float(parts[11]))
+                    aircraft["altitude"] = int(float(parts[11]))
 
-            elif msg_type == '6' and len(parts) > 17:
+            elif msg_type == "6" and len(parts) > 17:
                 if parts[17]:
-                    aircraft['squawk'] = parts[17]
+                    aircraft["squawk"] = parts[17]
 
         except (ValueError, IndexError):
             pass
@@ -1533,19 +1509,20 @@ class ModeManager:
 
     def _start_wifi(self, params: dict) -> dict:
         """Start WiFi scanning using Intercept's UnifiedWiFiScanner."""
-        interface = params.get('interface')
-        channel = params.get('channel')
-        channels = params.get('channels')
-        band = params.get('band', 'abg')
-        scan_type = params.get('scan_type', 'deep')
+        interface = params.get("interface")
+        channel = params.get("channel")
+        channels = params.get("channels")
+        band = params.get("band", "abg")
+        scan_type = params.get("scan_type", "deep")
 
         # Handle quick scan - returns results synchronously
-        if scan_type == 'quick':
+        if scan_type == "quick":
             return self._wifi_quick_scan(interface)
 
         # Deep scan - use Intercept's UnifiedWiFiScanner
         try:
             from utils.wifi.scanner import get_wifi_scanner
+
             scanner = get_wifi_scanner(interface)
 
             # Store scanner reference
@@ -1554,22 +1531,22 @@ class ModeManager:
             # Check capabilities
             caps = scanner.check_capabilities()
             if not caps.can_deep_scan:
-                return {'status': 'error', 'message': f'Deep scan not available: {", ".join(caps.issues)}'}
+                return {"status": "error", "message": f"Deep scan not available: {', '.join(caps.issues)}"}
 
             # Convert band parameter
-            if band == 'abg':
-                scan_band = 'all'
-            elif band == 'bg':
-                scan_band = '2.4'
-            elif band == 'a':
-                scan_band = '5'
+            if band == "abg":
+                scan_band = "all"
+            elif band == "bg":
+                scan_band = "2.4"
+            elif band == "a":
+                scan_band = "5"
             else:
-                scan_band = 'all'
+                scan_band = "all"
 
             channel_list = None
             if channels:
                 if isinstance(channels, str):
-                    channel_list = [c.strip() for c in channels.split(',') if c.strip()]
+                    channel_list = [c.strip() for c in channels.split(",") if c.strip()]
                 elif isinstance(channels, (list, tuple, set)):
                     channel_list = list(channels)
                 else:
@@ -1577,38 +1554,34 @@ class ModeManager:
                 try:
                     channel_list = [int(c) for c in channel_list]
                 except (TypeError, ValueError):
-                    return {'status': 'error', 'message': 'Invalid channels'}
+                    return {"status": "error", "message": "Invalid channels"}
 
             # Start deep scan
             if scanner.start_deep_scan(interface=interface, band=scan_band, channel=channel, channels=channel_list):
                 # Start thread to sync data to agent's dictionaries
-                thread = threading.Thread(
-                    target=self._wifi_data_sync,
-                    args=(scanner,),
-                    daemon=True
-                )
+                thread = threading.Thread(target=self._wifi_data_sync, args=(scanner,), daemon=True)
                 thread.start()
-                self.output_threads['wifi'] = thread
+                self.output_threads["wifi"] = thread
 
                 return {
-                    'status': 'started',
-                    'mode': 'wifi',
-                    'interface': interface,
-                    'gps_enabled': gps_manager.is_running
+                    "status": "started",
+                    "mode": "wifi",
+                    "interface": interface,
+                    "gps_enabled": gps_manager.is_running,
                 }
             else:
-                return {'status': 'error', 'message': scanner.get_status().error or 'Failed to start deep scan'}
+                return {"status": "error", "message": scanner.get_status().error or "Failed to start deep scan"}
 
         except ImportError:
             # Fallback to direct airodump-ng
             return self._start_wifi_fallback(interface, channel, band, channels)
         except Exception as e:
             logger.error(f"WiFi scanner error: {e}")
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _wifi_data_sync(self, scanner):
         """Sync WiFi scanner data to agent's data structures."""
-        mode = 'wifi'
+        mode = "wifi"
         stop_event = self.stop_events.get(mode)
 
         while not (stop_event and stop_event.is_set()):
@@ -1619,14 +1592,14 @@ class ModeManager:
                 for ap in scanner.access_points:
                     net = ap.to_dict()
                     if gps_position:
-                        net['agent_gps'] = gps_position
+                        net["agent_gps"] = gps_position
                     self.wifi_networks[ap.bssid.upper()] = net
 
                 # Sync clients
                 for client in scanner.clients:
                     client_data = client.to_dict()
                     if gps_position:
-                        client_data['agent_gps'] = gps_position
+                        client_data["agent_gps"] = gps_position
                     self.wifi_clients[client.mac.upper()] = client_data
 
                 time.sleep(2)
@@ -1635,7 +1608,7 @@ class ModeManager:
                 time.sleep(2)
 
         # Stop scanner when done
-        if hasattr(self, '_wifi_scanner_instance') and self._wifi_scanner_instance:
+        if hasattr(self, "_wifi_scanner_instance") and self._wifi_scanner_instance:
             self._wifi_scanner_instance.stop_deep_scan()
 
     def _start_wifi_fallback(
@@ -1647,33 +1620,34 @@ class ModeManager:
     ) -> dict:
         """Fallback WiFi deep scan using airodump-ng directly."""
         if not interface:
-            return {'status': 'error', 'message': 'WiFi interface required'}
+            return {"status": "error", "message": "WiFi interface required"}
 
         # Validate interface
         try:
             from utils.validation import validate_network_interface
+
             interface = validate_network_interface(interface)
         except (ImportError, ValueError):
-            if not os.path.exists(f'/sys/class/net/{interface}'):
-                return {'status': 'error', 'message': f'Interface {interface} not found'}
+            if not os.path.exists(f"/sys/class/net/{interface}"):
+                return {"status": "error", "message": f"Interface {interface} not found"}
 
-        csv_path = '/tmp/intercept_agent_wifi'
-        for f in [f'{csv_path}-01.csv', f'{csv_path}-01.cap', f'{csv_path}-01.gps']:
+        csv_path = "/tmp/intercept_agent_wifi"
+        for f in [f"{csv_path}-01.csv", f"{csv_path}-01.cap", f"{csv_path}-01.gps"]:
             with contextlib.suppress(OSError):
                 os.remove(f)
 
-        airodump_path = self._get_tool_path('airodump-ng')
+        airodump_path = self._get_tool_path("airodump-ng")
         if not airodump_path:
-            return {'status': 'error', 'message': 'airodump-ng not found'}
+            return {"status": "error", "message": "airodump-ng not found"}
 
-        output_formats = 'csv,gps' if gps_manager.is_running else 'csv'
-        cmd = [airodump_path, '-w', csv_path, '--output-format', output_formats, '--band', band]
+        output_formats = "csv,gps" if gps_manager.is_running else "csv"
+        cmd = [airodump_path, "-w", csv_path, "--output-format", output_formats, "--band", band]
         if gps_manager.is_running:
-            cmd.append('--gpsd')
+            cmd.append("--gpsd")
         channel_list = None
         if channels:
             if isinstance(channels, str):
-                channel_list = [c.strip() for c in channels.split(',') if c.strip()]
+                channel_list = [c.strip() for c in channels.split(",") if c.strip()]
             elif isinstance(channels, (list, tuple, set)):
                 channel_list = list(channels)
             else:
@@ -1681,30 +1655,30 @@ class ModeManager:
             try:
                 channel_list = [int(c) for c in channel_list]
             except (TypeError, ValueError):
-                return {'status': 'error', 'message': 'Invalid channels'}
+                return {"status": "error", "message": "Invalid channels"}
 
         if channel_list:
-            cmd.extend(['-c', ','.join(str(c) for c in channel_list)])
+            cmd.extend(["-c", ",".join(str(c) for c in channel_list)])
         elif channel:
-            cmd.extend(['-c', str(channel)])
+            cmd.extend(["-c", str(channel)])
         cmd.append(interface)
 
         try:
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.processes['wifi'] = proc
+            self.processes["wifi"] = proc
 
             time.sleep(0.5)
             if proc.poll() is not None:
-                stderr = proc.stderr.read().decode('utf-8', errors='ignore')
-                return {'status': 'error', 'message': f'airodump-ng failed: {stderr[:200]}'}
+                stderr = proc.stderr.read().decode("utf-8", errors="ignore")
+                return {"status": "error", "message": f"airodump-ng failed: {stderr[:200]}"}
 
             thread = threading.Thread(target=self._wifi_csv_reader, args=(csv_path,), daemon=True)
             thread.start()
-            self.output_threads['wifi'] = thread
+            self.output_threads["wifi"] = thread
 
-            return {'status': 'started', 'mode': 'wifi', 'interface': interface, 'gps_enabled': gps_manager.is_running}
+            return {"status": "started", "mode": "wifi", "interface": interface, "gps_enabled": gps_manager.is_running}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _wifi_quick_scan(self, interface: str | None) -> dict:
         """
@@ -1715,15 +1689,12 @@ class ModeManager:
         """
         try:
             from utils.wifi.scanner import get_wifi_scanner
+
             scanner = get_wifi_scanner()
             result = scanner.quick_scan(interface=interface, timeout=15.0)
 
             if result.error:
-                return {
-                    'status': 'error',
-                    'message': result.error,
-                    'warnings': result.warnings
-                }
+                return {"status": "error", "message": result.error, "warnings": result.warnings}
 
             # Convert access points to dict format
             networks = []
@@ -1732,18 +1703,18 @@ class ModeManager:
                 net = ap.to_dict()
                 # Add agent GPS if available
                 if gps_position:
-                    net['agent_gps'] = gps_position
+                    net["agent_gps"] = gps_position
                 networks.append(net)
 
             return {
-                'status': 'success',
-                'scan_type': 'quick',
-                'access_points': networks,
-                'networks': networks,  # Alias for compatibility
-                'network_count': len(networks),
-                'warnings': result.warnings,
-                'gps_enabled': gps_manager.is_running,
-                'agent_gps': gps_position
+                "status": "success",
+                "scan_type": "quick",
+                "access_points": networks,
+                "networks": networks,  # Alias for compatibility
+                "network_count": len(networks),
+                "warnings": result.warnings,
+                "gps_enabled": gps_manager.is_running,
+                "agent_gps": gps_position,
             }
 
         except ImportError:
@@ -1751,73 +1722,69 @@ class ModeManager:
             return self._wifi_quick_scan_fallback(interface)
         except Exception as e:
             logger.exception("Quick WiFi scan failed")
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _wifi_quick_scan_fallback(self, interface: str | None) -> dict:
         """Fallback quick scan using nmcli directly."""
-        nmcli_path = shutil.which('nmcli')
+        nmcli_path = shutil.which("nmcli")
         if not nmcli_path:
-            return {'status': 'error', 'message': 'nmcli not found. Install NetworkManager.'}
+            return {"status": "error", "message": "nmcli not found. Install NetworkManager."}
 
         try:
             # Trigger rescan
-            subprocess.run(
-                [nmcli_path, 'device', 'wifi', 'rescan'],
-                capture_output=True,
-                timeout=5
-            )
+            subprocess.run([nmcli_path, "device", "wifi", "rescan"], capture_output=True, timeout=5)
 
             # Get results
-            cmd = [nmcli_path, '-t', '-f', 'BSSID,SSID,CHAN,SIGNAL,SECURITY', 'device', 'wifi', 'list']
+            cmd = [nmcli_path, "-t", "-f", "BSSID,SSID,CHAN,SIGNAL,SECURITY", "device", "wifi", "list"]
             if interface:
-                cmd.extend(['ifname', interface])
+                cmd.extend(["ifname", interface])
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
 
             if result.returncode != 0:
-                return {'status': 'error', 'message': f'nmcli failed: {result.stderr}'}
+                return {"status": "error", "message": f"nmcli failed: {result.stderr}"}
 
             networks = []
             gps_position = gps_manager.position
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line.strip():
                     continue
-                parts = line.split(':')
+                parts = line.split(":")
                 if len(parts) >= 5:
                     net = {
-                        'bssid': parts[0],
-                        'essid': parts[1],
-                        'channel': int(parts[2]) if parts[2].isdigit() else 0,
-                        'signal': int(parts[3]) if parts[3].isdigit() else 0,
-                        'rssi_current': int(parts[3]) - 100 if parts[3].isdigit() else -100,  # Convert % to dBm approx
-                        'security': parts[4],
+                        "bssid": parts[0],
+                        "essid": parts[1],
+                        "channel": int(parts[2]) if parts[2].isdigit() else 0,
+                        "signal": int(parts[3]) if parts[3].isdigit() else 0,
+                        "rssi_current": int(parts[3]) - 100 if parts[3].isdigit() else -100,  # Convert % to dBm approx
+                        "security": parts[4],
                     }
                     if gps_position:
-                        net['agent_gps'] = gps_position
+                        net["agent_gps"] = gps_position
                     networks.append(net)
 
             return {
-                'status': 'success',
-                'scan_type': 'quick',
-                'access_points': networks,
-                'networks': networks,
-                'network_count': len(networks),
-                'warnings': ['Using fallback nmcli scanner'],
-                'gps_enabled': gps_manager.is_running,
-                'agent_gps': gps_position
+                "status": "success",
+                "scan_type": "quick",
+                "access_points": networks,
+                "networks": networks,
+                "network_count": len(networks),
+                "warnings": ["Using fallback nmcli scanner"],
+                "gps_enabled": gps_manager.is_running,
+                "agent_gps": gps_position,
             }
 
         except subprocess.TimeoutExpired:
-            return {'status': 'error', 'message': 'nmcli scan timed out'}
+            return {"status": "error", "message": "nmcli scan timed out"}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _wifi_csv_reader(self, csv_path: str):
         """Periodically parse airodump-ng CSV and GPS output."""
-        mode = 'wifi'
+        mode = "wifi"
         stop_event = self.stop_events.get(mode)
-        csv_file = csv_path + '-01.csv'
-        gps_file = csv_path + '-01.gps'
+        csv_file = csv_path + "-01.csv"
+        gps_file = csv_path + "-01.gps"
 
         while not (stop_event and stop_event.is_set()):
             if os.path.exists(csv_file):
@@ -1851,23 +1818,24 @@ class ModeManager:
         """
         try:
             import xml.etree.ElementTree as ET
+
             tree = ET.parse(gps_path)
             root = tree.getroot()
 
             # Get the last (most recent) GPS point
-            gps_points = root.findall('.//gps-point')
+            gps_points = root.findall(".//gps-point")
             if gps_points:
                 last_point = gps_points[-1]
-                lat = last_point.get('lat')
-                lon = last_point.get('lon')
-                alt = last_point.get('alt')
+                lat = last_point.get("lat")
+                lon = last_point.get("lon")
+                alt = last_point.get("alt")
 
                 if lat and lon:
                     return {
-                        'lat': float(lat),
-                        'lon': float(lon),
-                        'altitude': float(alt) if alt else None,
-                        'source': 'airodump_gps'
+                        "lat": float(lat),
+                        "lon": float(lon),
+                        "altitude": float(alt) if alt else None,
+                        "source": "airodump_gps",
                     }
         except Exception as e:
             logger.debug(f"GPS file parse error: {e}")
@@ -1882,37 +1850,38 @@ class ModeManager:
         try:
             # Use Intercept's robust airodump parser (handles edge cases, proper CSV parsing)
             from utils.wifi.parsers.airodump import parse_airodump_csv
+
             network_obs, client_list = parse_airodump_csv(csv_path)
 
             # Convert WiFiObservation objects to dicts for agent format
             for obs in network_obs:
                 networks[obs.bssid] = {
-                    'bssid': obs.bssid,
-                    'essid': obs.essid or 'Hidden',
-                    'channel': obs.channel,
-                    'frequency_mhz': obs.frequency_mhz,
-                    'signal': obs.rssi,
-                    'security': obs.security,
-                    'cipher': obs.cipher,
-                    'auth': obs.auth,
-                    'vendor': obs.vendor,
-                    'beacon_count': obs.beacon_count,
-                    'data_count': obs.data_count,
-                    'band': obs.band,
-                    'last_seen': datetime.now(timezone.utc).isoformat(),
+                    "bssid": obs.bssid,
+                    "essid": obs.essid or "Hidden",
+                    "channel": obs.channel,
+                    "frequency_mhz": obs.frequency_mhz,
+                    "signal": obs.rssi,
+                    "security": obs.security,
+                    "cipher": obs.cipher,
+                    "auth": obs.auth,
+                    "vendor": obs.vendor,
+                    "beacon_count": obs.beacon_count,
+                    "data_count": obs.data_count,
+                    "band": obs.band,
+                    "last_seen": datetime.now(timezone.utc).isoformat(),
                 }
 
             # Convert client dicts (already in dict format from parser)
             for client in client_list:
-                mac = client.get('mac')
+                mac = client.get("mac")
                 if mac:
                     clients[mac] = {
-                        'mac': mac,
-                        'signal': client.get('rssi'),
-                        'bssid': client.get('bssid'),
-                        'probes': ','.join(client.get('probed_essids', [])),
-                        'packets': client.get('packets', 0),
-                        'last_seen': datetime.now(timezone.utc).isoformat(),
+                        "mac": mac,
+                        "signal": client.get("rssi"),
+                        "bssid": client.get("bssid"),
+                        "probes": ",".join(client.get("probed_essids", [])),
+                        "packets": client.get("packets", 0),
+                        "last_seen": datetime.now(timezone.utc).isoformat(),
                     }
 
             logger.debug(f"Parsed {len(networks)} networks, {len(clients)} clients")
@@ -1921,35 +1890,35 @@ class ModeManager:
             logger.warning("Intercept WiFi parser not available, using fallback")
             # Fallback: simple parsing if running standalone
             try:
-                with open(csv_path, errors='replace') as f:
+                with open(csv_path, errors="replace") as f:
                     content = f.read()
-                for section in content.split('\n\n'):
-                    lines = section.strip().split('\n')
+                for section in content.split("\n\n"):
+                    lines = section.strip().split("\n")
                     if not lines:
                         continue
                     header = lines[0]
-                    if 'BSSID' in header and 'ESSID' in header:
+                    if "BSSID" in header and "ESSID" in header:
                         for line in lines[1:]:
-                            parts = [p.strip() for p in line.split(',')]
-                            if len(parts) >= 14 and ':' in parts[0]:
+                            parts = [p.strip() for p in line.split(",")]
+                            if len(parts) >= 14 and ":" in parts[0]:
                                 networks[parts[0]] = {
-                                    'bssid': parts[0],
-                                    'channel': int(parts[3]) if parts[3].lstrip('-').isdigit() else None,
-                                    'signal': int(parts[8]) if parts[8].lstrip('-').isdigit() else None,
-                                    'security': parts[5],
-                                    'essid': parts[13] or 'Hidden',
-                                    'last_seen': datetime.now(timezone.utc).isoformat(),
+                                    "bssid": parts[0],
+                                    "channel": int(parts[3]) if parts[3].lstrip("-").isdigit() else None,
+                                    "signal": int(parts[8]) if parts[8].lstrip("-").isdigit() else None,
+                                    "security": parts[5],
+                                    "essid": parts[13] or "Hidden",
+                                    "last_seen": datetime.now(timezone.utc).isoformat(),
                                 }
-                    elif 'Station MAC' in header:
+                    elif "Station MAC" in header:
                         for line in lines[1:]:
-                            parts = [p.strip() for p in line.split(',')]
-                            if len(parts) >= 6 and ':' in parts[0]:
+                            parts = [p.strip() for p in line.split(",")]
+                            if len(parts) >= 6 and ":" in parts[0]:
                                 clients[parts[0]] = {
-                                    'mac': parts[0],
-                                    'signal': int(parts[3]) if parts[3].lstrip('-').isdigit() else None,
-                                    'bssid': parts[5] if ':' in parts[5] else None,
-                                    'probes': parts[6] if len(parts) > 6 else '',
-                                    'last_seen': datetime.now(timezone.utc).isoformat(),
+                                    "mac": parts[0],
+                                    "signal": int(parts[3]) if parts[3].lstrip("-").isdigit() else None,
+                                    "bssid": parts[5] if ":" in parts[5] else None,
+                                    "probes": parts[6] if len(parts) > 6 else "",
+                                    "last_seen": datetime.now(timezone.utc).isoformat(),
                                 }
             except Exception as e:
                 logger.error(f"Fallback CSV parse error: {e}")
@@ -1963,10 +1932,10 @@ class ModeManager:
         if gps_data:
             # Use GPS coordinates from airodump's GPS file
             gps_pos = {
-                'lat': gps_data['lat'],
-                'lon': gps_data['lon'],
-                'altitude': gps_data.get('altitude'),
-                'source': 'airodump_gps',  # Mark as from airodump GPS file
+                "lat": gps_data["lat"],
+                "lon": gps_data["lon"],
+                "altitude": gps_data.get("altitude"),
+                "source": "airodump_gps",  # Mark as from airodump GPS file
             }
             logger.debug(f"Using airodump GPS: {gps_data['lat']:.6f}, {gps_data['lon']:.6f}")
         else:
@@ -1975,9 +1944,9 @@ class ModeManager:
 
         if gps_pos:
             for net in networks.values():
-                net['agent_gps'] = gps_pos
+                net["agent_gps"] = gps_pos
             for client in clients.values():
-                client['agent_gps'] = gps_pos
+                client["agent_gps"] = gps_pos
 
         return networks, clients
 
@@ -1987,13 +1956,14 @@ class ModeManager:
 
     def _start_bluetooth(self, params: dict) -> dict:
         """Start Bluetooth scanning using Intercept's BluetoothScanner."""
-        adapter = params.get('adapter', 'hci0')
-        mode_param = params.get('mode', 'auto')
-        duration = params.get('duration')
+        adapter = params.get("adapter", "hci0")
+        mode_param = params.get("mode", "auto")
+        duration = params.get("duration")
 
         try:
             # Use Intercept's BluetoothScanner
             from utils.bluetooth.scanner import BluetoothScanner
+
             scanner = BluetoothScanner(adapter_id=adapter)
 
             # Store scanner reference
@@ -2003,13 +1973,13 @@ class ModeManager:
             def on_device_updated(device):
                 # Convert to agent's format and store
                 self.bluetooth_devices[device.address.upper()] = {
-                    'mac': device.address.upper(),
-                    'name': device.name,
-                    'rssi': device.rssi_current,
-                    'protocol': device.protocol,
-                    'last_seen': device.last_seen.isoformat() if device.last_seen else None,
-                    'first_seen': device.first_seen.isoformat() if device.first_seen else None,
-                    'agent_gps': gps_manager.position
+                    "mac": device.address.upper(),
+                    "name": device.name,
+                    "rssi": device.rssi_current,
+                    "protocol": device.protocol,
+                    "last_seen": device.last_seen.isoformat() if device.last_seen else None,
+                    "first_seen": device.first_seen.isoformat() if device.first_seen else None,
+                    "agent_gps": gps_manager.position,
                 }
 
             scanner.add_device_callback(on_device_updated)
@@ -2017,34 +1987,30 @@ class ModeManager:
             # Start scanning
             if scanner.start_scan(mode=mode_param, duration_s=duration):
                 # Start thread to sync device data
-                thread = threading.Thread(
-                    target=self._bluetooth_data_sync,
-                    args=(scanner,),
-                    daemon=True
-                )
+                thread = threading.Thread(target=self._bluetooth_data_sync, args=(scanner,), daemon=True)
                 thread.start()
-                self.output_threads['bluetooth'] = thread
+                self.output_threads["bluetooth"] = thread
 
                 return {
-                    'status': 'started',
-                    'mode': 'bluetooth',
-                    'adapter': adapter,
-                    'backend': scanner.get_status().backend,
-                    'gps_enabled': gps_manager.is_running
+                    "status": "started",
+                    "mode": "bluetooth",
+                    "adapter": adapter,
+                    "backend": scanner.get_status().backend,
+                    "gps_enabled": gps_manager.is_running,
                 }
             else:
-                return {'status': 'error', 'message': scanner.get_status().error or 'Failed to start scan'}
+                return {"status": "error", "message": scanner.get_status().error or "Failed to start scan"}
 
         except ImportError:
             # Fallback to direct bluetoothctl if scanner not available
             return self._start_bluetooth_fallback(adapter)
         except Exception as e:
             logger.error(f"Bluetooth scanner error: {e}")
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _bluetooth_data_sync(self, scanner):
         """Sync Bluetooth scanner data to agent's data structures."""
-        mode = 'bluetooth'
+        mode = "bluetooth"
         stop_event = self.stop_events.get(mode)
 
         while not (stop_event and stop_event.is_set()):
@@ -2053,12 +2019,12 @@ class ModeManager:
                 devices = scanner.get_devices()
                 for device in devices:
                     self.bluetooth_devices[device.address.upper()] = {
-                        'mac': device.address.upper(),
-                        'name': device.name,
-                        'rssi': device.rssi_current,
-                        'protocol': device.protocol,
-                        'last_seen': device.last_seen.isoformat() if device.last_seen else None,
-                        'agent_gps': gps_manager.position
+                        "mac": device.address.upper(),
+                        "name": device.name,
+                        "rssi": device.rssi_current,
+                        "protocol": device.protocol,
+                        "last_seen": device.last_seen.isoformat() if device.last_seen else None,
+                        "agent_gps": gps_manager.position,
                     }
                 time.sleep(1)
             except Exception as e:
@@ -2066,45 +2032,41 @@ class ModeManager:
                 time.sleep(1)
 
         # Stop scanner when done
-        if hasattr(self, '_bluetooth_scanner_instance') and self._bluetooth_scanner_instance:
+        if hasattr(self, "_bluetooth_scanner_instance") and self._bluetooth_scanner_instance:
             self._bluetooth_scanner_instance.stop_scan()
 
     def _start_bluetooth_fallback(self, adapter: str) -> dict:
         """Fallback Bluetooth scanning using bluetoothctl directly."""
-        if not shutil.which('bluetoothctl'):
-            return {'status': 'error', 'message': 'bluetoothctl not found'}
+        if not shutil.which("bluetoothctl"):
+            return {"status": "error", "message": "bluetoothctl not found"}
 
-        thread = threading.Thread(
-            target=self._bluetooth_scanner_fallback,
-            args=(adapter,),
-            daemon=True
-        )
+        thread = threading.Thread(target=self._bluetooth_scanner_fallback, args=(adapter,), daemon=True)
         thread.start()
-        self.output_threads['bluetooth'] = thread
+        self.output_threads["bluetooth"] = thread
 
         return {
-            'status': 'started',
-            'mode': 'bluetooth',
-            'adapter': adapter,
-            'backend': 'bluetoothctl',
-            'gps_enabled': gps_manager.is_running
+            "status": "started",
+            "mode": "bluetooth",
+            "adapter": adapter,
+            "backend": "bluetoothctl",
+            "gps_enabled": gps_manager.is_running,
         }
 
     def _bluetooth_scanner_fallback(self, adapter: str):
         """Fallback scan using bluetoothctl directly."""
-        mode = 'bluetooth'
+        mode = "bluetooth"
         stop_event = self.stop_events.get(mode)
 
         try:
             proc = subprocess.Popen(
-                ['bluetoothctl'],
+                ["bluetoothctl"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            self.processes['bluetooth'] = proc
+            self.processes["bluetooth"] = proc
 
-            proc.stdin.write(b'scan on\n')
+            proc.stdin.write(b"scan on\n")
             proc.stdin.flush()
 
             while not (stop_event and stop_event.is_set()):
@@ -2112,14 +2074,14 @@ class ModeManager:
                 if not line:
                     break
 
-                line = line.decode('utf-8', errors='replace').strip()
-                if 'Device' in line:
+                line = line.decode("utf-8", errors="replace").strip()
+                if "Device" in line:
                     self._parse_bluetooth_line(line)
 
                 time.sleep(0.1)
 
-            proc.stdin.write(b'scan off\n')
-            proc.stdin.write(b'exit\n')
+            proc.stdin.write(b"scan off\n")
+            proc.stdin.write(b"exit\n")
             proc.stdin.flush()
             proc.wait(timeout=2)
 
@@ -2133,32 +2095,32 @@ class ModeManager:
         import re
 
         # Match device address (MAC)
-        mac_match = re.search(r'([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})', line)
+        mac_match = re.search(r"([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})", line)
         if not mac_match:
             return
 
         mac = mac_match.group(1).upper()
-        device = self.bluetooth_devices.get(mac) or {'mac': mac}
-        device['last_seen'] = datetime.now(timezone.utc).isoformat()
+        device = self.bluetooth_devices.get(mac) or {"mac": mac}
+        device["last_seen"] = datetime.now(timezone.utc).isoformat()
 
         # Extract name
-        if '[NEW]' in line or '[CHG]' in line and 'Name:' not in line:
+        if "[NEW]" in line or "[CHG]" in line and "Name:" not in line:
             # Try to get name after MAC
             parts = line.split(mac)
             if len(parts) > 1:
                 name = parts[1].strip()
-                if name and not name.startswith('RSSI') and not name.startswith('ManufacturerData'):
-                    device['name'] = name
+                if name and not name.startswith("RSSI") and not name.startswith("ManufacturerData"):
+                    device["name"] = name
 
         # Extract RSSI
-        rssi_match = re.search(r'RSSI:\s*(-?\d+)', line)
+        rssi_match = re.search(r"RSSI:\s*(-?\d+)", line)
         if rssi_match:
-            device['rssi'] = int(rssi_match.group(1))
+            device["rssi"] = int(rssi_match.group(1))
 
         # Add GPS
         gps_pos = gps_manager.position
         if gps_pos:
-            device['agent_gps'] = gps_pos
+            device["agent_gps"] = gps_pos
 
         self.bluetooth_devices[mac] = device
 
@@ -2168,40 +2130,44 @@ class ModeManager:
 
     def _start_pager(self, params: dict) -> dict:
         """Start POCSAG/FLEX pager decoding using rtl_fm | multimon-ng."""
-        freq = params.get('frequency', '929.6125')
-        gain = params.get('gain', '0')
-        device = params.get('device', '0')
-        ppm = params.get('ppm', '0')
-        squelch = params.get('squelch', '0')
-        protocols = params.get('protocols', ['POCSAG512', 'POCSAG1200', 'POCSAG2400', 'FLEX'])
+        freq = params.get("frequency", "929.6125")
+        gain = params.get("gain", "0")
+        device = params.get("device", "0")
+        ppm = params.get("ppm", "0")
+        squelch = params.get("squelch", "0")
+        protocols = params.get("protocols", ["POCSAG512", "POCSAG1200", "POCSAG2400", "FLEX"])
 
         # Validate tools
-        rtl_fm_path = self._get_tool_path('rtl_fm')
-        multimon_path = self._get_tool_path('multimon-ng')
+        rtl_fm_path = self._get_tool_path("rtl_fm")
+        multimon_path = self._get_tool_path("multimon-ng")
         if not rtl_fm_path:
-            return {'status': 'error', 'message': 'rtl_fm not found. Install rtl-sdr.'}
+            return {"status": "error", "message": "rtl_fm not found. Install rtl-sdr."}
         if not multimon_path:
-            return {'status': 'error', 'message': 'multimon-ng not found. Install multimon-ng.'}
+            return {"status": "error", "message": "multimon-ng not found. Install multimon-ng."}
 
         # Build rtl_fm command for FM demodulation at 22050 Hz
         rtl_fm_cmd = [
             rtl_fm_path,
-            '-f', f'{freq}M',
-            '-s', '22050',
-            '-g', str(gain),
-            '-d', str(device),
+            "-f",
+            f"{freq}M",
+            "-s",
+            "22050",
+            "-g",
+            str(gain),
+            "-d",
+            str(device),
         ]
-        if ppm and str(ppm) != '0':
-            rtl_fm_cmd.extend(['-p', str(ppm)])
-        if squelch and str(squelch) != '0':
-            rtl_fm_cmd.extend(['-l', str(squelch)])
+        if ppm and str(ppm) != "0":
+            rtl_fm_cmd.extend(["-p", str(ppm)])
+        if squelch and str(squelch) != "0":
+            rtl_fm_cmd.extend(["-l", str(squelch)])
 
         # Build multimon-ng command
-        multimon_cmd = [multimon_path, '-t', 'raw', '-a']
+        multimon_cmd = [multimon_path, "-t", "raw", "-a"]
         for proto in protocols:
-            if proto in ['POCSAG512', 'POCSAG1200', 'POCSAG2400', 'FLEX']:
-                multimon_cmd.extend(['-a', proto])
-        multimon_cmd.append('-')
+            if proto in ["POCSAG512", "POCSAG1200", "POCSAG2400", "FLEX"]:
+                multimon_cmd.extend(["-a", proto])
+        multimon_cmd.append("-")
 
         logger.info(f"Starting pager: {' '.join(rtl_fm_cmd)} | {' '.join(multimon_cmd)}")
 
@@ -2223,61 +2189,57 @@ class ModeManager:
             rtl_fm_proc.stdout.close()  # Allow SIGPIPE
 
             # Store both processes
-            self.processes['pager'] = multimon_proc
-            self.processes['pager_rtl'] = rtl_fm_proc
+            self.processes["pager"] = multimon_proc
+            self.processes["pager_rtl"] = rtl_fm_proc
 
             # Wait briefly to verify processes started successfully
             time.sleep(0.5)
             if rtl_fm_proc.poll() is not None:
-                stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
+                stderr_output = rtl_fm_proc.stderr.read().decode("utf-8", errors="replace")
                 multimon_proc.terminate()
-                del self.processes['pager']
-                del self.processes['pager_rtl']
-                return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+                del self.processes["pager"]
+                del self.processes["pager_rtl"]
+                return {"status": "error", "message": f"rtl_fm failed to start: {stderr_output[:200]}"}
 
             # Start output reader
-            thread = threading.Thread(
-                target=self._pager_output_reader,
-                args=(multimon_proc,),
-                daemon=True
-            )
+            thread = threading.Thread(target=self._pager_output_reader, args=(multimon_proc,), daemon=True)
             thread.start()
-            self.output_threads['pager'] = thread
+            self.output_threads["pager"] = thread
 
             return {
-                'status': 'started',
-                'mode': 'pager',
-                'frequency': freq,
-                'protocols': protocols,
-                'gps_enabled': gps_manager.is_running
+                "status": "started",
+                "mode": "pager",
+                "frequency": freq,
+                "protocols": protocols,
+                "gps_enabled": gps_manager.is_running,
             }
 
         except FileNotFoundError as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _pager_output_reader(self, proc: subprocess.Popen):
         """Read and parse multimon-ng output for pager messages."""
-        mode = 'pager'
+        mode = "pager"
         stop_event = self.stop_events.get(mode)
 
         try:
-            for line in iter(proc.stdout.readline, b''):
+            for line in iter(proc.stdout.readline, b""):
                 if stop_event and stop_event.is_set():
                     break
 
-                line = line.decode('utf-8', errors='replace').strip()
+                line = line.decode("utf-8", errors="replace").strip()
                 if not line:
                     continue
 
                 parsed = self._parse_pager_message(line)
                 if parsed:
-                    parsed['received_at'] = datetime.now(timezone.utc).isoformat()
+                    parsed["received_at"] = datetime.now(timezone.utc).isoformat()
 
                     gps_pos = gps_manager.position
                     if gps_pos:
-                        parsed['agent_gps'] = gps_pos
+                        parsed["agent_gps"] = gps_pos
 
                     snapshots = self.data_snapshots.get(mode, [])
                     snapshots.append(parsed)
@@ -2295,12 +2257,12 @@ class ModeManager:
         finally:
             with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            if 'pager_rtl' in self.processes:
+            if "pager_rtl" in self.processes:
                 try:
-                    rtl_proc = self.processes['pager_rtl']
+                    rtl_proc = self.processes["pager_rtl"]
                     if rtl_proc.poll() is None:
                         rtl_proc.terminate()
-                    del self.processes['pager_rtl']
+                    del self.processes["pager_rtl"]
                 except Exception:
                     pass
             logger.info("Pager reader stopped")
@@ -2310,54 +2272,50 @@ class ModeManager:
         try:
             # Use Intercept's existing pager parser
             from routes.pager import parse_multimon_output
+
             parsed = parse_multimon_output(line)
             if parsed:
-                parsed['type'] = 'pager'
+                parsed["type"] = "pager"
                 return parsed
             return None
         except ImportError:
             # Fallback to inline parsing if import fails
             import re
+
             # POCSAG with message
-            match = re.match(
-                r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s+(Alpha|Numeric):\s*(.*)',
-                line
-            )
+            match = re.match(r"(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s+(Alpha|Numeric):\s*(.*)", line)
             if match:
                 return {
-                    'type': 'pager',
-                    'protocol': match.group(1),
-                    'address': match.group(2),
-                    'function': match.group(3),
-                    'msg_type': match.group(4),
-                    'message': match.group(5).strip() or '[No Message]'
+                    "type": "pager",
+                    "protocol": match.group(1),
+                    "address": match.group(2),
+                    "function": match.group(3),
+                    "msg_type": match.group(4),
+                    "message": match.group(5).strip() or "[No Message]",
                 }
 
             # POCSAG address only (tone)
-            match = re.match(
-                r'(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s*$',
-                line
-            )
+            match = re.match(r"(POCSAG\d+):\s*Address:\s*(\d+)\s+Function:\s*(\d+)\s*$", line)
             if match:
                 return {
-                    'type': 'pager',
-                    'protocol': match.group(1),
-                    'address': match.group(2),
-                    'function': match.group(3),
-                    'msg_type': 'Tone',
-                    'message': '[Tone Only]'
+                    "type": "pager",
+                    "protocol": match.group(1),
+                    "address": match.group(2),
+                    "function": match.group(3),
+                    "msg_type": "Tone",
+                    "message": "[Tone Only]",
                 }
 
             # FLEX format
-            match = re.match(r'FLEX[:\|]\s*(.+)', line)
+            match = re.match(r"FLEX[:\|]\s*(.+)", line)
             if match:
                 return {
-                    'type': 'pager',
-                    'protocol': 'FLEX',
-                    'address': 'Unknown',
-                    'function': '',
-                    'msg_type': 'Unknown',
-                    'message': match.group(1).strip()
+                    "type": "pager",
+                    "protocol": "FLEX",
+                    "address": "Unknown",
+                    "function": "",
+                    "msg_type": "Unknown",
+                    "message": match.group(1).strip(),
                 }
 
             return None
@@ -2368,95 +2326,88 @@ class ModeManager:
 
     def _start_ais(self, params: dict) -> dict:
         """Start AIS vessel tracking using AIS-catcher."""
-        gain = params.get('gain', '33')
-        device = params.get('device', '0')
-        bias_t = params.get('bias_t', False)
+        gain = params.get("gain", "33")
+        device = params.get("device", "0")
+        bias_t = params.get("bias_t", False)
 
         # Find AIS-catcher
         ais_catcher = self._find_ais_catcher()
         if not ais_catcher:
-            return {'status': 'error', 'message': 'AIS-catcher not found. Install from https://github.com/jvde-github/AIS-catcher'}
+            return {
+                "status": "error",
+                "message": "AIS-catcher not found. Install from https://github.com/jvde-github/AIS-catcher",
+            }
 
         # Initialize vessel dict
-        if not hasattr(self, 'ais_vessels'):
+        if not hasattr(self, "ais_vessels"):
             self.ais_vessels = {}
         self.ais_vessels.clear()
 
         # Build command - output JSON on TCP port 1234
         cmd = [
             ais_catcher,
-            '-d', str(device),
-            '-gr', f'TUNER={gain}',
-            '-o', '4',  # JSON format
-            '-N', '1234',  # TCP output on port 1234
+            "-d",
+            str(device),
+            "-gr",
+            f"TUNER={gain}",
+            "-o",
+            "4",  # JSON format
+            "-N",
+            "1234",  # TCP output on port 1234
         ]
 
         if bias_t:
-            cmd.extend(['-gr', 'BIASTEE=on'])
+            cmd.extend(["-gr", "BIASTEE=on"])
 
         logger.info(f"Starting AIS-catcher: {' '.join(cmd)}")
 
         try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                start_new_session=True
-            )
-            self.processes['ais'] = proc
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+            self.processes["ais"] = proc
 
             time.sleep(2)
             if proc.poll() is not None:
-                stderr = proc.stderr.read().decode('utf-8', errors='ignore')
-                return {'status': 'error', 'message': f'AIS-catcher failed: {stderr[:200]}'}
+                stderr = proc.stderr.read().decode("utf-8", errors="ignore")
+                return {"status": "error", "message": f"AIS-catcher failed: {stderr[:200]}"}
 
             # Start TCP reader thread
-            thread = threading.Thread(
-                target=self._ais_tcp_reader,
-                args=(1234,),
-                daemon=True
-            )
+            thread = threading.Thread(target=self._ais_tcp_reader, args=(1234,), daemon=True)
             thread.start()
-            self.output_threads['ais'] = thread
+            self.output_threads["ais"] = thread
 
-            return {
-                'status': 'started',
-                'mode': 'ais',
-                'tcp_port': 1234,
-                'gps_enabled': gps_manager.is_running
-            }
+            return {"status": "started", "mode": "ais", "tcp_port": 1234, "gps_enabled": gps_manager.is_running}
 
         except FileNotFoundError:
-            return {'status': 'error', 'message': 'AIS-catcher not found'}
+            return {"status": "error", "message": "AIS-catcher not found"}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _find_ais_catcher(self) -> str | None:
         """Find AIS-catcher binary."""
-        for name in ['AIS-catcher', 'aiscatcher']:
+        for name in ["AIS-catcher", "aiscatcher"]:
             path = self._get_tool_path(name)
             if path:
                 return path
-        for path in ['/usr/local/bin/AIS-catcher', '/usr/bin/AIS-catcher', '/opt/homebrew/bin/AIS-catcher']:
+        for path in ["/usr/local/bin/AIS-catcher", "/usr/bin/AIS-catcher", "/opt/homebrew/bin/AIS-catcher"]:
             if os.path.isfile(path) and os.access(path, os.X_OK):
                 return path
         return None
 
     def _ais_tcp_reader(self, port: int):
         """Read JSON vessel data from AIS-catcher TCP port."""
-        mode = 'ais'
+        mode = "ais"
         stop_event = self.stop_events.get(mode)
         retry_count = 0
 
         # Initialize vessel dict
-        if not hasattr(self, 'ais_vessels'):
+        if not hasattr(self, "ais_vessels"):
             self.ais_vessels = {}
 
         while not (stop_event and stop_event.is_set()):
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(5.0)
-                sock.connect(('localhost', port))
+                sock.connect(("localhost", port))
                 logger.info(f"Connected to AIS-catcher on port {port}")
                 retry_count = 0
 
@@ -2465,13 +2416,13 @@ class ModeManager:
 
                 while not (stop_event and stop_event.is_set()):
                     try:
-                        data = sock.recv(4096).decode('utf-8', errors='ignore')
+                        data = sock.recv(4096).decode("utf-8", errors="ignore")
                         if not data:
                             break
                         buffer += data
 
-                        while '\n' in buffer:
-                            line, buffer = buffer.split('\n', 1)
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
                             self._parse_ais_json(line.strip())
 
                     except socket.timeout:
@@ -2498,28 +2449,28 @@ class ModeManager:
         except json.JSONDecodeError:
             return
 
-        mmsi = msg.get('mmsi')
+        mmsi = msg.get("mmsi")
         if not mmsi:
             return
 
         mmsi = str(mmsi)
-        vessel = self.ais_vessels.get(mmsi) or {'mmsi': mmsi}
-        vessel['last_seen'] = datetime.now(timezone.utc).isoformat()
+        vessel = self.ais_vessels.get(mmsi) or {"mmsi": mmsi}
+        vessel["last_seen"] = datetime.now(timezone.utc).isoformat()
 
         # Position
-        lat = msg.get('latitude') or msg.get('lat')
-        lon = msg.get('longitude') or msg.get('lon')
+        lat = msg.get("latitude") or msg.get("lat")
+        lon = msg.get("longitude") or msg.get("lon")
         if lat is not None and lon is not None:
             try:
                 lat, lon = float(lat), float(lon)
                 if -90 <= lat <= 90 and -180 <= lon <= 180:
-                    vessel['lat'] = lat
-                    vessel['lon'] = lon
+                    vessel["lat"] = lat
+                    vessel["lon"] = lon
             except (ValueError, TypeError):
                 pass
 
         # Speed and course
-        for field, max_val in [('speed', 102.3), ('course', 360)]:
+        for field, max_val in [("speed", 102.3), ("course", 360)]:
             if field in msg:
                 try:
                     val = float(msg[field])
@@ -2528,23 +2479,23 @@ class ModeManager:
                 except (ValueError, TypeError):
                     pass
 
-        if 'heading' in msg:
+        if "heading" in msg:
             try:
-                heading = int(msg['heading'])
+                heading = int(msg["heading"])
                 if heading < 360:
-                    vessel['heading'] = heading
+                    vessel["heading"] = heading
             except (ValueError, TypeError):
                 pass
 
         # Static data
-        for field in ['name', 'callsign', 'destination', 'shiptype', 'ship_type']:
+        for field in ["name", "callsign", "destination", "shiptype", "ship_type"]:
             if field in msg and msg[field]:
-                key = 'ship_type' if field == 'shiptype' else field
+                key = "ship_type" if field == "shiptype" else field
                 vessel[key] = str(msg[field]).strip()
 
         gps_pos = gps_manager.position
         if gps_pos:
-            vessel['agent_gps'] = gps_pos
+            vessel["agent_gps"] = gps_pos
 
         self.ais_vessels[mmsi] = vessel
 
@@ -2561,54 +2512,50 @@ class ModeManager:
             '-o' for TLeconte v3.x
         """
         try:
-            result = subprocess.run(
-                [acarsdec_path],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            result = subprocess.run([acarsdec_path], capture_output=True, text=True, timeout=5)
             output = result.stdout + result.stderr
 
             # f00b4r0 fork uses --output instead of -j/-o
-            if '--output' in output:
-                return '--output'
+            if "--output" in output:
+                return "--output"
 
             # Parse version for TLeconte
             import re
-            version_match = re.search(r'acarsdec[^\d]*v?(\d+)\.(\d+)', output, re.IGNORECASE)
+
+            version_match = re.search(r"acarsdec[^\d]*v?(\d+)\.(\d+)", output, re.IGNORECASE)
             if version_match:
                 major = int(version_match.group(1))
-                return '-j' if major >= 4 else '-o'
+                return "-j" if major >= 4 else "-o"
         except Exception:
             pass
-        return '-j'  # Default to TLeconte v4+
+        return "-j"  # Default to TLeconte v4+
 
     def _start_acars(self, params: dict) -> dict:
         """Start ACARS decoding using acarsdec."""
-        gain = params.get('gain', '40')
-        device = params.get('device', '0')
-        frequencies = params.get('frequencies', ['131.550', '130.025', '129.125', '131.525', '131.725'])
+        gain = params.get("gain", "40")
+        device = params.get("device", "0")
+        frequencies = params.get("frequencies", ["131.550", "130.025", "129.125", "131.525", "131.725"])
 
-        acarsdec_path = self._get_tool_path('acarsdec')
+        acarsdec_path = self._get_tool_path("acarsdec")
         if not acarsdec_path:
-            return {'status': 'error', 'message': 'acarsdec not found. Install acarsdec.'}
+            return {"status": "error", "message": "acarsdec not found. Install acarsdec."}
 
         # Detect fork and build appropriate command
         fork_type = self._detect_acarsdec_fork(acarsdec_path)
         cmd = [acarsdec_path]
 
-        if fork_type == '--output':
+        if fork_type == "--output":
             # f00b4r0 fork (DragonOS): different syntax
-            cmd.extend(['--output', 'json:file'])  # stdout
-            cmd.extend(['-g', str(gain)])
-            cmd.extend(['-m', '256'])  # 3.2 MS/s for wider bandwidth
-            cmd.extend(['--rtlsdr', str(device)])
-        elif fork_type == '-j':
+            cmd.extend(["--output", "json:file"])  # stdout
+            cmd.extend(["-g", str(gain)])
+            cmd.extend(["-m", "256"])  # 3.2 MS/s for wider bandwidth
+            cmd.extend(["--rtlsdr", str(device)])
+        elif fork_type == "-j":
             # TLeconte v4+
-            cmd.extend(['-j', '-g', str(gain), '-r', str(device)])
+            cmd.extend(["-j", "-g", str(gain), "-r", str(device)])
         else:
             # TLeconte v3.x
-            cmd.extend(['-o', '4', '-g', str(gain), '-r', str(device)])
+            cmd.extend(["-o", "4", "-g", str(gain), "-r", str(device)])
 
         cmd.extend(frequencies)
 
@@ -2620,58 +2567,54 @@ class ModeManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            self.processes['acars'] = proc
+            self.processes["acars"] = proc
 
-            thread = threading.Thread(
-                target=self._acars_output_reader,
-                args=(proc,),
-                daemon=True
-            )
+            thread = threading.Thread(target=self._acars_output_reader, args=(proc,), daemon=True)
             thread.start()
-            self.output_threads['acars'] = thread
+            self.output_threads["acars"] = thread
 
             # Wait briefly to verify process started successfully
             time.sleep(0.5)
             if proc.poll() is not None:
                 # Process already exited - likely SDR busy or other error
-                stderr_output = proc.stderr.read().decode('utf-8', errors='replace')
-                del self.processes['acars']
-                return {'status': 'error', 'message': f'acarsdec failed to start: {stderr_output[:200]}'}
+                stderr_output = proc.stderr.read().decode("utf-8", errors="replace")
+                del self.processes["acars"]
+                return {"status": "error", "message": f"acarsdec failed to start: {stderr_output[:200]}"}
 
             return {
-                'status': 'started',
-                'mode': 'acars',
-                'frequencies': frequencies,
-                'gps_enabled': gps_manager.is_running
+                "status": "started",
+                "mode": "acars",
+                "frequencies": frequencies,
+                "gps_enabled": gps_manager.is_running,
             }
 
         except FileNotFoundError:
-            return {'status': 'error', 'message': 'acarsdec not found'}
+            return {"status": "error", "message": "acarsdec not found"}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _acars_output_reader(self, proc: subprocess.Popen):
         """Read acarsdec JSON output."""
-        mode = 'acars'
+        mode = "acars"
         stop_event = self.stop_events.get(mode)
 
         try:
-            for line in iter(proc.stdout.readline, b''):
+            for line in iter(proc.stdout.readline, b""):
                 if stop_event and stop_event.is_set():
                     break
 
-                line = line.decode('utf-8', errors='replace').strip()
+                line = line.decode("utf-8", errors="replace").strip()
                 if not line:
                     continue
 
                 try:
                     msg = json.loads(line)
-                    msg['type'] = 'acars'
-                    msg['received_at'] = datetime.now(timezone.utc).isoformat()
+                    msg["type"] = "acars"
+                    msg["received_at"] = datetime.now(timezone.utc).isoformat()
 
                     gps_pos = gps_manager.position
                     if gps_pos:
-                        msg['agent_gps'] = gps_pos
+                        msg["agent_gps"] = gps_pos
 
                     snapshots = self.data_snapshots.get(mode, [])
                     snapshots.append(msg)
@@ -2699,51 +2642,57 @@ class ModeManager:
 
     def _start_aprs(self, params: dict) -> dict:
         """Start APRS decoding using rtl_fm | direwolf."""
-        freq = params.get('frequency', '144.390')  # North America APRS
-        gain = params.get('gain', '40')
-        device = params.get('device', '0')
-        ppm = params.get('ppm', '0')
+        freq = params.get("frequency", "144.390")  # North America APRS
+        gain = params.get("gain", "40")
+        device = params.get("device", "0")
+        ppm = params.get("ppm", "0")
 
-        rtl_fm_path = self._get_tool_path('rtl_fm')
+        rtl_fm_path = self._get_tool_path("rtl_fm")
         if not rtl_fm_path:
-            return {'status': 'error', 'message': 'rtl_fm not found'}
+            return {"status": "error", "message": "rtl_fm not found"}
 
-        direwolf_path = self._get_tool_path('direwolf')
-        multimon_path = self._get_tool_path('multimon-ng')
+        direwolf_path = self._get_tool_path("direwolf")
+        multimon_path = self._get_tool_path("multimon-ng")
         decoder_path = direwolf_path or multimon_path
 
         if not decoder_path:
-            return {'status': 'error', 'message': 'direwolf or multimon-ng not found'}
+            return {"status": "error", "message": "direwolf or multimon-ng not found"}
 
         # Initialize state
-        if not hasattr(self, 'aprs_stations'):
+        if not hasattr(self, "aprs_stations"):
             self.aprs_stations = {}
         self.aprs_stations.clear()
 
         # Build rtl_fm command for APRS (22050 Hz for AFSK 1200 baud)
         rtl_fm_cmd = [
             rtl_fm_path,
-            '-f', f'{freq}M',
-            '-s', '22050',
-            '-g', str(gain),
-            '-d', str(device),
-            '-E', 'dc',
-            '-A', 'fast',
+            "-f",
+            f"{freq}M",
+            "-s",
+            "22050",
+            "-g",
+            str(gain),
+            "-d",
+            str(device),
+            "-E",
+            "dc",
+            "-A",
+            "fast",
         ]
-        if ppm and str(ppm) != '0':
-            rtl_fm_cmd.extend(['-p', str(ppm)])
+        if ppm and str(ppm) != "0":
+            rtl_fm_cmd.extend(["-p", str(ppm)])
 
         # Build decoder command
         if direwolf_path:
-            dw_config = '/tmp/intercept_direwolf.conf'
+            dw_config = "/tmp/intercept_direwolf.conf"
             try:
-                with open(dw_config, 'w') as f:
+                with open(dw_config, "w") as f:
                     f.write("ADEVICE stdin null\nARATE 22050\nMODEM 1200\n")
             except Exception as e:
-                return {'status': 'error', 'message': f'Failed to create direwolf config: {e}'}
-            decoder_cmd = [direwolf_path, '-c', dw_config, '-r', '22050', '-t', '0', '-']
+                return {"status": "error", "message": f"Failed to create direwolf config: {e}"}
+            decoder_cmd = [direwolf_path, "-c", dw_config, "-r", "22050", "-t", "0", "-"]
         else:
-            decoder_cmd = [multimon_path, '-t', 'raw', '-a', 'AFSK1200', '-']
+            decoder_cmd = [multimon_path, "-t", "raw", "-a", "AFSK1200", "-"]
 
         logger.info(f"Starting APRS: {' '.join(rtl_fm_cmd)} | {' '.join(decoder_cmd)}")
 
@@ -2762,60 +2711,58 @@ class ModeManager:
             )
             rtl_fm_proc.stdout.close()
 
-            self.processes['aprs'] = decoder_proc
-            self.processes['aprs_rtl'] = rtl_fm_proc
+            self.processes["aprs"] = decoder_proc
+            self.processes["aprs_rtl"] = rtl_fm_proc
 
             # Wait briefly to verify processes started successfully
             time.sleep(0.5)
             if rtl_fm_proc.poll() is not None:
-                stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
+                stderr_output = rtl_fm_proc.stderr.read().decode("utf-8", errors="replace")
                 decoder_proc.terminate()
-                del self.processes['aprs']
-                del self.processes['aprs_rtl']
-                return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+                del self.processes["aprs"]
+                del self.processes["aprs_rtl"]
+                return {"status": "error", "message": f"rtl_fm failed to start: {stderr_output[:200]}"}
 
             thread = threading.Thread(
-                target=self._aprs_output_reader,
-                args=(decoder_proc, direwolf_path is not None),
-                daemon=True
+                target=self._aprs_output_reader, args=(decoder_proc, direwolf_path is not None), daemon=True
             )
             thread.start()
-            self.output_threads['aprs'] = thread
+            self.output_threads["aprs"] = thread
 
             return {
-                'status': 'started',
-                'mode': 'aprs',
-                'frequency': freq,
-                'decoder': 'direwolf' if direwolf_path else 'multimon-ng',
-                'gps_enabled': gps_manager.is_running
+                "status": "started",
+                "mode": "aprs",
+                "frequency": freq,
+                "decoder": "direwolf" if direwolf_path else "multimon-ng",
+                "gps_enabled": gps_manager.is_running,
             }
 
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _aprs_output_reader(self, proc: subprocess.Popen, is_direwolf: bool):
         """Read and parse APRS packets."""
-        mode = 'aprs'
+        mode = "aprs"
         stop_event = self.stop_events.get(mode)
 
         try:
-            for line in iter(proc.stdout.readline, b''):
+            for line in iter(proc.stdout.readline, b""):
                 if stop_event and stop_event.is_set():
                     break
 
-                line = line.decode('utf-8', errors='replace').strip()
+                line = line.decode("utf-8", errors="replace").strip()
                 if not line:
                     continue
 
                 parsed = self._parse_aprs_packet(line)
                 if parsed:
-                    parsed['received_at'] = datetime.now(timezone.utc).isoformat()
+                    parsed["received_at"] = datetime.now(timezone.utc).isoformat()
 
                     gps_pos = gps_manager.position
                     if gps_pos:
-                        parsed['agent_gps'] = gps_pos
+                        parsed["agent_gps"] = gps_pos
 
-                    callsign = parsed.get('callsign')
+                    callsign = parsed.get("callsign")
                     if callsign:
                         self.aprs_stations[callsign] = parsed
 
@@ -2834,12 +2781,12 @@ class ModeManager:
         finally:
             with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            if 'aprs_rtl' in self.processes:
+            if "aprs_rtl" in self.processes:
                 try:
-                    rtl_proc = self.processes['aprs_rtl']
+                    rtl_proc = self.processes["aprs_rtl"]
                     if rtl_proc.poll() is None:
                         rtl_proc.terminate()
-                    del self.processes['aprs_rtl']
+                    del self.processes["aprs_rtl"]
                 except Exception:
                     pass
             logger.info("APRS reader stopped")
@@ -2853,11 +2800,11 @@ class ModeManager:
         # multimon-ng: "AFSK1200: ..."
         # direwolf: "[0.4] ...", "[0L] ..."
         line = line.strip()
-        if line.startswith('AFSK1200:'):
+        if line.startswith("AFSK1200:"):
             line = line[9:].strip()
-        line = re.sub(r'^(?:\[[^\]]+\]\s*)+', '', line)
+        line = re.sub(r"^(?:\[[^\]]+\]\s*)+", "", line)
 
-        match = re.match(r'([A-Z0-9-]+)>([^:]+):(.+)', line)
+        match = re.match(r"([A-Z0-9-]+)>([^:]+):(.+)", line)
         if not match:
             return None
 
@@ -2866,23 +2813,23 @@ class ModeManager:
         data = match.group(3)
 
         packet = {
-            'type': 'aprs',
-            'callsign': callsign,
-            'path': path,
-            'raw': data,
+            "type": "aprs",
+            "callsign": callsign,
+            "path": path,
+            "raw": data,
         }
 
         # Try to extract position
-        pos_match = re.search(r'[!=/@](\d{4}\.\d{2})([NS])[/\\](\d{5}\.\d{2})([EW])', data)
+        pos_match = re.search(r"[!=/@](\d{4}\.\d{2})([NS])[/\\](\d{5}\.\d{2})([EW])", data)
         if pos_match:
             lat = float(pos_match.group(1)[:2]) + float(pos_match.group(1)[2:]) / 60
-            if pos_match.group(2) == 'S':
+            if pos_match.group(2) == "S":
                 lat = -lat
             lon = float(pos_match.group(3)[:3]) + float(pos_match.group(3)[3:]) / 60
-            if pos_match.group(4) == 'W':
+            if pos_match.group(4) == "W":
                 lon = -lon
-            packet['lat'] = round(lat, 6)
-            packet['lon'] = round(lon, 6)
+            packet["lat"] = round(lat, 6)
+            packet["lon"] = round(lon, 6)
 
         return packet
 
@@ -2892,24 +2839,24 @@ class ModeManager:
 
     def _start_rtlamr(self, params: dict) -> dict:
         """Start utility meter reading using rtl_tcp + rtlamr."""
-        freq = params.get('frequency', '912.0')
-        device = params.get('device', '0')
-        gain = params.get('gain', '40')
-        msg_type = params.get('msgtype', 'scm')
-        filter_id = params.get('filterid')
+        freq = params.get("frequency", "912.0")
+        device = params.get("device", "0")
+        gain = params.get("gain", "40")
+        msg_type = params.get("msgtype", "scm")
+        filter_id = params.get("filterid")
 
-        rtl_tcp_path = self._get_tool_path('rtl_tcp')
-        rtlamr_path = self._get_tool_path('rtlamr')
+        rtl_tcp_path = self._get_tool_path("rtl_tcp")
+        rtlamr_path = self._get_tool_path("rtlamr")
 
         if not rtl_tcp_path:
-            return {'status': 'error', 'message': 'rtl_tcp not found. Install rtl-sdr.'}
+            return {"status": "error", "message": "rtl_tcp not found. Install rtl-sdr."}
         if not rtlamr_path:
-            return {'status': 'error', 'message': 'rtlamr not found. Install from https://github.com/bemasher/rtlamr'}
+            return {"status": "error", "message": "rtlamr not found. Install from https://github.com/bemasher/rtlamr"}
 
         # Start rtl_tcp server
-        rtl_tcp_cmd = [rtl_tcp_path, '-a', '127.0.0.1', '-p', '1234', '-d', str(device)]
+        rtl_tcp_cmd = [rtl_tcp_path, "-a", "127.0.0.1", "-p", "1234", "-d", str(device)]
         if gain:
-            rtl_tcp_cmd.extend(['-g', str(gain)])
+            rtl_tcp_cmd.extend(["-g", str(gain)])
 
         logger.info(f"Starting rtl_tcp: {' '.join(rtl_tcp_cmd)}")
 
@@ -2919,24 +2866,24 @@ class ModeManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            self.processes['rtlamr_tcp'] = rtl_tcp_proc
+            self.processes["rtlamr_tcp"] = rtl_tcp_proc
 
             time.sleep(2)
             if rtl_tcp_proc.poll() is not None:
-                stderr = rtl_tcp_proc.stderr.read().decode('utf-8', errors='ignore')
-                return {'status': 'error', 'message': f'rtl_tcp failed: {stderr[:200]}'}
+                stderr = rtl_tcp_proc.stderr.read().decode("utf-8", errors="ignore")
+                return {"status": "error", "message": f"rtl_tcp failed: {stderr[:200]}"}
 
             # Build rtlamr command
             rtlamr_cmd = [
                 rtlamr_path,
-                '-server=127.0.0.1:1234',
-                f'-msgtype={msg_type}',
-                '-format=json',
-                f'-centerfreq={int(float(freq) * 1e6)}',
-                '-unique=true',
+                "-server=127.0.0.1:1234",
+                f"-msgtype={msg_type}",
+                "-format=json",
+                f"-centerfreq={int(float(freq) * 1e6)}",
+                "-unique=true",
             ]
             if filter_id:
-                rtlamr_cmd.append(f'-filterid={filter_id}')
+                rtlamr_cmd.append(f"-filterid={filter_id}")
 
             logger.info(f"Starting rtlamr: {' '.join(rtlamr_cmd)}")
 
@@ -2945,49 +2892,45 @@ class ModeManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            self.processes['rtlamr'] = rtlamr_proc
+            self.processes["rtlamr"] = rtlamr_proc
 
-            thread = threading.Thread(
-                target=self._rtlamr_output_reader,
-                args=(rtlamr_proc,),
-                daemon=True
-            )
+            thread = threading.Thread(target=self._rtlamr_output_reader, args=(rtlamr_proc,), daemon=True)
             thread.start()
-            self.output_threads['rtlamr'] = thread
+            self.output_threads["rtlamr"] = thread
 
             return {
-                'status': 'started',
-                'mode': 'rtlamr',
-                'frequency': freq,
-                'msgtype': msg_type,
-                'gps_enabled': gps_manager.is_running
+                "status": "started",
+                "mode": "rtlamr",
+                "frequency": freq,
+                "msgtype": msg_type,
+                "gps_enabled": gps_manager.is_running,
             }
 
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _rtlamr_output_reader(self, proc: subprocess.Popen):
         """Read rtlamr JSON output."""
-        mode = 'rtlamr'
+        mode = "rtlamr"
         stop_event = self.stop_events.get(mode)
 
         try:
-            for line in iter(proc.stdout.readline, b''):
+            for line in iter(proc.stdout.readline, b""):
                 if stop_event and stop_event.is_set():
                     break
 
-                line = line.decode('utf-8', errors='replace').strip()
+                line = line.decode("utf-8", errors="replace").strip()
                 if not line:
                     continue
 
                 try:
                     msg = json.loads(line)
-                    msg['type'] = 'rtlamr'
-                    msg['received_at'] = datetime.now(timezone.utc).isoformat()
+                    msg["type"] = "rtlamr"
+                    msg["received_at"] = datetime.now(timezone.utc).isoformat()
 
                     gps_pos = gps_manager.position
                     if gps_pos:
-                        msg['agent_gps'] = gps_pos
+                        msg["agent_gps"] = gps_pos
 
                     snapshots = self.data_snapshots.get(mode, [])
                     snapshots.append(msg)
@@ -3007,12 +2950,12 @@ class ModeManager:
         finally:
             with contextlib.suppress(Exception):
                 proc.wait(timeout=1)
-            if 'rtlamr_tcp' in self.processes:
+            if "rtlamr_tcp" in self.processes:
                 try:
-                    tcp_proc = self.processes['rtlamr_tcp']
+                    tcp_proc = self.processes["rtlamr_tcp"]
                     if tcp_proc.poll() is None:
                         tcp_proc.terminate()
-                    del self.processes['rtlamr_tcp']
+                    del self.processes["rtlamr_tcp"]
                 except Exception:
                     pass
             logger.info("RTLAMR reader stopped")
@@ -3023,29 +2966,33 @@ class ModeManager:
 
     def _start_dsc(self, params: dict) -> dict:
         """Start DSC (VHF Channel 70) decoding using Intercept's DSCDecoder."""
-        device = params.get('device', '0')
-        gain = params.get('gain', '40')
-        ppm = params.get('ppm', '0')
-        freq = '156.525'  # DSC Channel 70
+        device = params.get("device", "0")
+        gain = params.get("gain", "40")
+        ppm = params.get("ppm", "0")
+        freq = "156.525"  # DSC Channel 70
 
-        rtl_fm_path = self._get_tool_path('rtl_fm')
+        rtl_fm_path = self._get_tool_path("rtl_fm")
         if not rtl_fm_path:
-            return {'status': 'error', 'message': 'rtl_fm not found'}
+            return {"status": "error", "message": "rtl_fm not found"}
 
         # Initialize DSC messages list
-        if not hasattr(self, 'dsc_messages'):
+        if not hasattr(self, "dsc_messages"):
             self.dsc_messages = []
 
         # Build rtl_fm command for DSC (48kHz sample rate)
         rtl_fm_cmd = [
             rtl_fm_path,
-            '-f', f'{freq}M',
-            '-s', '48000',
-            '-g', str(gain),
-            '-d', str(device),
+            "-f",
+            f"{freq}M",
+            "-s",
+            "48000",
+            "-g",
+            str(gain),
+            "-d",
+            str(device),
         ]
-        if ppm and str(ppm) != '0':
-            rtl_fm_cmd.extend(['-p', str(ppm)])
+        if ppm and str(ppm) != "0":
+            rtl_fm_cmd.extend(["-p", str(ppm)])
 
         logger.info(f"Starting DSC: {' '.join(rtl_fm_cmd)}")
 
@@ -3055,43 +3002,40 @@ class ModeManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            self.processes['dsc'] = rtl_fm_proc
+            self.processes["dsc"] = rtl_fm_proc
 
             # Wait briefly to verify process started successfully
             time.sleep(0.5)
             if rtl_fm_proc.poll() is not None:
-                stderr_output = rtl_fm_proc.stderr.read().decode('utf-8', errors='replace')
-                del self.processes['dsc']
-                return {'status': 'error', 'message': f'rtl_fm failed to start: {stderr_output[:200]}'}
+                stderr_output = rtl_fm_proc.stderr.read().decode("utf-8", errors="replace")
+                del self.processes["dsc"]
+                return {"status": "error", "message": f"rtl_fm failed to start: {stderr_output[:200]}"}
 
             # Start output reader thread using Intercept's DSCDecoder
-            thread = threading.Thread(
-                target=self._dsc_output_reader,
-                args=(rtl_fm_proc,),
-                daemon=True
-            )
+            thread = threading.Thread(target=self._dsc_output_reader, args=(rtl_fm_proc,), daemon=True)
             thread.start()
-            self.output_threads['dsc'] = thread
+            self.output_threads["dsc"] = thread
 
             return {
-                'status': 'started',
-                'mode': 'dsc',
-                'frequency': freq,
-                'channel': 70,
-                'gps_enabled': gps_manager.is_running
+                "status": "started",
+                "mode": "dsc",
+                "frequency": freq,
+                "channel": 70,
+                "gps_enabled": gps_manager.is_running,
             }
 
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _dsc_output_reader(self, proc: subprocess.Popen):
         """Read rtl_fm audio and decode DSC using Intercept's DSCDecoder."""
-        mode = 'dsc'
+        mode = "dsc"
         stop_event = self.stop_events.get(mode)
 
         try:
             # Use Intercept's DSC decoder
             from utils.dsc.decoder import DSCDecoder
+
             decoder = DSCDecoder(sample_rate=48000)
             logger.info("Using Intercept's DSCDecoder")
 
@@ -3103,11 +3047,11 @@ class ModeManager:
                     break
 
                 for message in decoder.process_audio(audio_data):
-                    message['received_at'] = datetime.now(timezone.utc).isoformat()
+                    message["received_at"] = datetime.now(timezone.utc).isoformat()
 
                     gps_pos = gps_manager.position
                     if gps_pos:
-                        message['agent_gps'] = gps_pos
+                        message["agent_gps"] = gps_pos
 
                     # Store message
                     self.dsc_messages.append(message)
@@ -3135,28 +3079,28 @@ class ModeManager:
     def _start_tscm(self, params: dict) -> dict:
         """Start TSCM scanning - uses existing Intercept scanning functions."""
         # Initialize state
-        if not hasattr(self, 'tscm_baseline'):
+        if not hasattr(self, "tscm_baseline"):
             self.tscm_baseline = {}
-        if not hasattr(self, 'tscm_anomalies'):
+        if not hasattr(self, "tscm_anomalies"):
             self.tscm_anomalies = []
-        if not hasattr(self, 'tscm_rf_signals'):
+        if not hasattr(self, "tscm_rf_signals"):
             self.tscm_rf_signals = []
-        if not hasattr(self, 'tscm_wifi_clients'):
+        if not hasattr(self, "tscm_wifi_clients"):
             self.tscm_wifi_clients = {}
         self.tscm_anomalies.clear()
         self.tscm_wifi_clients.clear()
 
         # Get params for what to scan
-        scan_wifi = params.get('wifi', True)
-        scan_bt = params.get('bluetooth', True)
-        scan_rf = params.get('rf', True)
-        wifi_interface = params.get('wifi_interface') or params.get('interface')
-        bt_adapter = params.get('bt_interface') or params.get('adapter', 'hci0')
-        sdr_device = params.get('sdr_device', params.get('device', 0))
-        sweep_type = params.get('sweep_type')
+        scan_wifi = params.get("wifi", True)
+        scan_bt = params.get("bluetooth", True)
+        scan_rf = params.get("rf", True)
+        wifi_interface = params.get("wifi_interface") or params.get("interface")
+        bt_adapter = params.get("bt_interface") or params.get("adapter", "hci0")
+        sdr_device = params.get("sdr_device", params.get("device", 0))
+        sweep_type = params.get("sweep_type")
 
         # Get baseline_id for comparison (same as local mode)
-        baseline_id = params.get('baseline_id')
+        baseline_id = params.get("baseline_id")
 
         started_scans = []
 
@@ -3164,29 +3108,37 @@ class ModeManager:
         thread = threading.Thread(
             target=self._tscm_scanner_thread,
             args=(scan_wifi, scan_bt, scan_rf, wifi_interface, bt_adapter, sdr_device, baseline_id, sweep_type),
-            daemon=True
+            daemon=True,
         )
         thread.start()
-        self.output_threads['tscm'] = thread
+        self.output_threads["tscm"] = thread
 
         if scan_wifi:
-            started_scans.append('wifi')
+            started_scans.append("wifi")
         if scan_bt:
-            started_scans.append('bluetooth')
+            started_scans.append("bluetooth")
         if scan_rf:
-            started_scans.append('rf')
+            started_scans.append("rf")
 
         return {
-            'status': 'started',
-            'mode': 'tscm',
-            'note': f'TSCM scanning {", ".join(started_scans) if started_scans else "using existing data"}',
-            'gps_enabled': gps_manager.is_running,
-            'scanning': started_scans
+            "status": "started",
+            "mode": "tscm",
+            "note": f"TSCM scanning {', '.join(started_scans) if started_scans else 'using existing data'}",
+            "gps_enabled": gps_manager.is_running,
+            "scanning": started_scans,
         }
 
-    def _tscm_scanner_thread(self, scan_wifi: bool, scan_bt: bool, scan_rf: bool,
-                              wifi_interface: str | None, bt_adapter: str, sdr_device: int,
-                              baseline_id: int | None = None, sweep_type: str | None = None):
+    def _tscm_scanner_thread(
+        self,
+        scan_wifi: bool,
+        scan_bt: bool,
+        scan_rf: bool,
+        wifi_interface: str | None,
+        bt_adapter: str,
+        sdr_device: int,
+        baseline_id: int | None = None,
+        sweep_type: str | None = None,
+    ):
         """Combined TSCM scanner using existing Intercept functions.
 
         NOTE: This matches local mode behavior exactly:
@@ -3195,19 +3147,21 @@ class ModeManager:
         - Each new device seen during sweep is analyzed once
         """
         logger.info("TSCM thread starting...")
-        mode = 'tscm'
+        mode = "tscm"
         stop_event = self.stop_events.get(mode)
 
         # Import existing Intercept TSCM functions
         from routes.tscm import _scan_bluetooth_devices, _scan_rf_signals, _scan_wifi_clients, _scan_wifi_networks
+
         logger.info("TSCM imports successful")
 
         sweep_ranges = None
         if sweep_type:
             try:
                 from data.tscm_frequencies import SWEEP_PRESETS, get_sweep_preset
-                preset = get_sweep_preset(sweep_type) or SWEEP_PRESETS.get('standard')
-                sweep_ranges = preset.get('ranges') if preset else None
+
+                preset = get_sweep_preset(sweep_type) or SWEEP_PRESETS.get("standard")
+                sweep_ranges = preset.get("ranges") if preset else None
             except Exception:
                 sweep_ranges = None
 
@@ -3247,9 +3201,9 @@ class ModeManager:
                 # WiFi scan using Intercept's function (same as local mode)
                 if scan_wifi:
                     try:
-                        wifi_networks = _scan_wifi_networks(wifi_interface or '')
+                        wifi_networks = _scan_wifi_networks(wifi_interface or "")
                         for net in wifi_networks:
-                            bssid = net.get('bssid', '').upper()
+                            bssid = net.get("bssid", "").upper()
                             if bssid and bssid not in seen_wifi:
                                 # First time seeing this device during sweep
                                 seen_wifi[bssid] = net
@@ -3257,16 +3211,16 @@ class ModeManager:
                                 # Enrich with classification/scoring
                                 enriched = dict(net)
                                 # Ensure power/signal is numeric (scanner may return string)
-                                if 'power' in enriched:
+                                if "power" in enriched:
                                     try:
-                                        enriched['power'] = int(enriched['power'])
+                                        enriched["power"] = int(enriched["power"])
                                     except (ValueError, TypeError):
-                                        enriched['power'] = -100
-                                if 'signal' in enriched and enriched['signal'] is not None:
+                                        enriched["power"] = -100
+                                if "signal" in enriched and enriched["signal"] is not None:
                                     try:
-                                        enriched['signal'] = int(enriched['signal'])
+                                        enriched["signal"] = int(enriched["signal"])
                                     except (ValueError, TypeError):
-                                        enriched['signal'] = -100
+                                        enriched["signal"] = -100
 
                                 # Analyze for threats (same as local mode)
                                 if self._tscm_detector:
@@ -3275,63 +3229,64 @@ class ModeManager:
                                         self.tscm_anomalies.append(threat)
                                         if len(self.tscm_anomalies) > 100:
                                             self.tscm_anomalies = self.tscm_anomalies[-100:]
-                                        print(f"[TSCM] WiFi threat: {threat.get('threat_type')} - {threat.get('name')}", flush=True)
+                                        print(
+                                            f"[TSCM] WiFi threat: {threat.get('threat_type')} - {threat.get('name')}",
+                                            flush=True,
+                                        )
 
                                     classification = self._tscm_detector.classify_wifi_device(enriched)
-                                    enriched['is_new'] = not classification.get('in_baseline', False)
-                                    enriched['reasons'] = classification.get('reasons', [])
+                                    enriched["is_new"] = not classification.get("in_baseline", False)
+                                    enriched["reasons"] = classification.get("reasons", [])
 
                                 if self._tscm_correlation:
                                     profile = self._tscm_correlation.analyze_wifi_device(enriched)
-                                    enriched['classification'] = profile.risk_level.value
-                                    enriched['score'] = profile.total_score
-                                    enriched['score_modifier'] = profile.score_modifier
-                                    enriched['known_device'] = profile.known_device
-                                    enriched['known_device_name'] = profile.known_device_name
-                                    enriched['indicators'] = [
-                                        {'type': i.type.value, 'desc': i.description}
-                                        for i in profile.indicators
+                                    enriched["classification"] = profile.risk_level.value
+                                    enriched["score"] = profile.total_score
+                                    enriched["score_modifier"] = profile.score_modifier
+                                    enriched["known_device"] = profile.known_device
+                                    enriched["known_device_name"] = profile.known_device_name
+                                    enriched["indicators"] = [
+                                        {"type": i.type.value, "desc": i.description} for i in profile.indicators
                                     ]
-                                    enriched['recommended_action'] = profile.recommended_action
+                                    enriched["recommended_action"] = profile.recommended_action
 
                                 self.wifi_networks[bssid] = enriched
 
                         # WiFi clients (monitor mode only)
                         try:
-                            wifi_clients = _scan_wifi_clients(wifi_interface or '')
+                            wifi_clients = _scan_wifi_clients(wifi_interface or "")
                             for client in wifi_clients:
-                                mac = (client.get('mac') or '').upper()
+                                mac = (client.get("mac") or "").upper()
                                 if not mac or mac in seen_wifi_clients:
                                     continue
                                 seen_wifi_clients[mac] = client
 
-                                rssi_val = client.get('rssi_current')
+                                rssi_val = client.get("rssi_current")
                                 if rssi_val is None:
-                                    rssi_val = client.get('rssi_median') or client.get('rssi_ema')
+                                    rssi_val = client.get("rssi_median") or client.get("rssi_ema")
 
                                 client_device = {
-                                    'mac': mac,
-                                    'vendor': client.get('vendor'),
-                                    'name': client.get('vendor') or 'WiFi Client',
-                                    'rssi': rssi_val,
-                                    'associated_bssid': client.get('associated_bssid'),
-                                    'probed_ssids': client.get('probed_ssids', []),
-                                    'probe_count': client.get('probe_count', len(client.get('probed_ssids', []))),
-                                    'is_client': True,
+                                    "mac": mac,
+                                    "vendor": client.get("vendor"),
+                                    "name": client.get("vendor") or "WiFi Client",
+                                    "rssi": rssi_val,
+                                    "associated_bssid": client.get("associated_bssid"),
+                                    "probed_ssids": client.get("probed_ssids", []),
+                                    "probe_count": client.get("probe_count", len(client.get("probed_ssids", []))),
+                                    "is_client": True,
                                 }
 
                                 if self._tscm_correlation:
                                     profile = self._tscm_correlation.analyze_wifi_device(client_device)
-                                    client_device['classification'] = profile.risk_level.value
-                                    client_device['score'] = profile.total_score
-                                    client_device['score_modifier'] = profile.score_modifier
-                                    client_device['known_device'] = profile.known_device
-                                    client_device['known_device_name'] = profile.known_device_name
-                                    client_device['indicators'] = [
-                                        {'type': i.type.value, 'desc': i.description}
-                                        for i in profile.indicators
+                                    client_device["classification"] = profile.risk_level.value
+                                    client_device["score"] = profile.total_score
+                                    client_device["score_modifier"] = profile.score_modifier
+                                    client_device["known_device"] = profile.known_device
+                                    client_device["known_device_name"] = profile.known_device_name
+                                    client_device["indicators"] = [
+                                        {"type": i.type.value, "desc": i.description} for i in profile.indicators
                                     ]
-                                    client_device['recommended_action'] = profile.recommended_action
+                                    client_device["recommended_action"] = profile.recommended_action
 
                                 self.tscm_wifi_clients[mac] = client_device
                         except Exception as e:
@@ -3344,7 +3299,7 @@ class ModeManager:
                     try:
                         bt_devices = _scan_bluetooth_devices(bt_adapter, duration=5)
                         for dev in bt_devices:
-                            mac = dev.get('mac', '').upper()
+                            mac = dev.get("mac", "").upper()
                             if mac and mac not in seen_bt:
                                 # First time seeing this device during sweep
                                 seen_bt[mac] = dev
@@ -3352,11 +3307,11 @@ class ModeManager:
                                 # Enrich with classification/scoring
                                 enriched = dict(dev)
                                 # Ensure rssi/signal is numeric (scanner may return string)
-                                if 'rssi' in enriched and enriched['rssi'] is not None:
+                                if "rssi" in enriched and enriched["rssi"] is not None:
                                     try:
-                                        enriched['rssi'] = int(enriched['rssi'])
+                                        enriched["rssi"] = int(enriched["rssi"])
                                     except (ValueError, TypeError):
-                                        enriched['rssi'] = -100
+                                        enriched["rssi"] = -100
 
                                 # Analyze for threats (same as local mode)
                                 if self._tscm_detector:
@@ -3365,24 +3320,25 @@ class ModeManager:
                                         self.tscm_anomalies.append(threat)
                                         if len(self.tscm_anomalies) > 100:
                                             self.tscm_anomalies = self.tscm_anomalies[-100:]
-                                        logger.info(f"TSCM BT threat: {threat.get('threat_type')} - {threat.get('name')}")
+                                        logger.info(
+                                            f"TSCM BT threat: {threat.get('threat_type')} - {threat.get('name')}"
+                                        )
 
                                     classification = self._tscm_detector.classify_bt_device(enriched)
-                                    enriched['is_new'] = not classification.get('in_baseline', False)
-                                    enriched['reasons'] = classification.get('reasons', [])
+                                    enriched["is_new"] = not classification.get("in_baseline", False)
+                                    enriched["reasons"] = classification.get("reasons", [])
 
                                 if self._tscm_correlation:
                                     profile = self._tscm_correlation.analyze_bluetooth_device(enriched)
-                                    enriched['classification'] = profile.risk_level.value
-                                    enriched['score'] = profile.total_score
-                                    enriched['score_modifier'] = profile.score_modifier
-                                    enriched['known_device'] = profile.known_device
-                                    enriched['known_device_name'] = profile.known_device_name
-                                    enriched['indicators'] = [
-                                        {'type': i.type.value, 'desc': i.description}
-                                        for i in profile.indicators
+                                    enriched["classification"] = profile.risk_level.value
+                                    enriched["score"] = profile.total_score
+                                    enriched["score_modifier"] = profile.score_modifier
+                                    enriched["known_device"] = profile.known_device
+                                    enriched["known_device_name"] = profile.known_device_name
+                                    enriched["indicators"] = [
+                                        {"type": i.type.value, "desc": i.description} for i in profile.indicators
                                     ]
-                                    enriched['recommended_action'] = profile.recommended_action
+                                    enriched["recommended_action"] = profile.recommended_action
 
                                 self.bluetooth_devices[mac] = enriched
                     except Exception as e:
@@ -3394,10 +3350,9 @@ class ModeManager:
                         # Pass a stop check that uses our stop_event (not the module's _sweep_running)
                         def agent_stop_check():
                             return stop_event and stop_event.is_set()
+
                         rf_signals = _scan_rf_signals(
-                            sdr_device,
-                            stop_check=agent_stop_check,
-                            sweep_ranges=sweep_ranges
+                            sdr_device, stop_check=agent_stop_check, sweep_ranges=sweep_ranges
                         )
 
                         # Analyze each RF signal like local mode does
@@ -3408,29 +3363,28 @@ class ModeManager:
                             is_threat = False
 
                             # Use detector to analyze for threats (same as local mode)
-                            if hasattr(self, '_tscm_detector') and self._tscm_detector:
+                            if hasattr(self, "_tscm_detector") and self._tscm_detector:
                                 threat = self._tscm_detector.analyze_rf_signal(signal)
                                 if threat:
                                     rf_threats.append(threat)
                                     is_threat = True
                                 classification = self._tscm_detector.classify_rf_signal(signal)
-                                analyzed['is_new'] = not classification.get('in_baseline', False)
-                                analyzed['reasons'] = classification.get('reasons', [])
+                                analyzed["is_new"] = not classification.get("in_baseline", False)
+                                analyzed["reasons"] = classification.get("reasons", [])
 
                             # Use correlation engine for scoring (same as local mode)
-                            if hasattr(self, '_tscm_correlation') and self._tscm_correlation:
+                            if hasattr(self, "_tscm_correlation") and self._tscm_correlation:
                                 profile = self._tscm_correlation.analyze_rf_signal(signal)
-                                analyzed['classification'] = profile.risk_level.value
-                                analyzed['score'] = profile.total_score
-                                analyzed['score_modifier'] = profile.score_modifier
-                                analyzed['known_device'] = profile.known_device
-                                analyzed['known_device_name'] = profile.known_device_name
-                                analyzed['indicators'] = [
-                                    {'type': i.type.value, 'desc': i.description}
-                                    for i in profile.indicators
+                                analyzed["classification"] = profile.risk_level.value
+                                analyzed["score"] = profile.total_score
+                                analyzed["score_modifier"] = profile.score_modifier
+                                analyzed["known_device"] = profile.known_device
+                                analyzed["known_device_name"] = profile.known_device_name
+                                analyzed["indicators"] = [
+                                    {"type": i.type.value, "desc": i.description} for i in profile.indicators
                                 ]
 
-                            analyzed['is_threat'] = is_threat
+                            analyzed["is_threat"] = is_threat
                             analyzed_signals.append(analyzed)
 
                         # Add RF threats to anomalies list
@@ -3462,44 +3416,48 @@ class ModeManager:
 
     def _start_satellite(self, params: dict) -> dict:
         """Start satellite pass prediction - no SDR needed."""
-        lat = params.get('lat', params.get('latitude'))
-        lon = params.get('lon', params.get('longitude'))
-        min_elevation = params.get('min_elevation', 10)
+        lat = params.get("lat", params.get("latitude"))
+        lon = params.get("lon", params.get("longitude"))
+        min_elevation = params.get("min_elevation", 10)
 
         if lat is None or lon is None:
             gps_pos = gps_manager.position
             if gps_pos:
-                lat = gps_pos.get('lat')
-                lon = gps_pos.get('lon')
+                lat = gps_pos.get("lat")
+                lon = gps_pos.get("lon")
 
         if lat is None or lon is None:
-            return {'status': 'error', 'message': 'Observer location required (lat/lon)'}
+            return {"status": "error", "message": "Observer location required (lat/lon)"}
 
         thread = threading.Thread(
-            target=self._satellite_predictor,
-            args=(float(lat), float(lon), int(min_elevation)),
-            daemon=True
+            target=self._satellite_predictor, args=(float(lat), float(lon), int(min_elevation)), daemon=True
         )
         thread.start()
-        self.output_threads['satellite'] = thread
+        self.output_threads["satellite"] = thread
 
         return {
-            'status': 'started',
-            'mode': 'satellite',
-            'observer': {'lat': lat, 'lon': lon},
-            'min_elevation': min_elevation,
-            'note': 'Satellite pass prediction - no SDR required'
+            "status": "started",
+            "mode": "satellite",
+            "observer": {"lat": lat, "lon": lon},
+            "min_elevation": min_elevation,
+            "note": "Satellite pass prediction - no SDR required",
         }
 
     def _satellite_predictor(self, lat: float, lon: float, min_elevation: int):
         """Calculate satellite passes using TLE data."""
-        mode = 'satellite'
+        mode = "satellite"
         stop_event = self.stop_events.get(mode)
 
         try:
-            from skyfield.api import Topos, load
+            from skyfield.api import Loader, Topos
 
-            stations_url = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle'
+            # Use a dedicated TLE directory — the default loader downloads into
+            # the current working directory, littering it with 'gp.php'
+            tle_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tle")
+            os.makedirs(tle_dir, exist_ok=True)
+            load = Loader(tle_dir, verbose=False)
+
+            stations_url = "https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle"
             satellites = load.tle_file(stations_url)
 
             ts = load.timescale(builtin=True)
@@ -3510,8 +3468,7 @@ class ModeManager:
             while not (stop_event and stop_event.is_set()):
                 passes = []
                 now = ts.now()
-                end = ts.utc(now.utc_datetime().year, now.utc_datetime().month,
-                            now.utc_datetime().day + 1)
+                end = ts.utc(now.utc_datetime().year, now.utc_datetime().month, now.utc_datetime().day + 1)
 
                 for sat in satellites[:20]:
                     try:
@@ -3522,12 +3479,14 @@ class ModeManager:
                                 difference = sat - observer
                                 topocentric = difference.at(ti)
                                 alt, az, _ = topocentric.altaz()
-                                passes.append({
-                                    'satellite': sat.name,
-                                    'rise_time': ti.utc_iso(),
-                                    'rise_azimuth': round(az.degrees, 1),
-                                    'max_elevation': min_elevation,
-                                })
+                                passes.append(
+                                    {
+                                        "satellite": sat.name,
+                                        "rise_time": ti.utc_iso(),
+                                        "rise_azimuth": round(az.degrees, 1),
+                                        "max_elevation": min_elevation,
+                                    }
+                                )
                     except Exception:
                         continue
 
@@ -3536,7 +3495,7 @@ class ModeManager:
 
         except ImportError:
             logger.warning("skyfield not installed - satellite prediction unavailable")
-            self.data_snapshots[mode] = [{'error': 'skyfield not installed'}]
+            self.data_snapshots[mode] = [{"error": "skyfield not installed"}]
         except Exception as e:
             logger.error(f"Satellite predictor error: {e}")
 
@@ -3553,33 +3512,33 @@ class ModeManager:
         Note: Full FFT streaming isn't practical over HTTP agents.
         Instead provides signal detection events and activity log.
         """
-        start_freq = params.get('start_freq', 88.0)
-        end_freq = params.get('end_freq', 108.0)
+        start_freq = params.get("start_freq", 88.0)
+        end_freq = params.get("end_freq", 108.0)
         # Step is sent in kHz from frontend, convert to MHz
-        step_khz = params.get('step', 100)
+        step_khz = params.get("step", 100)
         step = step_khz / 1000.0  # Convert kHz to MHz
-        modulation = params.get('modulation', 'wfm')
-        squelch = params.get('squelch', 20)
-        device = params.get('device', '0')
-        gain = params.get('gain', '40')
-        dwell_time = params.get('dwell_time', 1.0)
+        modulation = params.get("modulation", "wfm")
+        squelch = params.get("squelch", 20)
+        device = params.get("device", "0")
+        gain = params.get("gain", "40")
+        dwell_time = params.get("dwell_time", 1.0)
 
-        rtl_fm_path = self._get_tool_path('rtl_fm')
+        rtl_fm_path = self._get_tool_path("rtl_fm")
         if not rtl_fm_path:
-            return {'status': 'error', 'message': 'rtl_fm not found'}
+            return {"status": "error", "message": "rtl_fm not found"}
 
         # Quick SDR availability check - try to run rtl_fm briefly
         test_proc = None
         try:
             test_proc = subprocess.Popen(
-                [rtl_fm_path, '-f', f'{start_freq}M', '-d', str(device), '-g', str(gain)],
+                [rtl_fm_path, "-f", f"{start_freq}M", "-d", str(device), "-g", str(gain)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
             time.sleep(0.5)
             if test_proc.poll() is not None:
-                stderr = test_proc.stderr.read().decode('utf-8', errors='ignore')
-                return {'status': 'error', 'message': f'SDR not available: {stderr[:200]}'}
+                stderr = test_proc.stderr.read().decode("utf-8", errors="ignore")
+                return {"status": "error", "message": f"SDR not available: {stderr[:200]}"}
             # SDR is available - terminate test process
             test_proc.terminate()
             try:
@@ -3593,47 +3552,63 @@ class ModeManager:
                 test_proc.kill()
                 with contextlib.suppress(Exception):
                     test_proc.wait(timeout=1)
-            return {'status': 'error', 'message': f'SDR check failed: {str(e)}'}
+            return {"status": "error", "message": f"SDR check failed: {str(e)}"}
 
         # Initialize state
-        if not hasattr(self, 'listening_post_activity'):
+        if not hasattr(self, "listening_post_activity"):
             self.listening_post_activity = []
         self.listening_post_activity.clear()
         self.listening_post_current_freq = float(start_freq)
 
         thread = threading.Thread(
             target=self._listening_post_scanner,
-            args=(float(start_freq), float(end_freq), float(step),
-                  modulation, int(squelch), str(device), str(gain), float(dwell_time)),
-            daemon=True
+            args=(
+                float(start_freq),
+                float(end_freq),
+                float(step),
+                modulation,
+                int(squelch),
+                str(device),
+                str(gain),
+                float(dwell_time),
+            ),
+            daemon=True,
         )
         thread.start()
-        self.output_threads['listening_post'] = thread
+        self.output_threads["listening_post"] = thread
 
         return {
-            'status': 'started',
-            'mode': 'listening_post',
-            'start_freq': start_freq,
-            'end_freq': end_freq,
-            'step': step,
-            'modulation': modulation,
-            'dwell_time': dwell_time,
-            'note': 'Provides signal detection events, not full FFT data',
-            'gps_enabled': gps_manager.is_running
+            "status": "started",
+            "mode": "listening_post",
+            "start_freq": start_freq,
+            "end_freq": end_freq,
+            "step": step,
+            "modulation": modulation,
+            "dwell_time": dwell_time,
+            "note": "Provides signal detection events, not full FFT data",
+            "gps_enabled": gps_manager.is_running,
         }
 
-    def _listening_post_scanner(self, start_freq: float, end_freq: float,
-                                 step: float, modulation: str, squelch: int,
-                                 device: str, gain: str, dwell_time: float = 1.0):
+    def _listening_post_scanner(
+        self,
+        start_freq: float,
+        end_freq: float,
+        step: float,
+        modulation: str,
+        squelch: int,
+        device: str,
+        gain: str,
+        dwell_time: float = 1.0,
+    ):
         """Scan frequency range and report signal detections."""
         import fcntl
         import os
         import select
 
-        mode = 'listening_post'
+        mode = "listening_post"
         stop_event = self.stop_events.get(mode)
 
-        rtl_fm_path = self._get_tool_path('rtl_fm')
+        rtl_fm_path = self._get_tool_path("rtl_fm")
         current_freq = start_freq
         scan_direction = 1
         self.listening_post_freqs_scanned = 0
@@ -3645,12 +3620,18 @@ class ModeManager:
 
             cmd = [
                 rtl_fm_path,
-                '-f', f'{current_freq}M',
-                '-M', modulation,
-                '-s', '22050',
-                '-g', gain,
-                '-d', device,
-                '-l', str(squelch),
+                "-f",
+                f"{current_freq}M",
+                "-M",
+                modulation,
+                "-s",
+                "22050",
+                "-g",
+                gain,
+                "-d",
+                device,
+                "-l",
+                str(squelch),
             ]
 
             try:
@@ -3680,10 +3661,12 @@ class ModeManager:
                             if data and len(data) > 10:
                                 # Simple signal detection via audio level
                                 try:
-                                    samples = [int.from_bytes(data[i:i+2], 'little', signed=True)
-                                               for i in range(0, min(len(data)-1, 1000), 2)]
+                                    samples = [
+                                        int.from_bytes(data[i : i + 2], "little", signed=True)
+                                        for i in range(0, min(len(data) - 1, 1000), 2)
+                                    ]
                                     if samples:
-                                        rms = (sum(s*s for s in samples) / len(samples)) ** 0.5
+                                        rms = (sum(s * s for s in samples) / len(samples)) ** 0.5
                                         if rms > 500:
                                             signal_detected = True
                                 except Exception:
@@ -3702,15 +3685,15 @@ class ModeManager:
 
                 if signal_detected:
                     event = {
-                        'type': 'signal_found',
-                        'frequency': current_freq,
-                        'modulation': modulation,
-                        'detected_at': datetime.now(timezone.utc).isoformat()
+                        "type": "signal_found",
+                        "frequency": current_freq,
+                        "modulation": modulation,
+                        "detected_at": datetime.now(timezone.utc).isoformat(),
                     }
 
                     gps_pos = gps_manager.position
                     if gps_pos:
-                        event['agent_gps'] = gps_pos
+                        event["agent_gps"] = gps_pos
 
                     self.listening_post_activity.append(event)
                     if len(self.listening_post_activity) > 500:
@@ -3745,6 +3728,7 @@ _start_time = time.time()
 # Data Push Loop
 # =============================================================================
 
+
 class DataPushLoop(threading.Thread):
     """Background thread that periodically pushes mode data to controller."""
 
@@ -3764,12 +3748,8 @@ class DataPushLoop(threading.Thread):
                 for mode in list(mode_manager.running_modes.keys()):
                     try:
                         data = mode_manager.get_mode_data(mode)
-                        if data.get('data'):  # Only push if there's data
-                            push_client.enqueue(
-                                scan_type=mode,
-                                payload=data,
-                                interface=None
-                            )
+                        if data.get("data"):  # Only push if there's data
+                            push_client.enqueue(scan_type=mode, payload=data, interface=None)
                     except Exception as e:
                         logger.warning(f"Failed to push {mode} data: {e}")
 
@@ -3791,6 +3771,7 @@ data_push_loop: DataPushLoop | None = None
 # HTTP Request Handler
 # =============================================================================
 
+
 class InterceptAgentHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the agent API."""
 
@@ -3808,36 +3789,36 @@ class InterceptAgentHandler(BaseHTTPRequestHandler):
 
     def _send_json(self, data: dict, status: int = 200):
         """Send JSON response."""
-        body = json.dumps(data).encode('utf-8')
+        body = json.dumps(data).encode("utf-8")
 
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', len(body))
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", len(body))
         if config.allow_cors:
-            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
 
     def _send_error(self, message: str, status: int = 400):
         """Send error response."""
-        self._send_json({'error': message}, status)
+        self._send_json({"error": message}, status)
 
     def _read_body(self) -> dict:
         """Read and parse JSON body."""
-        content_length = int(self.headers.get('Content-Length', 0))
+        content_length = int(self.headers.get("Content-Length", 0))
         if content_length == 0:
             return {}
 
         body = self.rfile.read(content_length)
         try:
-            return json.loads(body.decode('utf-8'))
+            return json.loads(body.decode("utf-8"))
         except json.JSONDecodeError:
             return {}
 
     def _parse_path(self) -> tuple[str, dict]:
         """Parse URL path and query parameters."""
         parsed = urlparse(self.path)
-        path = parsed.path.rstrip('/')
+        path = parsed.path.rstrip("/")
         query = parse_qs(parsed.query)
         # Flatten single-value query params
         params = {k: v[0] if len(v) == 1 else v for k, v in query.items()}
@@ -3847,109 +3828,113 @@ class InterceptAgentHandler(BaseHTTPRequestHandler):
         """Handle CORS preflight."""
         self.send_response(204)
         if config.allow_cors:
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key')
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
         self.end_headers()
 
     def do_GET(self):
         """Handle GET requests."""
         if not self._check_ip_allowed():
-            self._send_error('Forbidden', 403)
+            self._send_error("Forbidden", 403)
             return
 
         path, params = self._parse_path()
 
         # Route handling
-        if path == '/capabilities':
+        if path == "/capabilities":
             self._send_json(mode_manager.detect_capabilities())
 
-        elif path == '/status':
+        elif path == "/status":
             self._send_json(mode_manager.get_status())
 
-        elif path == '/health':
-            self._send_json({'status': 'healthy', 'version': AGENT_VERSION})
+        elif path == "/health":
+            self._send_json({"status": "healthy", "version": AGENT_VERSION})
 
-        elif path == '/gps':
+        elif path == "/gps":
             gps_pos = gps_manager.position
-            self._send_json({
-                'available': gps_manager.is_running,
-                'position': gps_pos,
-            })
+            self._send_json(
+                {
+                    "available": gps_manager.is_running,
+                    "position": gps_pos,
+                }
+            )
 
-        elif path == '/config':
+        elif path == "/config":
             # Return non-sensitive config
             cfg = config.to_dict()
-            if 'controller_api_key' in cfg:
-                del cfg['controller_api_key']
+            if "controller_api_key" in cfg:
+                del cfg["controller_api_key"]
             self._send_json(cfg)
 
-        elif path.startswith('/') and path.count('/') == 2:
+        elif path.startswith("/") and path.count("/") == 2:
             # /{mode}/status or /{mode}/data
-            parts = path.split('/')
+            parts = path.split("/")
             mode = parts[1]
             action = parts[2]
 
-            if action == 'status':
+            if action == "status":
                 self._send_json(mode_manager.get_mode_status(mode))
-            elif action == 'data':
+            elif action == "data":
                 self._send_json(mode_manager.get_mode_data(mode))
             else:
-                self._send_error('Not found', 404)
+                self._send_error("Not found", 404)
 
         else:
-            self._send_error('Not found', 404)
+            self._send_error("Not found", 404)
 
     def do_POST(self):
         """Handle POST requests."""
         if not self._check_ip_allowed():
-            self._send_error('Forbidden', 403)
+            self._send_error("Forbidden", 403)
             return
 
         path, _ = self._parse_path()
         body = self._read_body()
 
-        if path == '/config':
+        if path == "/config":
             # Update running config (limited fields)
-            if 'push_enabled' in body:
-                config.push_enabled = bool(body['push_enabled'])
-            if 'push_interval' in body:
-                config.push_interval = int(body['push_interval'])
-            self._send_json({'status': 'updated', 'config': config.to_dict()})
+            if "push_enabled" in body:
+                config.push_enabled = bool(body["push_enabled"])
+            if "push_interval" in body:
+                config.push_interval = int(body["push_interval"])
+            self._send_json({"status": "updated", "config": config.to_dict()})
 
-        elif path == '/wifi/monitor':
+        elif path == "/wifi/monitor":
             # Enable/disable monitor mode on WiFi interface
             result = mode_manager.toggle_monitor_mode(body)
-            status = 200 if result.get('status') == 'success' else 400
+            status = 200 if result.get("status") == "success" else 400
             self._send_json(result, status)
 
-        elif path.startswith('/') and path.count('/') == 2:
+        elif path.startswith("/") and path.count("/") == 2:
             # /{mode}/start or /{mode}/stop
-            parts = path.split('/')
+            parts = path.split("/")
             mode = parts[1]
             action = parts[2]
 
-            if action == 'start':
+            if action == "start":
                 result = mode_manager.start_mode(mode, body)
                 # Accept both 'started' and 'success' as valid (quick scans return 'success')
-                status = 200 if result.get('status') in ('started', 'success') else 400
+                status = 200 if result.get("status") in ("started", "success") else 400
                 self._send_json(result, status)
-            elif action == 'stop':
+            elif action == "stop":
                 result = mode_manager.stop_mode(mode)
                 self._send_json(result)
             else:
-                self._send_error('Not found', 404)
+                self._send_error("Not found", 404)
 
         else:
-            self._send_error('Not found', 404)
+            self._send_error("Not found", 404)
 
 
 # =============================================================================
 # Threaded HTTP Server
 # =============================================================================
 
+
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Multi-threaded HTTP server."""
+
     allow_reuse_address = True
     daemon_threads = True
 
@@ -3958,49 +3943,21 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 # Main
 # =============================================================================
 
+
 def main():
     global config, push_client, _start_time
 
-    parser = argparse.ArgumentParser(
-        description='INTERCEPT Agent - Remote signal intelligence node'
-    )
+    parser = argparse.ArgumentParser(description="INTERCEPT Agent - Remote signal intelligence node")
+    parser.add_argument("--port", "-p", type=int, default=8020, help="Port to listen on (default: 8020)")
     parser.add_argument(
-        '--port', '-p',
-        type=int,
-        default=8020,
-        help='Port to listen on (default: 8020)'
+        "--config", "-c", default="intercept_agent.cfg", help="Configuration file (default: intercept_agent.cfg)"
     )
-    parser.add_argument(
-        '--config', '-c',
-        default='intercept_agent.cfg',
-        help='Configuration file (default: intercept_agent.cfg)'
-    )
-    parser.add_argument(
-        '--name', '-n',
-        help='Agent name (overrides config file)'
-    )
-    parser.add_argument(
-        '--controller',
-        help='Controller URL for push mode'
-    )
-    parser.add_argument(
-        '--api-key',
-        help='API key for controller authentication'
-    )
-    parser.add_argument(
-        '--allowed-ips',
-        help='Comma-separated list of allowed client IPs'
-    )
-    parser.add_argument(
-        '--cors',
-        action='store_true',
-        help='Enable CORS headers'
-    )
-    parser.add_argument(
-        '--debug',
-        action='store_true',
-        help='Enable debug logging'
-    )
+    parser.add_argument("--name", "-n", help="Agent name (overrides config file)")
+    parser.add_argument("--controller", help="Controller URL for push mode")
+    parser.add_argument("--api-key", help="API key for controller authentication")
+    parser.add_argument("--allowed-ips", help="Comma-separated list of allowed client IPs")
+    parser.add_argument("--cors", action="store_true", help="Enable CORS headers")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args()
 
@@ -4019,12 +3976,12 @@ def main():
     if args.name:
         config.name = args.name
     if args.controller:
-        config.controller_url = args.controller.rstrip('/')
+        config.controller_url = args.controller.rstrip("/")
         config.push_enabled = True
     if args.api_key:
         config.controller_api_key = args.api_key
     if args.allowed_ips:
-        config.allowed_ips = [ip.strip() for ip in args.allowed_ips.split(',')]
+        config.allowed_ips = [ip.strip() for ip in args.allowed_ips.split(",")]
     if args.cors:
         config.allow_cors = True
 
@@ -4055,14 +4012,14 @@ def main():
     # Detect capabilities
     caps = mode_manager.detect_capabilities()
     print("  Available Modes:")
-    for mode, available in caps['modes'].items():
+    for mode, available in caps["modes"].items():
         status = "OK" if available else "N/A"
         print(f"    - {mode}: {status}")
     print()
 
-    if caps['devices']:
+    if caps["devices"]:
         print("  Detected SDR Devices:")
-        for dev in caps['devices']:
+        for dev in caps["devices"]:
             print(f"    - [{dev.get('index', '?')}] {dev.get('name', 'Unknown')}")
         print()
 
@@ -4080,7 +4037,7 @@ def main():
     print()
 
     # Start HTTP server
-    server_address = ('', config.port)
+    server_address = ("", config.port)
     httpd = ThreadedHTTPServer(server_address, InterceptAgentHandler)
 
     print(f"  Listening on http://0.0.0.0:{config.port}")
@@ -4145,5 +4102,5 @@ def main():
     print("Agent stopped.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

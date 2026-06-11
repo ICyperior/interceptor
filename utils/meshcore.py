@@ -35,21 +35,10 @@ def is_meshcore_available() -> bool:
     return HAS_MESHCORE
 
 
-# Try to import ContactType for repeater detection
-try:
-    from meshcore import ContactType as _ContactType
-
-    _REPEATER_TYPE = getattr(_ContactType, "REPEATER", None)
-except Exception:
-    _ContactType = None
-    _REPEATER_TYPE = None
-
-
 def _is_repeater_contact(contact_dict: dict) -> bool:
     """Return True if this contact is a repeater node."""
-    if _REPEATER_TYPE is not None:
-        return contact_dict.get("type") == _REPEATER_TYPE
-    # Fallback: meshcore repeaters have type==2 by convention
+    # meshcore exports no ContactType enum (checked through 2.3.7);
+    # repeaters have type==2 by library convention
     return contact_dict.get("type") == 2
 
 

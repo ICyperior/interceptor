@@ -492,14 +492,24 @@ raise SystemExit(0 if sys.version_info >= (3,9) else 1)
 PY
   ok "Python version OK (>= 3.9)"
 
+  # meshcore (MeshCore mesh networking) requires Python 3.10+
+  if python3 - <<'PY'
+import sys
+raise SystemExit(0 if sys.version_info < (3,10) else 1)
+PY
+  then
+    warn "Python 3.9 detected: MeshCore support requires Python 3.10+ and will be unavailable."
+  fi
+
   # Python 3.13+ warning: some packages (gevent, numpy, scipy) may not have
-  # pre-built wheels yet and will be skipped to avoid hanging on compilation.
+  # pre-built wheels yet; prefer wheels over source builds to avoid hanging
+  # on compilation (--prefer-binary is added to PIP_OPTS in install_python_deps).
   if python3 - <<'PY'
 import sys
 raise SystemExit(0 if sys.version_info >= (3,13) else 1)
 PY
   then
-    warn "Python 3.13+ detected: optional packages without pre-built wheels will be skipped (--prefer-binary)."
+    warn "Python 3.13+ detected: preferring pre-built wheels over source builds (--prefer-binary)."
   fi
 }
 
@@ -537,6 +547,10 @@ install_python_deps() {
   # --no-cache-dir avoids pip hanging on a corrupt/stale HTTP cache (cachecontrol .pyc issue)
   # --timeout prevents pip from hanging indefinitely on slow/unresponsive PyPI connections
   local PIP_OPTS="--no-cache-dir --timeout 120"
+  # Python 3.13+: prefer wheels over source builds (see check_python_version warning)
+  if "$PY" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,13) else 1)'; then
+    PIP_OPTS="$PIP_OPTS --prefer-binary"
+  fi
 
   if ! $PIP install $PIP_OPTS --upgrade pip setuptools wheel; then
     warn "pip/setuptools/wheel upgrade failed - continuing with existing versions"
@@ -562,27 +576,27 @@ install_python_deps() {
   ok "Core Python packages installed"
 
   info "Installing optional packages..."
-  # Pure-Python packages: install without --only-binary so they always succeed regardless of platform
-  for pkg in "flask-sock" "simple-websocket>=0.5.1" "websocket-client>=1.6.0" \
-             "skyfield>=1.45" "bleak>=0.21.0" "meshtastic>=2.0.0" \
-             "qrcode[pil]>=7.4" "gunicorn>=21.2.0" "psutil>=5.9.0"; do
-    pkg_name="${pkg%%[><=]*}"
+  # Optional package specs come from requirements.txt (single source of truth).
+  # Packages already installed by the core step above are skipped here.
+  local core_pkgs="flask flask-wtf flask-compress flask-limiter requests Werkzeug pyserial"
+  # Heavy compiled packages: install with --only-binary :all: to skip slow
+  # source compilation on RPi. Everything else installs without it (note:
+  # transitive deps may still be compiled, e.g. meshcore -> pycryptodome;
+  # failures are tolerated since these features are optional).
+  local binary_only_pkgs="numpy scipy Pillow psycopg2-binary scapy cryptography gevent"
+  local pkg pkg_name extra_opts
+  while IFS= read -r pkg; do
+    pkg="${pkg%"${pkg##*[![:space:]]}"}"  # trim trailing whitespace
+    [[ -z "$pkg" || "$pkg" == \#* ]] && continue
+    pkg_name="${pkg%%[><=[]*}"
+    case " $core_pkgs " in *" $pkg_name "*) continue ;; esac
+    extra_opts=""
+    case " $binary_only_pkgs " in *" $pkg_name "*) extra_opts="--only-binary :all:" ;; esac
     info "  Installing ${pkg_name}..."
-    if ! $PIP install $PIP_OPTS "$pkg"; then
+    if ! $PIP install $PIP_OPTS $extra_opts "$pkg"; then
       warn "${pkg_name} failed to install (optional - related features may be unavailable)"
     fi
-  done
-  # Compiled packages: use --only-binary :all: to skip slow source compilation on RPi
-  for pkg in "numpy>=1.24.0" "scipy>=1.10.0" "Pillow>=9.0.0" \
-             "psycopg2-binary>=2.9.9" "scapy>=2.4.5" "cryptography>=41.0.0" \
-             "gevent>=23.9.0"; do
-    pkg_name="${pkg%%[><=]*}"
-    info "  Installing ${pkg_name}..."
-    # --only-binary :all: prevents source compilation hangs for heavy packages
-    if ! $PIP install $PIP_OPTS --only-binary :all: "$pkg"; then
-      warn "${pkg_name} failed to install (optional - related features may be unavailable)"
-    fi
-  done
+  done < requirements.txt
   ok "Optional packages processed"
   echo
 }

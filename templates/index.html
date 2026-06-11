@@ -772,8 +772,6 @@
 
                 {% include 'partials/modes/tscm.html' %}
 
-                {% include 'partials/modes/ais.html' %}
-
                 {% include 'partials/modes/drone.html' %}
 
                 {% include 'partials/modes/radiosonde.html' %}
@@ -4462,9 +4460,6 @@
                 sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
                 websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
                 spystations: () => typeof SpyStations !== 'undefined' && SpyStations.destroy?.(),
-                ais: () => { if (aisEventSource) { aisEventSource.close(); aisEventSource = null; } },
-                acars: () => { if (acarsMainEventSource) { acarsMainEventSource.close(); acarsMainEventSource = null; } },
-                vdl2: () => { if (vdl2MainEventSource) { vdl2MainEventSource.close(); vdl2MainEventSource = null; } },
                 radiosonde: () => { if (radiosondeEventSource) { radiosondeEventSource.close(); radiosondeEventSource = null; } },
                 aprs: () => {
                     if (typeof destroyAprsMode === 'function') {
@@ -4820,7 +4815,6 @@
             document.getElementById('wflMode')?.classList.toggle('active', mode === 'wifi_locate');
             document.getElementById('aprsMode')?.classList.toggle('active', mode === 'aprs');
             document.getElementById('tscmMode')?.classList.toggle('active', mode === 'tscm');
-            document.getElementById('aisMode')?.classList.toggle('active', mode === 'ais');
             document.getElementById('droneMode')?.classList.toggle('active', mode === 'drone');
             document.getElementById('radiosondeMode')?.classList.toggle('active', mode === 'radiosonde');
             document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
@@ -5006,7 +5000,7 @@
 
             // Show agent selector for modes that support remote agents
             const agentSection = document.getElementById('agentSection');
-            const agentModes = ['pager', 'sensor', 'rtlamr', 'aprs', 'wifi', 'bluetooth', 'aircraft', 'tscm', 'ais'];
+            const agentModes = ['pager', 'sensor', 'rtlamr', 'aprs', 'wifi', 'bluetooth', 'aircraft', 'tscm'];
             if (agentSection) agentSection.style.display = agentModes.includes(mode) ? 'block' : 'none';
 
             // Show RTL-SDR device section for modes that use it
@@ -6505,7 +6499,7 @@
                 document.getElementById('capGainRange').textContent = `${caps.gain_min}-${caps.gain_max} dB`;
                 // Update max attribute on all mode gain inputs so constraints match the SDR
                 const gainMax = caps.gain_max;
-                ['gain', 'sensorGain', 'aisGainInput', 'acarsGainInput', 'aprsStripGain', 'weatherSatGain'].forEach(id => {
+                ['gain', 'sensorGain', 'aprsStripGain', 'weatherSatGain'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.max = gainMax;
                 });
@@ -6633,8 +6627,7 @@
             // Warn if any SDR mode is currently running — bias-T is applied at
             // start time and cannot be toggled on a running device.
             const anyRunning = isRunning || isSensorRunning
-                || (typeof isAdsbRunning !== 'undefined' && isAdsbRunning)
-                || (typeof isAisRunning !== 'undefined' && isAisRunning);
+                || (typeof isAdsbRunning !== 'undefined' && isAdsbRunning);
             if (anyRunning) {
                 showInfo('Bias-T change will take effect after restarting the active SDR mode');
             }

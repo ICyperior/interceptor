@@ -164,7 +164,7 @@ class TestConnectionStateTransitions:
         client = MeshcoreClient()
         client.on_connected(transport="serial", device="/dev/ttyUSB0")
 
-        assert client.get_state() == ConnectionState.CONNECTED
+        assert client.get_state()[0] == ConnectionState.CONNECTED
         event = client.get_queue().get_nowait()
         assert event["type"] == "status"
         assert event["data"]["state"] == "connected"
@@ -175,7 +175,7 @@ class TestConnectionStateTransitions:
         client = MeshcoreClient()
         client.on_error("timeout")
 
-        assert client.get_state() == ConnectionState.ERROR
+        assert client.get_state()[0] == ConnectionState.ERROR
         event = client.get_queue().get_nowait()
         assert event["data"]["state"] == "error"
         assert event["data"].get("message") == "timeout"

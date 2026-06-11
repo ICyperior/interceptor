@@ -160,7 +160,11 @@ exclude = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+# 'live' tests drive real SDR hardware — run explicitly with: pytest -m live
+addopts = "-v --tb=short -m 'not live'"
+markers = [
+    "live: tests that require real SDR hardware and run live decoders",
+]
 
 [tool.coverage.run]
 source = ["app", "routes", "utils", "data"]

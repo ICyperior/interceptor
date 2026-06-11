@@ -27,7 +27,8 @@ pyserial>=3.5
 
 # Meshtastic mesh network support (optional - only needed for Meshtastic features)
 meshtastic>=2.0.0
-meshcore>=1.0.0
+# meshcore 2.3.0+ required for EventType.STATS_CORE; needs Python 3.10+
+meshcore>=2.3.0
 
 # Deauthentication attack detection (optional - for WiFi TSCM)
 scapy>=2.4.5

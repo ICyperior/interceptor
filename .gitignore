@@ -57,6 +57,9 @@ data/weather_sat/
 # Radiosonde runtime data (station config, logs)
 data/radiosonde/
 
+# Downloaded TLE files (intercept_agent satellite predictor)
+data/tle/
+
 # SDR capture files (large IQ recordings)
 data/subghz/captures/
 
