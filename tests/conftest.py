@@ -138,3 +138,28 @@ def test_db(tmp_path):
     conn.execute("PRAGMA journal_mode = WAL")
     yield conn
     conn.close()
+
+
+@pytest.fixture
+def fake_process():
+    """Factory for complete subprocess.Popen replacements.
+
+    Hand-rolled Popen mocks keep missing two things: __enter__ (subprocess.run
+    wraps Popen in a context manager) and a communicate() tuple. Use this
+    factory instead of building MagicMock processes inline.
+    """
+
+    def _make(returncode=0, stdout="", stderr="", running=True, pid=12345):
+        proc = MagicMock()
+        proc.poll.return_value = None if running else returncode
+        proc.returncode = returncode
+        proc.pid = pid
+        proc.wait.return_value = returncode
+        proc.communicate.return_value = (stdout, stderr)
+        proc.stdout.read.return_value = stdout
+        proc.stderr.read.return_value = stderr
+        proc.stdin = MagicMock()
+        proc.__enter__.return_value = proc
+        return proc
+
+    return _make
