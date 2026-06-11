@@ -1,5 +1,7 @@
 """Tests for the unified TLE store."""
 
+from pathlib import Path
+
 import pytest
 
 from utils import tle_store
@@ -46,3 +48,45 @@ class TestTLEStore:
         tle_store.update({"TEST-SAT": SAMPLE})
         tle_store._reset_for_tests()
         assert tle_store.get_tle("TEST-SAT") == SAMPLE
+
+    def test_update_before_first_read_keeps_seed(self):
+        """An update() on a fresh DB must not prevent the static seed."""
+        tle_store.update({"TEST-SAT": SAMPLE})
+        tles = tle_store.all_tles()
+        assert "TEST-SAT" in tles
+        assert "ISS" in tles  # static seed still present
+
+    def test_update_waits_for_concurrent_writer(self):
+        """A short-lived writer in another connection must not make update() raise."""
+        import sqlite3
+        import threading
+
+        tle_store.all_tles()  # ensure DB exists
+        blocker = sqlite3.connect(str(tle_store._DB_PATH), check_same_thread=False)
+        blocker.execute("BEGIN IMMEDIATE")
+
+        def release_soon():
+            import time
+
+            time.sleep(0.2)
+            blocker.commit()
+            blocker.close()
+
+        t = threading.Thread(target=release_soon)
+        t.start()
+        tle_store.update({"TEST-SAT": SAMPLE})  # must block briefly, not raise
+        t.join()
+        assert tle_store.get_tle("TEST-SAT") == SAMPLE
+
+
+def test_default_db_path_points_at_instance_dir():
+    """The unpatched module constant must resolve to <repo>/instance/tle.db."""
+    import importlib
+
+    spec = importlib.util.find_spec("utils.tle_store")
+    module_file = Path(spec.origin)
+    expected = module_file.parent.parent / "instance" / "tle.db"
+    # Read the constant from a fresh module instance, not the patched one
+    fresh = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fresh)
+    assert expected == fresh._DB_PATH

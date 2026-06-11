@@ -24,8 +24,9 @@ _cache: dict[str, tuple[str, str, str]] | None = None
 
 def _connect() -> sqlite3.Connection:
     _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
+    conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False, timeout=5)
     conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS tle_entries (
@@ -37,6 +38,7 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    _seed_if_empty(conn)
     return conn
 
 
@@ -64,8 +66,10 @@ def _load() -> dict[str, tuple[str, str, str]]:
             if _cache is None:
                 conn = _connect()
                 try:
-                    _seed_if_empty(conn)
                     rows = conn.execute("SELECT key, name, line1, line2 FROM tle_entries").fetchall()
+                    # Single-statement assignment of the fully built dict —
+                    # the DCL pattern is only safe because readers never see
+                    # a partially populated cache
                     _cache = {key: (name, l1, l2) for key, name, l1, l2 in rows}
                 finally:
                     conn.close()
