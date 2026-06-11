@@ -529,23 +529,6 @@ def proxy_passthrough(agent_id: int, subpath: str):
         return api_error(f"Agent error: {e}", 502)
 
 
-@controller_bp.route("/agents/<int:agent_id>/wifi/v2/clients", methods=["GET"])
-def proxy_wifi_clients(agent_id: int):
-    """Get the WiFi client list from a remote agent."""
-    agent = get_agent(agent_id)
-    if not agent:
-        return api_error("Agent not found", 404)
-
-    try:
-        client = create_client_from_agent(agent)
-        result = client.get("/wifi/v2/clients", params=request.args.to_dict())
-
-        return jsonify({"status": "success", "agent_id": agent_id, "result": result})
-
-    except (AgentHTTPError, AgentConnectionError) as e:
-        return api_error(f"Agent error: {e}", 502)
-
-
 @controller_bp.route("/agents/<int:agent_id>/wifi/monitor", methods=["POST"])
 def proxy_wifi_monitor(agent_id: int):
     """Toggle monitor mode on a remote agent's WiFi interface."""

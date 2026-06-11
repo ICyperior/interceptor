@@ -33,16 +33,6 @@ const WiFiMode = (function() {
     // ==========================================================================
 
     /**
-     * Get the API base URL, routing through agent proxy if agent is selected.
-     */
-    function getApiBase() {
-        if (typeof currentAgent !== 'undefined' && currentAgent !== 'local') {
-            return `/controller/agents/${currentAgent}/wifi/v2`;
-        }
-        return CONFIG.apiBase;
-    }
-
-    /**
      * Get the current agent name for tagging data.
      */
     function getCurrentAgentName() {
@@ -1353,7 +1343,7 @@ const WiFiMode = (function() {
 
             if (isAgentMode) {
                 // Route through agent proxy
-                response = await fetch(`/controller/agents/${currentAgent}/wifi/v2/clients?bssid=${encodeURIComponent(bssid)}&associated=true`);
+                response = await fetch(`/controller/agents/${currentAgent}/proxy/wifi/v2/clients?bssid=${encodeURIComponent(bssid)}&associated=true`);
             } else {
                 response = await fetch(`${CONFIG.apiBase}/clients?bssid=${encodeURIComponent(bssid)}&associated=true`);
             }
