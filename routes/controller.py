@@ -11,6 +11,7 @@ This blueprint provides:
 from __future__ import annotations
 
 import logging
+import posixpath
 import queue
 import threading
 import time
@@ -508,6 +509,12 @@ def proxy_passthrough(agent_id: int, subpath: str):
     Keeps remote agents at feature parity with local mode without a
     hand-written proxy per endpoint.
     """
+    # requests/urllib3 collapse dot segments before sending, so a subpath
+    # like "wifi/v2/../../x" would escape the allowlist — accept only
+    # canonical paths
+    if posixpath.normpath("/" + subpath).lstrip("/") != subpath:
+        return api_error("Endpoint not allowed through agent proxy", 403)
+
     if not subpath.startswith(PROXY_ALLOWED_PREFIXES):
         return api_error("Endpoint not allowed through agent proxy", 403)
 

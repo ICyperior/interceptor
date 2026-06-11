@@ -563,7 +563,7 @@ class TestGenericProxy:
     """Tests for the allowlisted agent passthrough proxy."""
 
     def _mock_agent(self):
-        return {"id": 1, "name": "node-1", "url": "http://10.0.0.2:5000", "api_key": None}
+        return {"id": 1, "name": "node-1", "base_url": "http://10.0.0.2:5000", "api_key": None}
 
     def test_proxies_allowlisted_get(self, client):
         with (
@@ -587,3 +587,28 @@ class TestGenericProxy:
         with patch("routes.controller.get_agent", return_value=None):
             resp = client.get("/controller/agents/99/proxy/wifi/v2/clients")
         assert resp.status_code == 404
+
+    def test_rejects_dot_segment_traversal(self, client):
+        # Werkzeug may normalize or reject ".." segments before the view runs,
+        # so the view might never be reached (404). What matters is that the
+        # request does NOT succeed (200) and the agent is never contacted.
+        with (
+            patch("routes.controller.get_agent", return_value=self._mock_agent()),
+            patch("routes.controller.create_client_from_agent") as mock_create,
+        ):
+            resp = client.get("/controller/agents/1/proxy/wifi/v2/../../settings/secrets")
+        # Any status except 200/502 is safe; the agent must not have been called.
+        assert resp.status_code not in (200, 502)
+        mock_create.return_value.get.assert_not_called()
+
+    def test_rejects_encoded_traversal(self, client):
+        # Percent-encoded dots (%2e%2e) — Werkzeug or the test client may
+        # decode and normalize these before routing (404), or our canonicality
+        # check catches them (403). Either way the agent must not be contacted.
+        with (
+            patch("routes.controller.get_agent", return_value=self._mock_agent()),
+            patch("routes.controller.create_client_from_agent") as mock_create,
+        ):
+            resp = client.get("/controller/agents/1/proxy/wifi/v2/%2e%2e/%2e%2e/settings/secrets")
+        assert resp.status_code in (403, 404)
+        mock_create.return_value.get.assert_not_called()
