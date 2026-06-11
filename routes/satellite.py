@@ -120,7 +120,11 @@ def _get_tracked_satellite_maps() -> tuple[dict[int, dict], dict[str, dict]]:
 
 
 def _resolve_satellite_request(
-    sat: object, tracked_by_norad: dict[int, dict], tracked_by_name: dict[str, dict]
+    sat: object,
+    tracked_by_norad: dict[int, dict],
+    tracked_by_name: dict[str, dict],
+    tles: dict,
+    pending_tle_writes: dict,
 ) -> tuple[str, int | None, tuple[str, str, str] | None]:
     """Resolve a satellite request to display name, NORAD ID, and TLE data."""
     norad_id: int | None = None
@@ -166,7 +170,6 @@ def _resolve_satellite_request(
             ]
         )
 
-    tles = _get_tle_cache()
     seen: set[str] = set()
     for key in candidate_keys:
         norm = _normalize_satellite_name(key)
@@ -183,7 +186,9 @@ def _resolve_satellite_request(
     if tle_data is None and tracked and tracked.get("tle_line1") and tracked.get("tle_line2"):
         display_name = tracked.get("name") or sat_key or str(norad_id or "UNKNOWN")
         tle_data = (display_name, tracked["tle_line1"], tracked["tle_line2"])
-        tle_store.update({_normalize_satellite_name(display_name): tle_data})
+        write_key = _normalize_satellite_name(display_name)
+        pending_tle_writes[write_key] = tle_data
+        tles[write_key] = tle_data
 
     if tle_data is None and sat_key:
         normalized = _normalize_satellite_name(sat_key)
@@ -523,6 +528,8 @@ def predict_passes():
             "METEOR-M2-4": "#00ff88",
         }
         tracked_by_norad, tracked_by_name = _get_tracked_satellite_maps()
+        tles = _get_tle_cache()
+        pending_tle_writes: dict = {}
 
         resolved_satellites: list[tuple[str, int, tuple[str, str, str]]] = []
         for sat in sat_input:
@@ -530,10 +537,18 @@ def predict_passes():
                 sat,
                 tracked_by_norad,
                 tracked_by_name,
+                tles,
+                pending_tle_writes,
             )
             if not tle_data:
                 continue
             resolved_satellites.append((sat_name, norad_id or 0, tle_data))
+
+        if pending_tle_writes:
+            try:
+                tle_store.update(pending_tle_writes)
+            except Exception as e:
+                logger.warning(f"TLE write-back failed (non-fatal): {e}")
 
         if not resolved_satellites:
             return jsonify(
@@ -651,11 +666,15 @@ def get_satellite_position():
     now = None
     now_dt = None
     tracked_by_norad, tracked_by_name = _get_tracked_satellite_maps()
+    tles = _get_tle_cache()
+    pending_tle_writes: dict = {}
 
     positions = []
 
     for sat in sat_input:
-        sat_name, norad_id, tle_data = _resolve_satellite_request(sat, tracked_by_norad, tracked_by_name)
+        sat_name, norad_id, tle_data = _resolve_satellite_request(
+            sat, tracked_by_norad, tracked_by_name, tles, pending_tle_writes
+        )
         # Optional special handling for ISS. The dashboard does not enable this
         # because external API latency can make live updates stall.
         if prefer_realtime_api and (norad_id == 25544 or sat_name == "ISS"):
@@ -745,6 +764,12 @@ def get_satellite_position():
             positions.append(pos_data)
         except Exception:
             continue
+
+    if pending_tle_writes:
+        try:
+            tle_store.update(pending_tle_writes)
+        except Exception as e:
+            logger.warning(f"TLE write-back failed (non-fatal): {e}")
 
     return jsonify({"status": "success", "positions": positions, "timestamp": datetime.utcnow().isoformat()})
 
