@@ -3449,18 +3449,12 @@ class ModeManager:
         stop_event = self.stop_events.get(mode)
 
         try:
-            from skyfield.api import Loader, Topos
+            from skyfield.api import EarthSatellite, Topos, load
 
-            # Use a dedicated TLE directory — the default loader downloads into
-            # the current working directory, littering it with 'gp.php'
-            tle_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tle")
-            os.makedirs(tle_dir, exist_ok=True)
-            load = Loader(tle_dir, verbose=False)
-
-            stations_url = "https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle"
-            satellites = load.tle_file(stations_url)
+            from utils import tle_store
 
             ts = load.timescale(builtin=True)
+            satellites = [EarthSatellite(l1, l2, name, ts) for name, l1, l2 in tle_store.all_tles().values()]
             observer = Topos(latitude_degrees=lat, longitude_degrees=lon)
 
             logger.info(f"Satellite predictor: {len(satellites)} satellites loaded")
