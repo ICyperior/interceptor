@@ -552,3 +552,38 @@ class TestSSEStream:
         # Full SSE testing requires more complex setup
         response = client.get("/controller/stream/all")
         assert response.mimetype == "text/event-stream"
+
+
+# =============================================================================
+# Generic Proxy Tests
+# =============================================================================
+
+
+class TestGenericProxy:
+    """Tests for the allowlisted agent passthrough proxy."""
+
+    def _mock_agent(self):
+        return {"id": 1, "name": "node-1", "url": "http://10.0.0.2:5000", "api_key": None}
+
+    def test_proxies_allowlisted_get(self, client):
+        with (
+            patch("routes.controller.get_agent", return_value=self._mock_agent()),
+            patch("routes.controller.create_client_from_agent") as mock_create,
+        ):
+            mock_create.return_value.get.return_value = [{"mac": "AA:BB"}]
+            resp = client.get("/controller/agents/1/proxy/wifi/v2/clients?bssid=AA:BB")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "success"
+        assert data["result"] == [{"mac": "AA:BB"}]
+        mock_create.return_value.get.assert_called_once_with("/wifi/v2/clients", params={"bssid": "AA:BB"})
+
+    def test_rejects_non_allowlisted_path(self, client):
+        with patch("routes.controller.get_agent", return_value=self._mock_agent()):
+            resp = client.get("/controller/agents/1/proxy/settings/secrets")
+        assert resp.status_code == 403
+
+    def test_unknown_agent_404(self, client):
+        with patch("routes.controller.get_agent", return_value=None):
+            resp = client.get("/controller/agents/99/proxy/wifi/v2/clients")
+        assert resp.status_code == 404

@@ -496,6 +496,39 @@ def proxy_mode_stream(agent_id: int, mode: str):
     return response
 
 
+# Endpoint prefixes that may be reached through the generic proxy. Extend this
+# list instead of writing new per-endpoint proxy routes.
+PROXY_ALLOWED_PREFIXES = ("wifi/v2/",)
+
+
+@controller_bp.route("/agents/<int:agent_id>/proxy/<path:subpath>", methods=["GET"])
+def proxy_passthrough(agent_id: int, subpath: str):
+    """Forward an allowlisted GET to a remote agent.
+
+    Keeps remote agents at feature parity with local mode without a
+    hand-written proxy per endpoint.
+    """
+    if not subpath.startswith(PROXY_ALLOWED_PREFIXES):
+        return api_error("Endpoint not allowed through agent proxy", 403)
+
+    agent = get_agent(agent_id)
+    if not agent:
+        return api_error("Agent not found", 404)
+
+    try:
+        client = create_client_from_agent(agent)
+        result = client.get(f"/{subpath}", params=request.args.to_dict())
+        return jsonify(
+            {
+                "status": "success",
+                "agent_id": agent_id,
+                "result": result,
+            }
+        )
+    except (AgentHTTPError, AgentConnectionError) as e:
+        return api_error(f"Agent error: {e}", 502)
+
+
 @controller_bp.route("/agents/<int:agent_id>/wifi/v2/clients", methods=["GET"])
 def proxy_wifi_clients(agent_id: int):
     """Get the WiFi client list from a remote agent."""
