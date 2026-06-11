@@ -3684,6 +3684,7 @@
     <script src="{{ url_for('static', filename='js/core/voice-alerts.js') }}?v={{ version }}&r=voicefix2"></script>
     <script src="{{ url_for('static', filename='js/core/keyboard-shortcuts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/cheat-sheets.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/mode-registry.js') }}?v={{ version }}"></script>
 
     <script>
         // ============================================
@@ -3847,6 +3848,19 @@
         };
         const validModes = new Set(Object.keys(modeCatalog));
         window.interceptModeCatalog = Object.assign({}, modeCatalog);
+
+        // TEMP migration guard (removed in Task 3.2): registry must mirror modeCatalog
+        (function checkRegistry() {
+            const a = Object.keys(window.INTERCEPT_MODES).sort().join(',');
+            const b = Object.keys(modeCatalog).sort().join(',');
+            if (a !== b) console.error('mode-registry drift:', a, 'vs', b);
+            for (const [m, def] of Object.entries(window.INTERCEPT_MODES)) {
+                const c = modeCatalog[m] || {};
+                for (const f of ['label', 'indicator', 'outputTitle', 'group']) {
+                    if (def[f] !== c[f]) console.error(`mode-registry drift: ${m}.${f}`, def[f], 'vs', c[f]);
+                }
+            }
+        })();
 
         function getModeFromQuery() {
             const params = new URLSearchParams(window.location.search);
