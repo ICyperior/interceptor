@@ -40,23 +40,10 @@ def mode_manager():
 
 
 @pytest.fixture
-def mock_subprocess():
+def mock_subprocess(fake_process):
     """Mock subprocess.Popen for controlled testing."""
     with patch("subprocess.Popen") as mock_popen:
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None  # Process is running
-        mock_proc.stdout = MagicMock()
-        mock_proc.stderr = MagicMock()
-        mock_proc.stderr.read.return_value = b""
-        mock_proc.stdin = MagicMock()
-        mock_proc.pid = 12345
-        mock_proc.wait.return_value = 0
-        # subprocess.run() is built on Popen: it enters the context manager
-        # and unpacks communicate(); detect_capabilities() calls it with
-        # text=True, so return strings
-        mock_proc.communicate.return_value = ("", "")
-        mock_proc.returncode = 0
-        mock_proc.__enter__.return_value = mock_proc
+        mock_proc = fake_process()
         mock_popen.return_value = mock_proc
         yield mock_popen, mock_proc
 
@@ -252,15 +239,10 @@ class TestSDRConflictDetection:
 class TestProcessVerification:
     """Test process startup verification."""
 
-    def test_immediate_process_exit_detected(self, mode_manager, mock_tools):
+    def test_immediate_process_exit_detected(self, mode_manager, mock_tools, fake_process):
         """Process that exits immediately should return error."""
         with patch("subprocess.Popen") as mock_popen:
-            mock_proc = MagicMock()
-            mock_proc.poll.return_value = 1  # Process exited
-            mock_proc.stderr.read.return_value = b"device busy"
-            mock_proc.communicate.return_value = ("", "")
-            mock_proc.__enter__.return_value = mock_proc
-            mock_popen.return_value = mock_proc
+            mock_popen.return_value = fake_process(running=False, returncode=1, stderr=b"device busy")
 
             result = mode_manager.start_mode("sensor", {"device": "0"})
             assert result["status"] == "error"
@@ -275,15 +257,10 @@ class TestProcessVerification:
         assert result["status"] == "started"
         assert "sensor" in mode_manager.running_modes
 
-    def test_error_message_from_stderr(self, mode_manager, mock_tools):
+    def test_error_message_from_stderr(self, mode_manager, mock_tools, fake_process):
         """Error message should include stderr output."""
         with patch("subprocess.Popen") as mock_popen:
-            mock_proc = MagicMock()
-            mock_proc.poll.return_value = 1
-            mock_proc.stderr.read.return_value = b"usb_claim_interface error -6"
-            mock_proc.communicate.return_value = ("", "")
-            mock_proc.__enter__.return_value = mock_proc
-            mock_popen.return_value = mock_proc
+            mock_popen.return_value = fake_process(running=False, returncode=1, stderr=b"usb_claim_interface error -6")
 
             result = mode_manager.start_mode("sensor", {"device": "0"})
             assert result["status"] == "error"
