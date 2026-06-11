@@ -18,7 +18,10 @@ class TestFakeProcess:
         assert proc.pid == 12345
         assert proc.communicate() == ("", "")
 
-    def test_exited_process(self, fake_process):
-        proc = fake_process(running=False, returncode=1, stderr=b"device busy")
-        assert proc.poll() == 1
-        assert proc.stderr.read() == b"device busy"
+    def test_exited_process_detected_via_run(self, fake_process):
+        """An exited process's returncode and stderr surface through subprocess.run."""
+        proc = fake_process(running=False, returncode=1, stdout=b"", stderr=b"device busy")
+        with patch("subprocess.Popen", return_value=proc):
+            result = subprocess.run(["anything"], capture_output=True)
+        assert result.returncode == 1
+        assert result.stderr == b"device busy"

@@ -147,6 +147,8 @@ def fake_process():
     Hand-rolled Popen mocks keep missing two things: __enter__ (subprocess.run
     wraps Popen in a context manager) and a communicate() tuple. Use this
     factory instead of building MagicMock processes inline.
+
+    Defaults are str (for text=True subprocesses); pass bytes explicitly for binary-mode callers.
     """
 
     def _make(returncode=0, stdout="", stderr="", running=True, pid=12345):
@@ -160,6 +162,7 @@ def fake_process():
         proc.stderr.read.return_value = stderr
         proc.stdin = MagicMock()
         proc.__enter__.return_value = proc
+        proc.__exit__.return_value = False
         return proc
 
     return _make
