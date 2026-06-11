@@ -17,13 +17,13 @@ from utils.weather_sat_predict import _format_utc_iso, predict_passes
 # NOAA-18 was decommissioned Jun 2025 and is inactive in the real WEATHER_SATELLITES,
 # so tests that assert on satellite-specific fields patch the module-level name.
 _MOCK_WEATHER_SATS = {
-    'NOAA-18': {
-        'name': 'NOAA 18',
-        'frequency': 137.9125,
-        'mode': 'APT',
-        'pipeline': 'noaa_apt',
-        'tle_key': 'NOAA-18',
-        'active': True,
+    "NOAA-18": {
+        "name": "NOAA 18",
+        "frequency": 137.9125,
+        "mode": "APT",
+        "pipeline": "noaa_apt",
+        "tle_key": "NOAA-18",
+        "active": True,
     }
 }
 
@@ -31,8 +31,8 @@ _MOCK_WEATHER_SATS = {
 class TestPredictPasses:
     """Tests for predict_passes() function."""
 
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
     def test_predict_passes_no_tle_data(self, mock_tle, mock_load):
         """predict_passes() should handle missing TLE data."""
         mock_tle.get.return_value = None
@@ -45,12 +45,12 @@ class TestPredictPasses:
 
         assert passes == []
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
     def test_predict_passes_basic(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should predict basic passes."""
         # Mock timescale
@@ -64,9 +64,9 @@ class TestPredictPasses:
 
         # Mock TLE data
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         # Mock observer
@@ -103,23 +103,21 @@ class TestPredictPasses:
 
         assert len(passes) == 1
         pass_data = passes[0]
-        assert pass_data['satellite'] == 'NOAA-18'
-        assert pass_data['name'] == 'NOAA 18'
-        assert pass_data['frequency'] == 137.9125
-        assert pass_data['mode'] == 'APT'
-        assert 'maxEl' in pass_data
-        assert 'duration' in pass_data
-        assert 'quality' in pass_data
+        assert pass_data["satellite"] == "NOAA-18"
+        assert pass_data["name"] == "NOAA 18"
+        assert pass_data["frequency"] == 137.9125
+        assert pass_data["mode"] == "APT"
+        assert "maxEl" in pass_data
+        assert "duration" in pass_data
+        assert "quality" in pass_data
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_below_min_elevation(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_below_min_elevation(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should filter passes below min elevation."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -130,9 +128,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -166,15 +164,13 @@ class TestPredictPasses:
 
         assert len(passes) == 0
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_with_trajectory(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_with_trajectory(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should include trajectory when requested."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -185,9 +181,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -216,23 +212,19 @@ class TestPredictPasses:
         mock_diff.at.side_effect = mock_topocentric
         mock_satellite_obj.__sub__.return_value = mock_diff
 
-        passes = predict_passes(
-            lat=51.5, lon=-0.1, hours=24, min_elevation=15, include_trajectory=True
-        )
+        passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15, include_trajectory=True)
 
         assert len(passes) == 1
-        assert 'trajectory' in passes[0]
-        assert len(passes[0]['trajectory']) == 30
+        assert "trajectory" in passes[0]
+        assert len(passes[0]["trajectory"]) == 30
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_with_ground_track(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_with_ground_track(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should include ground track when requested."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -243,9 +235,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -291,23 +283,19 @@ class TestPredictPasses:
         mock_subpoint.longitude = mock_lon
         mock_wgs84.subpoint.return_value = mock_subpoint
 
-        passes = predict_passes(
-            lat=51.5, lon=-0.1, hours=24, min_elevation=15, include_ground_track=True
-        )
+        passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15, include_ground_track=True)
 
         assert len(passes) == 1
-        assert 'groundTrack' in passes[0]
-        assert len(passes[0]['groundTrack']) == 60
+        assert "groundTrack" in passes[0]
+        assert len(passes[0]["groundTrack"]) == 60
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_quality_excellent(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_quality_excellent(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should mark high elevation passes as excellent."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -318,9 +306,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -352,18 +340,16 @@ class TestPredictPasses:
         passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
 
         assert len(passes) == 1
-        assert passes[0]['quality'] == 'excellent'
-        assert passes[0]['maxEl'] >= 60
+        assert passes[0]["quality"] == "excellent"
+        assert passes[0]["maxEl"] >= 60
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_quality_good(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_quality_good(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should mark medium elevation passes as good."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -374,9 +360,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -408,18 +394,16 @@ class TestPredictPasses:
         passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
 
         assert len(passes) == 1
-        assert passes[0]['quality'] == 'good'
-        assert 30 <= passes[0]['maxEl'] < 60
+        assert passes[0]["quality"] == "good"
+        assert 30 <= passes[0]["maxEl"] < 60
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_quality_fair(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_quality_fair(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should mark low elevation passes as fair."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -430,9 +414,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -464,17 +448,15 @@ class TestPredictPasses:
         passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
 
         assert len(passes) == 1
-        assert passes[0]['quality'] == 'fair'
-        assert passes[0]['maxEl'] < 30
+        assert passes[0]["quality"] == "fair"
+        assert passes[0]["maxEl"] < 30
 
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_inactive_satellite(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_inactive_satellite(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should skip inactive satellites."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -485,25 +467,24 @@ class TestPredictPasses:
 
         # Temporarily mark satellite as inactive
         from utils.weather_sat import WEATHER_SATELLITES
-        original_active = WEATHER_SATELLITES['NOAA-18']['active']
-        WEATHER_SATELLITES['NOAA-18']['active'] = False
+
+        original_active = WEATHER_SATELLITES["NOAA-18"]["active"]
+        WEATHER_SATELLITES["NOAA-18"]["active"] = False
 
         try:
             passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
             # Should not include NOAA-18
-            noaa_18_passes = [p for p in passes if p['satellite'] == 'NOAA-18']
+            noaa_18_passes = [p for p in passes if p["satellite"] == "NOAA-18"]
             assert len(noaa_18_passes) == 0
         finally:
-            WEATHER_SATELLITES['NOAA-18']['active'] = original_active
+            WEATHER_SATELLITES["NOAA-18"]["active"] = original_active
 
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_exception_handling(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_exception_handling(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should handle exceptions gracefully."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -514,9 +495,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -526,40 +507,41 @@ class TestPredictPasses:
         mock_sat.return_value = mock_satellite_obj
 
         # Make find_discrete raise exception
-        mock_find.side_effect = Exception('Computation error')
+        mock_find.side_effect = Exception("Computation error")
 
         # Should not raise, just skip this satellite
         passes = predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
         # May include passes from other satellites or be empty
         assert isinstance(passes, list)
 
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
     def test_predict_passes_uses_tle_cache(self, mock_tle, mock_load):
-        """predict_passes() should use live TLE cache if available."""
-        with patch('utils.weather_sat_predict._tle_cache', {'NOAA-18': ('NOAA-18', 'line1', 'line2')}):
+        """predict_passes() should use live TLE store if available."""
+        with patch(
+            "utils.weather_sat_predict._get_tle_source", return_value={"NOAA-18": ("NOAA-18", "line1", "line2")}
+        ):
             mock_ts = MagicMock()
             mock_ts.now.return_value = MagicMock()
             mock_ts.utc.return_value = MagicMock()
             mock_load.timescale.return_value = mock_ts
 
-            # Even though TLE_SATELLITES is mocked, should use _tle_cache
-            with patch('utils.weather_sat_predict.wgs84'), \
-                 patch('utils.weather_sat_predict.EarthSatellite'), \
-                 patch('utils.weather_sat_predict.find_discrete', return_value=([], [])):
-
+            # Even though TLE_SATELLITES is mocked, should use the unified store
+            with (
+                patch("utils.weather_sat_predict.wgs84"),
+                patch("utils.weather_sat_predict.EarthSatellite"),
+                patch("utils.weather_sat_predict.find_discrete", return_value=([], [])),
+            ):
                 predict_passes(lat=51.5, lon=-0.1, hours=24, min_elevation=15)
                 # Should not raise
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_predict_passes_sorted_by_time(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_predict_passes_sorted_by_time(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """predict_passes() should return passes sorted by start time."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -570,9 +552,9 @@ class TestPredictPasses:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -611,7 +593,7 @@ class TestPredictPasses:
 
         # Should be sorted with earliest pass first
         if len(passes) >= 2:
-            assert passes[0]['startTimeISO'] < passes[1]['startTimeISO']
+            assert passes[0]["startTimeISO"] < passes[1]["startTimeISO"]
 
     @staticmethod
     def _mock_time(dt):
@@ -627,15 +609,13 @@ class TestPredictPasses:
 class TestPassDataStructure:
     """Tests for pass data structure."""
 
-    @patch('utils.weather_sat_predict.WEATHER_SATELLITES', _MOCK_WEATHER_SATS)
-    @patch('utils.weather_sat_predict.load')
-    @patch('utils.weather_sat_predict.TLE_SATELLITES')
-    @patch('utils.weather_sat_predict.wgs84')
-    @patch('utils.weather_sat_predict.EarthSatellite')
-    @patch('utils.weather_sat_predict.find_discrete')
-    def test_pass_data_fields(
-        self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load
-    ):
+    @patch("utils.weather_sat_predict.WEATHER_SATELLITES", _MOCK_WEATHER_SATS)
+    @patch("utils.weather_sat_predict.load")
+    @patch("utils.weather_sat_predict.TLE_SATELLITES")
+    @patch("utils.weather_sat_predict.wgs84")
+    @patch("utils.weather_sat_predict.EarthSatellite")
+    @patch("utils.weather_sat_predict.find_discrete")
+    def test_pass_data_fields(self, mock_find, mock_sat, mock_wgs84, mock_tle, mock_load):
         """Pass data should contain all required fields."""
         mock_ts = MagicMock()
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -646,9 +626,9 @@ class TestPassDataStructure:
         mock_load.timescale.return_value = mock_ts
 
         mock_tle.get.return_value = (
-            'NOAA-18',
-            '1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999',
-            '2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000'
+            "NOAA-18",
+            "1 28654U 05018A   24001.50000000  .00000000  00000-0  00000-0 0  9999",
+            "2 28654  98.7000 100.0000 0001000   0.0000   0.0000 14.12500000000000",
         )
 
         mock_observer = MagicMock()
@@ -684,17 +664,27 @@ class TestPassDataStructure:
 
         # Check all required fields
         required_fields = [
-            'id', 'satellite', 'name', 'frequency', 'mode',
-            'startTime', 'startTimeISO', 'endTimeISO',
-            'maxEl', 'maxElAz', 'riseAz', 'setAz',
-            'duration', 'quality'
+            "id",
+            "satellite",
+            "name",
+            "frequency",
+            "mode",
+            "startTime",
+            "startTimeISO",
+            "endTimeISO",
+            "maxEl",
+            "maxElAz",
+            "riseAz",
+            "setAz",
+            "duration",
+            "quality",
         ]
         for field in required_fields:
             assert field in pass_data, f"Missing required field: {field}"
 
     def test_import_error_propagates(self):
         """predict_passes() should raise ImportError if skyfield unavailable."""
-        with patch.dict('sys.modules', {'skyfield': None, 'skyfield.api': None}):
+        with patch.dict("sys.modules", {"skyfield": None, "skyfield.api": None}):
             with pytest.raises((ImportError, AttributeError)):
                 predict_passes(lat=51.5, lon=-0.1)
 
@@ -706,11 +696,11 @@ class TestTimestampFormatting:
         """Aware UTC datetimes should not get a duplicate UTC suffix."""
         dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         value = _format_utc_iso(dt)
-        assert value == '2024-01-01T12:00:00Z'
-        assert '+00:00Z' not in value
+        assert value == "2024-01-01T12:00:00Z"
+        assert "+00:00Z" not in value
 
     def test_format_utc_iso_from_naive_datetime(self):
         """Naive datetimes should be treated as UTC and serialized consistently."""
         dt = datetime(2024, 1, 1, 12, 0, 0)
         value = _format_utc_iso(dt)
-        assert value == '2024-01-01T12:00:00Z'
+        assert value == "2024-01-01T12:00:00Z"

@@ -17,11 +17,7 @@ from data.satellites import TLE_SATELLITES
 from utils.logging import get_logger
 from utils.weather_sat import WEATHER_SATELLITES
 
-logger = get_logger('intercept.weather_sat_predict')
-
-# Live TLE cache — populated by routes/satellite.py at startup.
-# Module-level so tests can patch it with patch('utils.weather_sat_predict._tle_cache', ...).
-_tle_cache: dict = {}
+logger = get_logger("intercept.weather_sat_predict")
 
 
 def _format_utc_iso(dt: datetime.datetime) -> str:
@@ -32,13 +28,16 @@ def _format_utc_iso(dt: datetime.datetime) -> str:
     """
     if dt.tzinfo is not None:
         dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _get_tle_source() -> dict:
-    """Return the best available TLE source (live cache preferred over static data)."""
-    if _tle_cache:
-        return _tle_cache
+    """Return the best available TLE source (unified store, static fallback)."""
+    from utils import tle_store
+
+    tles = tle_store.all_tles()
+    if tles:
+        return tles
     return TLE_SATELLITES
 
 
@@ -79,11 +78,11 @@ def predict_passes(
     all_passes: list[dict[str, Any]] = []
 
     for sat_key, sat_info in WEATHER_SATELLITES.items():
-        if not sat_info['active']:
+        if not sat_info["active"]:
             continue
 
         try:
-            tle_data = tle_source.get(sat_info['tle_key'])
+            tle_data = tle_source.get(sat_info["tle_key"])
             if not tle_data:
                 continue
 
@@ -104,18 +103,25 @@ def predict_passes(
                     rise_t = t
                 elif rise_t is not None:
                     _process_pass(
-                        sat_key, sat_info, satellite, diff, ts,
-                        rise_t, t, min_elevation,
-                        include_trajectory, include_ground_track,
+                        sat_key,
+                        sat_info,
+                        satellite,
+                        diff,
+                        ts,
+                        rise_t,
+                        t,
+                        min_elevation,
+                        include_trajectory,
+                        include_ground_track,
                         all_passes,
                     )
                     rise_t = None
 
         except Exception as exc:
-            logger.debug('Error predicting passes for %s: %s', sat_key, exc)
+            logger.debug("Error predicting passes for %s: %s", sat_key, exc)
             continue
 
-    all_passes.sort(key=lambda p: p['startTimeISO'])
+    all_passes.sort(key=lambda p: p["startTimeISO"])
     return all_passes
 
 
@@ -155,7 +161,7 @@ def _process_pass(
                 max_el = el
                 max_el_az = az_deg
             if include_trajectory:
-                traj_points.append({'az': round(az_deg, 1), 'el': round(max(0.0, el), 1)})
+                traj_points.append({"az": round(az_deg, 1), "el": round(max(0.0, el), 1)})
         except Exception:
             pass
 
@@ -181,32 +187,28 @@ def _process_pass(
         pass_id = f"{sat_key}_{aos_iso}"
 
     pass_dict: dict[str, Any] = {
-        'id': pass_id,
-        'satellite': sat_key,
-        'name': sat_info['name'],
-        'frequency': sat_info['frequency'],
-        'mode': sat_info['mode'],
-        'startTime': rise_dt.strftime('%Y-%m-%d %H:%M UTC'),
-        'startTimeISO': aos_iso,
-        'endTimeISO': _format_utc_iso(set_dt),
-        'maxEl': round(max_el, 1),
-        'maxElAz': round(max_el_az, 1),
-        'riseAz': round(rise_az, 1),
-        'setAz': round(set_az, 1),
-        'duration': round(duration_secs, 1),
-        'quality': (
-            'excellent' if max_el >= 60
-            else 'good' if max_el >= 30
-            else 'fair'
-        ),
+        "id": pass_id,
+        "satellite": sat_key,
+        "name": sat_info["name"],
+        "frequency": sat_info["frequency"],
+        "mode": sat_info["mode"],
+        "startTime": rise_dt.strftime("%Y-%m-%d %H:%M UTC"),
+        "startTimeISO": aos_iso,
+        "endTimeISO": _format_utc_iso(set_dt),
+        "maxEl": round(max_el, 1),
+        "maxElAz": round(max_el_az, 1),
+        "riseAz": round(rise_az, 1),
+        "setAz": round(set_az, 1),
+        "duration": round(duration_secs, 1),
+        "quality": ("excellent" if max_el >= 60 else "good" if max_el >= 30 else "fair"),
         # Backwards-compatible aliases used by weather_sat_scheduler and the frontend
-        'aosAz': round(rise_az, 1),
-        'losAz': round(set_az, 1),
-        'tcaAz': round(max_el_az, 1),
+        "aosAz": round(rise_az, 1),
+        "losAz": round(set_az, 1),
+        "tcaAz": round(max_el_az, 1),
     }
 
     if include_trajectory:
-        pass_dict['trajectory'] = traj_points
+        pass_dict["trajectory"] = traj_points
 
     if include_ground_track:
         ground_track = []
@@ -217,12 +219,14 @@ def _process_pass(
             try:
                 geocentric = satellite.at(t_pt)
                 subpoint = wgs84.subpoint(geocentric)
-                ground_track.append({
-                    'lat': round(float(subpoint.latitude.degrees), 4),
-                    'lon': round(float(subpoint.longitude.degrees), 4),
-                })
+                ground_track.append(
+                    {
+                        "lat": round(float(subpoint.latitude.degrees), 4),
+                        "lon": round(float(subpoint.longitude.degrees), 4),
+                    }
+                )
             except Exception:
                 pass
-        pass_dict['groundTrack'] = ground_track
+        pass_dict["groundTrack"] = ground_track
 
     all_passes.append(pass_dict)
