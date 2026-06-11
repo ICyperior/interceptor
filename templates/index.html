@@ -3816,51 +3816,17 @@
 
         // Mode from query string (e.g., /?mode=wifi)
         let pendingStartMode = null;
-        const modeCatalog = {
-            pager: { label: 'Pager', indicator: 'PAGER', outputTitle: 'Pager Decoder', group: 'signals' },
-            sensor: { label: '433MHz', indicator: '433MHZ', outputTitle: '433MHz Sensor Monitor', group: 'signals' },
-            rtlamr: { label: 'Meters', indicator: 'METERS', outputTitle: 'Utility Meter Monitor', group: 'signals' },
-            subghz: { label: 'SubGHz', indicator: 'SUBGHZ', outputTitle: 'SubGHz Transceiver', group: 'signals' },
-            aprs: { label: 'APRS', indicator: 'APRS', outputTitle: 'APRS Tracker', group: 'tracking' },
-            gps: { label: 'GPS', indicator: 'GPS', outputTitle: 'GPS Receiver', group: 'tracking' },
-            radiosonde: { label: 'Radiosonde', indicator: 'SONDE', outputTitle: 'Radiosonde Decoder', group: 'tracking' },
-            satellite: { label: 'Satellite', indicator: 'SATELLITE', outputTitle: 'Satellite Monitor', group: 'space' },
-            sstv: { label: 'ISS SSTV', indicator: 'ISS SSTV', outputTitle: 'ISS SSTV Decoder', group: 'space' },
-            weathersat: { label: 'Weather Sat', indicator: 'WEATHER SAT', outputTitle: 'Weather Satellite Decoder', group: 'space' },
-            sstv_general: { label: 'HF SSTV', indicator: 'HF SSTV', outputTitle: 'HF SSTV Decoder', group: 'space' },
-            wefax: { label: 'WeFax', indicator: 'WEFAX', outputTitle: 'Weather Fax Decoder', group: 'space' },
-            spaceweather: { label: 'Space Weather', indicator: 'SPACE WX', outputTitle: 'Space Weather Monitor', group: 'space' },
-            meteor: { label: 'Meteor', indicator: 'METEOR', outputTitle: 'Meteor Scatter Monitor', group: 'space' },
-            wifi: { label: 'WiFi', indicator: 'WIFI', outputTitle: 'WiFi Scanner', group: 'wireless' },
-            bluetooth: { label: 'Bluetooth', indicator: 'BLUETOOTH', outputTitle: 'Bluetooth Scanner', group: 'wireless' },
-            bt_locate: { label: 'BT Locate', indicator: 'BT LOCATE', outputTitle: 'BT Locate — SAR Tracker', group: 'wireless' },
-            wifi_locate: { label: 'WiFi Locate', indicator: 'WF LOCATE', outputTitle: 'WiFi Locate', group: 'wireless' },
-            meshtastic: { label: 'Meshtastic', indicator: 'MESHTASTIC', outputTitle: 'Meshtastic Mesh Monitor', group: 'wireless' },
-            meshcore: { label: 'Meshcore', indicator: 'MESHCORE', outputTitle: 'Meshcore Mesh Monitor', group: 'wireless' },
-            tscm: { label: 'TSCM', indicator: 'TSCM', outputTitle: 'TSCM Counter-Surveillance', group: 'intel' },
-            drone: { label: 'Drone Intel', indicator: 'DRONE', outputTitle: 'Drone Intelligence', group: 'intel' },
-            spystations: { label: 'Spy Stations', indicator: 'SPY STATIONS', outputTitle: 'Spy Stations', group: 'intel' },
-            websdr: { label: 'WebSDR', indicator: 'WEBSDR', outputTitle: 'HF/Shortwave WebSDR', group: 'intel' },
-            waterfall: { label: 'Waterfall', indicator: 'WATERFALL', outputTitle: 'Spectrum Waterfall', group: 'signals' },
-            morse: { label: 'Morse', indicator: 'MORSE', outputTitle: 'CW/Morse Decoder', group: 'signals' },
-            system: { label: 'System', indicator: 'SYSTEM', outputTitle: 'System Health Monitor', group: 'system' },
-            ook: { label: 'OOK Decoder', indicator: 'OOK', outputTitle: 'OOK Signal Decoder', group: 'signals' },
-        };
+        const modeCatalog = {};
+        for (const [mode, def] of Object.entries(window.INTERCEPT_MODES)) {
+            modeCatalog[mode] = {
+                label: def.label,
+                indicator: def.indicator,
+                outputTitle: def.outputTitle,
+                group: def.group,
+            };
+        }
         const validModes = new Set(Object.keys(modeCatalog));
         window.interceptModeCatalog = Object.assign({}, modeCatalog);
-
-        // TEMP migration guard (removed in Task 3.2): registry must mirror modeCatalog
-        (function checkRegistry() {
-            const a = Object.keys(window.INTERCEPT_MODES).sort().join(',');
-            const b = Object.keys(modeCatalog).sort().join(',');
-            if (a !== b) console.error('mode-registry drift:', a, 'vs', b);
-            for (const [m, def] of Object.entries(window.INTERCEPT_MODES)) {
-                const c = modeCatalog[m] || {};
-                for (const f of ['label', 'indicator', 'outputTitle', 'group']) {
-                    if (def[f] !== c[f]) console.error(`mode-registry drift: ${m}.${f}`, def[f], 'vs', c[f]);
-                }
-            }
-        })();
 
         function getModeFromQuery() {
             const params = new URLSearchParams(window.location.search);
@@ -4934,7 +4900,8 @@
             // Hide the signal feed output for modes that have their own visuals
             const outputEl = document.getElementById('output');
             const signalViewWrapEl = document.getElementById('signalViewWrap');
-            const modesWithVisuals = ['satellite', 'sstv', 'weathersat', 'sstv_general', 'wefax', 'aprs', 'wifi', 'bluetooth', 'tscm', 'spystations', 'meshtastic', 'meshcore', 'websdr', 'subghz', 'spaceweather', 'bt_locate', 'wifi_locate', 'waterfall', 'morse', 'meteor', 'system', 'ook', 'radiosonde', 'gps', 'drone'];
+            const modesWithVisuals = Object.keys(window.INTERCEPT_MODES)
+                .filter((m) => window.INTERCEPT_MODES[m].visuals);
             if (modesWithVisuals.includes(mode)) {
                 if (signalViewWrapEl) signalViewWrapEl.style.display = 'none';
                 if (outputEl) outputEl.style.display = 'none';
