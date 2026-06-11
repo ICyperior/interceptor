@@ -9,20 +9,14 @@ from routes.satellite import satellite_bp
 
 
 @pytest.fixture(autouse=True)
-def _isolate_tle_state(monkeypatch):
-    """Keep TLE updates off the real data/satellites.py and reset the cache.
+def _isolate_tle_state(tmp_path, monkeypatch):
+    """Point the TLE store at a throwaway DB so tests never touch real data."""
+    from utils import tle_store
 
-    Without this, the update-tle test rewrites the tracked data file on
-    every run and leaks 'ISS' into the module-global cache, breaking
-    later tests that depend on cache contents.
-    """
-    import routes.satellite as sat
-
-    monkeypatch.setattr(sat, "_persist_tle_cache", lambda: None)
-    saved = dict(sat._tle_cache)
+    monkeypatch.setattr(tle_store, "_DB_PATH", tmp_path / "tle.db")
+    tle_store._reset_for_tests()
     yield
-    sat._tle_cache.clear()
-    sat._tle_cache.update(saved)
+    tle_store._reset_for_tests()
 
 
 @pytest.fixture
@@ -119,7 +113,7 @@ def test_tracker_position_has_no_observer_fields():
     tle_key = (ISS_TLE[0], ISS_TLE[1][:20])
     stub_track = [{"lat": 0.0, "lon": float(i), "past": i < 45} for i in range(91)]
     with (
-        patch("routes.satellite._tle_cache", {"ISS": ISS_TLE}),
+        patch("routes.satellite._get_tle_cache", return_value={"ISS": ISS_TLE}),
         patch("routes.satellite.get_tracked_satellites") as mock_tracked,
         patch("routes.satellite._track_cache", {tle_key: (stub_track, 1e18)}),
         patch("routes.satellite._get_timescale", return_value=real_ts),

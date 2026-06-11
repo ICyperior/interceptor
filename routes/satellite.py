@@ -12,7 +12,7 @@ import requests
 from flask import Blueprint, Response, jsonify, make_response, render_template, request
 
 from config import SHARED_OBSERVER_LOCATION_ENABLED
-from data.satellites import TLE_SATELLITES
+from utils import tle_store
 from utils.database import (
     add_tracked_satellite,
     bulk_add_tracked_satellites,
@@ -47,8 +47,11 @@ MAX_RESPONSE_SIZE = 1024 * 1024
 # Allowed hosts for TLE fetching
 ALLOWED_TLE_HOSTS = ["celestrak.org", "celestrak.com", "www.celestrak.org", "www.celestrak.com"]
 
-# Local TLE cache (can be updated via API)
-_tle_cache = dict(TLE_SATELLITES)
+
+def _get_tle_cache() -> dict:
+    """All TLEs from the unified store."""
+    return tle_store.all_tles()
+
 
 # Ground track cache: key=(sat_name, tle_line1[:20]) -> (track_data, computed_at_timestamp)
 # TTL is 1800 seconds (30 minutes)
@@ -72,27 +75,26 @@ _BUILTIN_NORAD_TO_KEY = {
 
 
 def _load_db_satellites_into_cache():
-    """Load user-tracked satellites from DB into the TLE cache."""
-    global _tle_cache
+    """Load user-tracked satellites from DB into the TLE store."""
     try:
         db_sats = get_tracked_satellites()
-        loaded = 0
+        new_entries: dict = {}
+        current = _get_tle_cache()
         for sat in db_sats:
             if sat["tle_line1"] and sat["tle_line2"]:
-                # Use a cache key derived from name (sanitised)
                 cache_key = sat["name"].replace(" ", "-").upper()
-                if cache_key not in _tle_cache:
-                    _tle_cache[cache_key] = (sat["name"], sat["tle_line1"], sat["tle_line2"])
-                    loaded += 1
-        if loaded:
-            logger.info(f"Loaded {loaded} user-tracked satellites into TLE cache")
+                if cache_key not in current:
+                    new_entries[cache_key] = (sat["name"], sat["tle_line1"], sat["tle_line2"])
+        if new_entries:
+            tle_store.update(new_entries)
+            logger.info(f"Loaded {len(new_entries)} user-tracked satellites into TLE store")
     except Exception as e:
-        logger.warning(f"Failed to load DB satellites into TLE cache: {e}")
+        logger.warning(f"Failed to load DB satellites into TLE store: {e}")
 
 
 def get_cached_tle(name: str) -> tuple[str, str, str] | None:
-    """Return (name, line1, line2) from the live TLE cache, or None if not found."""
-    return _tle_cache.get(name)
+    """Return (name, line1, line2) from the live TLE store, or None if not found."""
+    return _get_tle_cache().get(name)
 
 
 def _normalize_satellite_name(value: object) -> str:
@@ -164,27 +166,28 @@ def _resolve_satellite_request(
             ]
         )
 
+    tles = _get_tle_cache()
     seen: set[str] = set()
     for key in candidate_keys:
         norm = _normalize_satellite_name(key)
         if norm in seen:
             continue
         seen.add(norm)
-        if key in _tle_cache:
-            tle_data = _tle_cache[key]
+        if key in tles:
+            tle_data = tles[key]
             break
-        if norm in _tle_cache:
-            tle_data = _tle_cache[norm]
+        if norm in tles:
+            tle_data = tles[norm]
             break
 
     if tle_data is None and tracked and tracked.get("tle_line1") and tracked.get("tle_line2"):
         display_name = tracked.get("name") or sat_key or str(norad_id or "UNKNOWN")
         tle_data = (display_name, tracked["tle_line1"], tracked["tle_line2"])
-        _tle_cache[_normalize_satellite_name(display_name)] = tle_data
+        tle_store.update({_normalize_satellite_name(display_name): tle_data})
 
     if tle_data is None and sat_key:
         normalized = _normalize_satellite_name(sat_key)
-        for key, value in _tle_cache.items():
+        for key, value in tles.items():
             if key == normalized or _normalize_satellite_name(value[0]) == normalized:
                 tle_data = value
                 break
@@ -251,21 +254,20 @@ def _start_satellite_tracker():
                 tle1 = sat_rec.get("tle_line1")
                 tle2 = sat_rec.get("tle_line2")
                 if not tle1 or not tle2:
-                    # Fall back to TLE cache. Try the builtin NORAD-ID key first
+                    # Fall back to TLE store. Try the builtin NORAD-ID key first
                     # (e.g. 'ISS'), then the name-derived key as a last resort.
                     try:
                         norad_int = int(norad_id)
                     except (TypeError, ValueError):
                         norad_int = 0
+                    tles = _get_tle_cache()
                     builtin_key = _BUILTIN_NORAD_TO_KEY.get(norad_int)
                     cache_key = (
-                        builtin_key
-                        if (builtin_key and builtin_key in _tle_cache)
-                        else sat_name.replace(" ", "-").upper()
+                        builtin_key if (builtin_key and builtin_key in tles) else sat_name.replace(" ", "-").upper()
                     )
-                    if cache_key not in _tle_cache:
+                    if cache_key not in tles:
                         continue
-                    tle_entry = _tle_cache[cache_key]
+                    tle_entry = tles[cache_key]
                     tle1 = tle_entry[1]
                     tle2 = tle_entry[2]
 
@@ -660,13 +662,14 @@ def get_satellite_position():
             iss_data = _fetch_iss_realtime(lat, lon)
             if iss_data:
                 # Add orbit track if requested (using TLE for track prediction)
-                if include_track and "ISS" in _tle_cache:
+                iss_tle = _get_tle_cache().get("ISS")
+                if include_track and iss_tle:
                     try:
                         if ts is None:
                             ts = _get_timescale()
                             now = ts.now()
                             now_dt = now.utc_datetime()
-                        tle_data = _tle_cache["ISS"]
+                        tle_data = iss_tle
                         satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
                         orbit_track = []
                         for minutes_offset in range(-45, 46, 1):
@@ -798,8 +801,6 @@ def refresh_tle_data() -> list:
     This can be called at startup or periodically to keep TLE data fresh.
     Returns list of satellite names that were updated.
     """
-    global _tle_cache
-
     name_mappings = {
         "ISS (ZARYA)": "ISS",
         "NOAA 15": "NOAA-15",
@@ -813,6 +814,8 @@ def refresh_tle_data() -> list:
     }
 
     updated = []
+    new_entries: dict = {}
+    current = _get_tle_cache()
 
     for group in ["stations", "weather", "noaa"]:
         url = f"https://celestrak.org/NORAD/elements/gp.php?GROUP={group}&FORMAT=tle"
@@ -833,8 +836,8 @@ def refresh_tle_data() -> list:
 
                     internal_name = name_mappings.get(name, name)
 
-                    if internal_name in _tle_cache:
-                        _tle_cache[internal_name] = (name, line1, line2)
+                    if internal_name in current:
+                        new_entries[internal_name] = (name, line1, line2)
                         if internal_name not in updated:
                             updated.append(internal_name)
 
@@ -843,37 +846,10 @@ def refresh_tle_data() -> list:
             logger.warning(f"Error fetching TLE group {group}: {e}")
             continue
 
-    if updated:
-        _persist_tle_cache()
+    if new_entries:
+        tle_store.update(new_entries)
 
     return updated
-
-
-def _persist_tle_cache() -> None:
-    """Write updated TLE data back to data/satellites.py so restarts don't reload stale values."""
-    import os
-
-    satellites_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "satellites.py")
-    try:
-        lines = [
-            "# TLE data for satellite tracking (updated periodically)\n",
-            '# To update: click "Update TLE" in satellite dashboard or SSTV mode\n',
-            "# Data source: CelesTrak (celestrak.org)\n",
-            "TLE_SATELLITES = {\n",
-        ]
-        for key, val in _tle_cache.items():
-            name, line1, line2 = val
-            escaped_name = name.replace("'", "\\'")
-            escaped_key = key.replace("'", "\\'")
-            lines.append(f"    '{escaped_key}': ('{escaped_name}',\n")
-            lines.append(f"            '{line1}',\n")
-            lines.append(f"            '{line2}'),\n")
-        lines.append("}\n")
-        with open(satellites_path, "w") as f:
-            f.writelines(lines)
-        logger.info(f"Persisted {len(_tle_cache)} TLE entries to data/satellites.py")
-    except Exception as e:
-        logger.warning(f"Failed to persist TLE cache to disk: {e}")
 
 
 @satellite_bp.route("/update-tle", methods=["POST"])
@@ -966,7 +942,6 @@ def list_tracked_satellites():
 @satellite_bp.route("/tracked", methods=["POST"])
 def add_tracked_satellites_endpoint():
     """Add one or more tracked satellites."""
-    global _tle_cache
     data = request.get_json(silent=True)
     if not data:
         return api_error("No data provided", 400)
@@ -975,6 +950,7 @@ def add_tracked_satellites_endpoint():
     sat_list = data if isinstance(data, list) else [data]
 
     normalized: list[dict] = []
+    new_tle_entries: dict = {}
     for sat in sat_list:
         norad_id = str(sat.get("norad_id", sat.get("norad", "")))
         name = sat.get("name", "")
@@ -995,10 +971,13 @@ def add_tracked_satellites_endpoint():
             }
         )
 
-        # Also inject into TLE cache if we have TLE data
+        # Also inject into TLE store if we have TLE data
         if tle1 and tle2:
             cache_key = name.replace(" ", "-").upper()
-            _tle_cache[cache_key] = (name, tle1, tle2)
+            new_tle_entries[cache_key] = (name, tle1, tle2)
+
+    if new_tle_entries:
+        tle_store.update(new_tle_entries)
 
     # Single inserts preserve previous behavior; list inserts use DB-level bulk path.
     if len(normalized) == 1:
