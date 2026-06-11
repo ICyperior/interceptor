@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 from utils.logging import get_logger
 
-logger = get_logger('intercept.doppler')
+logger = get_logger("intercept.doppler")
 
 # Speed of light in m/s
 SPEED_OF_LIGHT = 299_792_458.0
@@ -36,12 +36,12 @@ class DopplerInfo:
 
     def to_dict(self) -> dict:
         return {
-            'frequency_hz': self.frequency_hz,
-            'shift_hz': round(self.shift_hz, 1),
-            'range_rate_km_s': round(self.range_rate_km_s, 3),
-            'elevation': round(self.elevation, 1),
-            'azimuth': round(self.azimuth, 1),
-            'timestamp': self.timestamp.isoformat(),
+            "frequency_hz": self.frequency_hz,
+            "shift_hz": round(self.shift_hz, 1),
+            "range_rate_km_s": round(self.range_rate_km_s, 3),
+            "elevation": round(self.elevation, 1),
+            "azimuth": round(self.azimuth, 1),
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -55,7 +55,7 @@ class DopplerTracker:
 
     def __init__(
         self,
-        satellite_name: str = 'ISS',
+        satellite_name: str = "ISS",
         tle_data: tuple[str, str, str] | None = None,
     ):
         self._satellite_name = satellite_name
@@ -105,20 +105,13 @@ class DopplerTracker:
             self._observer_lon = longitude
             self._enabled = True
 
-        logger.info(
-            f"DopplerTracker configured for {self._satellite_name} "
-            f"at ({latitude}, {longitude})"
-        )
+        logger.info(f"DopplerTracker configured for {self._satellite_name} at ({latitude}, {longitude})")
         return True
 
     def update_tle(self, tle_data: tuple[str, str, str]) -> bool:
         """Update TLE data and re-configure if already enabled."""
         self._tle_data = tle_data
-        if (
-            self._enabled
-            and self._observer_lat is not None
-            and self._observer_lon is not None
-        ):
+        if self._enabled and self._observer_lat is not None and self._observer_lon is not None:
             return self.configure(self._observer_lat, self._observer_lon)
         return True
 
@@ -177,19 +170,20 @@ class DopplerTracker:
         if self._tle_data:
             return self._tle_data
 
-        # Try the live TLE cache maintained by routes/satellite.py
+        # Try the unified TLE store
         try:
-            from routes.satellite import _tle_cache  # type: ignore[import]
-            if _tle_cache:
-                tle = _tle_cache.get(self._satellite_name)
-                if tle:
-                    return tle
-        except (ImportError, AttributeError):
+            from utils import tle_store
+
+            tle = tle_store.get_tle(self._satellite_name)
+            if tle:
+                return tle
+        except Exception:
             pass
 
         # Fall back to static bundled data
         try:
             from data.satellites import TLE_SATELLITES
+
             return TLE_SATELLITES.get(self._satellite_name)
         except ImportError:
             return None
