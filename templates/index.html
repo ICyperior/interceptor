@@ -4418,43 +4418,16 @@
         // Shared module destroy map — closes SSE EventSources, timers, etc.
         // Used by both switchMode() and dashboard navigation cleanup.
         function getModuleDestroyFn(mode) {
-            const moduleDestroyMap = {
-                pager: () => { if (eventSource) { eventSource.close(); eventSource = null; } },
-                sensor: () => { if (eventSource) { eventSource.close(); eventSource = null; } },
-                rtlamr: () => { if (eventSource) { eventSource.close(); eventSource = null; } },
-                subghz: () => typeof SubGhz !== 'undefined' && SubGhz.destroy(),
-                morse: () => typeof MorseMode !== 'undefined' && MorseMode.destroy?.(),
-                spaceweather: () => typeof SpaceWeather !== 'undefined' && SpaceWeather.destroy?.(),
-                weathersat: () => typeof WeatherSat !== 'undefined' && WeatherSat.destroy?.(),
-                wefax: () => typeof WeFax !== 'undefined' && WeFax.destroy?.(),
-                system: () => typeof SystemHealth !== 'undefined' && SystemHealth.destroy?.(),
-                waterfall: () => typeof Waterfall !== 'undefined' && Waterfall.destroy?.(),
-                gps: () => typeof GPS !== 'undefined' && GPS.destroy?.(),
-                meshtastic: () => typeof Meshtastic !== 'undefined' && Meshtastic.destroy?.(),
-                meshcore: () => typeof MeshCore !== 'undefined' && MeshCore.destroy?.(),
-                bluetooth: () => typeof BluetoothMode !== 'undefined' && BluetoothMode.destroy?.(),
-                wifi: () => typeof WiFiMode !== 'undefined' && WiFiMode.destroy?.(),
-                bt_locate: () => typeof BtLocate !== 'undefined' && BtLocate.destroy?.(),
-                wifi_locate: () => typeof WiFiLocate !== 'undefined' && WiFiLocate.destroy?.(),
-                sstv: () => typeof SSTV !== 'undefined' && SSTV.destroy?.(),
-                sstv_general: () => typeof SSTVGeneral !== 'undefined' && SSTVGeneral.destroy?.(),
-                websdr: () => typeof WebSDR !== 'undefined' && WebSDR.destroy?.(),
-                spystations: () => typeof SpyStations !== 'undefined' && SpyStations.destroy?.(),
-                radiosonde: () => { if (radiosondeEventSource) { radiosondeEventSource.close(); radiosondeEventSource = null; } },
-                aprs: () => {
-                    if (typeof destroyAprsMode === 'function') {
-                        destroyAprsMode();
-                    } else if (aprsEventSource) {
-                        aprsEventSource.close();
-                        aprsEventSource = null;
-                    }
-                },
-                tscm: () => { if (tscmEventSource) { tscmEventSource.close(); tscmEventSource = null; } },
-                meteor: () => typeof MeteorScatter !== 'undefined' && MeteorScatter.destroy?.(),
-                ook: () => typeof OokMode !== 'undefined' && OokMode.destroy?.(),
-                drone: () => typeof DroneMode !== 'undefined' && DroneMode.destroy?.(),
-            };
-            return moduleDestroyMap[mode] || null;
+            const def = window.INTERCEPT_MODES[mode];
+            if (!def) return null;
+            if (def.destroy) return def.destroy;
+            if (def.module) {
+                return () => {
+                    const mod = window[def.module];
+                    if (mod && typeof mod.destroy === 'function') mod.destroy();
+                };
+            }
+            return null;
         }
 
         function destroyCurrentMode() {
@@ -4780,34 +4753,11 @@
             if (activeMobileBtn) {
                 activeMobileBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
-            document.getElementById('pagerMode')?.classList.toggle('active', mode === 'pager');
-            document.getElementById('sensorMode')?.classList.toggle('active', mode === 'sensor');
-            document.getElementById('rtlamrMode')?.classList.toggle('active', mode === 'rtlamr');
-            document.getElementById('satelliteMode')?.classList.toggle('active', mode === 'satellite');
-            document.getElementById('sstvMode')?.classList.toggle('active', mode === 'sstv');
-            document.getElementById('weatherSatMode')?.classList.toggle('active', mode === 'weathersat');
-            document.getElementById('sstvGeneralMode')?.classList.toggle('active', mode === 'sstv_general');
-            document.getElementById('wefaxMode')?.classList.toggle('active', mode === 'wefax');
-            document.getElementById('gpsMode')?.classList.toggle('active', mode === 'gps');
-            document.getElementById('wifiMode')?.classList.toggle('active', mode === 'wifi');
-            document.getElementById('bluetoothMode')?.classList.toggle('active', mode === 'bluetooth');
-            document.getElementById('btLocateMode')?.classList.toggle('active', mode === 'bt_locate');
-            document.getElementById('wflMode')?.classList.toggle('active', mode === 'wifi_locate');
-            document.getElementById('aprsMode')?.classList.toggle('active', mode === 'aprs');
-            document.getElementById('tscmMode')?.classList.toggle('active', mode === 'tscm');
-            document.getElementById('droneMode')?.classList.toggle('active', mode === 'drone');
-            document.getElementById('radiosondeMode')?.classList.toggle('active', mode === 'radiosonde');
-            document.getElementById('spystationsMode')?.classList.toggle('active', mode === 'spystations');
-            document.getElementById('meshtasticMode')?.classList.toggle('active', mode === 'meshtastic');
-            document.getElementById('meshcoreMode')?.classList.toggle('active', mode === 'meshcore');
-            document.getElementById('websdrMode')?.classList.toggle('active', mode === 'websdr');
-            document.getElementById('subghzMode')?.classList.toggle('active', mode === 'subghz');
-            document.getElementById('spaceWeatherMode')?.classList.toggle('active', mode === 'spaceweather');
-            document.getElementById('waterfallMode')?.classList.toggle('active', mode === 'waterfall');
-            document.getElementById('morseMode')?.classList.toggle('active', mode === 'morse');
-            document.getElementById('meteorMode')?.classList.toggle('active', mode === 'meteor');
-            document.getElementById('systemMode')?.classList.toggle('active', mode === 'system');
-            document.getElementById('ookMode')?.classList.toggle('active', mode === 'ook');
+            for (const [m, def] of Object.entries(window.INTERCEPT_MODES)) {
+                if (def.elementId) {
+                    document.getElementById(def.elementId)?.classList.toggle('active', mode === m);
+                }
+            }
 
 
             document.getElementById('pagerStats')?.classList.toggle('active', mode === 'pager');
