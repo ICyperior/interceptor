@@ -140,6 +140,17 @@ def test_db(tmp_path):
     conn.close()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_tle_store(tmp_path, monkeypatch):
+    """Every test gets a throwaway TLE store; nothing touches instance/tle.db."""
+    from utils import tle_store
+
+    monkeypatch.setattr(tle_store, "_DB_PATH", tmp_path / "tle.db")
+    tle_store._reset_for_tests()
+    yield
+    tle_store._reset_for_tests()
+
+
 @pytest.fixture
 def fake_process():
     """Factory for complete subprocess.Popen replacements.

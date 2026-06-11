@@ -8,17 +8,6 @@ from flask import Flask
 from routes.satellite import satellite_bp
 
 
-@pytest.fixture(autouse=True)
-def _isolate_tle_state(tmp_path, monkeypatch):
-    """Point the TLE store at a throwaway DB so tests never touch real data."""
-    from utils import tle_store
-
-    monkeypatch.setattr(tle_store, "_DB_PATH", tmp_path / "tle.db")
-    tle_store._reset_for_tests()
-    yield
-    tle_store._reset_for_tests()
-
-
 @pytest.fixture
 def app():
     app = Flask(__name__)
