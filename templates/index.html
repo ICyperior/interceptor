@@ -4989,92 +4989,12 @@
             }
 
             // Load interfaces and initialize visualizations when switching modes
-            if (mode === 'wifi') {
-                refreshWifiInterfaces();
-                initRadar();
-                initWatchList();
-                // Initialize v2 WiFi components
-                if (typeof WiFiMode !== 'undefined') {
-                    WiFiMode.init();
-                }
-            } else if (mode === 'bluetooth') {
-                refreshBtInterfaces();
-                initBtRadar();
-            } else if (mode === 'aprs') {
-                checkAprsTools();
-                initAprsMap();
-                // Fix map sizing on mobile after container becomes visible
-                setTimeout(() => {
-                    if (aprsMap) aprsMap.invalidateSize();
-                }, 100);
-            } else if (mode === 'satellite') {
-                initPolarPlot();
-                initSatelliteList();
-            } else if (mode === 'spystations') {
-                SpyStations.init();
-            } else if (mode === 'meshtastic') {
-                Meshtastic.init();
-                // Fix map sizing after container becomes visible
-                setTimeout(() => {
-                    Meshtastic.invalidateMap();
-                }, 100);
-            } else if (mode === 'meshcore') {
-                MeshCore.init();
-                setTimeout(() => {
-                    MeshCore.invalidateMap();
-                }, 100);
-            } else if (mode === 'sstv') {
-                SSTV.init();
-                setTimeout(() => {
-                    if (typeof SSTV !== 'undefined' && SSTV.invalidateMap) SSTV.invalidateMap();
-                }, 120);
-            } else if (mode === 'weathersat') {
-                WeatherSat.init();
-                setTimeout(() => {
-                    WeatherSat.invalidateMap();
-                }, 100);
-            } else if (mode === 'sstv_general') {
-                SSTVGeneral.init();
-            } else if (mode === 'gps') {
-                GPS.init();
-            } else if (mode === 'websdr') {
-                if (typeof initWebSDR === 'function') initWebSDR();
-            } else if (mode === 'subghz') {
-                SubGhz.init();
-            } else if (mode === 'bt_locate') {
-                BtLocate.init();
-                setTimeout(() => {
-                    if (typeof BtLocate !== 'undefined' && BtLocate.invalidateMap) BtLocate.invalidateMap();
-                }, 100);
-                setTimeout(() => {
-                    if (typeof BtLocate !== 'undefined' && BtLocate.invalidateMap) BtLocate.invalidateMap();
-                }, 320);
-            } else if (mode === 'wifi_locate') {
-                WiFiLocate.init();
-            } else if (mode === 'wefax') {
-                WeFax.init();
-            } else if (mode === 'spaceweather') {
-                SpaceWeather.init();
-            } else if (mode === 'waterfall') {
-                if (typeof Waterfall !== 'undefined') Waterfall.init();
-            } else if (mode === 'morse') {
-                MorseMode.init();
-            } else if (mode === 'radiosonde') {
-                initRadiosondeWaveform();
-                initRadiosondeMap();
-                setTimeout(() => {
-                    if (radiosondeMap) radiosondeMap.invalidateSize();
-                }, 100);
-            } else if (mode === 'meteor') {
-                MeteorScatter.init();
-            } else if (mode === 'system') {
-                SystemHealth.init();
-            } else if (mode === 'ook') {
-                OokMode.init();
-            } else if (mode === 'drone') {
-                if (typeof DroneMode !== 'undefined') {
-                    DroneMode.init();
-                    setTimeout(() => { DroneMode.invalidateMap?.(); }, 100);
+            const modeDef = window.INTERCEPT_MODES[mode];
+            if (modeDef && typeof modeDef.init === 'function') {
+                try {
+                    modeDef.init();
+                } catch (err) {
+                    console.error(`Mode init failed for ${mode}:`, err);
                 }
             }
             if (requestId !== modeSwitchRequestId) return;
