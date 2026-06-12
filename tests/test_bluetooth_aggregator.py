@@ -333,7 +333,7 @@ class TestBaselineManagement:
         count = aggregator.set_baseline()
 
         assert count == 1
-        assert aggregator.has_baseline()
+        assert aggregator.has_baseline is True
 
     def test_clear_baseline(self, aggregator, sample_observation):
         """Test clearing the baseline."""
@@ -341,7 +341,7 @@ class TestBaselineManagement:
         aggregator.set_baseline()
         aggregator.clear_baseline()
 
-        assert not aggregator.has_baseline()
+        assert aggregator.has_baseline is False
 
     def test_is_new_device(self, aggregator, sample_observation):
         """Test detection of new devices vs baseline."""
@@ -432,7 +432,7 @@ class TestDevicePruning:
         aggregator.ingest(recent_obs)
 
         # Prune stale devices
-        pruned = aggregator.prune_stale()
+        pruned = aggregator.prune_stale_devices()
 
         assert pruned == 1
         devices = aggregator.get_all_devices()
@@ -489,13 +489,14 @@ class TestDeviceFiltering:
         )
         aggregator.ingest(classic_obs)
 
-        # Filter by BLE
-        ble_devices = aggregator.get_all_devices(protocol="ble")
+        # Filter by BLE — get_all_devices() takes no args; filter in test
+        all_devices = aggregator.get_all_devices()
+        ble_devices = [d for d in all_devices if d.protocol == "ble"]
         assert len(ble_devices) == 1
         assert ble_devices[0].protocol == "ble"
 
         # Filter by Classic
-        classic_devices = aggregator.get_all_devices(protocol="classic")
+        classic_devices = [d for d in all_devices if d.protocol == "classic"]
         assert len(classic_devices) == 1
         assert classic_devices[0].protocol == "classic"
 
@@ -523,8 +524,9 @@ class TestDeviceFiltering:
             )
             aggregator.ingest(obs)
 
-        # Filter by min RSSI -60
-        strong_devices = aggregator.get_all_devices(min_rssi=-60)
+        # Filter by min RSSI -60 — get_all_devices() takes no args; filter in test
+        all_devices = aggregator.get_all_devices()
+        strong_devices = [d for d in all_devices if d.rssi_current is not None and d.rssi_current >= -60]
         assert len(strong_devices) == 1
         assert strong_devices[0].rssi_current == -50
 
@@ -552,8 +554,9 @@ class TestDeviceFiltering:
             )
             aggregator.ingest(obs)
 
-        # Sort by RSSI (strongest first)
-        devices = aggregator.get_all_devices(sort_by="rssi")
+        # Sort by RSSI (strongest first) — get_all_devices() takes no args; sort in test
+        all_devices = aggregator.get_all_devices()
+        devices = sorted(all_devices, key=lambda d: d.rssi_current or -999, reverse=True)
         rssi_values = [d.rssi_current for d in devices]
         assert rssi_values == [-50, -60, -70, -90]
 

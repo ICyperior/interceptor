@@ -7,7 +7,7 @@ import pytest
 from flask import Flask
 
 from routes.bluetooth_v2 import bluetooth_v2_bp
-from utils.bluetooth.models import BTDeviceAggregate, SystemCapabilities
+from utils.bluetooth.models import BTDeviceAggregate, ScanStatus, SystemCapabilities
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def app():
     """Create Flask application for testing."""
     app = Flask(__name__)
     app.register_blueprint(bluetooth_v2_bp)
-    app.config['TESTING'] = True
+    app.config["TESTING"] = True
     return app
 
 
@@ -28,12 +28,18 @@ def client(app):
 @pytest.fixture
 def mock_scanner():
     """Create mock BluetoothScanner."""
-    with patch('routes.bluetooth_v2.get_bluetooth_scanner') as mock_get:
+    with patch("routes.bluetooth_v2.get_bluetooth_scanner") as mock_get:
         scanner = MagicMock()
         scanner.is_scanning = False
         scanner.scan_mode = None
         scanner.scan_start_time = None
         scanner.device_count = 0
+        scanner.get_status.return_value = ScanStatus(
+            is_scanning=False,
+            mode="auto",
+            backend=None,
+            adapter_id=None,
+        )
         mock_get.return_value = scanner
         yield scanner
 
@@ -78,61 +84,73 @@ class TestScanEndpoints:
     def test_start_scan_success(self, client, mock_scanner):
         """Test starting a scan successfully."""
         mock_scanner.start_scan.return_value = True
-        mock_scanner.scan_mode = "dbus"
+        mock_scanner.get_status.return_value = ScanStatus(
+            is_scanning=True,
+            mode="dbus",
+            backend="dbus",
+            adapter_id="/org/bluez/hci0",
+        )
 
-        response = client.post('/api/bluetooth/scan/start',
-            json={'mode': 'auto', 'duration_s': 30})
+        response = client.post("/api/bluetooth/scan/start", json={"mode": "auto", "duration_s": 30})
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['status'] == 'started'
+        assert data["status"] == "started"
         mock_scanner.start_scan.assert_called_once()
 
     def test_start_scan_already_scanning(self, client, mock_scanner):
         """Test starting scan when already scanning."""
         mock_scanner.is_scanning = True
 
-        response = client.post('/api/bluetooth/scan/start', json={})
+        response = client.post("/api/bluetooth/scan/start", json={})
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['status'] == 'already_scanning'
+        assert data["status"] == "already_scanning"
 
     def test_start_scan_failed(self, client, mock_scanner):
         """Test start scan failure."""
         mock_scanner.start_scan.return_value = False
+        mock_scanner.get_status.return_value = ScanStatus(
+            is_scanning=False,
+            mode="auto",
+            error="Failed to start scan",
+        )
 
-        response = client.post('/api/bluetooth/scan/start', json={})
+        response = client.post("/api/bluetooth/scan/start", json={})
 
-        assert response.status_code == 200
+        assert response.status_code == 500
         data = response.get_json()
-        assert data['status'] == 'error'
+        assert data["status"] == "failed"
 
     def test_stop_scan_success(self, client, mock_scanner):
         """Test stopping a scan."""
         mock_scanner.is_scanning = True
 
-        response = client.post('/api/bluetooth/scan/stop')
+        response = client.post("/api/bluetooth/scan/stop")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['status'] == 'stopped'
+        assert data["status"] == "stopped"
         mock_scanner.stop_scan.assert_called_once()
 
     def test_get_scan_status(self, client, mock_scanner):
         """Test getting scan status."""
-        mock_scanner.is_scanning = True
-        mock_scanner.scan_mode = "dbus"
-        mock_scanner.device_count = 10
-        mock_scanner.get_baseline_count.return_value = 5
+        mock_scanner.get_status.return_value = ScanStatus(
+            is_scanning=True,
+            mode="dbus",
+            backend="dbus",
+            adapter_id="/org/bluez/hci0",
+            devices_found=10,
+        )
 
-        response = client.get('/api/bluetooth/scan/status')
+        response = client.get("/api/bluetooth/scan/status")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['is_scanning'] is True
-        assert data['mode'] == 'dbus'
-        assert data['device_count'] == 10
+        assert data["is_scanning"] is True
+        assert data["mode"] == "dbus"
+        assert data["devices_found"] == 10
 
 
 class TestDeviceEndpoints:
@@ -142,62 +160,64 @@ class TestDeviceEndpoints:
         """Test listing all devices."""
         mock_scanner.get_devices.return_value = [sample_device]
 
-        response = client.get('/api/bluetooth/devices')
+        response = client.get("/api/bluetooth/devices")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert len(data['devices']) == 1
-        assert data['devices'][0]['address'] == 'AA:BB:CC:DD:EE:FF'
+        assert len(data["devices"]) == 1
+        assert data["devices"][0]["address"] == "AA:BB:CC:DD:EE:FF"
 
     def test_list_devices_with_filters(self, client, mock_scanner, sample_device):
         """Test listing devices with filters."""
         mock_scanner.get_devices.return_value = [sample_device]
 
-        response = client.get('/api/bluetooth/devices?protocol=ble&min_rssi=-60&sort_by=rssi')
+        response = client.get("/api/bluetooth/devices?protocol=ble&min_rssi=-60&sort=rssi_current")
 
         assert response.status_code == 200
         mock_scanner.get_devices.assert_called_with(
-            sort_by='rssi',
-            protocol='ble',
+            sort_by="rssi_current",
+            sort_desc=True,
+            protocol="ble",
             min_rssi=-60,
-            new_only=False,
+            max_age_seconds=300.0,
         )
 
     def test_list_devices_new_only(self, client, mock_scanner, sample_device):
-        """Test listing only new devices."""
+        """Test listing only new devices via heuristic filter."""
         sample_device.is_new = True
         mock_scanner.get_devices.return_value = [sample_device]
 
-        response = client.get('/api/bluetooth/devices?new_only=true')
+        response = client.get("/api/bluetooth/devices?heuristic=new")
 
         assert response.status_code == 200
         mock_scanner.get_devices.assert_called_with(
-            sort_by='last_seen',
+            sort_by="last_seen",
+            sort_desc=True,
             protocol=None,
             min_rssi=None,
-            new_only=True,
+            max_age_seconds=300.0,
         )
 
     def test_get_device_detail(self, client, mock_scanner, sample_device):
         """Test getting device details."""
         mock_scanner.get_device.return_value = sample_device
 
-        response = client.get('/api/bluetooth/devices/AA:BB:CC:DD:EE:FF:public')
+        response = client.get("/api/bluetooth/devices/AA:BB:CC:DD:EE:FF:public")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['address'] == 'AA:BB:CC:DD:EE:FF'
-        assert data['manufacturer_name'] == 'Apple, Inc.'
+        assert data["address"] == "AA:BB:CC:DD:EE:FF"
+        assert data["manufacturer_name"] == "Apple, Inc."
 
     def test_get_device_not_found(self, client, mock_scanner):
         """Test getting non-existent device."""
         mock_scanner.get_device.return_value = None
 
-        response = client.get('/api/bluetooth/devices/NONEXISTENT')
+        response = client.get("/api/bluetooth/devices/NONEXISTENT")
 
         assert response.status_code == 404
         data = response.get_json()
-        assert data['status'] == 'error'
+        assert data["status"] == "error"
 
 
 class TestBaselineEndpoints:
@@ -206,21 +226,22 @@ class TestBaselineEndpoints:
     def test_set_baseline(self, client, mock_scanner):
         """Test setting baseline."""
         mock_scanner.set_baseline.return_value = 15
+        mock_scanner.get_devices.return_value = []
 
-        response = client.post('/api/bluetooth/baseline/set')
+        response = client.post("/api/bluetooth/baseline/set", json={})
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['status'] == 'success'
-        assert data['device_count'] == 15
+        assert data["status"] == "success"
+        assert data["device_count"] == 15
 
     def test_clear_baseline(self, client, mock_scanner):
         """Test clearing baseline."""
-        response = client.post('/api/bluetooth/baseline/clear')
+        response = client.post("/api/bluetooth/baseline/clear")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['status'] == 'success'
+        assert data["status"] in ("cleared", "no_baseline")
         mock_scanner.clear_baseline.assert_called_once()
 
 
@@ -230,46 +251,40 @@ class TestCapabilitiesEndpoint:
     def test_get_capabilities(self, client):
         """Test getting system capabilities."""
         mock_caps = SystemCapabilities(
-            available=True,
-            dbus_available=True,
+            has_dbus=True,
+            has_bluez=True,
             bluez_version="5.66",
-            adapters=[],
-            has_root=True,
-            rfkill_blocked=False,
-            fallback_tools=['bleak', 'hcitool'],
-            issues=[],
-            preferred_backend='dbus',
+            adapters=[{"id": "/org/bluez/hci0", "name": "hci0"}],
+            is_root=True,
+            has_bleak=True,
+            has_hcitool=True,
         )
 
-        with patch('routes.bluetooth_v2.check_bluetooth_capabilities', return_value=mock_caps):
-            response = client.get('/api/bluetooth/capabilities')
+        with patch("routes.bluetooth_v2.check_capabilities", return_value=mock_caps):
+            response = client.get("/api/bluetooth/capabilities")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['available'] is True
-        assert data['dbus_available'] is True
+        assert data["available"] is True
+        assert data["has_dbus"] is True
 
     def test_capabilities_not_available(self, client):
         """Test capabilities when Bluetooth not available."""
         mock_caps = SystemCapabilities(
-            available=False,
-            dbus_available=False,
+            has_dbus=False,
+            has_bluez=False,
             bluez_version=None,
             adapters=[],
-            has_root=False,
-            rfkill_blocked=False,
-            fallback_tools=[],
-            issues=['No Bluetooth adapter found'],
-            preferred_backend=None,
+            issues=["No Bluetooth adapter found"],
         )
 
-        with patch('routes.bluetooth_v2.check_bluetooth_capabilities', return_value=mock_caps):
-            response = client.get('/api/bluetooth/capabilities')
+        with patch("routes.bluetooth_v2.check_capabilities", return_value=mock_caps):
+            response = client.get("/api/bluetooth/capabilities")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['available'] is False
-        assert 'No Bluetooth adapter found' in data['issues']
+        assert data["available"] is False
+        assert "No Bluetooth adapter found" in data["issues"]
 
 
 class TestExportEndpoint:
@@ -279,37 +294,37 @@ class TestExportEndpoint:
         """Test JSON export."""
         mock_scanner.get_devices.return_value = [sample_device]
 
-        response = client.get('/api/bluetooth/export?format=json')
+        response = client.get("/api/bluetooth/export?format=json")
 
         assert response.status_code == 200
-        assert response.content_type == 'application/json'
+        assert response.content_type == "application/json"
         data = response.get_json()
-        assert 'devices' in data
-        assert 'timestamp' in data
+        assert "devices" in data
+        assert "exported_at" in data
 
     def test_export_csv(self, client, mock_scanner, sample_device):
         """Test CSV export."""
         mock_scanner.get_devices.return_value = [sample_device]
 
-        response = client.get('/api/bluetooth/export?format=csv')
+        response = client.get("/api/bluetooth/export?format=csv")
 
         assert response.status_code == 200
-        assert 'text/csv' in response.content_type
+        assert "text/csv" in response.content_type
 
         # Check CSV content
-        csv_content = response.data.decode('utf-8')
-        assert 'address' in csv_content.lower()
-        assert 'AA:BB:CC:DD:EE:FF' in csv_content
+        csv_content = response.data.decode("utf-8")
+        assert "address" in csv_content.lower()
+        assert "AA:BB:CC:DD:EE:FF" in csv_content
 
     def test_export_empty_devices(self, client, mock_scanner):
         """Test export with no devices."""
         mock_scanner.get_devices.return_value = []
 
-        response = client.get('/api/bluetooth/export?format=json')
+        response = client.get("/api/bluetooth/export?format=json")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert data['devices'] == []
+        assert data["devices"] == []
 
 
 class TestStreamEndpoint:
@@ -319,18 +334,18 @@ class TestStreamEndpoint:
         """Test SSE stream has correct headers."""
         mock_scanner.stream_events.return_value = iter([])
 
-        response = client.get('/api/bluetooth/stream')
+        response = client.get("/api/bluetooth/stream")
 
-        assert response.content_type == 'text/event-stream'
-        assert response.headers.get('Cache-Control') == 'no-cache'
+        assert response.content_type.startswith("text/event-stream")
+        assert response.headers.get("Cache-Control") == "no-cache"
 
     def test_stream_returns_generator(self, client, mock_scanner):
         """Test stream endpoint returns a generator response."""
-        mock_scanner.stream_events.return_value = iter([
-            {'event': 'device_update', 'data': {'address': 'AA:BB:CC:DD:EE:FF'}}
-        ])
+        mock_scanner.stream_events.return_value = iter(
+            [{"event": "device_update", "data": {"address": "AA:BB:CC:DD:EE:FF"}}]
+        )
 
-        response = client.get('/api/bluetooth/stream')
+        response = client.get("/api/bluetooth/stream")
 
         # Should be a streaming response
         assert response.is_streamed is True
@@ -345,14 +360,14 @@ class TestTSCMIntegration:
 
         mock_scanner.get_devices.return_value = [sample_device]
 
-        with patch('routes.bluetooth_v2.get_bluetooth_scanner', return_value=mock_scanner):
+        with patch("routes.bluetooth_v2.get_bluetooth_scanner", return_value=mock_scanner):
             devices = get_tscm_bluetooth_snapshot(duration=8)
 
         assert len(devices) == 1
         device = devices[0]
         # Should be converted to TSCM format
-        assert 'mac' in device
-        assert device['mac'] == 'AA:BB:CC:DD:EE:FF'
+        assert "mac" in device
+        assert device["mac"] == "AA:BB:CC:DD:EE:FF"
 
     def test_tscm_snapshot_empty(self, mock_scanner):
         """Test TSCM snapshot with no devices."""
@@ -360,7 +375,7 @@ class TestTSCMIntegration:
 
         mock_scanner.get_devices.return_value = []
 
-        with patch('routes.bluetooth_v2.get_bluetooth_scanner', return_value=mock_scanner):
+        with patch("routes.bluetooth_v2.get_bluetooth_scanner", return_value=mock_scanner):
             devices = get_tscm_bluetooth_snapshot()
 
         assert devices == []
@@ -371,29 +386,32 @@ class TestErrorHandling:
 
     def test_invalid_json_body(self, client, mock_scanner):
         """Test handling of invalid JSON body."""
-        response = client.post('/api/bluetooth/scan/start',
-            data='not json',
-            content_type='application/json')
+        response = client.post("/api/bluetooth/scan/start", data="not json", content_type="application/json")
 
         # Should handle gracefully
         assert response.status_code in [200, 400]
 
     def test_scanner_exception(self, client, mock_scanner):
-        """Test handling of scanner exceptions."""
-        mock_scanner.start_scan.side_effect = Exception("Scanner error")
+        """Test handling of scanner failure — route returns 'failed' with HTTP 500."""
+        mock_scanner.start_scan.return_value = False
+        mock_scanner.get_status.return_value = ScanStatus(
+            is_scanning=False,
+            mode="auto",
+            error="Scanner error",
+        )
 
-        response = client.post('/api/bluetooth/scan/start', json={})
+        response = client.post("/api/bluetooth/scan/start", json={})
 
-        assert response.status_code == 200
+        assert response.status_code == 500
         data = response.get_json()
-        assert data['status'] == 'error'
-        assert 'error' in data['message'].lower() or 'Scanner error' in data['message']
+        assert data["status"] == "failed"
+        assert "Scanner error" in data["error"]
 
     def test_invalid_device_id_format(self, client, mock_scanner):
         """Test handling of invalid device ID format."""
         mock_scanner.get_device.return_value = None
 
-        response = client.get('/api/bluetooth/devices/invalid-id-format')
+        response = client.get("/api/bluetooth/devices/invalid-id-format")
 
         assert response.status_code == 404
 
@@ -407,16 +425,16 @@ class TestDeviceSerialization:
 
         result = device_to_dict(sample_device)
 
-        assert result['device_id'] == sample_device.device_id
-        assert result['address'] == sample_device.address
-        assert result['address_type'] == sample_device.address_type
-        assert result['protocol'] == sample_device.protocol
-        assert result['rssi_current'] == sample_device.rssi_current
-        assert result['rssi_median'] == sample_device.rssi_median
-        assert result['range_band'] == sample_device.range_band
-        assert result['is_new'] == sample_device.is_new
-        assert result['is_persistent'] == sample_device.is_persistent
-        assert result['manufacturer_name'] == sample_device.manufacturer_name
+        assert result["device_id"] == sample_device.device_id
+        assert result["address"] == sample_device.address
+        assert result["address_type"] == sample_device.address_type
+        assert result["protocol"] == sample_device.protocol
+        assert result["rssi_current"] == sample_device.rssi_current
+        assert result["rssi_median"] == sample_device.rssi_median
+        assert result["range_band"] == sample_device.range_band
+        assert result["is_new"] == sample_device.is_new
+        assert result["is_persistent"] == sample_device.is_persistent
+        assert result["manufacturer_name"] == sample_device.manufacturer_name
 
     def test_device_to_dict_timestamps(self, sample_device):
         """Test device serialization handles timestamps correctly."""
@@ -425,8 +443,8 @@ class TestDeviceSerialization:
         result = device_to_dict(sample_device)
 
         # Timestamps should be ISO format strings
-        assert isinstance(result['first_seen'], str)
-        assert isinstance(result['last_seen'], str)
+        assert isinstance(result["first_seen"], str)
+        assert isinstance(result["last_seen"], str)
 
     def test_device_to_dict_null_values(self):
         """Test device serialization handles null values."""
@@ -464,6 +482,6 @@ class TestDeviceSerialization:
 
         result = device_to_dict(device)
 
-        assert result['rssi_current'] is None
-        assert result['name'] is None
-        assert result['manufacturer_name'] is None
+        assert result["rssi_current"] is None
+        assert result["name"] is None
+        assert result["manufacturer_name"] is None

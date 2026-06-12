@@ -5,9 +5,6 @@ from datetime import datetime, timedelta
 import pytest
 
 from utils.bluetooth.constants import (
-    BEACON_INTERVAL_MAX_VARIANCE as HEURISTIC_BEACON_VARIANCE_THRESHOLD,
-)
-from utils.bluetooth.constants import (
     PERSISTENT_MIN_SEEN_COUNT as HEURISTIC_PERSISTENT_MIN_SEEN,
 )
 from utils.bluetooth.constants import (
@@ -19,7 +16,7 @@ from utils.bluetooth.constants import (
 from utils.bluetooth.constants import (
     STRONG_RSSI_THRESHOLD as HEURISTIC_STRONG_STABLE_RSSI,
 )
-from utils.bluetooth.heuristics import HeuristicsEngine
+from utils.bluetooth.heuristics import HeuristicsEngine, evaluate_all_devices
 from utils.bluetooth.models import BTDeviceAggregate
 
 
@@ -36,6 +33,7 @@ def create_device_aggregate(
     first_seen=None,
     last_seen=None,
     seen_count=1,
+    seen_rate=None,
     rssi_current=-60,
     rssi_median=-60,
     rssi_variance=5.0,
@@ -50,6 +48,8 @@ def create_device_aggregate(
         last_seen = now
     if rssi_samples is None:
         rssi_samples = [(now, rssi_current)]
+    if seen_rate is None:
+        seen_rate = seen_count / 60.0
 
     return BTDeviceAggregate(
         device_id=f"{address}:{address_type}",
@@ -59,12 +59,12 @@ def create_device_aggregate(
         first_seen=first_seen,
         last_seen=last_seen,
         seen_count=seen_count,
-        seen_rate=seen_count / 60.0,
+        seen_rate=seen_rate,
         rssi_samples=rssi_samples,
         rssi_current=rssi_current,
         rssi_median=rssi_median,
-        rssi_min=rssi_median - 10,
-        rssi_max=rssi_median + 10,
+        rssi_min=(rssi_median - 10) if rssi_median is not None else None,
+        rssi_max=(rssi_median + 10) if rssi_median is not None else None,
         rssi_variance=rssi_variance,
         rssi_confidence=0.8,
         range_band="nearby",
@@ -86,10 +86,12 @@ class TestPersistentHeuristic:
     """Tests for persistent device detection."""
 
     def test_persistent_high_seen_count(self, engine):
-        """Test device with high seen count is marked persistent."""
+        """Test device with high seen count and adequate rate/duration is marked persistent."""
+        # _check_persistent requires: seen_count >= 10, duration >= 150s, seen_rate >= 2.0
         device = create_device_aggregate(
             seen_count=HEURISTIC_PERSISTENT_MIN_SEEN + 5,
-            first_seen=datetime.now() - timedelta(seconds=HEURISTIC_PERSISTENT_WINDOW_SECONDS - 60),
+            seen_rate=2.5,  # satisfies >= 2.0/min threshold
+            first_seen=datetime.now() - timedelta(seconds=HEURISTIC_PERSISTENT_WINDOW_SECONDS),
         )
 
         result = engine.evaluate(device)
@@ -103,14 +105,16 @@ class TestPersistentHeuristic:
         assert result.is_persistent is False
 
     def test_not_persistent_outside_window(self, engine):
-        """Test device seen long ago is not persistent."""
+        """Test device seen long ago with adequate rate is still persistent."""
+        # duration > PERSISTENT_WINDOW_SECONDS*0.5 is satisfied; rate must be >= 2.0
         device = create_device_aggregate(
             seen_count=HEURISTIC_PERSISTENT_MIN_SEEN + 5,
+            seen_rate=2.5,
             first_seen=datetime.now() - timedelta(seconds=HEURISTIC_PERSISTENT_WINDOW_SECONDS + 3600),
         )
 
         result = engine.evaluate(device)
-        # Should still be considered persistent if high seen count
+        # Long duration + adequate rate + sufficient count → still persistent
         assert result.is_persistent is True
 
 
@@ -120,19 +124,18 @@ class TestBeaconLikeHeuristic:
     def test_beacon_like_stable_intervals(self, engine):
         """Test device with stable advertisement intervals is beacon-like."""
         now = datetime.now()
-        # Create samples with very stable intervals (every 1 second)
-        rssi_samples = [(now - timedelta(seconds=i), -60) for i in range(20)]
+        # Create samples in chronological order (oldest first) with 1-second spacing
+        # so that _calculate_intervals sees positive intervals ~ 1s each (cv ~ 0 < 0.10)
+        rssi_samples = [(now - timedelta(seconds=(19 - i)), -60) for i in range(20)]
 
         device = create_device_aggregate(
             seen_count=20,
             rssi_samples=rssi_samples,
-            rssi_variance=1.0,  # Very low variance
+            rssi_variance=1.0,
         )
 
         result = engine.evaluate(device)
-        # Beacon-like depends on interval analysis
-        # With regular samples, should detect beacon-like behavior
-        assert result.is_beacon_like is True or result.rssi_variance < HEURISTIC_BEACON_VARIANCE_THRESHOLD
+        assert result.is_beacon_like is True
 
     def test_not_beacon_like_irregular_intervals(self, engine):
         """Test device with irregular intervals is not beacon-like."""
@@ -163,11 +166,15 @@ class TestStrongStableHeuristic:
 
     def test_strong_stable_device(self, engine):
         """Test device with strong, stable signal."""
+        now = datetime.now()
+        rssi_val = HEURISTIC_STRONG_STABLE_RSSI + 5  # Stronger than threshold
+        rssi_samples = [(now - timedelta(seconds=i), rssi_val) for i in range(5)]
         device = create_device_aggregate(
-            rssi_current=HEURISTIC_STRONG_STABLE_RSSI + 5,  # Stronger than threshold
-            rssi_median=HEURISTIC_STRONG_STABLE_RSSI + 5,
+            rssi_current=rssi_val,
+            rssi_median=rssi_val,
             rssi_variance=HEURISTIC_STRONG_STABLE_VARIANCE - 1,  # Less variance than threshold
             seen_count=15,
+            rssi_samples=rssi_samples,
         )
 
         result = engine.evaluate(device)
@@ -246,12 +253,18 @@ class TestMultipleHeuristics:
 
     def test_multiple_flags_can_be_true(self, engine):
         """Test device can have multiple heuristic flags."""
+        now = datetime.now()
+        rssi_val = HEURISTIC_STRONG_STABLE_RSSI + 10
+        rssi_samples = [(now - timedelta(seconds=i), rssi_val) for i in range(5)]
         device = create_device_aggregate(
             address_type="random",
             seen_count=HEURISTIC_PERSISTENT_MIN_SEEN + 5,
-            rssi_current=HEURISTIC_STRONG_STABLE_RSSI + 10,
-            rssi_median=HEURISTIC_STRONG_STABLE_RSSI + 10,
+            seen_rate=2.5,
+            first_seen=datetime.now() - timedelta(seconds=HEURISTIC_PERSISTENT_WINDOW_SECONDS),
+            rssi_current=rssi_val,
+            rssi_median=rssi_val,
             rssi_variance=1.0,
+            rssi_samples=rssi_samples,
             is_new=True,
         )
 
@@ -286,7 +299,7 @@ class TestHeuristicsBatchEvaluation:
     """Tests for batch evaluation of multiple devices."""
 
     def test_evaluate_multiple_devices(self, engine):
-        """Test evaluating multiple devices at once."""
+        """Test evaluating multiple devices at once via evaluate_all_devices."""
         devices = [
             create_device_aggregate(
                 address=f"AA:BB:CC:DD:EE:{i:02X}",
@@ -295,18 +308,17 @@ class TestHeuristicsBatchEvaluation:
             for i in range(1, 6)
         ]
 
-        results = engine.evaluate_batch(devices)
+        # evaluate_all_devices evaluates in-place; each device is a BTDeviceAggregate
+        evaluate_all_devices(devices)
 
-        assert len(results) == 5
-        # Device with highest seen count should be persistent
-        most_seen = max(results, key=lambda d: d.seen_count)
-        # May or may not be persistent depending on exact thresholds
+        assert len(devices) == 5
+        # Device with highest seen count should have a valid bool flag
+        most_seen = max(devices, key=lambda d: d.seen_count)
         assert isinstance(most_seen.is_persistent, bool)
 
     def test_evaluate_empty_list(self, engine):
-        """Test evaluating empty device list."""
-        results = engine.evaluate_batch([])
-        assert results == []
+        """Test evaluating empty device list is a no-op."""
+        evaluate_all_devices([])  # should not raise
 
 
 class TestEdgeCases:
@@ -353,12 +365,15 @@ class TestEdgeCases:
         result = engine.evaluate(device)
         assert result.is_strong_stable is False
 
-        # Test strongest possible
+        # Test strongest possible — needs ≥5 rssi_samples for _check_strong_stable
+        now = datetime.now()
+        rssi_samples = [(now - timedelta(seconds=i), -20) for i in range(5)]
         device2 = create_device_aggregate(
             rssi_current=-20,  # Very strong
             rssi_median=-20,
             rssi_variance=1.0,
             seen_count=10,
+            rssi_samples=rssi_samples,
         )
 
         result2 = engine.evaluate(device2)

@@ -98,10 +98,9 @@ def test_stop_scan_route(client, mock_app_module):
 
 
 def test_enum_services_error_no_mac(client):
-    """Test service enumeration validation."""
+    """Test service enumeration validates required mac field and returns 400."""
     response = client.post("/bt/enum", json={})
-    assert response.status_code == 200
-    assert response.get_json()["status"] == "error"
+    assert response.status_code == 400
 
 
 def test_get_devices_route(client, mock_app_module):
@@ -126,4 +125,3 @@ def test_reload_oui_route(client, mocker):
     assert response.status_code == 200
     assert data["status"] == "success"
     assert data["entries"] > 0
-
