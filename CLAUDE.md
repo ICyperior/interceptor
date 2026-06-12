@@ -161,7 +161,13 @@ Each signal type has its own Flask blueprint:
 - **Templates**: `templates/index.html` (main SPA), `templates/partials/modes/*.html` (sidebar panels), `templates/partials/nav.html` (global nav)
 - **JS Modules**: `static/js/modes/*.js` - IIFE pattern per mode (e.g., `WeatherSat`, `SSTV`, `Meshtastic`)
 - **CSS**: `static/css/modes/*.css` - scoped styles per mode, CSS variables for theming (`--bg-card`, `--accent-cyan`, `--font-mono`)
-- **Mode Integration**: Each mode needs entries in `index.html` at ~12 points: CSS include, welcome card, partial include, visuals container, JS include, `validModes` set, `modeGroups` map, classList toggle, `modeNames`, visuals display toggle, titles, and init call in `switchMode()`
+- **Mode Integration**: Each mode is declared once in `static/js/mode-registry.js`
+  (label, group, elementId, module, init/destroy hooks, visuals flag). The
+  catalog, sidebar toggles, destroy map, visuals list, and init dispatch in
+  `templates/index.html` are all derived from it. A new mode additionally needs:
+  its partial in `templates/partials/modes/`, entries in the CSS/JS lazy-load
+  asset maps in `index.html`, and its include in the partials block.
+  `tests/test_mode_registry.py` enforces registry/asset consistency.
 
 ### Docker
 - `Dockerfile` - Single-stage build with all SDR tools compiled from source (dump1090, AIS-catcher, slowrx, SatDump, etc.). CMD runs `start.sh` (gunicorn + gevent)

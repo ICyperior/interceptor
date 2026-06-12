@@ -3815,6 +3815,9 @@
         }
 
         // Mode from query string (e.g., /?mode=wifi)
+        if (!window.INTERCEPT_MODES) {
+            throw new Error('mode-registry.js failed to load — the SPA cannot start');
+        }
         let pendingStartMode = null;
         const modeCatalog = {};
         for (const [mode, def] of Object.entries(window.INTERCEPT_MODES)) {
@@ -4918,7 +4921,7 @@
                 refreshDroneDevices();
             }
 
-            // Module destroy is now handled by moduleDestroyMap above.
+            // Module destroy is now handled by the mode registry (static/js/mode-registry.js).
 
             // Show/hide Device Intelligence for modes that use it (not for satellite/aircraft/tscm)
             const reconBtn = document.getElementById('reconBtn');
@@ -4999,7 +5002,7 @@
             }
             if (requestId !== modeSwitchRequestId) return;
 
-            // Waterfall destroy is now handled by moduleDestroyMap above.
+            // Waterfall destroy is now handled by the mode registry (static/js/mode-registry.js).
 
             const totalMs = Math.round(performance.now() - switchStartMs);
             console.info(
