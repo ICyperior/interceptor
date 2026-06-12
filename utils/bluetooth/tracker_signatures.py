@@ -19,35 +19,38 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 
-logger = logging.getLogger('intercept.bluetooth.tracker_signatures')
+logger = logging.getLogger("intercept.bluetooth.tracker_signatures")
 
 
 # =============================================================================
 # TRACKER TYPES
 # =============================================================================
 
+
 class TrackerType(str, Enum):
     """Known tracker device types."""
-    AIRTAG = 'airtag'
-    FINDMY_ACCESSORY = 'findmy_accessory'
-    TILE = 'tile'
-    SAMSUNG_SMARTTAG = 'samsung_smarttag'
-    CHIPOLO = 'chipolo'
-    PEBBLEBEE = 'pebblebee'
-    NUTFIND = 'nutfind'
-    ORBIT = 'orbit'
-    EUFY = 'eufy'
-    CUBE = 'cube'
-    UNKNOWN_TRACKER = 'unknown_tracker'
-    NOT_A_TRACKER = 'not_a_tracker'
+
+    AIRTAG = "airtag"
+    FINDMY_ACCESSORY = "findmy_accessory"
+    TILE = "tile"
+    SAMSUNG_SMARTTAG = "samsung_smarttag"
+    CHIPOLO = "chipolo"
+    PEBBLEBEE = "pebblebee"
+    NUTFIND = "nutfind"
+    ORBIT = "orbit"
+    EUFY = "eufy"
+    CUBE = "cube"
+    UNKNOWN_TRACKER = "unknown_tracker"
+    NOT_A_TRACKER = "not_a_tracker"
 
 
 class TrackerConfidence(str, Enum):
     """Confidence level for tracker detection."""
-    HIGH = 'high'        # Multiple strong indicators match
-    MEDIUM = 'medium'    # Some indicators match
-    LOW = 'low'          # Weak indicators, needs investigation
-    NONE = 'none'        # Not detected as tracker
+
+    HIGH = "high"  # Multiple strong indicators match
+    MEDIUM = "medium"  # Some indicators match
+    LOW = "low"  # Weak indicators, needs investigation
+    NONE = "none"  # Not detected as tracker
 
 
 # =============================================================================
@@ -65,28 +68,28 @@ APPLE_FINDMY_PREFIX_SHORT = bytes([0x12])  # Find My prefix (short)
 APPLE_FINDMY_PREFIX_ALT = bytes([0x07, 0x19])  # Alternative Find My pattern
 
 # Find My service UUID (Apple's offline finding service)
-APPLE_FINDMY_SERVICE_UUID = 'fd6f'  # 16-bit UUID
-APPLE_CONTINUITY_SERVICE_UUID = 'd0611e78-bbb4-4591-a5f8-487910ae4366'
+APPLE_FINDMY_SERVICE_UUID = "fd6f"  # 16-bit UUID
+APPLE_CONTINUITY_SERVICE_UUID = "d0611e78-bbb4-4591-a5f8-487910ae4366"
 
 # Tile
 TILE_COMPANY_ID = 0x00ED  # Tile Inc
 TILE_ALT_COMPANY_ID = 0x038F  # Alternative Tile ID
-TILE_SERVICE_UUID = 'feed'  # Tile service UUID (16-bit)
-TILE_MAC_PREFIXES = ['C4:E7', 'DC:54', 'E4:B0', 'F8:8A', 'E6:43', '90:32', 'D0:72']
+TILE_SERVICE_UUID = "feed"  # Tile service UUID (16-bit)
+TILE_MAC_PREFIXES = ["C4:E7", "DC:54", "E4:B0", "F8:8A", "E6:43", "90:32", "D0:72"]
 
 # Samsung SmartTag
 SAMSUNG_COMPANY_ID = 0x0075
-SMARTTAG_SERVICE_UUID = 'fd5a'  # SmartThings Find service
-SMARTTAG_MAC_PREFIXES = ['58:4D', 'A0:75', 'B8:D7', '50:32']
+SMARTTAG_SERVICE_UUID = "fd5a"  # SmartThings Find service
+SMARTTAG_MAC_PREFIXES = ["58:4D", "A0:75", "B8:D7", "50:32"]
 
 # Chipolo
 CHIPOLO_COMPANY_ID = 0x0A09
-CHIPOLO_SERVICE_UUID = 'feaa'  # Eddystone beacon (used by some Chipolo)
-CHIPOLO_ALT_SERVICE = 'feb1'
+CHIPOLO_SERVICE_UUID = "feaa"  # Eddystone beacon (used by some Chipolo)
+CHIPOLO_ALT_SERVICE = "feb1"
 
 # PebbleBee
-PEBBLEBEE_SERVICE_UUID = 'feab'
-PEBBLEBEE_MAC_PREFIXES = ['D4:3D', 'E0:E5']
+PEBBLEBEE_SERVICE_UUID = "feab"
+PEBBLEBEE_MAC_PREFIXES = ["D4:3D", "E0:E5"]
 
 # Other known trackers
 NUTFIND_COMPANY_ID = 0x0A09
@@ -94,16 +97,17 @@ EUFY_COMPANY_ID = 0x0590
 
 # Generic beacon patterns that may indicate a tracker
 BEACON_SERVICE_UUIDS = [
-    'feaa',  # Eddystone
-    'feab',  # Nokia beacon
-    'feb1',  # Dialog Semiconductor
-    'febe',  # Bose
+    "feaa",  # Eddystone
+    "feab",  # Nokia beacon
+    "feb1",  # Dialog Semiconductor
+    "febe",  # Bose
 ]
 
 
 @dataclass
 class TrackerSignature:
     """Defines a tracker signature pattern."""
+
     tracker_type: TrackerType
     name: str
     description: str
@@ -123,82 +127,76 @@ TRACKER_SIGNATURES: list[TrackerSignature] = [
     # Apple AirTag
     TrackerSignature(
         tracker_type=TrackerType.AIRTAG,
-        name='Apple AirTag',
-        description='Apple AirTag tracking device using Find My network',
+        name="Apple AirTag",
+        description="Apple AirTag tracking device using Find My network",
         company_id=APPLE_COMPANY_ID,
         manufacturer_data_prefixes=[
             APPLE_AIRTAG_ADV_PATTERN,
             APPLE_FINDMY_PREFIX_SHORT,
         ],
         service_uuids=[APPLE_FINDMY_SERVICE_UUID],
-        name_patterns=['airtag'],
+        name_patterns=["airtag"],
         min_manufacturer_data_len=22,  # AirTags have 22+ byte payloads
         confidence_boost=0.2,
     ),
-
     # Apple Find My Accessory (non-AirTag)
     TrackerSignature(
         tracker_type=TrackerType.FINDMY_ACCESSORY,
-        name='Find My Accessory',
-        description='Third-party Apple Find My network accessory',
+        name="Find My Accessory",
+        description="Third-party Apple Find My network accessory",
         company_id=APPLE_COMPANY_ID,
         manufacturer_data_prefixes=[
             APPLE_FINDMY_PREFIX_SHORT,
             APPLE_FINDMY_PREFIX_ALT,
         ],
         service_uuids=[APPLE_FINDMY_SERVICE_UUID],
-        name_patterns=['findmy', 'find my', 'chipolo one spot', 'belkin'],
+        name_patterns=["findmy", "find my", "chipolo one spot", "belkin"],
     ),
-
     # Tile
     TrackerSignature(
         tracker_type=TrackerType.TILE,
-        name='Tile Tracker',
-        description='Tile Bluetooth tracker',
+        name="Tile Tracker",
+        description="Tile Bluetooth tracker",
         company_ids=[TILE_COMPANY_ID, TILE_ALT_COMPANY_ID],
         service_uuids=[TILE_SERVICE_UUID],
         mac_prefixes=TILE_MAC_PREFIXES,
-        name_patterns=['tile'],
+        name_patterns=["tile"],
     ),
-
     # Samsung SmartTag
     TrackerSignature(
         tracker_type=TrackerType.SAMSUNG_SMARTTAG,
-        name='Samsung SmartTag',
-        description='Samsung SmartThings tracker',
+        name="Samsung SmartTag",
+        description="Samsung SmartThings tracker",
         company_id=SAMSUNG_COMPANY_ID,
         service_uuids=[SMARTTAG_SERVICE_UUID],
         mac_prefixes=SMARTTAG_MAC_PREFIXES,
-        name_patterns=['smarttag', 'smart tag', 'galaxy tag'],
+        name_patterns=["smarttag", "smart tag", "galaxy tag"],
     ),
-
     # Chipolo
     TrackerSignature(
         tracker_type=TrackerType.CHIPOLO,
-        name='Chipolo',
-        description='Chipolo Bluetooth tracker',
+        name="Chipolo",
+        description="Chipolo Bluetooth tracker",
         company_id=CHIPOLO_COMPANY_ID,
         service_uuids=[CHIPOLO_SERVICE_UUID, CHIPOLO_ALT_SERVICE],
-        name_patterns=['chipolo'],
+        name_patterns=["chipolo"],
     ),
-
     # PebbleBee
     TrackerSignature(
         tracker_type=TrackerType.PEBBLEBEE,
-        name='PebbleBee',
-        description='PebbleBee Bluetooth tracker',
+        name="PebbleBee",
+        description="PebbleBee Bluetooth tracker",
         service_uuids=[PEBBLEBEE_SERVICE_UUID],
         mac_prefixes=PEBBLEBEE_MAC_PREFIXES,
-        name_patterns=['pebblebee', 'pebble bee', 'honey'],
+        name_patterns=["pebblebee", "pebble bee", "honey"],
     ),
-
     # Eufy
     TrackerSignature(
         tracker_type=TrackerType.EUFY,
-        name='Eufy SmartTrack',
-        description='Eufy/Anker smart tracker',
+        name="Eufy SmartTrack",
+        description="Eufy/Anker smart tracker",
         company_id=EUFY_COMPANY_ID,
-        name_patterns=['eufy', 'smarttrack'],
+        name_patterns=["eufy", "smarttrack"],
     ),
 ]
 
@@ -207,13 +205,14 @@ TRACKER_SIGNATURES: list[TrackerSignature] = [
 # TRACKER DETECTION RESULT
 # =============================================================================
 
+
 @dataclass
 class TrackerDetectionResult:
     """Result of tracker detection analysis."""
 
     is_tracker: bool = False
     tracker_type: TrackerType = TrackerType.NOT_A_TRACKER
-    tracker_name: str = ''
+    tracker_name: str = ""
     confidence: TrackerConfidence = TrackerConfidence.NONE
     confidence_score: float = 0.0  # 0.0 to 1.0
     evidence: list[str] = field(default_factory=list)
@@ -231,24 +230,25 @@ class TrackerDetectionResult:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'is_tracker': self.is_tracker,
-            'tracker_type': self.tracker_type.value if self.tracker_type else None,
-            'tracker_name': self.tracker_name,
-            'confidence': self.confidence.value if self.confidence else None,
-            'confidence_score': round(self.confidence_score, 2),
-            'evidence': self.evidence,
-            'matched_signature': self.matched_signature,
-            'risk_factors': self.risk_factors,
-            'risk_score': round(self.risk_score, 2),
-            'manufacturer_id': self.manufacturer_id,
-            'manufacturer_data_hex': self.manufacturer_data_hex,
-            'service_uuids_found': self.service_uuids_found,
+            "is_tracker": self.is_tracker,
+            "tracker_type": self.tracker_type.value if self.tracker_type else None,
+            "tracker_name": self.tracker_name,
+            "confidence": self.confidence.value if self.confidence else None,
+            "confidence_score": round(self.confidence_score, 2),
+            "evidence": self.evidence,
+            "matched_signature": self.matched_signature,
+            "risk_factors": self.risk_factors,
+            "risk_score": round(self.risk_score, 2),
+            "manufacturer_id": self.manufacturer_id,
+            "manufacturer_data_hex": self.manufacturer_data_hex,
+            "service_uuids_found": self.service_uuids_found,
         }
 
 
 # =============================================================================
 # DEVICE FINGERPRINT (survives MAC randomization)
 # =============================================================================
+
 
 @dataclass
 class DeviceFingerprint:
@@ -277,15 +277,15 @@ class DeviceFingerprint:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'fingerprint_id': self.fingerprint_id,
-            'manufacturer_id': self.manufacturer_id,
-            'manufacturer_data_prefix': self.manufacturer_data_prefix.hex() if self.manufacturer_data_prefix else None,
-            'manufacturer_data_length': self.manufacturer_data_length,
-            'service_uuids': self.service_uuids,
-            'service_data_keys': self.service_data_keys,
-            'tx_power_bucket': self.tx_power_bucket,
-            'name_hint': self.name_hint,
-            'stability_confidence': round(self.stability_confidence, 2),
+            "fingerprint_id": self.fingerprint_id,
+            "manufacturer_id": self.manufacturer_id,
+            "manufacturer_data_prefix": self.manufacturer_data_prefix.hex() if self.manufacturer_data_prefix else None,
+            "manufacturer_data_length": self.manufacturer_data_length,
+            "service_uuids": self.service_uuids,
+            "service_data_keys": self.service_data_keys,
+            "tx_power_bucket": self.tx_power_bucket,
+            "name_hint": self.name_hint,
+            "stability_confidence": round(self.stability_confidence, 2),
         }
 
 
@@ -316,39 +316,39 @@ def generate_fingerprint(
     mfr_length = 0
 
     if manufacturer_id is not None:
-        features.append(f'mfr:{manufacturer_id:04x}')
+        features.append(f"mfr:{manufacturer_id:04x}")
         stability_score += 0.2
 
     if manufacturer_data:
         mfr_length = len(manufacturer_data)
-        features.append(f'mfr_len:{mfr_length}')
+        features.append(f"mfr_len:{mfr_length}")
         stability_score += 0.1
 
         # First 4 bytes of manufacturer data are often stable
-        mfr_prefix = manufacturer_data[:min(4, len(manufacturer_data))]
-        features.append(f'mfr_pfx:{mfr_prefix.hex()}')
+        mfr_prefix = manufacturer_data[: min(4, len(manufacturer_data))]
+        features.append(f"mfr_pfx:{mfr_prefix.hex()}")
         stability_score += 0.2
 
     sorted_uuids = sorted(service_uuids)
     if sorted_uuids:
-        features.append(f'uuids:{",".join(sorted_uuids)}')
+        features.append(f"uuids:{','.join(sorted_uuids)}")
         stability_score += 0.2
 
     sd_keys = sorted(service_data.keys())
     if sd_keys:
-        features.append(f'sd_keys:{",".join(sd_keys)}')
+        features.append(f"sd_keys:{','.join(sd_keys)}")
         stability_score += 0.1
 
     # TX power bucket
     tx_bucket = None
     if tx_power is not None:
         if tx_power >= 0:
-            tx_bucket = 'high'
+            tx_bucket = "high"
         elif tx_power >= -10:
-            tx_bucket = 'medium'
+            tx_bucket = "medium"
         else:
-            tx_bucket = 'low'
-        features.append(f'tx:{tx_bucket}')
+            tx_bucket = "low"
+        features.append(f"tx:{tx_bucket}")
         stability_score += 0.05
 
     # Name hint (for devices that advertise names)
@@ -357,11 +357,11 @@ def generate_fingerprint(
         # Only use first word of name (often stable)
         name_hint = name.split()[0].lower() if name else None
         if name_hint:
-            features.append(f'name:{name_hint}')
+            features.append(f"name:{name_hint}")
             stability_score += 0.15
 
     # Generate fingerprint ID
-    feature_str = '|'.join(features)
+    feature_str = "|".join(features)
     fingerprint_id = hashlib.sha256(feature_str.encode()).hexdigest()[:16]
 
     return DeviceFingerprint(
@@ -380,6 +380,7 @@ def generate_fingerprint(
 # =============================================================================
 # TRACKER DETECTION ENGINE
 # =============================================================================
+
 
 class TrackerSignatureEngine:
     """
@@ -485,7 +486,7 @@ class TrackerSignatureEngine:
                 result.matched_signature = best_match.name
             else:
                 result.tracker_type = TrackerType.UNKNOWN_TRACKER
-                result.tracker_name = 'Unknown Tracker'
+                result.tracker_name = "Unknown Tracker"
 
             # Determine confidence level
             if best_score >= 0.7:
@@ -534,32 +535,35 @@ class TrackerSignatureEngine:
 
                 if has_findmy_pattern or has_findmy_service:
                     score += 0.35
-                    evidence.append(f'Manufacturer ID 0x{manufacturer_id:04X} matches {signature.name}')
+                    evidence.append(f"Manufacturer ID 0x{manufacturer_id:04X} matches {signature.name}")
                 # Don't add score for Apple manufacturer ID without Find My indicators
             else:
                 # Non-Apple trackers - company ID is strong evidence
                 score += 0.35
-                evidence.append(f'Manufacturer ID 0x{manufacturer_id:04X} matches {signature.name}')
+                evidence.append(f"Manufacturer ID 0x{manufacturer_id:04X} matches {signature.name}")
 
         # Check manufacturer data prefix (high weight for specific patterns)
         if manufacturer_data and signature.manufacturer_data_prefixes:
             for prefix in signature.manufacturer_data_prefixes:
                 if manufacturer_data.startswith(prefix):
                     score += 0.30
-                    evidence.append(f'Manufacturer data pattern matches {signature.name}')
+                    evidence.append(f"Manufacturer data pattern matches {signature.name}")
                     break
 
-        # Check manufacturer data length
-        if manufacturer_data and signature.min_manufacturer_data_len > 0:
+        # Check manufacturer data length (corroborative - only counts alongside
+        # an identifying indicator, mirroring _check_generic_tracker_indicators)
+        if manufacturer_data and signature.min_manufacturer_data_len > 0 and score > 0:
             if len(manufacturer_data) >= signature.min_manufacturer_data_len:
                 score += 0.10
-                evidence.append(f'Manufacturer data length ({len(manufacturer_data)} bytes) consistent with {signature.name}')
+                evidence.append(
+                    f"Manufacturer data length ({len(manufacturer_data)} bytes) consistent with {signature.name}"
+                )
 
         # Check service UUIDs (medium weight)
         for sig_uuid in signature.service_uuids:
             if sig_uuid.lower() in normalized_uuids:
                 score += 0.25
-                evidence.append(f'Service UUID {sig_uuid} matches {signature.name}')
+                evidence.append(f"Service UUID {sig_uuid} matches {signature.name}")
                 break
 
         # Check MAC prefix (medium weight)
@@ -568,20 +572,24 @@ class TrackerSignatureEngine:
             for prefix in signature.mac_prefixes:
                 if mac_upper.startswith(prefix):
                     score += 0.20
-                    evidence.append(f'MAC prefix {prefix} matches known {signature.name} range')
+                    evidence.append(f"MAC prefix {prefix} matches known {signature.name} range")
                     break
 
-        # Check name patterns (lower weight - can be spoofed)
+        # Check name patterns - a name match alone yields a LOW-confidence
+        # detection (0.30 = detection threshold); names can be spoofed, so it
+        # stays below the company-ID weight
         if name and signature.name_patterns:
             name_lower = name.lower()
             for pattern in signature.name_patterns:
                 if pattern.lower() in name_lower:
-                    score += 0.15
+                    score += 0.30
                     evidence.append(f'Device name "{name}" contains pattern "{pattern}"')
                     break
 
-        # Apply confidence boost for specific signatures
-        score += signature.confidence_boost
+        # Apply confidence boost for specific signatures, but only when at
+        # least one indicator actually matched - never as a free baseline
+        if score > 0:
+            score += signature.confidence_boost
 
         return score, evidence
 
@@ -600,33 +608,33 @@ class TrackerSignatureEngine:
         # Apple Find My service UUID without specific AirTag pattern
         if APPLE_FINDMY_SERVICE_UUID in normalized_uuids:
             score += 0.4
-            evidence.append('Uses Apple Find My network service (fd6f)')
+            evidence.append("Uses Apple Find My network service (fd6f)")
 
         # Apple manufacturer with Find My advertisement type
         if manufacturer_id == APPLE_COMPANY_ID and manufacturer_data and len(manufacturer_data) >= 2:
             adv_type = manufacturer_data[0]
             if adv_type == APPLE_FINDMY_ADV_TYPE:
                 score += 0.35
-                evidence.append('Apple Find My network advertisement detected')
+                evidence.append("Apple Find My network advertisement detected")
 
         # Check for beacon-like service UUIDs
         for beacon_uuid in BEACON_SERVICE_UUIDS:
             if beacon_uuid in normalized_uuids:
                 score += 0.15
-                evidence.append(f'Uses beacon service UUID ({beacon_uuid})')
+                evidence.append(f"Uses beacon service UUID ({beacon_uuid})")
                 break
 
         # Random address (most trackers use random addresses)
-        if address_type in ('random', 'rpa', 'nrpa'):
+        if address_type in ("random", "rpa", "nrpa"):
             # This is a weak indicator - many devices use random addresses
             if score > 0:  # Only add if other indicators present
                 score += 0.05
-                evidence.append('Uses randomized MAC address')
+                evidence.append("Uses randomized MAC address")
 
         # Small manufacturer data payload typical of beacons
         if manufacturer_data and 20 <= len(manufacturer_data) <= 30 and score > 0:
             score += 0.05
-            evidence.append(f'Manufacturer data length ({len(manufacturer_data)} bytes) typical of beacon')
+            evidence.append(f"Manufacturer data length ({len(manufacturer_data)} bytes) typical of beacon")
 
         return score, evidence
 
@@ -637,7 +645,7 @@ class TrackerSignatureEngine:
             uuid_lower = uuid.lower()
             # Extract 16-bit UUID from full 128-bit Bluetooth Base UUID
             # Format: 0000XXXX-0000-1000-8000-00805f9b34fb
-            if len(uuid_lower) == 36 and uuid_lower.endswith('-0000-1000-8000-00805f9b34fb'):
+            if len(uuid_lower) == 36 and uuid_lower.endswith("-0000-1000-8000-00805f9b34fb"):
                 short_uuid = uuid_lower[4:8]
                 normalized.append(short_uuid)
             else:
@@ -676,10 +684,7 @@ class TrackerSignatureEngine:
 
         # Keep only last 24 hours of sightings
         cutoff = ts - timedelta(hours=24)
-        self._sighting_history[fingerprint_id] = [
-            t for t in self._sighting_history[fingerprint_id]
-            if t > cutoff
-        ]
+        self._sighting_history[fingerprint_id] = [t for t in self._sighting_history[fingerprint_id] if t > cutoff]
 
         self._sighting_history[fingerprint_id].append(ts)
         return len(self._sighting_history[fingerprint_id])
@@ -719,39 +724,39 @@ class TrackerSignatureEngine:
         # Tracker baseline - if it's a tracker, start with some risk
         if is_tracker:
             risk_score += 0.3
-            risk_factors.append('Device matches known tracker signature')
+            risk_factors.append("Device matches known tracker signature")
 
         # Heuristic 1: Persistently near - seen many times over a long period
         if seen_count >= 20 and duration_seconds >= 600:  # 10+ minutes
             points = min(0.25, (seen_count / 100) * 0.25)
             risk_score += points
-            risk_factors.append(f'Persistently present: seen {seen_count} times over {duration_seconds/60:.1f} min')
+            risk_factors.append(f"Persistently present: seen {seen_count} times over {duration_seconds / 60:.1f} min")
         elif seen_count >= 50:
             risk_score += 0.2
-            risk_factors.append(f'High observation count: {seen_count} sightings')
+            risk_factors.append(f"High observation count: {seen_count} sightings")
 
         # Heuristic 2: Consistent presence rate (beacon-like behavior)
         if seen_rate >= 3.0:  # 3+ observations per minute
             points = min(0.15, (seen_rate / 10) * 0.15)
             risk_score += points
-            risk_factors.append(f'Beacon-like presence: {seen_rate:.1f} obs/min')
+            risk_factors.append(f"Beacon-like presence: {seen_rate:.1f} obs/min")
 
         # Heuristic 3: Stable RSSI (moving with us, same relative distance)
         if rssi_variance is not None and rssi_variance < 10:
             risk_score += 0.1
-            risk_factors.append(f'Stable signal strength (variance: {rssi_variance:.1f})')
+            risk_factors.append(f"Stable signal strength (variance: {rssi_variance:.1f})")
 
         # Heuristic 4: New device appearing (not in baseline)
         if is_new and is_tracker:
             risk_score += 0.15
-            risk_factors.append('New tracker appeared after baseline was set')
+            risk_factors.append("New tracker appeared after baseline was set")
 
         # Cross-session persistence (from sighting history)
         historical_count = self.get_sighting_count(fingerprint_id, window_hours=24)
         if historical_count >= 10:
             points = min(0.15, (historical_count / 50) * 0.15)
             risk_score += points
-            risk_factors.append(f'Seen across multiple sessions: {historical_count} total sightings in 24h')
+            risk_factors.append(f"Seen across multiple sessions: {historical_count} total sightings in 24h")
 
         return min(1.0, risk_score), risk_factors
 
@@ -773,7 +778,7 @@ def get_tracker_engine() -> TrackerSignatureEngine:
 
 def detect_tracker(
     address: str,
-    address_type: str = 'public',
+    address_type: str = "public",
     name: str | None = None,
     manufacturer_id: int | None = None,
     manufacturer_data: bytes | None = None,

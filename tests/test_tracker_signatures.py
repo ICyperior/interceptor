@@ -23,138 +23,147 @@ from utils.bluetooth.tracker_signatures import (
 # Apple AirTag advertisement payload samples
 AIRTAG_SAMPLES = [
     {
-        'name': 'AirTag sample 1 - Find My advertisement',
-        'address': 'AA:BB:CC:DD:EE:FF',
-        'address_type': 'random',
-        'manufacturer_id': APPLE_COMPANY_ID,
-        'manufacturer_data': bytes.fromhex('121910deadbeef0123456789abcdef0123456789'),
-        'service_uuids': ['fd6f'],
-        'expected_type': TrackerType.AIRTAG,
-        'expected_confidence': TrackerConfidence.HIGH,
+        "name": "AirTag sample 1 - Find My advertisement",
+        "address": "AA:BB:CC:DD:EE:FF",
+        "address_type": "random",
+        "manufacturer_id": APPLE_COMPANY_ID,
+        "manufacturer_data": bytes.fromhex("121910deadbeef0123456789abcdef0123456789"),
+        "service_uuids": ["fd6f"],
+        "expected_type": TrackerType.AIRTAG,
+        "expected_confidence": TrackerConfidence.HIGH,
     },
     {
-        'name': 'AirTag sample 2 - Shorter payload',
-        'address': '11:22:33:44:55:66',
-        'address_type': 'rpa',
-        'manufacturer_id': APPLE_COMPANY_ID,
-        'manufacturer_data': bytes.fromhex('1219abcdef1234567890'),
-        'service_uuids': [],
-        'expected_type': TrackerType.AIRTAG,
-        'expected_confidence': TrackerConfidence.MEDIUM,
+        "name": "AirTag sample 2 - Shorter payload",
+        "address": "11:22:33:44:55:66",
+        "address_type": "rpa",
+        "manufacturer_id": APPLE_COMPANY_ID,
+        "manufacturer_data": bytes.fromhex("1219abcdef1234567890"),
+        "service_uuids": [],
+        "expected_type": TrackerType.AIRTAG,
+        "expected_confidence": TrackerConfidence.MEDIUM,
     },
 ]
 
 # Apple Find My accessory (non-AirTag)
 FINDMY_ACCESSORY_SAMPLES = [
     {
-        'name': 'Chipolo ONE Spot (Find My network)',
-        'address': 'CC:DD:EE:FF:00:11',
-        'address_type': 'random',
-        'manufacturer_id': APPLE_COMPANY_ID,
-        'manufacturer_data': bytes.fromhex('12cafe0123456789'),
-        'service_uuids': ['fd6f'],
-        'expected_type': TrackerType.AIRTAG,  # Using Find My, detected as AirTag-like
-        'expected_confidence': TrackerConfidence.HIGH,
+        "name": "Chipolo ONE Spot (Find My network)",
+        "address": "CC:DD:EE:FF:00:11",
+        "address_type": "random",
+        "manufacturer_id": APPLE_COMPANY_ID,
+        "manufacturer_data": bytes.fromhex("12cafe0123456789"),
+        "service_uuids": ["fd6f"],
+        "expected_type": TrackerType.AIRTAG,  # Using Find My, detected as AirTag-like
+        "expected_confidence": TrackerConfidence.HIGH,
     },
 ]
 
 # Tile tracker samples
 TILE_SAMPLES = [
     {
-        'name': 'Tile Mate - by company ID',
-        'address': 'C4:E7:00:11:22:33',
-        'address_type': 'public',
-        'manufacturer_id': 0x00ED,  # Tile Inc
-        'manufacturer_data': bytes.fromhex('ed00aabbccdd'),
-        'service_uuids': ['feed'],
-        'expected_type': TrackerType.TILE,
-        'expected_confidence': TrackerConfidence.HIGH,
+        "name": "Tile Mate - by company ID",
+        "address": "C4:E7:00:11:22:33",
+        "address_type": "public",
+        "manufacturer_id": 0x00ED,  # Tile Inc
+        "manufacturer_data": bytes.fromhex("ed00aabbccdd"),
+        "service_uuids": ["feed"],
+        "expected_type": TrackerType.TILE,
+        "expected_confidence": TrackerConfidence.HIGH,
     },
     {
-        'name': 'Tile Pro - by MAC prefix',
-        'address': 'DC:54:AA:BB:CC:DD',
-        'address_type': 'public',
-        'manufacturer_id': None,
-        'manufacturer_data': None,
-        'service_uuids': ['feed'],
-        'expected_type': TrackerType.TILE,
-        'expected_confidence': TrackerConfidence.MEDIUM,
+        "name": "Tile Pro - by MAC prefix",
+        "address": "DC:54:AA:BB:CC:DD",
+        "address_type": "public",
+        "manufacturer_id": None,
+        "manufacturer_data": None,
+        "service_uuids": ["feed"],
+        "expected_type": TrackerType.TILE,
+        "expected_confidence": TrackerConfidence.MEDIUM,
     },
     {
-        'name': 'Tile - by name only',
-        'address': '00:11:22:33:44:55',
-        'address_type': 'public',
-        'manufacturer_id': None,
-        'manufacturer_data': None,
-        'service_uuids': [],
-        'name': 'Tile Slim',
-        'expected_type': TrackerType.TILE,
-        'expected_confidence': TrackerConfidence.LOW,
+        "name": "Tile - by name only",
+        "address": "00:11:22:33:44:55",
+        "address_type": "public",
+        "manufacturer_id": None,
+        "manufacturer_data": None,
+        "service_uuids": [],
+        "name": "Tile Slim",
+        "expected_type": TrackerType.TILE,
+        "expected_confidence": TrackerConfidence.LOW,
     },
 ]
 
 # Samsung SmartTag samples
 SAMSUNG_SAMPLES = [
     {
-        'name': 'Samsung SmartTag - by company ID and service',
-        'address': '58:4D:AA:BB:CC:DD',
-        'address_type': 'random',
-        'manufacturer_id': 0x0075,  # Samsung
-        'manufacturer_data': bytes.fromhex('75001234567890'),
-        'service_uuids': ['fd5a'],
-        'expected_type': TrackerType.SAMSUNG_SMARTTAG,
-        'expected_confidence': TrackerConfidence.HIGH,
+        "name": "Samsung SmartTag - by company ID and service",
+        "address": "58:4D:AA:BB:CC:DD",
+        "address_type": "random",
+        "manufacturer_id": 0x0075,  # Samsung
+        "manufacturer_data": bytes.fromhex("75001234567890"),
+        "service_uuids": ["fd5a"],
+        "expected_type": TrackerType.SAMSUNG_SMARTTAG,
+        "expected_confidence": TrackerConfidence.HIGH,
     },
     {
-        'name': 'Samsung SmartTag - by MAC prefix only',
-        'address': 'A0:75:BB:CC:DD:EE',
-        'address_type': 'public',
-        'manufacturer_id': None,
-        'manufacturer_data': None,
-        'service_uuids': [],
-        'expected_type': TrackerType.SAMSUNG_SMARTTAG,
-        'expected_confidence': TrackerConfidence.LOW,
+        "name": "Samsung SmartTag - by MAC prefix only",
+        "address": "A0:75:BB:CC:DD:EE",
+        "address_type": "public",
+        "manufacturer_id": None,
+        "manufacturer_data": None,
+        "service_uuids": [],
+        "expected_type": TrackerType.SAMSUNG_SMARTTAG,
+        "expected_confidence": TrackerConfidence.LOW,
     },
 ]
 
 # Non-tracker devices (should NOT be detected as trackers)
 NON_TRACKER_SAMPLES = [
     {
-        'name': 'Apple AirPods - should not be tracker',
-        'address': 'AA:BB:CC:DD:EE:00',
-        'address_type': 'random',
-        'manufacturer_id': APPLE_COMPANY_ID,
-        'manufacturer_data': bytes.fromhex('100000'),  # NOT Find My pattern
-        'service_uuids': [],
-        'expected_tracker': False,
+        "name": "Apple AirPods - should not be tracker",
+        "address": "AA:BB:CC:DD:EE:00",
+        "address_type": "random",
+        "manufacturer_id": APPLE_COMPANY_ID,
+        "manufacturer_data": bytes.fromhex("100000"),  # NOT Find My pattern
+        "service_uuids": [],
+        "expected_tracker": False,
     },
     {
-        'name': 'Generic BLE device',
-        'address': '00:11:22:33:44:55',
-        'address_type': 'public',
-        'manufacturer_id': 0x0006,  # Microsoft
-        'manufacturer_data': bytes.fromhex('0600aabbccdd'),
-        'service_uuids': ['180f', '180a'],  # Battery and Device Info services
-        'expected_tracker': False,
+        "name": "Generic BLE device",
+        "address": "00:11:22:33:44:55",
+        "address_type": "public",
+        "manufacturer_id": 0x0006,  # Microsoft
+        "manufacturer_data": bytes.fromhex("0600aabbccdd"),
+        "service_uuids": ["180f", "180a"],  # Battery and Device Info services
+        "expected_tracker": False,
     },
     {
-        'name': 'Fitbit fitness tracker - not a location tracker',
-        'address': 'FF:EE:DD:CC:BB:AA',
-        'address_type': 'random',
-        'manufacturer_id': 0x00D2,  # Fitbit
-        'manufacturer_data': bytes.fromhex('d2001234'),
-        'service_uuids': ['adab'],  # Fitbit service
-        'expected_tracker': False,
+        "name": "Fitbit fitness tracker - not a location tracker",
+        "address": "FF:EE:DD:CC:BB:AA",
+        "address_type": "random",
+        "manufacturer_id": 0x00D2,  # Fitbit
+        "manufacturer_data": bytes.fromhex("d2001234"),
+        "service_uuids": ["adab"],  # Fitbit service
+        "expected_tracker": False,
     },
     {
-        'name': 'Bluetooth speaker',
-        'address': '11:22:33:44:55:66',
-        'address_type': 'public',
-        'manufacturer_id': 0x0310,  # Bose
-        'manufacturer_data': None,
-        'service_uuids': ['111e'],  # Handsfree
-        'name': 'Bose Speaker',
-        'expected_tracker': False,
+        "name": "Generic device with long payload - length alone is not evidence",
+        "address": "22:33:44:55:66:77",
+        "address_type": "public",
+        "manufacturer_id": 0x0006,  # Microsoft
+        "manufacturer_data": bytes.fromhex("0600" + "ab" * 23),  # 25 bytes
+        "service_uuids": [],
+        "expected_tracker": False,
+    },
+    {
+        "name": "Bluetooth speaker",
+        "address": "11:22:33:44:55:66",
+        "address_type": "public",
+        "manufacturer_id": 0x0310,  # Bose
+        "manufacturer_data": None,
+        "service_uuids": ["111e"],  # Handsfree
+        "name": "Bose Speaker",
+        "expected_tracker": False,
     },
 ]
 
@@ -162,6 +171,7 @@ NON_TRACKER_SAMPLES = [
 # =============================================================================
 # TEST CASES
 # =============================================================================
+
 
 class TestTrackerDetection:
     """Test tracker detection with sample payloads."""
@@ -173,80 +183,83 @@ class TestTrackerDetection:
 
     # --- AirTag tests ---
 
-    @pytest.mark.parametrize('sample', AIRTAG_SAMPLES, ids=lambda s: s['name'])
+    @pytest.mark.parametrize("sample", AIRTAG_SAMPLES, ids=lambda s: s["name"])
     def test_airtag_detection(self, engine, sample):
         """Test AirTag detection with various payload samples."""
         result = engine.detect_tracker(
-            address=sample['address'],
-            address_type=sample['address_type'],
-            name=sample.get('name'),
-            manufacturer_id=sample['manufacturer_id'],
-            manufacturer_data=sample['manufacturer_data'],
-            service_uuids=sample['service_uuids'],
+            address=sample["address"],
+            address_type=sample["address_type"],
+            name=sample.get("name"),
+            manufacturer_id=sample["manufacturer_id"],
+            manufacturer_data=sample["manufacturer_data"],
+            service_uuids=sample["service_uuids"],
         )
 
         assert result.is_tracker, f"Should detect {sample['name']} as tracker"
-        assert result.tracker_type == sample['expected_type'], \
+        assert result.tracker_type == sample["expected_type"], (
             f"Expected {sample['expected_type']}, got {result.tracker_type}"
+        )
         # Allow medium when expecting high (degraded confidence is acceptable)
-        if sample['expected_confidence'] == TrackerConfidence.HIGH:
-            assert result.confidence in (TrackerConfidence.HIGH, TrackerConfidence.MEDIUM), \
+        if sample["expected_confidence"] == TrackerConfidence.HIGH:
+            assert result.confidence in (TrackerConfidence.HIGH, TrackerConfidence.MEDIUM), (
                 f"Expected HIGH or MEDIUM confidence for {sample['name']}"
+            )
         assert len(result.evidence) > 0, "Should provide evidence"
 
     # --- Tile tests ---
 
-    @pytest.mark.parametrize('sample', TILE_SAMPLES, ids=lambda s: s['name'])
+    @pytest.mark.parametrize("sample", TILE_SAMPLES, ids=lambda s: s["name"])
     def test_tile_detection(self, engine, sample):
         """Test Tile tracker detection."""
         result = engine.detect_tracker(
-            address=sample['address'],
-            address_type=sample['address_type'],
-            name=sample.get('name'),
-            manufacturer_id=sample['manufacturer_id'],
-            manufacturer_data=sample['manufacturer_data'],
-            service_uuids=sample['service_uuids'],
+            address=sample["address"],
+            address_type=sample["address_type"],
+            name=sample.get("name"),
+            manufacturer_id=sample["manufacturer_id"],
+            manufacturer_data=sample["manufacturer_data"],
+            service_uuids=sample["service_uuids"],
         )
 
         assert result.is_tracker, f"Should detect {sample['name']} as tracker"
-        assert result.tracker_type == sample['expected_type'], \
+        assert result.tracker_type == sample["expected_type"], (
             f"Expected {sample['expected_type']}, got {result.tracker_type}"
+        )
         assert len(result.evidence) > 0, "Should provide evidence"
 
     # --- Samsung SmartTag tests ---
 
-    @pytest.mark.parametrize('sample', SAMSUNG_SAMPLES, ids=lambda s: s['name'])
+    @pytest.mark.parametrize("sample", SAMSUNG_SAMPLES, ids=lambda s: s["name"])
     def test_samsung_smarttag_detection(self, engine, sample):
         """Test Samsung SmartTag detection."""
         result = engine.detect_tracker(
-            address=sample['address'],
-            address_type=sample['address_type'],
-            name=sample.get('name'),
-            manufacturer_id=sample['manufacturer_id'],
-            manufacturer_data=sample['manufacturer_data'],
-            service_uuids=sample['service_uuids'],
+            address=sample["address"],
+            address_type=sample["address_type"],
+            name=sample.get("name"),
+            manufacturer_id=sample["manufacturer_id"],
+            manufacturer_data=sample["manufacturer_data"],
+            service_uuids=sample["service_uuids"],
         )
 
         assert result.is_tracker, f"Should detect {sample['name']} as tracker"
-        assert result.tracker_type == sample['expected_type'], \
+        assert result.tracker_type == sample["expected_type"], (
             f"Expected {sample['expected_type']}, got {result.tracker_type}"
+        )
 
     # --- Non-tracker tests (negative cases) ---
 
-    @pytest.mark.parametrize('sample', NON_TRACKER_SAMPLES, ids=lambda s: s['name'])
+    @pytest.mark.parametrize("sample", NON_TRACKER_SAMPLES, ids=lambda s: s["name"])
     def test_non_tracker_not_detected(self, engine, sample):
         """Test that non-tracker devices are NOT falsely detected."""
         result = engine.detect_tracker(
-            address=sample['address'],
-            address_type=sample['address_type'],
-            name=sample.get('name'),
-            manufacturer_id=sample['manufacturer_id'],
-            manufacturer_data=sample['manufacturer_data'],
-            service_uuids=sample['service_uuids'],
+            address=sample["address"],
+            address_type=sample["address_type"],
+            name=sample.get("name"),
+            manufacturer_id=sample["manufacturer_id"],
+            manufacturer_data=sample["manufacturer_data"],
+            service_uuids=sample["service_uuids"],
         )
 
-        assert not result.is_tracker, \
-            f"{sample['name']} should NOT be detected as tracker (got: {result.tracker_type})"
+        assert not result.is_tracker, f"{sample['name']} should NOT be detected as tracker (got: {result.tracker_type})"
 
 
 class TestFingerprinting:
@@ -260,32 +273,31 @@ class TestFingerprinting:
         """Test that same payload produces same fingerprint."""
         fp1 = engine.generate_device_fingerprint(
             manufacturer_id=APPLE_COMPANY_ID,
-            manufacturer_data=bytes.fromhex('1219deadbeef'),
-            service_uuids=['fd6f'],
+            manufacturer_data=bytes.fromhex("1219deadbeef"),
+            service_uuids=["fd6f"],
             service_data={},
             tx_power=-10,
-            name='TestDevice',
+            name="TestDevice",
         )
 
         fp2 = engine.generate_device_fingerprint(
             manufacturer_id=APPLE_COMPANY_ID,
-            manufacturer_data=bytes.fromhex('1219deadbeef'),
-            service_uuids=['fd6f'],
+            manufacturer_data=bytes.fromhex("1219deadbeef"),
+            service_uuids=["fd6f"],
             service_data={},
             tx_power=-10,
-            name='TestDevice',
+            name="TestDevice",
         )
 
-        assert fp1.fingerprint_id == fp2.fingerprint_id, \
-            "Same payload should produce same fingerprint"
+        assert fp1.fingerprint_id == fp2.fingerprint_id, "Same payload should produce same fingerprint"
 
     def test_fingerprint_different_mac(self, engine):
         """Test that fingerprint ignores MAC address (for tracking across rotations)."""
         # Fingerprinting doesn't take MAC as input, so this tests the concept
         fp1 = engine.generate_device_fingerprint(
             manufacturer_id=APPLE_COMPANY_ID,
-            manufacturer_data=bytes.fromhex('1219abcdef'),
-            service_uuids=['fd6f'],
+            manufacturer_data=bytes.fromhex("1219abcdef"),
+            service_uuids=["fd6f"],
             service_data={},
             tx_power=None,
             name=None,
@@ -294,8 +306,8 @@ class TestFingerprinting:
         # Same payload characteristics should produce same fingerprint
         fp2 = engine.generate_device_fingerprint(
             manufacturer_id=APPLE_COMPANY_ID,
-            manufacturer_data=bytes.fromhex('1219abcdef'),
-            service_uuids=['fd6f'],
+            manufacturer_data=bytes.fromhex("1219abcdef"),
+            service_uuids=["fd6f"],
             service_data={},
             tx_power=None,
             name=None,
@@ -308,11 +320,11 @@ class TestFingerprinting:
         # Rich payload = high stability
         fp_rich = engine.generate_device_fingerprint(
             manufacturer_id=APPLE_COMPANY_ID,
-            manufacturer_data=bytes.fromhex('1219aabbccdd'),
-            service_uuids=['fd6f', '180f'],
-            service_data={'fd6f': bytes.fromhex('01')},
+            manufacturer_data=bytes.fromhex("1219aabbccdd"),
+            service_uuids=["fd6f", "180f"],
+            service_data={"fd6f": bytes.fromhex("01")},
             tx_power=-5,
-            name='AirTag',
+            name="AirTag",
         )
 
         # Minimal payload = low stability
@@ -325,8 +337,9 @@ class TestFingerprinting:
             name=None,
         )
 
-        assert fp_rich.stability_confidence > fp_minimal.stability_confidence, \
+        assert fp_rich.stability_confidence > fp_minimal.stability_confidence, (
             "Rich payload should have higher stability confidence"
+        )
 
 
 class TestSuspiciousPresence:
@@ -339,7 +352,7 @@ class TestSuspiciousPresence:
     def test_risk_score_for_tracker(self, engine):
         """Test that trackers get base risk score."""
         risk_score, risk_factors = engine.evaluate_suspicious_presence(
-            fingerprint_id='test123',
+            fingerprint_id="test123",
             is_tracker=True,
             seen_count=5,
             duration_seconds=60,
@@ -349,12 +362,12 @@ class TestSuspiciousPresence:
         )
 
         assert risk_score >= 0.3, "Tracker should have base risk score"
-        assert any('tracker' in f.lower() for f in risk_factors)
+        assert any("tracker" in f.lower() for f in risk_factors)
 
     def test_risk_score_for_persistent_tracker(self, engine):
         """Test that persistent tracker presence increases risk."""
         risk_score, risk_factors = engine.evaluate_suspicious_presence(
-            fingerprint_id='test456',
+            fingerprint_id="test456",
             is_tracker=True,
             seen_count=50,
             duration_seconds=900,  # 15 minutes
@@ -369,7 +382,7 @@ class TestSuspiciousPresence:
     def test_non_tracker_low_risk(self, engine):
         """Test that non-trackers have low risk scores."""
         risk_score, risk_factors = engine.evaluate_suspicious_presence(
-            fingerprint_id='test789',
+            fingerprint_id="test789",
             is_tracker=False,
             seen_count=5,
             duration_seconds=60,
@@ -387,11 +400,11 @@ class TestConvenienceFunction:
     def test_detect_tracker_function(self):
         """Test the detect_tracker() convenience function."""
         result = detect_tracker(
-            address='C4:E7:11:22:33:44',
-            address_type='public',
-            name='Tile Mate',
+            address="C4:E7:11:22:33:44",
+            address_type="public",
+            name="Tile Mate",
             manufacturer_id=0x00ED,
-            service_uuids=['feed'],
+            service_uuids=["feed"],
         )
 
         assert result.is_tracker
@@ -407,6 +420,7 @@ class TestConvenienceFunction:
 # =============================================================================
 # SMOKE TEST FOR API ENDPOINTS
 # =============================================================================
+
 
 def test_api_backwards_compatibility():
     """
@@ -439,5 +453,5 @@ def test_api_backwards_compatibility():
     pass
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
