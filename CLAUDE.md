@@ -158,6 +158,11 @@ Each signal type has its own Flask blueprint:
 | direwolf | APRS | TNC modem for packet radio |
 
 ### Frontend Structure
+- **UI direction (decided 2026-06-12)**: map-heavy modes get dedicated dashboard
+  pages (`/adsb/dashboard`, `/ais/dashboard`, `/satellite/dashboard`); the SPA
+  in `index.html` keeps text/scan modes. APRS and Meshtastic are map-centric
+  and should migrate to dashboards under their own plans — do not grow their
+  SPA footprint.
 - **Templates**: `templates/index.html` (main SPA), `templates/partials/modes/*.html` (sidebar panels), `templates/partials/nav.html` (global nav)
 - **JS Modules**: `static/js/modes/*.js` - IIFE pattern per mode (e.g., `WeatherSat`, `SSTV`, `Meshtastic`)
 - **CSS**: `static/css/modes/*.css` - scoped styles per mode, CSS variables for theming (`--bg-card`, `--accent-cyan`, `--font-mono`)
