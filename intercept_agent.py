@@ -423,27 +423,31 @@ class ModeManager:
         # Detect interfaces via shared capability detection
         capabilities["interfaces"] = detect_interfaces()
 
+        # Probe dependencies once; reuse for both mode availability and tool_details.
+        dep_status: dict | None = None
+        if HAS_DEPENDENCIES_MODULE:
+            try:
+                dep_status = check_all_dependencies()
+            except Exception as e:
+                logger.warning(f"Tool detail collection failed: {e}")
+
         # Detect mode availability via shared capability detection
-        raw_modes = detect_mode_availability()
+        raw_modes = detect_mode_availability(dep_status)
         for mode, ready in raw_modes.items():
             # Apply this agent's per-mode config gating on top of tool readiness
             capabilities["modes"][mode] = ready if config.modes_enabled.get(mode, True) else False
 
         # Populate detailed tool info for modes tracked in dependencies.py
-        if HAS_DEPENDENCIES_MODULE:
-            try:
-                dep_status = check_all_dependencies()
-                for dep_mode, cap_mode in MODE_DEPENDENCY_MAP.items():
-                    if dep_mode in dep_status:
-                        mode_info = dep_status[dep_mode]
-                        capabilities["tool_details"][cap_mode] = {
-                            "name": mode_info["name"],
-                            "ready": mode_info["ready"],
-                            "missing_required": mode_info["missing_required"],
-                            "tools": mode_info["tools"],
-                        }
-            except Exception as e:
-                logger.warning(f"Tool detail collection failed: {e}")
+        if dep_status is not None:
+            for dep_mode, cap_mode in MODE_DEPENDENCY_MAP.items():
+                if dep_mode in dep_status:
+                    mode_info = dep_status[dep_mode]
+                    capabilities["tool_details"][cap_mode] = {
+                        "name": mode_info["name"],
+                        "ready": mode_info["ready"],
+                        "missing_required": mode_info["missing_required"],
+                        "tools": mode_info["tools"],
+                    }
 
         # Use Intercept's SDR detection
         sdr_factory = self._get_sdr_factory()

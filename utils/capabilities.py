@@ -60,15 +60,21 @@ FALLBACK_TOOL_CHECKS = {
 }
 
 
-def detect_mode_availability() -> dict[str, bool]:
+def detect_mode_availability(dep_status: dict | None = None) -> dict[str, bool]:
     """Detect mode availability from tool dependencies.
 
     Returns a ``{cap_mode: bool}`` map of raw tool readiness. Falls back to
     direct tool checks if :func:`check_all_dependencies` raises.
+
+    Args:
+        dep_status: Pre-computed result of :func:`check_all_dependencies`.  When
+            supplied the probe is skipped entirely, avoiding a second call when
+            the caller has already fetched it.
     """
     modes: dict[str, bool] = {}
     try:
-        dep_status = check_all_dependencies()
+        if dep_status is None:
+            dep_status = check_all_dependencies()
     except Exception as e:
         logger.warning(f"Dependency check failed, using fallback: {e}")
         return _detect_mode_availability_fallback()
