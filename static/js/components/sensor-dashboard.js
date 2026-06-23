@@ -162,17 +162,20 @@ const SensorDashboard = (function () {
     // ---- Show / hide / reset ----
 
     function applyViewState(mode) {
-        const view   = document.getElementById('sensorDashboardView');
-        const output = document.getElementById('output');
+        const view    = document.getElementById('sensorDashboardView');
+        const output  = document.getElementById('output');
+        const feedCol = document.querySelector('.pdir-feed-col');
 
         if (mode === 'sensor') {
             const saved = localStorage.getItem(STORAGE_KEY) || 'dashboard';
             const isDash = saved === 'dashboard';
-            if (view)   view.style.display   = isDash ? 'block' : 'none';
-            if (output) output.style.display = isDash ? 'none'  : '';
+            if (view)    view.style.display    = isDash ? 'block' : 'none';
+            if (output)  output.style.display  = isDash ? 'none'  : '';
+            if (feedCol) feedCol.style.display = isDash ? 'none'  : '';
             _updateToggle(isDash);
         } else {
-            if (view) view.style.display = 'none';
+            if (view)    view.style.display    = 'none';
+            if (feedCol) feedCol.style.display = '';
         }
     }
 
