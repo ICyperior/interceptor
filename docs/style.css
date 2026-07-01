@@ -28,7 +28,7 @@
     pointer-events: none;
 }
 
-body > *:not(#bg-canvas) {
+body > *:not(#bg-canvas):not(#lightbox) {
     position: relative;
     z-index: 1;
 }
