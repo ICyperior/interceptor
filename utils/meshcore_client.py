@@ -100,7 +100,15 @@ class AsyncWorker:
         cfg = self._config
 
         if isinstance(cfg, SerialConfig):
-            port = cfg.port or "/dev/ttyUSB0"
+            from utils.meshcore import list_serial_ports
+
+            if cfg.port:
+                port = cfg.port
+            else:
+                # Auto-detect: prefer ttyUSB0, then first available port
+                candidates = list_serial_ports()
+                port = next((p for p in candidates if "ttyUSB0" in p), None) or \
+                       (candidates[0] if candidates else "/dev/ttyUSB0")
             self._mc = await MeshCore.create_serial(port=port, baudrate=cfg.baud, debug=False)
             transport, device = "serial", port
         elif isinstance(cfg, TCPConfig):
@@ -205,7 +213,8 @@ class AsyncWorker:
         p = event.payload
         node_id = "self"  # stats_core is always for the local node
         battery_mv = p.get("battery_mv")
-        battery_pct = min(int(battery_mv / 42), 100) if battery_mv else None  # rough: 4200mv = 100%
+        # LiPo linear approximation: 3000mV = 0%, 4200mV = 100%
+        battery_pct = max(0, min(int((battery_mv - 3000) / 12), 100)) if battery_mv else None
         t = MeshcoreTelemetry(
             node_id=node_id,
             timestamp=datetime.now(timezone.utc),

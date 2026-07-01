@@ -79,6 +79,7 @@ const MeshCore = (function () {
         let body = { transport: _transport };
         if (_transport === 'serial') {
             body.port = document.getElementById('meshcorePortSelect').value || null;
+            body.baud = parseInt(document.getElementById('meshcoreBaudSelect')?.value || '115200', 10);
         } else if (_transport === 'tcp') {
             body.host = document.getElementById('meshcoreTcpHost').value;
             body.port = parseInt(document.getElementById('meshcoreTcpPort').value, 10);
@@ -98,13 +99,20 @@ const MeshCore = (function () {
     function _pollUntilConnected(attempts) {
         if (_connected) return;
         if (attempts > 45) {
-            // Backend retry window (5+15+45s) has elapsed — give up
+            // Backend retry window (5+15+45s) has elapsed — give up only if
+            // the backend hasn't already reported a real error (which would
+            // have been shown by _updateStatusUI and we don't want to overwrite).
+            const dot = document.getElementById('meshcoreStatusDot');
+            if (dot && dot.classList.contains('error')) return;
             _updateStatusUI('error', 'Connection timed out');
             return;
         }
         setTimeout(async () => {
             await _checkStatus();
-            if (!_connected) _pollUntilConnected(attempts + 1);
+            // Stop polling once the backend has settled into a terminal state
+            const dot = document.getElementById('meshcoreStatusDot');
+            const inTerminal = dot && dot.classList.contains('error');
+            if (!_connected && !inTerminal) _pollUntilConnected(attempts + 1);
         }, 2000);
     }
 
@@ -123,7 +131,7 @@ const MeshCore = (function () {
             const sel = document.getElementById('meshcorePortSelect');
             if (!sel) return;
             const current = sel.value;
-            sel.innerHTML = '<option value="">Auto-detect</option>';
+            sel.innerHTML = '<option value="">Auto-detect (/dev/ttyUSB0)</option>';
             (d.ports || []).forEach(p => {
                 const o = document.createElement('option');
                 o.value = p; o.textContent = p;
@@ -131,6 +139,10 @@ const MeshCore = (function () {
                 sel.appendChild(o);
             });
         } catch (e) { /* ignore */ }
+    }
+
+    async function refreshPorts() {
+        await _loadPorts();
     }
 
     async function scanBle() {
@@ -522,6 +534,7 @@ const MeshCore = (function () {
         connect,
         disconnect,
         selectTransport,
+        refreshPorts,
         scanBle,
         sendMessage,
         switchTab,
