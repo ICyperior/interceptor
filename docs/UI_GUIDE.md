@@ -1,5 +1,7 @@
 # iNTERCEPT UI Guide
 
+> **This is a contributor/developer reference.** It documents the design system, CSS tokens, and patterns for adding new modes or dashboards. If you're looking for usage instructions, see [USAGE.md](USAGE.md).
+
 This guide documents the UI design system, components, and patterns used in iNTERCEPT.
 
 ## Table of Contents

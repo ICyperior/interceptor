@@ -21,7 +21,7 @@ Support the developer of this open-source project
 </p>
 
 <p align="center">
-  <img src="static/images/screenshots/intercept-main.png" alt="Screenshot">
+  <img src="docs/images/intercept-main.png" alt="Screenshot">
 </p>
 
 ---
@@ -56,32 +56,6 @@ Support the developer of this open-source project
 - **Remote Agents** - Distributed SIGINT with remote sensor nodes
 - **Offline Mode** - Bundled assets for air-gapped/field deployments
 - **Drone Intelligence** - Multi-vector UAV detection via ASTM F3411 Remote ID (WiFi/BLE), RTL-SDR 433/868 MHz RF, and HackRF 2.4/5.8 GHz scanning with live contact map and risk scoring
-
----
-
-## CW / Morse Decoder Notes
-
-Live backend:
-- Uses `rtl_fm` piped into `multimon-ng` (`MORSE_CW`) for real-time decode.
-
-Recommended baseline settings:
-- **Tone**: `700 Hz`
-- **Bandwidth**: `200 Hz` (use `100 Hz` for crowded bands, `400 Hz` for drifting signals)
-- **Threshold Mode**: `Auto`
-- **WPM Mode**: `Auto`
-
-Auto Tone Track behavior:
-- Continuously measures nearby tone energy around the configured CW pitch.
-- Steers the detector toward the strongest valid CW tone when signal-to-noise is sufficient.
-- Use **Hold Tone Lock** to freeze tracking once the desired signal is centered.
-
-Troubleshooting (no decode / noisy decode):
-- Confirm demod path is **USB/CW-compatible** and frequency is tuned correctly.
-- If multiple SDRs are connected and the selected one has no PCM output, Morse startup now auto-tries other detected SDR devices and reports the active device/serial in status logs.
-- Match **tone** and **bandwidth** to the actual sidetone/pitch.
-- Try **Threshold Auto** first; if needed, switch to manual threshold and recalibrate.
-- Use **Reset/Calibrate** after major frequency or band condition changes.
-- Raise **Minimum Signal Gate** to suppress random noise keying.
 
 ---
 
@@ -150,44 +124,7 @@ docker compose --profile basic up -d --build
 
 > **Note:** Docker requires privileged mode for USB SDR access. SDR devices are passed through via `/dev/bus/usb`.
 
-#### Multi-Architecture Builds (amd64 + arm64)
-
-Cross-compile on an x64 machine and push to a registry. This is much faster than building natively on an RPi.
-
-```bash
-# One-time setup on your x64 build machine
-docker run --privileged --rm tonistiigi/binfmt --install all
-docker buildx create --name intercept-builder --use --bootstrap
-
-# Build and push for both architectures
-REGISTRY=ghcr.io/youruser ./build-multiarch.sh --push
-
-# On the RPi5, just pull and run
-INTERCEPT_IMAGE=ghcr.io/youruser/intercept:latest docker compose --profile basic up -d
-```
-
-Build script options:
-
-| Flag | Description |
-|------|-------------|
-| `--push` | Push to container registry |
-| `--load` | Load into local Docker (single platform only) |
-| `--arm64-only` | Build arm64 only (for RPi deployment) |
-| `--amd64-only` | Build amd64 only |
-
-Environment variables: `REGISTRY`, `IMAGE_NAME`, `IMAGE_TAG`
-
-#### Using a Pre-built Image
-
-If you've pushed to a registry, you can skip building entirely on the target machine:
-
-```bash
-# Set in .env or export
-INTERCEPT_IMAGE=ghcr.io/youruser/intercept:latest
-
-# Then just run
-docker compose --profile basic up -d
-```
+For multi-architecture builds (amd64 + arm64 for Raspberry Pi), see `build-multiarch.sh` — it handles cross-compilation and registry push in one step.
 
 ### Environment Configuration
 
@@ -254,9 +191,9 @@ Checks installed tools, SDR devices, port availability, permissions, Python venv
 
 ### Open the Interface
 
-After starting, open **http://localhost:5050** in your browser. The username and password is <b>admin</b>:<b>admin</b>
+After starting, open **http://localhost:5050** in your browser.
 
-The credentials can be changed in the ADMIN_USERNAME & ADMIN_PASSWORD variables in config.py
+Default credentials: **admin / admin** — change these in `config.py` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) before exposing the app on a network.
 
 ---
 
@@ -293,9 +230,10 @@ Most features work with a basic RTL-SDR dongle (RTL2832U + R820T2).
 ## Documentation
 
 - [Usage Guide](docs/USAGE.md) - Detailed instructions for each mode
-- [Distributed Agents](docs/DISTRIBUTED_AGENTS.md) - Remote sensor node deployment
-- [Hardware Guide](docs/HARDWARE.md) - SDR hardware and advanced setup
+- [Hardware Guide](docs/HARDWARE.md) - SDR hardware, manual install, and advanced setup
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Distributed Agents](docs/DISTRIBUTED_AGENTS.md) - Remote sensor node deployment
+- [Webhooks](docs/WEBHOOKS.md) - Alert rules and webhook integration
 - [Security](docs/SECURITY.md) - Network security and best practices
 
 ---

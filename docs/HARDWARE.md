@@ -12,41 +12,11 @@ INTERCEPT automatically detects connected devices.
 
 ---
 
-## Quick Install
+## Manual Installation
 
-### Recommended: Use the Setup Script
+For most users `./setup.sh` handles everything. The steps below are for manual installs or when you need fine-grained control.
 
-The setup script provides an interactive menu with install profiles for selective installation:
-
-```bash
-git clone https://github.com/smittix/intercept.git
-cd intercept
-./setup.sh
-```
-
-On first run, a guided wizard walks you through profile selection:
-
-| Profile | What it installs |
-|---------|-----------------|
-| Core SIGINT | rtl_sdr, multimon-ng, rtl_433, dump1090, acarsdec, dumpvdl2, ffmpeg, gpsd |
-| Maritime & Radio | AIS-catcher, direwolf |
-| Weather & Space | SatDump, radiosonde_auto_rx |
-| RF Security | aircrack-ng, HackRF, BlueZ, hcxtools, Ubertooth, SoapySDR |
-| Full SIGINT | All of the above |
-
-For headless/CI installs:
-```bash
-./setup.sh --non-interactive                # Install everything
-./setup.sh --profile=core,maritime          # Install specific profiles
-```
-
-After installation, use the menu to manage your setup:
-```bash
-./setup.sh              # Opens interactive menu
-./setup.sh --health-check   # Verify installation
-```
-
-### Manual Install: macOS (Homebrew)
+### macOS (Homebrew)
 
 ```bash
 # Install Homebrew if needed
@@ -68,7 +38,7 @@ brew install soapysdr limesuite soapylms7
 brew install hackrf soapyhackrf
 ```
 
-### Manual Install: Debian / Ubuntu / Raspberry Pi OS
+### Debian / Ubuntu / Raspberry Pi OS
 
 ```bash
 # Update package lists
@@ -264,54 +234,6 @@ SoapySDRUtil --find
 
 ---
 
-## Python Environment
-
-### Using setup.sh (Recommended)
-```bash
-./setup.sh
-```
-
-The setup wizard automatically:
-- Detects your OS (macOS, Debian/Ubuntu, DragonOS)
-- Lets you choose install profiles (Core, Maritime, Weather, Security, Full, Custom)
-- Creates a virtual environment with system site-packages
-- Installs Python dependencies (core + optional)
-- Runs a health check to verify everything works
-
-After initial setup, use the menu to manage your environment:
-- **Install / Add Modules** — add tools you didn't install initially
-- **System Health Check** — verify all tools and dependencies
-- **Environment Configurator** — set `INTERCEPT_*` variables interactively
-- **Update Tools** — rebuild source-built tools (dump1090, SatDump, etc.)
-- **View Status** — see what's installed at a glance
-
-### Manual setup
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
----
-
-## Running INTERCEPT
-
-After installation:
-
-```bash
-sudo ./start.sh
-
-# Custom port
-sudo ./start.sh -p 8080
-
-# HTTPS
-sudo ./start.sh --https
-```
-
-Open **http://localhost:5050** in your browser.
-
----
-
 ## Complete Tool Reference
 
 | Tool | Package (Debian) | Package (macOS) | Required For |
@@ -407,6 +329,57 @@ brew install librtlsdr
 - Standard WiFi adapter (managed mode for basic scanning)
 - Monitor mode capable adapter for advanced features
 - `aircrack-ng` suite for monitor mode management
+
+---
+
+## Listening Post — Icecast Setup
+
+The Listening Post streams audio via Icecast (2-10 second latency). INTERCEPT starts Icecast automatically when you begin listening, but you must install and configure it first.
+
+### Install
+
+```bash
+# Ubuntu/Debian
+sudo apt install icecast2
+
+# macOS
+brew install icecast
+```
+
+### Configure
+
+On Debian/Ubuntu you'll be prompted during install. Otherwise edit `/etc/icecast2/icecast.xml`:
+
+```xml
+<icecast>
+    <authentication>
+        <source-password>hackme</source-password>
+        <admin-password>your-admin-password</admin-password>
+    </authentication>
+    <hostname>localhost</hostname>
+    <listen-socket>
+        <port>8000</port>
+    </listen-socket>
+</icecast>
+```
+
+### Start
+
+```bash
+# Ubuntu/Debian
+sudo systemctl enable icecast2 && sudo systemctl start icecast2
+
+# macOS
+brew services start icecast
+```
+
+Verify it's running at http://localhost:8000.
+
+### INTERCEPT defaults
+
+INTERCEPT expects Icecast on `127.0.0.1:8000` with source password `hackme` and mount `/listen.mp3`. To change these, update the defaults in `routes/listening_post.py` or adjust via the Listening Post config panel in the UI.
+
+For audio troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#audio-streaming-issues).
 
 ---
 

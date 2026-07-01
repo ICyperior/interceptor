@@ -23,13 +23,15 @@ By default, INTERCEPT binds to `0.0.0.0:5050`, making it accessible from any net
    sudo ./start.sh -H 127.0.0.1
    ```
 
-3. **Trusted Networks Only**: Only run INTERCEPT on networks you trust. The application has no authentication mechanism.
+3. **Trusted Networks Only**: Only run INTERCEPT on networks you trust. Default credentials are admin / admin — change them before network exposure.
 
 ## Authentication
 
-INTERCEPT does **not** include authentication. This is by design for ease of use as a personal tool. If you need to expose INTERCEPT to untrusted networks:
+INTERCEPT includes basic username/password authentication (default credentials: **admin / admin**). **Change these before exposing the application on any network** — update `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `config.py`.
 
-1. Use a reverse proxy (nginx, Caddy) with authentication
+For additional protection when exposing INTERCEPT beyond your local machine:
+
+1. Use a reverse proxy (nginx, Caddy) with authentication or TLS
 2. Use a VPN to access your home network
 3. Use SSH port forwarding: `ssh -L 5050:localhost:5050 your-server`
 

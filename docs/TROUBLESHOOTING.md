@@ -110,17 +110,7 @@ pip install --user -r requirements.txt
 
 ### Linux udev rules for RTL-SDR
 
-```bash
-sudo bash -c 'cat > /etc/udev/rules.d/20-rtlsdr.rules << EOF
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0666"
-EOF'
-
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-Then unplug and replug your RTL-SDR.
+See [HARDWARE.md — RTL-SDR Setup](HARDWARE.md#rtl-sdr-setup-linux) for udev rules and driver blacklisting.
 
 ### Device busy error
 
@@ -189,78 +179,11 @@ which rx_fm
 
 If `rx_fm` is installed, select your device from the SDR dropdown in the Listening Post - HackRF, Airspy, LimeSDR, and SDRPlay are all supported.
 
-### Setting up Icecast for Listening Post Audio
+### Listening Post — No Audio / Icecast Errors
 
-The Listening Post uses Icecast for low-latency audio streaming (2-10 second latency). Intercept will automatically start Icecast when you begin listening, but you must install and configure it first.
+For Icecast install and configuration, see [HARDWARE.md — Listening Post Setup](HARDWARE.md#listening-post--icecast-setup).
 
-**Install Icecast:**
-```bash
-# Ubuntu/Debian
-sudo apt install icecast2
-
-# macOS
-brew install icecast
-```
-
-**Configure Icecast:**
-
-During installation on Debian/Ubuntu, you'll be prompted to configure. Otherwise, edit `/etc/icecast2/icecast.xml`:
-
-```xml
-<icecast>
-    <authentication>
-        <!-- Source password - used by ffmpeg to send audio -->
-        <source-password>hackme</source-password>
-        <!-- Admin password for web interface -->
-        <admin-password>your-admin-password</admin-password>
-    </authentication>
-    <hostname>localhost</hostname>
-    <listen-socket>
-        <port>8000</port>
-    </listen-socket>
-</icecast>
-```
-
-**Start Icecast:**
-```bash
-# Ubuntu/Debian (as service)
-sudo systemctl enable icecast2
-sudo systemctl start icecast2
-
-# Or run directly
-icecast -c /etc/icecast2/icecast.xml
-
-# macOS
-brew services start icecast
-# Or: icecast -c /usr/local/etc/icecast.xml
-```
-
-**Verify Icecast is running:**
-- Open http://localhost:8000 in your browser
-- You should see the Icecast status page
-
-**Configure Intercept (optional):**
-
-The default configuration expects Icecast on `127.0.0.1:8000` with source password `hackme` and mount point `/listen.mp3`. To change these, modify the scanner config in your API calls or update the defaults in `routes/listening_post.py`:
-
-```python
-scanner_config = {
-    # ... other settings ...
-    'icecast_host': '127.0.0.1',
-    'icecast_port': 8000,
-    'icecast_mount': '/listen.mp3',
-    'icecast_source_password': 'hackme',
-}
-```
-
-**Troubleshooting Icecast:**
-
-- **"Connection refused" errors**: Ensure Icecast is running on the configured port
-- **"Authentication failed"**: Check the source password matches between Icecast config and Intercept
-- **No audio playing**: Check Icecast status page (http://localhost:8000) to verify the mount point is active
-- **High latency**: Ensure nginx/reverse proxy isn't buffering - add `proxy_buffering off;` to nginx config
-
-### Audio Streaming Issues - Detailed Debugging
+### Audio Streaming Issues
 
 If the Listening Post shows "Icecast mount not active" errors or audio doesn't play:
 
