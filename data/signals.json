@@ -1,0 +1,235 @@
+[
+  {
+    "id": "fm-broadcast",
+    "name": "FM Broadcast Radio",
+    "description": "Commercial FM radio stations transmitting wideband stereo audio. Used worldwide for public broadcasting.",
+    "categories": ["broadcast", "commercial", "audio"],
+    "frequency_ranges": [{"min_hz": 87500000, "max_hz": 108000000}],
+    "bandwidth_range": {"min_hz": 150000, "max_hz": 250000},
+    "modulations": ["WFM", "FM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/FM_Broadcast"
+  },
+  {
+    "id": "airband-civil",
+    "name": "Airband (Civil Aviation Voice)",
+    "description": "Civil aviation voice communications between pilots and air traffic control. AM modulated.",
+    "categories": ["aviation", "voice", "aeronautical"],
+    "frequency_ranges": [{"min_hz": 118000000, "max_hz": 137000000}],
+    "bandwidth_range": {"min_hz": 6000, "max_hz": 10000},
+    "modulations": ["AM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/AM_Aviation"
+  },
+  {
+    "id": "ism-433-eu",
+    "name": "ISM Device (433 MHz EU)",
+    "description": "Industrial, Scientific, and Medical band short-range devices — weather stations, remote controls, car key fobs, doorbells.",
+    "categories": ["ism", "telemetry", "consumer", "short-range"],
+    "frequency_ranges": [{"min_hz": 433050000, "max_hz": 434790000}],
+    "bandwidth_range": {"min_hz": 10000, "max_hz": 50000},
+    "modulations": ["OOK", "ASK", "FSK", "NFM", "FM"],
+    "regions": ["EU", "UK", "AU"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "ism-315-us",
+    "name": "ISM Device (315 MHz US)",
+    "description": "US ISM band short-range devices — garage openers, remote controls, tire pressure monitors.",
+    "categories": ["ism", "telemetry", "consumer", "short-range"],
+    "frequency_ranges": [{"min_hz": 314000000, "max_hz": 316000000}],
+    "bandwidth_range": {"min_hz": 10000, "max_hz": 50000},
+    "modulations": ["OOK", "ASK", "FSK"],
+    "regions": ["US"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "ism-868-eu",
+    "name": "ISM Device (868 MHz EU)",
+    "description": "EU sub-GHz ISM band used for LoRa, Z-Wave, smart metering, and IoT sensors.",
+    "categories": ["ism", "iot", "lora", "telemetry"],
+    "frequency_ranges": [{"min_hz": 863000000, "max_hz": 870000000}],
+    "bandwidth_range": {"min_hz": 200, "max_hz": 500000},
+    "modulations": ["FSK", "GFSK", "LORA", "OOK"],
+    "regions": ["EU", "UK"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "ism-915-us",
+    "name": "ISM Device (915 MHz US)",
+    "description": "US 915 MHz ISM band used for LoRa, Zigbee, smart meters, and IoT devices.",
+    "categories": ["ism", "iot", "lora", "telemetry"],
+    "frequency_ranges": [{"min_hz": 902000000, "max_hz": 928000000}],
+    "bandwidth_range": {"min_hz": 200, "max_hz": 500000},
+    "modulations": ["FSK", "GFSK", "LORA", "OOK"],
+    "regions": ["US"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "pmr446",
+    "name": "PMR446 (Licence-Free UHF)",
+    "description": "European licence-free walkie-talkie band. Used by hikers, event staff, and light commercial users.",
+    "categories": ["voice", "pmr", "consumer"],
+    "frequency_ranges": [{"min_hz": 446006250, "max_hz": 446193750}],
+    "bandwidth_range": {"min_hz": 10000, "max_hz": 15000},
+    "modulations": ["NFM", "FM"],
+    "regions": ["EU", "UK"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/PMR446"
+  },
+  {
+    "id": "frs-gmrs",
+    "name": "FRS/GMRS (US Licence-Free UHF)",
+    "description": "US Family Radio Service and General Mobile Radio Service. Common consumer walkie-talkie channels.",
+    "categories": ["voice", "consumer"],
+    "frequency_ranges": [{"min_hz": 462550000, "max_hz": 467725000}],
+    "bandwidth_range": {"min_hz": 10000, "max_hz": 20000},
+    "modulations": ["NFM", "FM"],
+    "regions": ["US"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "maritime-vhf",
+    "name": "Maritime VHF",
+    "description": "Marine VHF radio communications. Channel 16 (156.8 MHz) is the international distress and calling channel.",
+    "categories": ["maritime", "voice", "marine"],
+    "frequency_ranges": [{"min_hz": 156000000, "max_hz": 174000000}],
+    "bandwidth_range": {"min_hz": 12000, "max_hz": 25000},
+    "modulations": ["NFM", "FM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/Marine_VHF_Radio"
+  },
+  {
+    "id": "ais",
+    "name": "AIS (Automatic Identification System)",
+    "description": "Vessel tracking system transmitting position, speed, and identity data. Operates on VHF channels 87B (161.975 MHz) and 88B (162.025 MHz).",
+    "categories": ["maritime", "data", "tracking", "navigation"],
+    "frequency_ranges": [
+      {"min_hz": 161974500, "max_hz": 161975500},
+      {"min_hz": 162024500, "max_hz": 162025500}
+    ],
+    "bandwidth_range": {"min_hz": 12500, "max_hz": 25000},
+    "modulations": ["GMSK", "NFM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/Automatic_Identification_System_(AIS)"
+  },
+  {
+    "id": "noaa-weather-radio",
+    "name": "NOAA Weather Radio",
+    "description": "US National Weather Service continuous weather broadcast on 7 designated VHF channels between 162.400 and 162.550 MHz.",
+    "categories": ["broadcast", "weather", "government"],
+    "frequency_ranges": [{"min_hz": 162400000, "max_hz": 162550000}],
+    "bandwidth_range": {"min_hz": 10000, "max_hz": 20000},
+    "modulations": ["NFM", "FM"],
+    "regions": ["US"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/NOAA_Weather_Radio"
+  },
+  {
+    "id": "dab-digital-radio",
+    "name": "DAB Digital Radio",
+    "description": "Digital Audio Broadcasting. European digital radio standard replacing FM in many countries. Broad multiplex blocks.",
+    "categories": ["broadcast", "digital", "audio"],
+    "frequency_ranges": [
+      {"min_hz": 174928000, "max_hz": 239200000},
+      {"min_hz": 1452960000, "max_hz": 1490624000}
+    ],
+    "bandwidth_range": {"min_hz": 1500000, "max_hz": 1600000},
+    "modulations": ["OFDM"],
+    "regions": ["EU", "UK", "AU"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/DAB"
+  },
+  {
+    "id": "amateur-2m",
+    "name": "Amateur Radio (2m Band)",
+    "description": "2 metre amateur radio band. Used for local voice repeaters, packet radio, satellite communications, and weak signal work.",
+    "categories": ["amateur", "ham", "voice"],
+    "frequency_ranges": [{"min_hz": 144000000, "max_hz": 146000000}],
+    "bandwidth_range": {"min_hz": 10000, "max_hz": 200000},
+    "modulations": ["NFM", "FM", "USB", "LSB", "AM", "PSK"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "amateur-70cm",
+    "name": "Amateur Radio (70cm Band)",
+    "description": "70 centimetre amateur radio band. Common for repeaters, ATV, packet radio, and digital modes.",
+    "categories": ["amateur", "ham", "voice"],
+    "frequency_ranges": [{"min_hz": 430000000, "max_hz": 440000000}],
+    "bandwidth_range": {"min_hz": 10000, "max_hz": 200000},
+    "modulations": ["NFM", "FM", "USB", "LSB", "DSTAR", "DMR", "C4FM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "acars",
+    "name": "ACARS (Aircraft Communications)",
+    "description": "Aircraft Communications Addressing and Reporting System. Data link for operational airline messages between aircraft and ground stations.",
+    "categories": ["aviation", "data", "aeronautical"],
+    "frequency_ranges": [
+      {"min_hz": 129124500, "max_hz": 129125500},
+      {"min_hz": 136899500, "max_hz": 136900500},
+      {"min_hz": 131724500, "max_hz": 131725500}
+    ],
+    "bandwidth_range": {"min_hz": 2400, "max_hz": 6000},
+    "modulations": ["AM", "NFM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/ACARS"
+  },
+  {
+    "id": "ads-b",
+    "name": "ADS-B (Aircraft Tracking)",
+    "description": "Automatic Dependent Surveillance-Broadcast. Aircraft transmit GPS position, altitude, and identity at 1090 MHz for air traffic control.",
+    "categories": ["aviation", "data", "tracking", "navigation"],
+    "frequency_ranges": [{"min_hz": 1089500000, "max_hz": 1090500000}],
+    "bandwidth_range": {"min_hz": 1000000, "max_hz": 2000000},
+    "modulations": ["PPM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/ADS-B"
+  },
+  {
+    "id": "pocsag",
+    "name": "POCSAG Pager",
+    "description": "Post Office Code Standardisation Advisory Group pager protocol. One-way numeric or text messaging to pagers. Common in hospitals and emergency services.",
+    "categories": ["pager", "data", "utility"],
+    "frequency_ranges": [
+      {"min_hz": 138000000, "max_hz": 175000000},
+      {"min_hz": 450000000, "max_hz": 470000000}
+    ],
+    "bandwidth_range": {"min_hz": 8000, "max_hz": 20000},
+    "modulations": ["FSK", "NFM"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/POCSAG"
+  },
+  {
+    "id": "lte-700",
+    "name": "LTE / 4G (700 MHz)",
+    "description": "Long-Term Evolution mobile data network. 700 MHz band used for rural coverage and in-building penetration.",
+    "categories": ["cellular", "data", "mobile"],
+    "frequency_ranges": [{"min_hz": 698000000, "max_hz": 806000000}],
+    "bandwidth_range": {"min_hz": 1400000, "max_hz": 20000000},
+    "modulations": ["OFDM", "LTE"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": null
+  },
+  {
+    "id": "gsm-900",
+    "name": "GSM 900 (2G Mobile)",
+    "description": "Global System for Mobile Communications on 900 MHz band. Voice calls and SMS. Being phased out but still active in many regions.",
+    "categories": ["cellular", "voice", "mobile"],
+    "frequency_ranges": [{"min_hz": 880000000, "max_hz": 960000000}],
+    "bandwidth_range": {"min_hz": 190000, "max_hz": 210000},
+    "modulations": ["GMSK"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": "https://www.sigidwiki.com/wiki/GSM"
+  },
+  {
+    "id": "wifi-24ghz",
+    "name": "WiFi / Bluetooth (2.4 GHz ISM)",
+    "description": "IEEE 802.11 b/g/n/ax WiFi and Bluetooth Classic/BLE sharing the 2.4 GHz ISM band. 13 channels (EU) or 11 (US).",
+    "categories": ["ism", "wifi", "bluetooth", "data"],
+    "frequency_ranges": [{"min_hz": 2400000000, "max_hz": 2484000000}],
+    "bandwidth_range": {"min_hz": 1000000, "max_hz": 22000000},
+    "modulations": ["OFDM", "DSSS", "FHSS"],
+    "regions": ["GLOBAL"],
+    "sigidwiki_url": null
+  }
+]
