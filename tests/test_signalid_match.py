@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 class TestLoadSignals:
     def test_returns_list(self):
