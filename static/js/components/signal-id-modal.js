@@ -277,6 +277,8 @@ window.SignalIdModal = (function () {
             if (matches.length) {
                 _setStatus(matches.length + ' match' + (matches.length !== 1 ? 'es' : '')
                     + ' for ' + freq.toFixed(4) + ' MHz');
+            } else {
+                _setStatus('');
             }
             _renderResults(matches, freq);
         })

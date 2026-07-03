@@ -184,6 +184,7 @@
 
 {% block scripts %}
 {{ super() }}
+<script src="{{ url_for('static', filename='js/components/signal-id-modal.js') }}{% if version %}?v={{ version }}{% endif %}"></script>
 <script>
     // Dashboard-specific scripts
     (function() {
