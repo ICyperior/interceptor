@@ -414,7 +414,7 @@ def signalid_match() -> Response:
         )
     except Exception as exc:
         logger.error('Signal match failed: %s', exc)
-        return api_error('Signal match failed', 502)
+        return api_error('Signal match failed', 503)
 
     response_data = {
         'matches': matches,
