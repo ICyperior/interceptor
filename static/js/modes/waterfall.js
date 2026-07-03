@@ -235,206 +235,6 @@ const Waterfall = (function () {
             .replace(/'/g, '&#39;');
     }
 
-    function _safeSigIdUrl(url) {
-        try {
-            const parsed = new URL(String(url || ''));
-            if (parsed.protocol === 'https:' && parsed.hostname.endsWith('sigidwiki.com')) {
-                return parsed.toString();
-            }
-        } catch (_) {
-            // Ignore malformed URLs.
-        }
-        return null;
-    }
-
-    function _setSignalIdStatus(text, isError = false) {
-        const el = document.getElementById('wfSigIdStatus');
-        if (!el) return;
-        el.textContent = text || '';
-        el.style.color = isError ? 'var(--accent-red)' : 'var(--text-dim)';
-    }
-
-    function _signalIdFreqInput() {
-        return document.getElementById('wfSigIdFreq');
-    }
-
-    function _syncSignalIdFreq(force = false) {
-        const input = _signalIdFreqInput();
-        if (!input) return;
-        if (!force && document.activeElement === input) return;
-        input.value = _monitorFreqMhz.toFixed(4);
-    }
-
-    function _clearSignalIdPanels() {
-        const local = document.getElementById('wfSigIdResult');
-        const external = document.getElementById('wfSigIdExternal');
-        if (local) {
-            local.style.display = 'none';
-            local.innerHTML = '';
-        }
-        if (external) {
-            external.style.display = 'none';
-            external.innerHTML = '';
-        }
-    }
-
-    function _signalIdModeHint() {
-        const modeEl = document.getElementById('wfSigIdMode');
-        const raw = String(modeEl?.value || 'auto').toLowerCase();
-        if (!raw || raw === 'auto') return _getMonitorMode();
-        return raw;
-    }
-
-    function _renderLocalSignalGuess(result, frequencyMhz) {
-        const panel = document.getElementById('wfSigIdResult');
-        if (!panel) return;
-
-        if (!result || result.status !== 'ok') {
-            panel.style.display = 'block';
-            panel.innerHTML = '<div style="font-size:10px; color:var(--accent-red);">Local signal guess failed</div>';
-            return;
-        }
-
-        const label = _escapeHtml(result.primary_label || 'Unknown Signal');
-        const confidence = _escapeHtml(result.confidence || 'LOW');
-        const confidenceColor = {
-            HIGH: 'var(--accent-green)',
-            MEDIUM: 'var(--accent-orange)',
-            LOW: 'var(--text-dim)',
-        }[String(result.confidence || '').toUpperCase()] || 'var(--text-dim)';
-        const explanation = _escapeHtml(result.explanation || '');
-        const tags = Array.isArray(result.tags) ? result.tags : [];
-        const alternatives = Array.isArray(result.alternatives) ? result.alternatives : [];
-
-        const tagsHtml = tags.slice(0, 8).map((tag) => (
-            `<span style="background:rgba(0,200,255,0.15); color:var(--accent-cyan); padding:1px 6px; border-radius:3px; font-size:9px;">${_escapeHtml(tag)}</span>`
-        )).join('');
-
-        const altsHtml = alternatives.slice(0, 4).map((alt) => {
-            const altLabel = _escapeHtml(alt.label || 'Unknown');
-            const altConf = _escapeHtml(alt.confidence || 'LOW');
-            return `${altLabel} <span style="color:var(--text-dim)">(${altConf})</span>`;
-        }).join(', ');
-
-        panel.style.display = 'block';
-        panel.innerHTML = `
-            <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
-                <div style="font-size:11px; font-weight:600; color:var(--text-primary);">${label}</div>
-                <div style="font-size:9px; font-weight:700; color:${confidenceColor};">${confidence}</div>
-            </div>
-            <div style="margin-top:4px; font-size:9px; color:var(--text-muted);">${Number(frequencyMhz).toFixed(4)} MHz</div>
-            <div style="margin-top:6px; font-size:10px; color:var(--text-secondary); line-height:1.35;">${explanation}</div>
-            ${tagsHtml ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${tagsHtml}</div>` : ''}
-            ${altsHtml ? `<div style="margin-top:6px; font-size:9px; color:var(--text-muted);"><strong>Also:</strong> ${altsHtml}</div>` : ''}
-        `;
-    }
-
-    function _renderExternalSignalMatches(result) {
-        const panel = document.getElementById('wfSigIdExternal');
-        if (!panel) return;
-
-        if (!result || result.status !== 'ok') {
-            panel.style.display = 'block';
-            panel.innerHTML = '<div style="font-size:10px; color:var(--accent-red);">SigID Wiki lookup failed</div>';
-            return;
-        }
-
-        const matches = Array.isArray(result.matches) ? result.matches : [];
-        if (!matches.length) {
-            panel.style.display = 'block';
-            panel.innerHTML = '<div style="font-size:10px; color:var(--text-muted);">SigID Wiki: no close matches</div>';
-            return;
-        }
-
-        const items = matches.slice(0, 5).map((match) => {
-            const title = _escapeHtml(match.title || 'Unknown');
-            const safeUrl = _safeSigIdUrl(match.url);
-            const titleHtml = safeUrl
-                ? `<a href="${_escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-cyan); text-decoration:none;">${title}</a>`
-                : `<span style="color:var(--accent-cyan);">${title}</span>`;
-            const freqs = Array.isArray(match.frequencies_mhz)
-                ? match.frequencies_mhz.slice(0, 3).map((f) => Number(f).toFixed(4)).join(', ')
-                : '';
-            const modes = Array.isArray(match.modes) ? match.modes.join(', ') : '';
-            const mods = Array.isArray(match.modulations) ? match.modulations.join(', ') : '';
-            const distance = Number.isFinite(match.distance_hz) ? `${Math.round(match.distance_hz)} Hz offset` : '';
-            return `
-                <div style="margin-top:6px; padding:6px; border:1px solid rgba(255,255,255,0.08); border-radius:4px;">
-                    <div style="font-size:10px; font-weight:600;">${titleHtml}</div>
-                    <div style="font-size:9px; color:var(--text-muted); margin-top:2px;">
-                        ${freqs ? `Freq: ${_escapeHtml(freqs)} MHz` : 'Freq: n/a'}
-                        ${distance ? ` • ${_escapeHtml(distance)}` : ''}
-                    </div>
-                    <div style="font-size:9px; color:var(--text-muted); margin-top:2px;">
-                        ${modes ? `Mode: ${_escapeHtml(modes)}` : 'Mode: n/a'}
-                        ${mods ? ` • Modulation: ${_escapeHtml(mods)}` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        const label = result.search_used ? 'SigID Wiki (search fallback)' : 'SigID Wiki';
-        panel.style.display = 'block';
-        panel.innerHTML = `<div style="font-size:10px; color:var(--text-muted);">${_escapeHtml(label)}</div>${items}`;
-    }
-
-    function useTuneForSignalId() {
-        _syncSignalIdFreq(true);
-        _setSignalIdStatus(`Using tuned ${_monitorFreqMhz.toFixed(4)} MHz`);
-    }
-
-    async function identifySignal() {
-        const input = _signalIdFreqInput();
-        const fallbackFreq = Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : _currentCenter();
-        const frequencyMhz = Number.parseFloat(input?.value || `${fallbackFreq}`);
-        if (!Number.isFinite(frequencyMhz) || frequencyMhz <= 0) {
-            _setSignalIdStatus('Signal ID frequency is invalid', true);
-            return;
-        }
-        if (input) input.value = frequencyMhz.toFixed(4);
-
-        const modulation = _signalIdModeHint();
-        _setSignalIdStatus(`Identifying ${frequencyMhz.toFixed(4)} MHz...`);
-        _clearSignalIdPanels();
-
-        const localReq = fetch('/receiver/signal/guess', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ frequency_mhz: frequencyMhz, modulation }),
-        }).then((r) => r.json());
-
-        const externalReq = fetch('/signalid/sigidwiki', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ frequency_mhz: frequencyMhz, modulation, limit: 5 }),
-        }).then((r) => r.json());
-
-        const [localRes, externalRes] = await Promise.allSettled([localReq, externalReq]);
-
-        const localOk = localRes.status === 'fulfilled' && localRes.value && localRes.value.status === 'ok';
-        const externalOk = externalRes.status === 'fulfilled' && externalRes.value && externalRes.value.status === 'ok';
-
-        if (localRes.status === 'fulfilled') {
-            _renderLocalSignalGuess(localRes.value, frequencyMhz);
-        } else {
-            _renderLocalSignalGuess({ status: 'error' }, frequencyMhz);
-        }
-
-        if (externalRes.status === 'fulfilled') {
-            _renderExternalSignalMatches(externalRes.value);
-        } else {
-            _renderExternalSignalMatches({ status: 'error' });
-        }
-
-        if (localOk && externalOk) {
-            _setSignalIdStatus(`Signal ID complete for ${frequencyMhz.toFixed(4)} MHz`);
-        } else if (localOk) {
-            _setSignalIdStatus(`Local ID complete; SigID lookup unavailable`, true);
-        } else {
-            _setSignalIdStatus('Signal ID lookup failed', true);
-        }
-    }
-
     function _safeMode(mode) {
         const raw = String(mode || '').toLowerCase();
         if (['wfm', 'fm', 'am', 'usb', 'lsb'].includes(raw)) return raw;
@@ -1124,7 +924,6 @@ const Waterfall = (function () {
         const modeReadout = document.getElementById('wfRxModeReadout');
         if (modeReadout) modeReadout.textContent = _getMonitorMode().toUpperCase();
 
-        _syncSignalIdFreq(false);
         _updateTuneLine();
         _updateHeroReadout();
     }
@@ -1436,11 +1235,10 @@ const Waterfall = (function () {
                 _switchMode('subghz');
                 _setHandoffStatus(`Sent ${freq.toFixed(4)} MHz to SubGHz`);
             } else if (target === 'signalid') {
-                useTuneForSignalId();
-                _setHandoffStatus(`Running Signal ID at ${currentFreq.toFixed(4)} MHz`);
-                identifySignal().catch((err) => {
-                    _setSignalIdStatus(`Signal ID failed: ${err && err.message ? err.message : 'unknown error'}`, true);
-                });
+                if (window.SignalIdModal) {
+                    SignalIdModal.open({ frequency_mhz: currentFreq, modulation: _getMonitorMode() });
+                }
+                _setHandoffStatus(`Opening Signal ID for ${currentFreq.toFixed(4)} MHz`);
             } else {
                 throw new Error('Unsupported handoff target');
             }
@@ -3436,9 +3234,6 @@ const Waterfall = (function () {
         _renderScanLog();
         _syncScanStatsUi();
         _setHandoffStatus('Ready');
-        _setSignalIdStatus('Ready');
-        _syncSignalIdFreq(true);
-        _clearSignalIdPanels();
         _setScanState('Scan idle');
         _updateScanButtons();
         setScanRangeFromView();
@@ -3512,8 +3307,14 @@ const Waterfall = (function () {
         applyPreset,
         stopMonitor,
         handoff,
-        identifySignal,
-        useTuneForSignalId,
+        openSignalId: function() {
+            if (window.SignalIdModal) {
+                SignalIdModal.open({
+                    frequency_mhz: Number.isFinite(_monitorFreqMhz) ? _monitorFreqMhz : _currentCenter(),
+                    modulation: _getMonitorMode(),
+                });
+            }
+        },
         quickTune: quickTunePreset,
         addBookmarkFromInput,
         removeBookmark,
