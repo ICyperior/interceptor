@@ -8,10 +8,12 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+import config
 from flask import Blueprint, Response, jsonify, request
 
 from utils.logging import get_logger
 from utils.responses import api_error
+from utils.signal_db import match_signals
 
 logger = get_logger('intercept.signalid')
 
@@ -350,4 +352,96 @@ def sigidwiki_lookup() -> Response:
         'cached': False,
         **response_payload,
     })
+
+
+_match_cache: dict[str, dict[str, Any]] = {}
+
+
+@signalid_bp.route('/match', methods=['POST'])
+def signalid_match() -> Response:
+    """Match a signal by frequency, bandwidth, and modulation against the local database."""
+    payload = request.get_json(silent=True) or {}
+
+    freq_raw = payload.get('frequency_mhz')
+    if freq_raw is None:
+        return api_error('frequency_mhz is required', 400)
+    try:
+        frequency_mhz = float(freq_raw)
+    except (TypeError, ValueError):
+        return api_error('Invalid frequency_mhz', 400)
+    if frequency_mhz <= 0:
+        return api_error('frequency_mhz must be positive', 400)
+
+    bw_raw = payload.get('bandwidth_hz')
+    bandwidth_hz: int | None = None
+    if bw_raw is not None:
+        try:
+            bandwidth_hz = int(float(bw_raw))
+        except (TypeError, ValueError):
+            return api_error('Invalid bandwidth_hz', 400)
+        if bandwidth_hz <= 0:
+            return api_error('bandwidth_hz must be positive', 400)
+
+    modulation = str(payload.get('modulation') or '').strip().upper()[:16] or None
+
+    limit_raw = payload.get('limit', 8)
+    try:
+        limit = max(1, min(int(limit_raw), 20))
+    except (TypeError, ValueError):
+        limit = 8
+
+    region = getattr(config, 'REGION', 'GLOBAL')
+
+    cache_key = f'{round(frequency_mhz, 6)}|{bandwidth_hz}|{modulation}|{limit}|{region}'
+    cached = _cache_get_match(cache_key)
+    if cached is not None:
+        return jsonify({
+            'status': 'ok',
+            'frequency_mhz': round(frequency_mhz, 6),
+            'bandwidth_hz': bandwidth_hz,
+            'modulation': modulation,
+            'cached': True,
+            **cached,
+        })
+
+    try:
+        matches = match_signals(
+            frequency_mhz=frequency_mhz,
+            bandwidth_hz=bandwidth_hz,
+            modulation=modulation,
+            region=region,
+            limit=limit,
+        )
+    except Exception as exc:
+        logger.error('Signal match failed: %s', exc)
+        return api_error('Signal match failed', 502)
+
+    response_data = {
+        'matches': matches,
+        'match_count': len(matches),
+    }
+    _cache_set_match(cache_key, response_data)
+
+    return jsonify({
+        'status': 'ok',
+        'frequency_mhz': round(frequency_mhz, 6),
+        'bandwidth_hz': bandwidth_hz,
+        'modulation': modulation,
+        'cached': False,
+        **response_data,
+    })
+
+
+def _cache_get_match(key: str) -> Any | None:
+    entry = _match_cache.get(key)
+    if not entry:
+        return None
+    if time.time() >= entry['expires']:
+        _match_cache.pop(key, None)
+        return None
+    return entry['data']
+
+
+def _cache_set_match(key: str, data: Any, ttl: int = 60) -> None:
+    _match_cache[key] = {'data': data, 'expires': time.time() + ttl}
 
