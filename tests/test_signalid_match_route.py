@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 import pytest
 
 
@@ -10,6 +11,7 @@ import pytest
 def client():
     """Minimal Flask test client with only the signalid blueprint registered."""
     from flask import Flask
+
     from routes.signalid import signalid_bp
 
     app = Flask(__name__)

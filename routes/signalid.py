@@ -8,9 +8,9 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-import config
 from flask import Blueprint, Response, jsonify, request
 
+import config
 from utils.logging import get_logger
 from utils.responses import api_error
 from utils.signal_db import match_signals
