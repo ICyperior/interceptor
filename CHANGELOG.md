@@ -2,6 +2,19 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.29.0] - 2026-07-05
+
+### Added
+- **TSCM sweep metadata** — Site/Location and Examiner name fields on the sweep config, embedded in the HTML and PDF/annex reports.
+- **Mark Cleared** — dim and badge a device as cleared directly from the live sweep view; cleared devices are excluded from generated reports, and the executive summary shows a cleared-device count. Resets at the start of each new sweep.
+- **Examiner Ignore List** — persist your own devices (phone, laptop, etc.) in `localStorage` so they're filtered from the live display and every report export. Sidebar section lists current entries with per-item removal and a clear-all button.
+- **TSCM report category filter** — choose which risk categories (High Interest, Needs Review, Informational) to include in generated reports, across the HTML report, PDF, JSON annex, and CSV annex. Defaults to High Interest + Needs Review.
+
+### Fixed
+- **ADS-B history Postgres password ignored** — the local setup wizard wrote the database password under the wrong `.env` key (`INTERCEPT_ADSB_DB_PASS` instead of `INTERCEPT_ADSB_DB_PASSWORD`), so a custom password set during setup was silently dropped and the app fell back to the default. Docker Compose also hardcoded the Postgres password instead of reading it from `.env`. Both now correctly honor `INTERCEPT_ADSB_DB_PASSWORD`.
+
+---
+
 ## [2.28.0] - 2026-07-05
 
 ### Added

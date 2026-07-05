@@ -7,10 +7,21 @@ import os
 import sys
 
 # Application version
-VERSION = "2.28.0"
+VERSION = "2.29.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.29.0",
+        "date": "July 2026",
+        "highlights": [
+            "Feat: TSCM sweep metadata — Site/Location and Examiner name embedded in reports",
+            "Feat: Mark Cleared button dims/excludes devices from TSCM reports, with a cleared-device count in the summary",
+            "Feat: Examiner Ignore List — persist your own devices so they're filtered from the live view and every report export",
+            "Feat: TSCM report category filter (High Interest / Needs Review / Informational) for HTML, PDF, JSON, and CSV exports",
+            "Fix: ADS-B history Postgres password is now correctly read from .env (setup wizard and Docker Compose previously ignored a custom password)",
+        ],
+    },
     {
         "version": "2.28.0",
         "date": "July 2026",
