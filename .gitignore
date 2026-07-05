@@ -70,5 +70,10 @@ reset-sdr.*
 .superpowers/
 docs/superpowers/
 
+# Design and implementation docs (internal use only)
+docs/plans/
+docs/specs/
+docs/design/
+
 # Git worktrees
 .worktrees/
