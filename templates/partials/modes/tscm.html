@@ -5,6 +5,16 @@
                         <h3>TSCM Sweep <span style="font-size: 9px; font-weight: normal; background: var(--accent-orange); color: #000; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Alpha</span></h3>
 
                         <div class="form-group">
+                            <label>Site / Location</label>
+                            <input type="text" id="tscmSiteName" placeholder="e.g. Board Room, Floor 3">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Examiner</label>
+                            <input type="text" id="tscmExaminerName" placeholder="Name / ID number">
+                        </div>
+
+                        <div class="form-group">
                             <label>Sweep Type</label>
                             <select id="tscmSweepType" onchange="document.getElementById('tscmCustomRangeControls').style.display = this.value === 'custom' ? 'block' : 'none'">
                                 <option value="quick">Quick Scan (2 min)</option>
@@ -135,6 +145,14 @@
                                 <span class="icon icon-export icon--sm" style="margin-right: 2px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>CSV
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Examiner Ignore List -->
+                    <div class="section">
+                        <h3>Examiner Ignore List</h3>
+                        <p style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Your own devices — excluded from all sweeps and reports. Press <strong>Ignore</strong> on any detected device to add it here.</p>
+                        <div id="tscmIgnoreListItems" style="max-height: 130px; overflow-y: auto; margin-bottom: 6px;"></div>
+                        <button class="preset-btn" onclick="tscmClearIgnoreList()" style="width: 100%; font-size: 10px; color: #ff6b6b;">Clear Ignore List</button>
                     </div>
 
                     <!-- Advanced -->

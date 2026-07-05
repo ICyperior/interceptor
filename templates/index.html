@@ -4915,6 +4915,7 @@
             if (mode === 'tscm') {
                 loadTscmBaselines();
                 refreshTscmDevices();
+                updateTscmIgnoreListUI();
             }
 
             // Initialize Drone mode when selected
@@ -12036,6 +12037,13 @@
         let tscmWifiDevices = [];
         let tscmWifiClients = [];
         let tscmBtDevices = [];
+        // Devices marked as cleared by investigator (reset each sweep)
+        let tscmClearedDevices = new Set();
+        // Persistent ignore list — examiner's own devices, excluded from display and reports
+        let tscmIgnoreList = (() => {
+            try { return new Set(JSON.parse(localStorage.getItem('tscmIgnoreList') || '[]')); }
+            catch(e) { return new Set(); }
+        })();
         let tscmBaselineComparison = null;
         let tscmIdentityClusters = [];
         let tscmIdentitySummary = null;
@@ -12286,6 +12294,7 @@
                     tscmIdentityClusters = [];
                     tscmIdentitySummary = null;
                     tscmHighInterestDevices = [];
+                    tscmClearedDevices = new Set();
                     updateTscmDisplays();
                     updateTscmThreatCounts();
 
@@ -12378,12 +12387,18 @@
             const durationMin = Math.floor(durationMs / 60000);
             const durationSec = Math.floor((durationMs % 60000) / 1000);
 
-            // Categorize devices by classification
-            const allDevices = [
-                ...tscmWifiDevices.map(d => ({ ...d, protocol: 'WiFi' })),
-                ...tscmBtDevices.map(d => ({ ...d, protocol: 'Bluetooth' })),
-                ...tscmRfSignals.map(d => ({ ...d, protocol: 'RF' }))
+            // Read sweep metadata
+            const siteName = document.getElementById('tscmSiteName')?.value?.trim() || '';
+            const examinerName = document.getElementById('tscmExaminerName')?.value?.trim() || '';
+
+            // Categorize devices by classification — exclude cleared and ignored devices from reports
+            const allDevicesRaw = [
+                ...tscmWifiDevices.map(d => ({ ...d, protocol: 'WiFi', _key: _tscmDeviceKey(d, 'wifi') })),
+                ...tscmBtDevices.map(d => ({ ...d, protocol: 'Bluetooth', _key: _tscmDeviceKey(d, 'bluetooth') })),
+                ...tscmRfSignals.map(d => ({ ...d, protocol: 'RF', _key: _tscmDeviceKey(d, 'rf') }))
             ];
+            const clearedCount = allDevicesRaw.filter(d => tscmClearedDevices.has(d._key)).length;
+            const allDevices = allDevicesRaw.filter(d => !tscmClearedDevices.has(d._key));
 
             const allHighInterest = allDevices.filter(d => d.classification === 'high_interest' || d.score >= 6);
             const allNeedsReview = allDevices.filter(d => d.classification === 'review' || (d.score >= 3 && d.score < 6));
@@ -12753,6 +12768,8 @@
                     <div class="meta-value">${allDevices.length}</div>
                     <div class="meta-label">Total Devices</div>
                 </div>
+                ${siteName ? `<div class="meta-item"><div class="meta-value" style="font-size:15px;">${siteName.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="meta-label">Site / Location</div></div>` : ''}
+                ${examinerName ? `<div class="meta-item"><div class="meta-value" style="font-size:15px;">${examinerName.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="meta-label">Examiner</div></div>` : ''}
             </div>
         </div>
 
@@ -12780,6 +12797,7 @@
                 <strong>Assessment:</strong> ${assessment}
             </div>
             ${categoryNote}
+            ${clearedCount > 0 ? `<div style="font-size:11px;color:#6b7280;margin-top:8px;">${clearedCount} device(s) marked as cleared by investigator — excluded from this report.</div>` : ''}
         </div>
 
         ${highInterest.length > 0 ? `
@@ -13131,6 +13149,8 @@
         }
 
         function addTscmWifiDevice(device) {
+            // Check ignore list
+            if (tscmIgnoreList.has(`wifi:${device.bssid}`)) return;
             // Check if already exists
             const exists = tscmWifiDevices.some(d => d.bssid === device.bssid);
             if (!exists) {
@@ -13159,6 +13179,7 @@
         function addTscmWifiClient(client) {
             const mac = client.mac || client.address || '';
             if (!mac) return;
+            if (tscmIgnoreList.has(`wifi:${mac}`)) return;
             const exists = tscmWifiClients.some(d => (d.mac || d.address) === mac);
             if (!exists) {
                 if (!client.mac) client.mac = mac;
@@ -13181,6 +13202,7 @@
 
         function addTscmBtDevice(device) {
             const mac = device.mac || device.address || '';
+            if (tscmIgnoreList.has(`bt:${mac}`)) return;
             // Check if already exists
             const exists = tscmBtDevices.some(d => (d.mac || d.address) === mac);
             if (!exists) {
@@ -13212,6 +13234,7 @@
         function addTscmRfSignal(signal) {
             // Clear any error message since we're receiving signals
             tscmRfStatusMessage = null;
+            if (tscmIgnoreList.has(`rf:${(signal.frequency || 0).toFixed(3)}`)) return;
             // Check if already exists (within 0.1 MHz)
             const exists = tscmRfSignals.some(s => Math.abs(s.frequency - signal.frequency) < 0.1);
             const powerDbm = signal.power_dbm ?? signal.power ?? signal.level;
@@ -13398,6 +13421,83 @@
             if (btPanel) btPanel.style.display = showBt ? '' : 'none';
             if (rfPanel) rfPanel.style.display = showRf ? '' : 'none';
         }
+
+        // --- Ignore list + cleared device helpers ---
+
+        function _tscmDeviceKey(device, protocol) {
+            if (protocol === 'wifi') return `wifi:${device.bssid || device.mac || 'unknown'}`;
+            if (protocol === 'bluetooth') return `bt:${device.mac || device.address || 'unknown'}`;
+            if (protocol === 'rf') return `rf:${(device.frequency || 0).toFixed(3)}`;
+            return `unknown:${protocol}`;
+        }
+
+        function tscmMarkCleared(key) {
+            if (tscmClearedDevices.has(key)) {
+                tscmClearedDevices.delete(key);
+            } else {
+                tscmClearedDevices.add(key);
+            }
+            debouncedUpdateTscmDisplays();
+        }
+
+        function _saveTscmIgnoreList() {
+            try { localStorage.setItem('tscmIgnoreList', JSON.stringify([...tscmIgnoreList])); } catch(e) {}
+        }
+
+        function updateTscmIgnoreListUI() {
+            const el = document.getElementById('tscmIgnoreListItems');
+            if (!el) return;
+            if (tscmIgnoreList.size === 0) {
+                el.innerHTML = '<div style="font-size:10px;color:var(--text-muted);text-align:center;padding:6px;">No devices ignored</div>';
+                return;
+            }
+            el.innerHTML = [...tscmIgnoreList].map(k => {
+                const safe = escapeHtml(k);
+                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border-color);">
+                    <span style="font-family:monospace;font-size:9px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${safe}</span>
+                    <button onclick="tscmRemoveFromIgnoreList('${safe}')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:12px;padding:0 4px;flex-shrink:0;" title="Remove">✕</button>
+                </div>`;
+            }).join('');
+        }
+
+        function tscmAddToIgnoreList(key) {
+            if (!key || key.endsWith(':unknown')) return;
+            tscmIgnoreList.add(key);
+            _saveTscmIgnoreList();
+            updateTscmIgnoreListUI();
+            // Remove from current sweep arrays and re-render
+            const colon = key.indexOf(':');
+            const proto = key.slice(0, colon);
+            const id = key.slice(colon + 1);
+            if (proto === 'wifi') {
+                tscmWifiDevices = tscmWifiDevices.filter(d => d.bssid !== id);
+                if (typeof tscmWifiClients !== 'undefined')
+                    tscmWifiClients = tscmWifiClients.filter(d => (d.mac || d.address) !== id);
+            } else if (proto === 'bt') {
+                tscmBtDevices = tscmBtDevices.filter(d => (d.mac || d.address) !== id);
+            } else if (proto === 'rf') {
+                const freq = parseFloat(id);
+                tscmRfSignals = tscmRfSignals.filter(s => Math.abs(s.frequency - freq) >= 0.001);
+            }
+            updateTscmDisplays();
+            updateTscmThreatCounts();
+        }
+
+        function tscmRemoveFromIgnoreList(key) {
+            tscmIgnoreList.delete(key);
+            _saveTscmIgnoreList();
+            updateTscmIgnoreListUI();
+        }
+
+        function tscmClearIgnoreList() {
+            if (tscmIgnoreList.size === 0) return;
+            if (!confirm('Clear all devices from the ignore list?')) return;
+            tscmIgnoreList.clear();
+            _saveTscmIgnoreList();
+            updateTscmIgnoreListUI();
+        }
+
+        // --- End ignore list helpers ---
 
         function matchesTscmFilters(device, protocol, options = {}) {
             if (tscmFilters.protocol !== 'all' && protocol !== tscmFilters.protocol) return false;
@@ -14712,12 +14812,16 @@
             } else {
                 // Sort by score (highest first)
                 const sorted = [...filtered.wifi].sort((a, b) => (b.score || 0) - (a.score || 0));
-                wifiList.innerHTML = sorted.map(d => `
-                    <div class="tscm-device-item ${getClassificationClass(d.classification)}" onclick="showDeviceDetails('${d.bssid}', 'wifi')">
+                wifiList.innerHTML = sorted.map(d => {
+                    const dkey = _tscmDeviceKey(d, 'wifi');
+                    const cleared = tscmClearedDevices.has(dkey);
+                    return `
+                    <div class="tscm-device-item ${getClassificationClass(d.classification)}${cleared ? ' tscm-cleared' : ''}" onclick="showDeviceDetails('${d.bssid}', 'wifi')">
                         <div class="tscm-device-header">
                             <div class="tscm-device-name">
                                 <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
                                 ${escapeHtml(d.ssid || d.bssid || 'Hidden')}
+                                ${cleared ? '<span class="cleared-badge">CLEARED</span>' : ''}
                                 ${d.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(d.score)}
@@ -14729,8 +14833,12 @@
                         </div>
                         ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
                         ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
-                    </div>
-                `).join('');
+                        <div class="tscm-device-actions" onclick="event.stopPropagation()">
+                            <button class="tscm-action-btn${cleared ? ' cleared' : ''}" onclick="tscmMarkCleared('${dkey}')" title="${cleared ? 'Undo cleared mark' : 'Mark as investigated and cleared'}">${cleared ? '✓ Cleared' : 'Mark Cleared'}</button>
+                            <button class="tscm-action-btn ignore" onclick="tscmAddToIgnoreList('${dkey}')" title="Add to ignore list (my device)">Ignore</button>
+                        </div>
+                    </div>`;
+                }).join('');
             }
             document.getElementById('tscmWifiCount').textContent = filtered.wifi.length;
 
@@ -14740,13 +14848,17 @@
                 wifiClientList.innerHTML = `<div class="tscm-empty">${filtersActive ? 'No WiFi clients match filters' : 'No WiFi clients detected'}</div>`;
             } else {
                 const sortedClients = [...filtered.wifi_clients].sort((a, b) => (b.score || 0) - (a.score || 0));
-                wifiClientList.innerHTML = sortedClients.map(c => `
-                    <div class="tscm-device-item ${getClassificationClass(c.classification)}" onclick="showDeviceDetails('${c.mac}', 'wifi')">
+                wifiClientList.innerHTML = sortedClients.map(c => {
+                    const ckey = `wifi:${c.mac || c.address}`;
+                    const cleared = tscmClearedDevices.has(ckey);
+                    return `
+                    <div class="tscm-device-item ${getClassificationClass(c.classification)}${cleared ? ' tscm-cleared' : ''}" onclick="showDeviceDetails('${c.mac}', 'wifi')">
                         <div class="tscm-device-header">
                             <div class="tscm-device-name">
                                 <span class="classification-indicator">${getClassificationIcon(c.classification)}</span>
                                 ${escapeHtml(c.vendor || 'WiFi Client')}
                                 <span class="client-badge" title="WiFi client">CLIENT</span>
+                                ${cleared ? '<span class="cleared-badge">CLEARED</span>' : ''}
                                 ${c.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(c.score)}
@@ -14758,8 +14870,12 @@
                         </div>
                         ${c.indicators && c.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(c.indicators)}</div>` : ''}
                         ${c.recommended_action && c.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${c.recommended_action}</div>` : ''}
-                    </div>
-                `).join('');
+                        <div class="tscm-device-actions" onclick="event.stopPropagation()">
+                            <button class="tscm-action-btn${cleared ? ' cleared' : ''}" onclick="tscmMarkCleared('${ckey}')">${cleared ? '✓ Cleared' : 'Mark Cleared'}</button>
+                            <button class="tscm-action-btn ignore" onclick="tscmAddToIgnoreList('${ckey}')">Ignore</button>
+                        </div>
+                    </div>`;
+                }).join('');
             }
             document.getElementById('tscmWifiClientCount').textContent = filtered.wifi_clients.length;
 
@@ -14770,14 +14886,18 @@
             } else {
                 // Sort by score (highest first)
                 const sorted = [...filtered.bt].sort((a, b) => (b.score || 0) - (a.score || 0));
-                btList.innerHTML = sorted.map(d => `
-                    <div class="tscm-device-item ${getClassificationClass(d.classification)}" onclick="showDeviceDetails('${d.mac}', 'bluetooth')">
+                btList.innerHTML = sorted.map(d => {
+                    const dkey = _tscmDeviceKey(d, 'bluetooth');
+                    const cleared = tscmClearedDevices.has(dkey);
+                    return `
+                    <div class="tscm-device-item ${getClassificationClass(d.classification)}${cleared ? ' tscm-cleared' : ''}" onclick="showDeviceDetails('${d.mac}', 'bluetooth')">
                         <div class="tscm-device-header">
                             <div class="tscm-device-name">
                                 <span class="classification-indicator">${getClassificationIcon(d.classification)}</span>
                                 ${escapeHtml(d.name || 'Unknown')}
                                 ${d.is_audio_capable ? '<span class="audio-badge" title="Audio-capable device">AUDIO</span>' : ''}
                                 ${formatTrackerBadge(d)}
+                                ${cleared ? '<span class="cleared-badge">CLEARED</span>' : ''}
                                 ${d.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(d.score)}
@@ -14789,8 +14909,12 @@
                         </div>
                         ${d.indicators && d.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(d.indicators)}</div>` : ''}
                         ${d.recommended_action && d.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${d.recommended_action}</div>` : ''}
-                    </div>
-                `).join('');
+                        <div class="tscm-device-actions" onclick="event.stopPropagation()">
+                            <button class="tscm-action-btn${cleared ? ' cleared' : ''}" onclick="tscmMarkCleared('${dkey}')">${cleared ? '✓ Cleared' : 'Mark Cleared'}</button>
+                            <button class="tscm-action-btn ignore" onclick="tscmAddToIgnoreList('${dkey}')">Ignore</button>
+                        </div>
+                    </div>`;
+                }).join('');
             }
             document.getElementById('tscmBtCount').textContent = filtered.bt.length;
 
@@ -14805,12 +14929,16 @@
             } else {
                 // Sort by score (highest first)
                 const sorted = [...filtered.rf].sort((a, b) => (b.score || 0) - (a.score || 0));
-                rfList.innerHTML = sorted.map(s => `
-                    <div class="tscm-device-item ${getClassificationClass(s.classification)}" onclick="showDeviceDetails('${s.frequency}', 'rf')">
+                rfList.innerHTML = sorted.map(s => {
+                    const skey = _tscmDeviceKey(s, 'rf');
+                    const cleared = tscmClearedDevices.has(skey);
+                    return `
+                    <div class="tscm-device-item ${getClassificationClass(s.classification)}${cleared ? ' tscm-cleared' : ''}" onclick="showDeviceDetails('${s.frequency}', 'rf')">
                         <div class="tscm-device-header">
                             <div class="tscm-device-name">
                                 <span class="classification-indicator">${getClassificationIcon(s.classification)}</span>
                                 ${s.frequency.toFixed(3)} MHz
+                                ${cleared ? '<span class="cleared-badge">CLEARED</span>' : ''}
                                 ${s.known_device ? '<span class="known-badge" title="Known device">KNOWN</span>' : ''}
                             </div>
                             ${getScoreBadge(s.score)}
@@ -14822,8 +14950,12 @@
                         </div>
                         ${s.indicators && s.indicators.length > 0 ? `<div class="tscm-device-indicators">${formatIndicators(s.indicators)}</div>` : ''}
                         ${s.recommended_action && s.recommended_action !== 'monitor' ? `<div class="tscm-action">Action: ${s.recommended_action}</div>` : ''}
-                    </div>
-                `).join('');
+                        <div class="tscm-device-actions" onclick="event.stopPropagation()">
+                            <button class="tscm-action-btn${cleared ? ' cleared' : ''}" onclick="tscmMarkCleared('${skey}')">${cleared ? '✓ Cleared' : 'Mark Cleared'}</button>
+                            <button class="tscm-action-btn ignore" onclick="tscmAddToIgnoreList('${skey}')">Ignore</button>
+                        </div>
+                    </div>`;
+                }).join('');
             }
             document.getElementById('tscmRfCount').textContent = filtered.rf.length;
 
@@ -16239,10 +16371,19 @@
             return cats.length < 3 ? `categories=${cats.join(',')}` : '';
         }
 
+        function _tscmMetaParams() {
+            const params = [];
+            const site = document.getElementById('tscmSiteName')?.value?.trim();
+            const examiner = document.getElementById('tscmExaminerName')?.value?.trim();
+            if (site) params.push(`site_name=${encodeURIComponent(site)}`);
+            if (examiner) params.push(`examiner_name=${encodeURIComponent(examiner)}`);
+            return params.join('&');
+        }
+
         async function tscmDownloadPdf() {
             try {
-                const catParam = _tscmCategoryParam();
-                const response = await fetch(`/tscm/report/pdf${catParam ? '?' + catParam : ''}`);
+                const parts = [_tscmCategoryParam(), _tscmMetaParams()].filter(Boolean);
+                const response = await fetch(`/tscm/report/pdf${parts.length ? '?' + parts.join('&') : ''}`);
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);
@@ -16265,8 +16406,8 @@
 
         async function tscmDownloadAnnex(format) {
             try {
-                const catParam = _tscmCategoryParam();
-                const response = await fetch(`/tscm/report/annex?format=${format}${catParam ? '&' + catParam : ''}`);
+                const parts = [_tscmCategoryParam(), _tscmMetaParams()].filter(Boolean);
+                const response = await fetch(`/tscm/report/annex?format=${format}${parts.length ? '&' + parts.join('&') : ''}`);
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);

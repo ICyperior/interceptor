@@ -281,6 +281,8 @@ def get_pdf_report():
             return jsonify({'status': 'error', 'message': 'Sweep not found'}), 404
 
         categories = _parse_categories_param(request.args.get('categories', ''))
+        site_name = request.args.get('site_name', '').strip()[:200]
+        examiner_name = request.args.get('examiner_name', '').strip()[:200]
 
         # Get data for report
         correlation = get_correlation_engine()
@@ -298,6 +300,8 @@ def get_pdf_report():
             capabilities=caps,
             timelines=timelines,
             categories=categories,
+            site_name=site_name,
+            examiner_name=examiner_name,
         )
 
         pdf_content = get_pdf_report(report)
@@ -339,6 +343,8 @@ def get_technical_annex():
             return jsonify({'status': 'error', 'message': 'Sweep not found'}), 404
 
         categories = _parse_categories_param(request.args.get('categories', ''))
+        site_name = request.args.get('site_name', '').strip()[:200]
+        examiner_name = request.args.get('examiner_name', '').strip()[:200]
 
         # Get data for report
         correlation = get_correlation_engine()
@@ -356,6 +362,8 @@ def get_technical_annex():
             capabilities=caps,
             timelines=timelines,
             categories=categories,
+            site_name=site_name,
+            examiner_name=examiner_name,
         )
 
         if format_type == 'csv':

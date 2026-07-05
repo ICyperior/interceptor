@@ -75,6 +75,7 @@ class TSCMReport:
 
     # Location and context
     location: str | None = None
+    examiner_name: str = ''
     baseline_id: int | None = None
     baseline_name: str | None = None
 
@@ -322,6 +323,10 @@ def generate_pdf_content(report: TSCMReport) -> str:
     sections.append(f"Report ID: {report.report_id}")
     sections.append(f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M:%S')}")
     sections.append(f"Sweep ID: {report.sweep_id}")
+    if report.location:
+        sections.append(f"Site / Location: {report.location}")
+    if report.examiner_name:
+        sections.append(f"Examiner: {report.examiner_name}")
     sections.append("")
 
     # Executive Summary
@@ -614,6 +619,10 @@ class TSCMReportBuilder:
         self.report.location = location
         return self
 
+    def set_examiner(self, examiner_name: str) -> TSCMReportBuilder:
+        self.report.examiner_name = examiner_name
+        return self
+
     def set_baseline(self, baseline_id: int, baseline_name: str) -> TSCMReportBuilder:
         self.report.baseline_id = baseline_id
         self.report.baseline_name = baseline_name
@@ -848,6 +857,8 @@ def generate_report(
     meeting_summaries: list[dict] | None = None,
     correlations: list[dict] | None = None,
     categories: list[str] | None = None,
+    site_name: str = '',
+    examiner_name: str = '',
 ) -> TSCMReport:
     """
     Generate a complete TSCM report from sweep data.
@@ -869,6 +880,10 @@ def generate_report(
 
     # Basic info
     builder.set_sweep_type(sweep_data.get('sweep_type', 'standard'))
+    if site_name:
+        builder.set_location(site_name)
+    if examiner_name:
+        builder.set_examiner(examiner_name)
 
     # Parse times
     started_at = sweep_data.get('started_at')

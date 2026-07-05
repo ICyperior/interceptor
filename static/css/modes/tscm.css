@@ -229,6 +229,45 @@
     text-transform: uppercase;
     letter-spacing: 0.4px;
 }
+.cleared-badge {
+    margin-left: 6px;
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(0, 204, 0, 0.15);
+    color: #00cc00;
+    border: 1px solid rgba(0, 204, 0, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.tscm-cleared {
+    opacity: 0.55;
+}
+.tscm-device-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+.tscm-action-btn {
+    font-size: 9px;
+    padding: 2px 7px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.tscm-action-btn:hover { opacity: 0.75; }
+.tscm-action-btn.cleared {
+    border-color: #00cc00;
+    color: #00cc00;
+    background: rgba(0, 204, 0, 0.1);
+}
+.tscm-action-btn.ignore {
+    border-color: rgba(255, 107, 107, 0.5);
+    color: #ff6b6b;
+}
 .tscm-device-header {
     display: flex;
     justify-content: space-between;
