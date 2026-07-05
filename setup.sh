@@ -2111,7 +2111,7 @@ do_health_check() {
     db_name=$(read_env_var INTERCEPT_ADSB_DB_NAME "intercept_adsb")
     db_user=$(read_env_var INTERCEPT_ADSB_DB_USER "intercept")
     if cmd_exists psql; then
-      if PGPASSWORD="$(read_env_var INTERCEPT_ADSB_DB_PASS)" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SELECT 1" >/dev/null 2>&1; then
+      if PGPASSWORD="$(read_env_var INTERCEPT_ADSB_DB_PASSWORD)" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "SELECT 1" >/dev/null 2>&1; then
         ok "PostgreSQL connection — OK"
         ((pass++)) || true
       else
@@ -2323,7 +2323,7 @@ SQL
   write_env_var "INTERCEPT_ADSB_DB_PORT" "$db_port"
   write_env_var "INTERCEPT_ADSB_DB_NAME" "$db_name"
   write_env_var "INTERCEPT_ADSB_DB_USER" "$db_user"
-  write_env_var "INTERCEPT_ADSB_DB_PASS" "$db_pass"
+  write_env_var "INTERCEPT_ADSB_DB_PASSWORD" "$db_pass"
   ok ".env updated with ADS-B database settings"
 
   # Test connection
@@ -2394,7 +2394,7 @@ do_env_config() {
          "INTERCEPT_ADSB_DB_PORT|Database port|5432" \
          "INTERCEPT_ADSB_DB_NAME|Database name|intercept_adsb" \
          "INTERCEPT_ADSB_DB_USER|Database user|intercept" \
-         "INTERCEPT_ADSB_DB_PASS|Database password|intercept" ;;
+         "INTERCEPT_ADSB_DB_PASSWORD|Database password|intercept" ;;
     4) env_edit_category "Observer Location" \
          "INTERCEPT_SHARED_OBSERVER_LOCATION|Enable shared location (true/false)|true" \
          "INTERCEPT_DEFAULT_LAT|Default latitude|0.0" \

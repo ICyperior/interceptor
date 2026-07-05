@@ -106,7 +106,7 @@ services:
       - INTERCEPT_ADSB_DB_PORT=5432
       - INTERCEPT_ADSB_DB_NAME=intercept_adsb
       - INTERCEPT_ADSB_DB_USER=intercept
-      - INTERCEPT_ADSB_DB_PASSWORD=intercept
+      - INTERCEPT_ADSB_DB_PASSWORD=${INTERCEPT_ADSB_DB_PASSWORD:-intercept}
       # ADS-B auto-start on dashboard load (default false)
       - INTERCEPT_ADSB_AUTO_START=${INTERCEPT_ADSB_AUTO_START:-false}
       # Shared observer location across modules
@@ -133,7 +133,7 @@ services:
       - TZ=${TZ:-UTC}
       - POSTGRES_DB=intercept_adsb
       - POSTGRES_USER=intercept
-      - POSTGRES_PASSWORD=intercept
+      - POSTGRES_PASSWORD=${INTERCEPT_ADSB_DB_PASSWORD:-intercept}
     volumes:
       # Default local path (override with PGDATA_PATH for external storage)
       - ${PGDATA_PATH:-./pgdata}:/var/lib/postgresql/data
